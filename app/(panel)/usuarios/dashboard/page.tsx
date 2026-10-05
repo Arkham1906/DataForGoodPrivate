@@ -67,11 +67,19 @@ export default async function DashboardDeUsuariosPage({
         }
       />
 
-      <div className="mb-6 grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard label="Total registrados" value={formatearNumero(d.totalRegistrados)} />
-        <MetricCard label="Altas del mes" value={formatearNumero(d.altasDelMes)} />
-        <MetricCard label="Con aportes en el rango" value={formatearNumero(d.conAportesEnRango)} />
-        <MetricCard label="Cuentas restringidas" value={formatearNumero(d.cuentasRestringidas)} />
+      <div className="mb-6 grid grid-cols-2 gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="max-md:text-center">
+          <MetricCard label="Total registrados" value={formatearNumero(d.totalRegistrados)} />
+        </div>
+        <div className="max-md:text-center">
+          <MetricCard label="Altas del mes" value={formatearNumero(d.altasDelMes)} />
+        </div>
+        <div className="max-md:text-center">
+          <MetricCard label="Con aportes en el rango" value={formatearNumero(d.conAportesEnRango)} />
+        </div>
+        <div className="max-md:text-center">
+          <MetricCard label="Cuentas restringidas" value={formatearNumero(d.cuentasRestringidas)} />
+        </div>
       </div>
 
       <TituloDeSeccion>Altas por mes</TituloDeSeccion>

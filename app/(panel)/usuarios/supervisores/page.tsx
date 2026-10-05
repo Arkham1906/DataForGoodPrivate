@@ -48,11 +48,19 @@ export default async function SupervisoresPage({
         }
       />
 
-      <div className="mb-6 grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard label="Con rol activo" value={formatearNumero(resumen.conRolActivo)} />
-        <MetricCard label="Campañas a su cargo" value={formatearNumero(resumen.campanasACargo)} />
-        <MetricCard label="Acciones ejecutadas" value={formatearNumero(resumen.accionesEjecutadas)} />
-        <MetricCard label="Acciones revertidas" value={formatearNumero(resumen.accionesRevertidas)} />
+      <div className="mb-6 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+        <div className="max-md:text-center">
+          <MetricCard label="Con rol activo" value={formatearNumero(resumen.conRolActivo)} />
+        </div>
+        <div className="max-md:text-center">
+          <MetricCard label="Campañas a su cargo" value={formatearNumero(resumen.campanasACargo)} />
+        </div>
+        <div className="max-md:text-center">
+          <MetricCard label="Acciones ejecutadas" value={formatearNumero(resumen.accionesEjecutadas)} />
+        </div>
+        <div className="max-md:text-center">
+          <MetricCard label="Acciones revertidas" value={formatearNumero(resumen.accionesRevertidas)} />
+        </div>
       </div>
 
       {supervisores.length === 0 ? (

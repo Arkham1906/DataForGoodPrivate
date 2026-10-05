@@ -21,7 +21,6 @@ export async function estaBaneadoDeCampana(campanaId: string | number, usuarioId
   );
   return (result.rowCount ?? 0) > 0;
 }
-
 export async function listarBaneadosDeCampana(campanaId: string | number): Promise<BaneadoDeCampana[]> {
   const result = await pool.query(
     `SELECT b.usuario_id, b.motivo, b.created_at, u.nombre, u.apellidos
@@ -38,7 +37,6 @@ export async function listarBaneadosDeCampana(campanaId: string | number): Promi
     baneadoEn: new Date(row.created_at).toISOString(),
   }));
 }
-
 /** Devuelve false si esa persona no estaba baneada de la campaña. */
 export async function quitarBaneoDeCampana(campanaId: string | number, usuarioId: string | number): Promise<boolean> {
   const result = await pool.query(
@@ -47,7 +45,6 @@ export async function quitarBaneoDeCampana(campanaId: string | number, usuarioId
   );
   return (result.rowCount ?? 0) > 0;
 }
-
 /** Campañas de las que esta persona está baneada, para marcarlas en las listas (isBanned). */
 export async function idsDeCampanasConBaneo(usuarioId: string | number): Promise<Set<number>> {
   const result = await pool.query<{ campana_id: number }>(
