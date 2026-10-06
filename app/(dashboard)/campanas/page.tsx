@@ -81,7 +81,7 @@ export default function CampanasPage() {
           </p>
         </div>
         <Link href="/mis-campanas/nueva">
-          <Button variant="primary" size="sm" className="max-md:max-w-[116px] max-md:px-2.5 max-md:py-1.5 max-md:text-[11.5px] max-md:leading-4">
+          <Button variant="primary" size="sm" className="whitespace-nowrap max-md:max-w-[126px] max-md:px-2.5 max-md:py-1.5 max-md:text-[11.5px] max-md:leading-4">
             Crear campaña
           </Button>
         </Link>

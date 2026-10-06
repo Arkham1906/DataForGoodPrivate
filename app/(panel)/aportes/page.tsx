@@ -74,8 +74,8 @@ export default async function BandejaDeAportesPage({ searchParams }: { searchPar
   }
 
   const claseChip = (activo: boolean) =>
-    `inline-flex items-center gap-1.5 rounded-pill border px-3 py-1 text-[11.5px] font-semibold transition-colors ${
-      activo ? "border-accent bg-accent text-white" : "border-line-2 bg-surface text-ink-2 hover:border-ink-3 hover:text-ink"
+    `inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap rounded-pill border px-3.5 py-1.5 text-[13px] font-semibold transition-colors max-md:px-2.5 max-md:py-1 max-md:text-[12px] ${
+      activo ? "border-accent bg-accent text-white" : "border-line-2 bg-surface text-ink-2 hover:border-accent"
     }`;
 
   return (
@@ -88,9 +88,12 @@ export default async function BandejaDeAportesPage({ searchParams }: { searchPar
         acciones={<EnlaceBoton href={`${BASE}/dashboard`}>Ver dashboard</EnlaceBoton>}
       />
 
-      <nav className="mb-3 flex flex-wrap gap-2" aria-label="Filtrar por etapa">
+      <nav
+        className="dashboard-nav mb-3 w-full min-w-0 max-w-full touch-pan-x flex flex-nowrap gap-2 overflow-x-auto overscroll-x-contain pb-2 [-webkit-overflow-scrolling:touch] md:flex-wrap md:overflow-visible md:pb-0"
+        aria-label="Filtrar por etapa"
+      >
         <Link href={enlace({ etapa: null })} scroll={false} className={claseChip(!etapa)} aria-current={!etapa ? "true" : undefined}>
-          Todos <span className="font-mono font-medium opacity-85">{formatearNumero(conteos.todos)}</span>
+          Todos&nbsp; <span className="font-mono text-[11px]">{formatearNumero(conteos.todos)}</span>
         </Link>
         {FILTROS_DE_ETAPA.map((f) => (
           <Link
@@ -100,7 +103,7 @@ export default async function BandejaDeAportesPage({ searchParams }: { searchPar
             className={claseChip(etapa === f.valor)}
             aria-current={etapa === f.valor ? "true" : undefined}
           >
-            {f.etiqueta} <span className="font-mono font-medium opacity-85">{formatearNumero(conteos[f.valor])}</span>
+            {f.etiqueta}&nbsp; <span className="font-mono text-[11px]">{formatearNumero(conteos[f.valor])}</span>
           </Link>
         ))}
       </nav>

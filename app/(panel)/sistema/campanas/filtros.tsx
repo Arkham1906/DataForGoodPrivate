@@ -48,6 +48,7 @@ export default function FiltrosDeCampanas({
       tematicas={tematicas}
       onCambiar={aplicar}
       conVigencia
+      colapsableEnMovil
     />
   );
 }

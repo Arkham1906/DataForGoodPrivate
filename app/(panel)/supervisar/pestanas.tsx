@@ -200,20 +200,32 @@ export default function PestanasDeSupervision({
         </div>
       </div>
 
-      <div className="mb-5 flex flex-wrap gap-2">
+      <div
+        role="group"
+        aria-label="Categorías de supervisión"
+        className="dashboard-nav mb-5 w-full min-w-0 max-w-full touch-pan-x flex flex-nowrap gap-2 overflow-x-auto overscroll-x-contain pb-2 [-webkit-overflow-scrolling:touch] md:flex-wrap md:overflow-visible md:pb-0"
+      >
         {tabs.map(({ key, label, count }) => (
           <button
             key={key}
             type="button"
+            aria-pressed={activeTab === key}
             onClick={() => setActiveTab(key)}
-            className={activeTab === key ? "rounded-pill bg-accent px-4 py-2 text-[12.5px] font-bold text-white shadow-sm" : "rounded-pill border border-line-2 bg-surface px-4 py-2 text-[12.5px] font-bold text-ink-2"}
+            className={`inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap rounded-pill border px-3.5 py-1.5 text-[13px] font-semibold transition-colors max-md:px-2.5 max-md:py-1 max-md:text-[12px] ${
+              activeTab === key ? "border-accent bg-accent text-white" : "border-line-2 bg-surface text-ink-2 hover:border-accent"
+            }`}
           >
             {label}&nbsp; <span className="font-mono text-[11px]">{count}</span>
           </button>
         ))}
       </div>
 
-      <BarraDeFiltros valores={filtros} tematicas={tematicas} onCambiar={cambiarFiltro} />
+      <BarraDeFiltros
+        valores={filtros}
+        tematicas={tematicas}
+        onCambiar={cambiarFiltro}
+        colapsableEnMovil
+      />
 
       {activeTab === "pending" ? renderPendingList() : activeTab === "supervised" ? renderSupervisedList() : activeTab === "finished" ? renderFinishedList() : renderFlaggedList()}
     </div>
