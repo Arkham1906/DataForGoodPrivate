@@ -5,7 +5,7 @@
 import { NextResponse } from "next/server";
 import { pool } from "@/lib/db";
 import { getSessionUser } from "@/lib/session";
-import { idsDeCampanasConBaneo } from "@/lib/campanas/baneos";
+import { idsDeCampanasConBaneo, motivoDeBaneo } from "@/lib/campanas/baneos";
 import { normalizarSecciones, seccionesDesdeFila } from "@/lib/campanas/checklist";
 import { XP_POR_APORTE, errorDeEstadoPedido } from "@/lib/campanas/estado-del-creador";
 import { activateScheduledCampaigns, calculateCampaignDaysRemaining, finalizeExpiredCampaigns, normalizeCampaignDate, normalizeCampaignTime } from "@/lib/campaign-date";
@@ -172,8 +172,10 @@ export async function GET(request: Request) {
         viewer: {
           isCreator: user ? campaign.creatorId === String(user.id) : false,
           isMySupervision: user ? campaign.supervisorId === String(user.id) : false,
-          // Baneado de esta campaña por su creador: la pantalla avisa antes de que intente aportar.
+          // Baneado de esta campaña por su creador: la pantalla avisa antes de que intente aportar,
+          // con el motivo que escribió el creador.
           baneado: campaign.isBanned,
+          motivoDeBaneo: user && campaign.isBanned ? await motivoDeBaneo(campaign.id, user.id) : null,
         },
       });
     }

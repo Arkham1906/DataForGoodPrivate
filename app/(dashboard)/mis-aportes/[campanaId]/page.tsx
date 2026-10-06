@@ -2,7 +2,8 @@
 
 // Pantalla /mis-aportes/[campanaId]: tus aportes en una campaña.
 // Componente cliente. Datos: GET /api/campanas?id= y GET /api/aportes?campaignId=&mine=true.
-// Acción: borrar un aporte no aceptado con DELETE /api/aportes/[id].
+// Acción: borrar un aporte pendiente o rechazado (no uno aceptado) con DELETE /api/aportes/[id];
+// así se recupera ese espacio de la cuota.
 
 import Link from "next/link";
 import { useEffect, useState } from "react";

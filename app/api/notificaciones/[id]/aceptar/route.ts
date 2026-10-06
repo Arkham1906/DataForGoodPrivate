@@ -1,11 +1,12 @@
 // POST /api/notificaciones/[id]/aceptar — acepta una invitación de revisor (tipo invitacion_revisor).
-// Marca campana_revisores como 'aceptado' y lo registra en audit_log.
+// Marca campana_revisores como 'aceptado', lo registra en audit_log y avisa al creador.
 
 import { NextResponse } from "next/server";
 import { pool } from "@/lib/db";
 import { getSessionUser } from "@/lib/session";
 import { normalizeRoles } from "@/lib/roles";
 import { registrarAuditoria } from "@/lib/auditoria";
+import { notificar } from "@/lib/notificaciones/notificaciones";
 
 export async function POST(_request: Request, context: { params: Promise<{ id: string }> }) {
   try {
@@ -25,6 +26,7 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
 
     const campaignId = notification.rows[0].campana_id;
     const client = await pool.connect();
+    let campana: { creator_id: number; name: string } | undefined;
     try {
       await client.query("BEGIN");
       const invitation = await client.query(
@@ -42,7 +44,12 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
       const roles = Array.isArray(user.role) ? user.role : [];
       const nextRoles = normalizeRoles([...roles, "revisor"]);
       await client.query(`UPDATE usuarios SET role = $2::jsonb, updated_at = NOW() WHERE id = $1`, [user.id, JSON.stringify(nextRoles)]);
-      await client.query(`UPDATE campanas SET has_reviewer_assigned = true, updated_at = NOW() WHERE id = $1`, [campaignId]);
+      campana = (
+        await client.query(
+          `UPDATE campanas SET has_reviewer_assigned = true, updated_at = NOW() WHERE id = $1 RETURNING creator_id, name`,
+          [campaignId]
+        )
+      ).rows[0];
       await client.query(`UPDATE notificaciones SET leida_en = NOW() WHERE id = $1`, [id]);
       await client.query("COMMIT");
     } catch (error) {
@@ -57,6 +64,18 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
       accion: "revisor.aceptar",
       objetivo: { tipo: "campana", id: Number(campaignId) },
     });
+
+    if (campana) {
+      const nombre = `${user.nombre ?? ""} ${user.apellidos ?? ""}`.trim() || "La persona que invitaste";
+      await notificar({
+        usuarioId: campana.creator_id,
+        tipo: "revisor_acepto",
+        titulo: "Tu campaña tiene revisor",
+        mensaje: `${nombre} aceptó revisar los aportes de "${campana.name}".`,
+        campanaId: campaignId,
+        enlace: `/mis-campanas/${campaignId}/aportes`,
+      });
+    }
 
     return NextResponse.json({ message: "Ahora eres revisor de aportes de esta campaña" });
   } catch (error) {

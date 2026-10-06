@@ -39,7 +39,7 @@ Las reglas de negocio y los puntos abiertos están en `dominio.md`, secciones 1,
 | Rol | Cómo se obtiene | Qué habilita |
 | --- | --- | --- |
 | Usuario común | Toda cuenta | Explorar, aportar, crear y administrar sus campañas |
-| Revisor de aportes | El creador invita (`POST /api/campanas/[id]/revisores`) y la persona acepta desde sus notificaciones (`/api/notificaciones/[id]/aceptar`). Vale **por campaña** (`campana_revisores.estado = 'aceptado'`). `getSessionUser()` agrega `revisor` a `role` si tiene alguna asignación aceptada | `/revisiones`: primera instancia de los aportes de esas campañas |
+| Revisor de aportes | El creador invita (`POST /api/campanas/[id]/revisores`) y la persona acepta desde sus notificaciones (`/api/notificaciones/[id]/aceptar`). Vale **por campaña** (`campana_revisores.estado = 'aceptado'`). `getSessionUser()` agrega `revisor` a `role` si tiene alguna asignación aceptada | `/revisiones`: acepta o rechaza los aportes de esas campañas con la misma autoridad que el creador (decisión final) |
 | Supervisor | **Solo el SuperUsuario** (`asignarRol`). Al revocarlo (`revocarRol`), las campañas que tomó y siguen `en_revision` quedan libres | `/supervision`: tomar y dictaminar campañas `en_revision` ajenas |
 | SuperUsuario | Credencial raíz | Panel `/sistema`, `/usuarios`, `/supervisar` |
 
@@ -56,12 +56,12 @@ No hay una función central: cada route handler lo comprueba con SQL. Si agregas
 | --- | --- |
 | Bandeja, panel, especial, editar, pausar, invitar revisor, banear, regenerar el enlace público | `campanas.creator_id = user.id` |
 | Ver el enlace público y el QR (cuadro Compartir) | Cualquier usuario con sesión |
-| Primera instancia de revisión | Revisor aceptado de esa campaña |
-| Decisión final del aporte | Creador |
-| Ver el archivo de un aporte | Quien aportó, el creador, o un revisor aceptado si el aporte está `pendiente` o si él hizo la primera revisión (`app/api/aportes/[id]/archivo/route.ts`) |
+| Aceptar o rechazar un aporte (decisión final) | Creador o revisor aceptado de esa campaña, si el aporte aún no tiene decisión. Decidido, nadie lo modifica |
+| Ver el archivo de un aporte | Quien aportó, el creador, o un revisor aceptado si el aporte está `pendiente` o si él lo decidió (`app/api/aportes/[id]/archivo/route.ts`) |
 | Aportar | Campaña `activa`, sin baneo en `campana_baneados`, cuota disponible y sin ser el creador |
 | Aportar sin cuenta (persona anónima) | Solo desde `/c/[token]` con enlace vigente, campaña `activa` con `permite_anonimos` y sin bloqueo del dispositivo; cuota por dispositivo, 60 s de espera entre aportes del mismo dispositivo y tope por IP (`lib/campanas/aportes-anonimos.ts`). No ve ni modifica nada más |
-| Marcar un aporte anónimo como inapropiado | Creador (al rechazar, `PATCH /api/aportes/[id]`) o revisor aceptado (`POST /api/aportes/[id]/inapropiado`) |
+| Reportar un aporte al creador | Revisor aceptado de esa campaña (no el creador). Banear sigue siendo del creador |
+| Marcar un aporte anónimo como inapropiado | Creador o revisor aceptado, antes de la decisión o al rechazar (`PATCH /api/aportes/[id]` o `POST /api/aportes/[id]/inapropiado`) |
 | Bloquear el dispositivo de un aporte anónimo en la campaña, borrar su archivo, apagar los aportes sin cuenta | Solo el creador |
 | Quitar un bloqueo global de dispositivo | SuperUsuario (`/usuarios/sanciones`) |
 | Tomar y dictaminar | Supervisor que no sea el creador y la campaña esté `en_revision` y libre; o el SuperUsuario. Solo quien la tomó dictamina (`lib/supervision/decision.ts`) |

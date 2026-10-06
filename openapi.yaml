@@ -1018,12 +1018,14 @@ paths:
       tags: [Aportes]
       summary: Revisar aporte (creador o revisor aceptado)
       description: |
-        Revisión en dos instancias. El revisor solo puede dar la primera
-        (`pendiente` → `espera_final`); el creador da la final.
-        `rejectionReason` es obligatorio al rechazar. `inapropiado: true` marca un aporte
+        Una sola instancia: el creador y el revisor aceptado deciden igual
+        (`aceptado` o `rechazado`) y esa decisión es la final: un aporte decidido ya no
+        se puede cambiar, ni por el creador ni por el revisor (409). Si deciden a la vez, gana uno.
+        La decisión le llega al participante como notificación.
+        `rejectionReason` es obligatorio al rechazar. `inapropiado: true` (creador o revisor) marca un aporte
         anónimo como contenido inapropiado al rechazarlo; con 3 marcados en 30 días, el
         dispositivo queda bloqueado 30 días en toda la plataforma (el mensaje lo
-        avisa). Si el creador acepta, se quita la marca.
+        avisa). Si se acepta, se quita la marca.
       requestBody:
         required: true
         content:
@@ -1032,11 +1034,10 @@ paths:
               type: object
               required: [status]
               properties:
-                status: { $ref: "#/components/schemas/ContributionStatus" }
+                status: { type: string, enum: [aceptado, rechazado] }
                 rejectionReason: { type: string }
                 inapropiado: { type: boolean, description: Solo con status rechazado y aporte anónimo }
             examples:
-              primeraInstancia: { value: { status: espera_final } }
               aceptar: { value: { status: aceptado } }
               rechazar: { value: { status: rechazado, rejectionReason: La foto no corresponde a la campaña } }
       responses:
@@ -1047,8 +1048,8 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
     delete:
       tags: [Aportes]
-      summary: Eliminar mi aporte (si no está aceptado)
-      description: Borra también su archivo de MinIO y recalcula los contadores de la campaña.
+      summary: Eliminar mi aporte pendiente o rechazado
+      description: Uno aceptado ya no se borra (400). Al borrar uno rechazado se recupera ese espacio de la cuota. Borra también su archivo de MinIO y recalcula los contadores de la campaña.
       responses:
         "200": { $ref: "#/components/responses/Message" }
         "400": { $ref: "#/components/responses/BadRequest" }
@@ -1076,14 +1077,44 @@ paths:
     delete:
       tags: [Aportes]
       summary: Borrar el archivo de un aporte anónimo (solo el creador)
-      description: Para contenido ilegal o dañino. Se borra de MinIO y no se puede recuperar; la fila se conserva. Bitácora `aporte.archivo_borrar`.
+      description: Para contenido ilegal o dañino, solo mientras el aporte no tenga decisión. Se borra de MinIO y no se puede recuperar; la fila se conserva. Bitácora `aporte.archivo_borrar`.
       responses:
         "200": { $ref: "#/components/responses/Message" }
         "400": { description: El aporte no es anónimo }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
-        "409": { description: El archivo ya se había borrado }
+        "409": { description: "El archivo ya se había borrado, o el aporte ya está aceptado o rechazado" }
+
+  /api/aportes/{id}/reportar:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    post:
+      tags: [Aportes]
+      summary: Reportar un aporte al creador (revisor aceptado)
+      description: |
+        El revisor avisa al creador de la campaña que el aporte o quien lo envió merece una sanción.
+        No banea ni cambia el estado: banear o bloquear es decisión del creador, que recibe una
+        notificación `aporte_reportado` con enlace al aporte. Uno por aporte; se puede antes o
+        después de decidirlo. Bitácora `aporte.reportar`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [motivo]
+              properties:
+                motivo: { type: string, maxLength: 500, description: "Motivo de la lista y/o descripción" }
+      responses:
+        "200": { $ref: "#/components/responses/Message" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Este aporte ya se reportó al creador
+          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
 
   /api/aportes/{id}/inapropiado:
     parameters:
@@ -1092,7 +1123,8 @@ paths:
       tags: [Aportes]
       summary: Marcar un aporte anónimo como contenido inapropiado (creador o revisor aceptado)
       description: |
-        No cambia el estado del aporte: decide el creador. Con 3 aportes inapropiados del mismo
+        No cambia el estado del aporte. Solo mientras no tenga decisión (409 si ya está aceptado o
+        rechazado); también se marca al rechazar con PATCH. Con 3 aportes inapropiados del mismo
         dispositivo en 30 días, el dispositivo queda bloqueado 30 días. Bitácora
         `aporte.inapropiado` (y `sancion.dispositivo_bloquear` si dispara el bloqueo).
       responses:
@@ -1113,6 +1145,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { description: El aporte ya está aceptado o rechazado }
 
   # ---------------------------------------------------------------- Revisiones y notificaciones
   /api/revisiones:
@@ -1150,7 +1183,12 @@ paths:
   /api/notificaciones:
     get:
       tags: [Revisiones y notificaciones]
-      summary: Mis notificaciones
+      summary: Mis notificaciones (paginadas)
+      description: De la más nueva a la más vieja. La campana del TopBar pide `porPagina=8` y vuelve a consultar cada minuto.
+      parameters:
+        - { name: pagina, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: porPagina, in: query, schema: { type: integer, minimum: 1, maximum: 50, default: 20 } }
+        - { name: filtro, in: query, schema: { type: string, enum: [todas, no-leidas], default: todas } }
       responses:
         "200":
           description: Notificaciones
@@ -1160,7 +1198,124 @@ paths:
                 type: object
                 properties:
                   data: { type: array, items: { $ref: "#/components/schemas/Notification" } }
+                  noLeidas: { type: integer, description: Total sin leer (sin importar el filtro ni la página) }
+                  total: { type: integer, description: Total que cumple el filtro }
+                  pagina: { type: integer }
+                  porPagina: { type: integer }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+    patch:
+      tags: [Revisiones y notificaciones]
+      summary: Marcar todas como leídas
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [leidas]
+              properties:
+                leidas: { type: string, enum: [todas] }
+      responses:
+        "200":
+          description: Marcadas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+                  marcadas: { type: integer, description: Cuántas estaban sin leer }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/push:
+    get:
+      tags: [Revisiones y notificaciones]
+      summary: Llave pública VAPID para suscribirse a las notificaciones push
+      responses:
+        "200":
+          description: Llave (null si push no está configurado en el servidor)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  publicKey: { type: [string, "null"] }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      tags: [Revisiones y notificaciones]
+      summary: Activar los avisos push en este navegador o teléfono
+      description: |
+        Guarda la suscripción del navegador (PushSubscription.toJSON()) a nombre de la sesión; si ya existía
+        con otra persona, pasa a esta. Solo se aceptan endpoints https de servicios de push conocidos
+        (Google, Apple, Mozilla, Microsoft). Hasta 10 por persona. Cada notificación se manda también como push.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [subscription]
+              properties:
+                subscription:
+                  type: object
+                  properties:
+                    endpoint: { type: string, format: uri }
+                    keys:
+                      type: object
+                      properties:
+                        p256dh: { type: string }
+                        auth: { type: string }
+      responses:
+        "201": { $ref: "#/components/responses/Message" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    delete:
+      tags: [Revisiones y notificaciones]
+      summary: Desactivar los avisos push en este navegador
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                endpoint: { type: string }
+      responses:
+        "200": { $ref: "#/components/responses/Message" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/notificaciones/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    patch:
+      tags: [Revisiones y notificaciones]
+      summary: Marcar una notificación como leída o no leída
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [leida]
+              properties:
+                leida: { type: boolean }
+      responses:
+        "200": { $ref: "#/components/responses/Message" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [Revisiones y notificaciones]
+      summary: Borrar una notificación
+      responses:
+        "200": { $ref: "#/components/responses/Message" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Es una invitación de revisor sin aceptar
+          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
 
   /api/notificaciones/{id}/aceptar:
     parameters:
@@ -1443,10 +1598,15 @@ components:
       type: object
       properties:
         id: { type: string }
-        type: { type: string }
+        type:
+          type: string
+          description: Evento que la generó (TipoDeNotificacion en lib/notificaciones/tipos.ts)
+          enum: [aporte_aceptado, aporte_rechazado, campana_baneo, campana_desbaneo, campana_aceptada, campana_rechazada, campana_reportada, campana_iniciada, campana_finalizada, revisor_acepto, aporte_reportado, invitacion_revisor, rol_asignado, rol_revocado, sancion_aplicada, sancion_restaurada]
         title: { type: string }
         message: { type: string }
         campaignId: { type: [string, "null"] }
         campaignName: { type: [string, "null"] }
-        metadata: { type: object }
+        href: { type: [string, "null"], description: "Ruta de la app (sin basePath) a la que lleva al abrirla" }
+        invitationPending: { type: boolean, description: "Solo en invitacion_revisor: sigue sin aceptar" }
         readAt: { type: [string, "null"], format: date-time }
+        createdAt: { type: string, format: date-time }

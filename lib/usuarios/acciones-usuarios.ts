@@ -1,7 +1,8 @@
 "use server";
 
 // Server actions del panel sobre usuarios: asignarRol, revocarRol, aplicarSancion, restaurarAcceso.
-// Cada una verifica la sesión raíz (exigirSuperUsuario), aplica la regla y registra en audit_log.
+// Cada una verifica la sesión raíz (exigirSuperUsuario), aplica la regla, registra en audit_log
+// y notifica a la persona.
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -9,10 +10,11 @@ import { redirect } from "next/navigation";
 import { pool } from "@/lib/db";
 import { hasRootSession } from "@/lib/rootSession";
 import { normalizeRoles } from "@/lib/roles";
-import { CODIGO_DE_ROL, type RolAsignable } from "@/lib/usuarios/rol-asignable";
+import { CODIGO_DE_ROL, NOMBRE_DE_ROL, type RolAsignable } from "@/lib/usuarios/rol-asignable";
 import type { TipoDeSancion } from "@/lib/usuarios/directorio";
 import { retirarComoRevisorDeTodasLasCampanas } from "@/lib/usuarios/revisor";
 import { registrarAuditoria } from "@/lib/auditoria";
+import { notificar } from "@/lib/notificaciones/notificaciones";
 import { STRIKES_PARA_BANEO, TIPOS_DE_SANCION } from "@/lib/sanciones";
 
 export type ResultadoDeAccion = { ok: true } | { ok: false; error: string };
@@ -22,9 +24,8 @@ export type ResultadoDeAccion = { ok: true } | { ok: false; error: string };
  * Las cuatro acciones escriben de verdad (asignarRol/revocarRol en
  * `usuarios.role`, aplicarSancion/restaurarAcceso en `sanciones`) y quedan en
  * audit_log. La suspensión y el baneo bloquean la cuenta, y al tercer
- * STRIKE la cuenta se banea sola (lib/sanciones.ts). Falta:
- *   - Notificar al usuario sancionado: no hay envío de notificaciones en
- *     la app todavía.
+ * STRIKE la cuenta se banea sola (lib/sanciones.ts). Cada una avisa a la
+ * persona con una notificación (lib/notificaciones/notificaciones.ts).
  * ────────────────────────────────────────────────────────────────────────────
  */
 
@@ -68,6 +69,7 @@ export async function asignarRol(
     // Supervisor y revisor ya no son mutuamente excluyentes: se agrega el
     // rol sin tocar los que ya tenía (incluido "revisor" si lo era).
     const codigo = CODIGO_DE_ROL[rol];
+    const teniaElRol = (actual.rows[0].role ?? []).includes(codigo);
     const nuevosRoles = normalizeRoles([...(actual.rows[0].role ?? []), codigo]);
 
     await pool.query(`UPDATE usuarios SET role = $2::jsonb, updated_at = NOW() WHERE id = $1`, [
@@ -81,6 +83,17 @@ export async function asignarRol(
       objetivo: { tipo: "usuario", id: numericId },
       detalle: { rol },
     });
+    // Aquí solo llega SUPERVISOR: el de revisor se rechaza arriba.
+    if (!teniaElRol) {
+      await notificar({
+        usuarioId: numericId,
+        tipo: "rol_asignado",
+        titulo: `Ahora eres ${NOMBRE_DE_ROL[rol].toLowerCase()}`,
+        mensaje: "Ya puedes tomar campañas en revisión y dictaminarlas desde Supervisión.",
+        enlace: "/supervision",
+        metadata: { rol },
+      });
+    }
 
     revalidatePath(`/usuarios/${usuarioId}/roles`);
     revalidatePath(`/usuarios/${usuarioId}`);
@@ -117,6 +130,7 @@ export async function revocarRol(
     // activas de esa persona: pasan a la tutela del supervisor del área (esa
     // reasignación aún no existe).
     const codigo = CODIGO_DE_ROL[rol];
+    const teniaElRol = (actual.rows[0].role ?? []).includes(codigo);
     const nuevosRoles = normalizeRoles(
       (actual.rows[0].role ?? []).filter((r) => r !== codigo),
     );
@@ -148,6 +162,18 @@ export async function revocarRol(
       objetivo: { tipo: "usuario", id: numericId },
       detalle: { rol },
     });
+    if (teniaElRol) {
+      await notificar({
+        usuarioId: numericId,
+        tipo: "rol_revocado",
+        titulo: `Ya no eres ${NOMBRE_DE_ROL[rol].toLowerCase()}`,
+        mensaje:
+          rol === "SUPERVISOR"
+            ? "La administración retiró tu rol de supervisor. Las campañas que tomaste sin dictaminar quedaron libres."
+            : "La administración retiró tu rol de revisor de aportes en todas las campañas.",
+        metadata: { rol },
+      });
+    }
 
     revalidatePath(`/usuarios/${usuarioId}/roles`);
     revalidatePath(`/usuarios/${usuarioId}`);
@@ -190,6 +216,7 @@ export async function aplicarSancion(
   const client = await pool.connect();
   let sancionId: number;
   let baneoAutomatico: { id: number; strikes: number } | null = null;
+  let strikes: number | null = null;
 
   try {
     await client.query("BEGIN");
@@ -218,7 +245,8 @@ export async function aplicarSancion(
          FROM sanciones WHERE usuario_id = $1`,
         [numericId],
       );
-      const { strikes, baneada } = conteo.rows[0];
+      const { baneada } = conteo.rows[0];
+      strikes = conteo.rows[0].strikes;
       if (strikes >= STRIKES_PARA_BANEO && !baneada) {
         const baneo = await client.query<{ id: number }>(
           `INSERT INTO sanciones (usuario_id, tipo, detalle, aplicada_por)
@@ -248,7 +276,33 @@ export async function aplicarSancion(
     objetivo: { tipo: "usuario", id: numericId },
     detalle: { sancionId, tipo: datos.tipo, dias, motivo: detalle },
   });
+  // Con suspensión o baneo la persona no puede entrar: la verá al recuperar el acceso.
+  // Mientras, /cuenta-bloqueada ya le muestra el motivo.
+  await notificar({
+    usuarioId: numericId,
+    tipo: "sancion_aplicada",
+    titulo:
+      datos.tipo === "STRIKE"
+        ? "Recibiste un strike"
+        : datos.tipo === "SUSPENSION_TEMPORAL"
+          ? "Tu cuenta fue suspendida"
+          : "Tu cuenta fue bloqueada",
+    mensaje:
+      datos.tipo === "STRIKE"
+        ? `Motivo: ${detalle}${strikes ? ` Llevas ${strikes} de ${STRIKES_PARA_BANEO}: al llegar a ${STRIKES_PARA_BANEO} la cuenta se bloquea.` : ""}`
+        : datos.tipo === "SUSPENSION_TEMPORAL"
+          ? `Suspensión de ${dias} ${dias === 1 ? "día" : "días"}. Motivo: ${detalle}`
+          : `Motivo: ${detalle}`,
+    metadata: { sancionId, tipo: datos.tipo, ...(dias ? { dias } : {}) },
+  });
   if (baneoAutomatico) {
+    await notificar({
+      usuarioId: numericId,
+      tipo: "sancion_aplicada",
+      titulo: "Tu cuenta fue bloqueada",
+      mensaje: `Se bloqueó automáticamente al acumular ${baneoAutomatico.strikes} strikes.`,
+      metadata: { sancionId: baneoAutomatico.id, tipo: "BANEO_DE_CAMPANA", automatico: true },
+    });
     await registrarAuditoria({
       actor: { tipo: "superusuario" },
       accion: "sancion.aplicar",
@@ -297,6 +351,16 @@ export async function restaurarAcceso(
       objetivo: { tipo: "usuario", id: result.rows[0].usuario_id },
       detalle: { sancionId: numericId, tipo: result.rows[0].tipo },
     });
+    // Un strike no bloquea la cuenta: retirarlo no "restaura" nada que avisar.
+    if (result.rows[0].tipo !== "STRIKE") {
+      await notificar({
+        usuarioId: result.rows[0].usuario_id,
+        tipo: "sancion_restaurada",
+        titulo: "Recuperaste el acceso a tu cuenta",
+        mensaje: "La administración levantó la sanción de tu cuenta. Ya puedes volver a participar.",
+        metadata: { sancionId: numericId, tipo: result.rows[0].tipo },
+      });
+    }
   } catch (error) {
     console.error("Error restaurando acceso", error);
     return { ok: false, error: "No se pudo restaurar el acceso." };

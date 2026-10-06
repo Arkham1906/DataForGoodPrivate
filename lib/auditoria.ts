@@ -38,6 +38,8 @@ export type AccionAuditada =
   // Aportes sin cuenta y sus sanciones (lib/aportes/sanciones-anonimas.ts).
   | "aporte.anonimo_enviar"
   | "aporte.inapropiado"
+  // "Reportar al creador" del revisor (lib/aportes/reporte.ts).
+  | "aporte.reportar"
   | "aporte.archivo_borrar"
   | "campana.anonimos_cambiar"
   | "campana.bloquear_dispositivo"

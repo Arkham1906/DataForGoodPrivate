@@ -103,6 +103,10 @@ services:
       APP_ORIGIN: ${APP_ORIGIN:?Falta APP_ORIGIN en .env}
       ROOT_USER_ID: ${ROOT_USER_ID}
       ROOT_PASSWORD_HASH: ${ROOT_PASSWORD_HASH}
+      # Notificaciones push (Web Push). Sin estas llaves la app funciona igual, sin push.
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-}
       # La contraseña va dentro de una URL: usa solo letras, números y guiones.
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       MINIO_ENDPOINT: minio

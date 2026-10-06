@@ -34,6 +34,14 @@ const nextConfig: NextConfig = {
           { key: "Permissions-Policy", value: "geolocation=(), camera=(), microphone=()" },
         ],
       },
+      {
+        // Service worker de las notificaciones push: siempre la versión más nueva y solo scripts propios.
+        source: "/sw.js",
+        headers: [
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+          { key: "Content-Security-Policy", value: "default-src 'self'; script-src 'self'" },
+        ],
+      },
     ];
   },
   // Con basePath, la raíz del dominio queda en 404. Al abrir

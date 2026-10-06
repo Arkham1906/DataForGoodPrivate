@@ -250,6 +250,29 @@ export async function ensureNotificacionesTable(): Promise<void> {
       leida_en TIMESTAMPTZ,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+    -- La campana y /notificaciones leen las de una persona, de la más nueva a la más vieja.
+    CREATE INDEX IF NOT EXISTS notificaciones_usuario_idx ON notificaciones (usuario_id, created_at DESC);
+  `);
+}
+
+/**
+ * Suscripciones de notificaciones push (Web Push): una por navegador o teléfono en el que la
+ * persona activó los avisos. endpoint es la URL del servicio de push (Google, Apple, Mozilla) y
+ * p256dh/auth cifran el contenido. Se borran solas si el servicio responde que ya no existen.
+ */
+export async function ensurePushSuscripcionesTable(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS push_suscripciones (
+      id SERIAL PRIMARY KEY,
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+      endpoint TEXT NOT NULL UNIQUE,
+      p256dh TEXT NOT NULL,
+      auth TEXT NOT NULL,
+      user_agent VARCHAR(300),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      ultimo_envio_en TIMESTAMPTZ
+    );
+    CREATE INDEX IF NOT EXISTS push_suscripciones_usuario_idx ON push_suscripciones (usuario_id);
   `);
 }
 
@@ -313,6 +336,9 @@ export async function ensureAportesTable(): Promise<void> {
       inapropiado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
       inapropiado_en TIMESTAMPTZ,
       archivo_borrado_en TIMESTAMPTZ,
+      reporte_motivo TEXT,
+      reporte_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+      reporte_en TIMESTAMPTZ,
       submitted_at TIMESTAMP NOT NULL DEFAULT NOW(),
       reviewed_at TIMESTAMP,
       created_at TIMESTAMP NOT NULL DEFAULT NOW(),
@@ -344,6 +370,11 @@ export async function ensureAportesTable(): Promise<void> {
     ALTER TABLE aportes ADD COLUMN IF NOT EXISTS inapropiado_en TIMESTAMPTZ;
     -- El creador borró el archivo de MinIO (ilegal o dañino). La fila se conserva.
     ALTER TABLE aportes ADD COLUMN IF NOT EXISTS archivo_borrado_en TIMESTAMPTZ;
+    -- "Reportar al creador": el revisor avisa que el aporte o quien lo envió merece una sanción
+    -- (2026-10-06). Uno por aporte. Banear sigue siendo decisión del creador.
+    ALTER TABLE aportes ADD COLUMN IF NOT EXISTS reporte_motivo TEXT;
+    ALTER TABLE aportes ADD COLUMN IF NOT EXISTS reporte_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL;
+    ALTER TABLE aportes ADD COLUMN IF NOT EXISTS reporte_en TIMESTAMPTZ;
   `);
 }
 
@@ -425,6 +456,7 @@ export async function ensureCoreSchema(): Promise<void> {
   await ensureCampanaRevisoresTable();
   await ensureCampanaBaneadosTable();
   await ensureNotificacionesTable();
+  await ensurePushSuscripcionesTable();
   await ensureCampanasGuardadasTable();
   await ensureCampanaEnlacesTable(); // antes de aportes: aportes.enlace_id la referencia
   await ensureAportesTable();

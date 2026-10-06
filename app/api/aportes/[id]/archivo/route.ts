@@ -75,7 +75,8 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
 }
 
 // DELETE: el creador borra de MinIO el archivo de un aporte ANÓNIMO (contenido ilegal o
-// dañino). La fila del aporte se conserva; el archivo no se puede recuperar.
+// dañino), solo mientras no tenga decisión (409 si ya está aceptado o rechazado). La fila del
+// aporte se conserva; el archivo no se puede recuperar.
 export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
@@ -95,6 +96,9 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
     const resultado = await borrarArchivoDeAporteAnonimo(Number(id), Number(user.id));
     if (resultado === "no-anonimo") {
       return NextResponse.json({ error: "Solo se puede borrar el archivo de un aporte anónimo" }, { status: 400 });
+    }
+    if (resultado === "decidido") {
+      return NextResponse.json({ error: "El archivo de un aporte aceptado o rechazado ya no se puede borrar" }, { status: 409 });
     }
     if (resultado === "ya-borrado") return NextResponse.json({ error: "El archivo ya se había borrado" }, { status: 409 });
 

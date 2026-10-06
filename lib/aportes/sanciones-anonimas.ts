@@ -2,8 +2,9 @@
 // A una persona anónima no hay cuenta que banear: se sanciona su dispositivo (hash de la
 // cookie anonimo_id). La IP no se guarda, así que no hay bloqueo por red.
 //
-//   1. Aporte: creador o revisor lo marcan como "Contenido inapropiado". Solo esos cuentan
-//      para el nivel 4. El creador puede además borrar el archivo de MinIO.
+//   1. Aporte: el creador o el revisor lo marcan como "Contenido inapropiado" (al rechazarlo, o
+//      antes de decidir). Solo esos cuentan para el nivel 4. El creador puede además borrar el
+//      archivo de MinIO mientras el aporte no tenga decisión.
 //   2. Campaña: el creador bloquea el dispositivo en su campaña (tabla dispositivos_bloqueados
 //      con campana_id). Se quita desde "Participantes baneados".
 //   3. Enlace: regenerar el token (ya existía) y el interruptor campanas.permite_anonimos.
@@ -16,6 +17,7 @@
 import { pool } from "@/lib/db";
 import { borrarArchivo } from "@/lib/minio";
 import { registrarAuditoria } from "@/lib/auditoria";
+import { tieneDecision } from "@/lib/aportes/decision";
 
 // TODO(dominio): números provisionales que fijó el usuario el 2026-10-01 ("luego se ajusta").
 export const INAPROPIADOS_PARA_BLOQUEO = 3;
@@ -46,13 +48,20 @@ export async function bloqueoDelDispositivo(entrada: {
  * Marca un aporte anónimo como contenido inapropiado y, si con él el dispositivo junta
  * INAPROPIADOS_PARA_BLOQUEO en VENTANA_DE_DIAS, lo bloquea en toda la plataforma.
  * Devuelve false si el aporte no es anónimo. Marcarlo dos veces no cuenta doble.
+ * Con soloSinDecision (la marca suelta de POST /api/aportes/[id]/inapropiado), un aporte ya
+ * aceptado o rechazado no se marca: devuelve { ok: false, decidido: true }. PATCH no la usa
+ * porque marca en el mismo momento en que rechaza.
  */
-export async function marcarInapropiado(aporteId: number, usuarioId: number): Promise<{ ok: boolean; bloqueoGlobal: boolean }> {
+export async function marcarInapropiado(
+  aporteId: number,
+  usuarioId: number,
+  { soloSinDecision = false }: { soloSinDecision?: boolean } = {}
+): Promise<{ ok: boolean; bloqueoGlobal: boolean; decidido?: boolean }> {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    const { rows: aportes } = await client.query<{ anonimo_id: string; campaign_id: number; inapropiado: boolean }>(
-      `SELECT anonimo_id, campaign_id, inapropiado FROM aportes
+    const { rows: aportes } = await client.query<{ anonimo_id: string; campaign_id: number; inapropiado: boolean; status: string }>(
+      `SELECT anonimo_id, campaign_id, inapropiado, status FROM aportes
        WHERE id = $1 AND user_id IS NULL AND anonimo_id IS NOT NULL
        FOR UPDATE`,
       [aporteId]
@@ -62,6 +71,10 @@ export async function marcarInapropiado(aporteId: number, usuarioId: number): Pr
       return { ok: false, bloqueoGlobal: false };
     }
     const aporte = aportes[0];
+    if (soloSinDecision && tieneDecision(aporte.status)) {
+      await client.query("ROLLBACK");
+      return { ok: false, bloqueoGlobal: false, decidido: true };
+    }
     if (aporte.inapropiado) {
       await client.query("ROLLBACK");
       return { ok: true, bloqueoGlobal: false };
@@ -215,22 +228,44 @@ export async function desbloquearEnCampana(campanaId: number, bloqueoId: number,
 /**
  * Borra de MinIO el archivo de un aporte anónimo (contenido ilegal o dañino). La fila se
  * conserva con archivo_borrado_en; quien pida el archivo después recibe 410.
+ * Solo mientras el aporte no tenga decisión: aceptado o rechazado ya no se toca. La fila
+ * queda bloqueada mientras tanto, así que no choca con una decisión al mismo tiempo.
  */
-export async function borrarArchivoDeAporteAnonimo(aporteId: number, usuarioId: number): Promise<"ok" | "no-anonimo" | "ya-borrado"> {
-  const { rows } = await pool.query<{ file_path: string; archivo_borrado_en: Date | null; campaign_id: number }>(
-    `SELECT file_path, archivo_borrado_en, campaign_id FROM aportes WHERE id = $1 AND user_id IS NULL`,
-    [aporteId]
-  );
-  if (rows.length === 0) return "no-anonimo";
-  if (rows[0].archivo_borrado_en) return "ya-borrado";
+export async function borrarArchivoDeAporteAnonimo(
+  aporteId: number,
+  usuarioId: number
+): Promise<"ok" | "no-anonimo" | "ya-borrado" | "decidido"> {
+  const client = await pool.connect();
+  let campanaId: number;
+  try {
+    await client.query("BEGIN");
+    const { rows } = await client.query<{ file_path: string; archivo_borrado_en: Date | null; campaign_id: number; status: string }>(
+      `SELECT file_path, archivo_borrado_en, campaign_id, status FROM aportes WHERE id = $1 AND user_id IS NULL FOR UPDATE`,
+      [aporteId]
+    );
+    const fila = rows[0];
+    const impedimento = !fila ? "no-anonimo" : tieneDecision(fila.status) ? "decidido" : fila.archivo_borrado_en ? "ya-borrado" : null;
+    if (impedimento) {
+      await client.query("ROLLBACK");
+      return impedimento;
+    }
 
-  await borrarArchivo(rows[0].file_path);
-  await pool.query(`UPDATE aportes SET archivo_borrado_en = NOW(), updated_at = NOW() WHERE id = $1`, [aporteId]);
+    await borrarArchivo(fila.file_path);
+    await client.query(`UPDATE aportes SET archivo_borrado_en = NOW(), updated_at = NOW() WHERE id = $1`, [aporteId]);
+    await client.query("COMMIT");
+    campanaId = fila.campaign_id;
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+
   await registrarAuditoria({
     actor: { tipo: "usuario", id: usuarioId },
     accion: "aporte.archivo_borrar",
     objetivo: { tipo: "aporte", id: aporteId },
-    detalle: { campanaId: rows[0].campaign_id },
+    detalle: { campanaId },
   });
   return "ok";
 }

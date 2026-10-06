@@ -252,6 +252,7 @@ async function ejecutarBaja(usuarioId: number): Promise<void> {
     aportesConservados = conservados.rowCount ?? 0;
 
     await client.query(`DELETE FROM notificaciones WHERE usuario_id = $1`, [usuarioId]);
+    await client.query(`DELETE FROM push_suscripciones WHERE usuario_id = $1`, [usuarioId]);
     await client.query(`DELETE FROM campanas_guardadas WHERE usuario_id = $1`, [usuarioId]);
     await client.query(`DELETE FROM sessions WHERE usuario_id = $1`, [usuarioId]);
     // Sus campañas (finalizadas) se quedan, pero sin su nombre: creator_name es una copia.

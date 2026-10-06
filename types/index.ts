@@ -98,10 +98,12 @@ export interface Contribution {
   status: ContributionStatus;
   submittedAt: string; // ISO datetime
   rejectionReason?: string;
-  firstPassBy?: string; // nombre del revisor que dio la primera instancia
+  firstPassBy?: string; // nombre del revisor que decidió el aporte
   firstPassByUserId?: string;
   inapropiado?: boolean; // aporte anónimo marcado como "Contenido inapropiado"
   archivoBorrado?: boolean; // el creador borró el archivo de MinIO
+  // Reporte del revisor al creador ("Reportar al creador"). Lo ven el creador y el revisor.
+  reporte?: { motivo: string; revisor: string; en: string } | null;
   dispositivoBloqueadoId?: string | null; // solo al creador: bloqueo en la campaña del dispositivo anónimo
 }
 

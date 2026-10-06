@@ -1,8 +1,10 @@
 // Fechas de campaña (DATE + TIME separados) y transiciones automáticas de estado, sin cron:
 // activateScheduledCampaigns (aceptada → activa) y finalizeExpiredCampaigns (activa → finalizada)
-// se ejecutan en cada lectura de /api/campanas. Las fechas se comparan en JS para evitar desfases de zona.
+// se ejecutan en cada lectura de /api/campanas y avisan al creador (campana_iniciada, campana_finalizada).
+// Las fechas se comparan en JS para evitar desfases de zona.
 
 import { pool } from "@/lib/db";
+import { notificar } from "@/lib/notificaciones/notificaciones";
 
 /**
  * Convierte fechas de campaña a una fecha de calendario, sin aplicar UTC.
@@ -121,18 +123,29 @@ function nowLocalTimestampParam(): string {
  * Sin start_time, COALESCE la deja en 00:00 (mismo comportamiento que antes).
  */
 export async function activateScheduledCampaigns(): Promise<void> {
-  const { rows } = await pool.query<{ id: number }>(
+  const { rows } = await pool.query<{ id: number; creator_id: number; name: string }>(
     `UPDATE campanas SET status = 'activa', updated_at = NOW()
      WHERE status = 'aceptada'
        AND (start_date::timestamp + COALESCE(start_time, TIME '00:00:00')) <= $1::timestamp
-     RETURNING id`,
+     RETURNING id, creator_id, name`,
     [nowLocalTimestampParam()]
   );
   if (rows.length === 0) return;
   // Al empezar, cada campaña recibe su enlace público. Import dinámico:
   // lib/campanas/enlaces.ts importa este archivo y un import estático haría un ciclo.
   const { asegurarEnlaceVigente } = await import("@/lib/campanas/enlaces");
-  for (const { id } of rows) await asegurarEnlaceVigente(Number(id));
+  for (const { id, creator_id, name } of rows) {
+    await asegurarEnlaceVigente(Number(id));
+    // El UPDATE solo devuelve la fila a quien la activó, así que se avisa una sola vez.
+    await notificar({
+      usuarioId: creator_id,
+      tipo: "campana_iniciada",
+      titulo: "Tu campaña empezó",
+      mensaje: `"${name}" llegó a su fecha de inicio y ya recibe aportes.`,
+      campanaId: id,
+      enlace: `/mis-campanas/${id}/panel`,
+    });
+  }
 }
 
 /**
@@ -143,13 +156,24 @@ export async function activateScheduledCampaigns(): Promise<void> {
  * 00:00 (mismo comportamiento que antes de agregar la hora).
  */
 export async function finalizeExpiredCampaigns(): Promise<void> {
-  await pool.query(
+  const { rows } = await pool.query<{ id: number; creator_id: number; name: string }>(
     `UPDATE campanas SET status = 'finalizada', updated_at = NOW()
      WHERE status = 'activa'
        AND end_date IS NOT NULL
-       AND (end_date::timestamp + COALESCE(end_time, TIME '00:00:00')) <= $1::timestamp`,
+       AND (end_date::timestamp + COALESCE(end_time, TIME '00:00:00')) <= $1::timestamp
+     RETURNING id, creator_id, name`,
     [nowLocalTimestampParam()]
   );
+  for (const { id, creator_id, name } of rows) {
+    await notificar({
+      usuarioId: creator_id,
+      tipo: "campana_finalizada",
+      titulo: "Tu campaña terminó",
+      mensaje: `"${name}" llegó a su fecha de fin y ya no recibe aportes.`,
+      campanaId: id,
+      enlace: `/mis-campanas/${id}/panel`,
+    });
+  }
 }
 
 export function calculateCampaignDaysRemaining(value: unknown): number | null {

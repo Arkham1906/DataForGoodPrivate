@@ -6,6 +6,7 @@
 // banear o desbanear al participante con POST/DELETE /api/campanas/[id]/baneos.
 // Aporte anónimo (sin cuenta): "Contenido inapropiado" al rechazar, bloquear su dispositivo
 // en la campaña (misma API de baneos) y borrar el archivo (DELETE /api/aportes/[id]/archivo).
+// Si un revisor lo reportó ("Reportar al creador"), se muestra su motivo arriba.
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -16,13 +17,8 @@ import Tag from "@/components/ui/Tag";
 import type { Contribution } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
 import { formatearTamano } from "@/lib/aportes/archivo";
+import { MOTIVOS_DE_RECHAZO } from "@/lib/aportes/motivos-de-rechazo";
 
-const REJECTION_REASONS = [
-  "Contenido borroso o ilegible",
-  "No corresponde a la campaña",
-  "Datos incompletos",
-  "Contenido duplicado",
-];
 
 /**
  * Los formularios de rechazo y de bloqueo aparecen en la columna derecha, lejos de los
@@ -227,13 +223,27 @@ export default function RevisionAportePage() {
               : item.status === "rechazado"
                 ? "Rechazado"
                 : item.firstPassBy
-                  ? `Validado por ${item.firstPassBy} · espera aprobación final`
+                  ? `Validado por ${item.firstPassBy} · falta tu decisión`
                   : "Sin revisar"}
           </Tag>
         </div>
       </div>
 
       {aviso && <p className="mb-4 rounded border border-warn bg-warn-tint p-3 text-[12.5px] text-warn">{aviso}</p>}
+
+      {item.reporte && (
+        <section role="note" className="mb-4 rounded-lg border border-warn bg-warn-tint p-4 text-[12.5px] text-ink">
+          <p className="font-bold text-warn">Un revisor reportó este aporte</p>
+          <p className="mt-1">
+            <span className="font-semibold">{item.reporte.revisor}</span> ·{" "}
+            {new Date(item.reporte.en).toLocaleDateString("es-MX", { day: "numeric", month: "short" })}
+          </p>
+          <p className="mt-1 text-ink-2">Motivo: {item.reporte.motivo}</p>
+          <p className="mt-2 text-[11.5px] text-ink-3">
+            Banear o bloquear a quien lo envió es decisión tuya: usa el botón de abajo si corresponde.
+          </p>
+        </section>
+      )}
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
         {item.archivoBorrado ? (
@@ -318,7 +328,7 @@ export default function RevisionAportePage() {
                 className="mb-2.5 w-full rounded border border-line-2 bg-surface px-3 py-2.5 text-[13px] text-ink outline-none focus:border-accent"
               >
                 <option value="">Selecciona un motivo ▾</option>
-                {REJECTION_REASONS.map((r) => (
+                {MOTIVOS_DE_RECHAZO.map((r) => (
                   <option key={r} value={r}>
                     {r}
                   </option>
@@ -376,6 +386,11 @@ export default function RevisionAportePage() {
                 }
                 required
               />
+              {!esAnonimo && (
+                <p className="mt-2 text-[11.5px] text-ink-3">
+                  La persona recibirá este motivo en una notificación y lo verá en la campaña.
+                </p>
+              )}
               <div className="mt-3 flex gap-2">
                 <Button type="button" size="sm" onClick={() => setShowBanForm(false)}>Cancelar</Button>
                 <Button variant="danger" size="sm" type="submit" disabled={!banReason.trim() || submitting}>{esAnonimo ? "Confirmar bloqueo" : "Confirmar baneo"}</Button>
@@ -385,7 +400,7 @@ export default function RevisionAportePage() {
         </div>
       </div>
 
-      {esAnonimo && !item.archivoBorrado && (
+      {esAnonimo && !item.archivoBorrado && !alreadyReviewed && (
         <div className="mt-6 rounded-lg border border-line p-4">
           <p className="text-[13px] font-medium text-ink">Borrar el archivo</p>
           <p className="mb-3 text-[12px] text-ink-2">
@@ -407,44 +422,46 @@ export default function RevisionAportePage() {
         </div>
       )}
 
-      {(item.userId !== null || !alreadyReviewed || esAnonimo) && (
-        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
-          {esAnonimo ? (
-            // Aporte sin cuenta (enlace público): se bloquea el dispositivo, no una cuenta.
-            item.dispositivoBloqueadoId ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <Tag tone="danger">Dispositivo bloqueado en esta campaña</Tag>
-                <Button size="sm" onClick={() => void desbloquearDispositivo()} disabled={submitting}>
-                  Desbloquear
-                </Button>
-              </div>
-            ) : (
-              <Button variant="danger" size="sm" onClick={() => setShowBanForm(true)} disabled={submitting}>
-                Bloquear este dispositivo en la campaña
-              </Button>
-            )
-          ) : autorBaneado ? (
+      {/* Banear o bloquear se puede antes o después de decidir (es sobre la persona). La decisión,
+          en cambio, ya no se cambia (dominio.md § 5). */}
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
+        {esAnonimo ? (
+          // Aporte sin cuenta (enlace público): se bloquea el dispositivo, no una cuenta.
+          item.dispositivoBloqueadoId ? (
             <div className="flex flex-wrap items-center gap-2">
-              <Tag tone="danger">Baneado de esta campaña</Tag>
-              <Button size="sm" onClick={() => void unbanUser()} disabled={submitting}>
-                Quitar baneo
+              <Tag tone="danger">Dispositivo bloqueado en esta campaña</Tag>
+              <Button size="sm" onClick={() => void desbloquearDispositivo()} disabled={submitting}>
+                Desbloquear
               </Button>
             </div>
           ) : (
             <Button variant="danger" size="sm" onClick={() => setShowBanForm(true)} disabled={submitting}>
-              Banear usuario de la campaña
+              Bloquear este dispositivo en la campaña
             </Button>
-          )}
-          {!alreadyReviewed && (
-            <div className="flex gap-2">
-              <Button onClick={() => setShowRejectForm(true)} disabled={submitting}>Rechazar</Button>
-              <Button variant="primary" onClick={approve} disabled={submitting}>
-                Aprobar aporte
-              </Button>
-            </div>
-          )}
-        </div>
-      )}
+          )
+        ) : autorBaneado ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <Tag tone="danger">Baneado de esta campaña</Tag>
+            <Button size="sm" onClick={() => void unbanUser()} disabled={submitting}>
+              Quitar baneo
+            </Button>
+          </div>
+        ) : (
+          <Button variant="danger" size="sm" onClick={() => setShowBanForm(true)} disabled={submitting}>
+            Banear usuario de la campaña
+          </Button>
+        )}
+        {alreadyReviewed ? (
+          <p className="text-[12.5px] text-ink-2">Este aporte ya tiene una decisión y no se puede cambiar.</p>
+        ) : (
+          <div className="flex gap-2">
+            <Button onClick={() => setShowRejectForm(true)} disabled={submitting}>Rechazar</Button>
+            <Button variant="primary" onClick={approve} disabled={submitting}>
+              Aprobar aporte
+            </Button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

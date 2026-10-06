@@ -76,7 +76,7 @@ export default async function DashboardDeAportesPage({
       </div>
       <p className="-mt-3 mb-6 text-[12px] text-ink-3">
         Aprobados, rechazados y tasa cuentan los aportes enviados en el rango; pendientes es la
-        cola de hoy, en primera instancia o esperando al creador.
+        cola de hoy, los que aún esperan la decisión del creador o del revisor.
       </p>
 
       <TituloDeSeccion>{d.serie.titulo}</TituloDeSeccion>

@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { pool } from "@/lib/db";
 import { getSessionUser } from "@/lib/session";
 import { registrarAuditoria } from "@/lib/auditoria";
+import { notificar } from "@/lib/notificaciones/notificaciones";
 
 // La invitación a revisor es por campaña (campana_revisores), no por el rol
 // global en usuarios.role: esta lista es lo que debe usar la pantalla de
@@ -81,16 +82,14 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       [id, usuarioId]
     );
 
-    await pool.query(
-      `INSERT INTO notificaciones (usuario_id, tipo, titulo, mensaje, campana_id, metadata)
-       VALUES ($1, 'invitacion_revisor', 'Invitación para revisar aportes', $2, $3, $4::jsonb)`,
-      [
-        usuarioId,
-        `Te invitaron a ser revisor de aportes en la campaña "${campaign.rows[0].name}".`,
-        id,
-        JSON.stringify({ campanaId: String(id) }),
-      ]
-    );
+    await notificar({
+      usuarioId,
+      tipo: "invitacion_revisor",
+      titulo: "Invitación para revisar aportes",
+      mensaje: `Te invitaron a ser revisor de aportes en la campaña "${campaign.rows[0].name}".`,
+      campanaId: id,
+      metadata: { campanaId: String(id) },
+    });
 
     await registrarAuditoria({
       actor: { tipo: "usuario", id: Number(user.id) },

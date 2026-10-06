@@ -43,8 +43,9 @@
 | `dispositivos_bloqueados` | Bloqueos de personas sin cuenta | `anonimo_id`, `campana_id` (NULL = global), `motivo`, `bloqueado_por`, `aporte_id`, `hasta`, `activo`, `restaurado_en` |
 | `campana_enlaces` | Enlaces públicos `/c/[token]` (historial: una fila por token) | `campana_id`, `token` (único), `creado_por`, `creado_en`, `expira_en` (24 h), `revocado_en` (al regenerar), `visitas`. Vigente = sin revocar y sin vencer. Reemplaza a `campanas.share_token`, que ya no se usa |
 | `campanas_guardadas` | Favoritos | `usuario_id`, `campana_id` |
-| `notificaciones` | Avisos para el usuario | `usuario_id`, `tipo` (p. ej. `invitacion_revisor`), `titulo`, `mensaje`, `campana_id`, `metadata` (JSONB), `leida_en` |
-| `aportes` | Aportes | `campaign_id`, `user_id` (NULL = anónimo), `participant_name`/`participant_email`, `description`, `file_path` (clave en MinIO), `file_original_name`, `file_mime_type`, `file_size_bytes`, `file_type`, `caracteristicas` (JSONB: respuestas de checklists), `status`, `rejection_reason`, `first_pass_by`/`first_pass_by_user_id` (revisor), `enlace_id` (enlace público por el que llegó, o NULL), `anonimo_id` (aporte sin cuenta: sha256 de la cookie del dispositivo, para su cuota; NULL si tiene cuenta), `inapropiado`/`inapropiado_por`/`inapropiado_en`, `archivo_borrado_en`, `submitted_at`, `reviewed_at`. Un aporte anónimo tiene `user_id` NULL, `participant_name` "Anónimo" y ni correo ni `file_original_name` |
+| `push_suscripciones` | Navegadores o teléfonos con los avisos push activos (`lib/notificaciones/push.ts`). Se borran solas si el servicio de push responde 404/410, al cerrar sesión y en la baja definitiva | `usuario_id`, `endpoint` (único), `p256dh`, `auth`, `user_agent`, `ultimo_envio_en` |
+| `notificaciones` | Avisos para el usuario. Se crean con `notificar()` (`lib/notificaciones/notificaciones.ts`); los 16 tipos están en `TipoDeNotificacion` (`lib/notificaciones/tipos.ts`). Índice `(usuario_id, created_at DESC)` | `usuario_id`, `tipo` (p. ej. `invitacion_revisor`, `aporte_rechazado`), `titulo`, `mensaje`, `campana_id`, `metadata` (JSONB; `metadata.enlace` es la ruta a la que lleva), `leida_en` |
+| `aportes` | Aportes | `campaign_id`, `user_id` (NULL = anónimo), `participant_name`/`participant_email`, `description`, `file_path` (clave en MinIO), `file_original_name`, `file_mime_type`, `file_size_bytes`, `file_type`, `caracteristicas` (JSONB: respuestas de checklists), `status`, `rejection_reason`, `first_pass_by`/`first_pass_by_user_id` (revisor), `enlace_id` (enlace público por el que llegó, o NULL), `anonimo_id` (aporte sin cuenta: sha256 de la cookie del dispositivo, para su cuota; NULL si tiene cuenta), `inapropiado`/`inapropiado_por`/`inapropiado_en`, `archivo_borrado_en`, `reporte_motivo`/`reporte_por`/`reporte_en` ("Reportar al creador" del revisor; uno por aporte), `submitted_at`, `reviewed_at`. Un aporte anónimo tiene `user_id` NULL, `participant_name` "Anónimo" y ni correo ni `file_original_name` |
 | `sanciones` | Sanciones del panel | `usuario_id`, `tipo` (`STRIKE`, `SUSPENSION_TEMPORAL`, `BANEO_DE_CAMPANA`), `detalle`, `dias`, `activa`, `aplicada_en`, `aplicada_por`, `restaurada_en` |
 | `audit_log` | Bitácora de acciones sensibles (solo inserción) | `actor_tipo`, `actor_id`, `accion`, `objetivo_tipo`, `objetivo_id`, `detalle` (JSONB), `ip`, `created_at` |
 
@@ -89,9 +90,9 @@ borrador ──► en_revision ──(supervisor acepta)──► aceptada ─�
 | Estado | Significado |
 | --- | --- |
 | `pendiente` | Recién enviado, sin revisar |
-| `espera_final` | Validado por un revisor, esperando la decisión final del creador |
+| `espera_final` | Ya no se usa (2026-10-06): era la espera de la segunda instancia. Si queda alguno, el creador o el revisor lo deciden como un `pendiente` |
 | `aceptado` | Aprobado; cuenta para la meta y para los datos abiertos |
-| `rechazado` | Rechazado con `rejection_reason`; **sigue contando para la cuota** de la persona |
+| `rechazado` | Rechazado con `rejection_reason`; **sigue contando para la cuota** de la persona hasta que ella lo borra (puede borrar uno rechazado, no uno aceptado) |
 
 Reglas al enviar (`POST /api/aportes`): campaña `activa`, no ser el creador, no estar baneado (`campana_baneados`), tener cuota disponible, archivo JPG/PNG de hasta 10 MB (se comprueba la firma real y se quitan los metadatos) y descripción obligatoria (máx. 1000 caracteres). La cuota se cuenta dentro de una transacción con candado, así que dos envíos simultáneos no la pasan.
 

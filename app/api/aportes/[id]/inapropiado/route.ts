@@ -1,14 +1,15 @@
 // /api/aportes/[id]/inapropiado — marcar un aporte ANÓNIMO como contenido inapropiado.
-// Lo usa el revisor desde /revisiones/[aporteId] (el creador lo marca al rechazar, con
-// PATCH /api/aportes/[id] { inapropiado: true }). El aporte no cambia de estado: decide el
-// creador. Reglas y bloqueo global en lib/aportes/sanciones-anonimas.ts.
+// El creador o un revisor aceptado, solo mientras el aporte no tenga decisión (aceptado o rechazado
+// ya no se toca). También se marca al rechazar, con PATCH /api/aportes/[id] { inapropiado: true };
+// esta ruta marca sin cambiar el estado. Lo usa /revisiones/[aporteId].
+// Reglas y bloqueo global en lib/aportes/sanciones-anonimas.ts.
 
 import { NextResponse } from "next/server";
 import { pool } from "@/lib/db";
 import { getSessionUser } from "@/lib/session";
 import { marcarInapropiado } from "@/lib/aportes/sanciones-anonimas";
 
-// POST (sin cuerpo): creador o revisor aceptado de la campaña.
+// POST (sin cuerpo): creador o revisor aceptado de la campaña, aporte anónimo sin decisión.
 export async function POST(_request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
@@ -33,7 +34,10 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
       return NextResponse.json({ error: "Solo un aporte anónimo se marca como inapropiado" }, { status: 400 });
     }
 
-    const resultado = await marcarInapropiado(Number(id), Number(user.id));
+    const resultado = await marcarInapropiado(Number(id), Number(user.id), { soloSinDecision: true });
+    if (resultado.decidido) {
+      return NextResponse.json({ error: "Un aporte aceptado o rechazado ya no se puede marcar" }, { status: 409 });
+    }
     if (!resultado.ok) return NextResponse.json({ error: "Solo un aporte anónimo se marca como inapropiado" }, { status: 400 });
 
     return NextResponse.json({

@@ -21,6 +21,7 @@ export default function AportarPage() {
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [isCreator, setIsCreator] = useState(false);
   const [baneado, setBaneado] = useState(false);
+  const [motivoDeBaneo, setMotivoDeBaneo] = useState<string | null>(null);
   const [submittedCount, setSubmittedCount] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -43,6 +44,7 @@ export default function AportarPage() {
         setCampaign(campaignPayload.data as Campaign);
         setIsCreator(Boolean(campaignPayload.viewer?.isCreator));
         setBaneado(Boolean(campaignPayload.viewer?.baneado));
+        setMotivoDeBaneo(campaignPayload.viewer?.motivoDeBaneo ?? null);
 
         const aportesPayload = await aportesRes.json().catch(() => ({}));
         if (aportesRes.ok) setSubmittedCount(Array.isArray(aportesPayload.data) ? aportesPayload.data.length : 0);
@@ -57,7 +59,14 @@ export default function AportarPage() {
   if (!campaign) return <p className="text-sm text-ink-2">Cargando campaña...</p>;
   if (isCreator) return <p className="rounded-lg bg-sunken p-4 text-sm text-ink-2">No puedes aportar en una campaña que creaste.</p>;
   // El servidor también lo rechaza (POST /api/aportes); esto evita llenar el formulario en balde.
-  if (baneado) return <p className="rounded-lg bg-danger-tint p-4 text-sm text-danger">Quien creó esta campaña te retiró la posibilidad de aportar en ella.</p>;
+  if (baneado) {
+    return (
+      <p className="rounded-lg bg-danger-tint p-4 text-sm text-danger">
+        Quien creó esta campaña te retiró la posibilidad de aportar en ella.
+        {motivoDeBaneo && <span className="mt-1 block font-semibold">Motivo: {motivoDeBaneo}</span>}
+      </p>
+    );
+  }
 
   const quotaReached = submittedCount >= campaign.quotaPerUser;
   // La API ya convierte las campañas viejas (lista plana) en un checklist sin título.

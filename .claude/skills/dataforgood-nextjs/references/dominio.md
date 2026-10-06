@@ -7,12 +7,13 @@ Este archivo partió de las pantallas y los textos del prototipo (rama `Prueba1`
 2. Roles
 3. Campañas
 4. Aportes y cuota
-5. Revisión en dos instancias
+5. Revisión de aportes (una sola instancia)
 6. Enlace público y aportes anónimos
 7. Experiencia (XP) y campañas especiales
 8. Catálogos
 9. Datos abiertos
 10. Contradicciones y puntos abiertos
+11. Notificaciones
 
 ## 1. Cuentas y registro
 
@@ -101,17 +102,23 @@ Fuentes: `campanas/[id]/aportar`, `mis-aportes` y `mis-aportes/[campanaId]`.
 - **Completar la cuota otorga un bono de 300 XP.**
 - **Filtros de "Mis aportes":** Todas, Puedo aportar (campaña activa y cuota disponible), Cuota completa, Finalizadas y Favoritos.
 
-## 5. Revisión en dos instancias
+## 5. Revisión de aportes (una sola instancia)
 
 Fuentes: `mis-campanas/[id]/aportes` y `[aporteId]`.
 
-- **Estados del aporte:** `pendiente` (sin revisar), `espera_final`, `aceptado` y `rechazado`.
-- **Sin revisor asignado:** todo llega sin filtro y quien administra la campaña decide en **una sola instancia** (`pendiente` → `aceptado` o `rechazado`).
-- **Con revisor asignado:** el revisor valida en primera instancia (`pendiente` → `espera_final`, guardando quién lo validó), y quien administra da la aprobación final (`espera_final` → `aceptado` o `rechazado`).
-  - *Implementado el 2026-10-01:* cuando el revisor (que no es el creador) acepta un aporte `pendiente`, `PATCH /api/aportes/[id]` lo guarda en `espera_final` con su nombre; el creador solo decide `aceptado` o `rechazado` y no puede regresarlo a pendiente. El nombre del revisor ya no se toma del body.
+- **Estados del aporte:** `pendiente` (sin revisar), `aceptado` y `rechazado`.
+- **El revisor de aportes tiene la misma autoridad que el creador sobre los aportes** (decisión del usuario, 2026-10-06): cualquiera de los dos acepta o rechaza (`pendiente` → `aceptado` o `rechazado`) y **esa decisión es la final**; no hay segunda revisión.
+  - **La decisión no se cambia** (decisión del usuario, 2026-10-06), la haya tomado quien sea: nadie cambia aceptado ↔ rechazado (409), quien aportó ya no lo edita, y el creador no borra su archivo ni lo marca inapropiado (409).
+  - **Excepciones:** quien aportó **puede borrar su aporte rechazado** y recupera ese espacio de su cuota (uno aceptado no se borra nunca); el creador **puede banear o bloquear** desde un aporte ya decidido, porque es una acción sobre la persona. La regla vive en `lib/aportes/decision.ts` (`tieneDecision`, `ESTADOS_SIN_DECISION`) y cada escritura la vuelve a comprobar en el `WHERE` o con la fila bloqueada, así que si revisor y creador deciden a la vez, gana uno y el otro recibe 409.
+  - Un aporte decidido **sale de las listas por revisar** ("Por aceptar" del revisor, "Pendientes" del creador) y se ve en el historial en **solo lectura** (pestañas Aceptados/Rechazados del creador, "Aceptados por ti" del revisor). Desde el aporte decidido el creador puede banear, bloquear o quitar el baneo, pero ya no aceptar ni rechazar.
+  - `first_pass_by` / `first_pass_by_user_id` guardan qué revisor decidió (el creador ve su nombre); el nombre nunca se toma del body.
+  - **"Reportar al creador"** (2026-10-06, a pedido del usuario): si un aporte es inapropiado o quien lo envió abusa, el revisor lo reporta con un motivo de la lista (`MOTIVOS_DE_REPORTE`) y/o una descripción. Al creador le llega la notificación `aporte_reportado` con enlace al aporte, y en el detalle ve el reporte (quién, cuándo, motivo) junto a su botón de banear. Uno por aporte, antes o después de decidirlo; quien aportó no lo ve. Lógica en `lib/aportes/reporte.ts`.
+  - **El revisor acepta, rechaza, marca inapropiado y reporta.** Banear, bloquear un dispositivo y borrar archivos son **solo del creador**. Marcar inapropiado (creador o revisor) y borrar el archivo, solo mientras el aporte no tenga decisión o al rechazarlo; banear y bloquear, en cualquier momento.
+  - Aceptar quita la marca de inapropiado, decida quien decida.
+  - *Historia:* del 2026-10-01 al 2026-10-06 hubo dos instancias (el revisor aceptaba → `espera_final` → el creador daba la final). `espera_final` ya no se crea; si quedara alguno (p. ej. en producción), se decide como un `pendiente`. Al quitarla no había ninguno en la base local.
 - **Contadores de la campaña** (`current/pending/approved/rejected_contributions`, `participants`): se **recalculan** desde `aportes` después de cada envío, revisión o borrado (`recalcularContadores()`, `lib/aportes/comun.ts`), con la fila de la campaña bloqueada (`FOR NO KEY UPDATE`; `FOR UPDATE` choca con la llave foránea de los aportes y produce deadlocks). Antes se sumaban y restaban y un cambio de decisión los desfasaba.
 - **Rechazar exige un motivo:** uno de la lista ("Contenido borroso o ilegible", "No corresponde a la campaña", "Datos incompletos", "Contenido duplicado") o uno redactado. Se guarda en `aportes.rejection_reason`.
-  - **Dónde lo ve el participante:** en `/mis-aportes/[campanaId]`, bajo el aporte rechazado (`ContributionCard`). **No se notifica:** `PATCH /api/aportes/[id]` no crea notificación al rechazar. En un aporte anónimo nadie lo recibe.
+  - **Dónde lo ve el participante:** en `/mis-aportes/[campanaId]`, bajo el aporte rechazado (`ContributionCard`), y en una notificación con el motivo (desde el 2026-10-06, ver § 11). En un aporte anónimo nadie lo recibe.
 - **Desde el detalle de un aporte se puede "Banear de la campaña"** al participante. El baneo es por campaña, no global.
 
 ## 6. Enlace público y aportes anónimos
@@ -139,7 +146,7 @@ Fuente: pantalla de compartir del prototipo; hoy es el cuadro "Compartir" de `/c
     - **Espera entre aportes** (2026-10-01): 60 segundos entre dos aportes sin cuenta del mismo dispositivo, en cualquier campaña (`ESPERA_ENTRE_APORTES_SEGUNDOS`, `TODO(dominio)`: valor elegido sin consulta). Responde 429 con `esperaSegundos` y `Retry-After`; el formulario muestra la cuenta regresiva. Se comprueba dentro del candado, así que envíos simultáneos tampoco la saltan. **Sin cookie** (dispositivo nuevo), la espera también cuenta desde el último aporte anónimo de la misma IP, llevado en memoria (no se guarda en la BD); con cookie propia no se espera por otros de su IP. Antes, quien no mandaba la cookie se saltaba la espera y la cuota.
     - La foto se guarda sin metadatos (EXIF con GPS, etc.) y solo si es de verdad JPG o PNG (`lib/aportes/imagen.ts`). Lo mismo aplica a los aportes con cuenta.
   - **Sanciones para anónimos (implementado el 2026-10-01, `lib/aportes/sanciones-anonimas.ts`):**
-    1. **Aporte:** casilla "Contenido inapropiado" al rechazar (creador) o botón "Marcar como inapropiado" (revisor; no cambia el estado). Si el creador acepta después, la marca se quita. Solo los marcados cuentan para el nivel 4. El creador puede **borrar el archivo** de MinIO.
+    1. **Aporte:** casilla "Contenido inapropiado" al rechazar (creador o revisor) o botón "Marcar como inapropiado" (`POST /api/aportes/[id]/inapropiado`, sin cambiar el estado, solo antes de la decisión). Si se acepta, la marca se quita. Solo los marcados cuentan para el nivel 4. El creador puede **borrar el archivo** de MinIO mientras el aporte no tenga decisión.
     2. **Campaña:** el creador bloquea el dispositivo en su campaña ("Bloquear este dispositivo", misma API que el baneo). Solo por dispositivo, sin vencimiento; se quita desde "Participantes baneados".
     3. **Enlace:** regenerar el token y el interruptor "Permitir aportes sin cuenta" del cuadro Compartir (`campanas.permite_anonimos`). Apagado, `/c/[token]` solo invita a entrar o registrarse.
     4. **Plataforma:** 3 aportes inapropiados del mismo dispositivo en 30 días lo bloquean 30 días en todas las campañas (solo el dispositivo). El SuperUsuario lo ve y lo quita en `/usuarios/sanciones`. Todo queda en `audit_log`.
@@ -190,7 +197,7 @@ Fuentes: pantalla pública `/` (landing) y `/datos` (catálogo).
 5. ~~**Catálogo de temáticas.** El filtro de `/campanas` usa "Salud y bienestar" y omite varias categorías; el formulario usa "Salud urbana".~~ *Resuelto (2026-09-30): una sola lista de 23 temáticas en `lib/intereses.ts` para intereses del perfil y temáticas de campaña; los filtros de `/campanas` se arman con las temáticas de las campañas activas.*
 6. **Límites de archivos** para video, audio y documento, y formatos de documento. Hoy `POST /api/aportes` solo acepta JPG y PNG de hasta 10 MB y 50 megapíxeles (`MAXIMO_DE_MEGAPIXELES` en `lib/aportes/imagen.ts`, valor elegido sin consulta el 2026-10-01).
 7. ~~**Cuota de aportes anónimos.** Sin cuenta no hay persona a quien contar: ¿límite por dispositivo o IP, o solo la meta total?~~ *Resuelto (2026-10-01): la misma cuota por persona de la campaña, contada **por dispositivo** (cookie `anonimo_id`), más un **tope por IP** contra abuso. El valor del tope (20 aportes anónimos por IP por hora, `TOPE_POR_IP_POR_HORA`) se eligió sin consulta: confirmarlo con el equipo. Vive en memoria, así que se reinicia con cada despliegue.*
-8. **Rechazo en primera instancia.** ¿El revisor puede rechazar de forma definitiva o solo validar? No hay pantalla del revisor.
+8. ~~**Rechazo en primera instancia.**~~ *Resuelto (2026-10-06): el revisor acepta o rechaza con la misma autoridad que el creador y su decisión es final (§ 5). `/revisiones/[aporteId]` tiene Aceptar y Rechazar con motivo.*
 9. **Valor del tope diario de XP.**
 10. **Recuperación de contraseña:** el enlace "¿Olvidaste tu contraseña?" existe, el flujo no. (El inicio con Google ya funciona.)
 11. **La meta de la campaña** ¿cuenta aportes recibidos o solo aprobados? El panel usa ambos.
@@ -203,8 +210,8 @@ Fuentes: pantalla pública `/` (landing) y `/datos` (catálogo).
 14. **Publicación de datos abiertos.** ¿Quién dispara la publicación al finalizar una campaña (automática o manual) y qué anonimización explícita aplica sobre los aportes más allá de excluir nombre/correo del ZIP? *Resuelto parcialmente (2026-09): calidad, licencia y descarga real ya están definidas, ver § 9. Sigue abierto si "finalizar" debe congelar/copiar los datos en vez de leerlos en vivo de `campanas`/`aportes`.*
 15. **Topes de checklists** (2026-09-30): 50 checklists de 50 opciones y 120 caracteres por texto (`lib/campanas/checklist.ts`). Son técnicos, elegidos sin consulta: ¿el equipo quiere otros?
 16. **Motivo visible al sancionado** (2026-09-30): `/cuenta-bloqueada` muestra tal cual el `detalle` que escribe el SuperUsuario. ¿Se redacta pensando en la persona o conviene un campo aparte para el mensaje?
-17. **Motivo del baneo por campaña:** hoy el participante solo ve que no puede aportar, no el motivo que escribió el creador. ¿Se le muestra?
-18. ~~**Sanciones para aportes anónimos**~~ *Implementado el 2026-10-01 (ver § 6). Decisiones: marcan "inapropiado" el creador y el revisor; bloquear, borrar el archivo y apagar los anónimos, solo el creador; nivel 4 con 3 inapropiados en 30 días → 30 días de bloqueo (números provisionales, `TODO(dominio)` en `lib/aportes/sanciones-anonimas.ts`); al principio se guardó el HMAC de la IP (`ANONIMO_IP_SECRETO`) para bloquear también la red, pero el mismo 2026-10-01 se quitó a pedido del usuario: la IP de una persona sin cuenta no se guarda en ningún lado y el bloqueo global es solo por dispositivo. Abajo, la propuesta original.*
+17. ~~**Motivo del baneo por campaña.**~~ *Resuelto (2026-10-06): sí se le muestra. Lo recibe en la notificación `campana_baneo` y lo ve en `/campanas/[id]` y `/campanas/[id]/aportar` (`viewer.motivoDeBaneo` de `GET /api/campanas?id=`, `motivoDeBaneo()` en `lib/campanas/baneos.ts`). El formulario de baneo avisa al creador que la persona lo verá.*
+18. ~~**Sanciones para aportes anónimos**~~ *Implementado el 2026-10-01 (ver § 6). Decisiones: marcan "inapropiado" el creador y el revisor (confirmado por el usuario el 2026-10-06); bloquear, borrar el archivo y apagar los anónimos, solo el creador; nivel 4 con 3 inapropiados en 30 días → 30 días de bloqueo (números provisionales, `TODO(dominio)` en `lib/aportes/sanciones-anonimas.ts`); al principio se guardó el HMAC de la IP (`ANONIMO_IP_SECRETO`) para bloquear también la red, pero el mismo 2026-10-01 se quitó a pedido del usuario: la IP de una persona sin cuenta no se guarda en ningún lado y el bloqueo global es solo por dispositivo. Abajo, la propuesta original.*
     - **Situación actual:** si una persona sin cuenta sube algo indebido, solo se puede **rechazar** el aporte. Nadie recibe el motivo, no hay "Banear" y la persona sigue aportando hasta su cuota.
     - **Identificador disponible:** solo `aportes.anonimo_id`, el hash de la cookie del dispositivo; la IP no se guarda. Borrar las cookies o usar modo incógnito da un dispositivo nuevo, así que la meta es volver tedioso el abuso, no imposible.
     - **Propuesta aceptada:**
@@ -217,3 +224,30 @@ Fuentes: pantalla pública `/` (landing) y `/datos` (catálogo).
       - Quién marca "inapropiado". Propuesta: creador y revisor. Bloquear, borrar el archivo y cortar los aportes anónimos, solo el creador.
       - Los números del nivel 4: cuántos aportes y cuánto dura el bloqueo.
       - Si guardar un HMAC de la IP. Recomendación: no, salvo que haya abuso real.
+
+## 11. Notificaciones
+
+*Implementado el 2026-10-06.* Hoy son 16 tipos. Cada evento crea una fila en `notificaciones` con `notificar()` (`lib/notificaciones/notificaciones.ts`), después de completarse la acción. Si falla, solo se registra en el log: avisar nunca tumba la acción. Las ve la persona en la campana del `TopBar` (las 8 más nuevas; consulta cada minuto con la pestaña visible y al volver a ella) y en `/notificaciones` (historial de 20 en 20, filtro "Sin leer").
+
+| Para | Tipo | Cuándo | Lleva a |
+| --- | --- | --- | --- |
+| Participante | `aporte_aceptado`, `aporte_rechazado` (con motivo) | Decisión del creador o del revisor en `PATCH /api/aportes/[id]` (las dos son finales). Anónimos: nadie | `/mis-aportes/[campanaId]` |
+| Participante | `campana_baneo` (con motivo), `campana_desbaneo` | El creador banea o quita el baneo (`/api/campanas/[id]/baneos`) | `/campanas/[id]` |
+| Creador | `campana_aceptada`, `campana_rechazada` (con motivo), `campana_reportada` | Dictamen en `lib/supervision/decision.ts` (supervisor o SuperUsuario) | Panel si quedó activa; si no, `/mis-campanas` |
+| Creador | `campana_iniciada`, `campana_finalizada` | Activación o cierre **por fecha** (`lib/campaign-date.ts`). El `UPDATE ... RETURNING` asegura un solo aviso. Si el creador la finaliza a mano, no se avisa | `/mis-campanas/[id]/panel` |
+| Creador | `aporte_reportado` | Un revisor reporta un aporte (`POST /api/aportes/[id]/reportar`) | `/mis-campanas/[id]/aportes/[aporteId]` |
+| Creador | `revisor_acepto` | La persona invitada acepta (`POST /api/notificaciones/[id]/aceptar`) | `/mis-campanas/[id]/aportes` |
+| Invitado | `invitacion_revisor` | El creador invita (`POST /api/campanas/[id]/revisores`). Se acepta desde la campana o `/notificaciones`; **no se puede borrar mientras siga pendiente** (409) | — |
+| Usuario | `rol_asignado`, `rol_revocado` | El SuperUsuario asigna o quita Supervisor, o quita Revisor. Solo si el rol cambió de verdad | `/supervision` al asignar |
+| Usuario | `sancion_aplicada` (strike con "Llevas N de 3", suspensión con días, baneo; también el baneo automático al tercer strike), `sancion_restaurada` | `aplicarSancion` / `restaurarAcceso`. Restaurar un strike no avisa (no bloqueaba nada). Con la cuenta bloqueada la persona no la ve hasta recuperar el acceso: mientras, `/cuenta-bloqueada` muestra el motivo | — |
+
+- **Leída:** abrir una notificación la marca como leída. También "Marcar como leída/no leída" por notificación y "Marcar todas como leídas". Se puede borrar cualquiera salvo una invitación pendiente.
+- **Sin correo.** La campana consulta cada minuto (decisión del usuario, 2026-10-06).
+- **Notificaciones push** (2026-10-06, a pedido del usuario): cada notificación sale también como aviso del teléfono o navegador, aunque la app esté cerrada, si la persona lo activó en "Avisos en este dispositivo" (`/notificaciones`). Web Push con `web-push` y llaves VAPID (`.env`); `public/sw.js` las muestra y al tocarlas abre su enlace; `app/manifest.ts` + íconos `public/icono-*.png` permiten instalarla.
+  - **Android** (Chrome, Firefox): en el navegador. **iPhone:** solo agregando la app a la pantalla de inicio (iOS 16.4+); la pantalla lo explica. Requiere HTTPS (en local, el túnel).
+  - La suscripción es del navegador, a nombre de quien tenga la sesión: al cargar se resincroniza; **al cerrar sesión se quita**; en la baja definitiva se borran. Solo se aceptan endpoints de Google, Apple, Mozilla y Microsoft (evita que el servidor haga peticiones a sitios arbitrarios). Hasta 10 por persona. TTL de 1 día.
+  - El contenido del push (título y mensaje) pasa cifrado por el servicio de push del teléfono.
+- **Pendientes:**
+  - La reversión de una decisión de supervisor (`revertirAccion`) aún no tiene lógica; cuando la tenga debe avisar al supervisor con el motivo, como pide el prototipo.
+  - No se borran notificaciones viejas: si crece la tabla, decidir una retención (p. ej. leídas de más de 6 meses) y correrla en `instrumentation-node.ts`.
+  - El fin de una suspensión por tiempo no avisa (no hay cron).

@@ -954,12 +954,122 @@
       "parentId": "fld_otros",
       "name": "Notificaciones",
       "method": "GET",
-      "url": "{{ _.base }}/api/notificaciones",
+      "url": "{{ _.base }}/api/notificaciones?pagina=1&porPagina=20&filtro=todas",
       "headers": [],
       "parameters": [],
       "body": {},
-      "description": "",
+      "description": "Una página de notificaciones y el total sin leer (noLeidas). filtro: todas | no-leidas.",
       "metaSortKey": 36
+    },
+    {
+      "_id": "req_41_marcar_todas",
+      "_type": "request",
+      "parentId": "fld_otros",
+      "name": "Marcar todas las notificaciones como leídas",
+      "method": "PATCH",
+      "url": "{{ _.base }}/api/notificaciones",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"leidas\": \"todas\"\n}"
+      },
+      "description": "",
+      "metaSortKey": 36.1
+    },
+    {
+      "_id": "req_41_marcar",
+      "_type": "request",
+      "parentId": "fld_otros",
+      "name": "Marcar notificación como leída o no leída",
+      "method": "PATCH",
+      "url": "{{ _.base }}/api/notificaciones/{{ _.notificacionId }}",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"leida\": true\n}"
+      },
+      "description": "",
+      "metaSortKey": 36.2
+    },
+    {
+      "_id": "req_41_borrar",
+      "_type": "request",
+      "parentId": "fld_otros",
+      "name": "Borrar notificación",
+      "method": "DELETE",
+      "url": "{{ _.base }}/api/notificaciones/{{ _.notificacionId }}",
+      "headers": [],
+      "parameters": [],
+      "body": {},
+      "description": "Una invitación de revisor sin aceptar no se borra (409).",
+      "metaSortKey": 36.3
+    },
+    {
+      "_id": "req_push_llave",
+      "_type": "request",
+      "parentId": "fld_otros",
+      "name": "Push: llave pública VAPID",
+      "method": "GET",
+      "url": "{{ _.base }}/api/push",
+      "headers": [],
+      "parameters": [],
+      "body": {},
+      "description": "null si el servidor no tiene llaves VAPID.",
+      "metaSortKey": 36.4
+    },
+    {
+      "_id": "req_push_activar",
+      "_type": "request",
+      "parentId": "fld_otros",
+      "name": "Push: activar en este navegador",
+      "method": "POST",
+      "url": "{{ _.base }}/api/push",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"subscription\": {\n    \"endpoint\": \"https://fcm.googleapis.com/fcm/send/...\",\n    \"keys\": { \"p256dh\": \"...\", \"auth\": \"...\" }\n  }\n}"
+      },
+      "description": "La suscripción la genera el navegador (PushSubscription.toJSON()). Solo endpoints de Google, Apple, Mozilla o Microsoft.",
+      "metaSortKey": 36.5
+    },
+    {
+      "_id": "req_push_quitar",
+      "_type": "request",
+      "parentId": "fld_otros",
+      "name": "Push: desactivar en este navegador",
+      "method": "DELETE",
+      "url": "{{ _.base }}/api/push",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"endpoint\": \"https://fcm.googleapis.com/fcm/send/...\"\n}"
+      },
+      "description": "",
+      "metaSortKey": 36.6
     },
     {
       "_id": "req_42",

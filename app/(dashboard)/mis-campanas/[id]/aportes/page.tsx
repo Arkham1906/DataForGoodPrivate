@@ -97,8 +97,8 @@ export default function BandejaAportesPage() {
 
       {campaign.hasReviewerAssigned ? (
         <div className="mb-5 rounded-lg border-l-4 border-accent bg-sunken p-3.5 text-[12.5px] text-ink-2">
-          Esta campaña tiene revisor asignado: los aportes marcados como validados ya
-          pasaron la primera instancia.
+          Esta campaña tiene revisor asignado: puede aceptar o rechazar aportes igual que tú, y su
+          decisión es final.
         </div>
       ) : (
         <div className="mb-5 flex flex-wrap items-start justify-between gap-3 rounded-lg bg-warn-tint p-4 text-[12.5px] text-warn">
@@ -201,8 +201,8 @@ export default function BandejaAportesPage() {
 
       {!campaign.hasReviewerAssigned && (
         <div className="mt-4 rounded-lg bg-sunken p-3.5 text-[12.5px] text-ink-2">
-          Sin revisor, la cola de pendientes crece: los aportes que normalmente se
-          filtran en primera instancia también aparecen aquí.
+          Sin revisor, todos los aportes los decides tú: un revisor puede aceptarlos o
+          rechazarlos contigo y aligerar la cola de pendientes.
         </div>
       )}
 

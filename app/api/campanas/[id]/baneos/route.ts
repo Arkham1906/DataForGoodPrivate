@@ -7,6 +7,7 @@ import { NextResponse } from "next/server";
 import { pool } from "@/lib/db";
 import { getSessionUser, type SessionUser } from "@/lib/session";
 import { registrarAuditoria } from "@/lib/auditoria";
+import { notificar } from "@/lib/notificaciones/notificaciones";
 import { listarBaneadosDeCampana, quitarBaneoDeCampana } from "@/lib/campanas/baneos";
 import {
   bloquearEnCampana,
@@ -44,7 +45,8 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
 }
 
 // POST: banea a un participante de esta campaña (no de toda la app). Si el aporte es
-// anónimo, bloquea el dispositivo que lo envió.
+// anónimo, bloquea el dispositivo que lo envió. Solo el creador; se puede antes o después de decidir
+// el aporte, porque es una acción sobre la persona, no sobre el aporte.
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { id: campaignId } = await context.params;
@@ -59,7 +61,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     }
 
     const result = await pool.query(
-      `SELECT c.creator_id, a.user_id
+      `SELECT c.creator_id, c.name, a.user_id
        FROM campanas c
        JOIN aportes a ON a.campaign_id = c.id
        WHERE c.id = $1 AND a.id = $2
@@ -95,6 +97,16 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       accion: "campana.banear",
       objetivo: { tipo: "usuario", id: Number(row.user_id) },
       detalle: { campanaId: Number(campaignId), aporteId: Number(contributionId), motivo: reason },
+    });
+
+    await notificar({
+      usuarioId: row.user_id,
+      tipo: "campana_baneo",
+      titulo: "Ya no puedes aportar en una campaña",
+      mensaje: `Quien organiza "${row.name}" te retiró de la campaña y ya no puedes enviar aportes en ella. Motivo: ${reason}`,
+      campanaId: campaignId,
+      enlace: `/campanas/${campaignId}`,
+      metadata: { motivo: reason },
     });
 
     return NextResponse.json({ message: "Usuario baneado de la campaña" });
@@ -136,6 +148,16 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
       accion: "campana.desbanear",
       objetivo: { tipo: "usuario", id: usuarioId },
       detalle: { campanaId: Number(campaignId) },
+    });
+
+    const campana = await pool.query(`SELECT name FROM campanas WHERE id = $1`, [campaignId]);
+    await notificar({
+      usuarioId,
+      tipo: "campana_desbaneo",
+      titulo: "Puedes volver a aportar",
+      mensaje: `Quien organiza "${campana.rows[0]?.name ?? "la campaña"}" te permitió volver a participar.`,
+      campanaId: campaignId,
+      enlace: `/campanas/${campaignId}`,
     });
 
     return NextResponse.json({ message: "Baneo quitado" });

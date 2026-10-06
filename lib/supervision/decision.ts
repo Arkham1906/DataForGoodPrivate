@@ -6,6 +6,7 @@ import { pool } from "@/lib/db";
 import { hasCampaignStarted } from "@/lib/campaign-date";
 import { registrarAuditoria, type ActorDeAuditoria } from "@/lib/auditoria";
 import { asegurarEnlaceVigente } from "@/lib/campanas/enlaces";
+import { notificar } from "@/lib/notificaciones/notificaciones";
 
 export type AccionDeSupervision = "aceptada" | "rechazada" | "reportada";
 
@@ -154,20 +155,33 @@ export async function registrarDecisionDeCampana(
     detalle: { accion, motivo, estadoAnterior: String(campana.status), estadoNuevo: nextStatus },
   });
 
-  if (accion === "rechazada") {
-    await pool.query(
-      `INSERT INTO notificaciones (usuario_id, tipo, titulo, mensaje, campana_id, metadata)
-       VALUES ($1, $2, $3, $4, $5, $6::jsonb)`,
-      [
-        campana.creator_id,
-        "campana_rechazada",
-        "Campaña rechazada",
-        `Tu campaña "${campana.name}" fue rechazada. Motivo: ${motivo}`,
-        campanaId,
-        JSON.stringify({ motivo }),
-      ],
-    );
-  }
+  await notificar({
+    usuarioId: campana.creator_id,
+    campanaId,
+    metadata: motivo ? { motivo } : {},
+    ...(accion === "aceptada"
+      ? {
+          tipo: "campana_aceptada" as const,
+          titulo: "Campaña aceptada",
+          mensaje: nextStatus === "activa"
+            ? `Tu campaña "${campana.name}" fue aceptada y ya está activa.`
+            : `Tu campaña "${campana.name}" fue aceptada. Se activará en su fecha de inicio.`,
+          enlace: nextStatus === "activa" ? `/mis-campanas/${campanaId}/panel` : "/mis-campanas",
+        }
+      : accion === "rechazada"
+        ? {
+            tipo: "campana_rechazada" as const,
+            titulo: "Campaña rechazada",
+            mensaje: `Tu campaña "${campana.name}" fue rechazada. Motivo: ${motivo}`,
+            enlace: "/mis-campanas",
+          }
+        : {
+            tipo: "campana_reportada" as const,
+            titulo: "Campaña reportada",
+            mensaje: `La supervisión reportó tu campaña "${campana.name}".${motivo ? ` Motivo: ${motivo}` : ""}`,
+            enlace: "/mis-campanas",
+          }),
+  });
 
   const mensaje = accion === "aceptada"
     ? nextStatus === "activa"

@@ -48,12 +48,13 @@ Todos usan `export default`, nombre de archivo en PascalCase, variantes en un `R
 | `ui/Tag` | `tone`: default · ok · warn · danger · on | Estados y temáticas |
 | `ui/ProgressBar` | `pct`, `tone`: accent · ok | Limita el valor entre 0 y 100 |
 | `ui/MetricCard` | `label`, `value` | Métricas del panel |
+| `sistema/MetricCard` | `label`, `value`, `secundario`, `links`, `centrado` | Métricas del panel del SuperUsuario. `centrado` centra en todos los tamaños; para centrar solo en móvil, `/usuarios/dashboard` y `/usuarios/supervisores` la envuelven en un `div` `max-md:text-center` |
 | `cards/CampaignCard` | `campaign` | Tarjeta vertical del catálogo |
 | `cards/ContributionCard` | `contribution` | Estado con `Tag` |
 | `layout/PublicHeader`, `PublicFooter` | — | Landing |
 | `layout/Logo` (+ `IconoDelLogo`) | `alto`, `tamanoIcono`, `acronimoEnMovil` | Ícono y palabra de `public/logo.svg` y `public/Texto.svg` dibujados en línea (colores `accent`/`ink`). Con el cursor encima se vuelve "DFG"; en `max-md` muestra siempre "DFG". Solo CSS. Úsalo en vez de escribir "DataForGood" con un cuadro: está en `PublicHeader`, `(auth)/layout`, `CuentaBloqueada` y `sistema/Topbar` |
-| `campanas/BarraDeFiltros` | `valores`, `tematicas`, `onCambiar`, `conVigencia` | Cliente. Búsqueda, temática, tipo de dato, vigencia (opcional) y orden de campañas. Solo dibuja: `/sistema/campanas` escribe los cambios en la URL y `/supervision`, `/supervisar` y `/revisiones` filtran en el navegador con `lib/campanas/filtro-local.ts` |
-| `layout/TopBar` | `usuario: SessionUser` | Búsqueda (`layout/BuscadorDeLaBarra`: solo en las rutas de `RUTAS_CON_BUSCADOR`: `/campanas` y `/mis-aportes`; aún no busca nada), `NotificationsBell`, avatar |
+| `campanas/BarraDeFiltros` | `valores`, `tematicas`, `onCambiar`, `conVigencia`, `colapsableEnMovil` | Cliente. Búsqueda, temática, tipo de dato, vigencia (opcional) y orden de campañas. Solo dibuja: `/sistema/campanas` escribe los cambios en la URL y `/supervision`, `/supervisar` y `/revisiones` filtran en el navegador con `lib/campanas/filtro-local.ts`. Con `colapsableEnMovil` (hoy solo `/supervision`), en móvil deja visible la búsqueda y un ícono que abre un card emergente con los selects en borrador; se aplican al dar "Filtrar". En escritorio no cambia |
+| `layout/TopBar` | `usuario: SessionUser` | Búsqueda (`layout/BuscadorDeLaBarra`: solo en las rutas de `RUTAS_CON_BUSCADOR`: `/campanas` y `/mis-aportes`; aún no busca nada), `NotificationsBell` (resincroniza el push y se actualiza al llegar uno; las 8 más nuevas, contador del servidor, consulta cada minuto con la pestaña visible; se cierra con Esc o clic fuera; "Ver todas" lleva a `/notificaciones`; se actualiza al oír `EVENTO_NOTIFICACIONES`), avatar |
 | `ui/SelectorDeTemas` | `opciones`, `seleccionados`, `onAceptar`, `quitables`, `unica`, `deshabilitado`, `titulo`, `descripcion` | Muestra las temáticas elegidas y abre un `<dialog>` nativo con buscador; aplica solo al dar Aceptar. En `/bienvenida`, `/cuenta` (con `quitables`: × en cada una) y la temática del formulario de campaña (con `unica`: exactamente una) |
 | `layout/CuentaBloqueada` | `nombre`, `bloqueo`, `historial` | Pantalla de `/cuenta-bloqueada`: motivo y contador de sanciones |
 | `layout/VigilanteDeSesion` | — | En el layout de `(dashboard)`: revisa la sesión en cada navegación y recarga si ya no vale |
@@ -103,6 +104,7 @@ Las pantallas del panel usan solo ese kit, y las de usuario solo `components/ui/
 - **Grids:** `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3`.
 - **TopBar:** oculta el nombre en pantallas pequeñas.
 - **Panel del SuperUsuario (2026-10-04, Gerard):** menú de Usuarios en móvil con `/usuarios?movil=menu` y las opciones móviles de `Subtabs` (`listaEnMovil`, `distribuidasEnMovil`, `volverAlMenuEnMovil`, `menuInicialMovil`); tablas del panel como tarjetas `md:hidden` + tabla en escritorio; botones de sanciones con `anchoCompleto`.
+- **Filtros en fila desplazable (2026-10-05, Gerard):** los botones de filtro de `/campanas`, `/mis-aportes`, `/mis-campanas` y las categorías de `/supervision`, y las opciones de temática, estado y orden de `/explorar`, van en móvil en una sola fila con scroll horizontal (`dashboard-nav flex-nowrap overflow-x-auto`, `shrink-0 whitespace-nowrap` en cada botón y `md:flex-wrap` en escritorio). `.dashboard-nav` (`app/globals.css`) oculta la barra de scroll.
 
 **Pendiente o por revisar:**
 

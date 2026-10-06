@@ -45,7 +45,7 @@
 | `intereses.ts` 🟢 | `TEMAS_DE_INTERES`: las 23 temáticas. Se usan como intereses del perfil **y** como temática de las campañas |
 | `mexico-geo.ts` 🟢 | Estados y municipios de México (`ESTADOS_DE_MEXICO`, `municipiosDe`) |
 | `perfil-opciones.ts` 🟢 | Especialidades del perfil |
-| `campaign-date.ts` | Fechas de campaña y las transiciones automáticas (`activateScheduledCampaigns`, `finalizeExpiredCampaigns`, `hasCampaignStarted`, `hasCampaignEnded`) |
+| `campaign-date.ts` | Fechas de campaña y las transiciones automáticas (`activateScheduledCampaigns`, `finalizeExpiredCampaigns`, `hasCampaignStarted`, `hasCampaignEnded`). Al activar o finalizar por fecha, avisa al creador |
 | `open-data.ts` | Catálogo de datos abiertos (`/datos`): búsqueda, facetas, formatos, licencia |
 
 ## Por módulo
@@ -58,6 +58,9 @@
 | `comun.ts` | `guardarFotoDelAporte()` (valida, limpia y sube a MinIO), `insertarAporteConCuota()` (cuenta e inserta con candado: sin carrera de cuota), `recalcularContadores()` (contadores de la campaña desde `aportes`, con la campaña bloqueada) y reexporta `archivo.ts` | `POST /api/aportes`, `aportes-anonimos.ts` |
 | `imagen.ts` | `limpiarImagen()`: comprueba la firma JPG/PNG y vuelve a codificar con `sharp`, quitando EXIF (GPS), ICC y XMP | `comun.ts` |
 | `anonimato.ts` | Cookie `anonimo_id` y `hashDeDispositivo()` | Aporte anónimo, `/c/[token]`, sanciones |
+| `reporte.ts` | "Reportar al creador": el revisor avisa al creador (guarda el motivo en el aporte, notifica y registra en bitácora). No banea | `POST /api/aportes/[id]/reportar` |
+| `decision.ts` | Sin `pg`: `tieneDecision()` y `ESTADOS_SIN_DECISION`, la regla de que una decisión no se cambia | API de aportes, `sanciones-anonimas.ts`, pantallas |
+| `motivos-de-rechazo.ts` | Sin `pg`: listas de motivos para rechazar y para reportar | Pantallas del creador y del revisor |
 | `sanciones-anonimas.ts` | Sanciones a personas sin cuenta: marcar inapropiado, bloqueo por campaña, bloqueo global automático (3 inapropiados en 30 días → 30 días), borrar archivo, listar y quitar bloqueos | API de aportes y de baneos, `/usuarios/sanciones` |
 | `acciones-bloqueos.ts` | Server action `quitarBloqueoDeDispositivo` (SuperUsuario) | `/usuarios/sanciones` |
 | `bandeja.ts` | Bandeja del SuperUsuario: `buscarAportes` (filtros y paginación en SQL), `contarPorEtapa`, `listarCampanasConAportes`, `campanaTieneRevisor`, `PESTANAS_APORTES` y etiquetas de etapa. Exige sesión raíz; no lee archivos, correos ni la descripción completa | `/aportes`, `/aportes/dashboard` |
@@ -99,8 +102,17 @@
 | `contrasena-actual.ts` | Comprueba la contraseña actual; un error suma al bloqueo del login | Cambio de contraseña, baja de cuenta |
 | `rol-asignable.ts` 🟢 | Nombres y descripciones de roles para la interfaz | Panel |
 | `perfil.ts` 🟢 | Largos máximos de los campos del perfil (`errorDeLargo`) y `interesesValidos()` contra `lib/intereses.ts` | `POST /api/usuarios`, `PATCH /api/usuarios/[id]` |
-| `acciones-usuarios.ts` ⚡ | `asignarRol`, `revocarRol`, `aplicarSancion`, `restaurarAcceso` | `/usuarios/[id]/{roles,sancion}`, `/usuarios/sanciones` |
+| `acciones-usuarios.ts` ⚡ | `asignarRol`, `revocarRol`, `aplicarSancion`, `restaurarAcceso`. Cada una notifica a la persona | `/usuarios/[id]/{roles,sancion}`, `/usuarios/sanciones` |
 | `acciones-supervisor.ts` ⚡ | `revertirAccion` (**sin implementar**) | `/usuarios/supervisores/[id]/revertir/...` |
+
+### `notificaciones/`
+
+| Archivo | Qué hace | Lo usa |
+| --- | --- | --- |
+| `notificaciones.ts` | `notificar()` crea una notificación (nunca lanza: si falla, solo lo registra en el log; llámala después del `COMMIT`). `listarNotificaciones()` (paginada, todas o sin leer, con el total sin leer), `marcarNotificacion()`, `marcarTodasComoLeidas()` y `borrarNotificacion()` (no borra una invitación de revisor sin aceptar) | `/api/notificaciones/**`, `/notificaciones` y los eventos: `PATCH /api/aportes/[id]`, `/api/campanas/[id]/{baneos,revisores}`, `decision.ts`, `campaign-date.ts`, `acciones-usuarios.ts` |
+| `push.ts` | Notificaciones push (Web Push con `web-push` y llaves VAPID): guardar o borrar la suscripción de un navegador (solo servicios de push conocidos) y `enviarPush()`, que `notificar()` llama en segundo plano. Sin llaves en el entorno queda apagado | `/api/push`, `notificaciones.ts` |
+| `registro-push.ts` | Lado del navegador, sin `pg`: registra `public/sw.js`, pide permiso, suscribe, desactiva y resincroniza; `estadoDePush()` distingue sin soporte, iPhone sin instalar, bloqueado, inactivo y activo | `AvisosEnEsteDispositivo`, `NotificationsBell`, `LogoutButton` |
+| `tipos.ts` | Sin `pg`: `TipoDeNotificacion` (los 16 eventos), el tipo `Notificacion` que entrega la API, el tono de cada tipo y el formato de fecha (`fechaDeNotificacion`, `haceCuanto`) | `NotificationsBell`, `ListaDeNotificaciones` |
 
 ### `sistema/`
 

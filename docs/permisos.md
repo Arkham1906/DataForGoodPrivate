@@ -96,9 +96,8 @@ No hay una función central: cada handler lo comprueba con SQL. Si agregas una r
 | Acción | Quién |
 | --- | --- |
 | Editar, finalizar, ver bandeja, invitar revisores, banear | El creador (`campanas.creator_id`) |
-| Aceptar un aporte en primera instancia | Revisor aceptado de la campaña (solo aportes `pendiente`) |
-| Aceptar o rechazar un aporte | El creador |
-| Ver el archivo de un aporte | Quien aportó, el creador, o un revisor aceptado (si el aporte está pendiente o él lo revisó) |
+| Aceptar o rechazar un aporte (decisión final) | El creador, o un revisor aceptado de la campaña (este solo si el aporte aún no tiene decisión) |
+| Ver el archivo de un aporte | Quien aportó, el creador, o un revisor aceptado (si el aporte está pendiente o él lo decidió) |
 | Aportar | Cualquier usuario que **no** sea el creador, no esté baneado de esa campaña y tenga cuota; campaña `activa` |
 | Tomar y dictaminar una campaña | Un supervisor que no sea su creador (o el SuperUsuario), si está `en_revision` y libre. Solo quien la tomó puede dictaminar (`lib/supervision/decision.ts`) |
 
@@ -123,7 +122,7 @@ Puede participar **solo si le comparten una campaña** (enlace o QR `/c/[token]`
 - **Privacidad:** el aporte se guarda como "Anónimo", sin correo ni nombre de archivo, y la foto sin metadatos. De la cookie solo se guarda su hash. La IP no se guarda en ningún lado (ni en la bitácora): los límites por IP viven en memoria.
 - **Revisión:** el creador lo acepta o rechaza como cualquier aporte; nadie recibe el motivo del rechazo.
 - **Sanciones** (`lib/aportes/sanciones-anonimas.ts`):
-  - Creador y revisor marcan un aporte como "Contenido inapropiado" (el creador al rechazar; el revisor con un botón que no cambia el estado).
+  - Creador y revisor marcan un aporte anónimo como "Contenido inapropiado" (al rechazarlo o con un botón que no cambia el estado). Banear y bloquear, solo el creador. Un aporte ya decidido no se marca ni se borra su archivo; banear desde él sí se puede.
   - Solo el creador bloquea el dispositivo en su campaña (se quita en "Participantes baneados"), borra el archivo y apaga los aportes sin cuenta.
   - 3 aportes inapropiados del mismo dispositivo en 30 días lo bloquean 30 días en toda la plataforma. Solo el SuperUsuario lo quita antes (`/usuarios/sanciones`).
 

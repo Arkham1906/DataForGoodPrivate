@@ -21,6 +21,16 @@ export async function estaBaneadoDeCampana(campanaId: string | number, usuarioId
   );
   return (result.rowCount ?? 0) > 0;
 }
+
+/** Motivo que escribió el creador al banear a esta persona, o null si no está baneada. Se le muestra a ella. */
+export async function motivoDeBaneo(campanaId: string | number, usuarioId: string | number): Promise<string | null> {
+  const result = await pool.query<{ motivo: string }>(
+    `SELECT motivo FROM campana_baneados WHERE campana_id = $1 AND usuario_id = $2 LIMIT 1`,
+    [campanaId, usuarioId]
+  );
+  return result.rows[0]?.motivo ?? null;
+}
+
 export async function listarBaneadosDeCampana(campanaId: string | number): Promise<BaneadoDeCampana[]> {
   const result = await pool.query(
     `SELECT b.usuario_id, b.motivo, b.created_at, u.nombre, u.apellidos
