@@ -27,7 +27,6 @@ DataForGood conecta organizaciones con personas que aportan información en camp
   - **Contraseñas:** `ui/PasswordInput` (botón de ojo) en todo campo de contraseña de la zona de usuario. Reglas en `lib/reglas-contrasena.ts` (8+ caracteres, mayúscula, número, carácter especial, máx. 72 bytes), exigidas en la pantalla y en el servidor (registro y cambio). **Cambio de contraseña** en `/cuenta` (`PATCH /api/usuarios/[id]/contrasena`): la actual equivocada suma al mismo contador de bloqueo que el login (`MAX_FAILED_ATTEMPTS`/`LOCK_DURATION_MS` en `lib/password.ts`), **no cierra sesiones** (decisión del usuario) y se registra como `usuario.contrasena_cambiar`.
   - **`/cuenta`:** campos deshabilitados hasta "Editar perfil"; "Guardar cambios" solo en edición y aviso centrado al guardar. Arriba "Editar perfil" y "Cerrar sesión"; "Eliminar cuenta" hasta abajo; "Preferencias" es una fila de Seguridad que abre un `<dialog>`.
   - **Filtros de campañas:** `components/campanas/BarraDeFiltros` (la de `/sistema/campanas`) también en `/supervision`, `/supervisar` y `/revisiones`, que filtran en el navegador con `lib/campanas/filtro-local.ts` (mismos criterios que `buscarCampanas()`).
-  - **Buscador de la barra superior** (`layout/BuscadorDeLaBarra`): solo en `/campanas` y `/mis-aportes`.
   - **Logo:** `layout/Logo`, con el ícono y la palabra de `public/logo.svg` y `public/Texto.svg`. Con el cursor encima pasa a "DFG"; en `max-md`, siempre "DFG".
 - **2026-10-04 (commit `47528cf`, de Gerard): panel del SuperUsuario en móvil.**
   - `components/sistema/Topbar` ya **no tiene buscador** (mandaba a `/campanas?q=`, inútil para el SuperUsuario) ni la insignia "SuperUsuario".
@@ -58,7 +57,7 @@ DataForGood conecta organizaciones con personas que aportan información en camp
   - **Antes del próximo despliegue:** correr una vez `scripts/limpiar-metadatos.mjs` en el servidor (lista; luego `--aplicar`) y que el puerto de la app solo sea accesible desde el proxy (el tope y la espera por IP confían en `X-Forwarded-For`; lo está consultando el usuario con el encargado).
   - **Pantallas a 360 px: las hace Gerard** (otro colaborador). No tocar el responsivo móvil ni los estilos de `globals.css` por iniciativa propia; si un cambio afecta el móvil, avisar.
   - Números provisionales (`TODO(dominio)`): 3 inapropiados en 30 días → 30 días de bloqueo, 60 s de espera, 20 aportes anónimos por IP por hora, 50 MP.
-  - **Botones sin función:** los indicadores de "Preferencias" y el interruptor de "Privacidad" en `/cuenta`, y el buscador de la barra superior (no busca nada).
+  - **Botones sin función:** los indicadores de "Preferencias" y el interruptor de "Privacidad" en `/cuenta`.
   - Favicon: sigue el de Next; se puede usar el ícono de `public/logo.svg`.
 
 | Zona | Rutas | Acceso |

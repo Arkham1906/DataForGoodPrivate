@@ -199,13 +199,6 @@ body {
     padding-inline: 12px;
   }
 
-  .dashboard-user-topbar > input {
-    width: auto;
-    max-width: none;
-    flex: 1 1 auto;
-    padding-inline: 14px;
-  }
-
   .dashboard-user-topbar > div {
     gap: 8px;
   }
