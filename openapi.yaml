@@ -148,6 +148,71 @@ paths:
                       expiresAt: { type: string, format: date-time }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /api/auth/recuperar:
+    post:
+      tags: [Auth]
+      summary: Pedir el código para recuperar la contraseña
+      description: |
+        Sin sesión. Responde lo mismo exista o no la cuenta; si existe, genera un código de 6 dígitos
+        (vence en 15 minutos, 3 intentos) y lo envía por correo después de responder. A una misma cuenta
+        se le envía como máximo un código cada 60 segundos (los pedidos de antes se ignoran en silencio).
+        Una cuenta solo de Google también lo recibe y con él crea su contraseña.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+            example: { email: persona@correo.com }
+      responses:
+        "200":
+          description: Pedido recibido (no indica si el correo tiene cuenta)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+        "400": { $ref: "#/components/responses/BadRequest" }
+
+  /api/auth/recuperar/restablecer:
+    post:
+      tags: [Auth]
+      summary: Cambiar la contraseña con el código del correo
+      description: |
+        Sin sesión. Si el código es correcto guarda la contraseña nueva (mismas reglas que el registro),
+        quita el bloqueo por intentos fallidos, marca el correo como verificado, cierra todas las sesiones
+        de la cuenta y quita sus avisos push. No abre sesión. Todo código inválido, vencido o agotado
+        (y un correo sin cuenta) da el mismo error 400.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, codigo, nueva]
+              properties:
+                email: { type: string, format: email }
+                codigo: { type: string, pattern: "^\\d{6}$" }
+                nueva: { type: string, format: password }
+            example: { email: persona@correo.com, codigo: "123456", nueva: "Nueva#2026" }
+      responses:
+        "200":
+          description: Contraseña cambiada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      ok: { type: boolean }
+        "400": { $ref: "#/components/responses/BadRequest" }
+
   /api/auth/google:
     get:
       tags: [Auth]
@@ -1487,7 +1552,7 @@ components:
 
     CampaignInput:
       type: object
-      required: [name, description, tematica, dataTypes, goalContributions, quotaPerUser, startDate, endDate, locationState, locationCity]
+      required: [name, description, tematica, dataTypes, goalContributions, quotaPerUser, startDate, endDate, locationState]
       properties:
         name: { type: string }
         description: { type: string }
@@ -1509,8 +1574,8 @@ components:
         endDate: { type: string, format: date }
         endTime: { type: string, example: "20:00" }
         locationState: { type: string }
-        locationCity: { type: string }
-        locationColonia: { type: string }
+        locationCity: { type: string, description: "Municipio. Opcional: vacío, la campaña abarca todo el estado" }
+        locationColonia: { type: string, description: "Solo con municipio; sin él se guarda vacía" }
         organizer: { type: string }
       example:
         name: Baches en Tepic

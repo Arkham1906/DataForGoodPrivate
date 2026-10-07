@@ -211,7 +211,6 @@ Están anotados para que no te sorprendan. No los "arregles de paso": cada uno e
 | --- | --- |
 | **Páginas del panel protegidas solo por el layout.** `/sistema` y `/usuarios/**` no vuelven a comprobar la sesión raíz (ni la página ni sus funciones de `lib/`). Las server actions que escriben sí verifican | `app/(panel)/sistema/page.tsx`, `app/(panel)/usuarios/**`, `lib/usuarios/{directorio,dashboard,supervisores}.ts`, `lib/sistema/metricas.ts` |
 | **`revertirAccion` no hace nada** todavía (tiene la guardia, pero la lógica es un `TODO`) | `lib/usuarios/acciones-supervisor.ts` |
-| Recuperar contraseña: **no existe** | — |
 | **Tope de aportes anónimos por IP en memoria:** se reinicia con cada despliegue y no se comparte entre instancias. En local, sin proxy delante, todas las peticiones caen en la misma "IP" (`desconocida`) y comparten el tope de 20 por hora | `lib/campanas/aportes-anonimos.ts` |
 | **El tope y la espera por IP confían en `X-Forwarded-For`.** Detrás del proxy es correcto; si el puerto de la app queda abierto a Internet, alguien puede inventar su IP. La cuota por dispositivo sí aplica. Se resuelve en el despliegue, no en el código | `lib/ip.ts`, `docker-compose.yml` |
 | **Fotos anteriores al 2026-10-01 en el servidor:** pueden conservar su EXIF (GPS incluido) hasta correr `scripts/limpiar-metadatos.mjs --aplicar` (comando en su cabecera) | MinIO |

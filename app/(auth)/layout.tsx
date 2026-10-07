@@ -1,4 +1,4 @@
-// Layout del grupo (auth): marco visual de entrar, registro, verificar, bienvenida y root.
+// Layout del grupo (auth): marco visual de entrar, registro, verificar, bienvenida, recuperar y root.
 // No pide sesión. El grupo no aparece en la URL (/entrar, no /auth/entrar).
 
 import Link from "next/link";

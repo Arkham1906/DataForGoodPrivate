@@ -72,7 +72,7 @@ No hay una función central: cada route handler lo comprueba con SQL. Si agregas
 - **Verificación** (`lib/verification.ts`): código de 6 dígitos enviado por Gmail (`nodemailer`), guardado como hash. Vence en 15 minutos y admite 3 intentos. La cookie `pending_verification_id` liga la pantalla `/verificar` con la cuenta.
 - **Inicio de sesión:** `POST /api/auth/login` con bcrypt (`lib/password.ts` también reconoce hashes viejos y los migra). Tras 5 fallos bloquea 15 minutos (`locked_until`). Rechaza cuentas sin verificar.
 - **Google:** `GET /api/auth/google` genera `state` en la cookie `google_oauth_state`. El callback vincula `google_id` o crea la cuenta ya verificada.
-- **Recuperar contraseña:** no existe.
+- **Recuperar contraseña** (implementado el 2026-10-07, decisiones del usuario; `lib/usuarios/recuperacion.ts`, pantalla `/recuperar`, `POST /api/auth/recuperar{, /restablecer}`): código de 6 dígitos por correo, como la verificación (15 min, 3 intentos, máximo uno cada 60 s por cuenta; `lib/usuarios/recuperacion-opciones.ts`). Pedirlo responde igual exista o no la cuenta, y el correo sale después de responder (`after()`), así que ni el mensaje ni el tiempo delatan la cuenta; todo fallo del código da el mismo error. Con el código se elige la contraseña nueva: quita el bloqueo por intentos, marca el correo como verificado (recibir el código lo demuestra), **cierra todas las sesiones y quita los avisos push** (a diferencia del cambio desde `/cuenta`), **no abre sesión** (va a `/entrar?contrasena=cambiada`) y se registra como `usuario.contrasena_recuperar`. **Una cuenta solo de Google también puede usarla y crea así su contraseña.** Pendiente: no hay tope por IP para pedir códigos (solo los 60 s por cuenta).
 
 ## 6. Sanciones y baneos
 

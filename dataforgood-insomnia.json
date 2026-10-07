@@ -179,6 +179,48 @@
       "metaSortKey": 7
     },
     {
+      "_id": "req_44",
+      "_type": "request",
+      "parentId": "fld_auth",
+      "name": "Recuperar contraseña: pedir código",
+      "method": "POST",
+      "url": "{{ _.base }}/api/auth/recuperar",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"email\": \"persona@correo.com\"\n}"
+      },
+      "description": "Responde igual exista o no la cuenta.",
+      "metaSortKey": 7.1
+    },
+    {
+      "_id": "req_45",
+      "_type": "request",
+      "parentId": "fld_auth",
+      "name": "Recuperar contraseña: cambiarla",
+      "method": "POST",
+      "url": "{{ _.base }}/api/auth/recuperar/restablecer",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"email\": \"persona@correo.com\",\n  \"codigo\": \"123456\",\n  \"nueva\": \"Nueva#2026\"\n}"
+      },
+      "description": "Cierra todas las sesiones de la cuenta; no abre una nueva.",
+      "metaSortKey": 7.2
+    },
+    {
       "_id": "req_13",
       "_type": "request",
       "parentId": "fld_auth",

@@ -282,7 +282,8 @@ export async function POST(request: Request) {
     const endTime = normalizeCampaignTime(body.endTime ?? body.end_time);
     const locationCity = String(body.locationCity ?? body.location_city ?? "").trim();
     const locationState = String(body.locationState ?? body.location_state ?? "").trim();
-    const locationColonia = String(body.locationColonia ?? body.location_colonia ?? "").trim();
+    // Sin municipio la campaña abarca todo el estado, y la colonia no aplica.
+    const locationColonia = locationCity ? String(body.locationColonia ?? body.location_colonia ?? "").trim() : "";
     const organizer = String(body.organizer ?? "").trim();
     // Columnas viejas del enlace (ya no se usan: campana_enlaces).
     const shareToken = "";
@@ -312,9 +313,6 @@ export async function POST(request: Request) {
       }
       if (!locationState) {
         return NextResponse.json({ error: "Selecciona un estado" }, { status: 400 });
-      }
-      if (!locationCity) {
-        return NextResponse.json({ error: "Selecciona un municipio" }, { status: 400 });
       }
     }
 

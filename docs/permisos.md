@@ -109,7 +109,7 @@ No hay una función central: cada handler lo comprueba con SQL. Si agregas una r
 - **Google** (`lib/google.ts`): `GET /api/auth/google` guarda un `state` aleatorio en la cookie `google_oauth_state` y redirige. El callback compara el `state`, vincula `google_id` a una cuenta existente con ese correo o crea una nueva ya verificada.
 - **Volver a donde estabas:** el parámetro `?next=` viaja por `/entrar`, `/registro`, `/verificar`, `/bienvenida` y Google. `destinoSeguro()` (`lib/redireccion.ts`) solo acepta rutas internas, para evitar redirecciones abiertas.
 - **SuperUsuario** (`POST /api/auth/root` y `POST /api/auth/root/token`, ambos con `verificarCredencialRoot()` de `lib/root-acceso.ts`): compara en tiempo constante y limita a 5 intentos por minuto por IP y 30 en total (en memoria: se reinicia con cada despliegue).
-- **Recuperar contraseña:** no existe.
+- **Recuperar contraseña** (`/recuperar`, `lib/usuarios/recuperacion.ts`): código de 6 dígitos por correo (15 min, 3 intentos, uno cada 60 s por cuenta). Pedirlo responde igual exista o no la cuenta y el correo sale después de responder. Con el código se elige la contraseña nueva: quita el bloqueo por intentos, marca el correo como verificado, **cierra todas las sesiones** y quita los avisos push; no abre sesión. Una cuenta solo de Google crea así su contraseña. Se registra como `usuario.contrasena_recuperar`.
 
 ### Persona anónima (sin cuenta)
 

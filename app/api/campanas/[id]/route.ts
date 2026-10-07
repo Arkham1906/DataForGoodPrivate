@@ -314,7 +314,10 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const endTime = "endTime" in body || "end_time" in body ? normalizeCampaignTime(body.endTime ?? body.end_time) : undefined;
     const locationCity = "locationCity" in body || "location_city" in body ? String(body.locationCity ?? body.location_city ?? "").trim() : null;
     const locationState = "locationState" in body || "location_state" in body ? String(body.locationState ?? body.location_state ?? "").trim() : null;
-    const locationColonia = "locationColonia" in body || "location_colonia" in body ? String(body.locationColonia ?? body.location_colonia ?? "").trim() : null;
+    // Sin municipio la campaña abarca todo el estado, y la colonia no aplica.
+    const locationColonia = locationCity === ""
+      ? ""
+      : "locationColonia" in body || "location_colonia" in body ? String(body.locationColonia ?? body.location_colonia ?? "").trim() : null;
     const organizer = "organizer" in body ? String(body.organizer ?? "").trim() : null;
     // El XP y "revisor asignado" no los cambia el creador (lib/campanas/estado-del-creador.ts):
     // has_reviewer_assigned lo pone aceptar la invitación de revisor.
@@ -347,9 +350,6 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       }
       if (locationState !== null && !locationState) {
         return NextResponse.json({ error: "Selecciona un estado" }, { status: 400 });
-      }
-      if (locationCity !== null && !locationCity) {
-        return NextResponse.json({ error: "Selecciona un municipio" }, { status: 400 });
       }
     }
 
@@ -477,7 +477,8 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     const endTime = normalizeCampaignTime(body.endTime ?? body.end_time);
     const locationCity = String(body.locationCity ?? body.location_city ?? "").trim();
     const locationState = String(body.locationState ?? body.location_state ?? "").trim();
-    const locationColonia = String(body.locationColonia ?? body.location_colonia ?? "").trim();
+    // Sin municipio la campaña abarca todo el estado, y la colonia no aplica.
+    const locationColonia = locationCity ? String(body.locationColonia ?? body.location_colonia ?? "").trim() : "";
     const organizer = String(body.organizer ?? "").trim();
     // El XP y "revisor asignado" se conservan: no los decide el creador.
     const xpPerContribution = null;
@@ -506,9 +507,6 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
       }
       if (!locationState) {
         return NextResponse.json({ error: "Selecciona un estado" }, { status: 400 });
-      }
-      if (!locationCity) {
-        return NextResponse.json({ error: "Selecciona un municipio" }, { status: 400 });
       }
     }
 

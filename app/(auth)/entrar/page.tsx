@@ -5,6 +5,7 @@
 // Respeta ?next= (lib/redireccion.ts) para volver a la pantalla que se pidió.
 // Si iniciar sesión canceló una baja de cuenta (bajaCancelada en la respuesta del login, o
 // ?baja=cancelada desde el regreso de Google), muestra el aviso antes de seguir.
+// "¿Olvidaste tu contraseña?" lleva a /recuperar, que regresa con ?contrasena=cambiada.
 
 import { Suspense, useState } from "react";
 import Link from "next/link";
@@ -41,6 +42,8 @@ function EntrarForm() {
   const [submitting, setSubmitting] = useState(false);
   // La sesión ya está abierta: el aviso solo explica y deja continuar.
   const [bajaCancelada, setBajaCancelada] = useState(() => searchParams.get("baja") === "cancelada");
+  // Viene de /recuperar tras cambiar la contraseña.
+  const contrasenaCambiada = searchParams.get("contrasena") === "cambiada";
   // Pantalla que se pidió sin sesión (proxy.ts la manda en ?next=).
   const next = searchParams.get("next");
   const destino = destinoSeguro(next);
@@ -118,6 +121,12 @@ function EntrarForm() {
         </p>
       </div>
 
+      {contrasenaCambiada && (
+        <div role="status" className="mb-5 rounded-lg bg-ok-tint p-3.5 text-[12.5px] leading-relaxed text-ok">
+          Tu contraseña se cambió y cerramos tu sesión en todos los dispositivos. Ya puedes entrar con la nueva.
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} style={retraso(220)} className="landing-entrada flex flex-col">
         <Field label="Correo" required>
           <Input
@@ -142,7 +151,7 @@ function EntrarForm() {
           )}
         </Field>
 
-        <Link href="#" className="mb-5 text-[13px] font-medium text-accent hover:underline">
+        <Link href={conDestino("/recuperar", next)} className="mb-5 text-[13px] font-medium text-accent hover:underline">
           ¿Olvidaste tu contraseña?
         </Link>
 

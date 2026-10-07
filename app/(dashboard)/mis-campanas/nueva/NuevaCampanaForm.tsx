@@ -37,6 +37,10 @@ const DATA_TYPES: { value: DataType; label: string }[] = [
   { value: "documento", label: "Documento" },
 ];
 
+// Opción "Todo el estado" del selector de municipio. Solo vive en el formulario:
+// se manda y se guarda como municipio vacío.
+const TODO_EL_ESTADO = "__todo_el_estado__";
+
 const MAX_ACTIVE_CAMPAIGNS = 5;
 
 const ESTADO_LABELS: Record<string, string> = {
@@ -137,7 +141,11 @@ function CampanaFormulario({
   const [endDate, setEndDate] = useState(editingCampaign?.endDate ?? "");
   const [endTime, setEndTime] = useState(editingCampaign?.endTime ?? "");
   const [locationState, setLocationState] = useState(editingCampaign?.locationState ?? "");
-  const [locationCity, setLocationCity] = useState(editingCampaign?.locationCity ?? "");
+  // Una campaña guardada con estado y sin municipio abarca todo el estado.
+  const [locationCity, setLocationCity] = useState(
+    editingCampaign?.locationCity || (editingCampaign?.locationState ? TODO_EL_ESTADO : "")
+  );
+  const municipioReal = locationCity === TODO_EL_ESTADO ? "" : locationCity;
   const [locationColonia, setLocationColonia] = useState(editingCampaign?.locationColonia ?? "");
   const [reactivando, setReactivando] = useState(false);
   const [reactivarError, setReactivarError] = useState<string | null>(null);
@@ -190,6 +198,12 @@ function CampanaFormulario({
     // estado anterior: no tiene sentido conservarlos.
     setLocationCity("");
     setLocationColonia("");
+  }
+
+  function cambiarMunicipio(nuevoMunicipio: string) {
+    setLocationCity(nuevoMunicipio);
+    // Con "Todo el estado" la colonia no tiene a qué pertenecer.
+    if (!nuevoMunicipio || nuevoMunicipio === TODO_EL_ESTADO) setLocationColonia("");
   }
 
   function toggleDataType(type: DataType) {
@@ -323,7 +337,7 @@ function CampanaFormulario({
     if (!endDate) return "Falta la fecha de finalización";
     if (endDate < startDate) return "La fecha de finalización no puede ser anterior a la de inicio";
     if (!locationState) return "Selecciona un estado";
-    if (!locationCity) return "Selecciona un municipio";
+    if (!locationCity) return "Selecciona un municipio o \"Todo el estado\"";
 
     return null;
   }
@@ -362,7 +376,7 @@ function CampanaFormulario({
           startTime: startTime || null,
           endDate,
           endTime: endTime || null,
-          locationCity,
+          locationCity: municipioReal,
           locationState,
           locationColonia,
         };
@@ -710,7 +724,7 @@ function CampanaFormulario({
           <Field label="Municipio" required>
             <select
               value={locationCity}
-              onChange={(e) => setLocationCity(e.target.value)}
+              onChange={(e) => cambiarMunicipio(e.target.value)}
               required={!edicionLimitada}
               disabled={!locationState || edicionLimitada}
               className="w-full rounded border border-line-2 bg-surface px-3.5 py-3 text-sm text-ink outline-none transition-colors focus:border-accent disabled:cursor-not-allowed disabled:opacity-50"
@@ -718,7 +732,8 @@ function CampanaFormulario({
               <option value="">
                 {locationState ? "Selecciona un municipio" : "Primero selecciona un estado"}
               </option>
-              {opcionesCon(locationCity, municipiosDe(locationState)).map((opcion) => (
+              {locationState && <option value={TODO_EL_ESTADO}>Todo el estado</option>}
+              {opcionesCon(municipioReal, municipiosDe(locationState)).map((opcion) => (
                 <option key={opcion}>{opcion}</option>
               ))}
             </select>
@@ -728,8 +743,8 @@ function CampanaFormulario({
               value={locationColonia}
               onChange={(e) => setLocationColonia(e.target.value)}
               maxLength={150}
-              placeholder="p. ej. Centro"
-              disabled={edicionLimitada}
+              placeholder={municipioReal ? "p. ej. Centro" : "Primero selecciona un municipio"}
+              disabled={!municipioReal || edicionLimitada}
               className="disabled:cursor-not-allowed disabled:opacity-50"
             />
           </Field>

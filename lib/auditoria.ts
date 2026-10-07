@@ -31,6 +31,8 @@ export type AccionAuditada =
   | "root.acceso_fallido"
   | "root.token_api"
   | "usuario.contrasena_cambiar"
+  // "¿Olvidaste tu contraseña?" (lib/usuarios/recuperacion.ts).
+  | "usuario.contrasena_recuperar"
   // Baja voluntaria de cuenta (lib/usuarios/baja.ts).
   | "usuario.baja_solicitar"
   | "usuario.baja_cancelar"

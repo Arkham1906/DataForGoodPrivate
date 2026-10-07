@@ -43,6 +43,7 @@ No piden sesión. Archivos en `app/` (fuera de los grupos).
 | `/entrar` | `(auth)/entrar/page.tsx` | C | `POST /api/auth/login`. Botón de Google → `GET /api/auth/google?next=...`. Respeta `?next=` para volver a la pantalla pedida (`lib/redireccion.ts`). Si el login canceló una baja de cuenta (`bajaCancelada` en la respuesta, o `?baja=cancelada` desde el regreso de Google), muestra el aviso "Tu cuenta sigue activa" y un botón "Continuar" |
 | `/registro` | `(auth)/registro/page.tsx` | C | `POST /api/usuarios` (crea la cuenta y envía el código) → `/verificar` |
 | `/verificar` | `(auth)/verificar/page.tsx` | C | `GET /api/auth/verificar` (a qué correo se envió), `POST /api/auth/verificar` (código), `POST /api/auth/verificar/reenviar` |
+| `/recuperar` | `(auth)/recuperar/page.tsx` | C | "¿Olvidaste tu contraseña?" de `/entrar`. Paso 1: correo → `POST /api/auth/recuperar`. Paso 2: código de 6 dígitos + contraseña nueva → `POST /api/auth/recuperar/restablecer`. Al terminar va a `/entrar?contrasena=cambiada` (aviso). Respeta `?next=` |
 | `/bienvenida` | `(auth)/bienvenida/page.tsx` | C | `GET /api/auth/sesion`. Pasos 3 y 4 del registro: paso 3, estado y municipio (se guardan al dar "Siguiente"); paso 4, especialidad e intereses. Guarda con `PATCH /api/usuarios/[id]`. Catálogos en `lib/mexico-geo.ts`, `lib/intereses.ts`, `lib/perfil-opciones.ts` |
 | `/root` | `(auth)/root/page.tsx` + `RootLoginForm.tsx` | S + C | `POST /api/auth/root` (credencial del SuperUsuario) → `/sistema` |
 
@@ -163,6 +164,8 @@ Todos los archivos están en `app/api/<ruta>/route.ts`. Respuesta: `{ data }` o 
 | `GET /api/auth/google/callback` | Libre | Vincula o crea la cuenta, inicia sesión y redirige | Google |
 | `GET`, `POST /api/auth/verificar` | Cookie `pending_verification_id` | GET: correo pendiente. POST: valida el código de 6 dígitos (vence en 15 min, 3 intentos) | `/verificar` |
 | `POST /api/auth/verificar/reenviar` | Cookie pendiente | Genera y envía un código nuevo | `/verificar` |
+| `POST /api/auth/recuperar` | Libre | Pide el código de recuperación. Misma respuesta exista o no la cuenta; el correo sale después de responder (`after`). Máximo un código cada 60 s por cuenta | `/recuperar` |
+| `POST /api/auth/recuperar/restablecer` | Libre | `{ email, codigo, nueva }`. Código de 6 dígitos (15 min, 3 intentos; mismo error para todo fallo). Guarda la contraseña, quita el bloqueo, marca el correo verificado, cierra todas las sesiones y quita los avisos push. No abre sesión | `/recuperar` |
 | `POST /api/auth/root` | Libre (5 intentos/min por IP) | Valida `ROOT_USER_ID` + `ROOT_PASSWORD_HASH` y crea la cookie `root_session_token` | `/root` |
 | `POST /api/auth/root/token` | Libre (mismo límite) | Misma credencial; devuelve un token Bearer de 2 horas (sin cookie) para usar la API desde Swagger u otro cliente. Bitácora `root.token_api` | Swagger (`/api/docs`) |
 

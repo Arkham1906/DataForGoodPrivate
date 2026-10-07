@@ -35,6 +35,11 @@ export async function ensureUsuariosTable(): Promise<void> {
       verification_code_hash VARCHAR(64),
       verification_code_expires_at TIMESTAMPTZ,
       verification_attempts INTEGER NOT NULL DEFAULT 0,
+      -- Recuperación de contraseña (lib/usuarios/recuperacion.ts): código de 6 dígitos como hash.
+      recuperacion_codigo_hash VARCHAR(64),
+      recuperacion_vence_en TIMESTAMPTZ,
+      recuperacion_intentos INTEGER NOT NULL DEFAULT 0,
+      recuperacion_enviada_en TIMESTAMPTZ,
       -- Baja voluntaria (lib/usuarios/baja.ts): se pide, corre un plazo de gracia y al
       -- vencer la fila se vacía de datos personales (eliminada_en). Nunca se borra la fila:
       -- campanas.creator_id es ON DELETE CASCADE y se llevaría aportes de otras personas.
@@ -64,6 +69,10 @@ export async function ensureUsuariosTable(): Promise<void> {
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS verification_code_expires_at TIMESTAMPTZ;
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS verification_attempts INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE usuarios ALTER COLUMN password_hash DROP NOT NULL;
+    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS recuperacion_codigo_hash VARCHAR(64);
+    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS recuperacion_vence_en TIMESTAMPTZ;
+    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS recuperacion_intentos INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS recuperacion_enviada_en TIMESTAMPTZ;
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS baja_solicitada_en TIMESTAMPTZ;
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS baja_efectiva_en TIMESTAMPTZ;
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS baja_destino_aportes VARCHAR(20);

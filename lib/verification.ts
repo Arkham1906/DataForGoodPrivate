@@ -1,11 +1,11 @@
-// Verificación del correo: código de 6 dígitos enviado por Gmail (nodemailer), guardado como hash.
+// Verificación del correo: código de 6 dígitos enviado por correo (lib/correo.ts), guardado como hash.
 // Vence en 15 minutos y admite 3 intentos. La cookie pending_verification_id liga /verificar con la cuenta.
 
 import { randomInt, createHash } from "crypto";
 import { cookies } from "next/headers";
 import type { NextResponse } from "next/server";
-import nodemailer from "nodemailer";
 import { pool } from "@/lib/db";
+import { enviarCorreo, escaparHtml } from "@/lib/correo";
 
 export const PENDING_COOKIE = "pending_verification_id";
 const CODE_LENGTH = 6;
@@ -26,35 +26,17 @@ function hashCode(code: string) {
   return createHash("sha256").update(code).digest("hex");
 }
 
-function getMailTransport() {
-  const user = process.env.GMAIL_USER;
-  const pass = String(process.env.GMAIL_APP_PASSWORD ?? "").replace(/\s+/g, "");
-
-  if (!user || !pass) {
-    throw new Error("GMAIL_USER o GMAIL_APP_PASSWORD no están configuradas");
-  }
-
-  return nodemailer.createTransport({
-    service: "gmail",
-    auth: { user, pass },
-  });
-}
-
 async function sendVerificationEmail(email: string, nombre: string, code: string) {
-  const transport = getMailTransport();
-  const from = process.env.EMAIL_FROM || process.env.GMAIL_USER;
-
-  await transport.sendMail({
-    from,
-    to: email,
-    subject: "Tu código de verificación de DataForGood",
-    html: `
-      <p>Hola ${nombre},</p>
+  await enviarCorreo(
+    email,
+    "Tu código de verificación de DataForGood",
+    `
+      <p>Hola ${escaparHtml(nombre)},</p>
       <p>Tu código de verificación es:</p>
       <p style="font-size: 28px; font-weight: bold; letter-spacing: 4px;">${code}</p>
       <p>Expira en 15 minutos. Si no lo solicitaste, ignora este correo.</p>
-    `,
-  });
+    `
+  );
 }
 
 export async function startVerification(

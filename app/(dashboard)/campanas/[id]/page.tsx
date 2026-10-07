@@ -98,7 +98,7 @@ export default function CampaignDetailPage() {
 
         <div className="mb-6 flex flex-wrap gap-5 text-[13px] text-ink-2">
           <span>
-            {campaign.locationCity}, {campaign.locationState}
+            {[campaign.locationCity, campaign.locationState].filter(Boolean).join(", ")}
           </span>
           <span>
             {campaign.startDate && parseDateOnly(campaign.startDate)?.toLocaleDateString("es-MX", {
