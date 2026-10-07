@@ -100,7 +100,7 @@
 | `revisor.ts` | Retirar a alguien como revisor de todas sus campañas | `revocarRol` (al quitar el rol de revisor), borrado definitivo de una cuenta |
 | `baja.ts` | Baja voluntaria: resumen, pedirla, cancelarla al iniciar sesión y borrado definitivo al vencer el plazo | `/cuenta/eliminar`, `DELETE /api/usuarios/[id]`, login y Google, `instrumentation-node.ts` (cada hora) |
 | `baja-opciones.ts` 🟢 | Constantes de la baja: 30 días, ELIMINAR, destinos de los aportes, formato de fecha | `/cuenta/eliminar`, `/baja-solicitada`, `baja.ts` |
-| `recuperacion.ts` | Recuperación de contraseña: pedir el código (sin revelar si la cuenta existe) y cambiarla con él (cierra todas las sesiones) | `POST /api/auth/recuperar{, /restablecer}` |
+| `recuperacion.ts` | Códigos por correo para poner contraseña: recuperarla sin sesión (sin revelar si la cuenta existe; cierra todas las sesiones) y crearla desde `/cuenta` en una cuenta de Google (conserva las sesiones) | `POST /api/auth/recuperar{, /restablecer}`, `POST /api/usuarios/[id]/contrasena{, /codigo}` |
 | `recuperacion-opciones.ts` 🟢 | Números de la recuperación: 15 min, 3 intentos, 60 s entre correos | `/recuperar`, `recuperacion.ts` |
 | `contrasena-actual.ts` | Comprueba la contraseña actual; un error suma al bloqueo del login | Cambio de contraseña, baja de cuenta |
 | `rol-asignable.ts` 🟢 | Nombres y descripciones de roles para la interfaz | Panel |

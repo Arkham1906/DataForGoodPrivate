@@ -1,16 +1,28 @@
-// Recuperación de contraseña ("¿Olvidaste tu contraseña?", pantalla /recuperar).
+// Códigos por correo para poner contraseña. Dos caminos comparten el mismo código
+// (columnas recuperacion_* de usuarios):
 //
-// 1. solicitarRecuperacion(): si el correo tiene cuenta, guarda el hash de un código de
-//    6 dígitos y lo envía. Si no la tiene, no hace nada: la ruta responde igual en los dos
-//    casos (y corre esto después de responder) para no revelar qué correos tienen cuenta.
-//    Una cuenta solo de Google (sin contraseña) también lo recibe y con él crea su
-//    contraseña (decisión del usuario, 2026-10-07).
-// 2. restablecerContrasena(): con el correo, el código y la contraseña nueva. El código
-//    vence en MINUTOS_DE_VIGENCIA y admite INTENTOS_POR_CODIGO; todo fallo da el mismo
-//    mensaje. Si es correcto: guarda la contraseña, quita el bloqueo por intentos, marca el
-//    correo como verificado (recibir el código lo demuestra), cierra todas las sesiones y
-//    quita los avisos push de la cuenta (decisión del usuario: quien recupera puede ser
-//    víctima de un acceso indebido). No abre sesión: la pantalla manda a /entrar.
+// A. Recuperar ("¿Olvidaste tu contraseña?", pantalla /recuperar, sin sesión).
+//    1. solicitarRecuperacion(): si el correo tiene cuenta, guarda el hash de un código de
+//       6 dígitos y lo envía. Si no la tiene, no hace nada: la ruta responde igual en los dos
+//       casos (y corre esto después de responder) para no revelar qué correos tienen cuenta.
+//       Una cuenta solo de Google (sin contraseña) también lo recibe y con él crea su
+//       contraseña (decisión del usuario, 2026-10-07).
+//    2. restablecerContrasena(): con el correo, el código y la contraseña nueva. Si es
+//       correcto: guarda la contraseña, quita el bloqueo por intentos, marca el correo como
+//       verificado (recibir el código lo demuestra), cierra todas las sesiones y quita los
+//       avisos push de la cuenta (decisión del usuario: quien recupera puede ser víctima de
+//       un acceso indebido). No abre sesión: la pantalla manda a /entrar.
+//
+// B. Con sesión, desde /cuenta (decisiones del usuario, 2026-10-07): "Cambiar" ya no pide la
+//    contraseña actual, y una cuenta de Google crea así su contraseña para entrar de las dos
+//    formas.
+//    1. enviarCodigoDeContrasena(): manda el código al correo de la cuenta. Se pide aunque
+//       haya sesión, para que una sesión robada no baste para quedarse con la cuenta.
+//    2. ponerContrasenaConCodigo(): igual que restablecer, pero conserva las sesiones (como
+//       el cambio de contraseña de siempre).
+//
+// En los dos, el código vence en MINUTOS_DE_VIGENCIA, admite INTENTOS_POR_CODIGO y hay
+// SEGUNDOS_ENTRE_ENVIOS entre correos a la misma cuenta; todo fallo da el mismo mensaje.
 
 import { createHash, randomInt } from "crypto";
 import { pool } from "@/lib/db";
@@ -25,26 +37,32 @@ function hashDeCodigo(codigo: string) {
   return createHash("sha256").update(codigo).digest("hex");
 }
 
-/* ── 1. Pedir el código ────────────────────────────────────────────────────── */
+/* ── Enviar el código ──────────────────────────────────────────────────────── */
 
-export async function solicitarRecuperacion(email: string): Promise<void> {
+type Cuenta = { email: string } | { id: number };
+
+/**
+ * Genera el código y lo envía. Devuelve false si no se envió: la cuenta no existe, o le
+ * mandamos otro hace menos de SEGUNDOS_ENTRE_ENVIOS. Un solo UPDATE condicional: si llegan
+ * dos peticiones juntas, solo una pasa la espera y manda correo.
+ */
+async function enviarCodigo(cuenta: Cuenta): Promise<boolean> {
   const codigo = randomInt(0, 1_000_000).toString().padStart(6, "0");
+  const [condicion, valor] = "email" in cuenta ? ["email = $1", cuenta.email] : ["id = $1", cuenta.id];
 
-  // Un solo UPDATE condicional: si llegan dos peticiones juntas, solo una pasa la espera
-  // entre envíos y manda correo.
   const result = await pool.query<{ nombre: string; email: string; tiene_contrasena: boolean }>(
     `UPDATE usuarios
      SET recuperacion_codigo_hash = $2,
          recuperacion_vence_en = NOW() + make_interval(mins => $3),
          recuperacion_intentos = 0,
          recuperacion_enviada_en = NOW()
-     WHERE email = $1
+     WHERE ${condicion}
        AND eliminada_en IS NULL
        AND (recuperacion_enviada_en IS NULL OR recuperacion_enviada_en < NOW() - make_interval(secs => $4))
      RETURNING nombre, email, password_hash IS NOT NULL AS tiene_contrasena`,
-    [email, hashDeCodigo(codigo), MINUTOS_DE_VIGENCIA, SEGUNDOS_ENTRE_ENVIOS]
+    [valor, hashDeCodigo(codigo), MINUTOS_DE_VIGENCIA, SEGUNDOS_ENTRE_ENVIOS]
   );
-  if (!result.rowCount) return;
+  if (!result.rowCount) return false;
 
   const usuario = result.rows[0];
   const queHace = usuario.tiene_contrasena
@@ -53,7 +71,7 @@ export async function solicitarRecuperacion(email: string): Promise<void> {
 
   await enviarCorreo(
     usuario.email,
-    "Recupera tu contraseña de DataForGood",
+    usuario.tiene_contrasena ? "Recupera tu contraseña de DataForGood" : "Crea tu contraseña de DataForGood",
     `
       <p>Hola ${escaparHtml(usuario.nombre)},</p>
       <p>${queHace} Tu código es:</p>
@@ -61,20 +79,34 @@ export async function solicitarRecuperacion(email: string): Promise<void> {
       <p>Expira en ${MINUTOS_DE_VIGENCIA} minutos. Si no lo pediste, ignora este correo: tu contraseña no cambia.</p>
     `
   );
+  return true;
 }
 
-/* ── 2. Cambiar la contraseña con el código ────────────────────────────────── */
+export async function solicitarRecuperacion(email: string): Promise<void> {
+  await enviarCodigo({ email });
+}
 
-export type ResultadoDeRestablecer = { ok: true } | { ok: false; error: string };
+/** Devuelve false si ya se le envió uno hace menos de SEGUNDOS_ENTRE_ENVIOS. */
+export async function enviarCodigoDeContrasena(usuarioId: number): Promise<boolean> {
+  return enviarCodigo({ id: usuarioId });
+}
+
+/* ── Usar el código ────────────────────────────────────────────────────────── */
+
+export type ResultadoDeCodigo =
+  | { ok: true; creoContrasena: boolean }
+  | { ok: false; error: string };
 
 /** `nueva` ya cumple REGLAS_DE_CONTRASENA (lo revisa la ruta). */
-export async function restablecerContrasena(
-  email: string,
+async function usarCodigo(
+  cuenta: Cuenta,
   codigo: string,
-  nueva: string
-): Promise<ResultadoDeRestablecer> {
+  nueva: string,
+  modo: "recuperar" | "sesion"
+): Promise<ResultadoDeCodigo> {
   // El hash se calcula antes de bloquear la fila: bcrypt tarda.
   const nuevoHash = await hashPassword(nueva);
+  const [condicion, valor] = "email" in cuenta ? ["email = $1", cuenta.email] : ["id = $1", cuenta.id];
   const client = await pool.connect();
   let usuarioId: number;
   let creoContrasena: boolean;
@@ -84,9 +116,9 @@ export async function restablecerContrasena(
     const result = await client.query(
       `SELECT id, password_hash, recuperacion_codigo_hash, recuperacion_vence_en, recuperacion_intentos
        FROM usuarios
-       WHERE email = $1 AND eliminada_en IS NULL
+       WHERE ${condicion} AND eliminada_en IS NULL
        FOR UPDATE`,
-      [email]
+      [valor]
     );
     const fila = result.rows[0];
 
@@ -122,8 +154,10 @@ export async function restablecerContrasena(
        WHERE id = $1`,
       [usuarioId, nuevoHash]
     );
-    await client.query(`DELETE FROM sessions WHERE usuario_id = $1`, [usuarioId]);
-    await client.query(`DELETE FROM push_suscripciones WHERE usuario_id = $1`, [usuarioId]);
+    if (modo === "recuperar") {
+      await client.query(`DELETE FROM sessions WHERE usuario_id = $1`, [usuarioId]);
+      await client.query(`DELETE FROM push_suscripciones WHERE usuario_id = $1`, [usuarioId]);
+    }
     await client.query("COMMIT");
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});
@@ -134,9 +168,23 @@ export async function restablecerContrasena(
 
   await registrarAuditoria({
     actor: { tipo: "usuario", id: usuarioId },
-    accion: "usuario.contrasena_recuperar",
+    accion:
+      modo === "recuperar"
+        ? "usuario.contrasena_recuperar"
+        : creoContrasena
+          ? "usuario.contrasena_crear"
+          : "usuario.contrasena_cambiar",
     objetivo: { tipo: "usuario", id: usuarioId },
-    detalle: { creoContrasena },
+    detalle: modo === "recuperar" ? { creoContrasena } : { conCodigo: true },
   });
-  return { ok: true };
+  return { ok: true, creoContrasena };
+}
+
+export async function restablecerContrasena(email: string, codigo: string, nueva: string) {
+  return usarCodigo({ email }, codigo, nueva, "recuperar");
+}
+
+/** Crea la contraseña (cuenta de Google) o cambia la que se olvidó, con la sesión abierta. */
+export async function ponerContrasenaConCodigo(usuarioId: number, codigo: string, nueva: string) {
+  return usarCodigo({ id: usuarioId }, codigo, nueva, "sesion");
 }

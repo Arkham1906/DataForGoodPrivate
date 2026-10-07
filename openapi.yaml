@@ -474,9 +474,68 @@ paths:
           description: Demasiados intentos fallidos; la cuenta está bloqueada temporalmente
           content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
 
+  /api/usuarios/{id}/contrasena/codigo:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    post:
+      tags: [Usuarios]
+      summary: Enviar el código para poner contraseña con la sesión abierta
+      description: |
+        Solo la cuenta propia (403 con otro id). Es lo que usa /cuenta para cambiar la contraseña sin
+        pedir la actual, o para crearla en una cuenta de Google. Manda al correo
+        de la cuenta un código de 6 dígitos (vence en 15 minutos, 3 intentos). Como máximo uno cada
+        60 segundos (429 con `Retry-After`; el código anterior sigue sirviendo).
+      responses:
+        "200":
+          description: Código enviado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: object, properties: { email: { type: string } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { description: Ya se envió un código hace menos de 60 segundos, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+
   /api/usuarios/{id}/contrasena:
     parameters:
       - $ref: "#/components/parameters/Id"
+    post:
+      tags: [Usuarios]
+      summary: Poner la contraseña con el código del correo
+      description: |
+        Solo la cuenta propia. Con el código de `POST /api/usuarios/{id}/contrasena/codigo` y la
+        contraseña (mismas reglas que el registro). Una cuenta de Google la crea (desde entonces entra
+        con correo y contraseña o con Google); una con contraseña la cambia sin escribir la actual. Las
+        sesiones abiertas se conservan. Todo código inválido, vencido o agotado da el mismo 400. Se
+        registra en audit_log como `usuario.contrasena_crear` o `usuario.contrasena_cambiar` (con `conCodigo`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [codigo, nueva]
+              properties:
+                codigo: { type: string, pattern: "^\\d{6}$" }
+                nueva: { type: string, format: password }
+      responses:
+        "200":
+          description: Contraseña guardada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      ok: { type: boolean }
+                      creoContrasena: { type: boolean, description: true si la cuenta no tenía contraseña }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
     patch:
       tags: [Usuarios]
       summary: Cambiar la propia contraseña
@@ -486,6 +545,7 @@ paths:
         un carácter especial, y ser distinta de `actual`. Una `actual` equivocada suma un intento
         fallido al mismo contador del login: con 5 la cuenta queda bloqueada 15 minutos (423).
         Las sesiones abiertas se conservan. Se registra en audit_log como `usuario.contrasena_cambiar`.
+        Desde el 2026-10-07 ninguna pantalla lo usa (/cuenta cambia con código); queda para clientes de la API.
       requestBody:
         required: true
         content:

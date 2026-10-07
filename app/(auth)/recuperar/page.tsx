@@ -10,6 +10,7 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import Button from "@/components/ui/Button";
+import CodigoDeSeisDigitos from "@/components/ui/CodigoDeSeisDigitos";
 import { Field, Input } from "@/components/ui/Input";
 import PasswordInput from "@/components/ui/PasswordInput";
 import { BASE_PATH } from "@/lib/base-path";
@@ -152,18 +153,10 @@ function RecuperarForm() {
       </div>
 
       <form onSubmit={cambiarContrasena} className="flex flex-col">
-        <Field label="Código" required>
-          <Input
-            name="codigo"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            value={codigo}
-            onChange={(e) => setCodigo(e.target.value.replace(/\D/g, "").slice(0, 6))}
-            placeholder="000000"
-            className="font-mono tracking-[0.3em]"
-            required
-          />
-        </Field>
+        <div className="mb-4">
+          <p className="mb-2 text-[13px] font-medium text-ink">Código</p>
+          <CodigoDeSeisDigitos valor={codigo} onCambiar={setCodigo} deshabilitado={enviando} autoFocus />
+        </div>
 
         <Field label="Contraseña nueva" required>
           <PasswordInput

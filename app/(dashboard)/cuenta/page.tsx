@@ -1,7 +1,8 @@
 // Pantalla /cuenta: perfil del usuario. Server Component.
 // Datos: exigirUsuario(). PerfilForm.tsx pinta la tarjeta superior ("Editar perfil",
 // "Cerrar sesión"), los datos personales y los intereses, y guarda con PATCH /api/usuarios/[id].
-// La contraseña se cambia en CambiarContrasena.tsx con PATCH /api/usuarios/[id]/contrasena.
+// La contraseña se cambia (o, en una cuenta de Google, se crea) en CambiarContrasena.tsx con un
+// código enviado al correo de la cuenta; no se pide la actual.
 // "Eliminar cuenta" (hasta abajo) lleva a /cuenta/eliminar (baja voluntaria, SCR-WEB-31).
 
 import ButtonLink from "@/components/ui/ButtonLink";
@@ -94,10 +95,14 @@ export default async function CuentaPage() {
                   <p className="text-[12.5px] text-ink-2">
                     {currentUser.tiene_contrasena
                       ? "Inicia sesión con tu correo y contraseña"
-                      : "Esta cuenta inicia sesión con Google"}
+                      : "Esta cuenta inicia sesión con Google. Crea una contraseña para entrar también con tu correo"}
                   </p>
                 </div>
-                <CambiarContrasena usuarioId={Number(currentUser.id)} tieneContrasena={Boolean(currentUser.tiene_contrasena)} />
+                <CambiarContrasena
+                  usuarioId={Number(currentUser.id)}
+                  email={currentUser.email}
+                  tieneContrasena={Boolean(currentUser.tiene_contrasena)}
+                />
               </div>
             </div>
 

@@ -1,10 +1,51 @@
 // Fechas de campaña (DATE + TIME separados) y transiciones automáticas de estado, sin cron:
 // activateScheduledCampaigns (aceptada → activa) y finalizeExpiredCampaigns (activa → finalizada)
 // se ejecutan en cada lectura de /api/campanas y avisan al creador (campana_iniciada, campana_finalizada).
-// Las fechas se comparan en JS para evitar desfases de zona.
+//
+// La fecha y hora que escribe el creador son hora de pared de Tepic (sin zona). "Ahora" y
+// "hoy" se calculan siempre en ZONA_DE_CAMPANAS, no con la zona del proceso: dentro de
+// Docker el proceso corre en UTC, y una campaña de 15:00 a 20:00 se finalizaba al aceptarla
+// porque a las 12:00 de Tepic el servidor ya veía las 19:00 (2026-10-07).
 
 import { pool } from "@/lib/db";
 import { notificar } from "@/lib/notificaciones/notificaciones";
+
+/** Zona de las fechas y horas de campaña (Tepic, Nayarit; la misma del resto de la app). */
+export const ZONA_DE_CAMPANAS = "America/Mazatlan";
+
+const PARTES_DE_AHORA = new Intl.DateTimeFormat("en-CA", {
+  timeZone: ZONA_DE_CAMPANAS,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hourCycle: "h23",
+});
+
+/** Fecha y hora de pared de Tepic en este momento. */
+function ahoraEnZona(): { year: number; month: number; day: number; hour: number; minute: number; second: number } {
+  const partes = Object.fromEntries(
+    PARTES_DE_AHORA.formatToParts(new Date())
+      .filter((p) => p.type !== "literal")
+      .map((p) => [p.type, Number(p.value)])
+  );
+  return {
+    year: partes.year,
+    month: partes.month,
+    day: partes.day,
+    hour: partes.hour,
+    minute: partes.minute,
+    second: partes.second,
+  };
+}
+
+/** Milisegundos de "ahora" como hora de pared de Tepic, comparables con campaignMoment(). */
+function ahoraDePared(): number {
+  const a = ahoraEnZona();
+  return Date.UTC(a.year, a.month - 1, a.day, a.hour, a.minute, a.second);
+}
 
 /**
  * Convierte fechas de campaña a una fecha de calendario, sin aplicar UTC.
@@ -67,30 +108,30 @@ export function normalizeCampaignTime(value: unknown): string | null {
 }
 
 /**
- * Combina fecha + hora de una campaña en un Date local. Sin hora, se asume
- * "00:00" (medianoche local) para que una campaña sin hora definida se
- * comporte exactamente como antes de agregar start_time/end_time: activa o
- * finaliza en cuanto empieza ese día de calendario.
+ * Fecha + hora de una campaña como milisegundos de hora de pared (Date.UTC con
+ * los números tal cual), comparables con ahoraDePared(). Sin hora, se asume
+ * "00:00" para que una campaña sin hora definida se comporte exactamente como
+ * antes de agregar start_time/end_time: activa o finaliza en cuanto empieza
+ * ese día de calendario.
  */
-function campaignMoment(dateValue: unknown, timeValue: unknown): Date | null {
+function campaignMoment(dateValue: unknown, timeValue: unknown): number | null {
   const dateOnly = normalizeCampaignDate(dateValue);
   if (!dateOnly) return null;
 
   const time = normalizeCampaignTime(timeValue) ?? DEFAULT_TIME;
   const [year, month, day] = dateOnly.split("-").map(Number);
   const [hour, minute] = time.split(":").map(Number);
-  return new Date(year, month - 1, day, hour, minute, 0, 0);
+  return Date.UTC(year, month - 1, day, hour, minute, 0, 0);
 }
 
 /**
- * true si la fecha/hora dada ya pasó (o no tiene fecha definida). Compara
- * contra la hora local del proceso de Node, no contra NOW() de Postgres,
- * para no repetir el desfase de huso horario ya documentado.
+ * true si la fecha/hora dada ya pasó en Tepic (o no tiene fecha definida). No
+ * usa NOW() de Postgres ni la zona del proceso: las dos son UTC en Docker.
  */
 function hasMomentPassed(dateValue: unknown, timeValue?: unknown): boolean {
   const moment = campaignMoment(dateValue, timeValue);
-  if (!moment) return true;
-  return moment.getTime() <= Date.now();
+  if (moment === null) return true;
+  return moment <= ahoraDePared();
 }
 
 /** true si la fecha/hora de inicio ya llegó (o no tiene fecha definida). */
@@ -108,11 +149,11 @@ export function hasCampaignEnded(dateValue: unknown, timeValue?: unknown): boole
   return hasMomentPassed(dateValue, timeValue);
 }
 
-/** "YYYY-MM-DD HH:MM:SS" en hora local, para comparar contra columnas DATE+TIME en SQL sin usar NOW()/CURRENT_TIMESTAMP de Postgres. */
+/** "YYYY-MM-DD HH:MM:SS" en hora de Tepic, para comparar contra columnas DATE+TIME en SQL sin usar NOW()/CURRENT_TIMESTAMP de Postgres. */
 function nowLocalTimestampParam(): string {
-  const now = new Date();
+  const a = ahoraEnZona();
   const pad = (n: number) => n.toString().padStart(2, "0");
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  return `${a.year}-${pad(a.month)}-${pad(a.day)} ${pad(a.hour)}:${pad(a.minute)}:${pad(a.second)}`;
 }
 
 /**
@@ -181,9 +222,10 @@ export function calculateCampaignDaysRemaining(value: unknown): number | null {
   if (!dateOnly) return null;
 
   const [year, month, day] = dateOnly.split("-").map(Number);
-  const end = new Date(year, month - 1, day);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const end = Date.UTC(year, month - 1, day);
+  // "Hoy" es el día de Tepic, no el del servidor (en UTC ya es mañana desde las 17:00 de Tepic).
+  const a = ahoraEnZona();
+  const today = Date.UTC(a.year, a.month - 1, a.day);
 
-  return Math.max(0, Math.floor((end.getTime() - today.getTime()) / 86_400_000));
+  return Math.max(0, Math.floor((end - today) / 86_400_000));
 }

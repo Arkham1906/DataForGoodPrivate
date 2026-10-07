@@ -957,6 +957,40 @@
       "metaSortKey": 34.5
     },
     {
+      "_id": "req_contrasena_codigo",
+      "_type": "request",
+      "parentId": "fld_otros",
+      "name": "Enviar código para poner contraseña (crearla o cambiarla sin la actual)",
+      "method": "POST",
+      "url": "{{ _.base }}/api/usuarios/{{ _.usuarioId }}/contrasena/codigo",
+      "headers": [],
+      "parameters": [],
+      "body": {},
+      "description": "Solo la cuenta propia. Uno cada 60 s.",
+      "metaSortKey": 34.6
+    },
+    {
+      "_id": "req_contrasena_crear",
+      "_type": "request",
+      "parentId": "fld_otros",
+      "name": "Poner contraseña con el código (crearla o cambiarla sin la actual)",
+      "method": "POST",
+      "url": "{{ _.base }}/api/usuarios/{{ _.usuarioId }}/contrasena",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"codigo\": \"123456\",\n  \"nueva\": \"ContraseñaNueva1!\"\n}"
+      },
+      "description": "Con el código del correo. La sesión sigue abierta.",
+      "metaSortKey": 34.7
+    },
+    {
       "_id": "req_usuario_baja",
       "_type": "request",
       "parentId": "fld_otros",

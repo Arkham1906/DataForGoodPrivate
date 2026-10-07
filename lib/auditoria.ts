@@ -33,6 +33,8 @@ export type AccionAuditada =
   | "usuario.contrasena_cambiar"
   // "¿Olvidaste tu contraseña?" (lib/usuarios/recuperacion.ts).
   | "usuario.contrasena_recuperar"
+  // Cuenta de Google que crea su contraseña desde /cuenta (lib/usuarios/recuperacion.ts).
+  | "usuario.contrasena_crear"
   // Baja voluntaria de cuenta (lib/usuarios/baja.ts).
   | "usuario.baja_solicitar"
   | "usuario.baja_cancelar"
