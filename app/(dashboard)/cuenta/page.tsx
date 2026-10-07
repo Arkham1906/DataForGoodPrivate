@@ -4,7 +4,10 @@
 // La contraseña se cambia (o, en una cuenta de Google, se crea) en CambiarContrasena.tsx con un
 // código enviado al correo de la cuenta; no se pide la actual.
 // "Eliminar cuenta" (hasta abajo) lleva a /cuenta/eliminar (baja voluntaria, SCR-WEB-31).
+// Experimental (2026-10-07): al llegar con "Ver perfil" de la barra superior, el avatar y el
+// nombre vuelan a su lugar y la pantalla se despliega (View Transitions; ver EnlaceAlPerfil.tsx).
 
+import { ViewTransition } from "react";
 import ButtonLink from "@/components/ui/ButtonLink";
 import { exigirUsuario } from "@/lib/session";
 import PerfilForm from "./PerfilForm";
@@ -25,6 +28,9 @@ export default async function CuentaPage() {
   const roleLabel = ROLE_LABELS[primaryRole] ?? primaryRole;
 
   return (
+    // Al llegar con "Ver perfil" (tipo abrir-perfil) la pantalla se despliega de arriba abajo
+    // mientras el avatar y el nombre llegan a su lugar; con cualquier otra navegación, nada.
+    <ViewTransition enter={{ "abrir-perfil": "perfil-desplegar", default: "none" }} default="none">
     <div className="space-y-6">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -53,15 +59,20 @@ export default async function CuentaPage() {
         }}
         encabezado={
           <div className="flex items-center gap-4">
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-accent text-lg font-extrabold text-white">
-              {(currentUser.nombre ?? "")
-                .split(" ")
-                .map((p) => p[0])
-                .join("")
-                .slice(0, 2)}
-            </div>
+            {/* Mismo name que el avatar y el nombre de la barra superior (EnlaceAlPerfil): vuelan hasta aquí. */}
+            <ViewTransition name="perfil-avatar" share="perfil-viaje" default="none">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-accent text-lg font-extrabold text-white">
+                {(currentUser.nombre ?? "")
+                  .split(" ")
+                  .map((p) => p[0])
+                  .join("")
+                  .slice(0, 2)}
+              </div>
+            </ViewTransition>
             <div>
-              <p className="text-lg font-extrabold text-ink">{`${currentUser.nombre ?? ""} ${currentUser.apellidos ?? ""}`.trim()}</p>
+              <ViewTransition name="perfil-nombre" share="perfil-viaje" default="none">
+                <p className="w-fit text-lg font-extrabold text-ink">{`${currentUser.nombre ?? ""} ${currentUser.apellidos ?? ""}`.trim()}</p>
+              </ViewTransition>
               <p className="text-[13px] text-ink-2">{currentUser.email}</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 <span className="rounded-pill border border-line-2 bg-sunken px-3 py-1 text-[11px] font-semibold text-ink-2">
@@ -175,5 +186,6 @@ export default async function CuentaPage() {
         </ButtonLink>
       </div>
     </div>
+    </ViewTransition>
   );
 }
