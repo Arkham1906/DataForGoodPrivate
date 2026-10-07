@@ -159,7 +159,7 @@ export default function NotificationsBell() {
         <div
           role="dialog"
           aria-label="Notificaciones"
-          className="absolute right-0 top-11 z-20 w-80 max-w-[calc(100vw-2rem)] rounded-lg border border-line bg-surface shadow-lg"
+          className="absolute right-0 top-11 z-20 w-80 max-w-[calc(100vw-2rem)] rounded-lg border border-line bg-surface shadow-lg max-md:fixed max-md:left-3 max-md:right-3 max-md:top-[var(--dashboard-topbar-height,76px)] max-md:w-auto max-md:max-w-none"
         >
           <div className="flex items-center justify-between gap-2 border-b border-line px-3 py-2.5">
             <p className="text-sm font-bold text-ink">Notificaciones</p>
@@ -175,7 +175,7 @@ export default function NotificationsBell() {
           {items.length === 0 ? (
             <p className="px-3 py-6 text-center text-[12.5px] text-ink-2">No tienes notificaciones.</p>
           ) : (
-            <ul className="max-h-96 divide-y divide-line overflow-y-auto">
+            <ul className="max-h-96 divide-y divide-line overflow-y-auto max-md:max-h-[calc(100dvh-var(--dashboard-topbar-height,76px)-7rem)]">
               {items.map((item) => (
                 <li key={item.id} className={item.readAt ? "" : "bg-accent-tint"}>
                   <button
@@ -189,7 +189,7 @@ export default function NotificationsBell() {
                     />
                     <span className="min-w-0 flex-1">
                       <span className="flex items-baseline justify-between gap-2">
-                        <span className={`text-[12.5px] text-ink ${item.readAt ? "font-semibold" : "font-bold"}`}>{item.title}</span>
+                        <span className={`min-w-0 flex-1 break-words text-[12.5px] text-ink ${item.readAt ? "font-semibold" : "font-bold"}`}>{item.title}</span>
                         <span className="shrink-0 text-[10.5px] text-ink-3">{haceCuanto(item.createdAt, ahora)}</span>
                       </span>
                       <span className="mt-0.5 line-clamp-3 block text-[12px] leading-5 text-ink-2">{item.message}</span>
