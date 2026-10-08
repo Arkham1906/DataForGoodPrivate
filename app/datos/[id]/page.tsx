@@ -1,5 +1,6 @@
 // Pantalla /datos/[id] (pública): ficha de un conjunto de datos abierto.
-// Datos: obtenerConjuntoAbierto() de lib/open-data.ts. Descarga: GET /api/datos/[id]/descarga (ZIP).
+// Datos: obtenerConjuntoAbierto() de lib/open-data.ts. Descarga: GET /api/datos/[id]/descarga (ZIP con los
+// archivos y la tabla aportes.csv).
 
 import Link from "next/link";
 import type { Metadata } from "next";
@@ -111,24 +112,27 @@ export default async function ConjuntoAbiertoPage({
 
         <Card className="mt-4 bg-sunken">
           <p className="text-[13px] font-semibold text-ink">Descarga del conjunto</p>
-          {conjunto.sizeBytes > 0 ? (
+          {conjunto.approvedContributions > 0 ? (
             <>
               <p className="mt-1.5 text-[12.5px] leading-relaxed text-ink-2">
-                ZIP con los archivos de los aportes aprobados ({conjunto.formats.join(", ")}),
-                renombrados sin nombre ni correo de quien participó. {conjunto.sizeLabel} en total.
+                ZIP con la tabla <span className="font-mono">aportes.csv</span> (cada aporte aprobado
+                con su campaña, ubicación, descripción y tipo; quien participó aparece como
+                “Participante 1”, “Participante 2”… o “Anónimo”, nunca con su nombre ni correo)
+                {conjunto.sizeBytes > 0
+                  ? ` y los archivos de los aportes (${conjunto.formats.join(", ")}), ${conjunto.sizeLabel} en total.`
+                  : ". Los aportes de esta campaña no tienen archivos (por ejemplo, son de texto)."}
               </p>
               <ButtonLink
                 href={`/api/datos/${conjunto.id}/descarga`}
                 variant="primary"
                 className="mt-3 inline-flex"
               >
-                Descargar ZIP ({conjunto.sizeLabel})
+                {conjunto.sizeBytes > 0 ? `Descargar ZIP (${conjunto.sizeLabel})` : "Descargar ZIP"}
               </ButtonLink>
             </>
           ) : (
             <p className="mt-1.5 text-[12.5px] leading-relaxed text-ink-2">
-              Los aportes aprobados de esta campaña no tienen archivo asociado (por ejemplo, si
-              fueron de texto), así que todavía no hay un ZIP que descargar.
+              Esta campaña todavía no tiene aportes aprobados, así que no hay nada que descargar.
             </p>
           )}
         </Card>

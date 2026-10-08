@@ -1494,6 +1494,12 @@ paths:
     get:
       tags: [Datos abiertos]
       summary: Descargar un conjunto de datos abiertos (ZIP)
+      description: |
+        Solo campañas finalizadas. El ZIP trae los archivos de los aportes aceptados
+        (`aporte-001.jpg`...) y la tabla `aportes.csv` (UTF-8 con BOM) con una fila por aporte aceptado,
+        también los de solo texto: `aporte`, `archivo`, `usuario` ("Participante N", "Anónimo" o
+        "Cuenta eliminada"; nunca nombre ni correo), `campaña`, `ubicación`, `descripción` y
+        `tipo de aporte`. Suma 1 a las descargas de la campaña.
       security: []
       responses:
         "200":

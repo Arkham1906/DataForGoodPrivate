@@ -237,7 +237,7 @@ Todos los archivos están en `app/api/<ruta>/route.ts`. Respuesta: `{ data }` o 
 | `DELETE /api/notificaciones/[id]` | Sesión, dueño de la notificación | Borra la notificación; una invitación de revisor sin aceptar no se borra (409) | `/notificaciones` |
 | `GET`, `POST`, `DELETE /api/push` | Sesión | Notificaciones push: `GET` da la llave pública VAPID; `POST { subscription }` activa los avisos en este navegador (solo endpoints https de Google, Apple, Mozilla o Microsoft; hasta 10 por persona); `DELETE { endpoint }` los quita | `AvisosEnEsteDispositivo` (`/notificaciones`), `NotificationsBell` (resincroniza al cargar), `LogoutButton` (quita al salir) |
 | `POST /api/notificaciones/[id]/aceptar` | Sesión, dueño de la notificación | Acepta una invitación de revisor y avisa al creador | `NotificationsBell`, `/notificaciones` |
-| `GET /api/datos/[id]/descarga` | Libre | ZIP con los archivos de los aportes aceptados de una campaña `finalizada` (sin datos personales). Suma 1 a `downloads_count` | `/datos/[id]` |
+| `GET /api/datos/[id]/descarga` | Libre | ZIP con los archivos de los aportes aceptados de una campaña `finalizada` y la tabla `aportes.csv` (`lib/open-data-csv.ts`; quien participó va como "Participante N" o "Anónimo", sin datos personales). Suma 1 a `downloads_count` | `/datos/[id]` |
 | `GET /api/docs`, `GET /api/docs/spec` | `next dev` libre; producción con sesión raíz | Swagger UI y el YAML | Navegador |
 
 ## 6. Server actions

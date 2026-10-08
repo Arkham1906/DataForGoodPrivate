@@ -2,36 +2,44 @@ import { ZipArchive } from "archiver";
 import { NextResponse } from "next/server";
 import { pool } from "@/lib/db";
 import { extensionForMime } from "@/lib/open-data";
+import { tablaDeAportesCsv, ubicacionDeCampana, type FilaDeAporteAbierto } from "@/lib/open-data-csv";
 import { readUploadedFile } from "@/lib/minio";
 
 /**
  * Descarga pública del conjunto de datos abierto de una campaña finalizada:
- * un ZIP con los archivos de sus aportes aceptados, sin nombre ni correo de
- * quien participó (dominio.md § 9). El contador de descargas sube en cada
- * ZIP generado, no cuando el navegador termina de bajarlo.
+ * un ZIP con los archivos de sus aportes aceptados y la tabla aportes.csv
+ * (desde el 2026-10-07; lib/open-data-csv.ts), sin nombre ni correo de quien
+ * participó (dominio.md § 9). La tabla lleva todos los aportes aceptados,
+ * también los de solo texto; cada archivo se llama aporte-NNN.ext con el
+ * mismo número que su fila. El contador de descargas sube en cada ZIP
+ * generado, no cuando el navegador termina de bajarlo.
  */
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
 
     const campana = await pool.query(
-      `SELECT id, name FROM campanas WHERE id = $1 AND status = 'finalizada' LIMIT 1`,
+      `SELECT id, name, location_state, location_city, location_colonia
+       FROM campanas WHERE id = $1 AND status = 'finalizada' LIMIT 1`,
       [id]
     );
     if (campana.rowCount === 0) {
       return NextResponse.json({ error: "Conjunto no encontrado" }, { status: 404 });
     }
+    const c = campana.rows[0];
 
     const aportes = await pool.query(
-      `SELECT id, file_path, file_mime_type
+      `SELECT id, user_id, anonimo_id, participant_name, description, file_type,
+              CASE WHEN archivo_borrado_en IS NULL THEN NULLIF(file_path, '') END AS file_path,
+              file_mime_type
        FROM aportes
-       WHERE campaign_id = $1 AND status = 'aceptado' AND file_path IS NOT NULL AND file_path <> '' AND archivo_borrado_en IS NULL
+       WHERE campaign_id = $1 AND status = 'aceptado'
        ORDER BY id`,
       [id]
     );
     if (aportes.rowCount === 0) {
       return NextResponse.json(
-        { error: "Este conjunto todavía no tiene archivos aprobados para descargar" },
+        { error: "Este conjunto todavía no tiene aportes aprobados para descargar" },
         { status: 404 }
       );
     }
@@ -44,25 +52,43 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       archive.on("error", reject);
     });
 
-    let contador = 0;
+    const ubicacion = ubicacionDeCampana(c.location_state, c.location_city, c.location_colonia);
+    const filas: FilaDeAporteAbierto[] = [];
+    let numero = 0;
     for (const row of aportes.rows) {
-      contador += 1;
-      try {
-        const buffer = await readUploadedFile(String(row.file_path));
-        const ext = extensionForMime(String(row.file_mime_type ?? ""));
-        archive.append(buffer, { name: `aporte-${String(contador).padStart(3, "0")}${ext}` });
-      } catch (fileError) {
-        // Un archivo que ya no está en MinIO no debe tumbar la descarga completa.
-        console.error(`No se pudo leer el archivo del aporte ${row.id} para el ZIP`, fileError);
+      numero += 1;
+      let archivo = "";
+      if (row.file_path) {
+        const nombre = `aporte-${String(numero).padStart(3, "0")}${extensionForMime(String(row.file_mime_type ?? ""))}`;
+        try {
+          const buffer = await readUploadedFile(String(row.file_path));
+          archive.append(buffer, { name: nombre });
+          archivo = nombre;
+        } catch (fileError) {
+          // Un archivo que ya no está en MinIO no debe tumbar la descarga completa; su fila
+          // queda en la tabla con la columna de archivo vacía.
+          console.error(`No se pudo leer el archivo del aporte ${row.id} para el ZIP`, fileError);
+        }
       }
+      filas.push({
+        numero,
+        archivo,
+        usuarioId: row.user_id === null ? null : Number(row.user_id),
+        sinCuenta: row.anonimo_id !== null || row.participant_name === "Anónimo",
+        campana: String(c.name ?? ""),
+        ubicacion,
+        descripcion: String(row.description ?? ""),
+        tipo: String(row.file_type ?? ""),
+      });
     }
+    archive.append(tablaDeAportesCsv(filas), { name: "aportes.csv" });
     await archive.finalize();
     await finished;
 
     await pool.query(`UPDATE campanas SET downloads_count = downloads_count + 1 WHERE id = $1`, [id]);
 
     const zipBuffer = Buffer.concat(chunks);
-    const nombreArchivo = `${campana.rows[0].name}`.replace(/[^a-z0-9-]+/gi, "-").toLowerCase();
+    const nombreArchivo = `${c.name}`.replace(/[^a-z0-9-]+/gi, "-").toLowerCase();
 
     return new NextResponse(new Uint8Array(zipBuffer), {
       headers: {
