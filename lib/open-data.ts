@@ -106,7 +106,9 @@ const SELECT = `
     SELECT SUM(a.file_size_bytes)::bigint AS size_bytes,
            array_agg(DISTINCT a.file_mime_type) FILTER (WHERE a.file_mime_type IS NOT NULL) AS formats
     FROM aportes a
+    -- Solo archivos que siguen en MinIO: uno borrado por moderación no entra al ZIP.
     WHERE a.campaign_id = c.id AND a.status = 'aceptado'
+      AND NULLIF(a.file_path, '') IS NOT NULL AND a.archivo_borrado_en IS NULL
   ) f ON true
 `;
 

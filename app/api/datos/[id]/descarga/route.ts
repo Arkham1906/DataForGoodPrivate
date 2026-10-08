@@ -31,6 +31,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     const aportes = await pool.query(
       `SELECT id, user_id, anonimo_id, participant_name, description, file_type,
               CASE WHEN archivo_borrado_en IS NULL THEN NULLIF(file_path, '') END AS file_path,
+              archivo_borrado_en IS NOT NULL AS archivo_borrado,
               file_mime_type
        FROM aportes
        WHERE campaign_id = $1 AND status = 'aceptado'
@@ -58,7 +59,10 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     for (const row of aportes.rows) {
       numero += 1;
       let archivo = "";
-      if (row.file_path) {
+      if (row.archivo_borrado) {
+        // Lo borró quien administra la campaña (contenido ilegal o dañino): ya no existe.
+        archivo = "(archivo eliminado)";
+      } else if (row.file_path) {
         const nombre = `aporte-${String(numero).padStart(3, "0")}${extensionForMime(String(row.file_mime_type ?? ""))}`;
         try {
           const buffer = await readUploadedFile(String(row.file_path));

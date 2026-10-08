@@ -10,7 +10,10 @@ import type { DataType } from "@/types";
 export type FilaDeAporteAbierto = {
   /** Número del aporte dentro del conjunto (1, 2, 3...), el mismo del nombre de su archivo. */
   numero: number;
-  /** Nombre del archivo dentro del ZIP, o "" si el aporte no tiene archivo (texto) o no se pudo leer. */
+  /**
+   * Nombre del archivo dentro del ZIP; "(archivo eliminado)" si se borró por moderación; "" si el
+   * aporte no tiene archivo (texto) o no se pudo leer.
+   */
   archivo: string;
   usuarioId: number | null;
   /** El aporte llegó sin cuenta (por el enlace público). */

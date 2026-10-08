@@ -120,7 +120,7 @@ export default async function ConjuntoAbiertoPage({
                 “Participante 1”, “Participante 2”… o “Anónimo”, nunca con su nombre ni correo)
                 {conjunto.sizeBytes > 0
                   ? ` y los archivos de los aportes (${conjunto.formats.join(", ")}), ${conjunto.sizeLabel} en total.`
-                  : ". Los aportes de esta campaña no tienen archivos (por ejemplo, son de texto)."}
+                  : ". Esta campaña no tiene archivos que descargar: sus aportes son de texto o sus archivos se eliminaron por moderación."}
               </p>
               <ButtonLink
                 href={`/api/datos/${conjunto.id}/descarga`}
