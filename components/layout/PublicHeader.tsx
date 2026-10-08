@@ -6,7 +6,7 @@ import Logo from "@/components/layout/Logo";
 
 export default function PublicHeader() {
   return (
-    <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-b border-system-200 px-6 py-4">
+    <header className="public-header flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-b border-system-200 px-6 py-4">
       <Link href="/" className="flex items-center">
         <Logo />
       </Link>

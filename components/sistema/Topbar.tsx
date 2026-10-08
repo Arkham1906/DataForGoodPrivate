@@ -15,7 +15,7 @@ export default function Topbar({ identificador }: TopbarProps) {
   const iniciales = identificador.slice(0, 2).toUpperCase();
 
   return (
-    <header className="dashboard-topbar flex flex-wrap items-center justify-between gap-3 border-b border-system-200 bg-white px-4 py-3 sm:px-6">
+    <header className="dashboard-root-topbar dashboard-topbar flex flex-wrap items-center justify-between gap-3 border-b border-system-200 bg-white px-4 py-3 sm:px-6">
       <Link href="/sistema" className="flex shrink-0 items-center">
         <Logo />
       </Link>
