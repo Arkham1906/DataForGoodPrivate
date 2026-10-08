@@ -4,10 +4,11 @@
 
 import { InputHTMLAttributes, useState } from "react";
 import { Input } from "@/components/ui/Input";
+import { marcarComoControl } from "@/components/ui/CampoEtiquetado";
 
 type PasswordInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, "type">;
 
-export default function PasswordInput({ className, ...props }: PasswordInputProps) {
+function PasswordInput({ className, ...props }: PasswordInputProps) {
   const [visible, setVisible] = useState(false);
 
   return (
@@ -19,7 +20,7 @@ export default function PasswordInput({ className, ...props }: PasswordInputProp
         aria-label={visible ? "Ocultar contraseña" : "Mostrar contraseña"}
         aria-pressed={visible}
         title={visible ? "Ocultar contraseña" : "Mostrar contraseña"}
-        className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-ink-3 transition-colors hover:text-ink"
+        className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-system-500 transition-colors hover:text-system-900"
       >
         {visible ? <IconoOjoTachado /> : <IconoOjo />}
       </button>
@@ -46,3 +47,6 @@ function IconoOjoTachado() {
     </svg>
   );
 }
+
+// Field le conecta su etiqueta (ui/CampoEtiquetado).
+export default marcarComoControl(PasswordInput);

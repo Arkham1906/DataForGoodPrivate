@@ -81,7 +81,7 @@ export default async function ListadoDeCampanasPage({ searchParams }: { searchPa
 
   const claseChip = (activo: boolean) =>
     `inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap rounded-pill border px-3.5 py-1.5 text-[13px] font-semibold transition-colors max-md:px-2.5 max-md:py-1 max-md:text-[12px] ${
-      activo ? "border-accent bg-accent text-white" : "border-line-2 bg-surface text-ink-2 hover:border-accent"
+      activo ? "border-brand-600 bg-brand-600 text-white" : "border-system-300 bg-white text-system-600 hover:border-brand-600"
     }`;
 
   return (
@@ -130,7 +130,7 @@ export default async function ListadoDeCampanasPage({ searchParams }: { searchPa
       </Suspense>
 
       {filas.length === 0 ? (
-        <p className="py-7 text-[13px] text-ink-2">
+        <p className="py-7 text-[13px] text-system-600">
           Ninguna campaña coincide con estos filtros. Prueba quitando alguno o buscando por otro término.
         </p>
       ) : (
@@ -140,22 +140,22 @@ export default async function ListadoDeCampanasPage({ searchParams }: { searchPa
               const et = ETIQUETA_DE_CAMPANA[c.estado];
               const dias = diasRestantes(c.venceEn);
               return (
-                <article key={c.id} className="rounded-lg border border-line bg-surface p-4 shadow-sm">
+                <article key={c.id} className="rounded-lg border border-system-200 bg-white p-4 shadow-sm">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="break-words text-[14px] font-bold leading-snug text-ink">
+                      <p className="break-words text-[14px] font-bold leading-snug text-system-900">
                         {c.nombre}
                       </p>
-                      <p className="mt-1 break-words text-[11px] leading-snug text-ink-3">
+                      <p className="mt-1 break-words text-[11px] leading-snug text-system-500">
                         {c.tematica || "Sin temática"} · {c.creador || "Sin creador"}
                       </p>
                     </div>
                     <Tag tone={et.tono}>{et.texto}</Tag>
                   </div>
 
-                  <div className="mt-3 border-t border-line pt-3">
-                    <p className="text-[11px] text-ink-2">Tipo de dato</p>
-                    <p className="mt-1 break-words text-[13px] leading-relaxed text-ink">
+                  <div className="mt-3 border-t border-system-200 pt-3">
+                    <p className="text-[11px] text-system-600">Tipo de dato</p>
+                    <p className="mt-1 break-words text-[13px] leading-relaxed text-system-900">
                       {c.tiposDeDato.length > 0
                         ? c.tiposDeDato.map((t) => NOMBRE_DE_TIPO[t]).join(" · ")
                         : "—"}
@@ -164,20 +164,20 @@ export default async function ListadoDeCampanasPage({ searchParams }: { searchPa
 
                   <dl className="mt-3 grid grid-cols-2 gap-3">
                     <div>
-                      <dt className="text-[11px] text-ink-2">Participantes</dt>
-                      <dd className="mt-0.5 font-mono text-[14px] font-semibold tabular-nums text-ink">
+                      <dt className="text-[11px] text-system-600">Participantes</dt>
+                      <dd className="mt-0.5 font-mono text-[14px] font-semibold tabular-nums text-system-900">
                         {formatearNumero(c.participantes)}
                       </dd>
                     </div>
                     <div>
-                      <dt className="text-[11px] text-ink-2">Aportes / meta</dt>
-                      <dd className="mt-0.5 font-mono text-[14px] font-semibold tabular-nums text-ink">
+                      <dt className="text-[11px] text-system-600">Aportes / meta</dt>
+                      <dd className="mt-0.5 font-mono text-[14px] font-semibold tabular-nums text-system-900">
                         {formatearNumero(c.aportes)}/{formatearNumero(c.meta)}
                       </dd>
                     </div>
                     <div className="col-span-2">
-                      <dt className="text-[11px] text-ink-2">Vence</dt>
-                      <dd className="mt-0.5 text-[12px] text-ink">
+                      <dt className="text-[11px] text-system-600">Vence</dt>
+                      <dd className="mt-0.5 text-[12px] text-system-900">
                         {c.venceEn ? (
                           <span title={dias !== null ? `Faltan ${dias} días` : undefined}>
                             {formatearFechaCampana(c.venceEn, false)}
@@ -199,9 +199,9 @@ export default async function ListadoDeCampanasPage({ searchParams }: { searchPa
             })}
           </div>
 
-          <div className="hidden overflow-x-auto rounded-lg border border-line bg-surface p-5 shadow-sm md:block">
+          <div className="hidden overflow-x-auto rounded-lg border border-system-200 bg-white p-5 shadow-sm md:block">
             <table className="w-full min-w-[820px] text-left text-[13.5px]">
-              <thead className="border-b border-line font-mono text-[10px] uppercase tracking-[0.1em] text-ink-3">
+              <thead className="border-b border-system-200 font-mono text-[10px] uppercase tracking-[0.1em] text-system-500">
                 <tr>
                   <th className="pb-3 font-medium">Campaña</th>
                   <th className="pb-3 font-medium">Tipo de dato</th>
@@ -217,14 +217,14 @@ export default async function ListadoDeCampanasPage({ searchParams }: { searchPa
                   const et = ETIQUETA_DE_CAMPANA[c.estado];
                   const dias = diasRestantes(c.venceEn);
                   return (
-                    <tr key={c.id} className="border-b border-line last:border-0">
+                    <tr key={c.id} className="border-b border-system-200 last:border-0">
                       <td className="py-4 pr-3">
-                        <p className="font-bold text-ink">{c.nombre}</p>
-                        <p className="text-[12px] text-ink-3">
+                        <p className="font-bold text-system-900">{c.nombre}</p>
+                        <p className="text-[12px] text-system-500">
                           {c.tematica || "Sin temática"} · {c.creador || "Sin creador"}
                         </p>
                       </td>
-                      <td className="text-[12.5px] text-ink-2">
+                      <td className="text-[12.5px] text-system-600">
                         {c.tiposDeDato.length > 0 ? c.tiposDeDato.map((t) => NOMBRE_DE_TIPO[t]).join(" · ") : "—"}
                       </td>
                       <td>
@@ -233,9 +233,9 @@ export default async function ListadoDeCampanasPage({ searchParams }: { searchPa
                       <td className="text-right font-mono tabular-nums">{formatearNumero(c.participantes)}</td>
                       <td className="text-right font-mono tabular-nums">
                         {formatearNumero(c.aportes)}
-                        <span className="text-ink-3">/{formatearNumero(c.meta)}</span>
+                        <span className="text-system-500">/{formatearNumero(c.meta)}</span>
                       </td>
-                      <td className="pl-4 font-mono text-[12px] text-ink-2">
+                      <td className="pl-4 font-mono text-[12px] text-system-600">
                         {c.venceEn ? (
                           <span title={dias !== null ? `Faltan ${dias} días` : undefined}>{formatearFechaCampana(c.venceEn, false)}</span>
                         ) : (

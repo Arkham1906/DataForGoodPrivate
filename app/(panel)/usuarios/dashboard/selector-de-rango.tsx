@@ -41,7 +41,7 @@ export default function SelectorDeRango({ valor }: { valor: string }) {
         value={valor}
         disabled={pendiente}
         onChange={(e) => cambiar(e.target.value)}
-        className="min-h-[38px] rounded border border-line-2 bg-surface px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-accent"
+        className="min-h-[38px] rounded border border-system-300 bg-white px-3 py-2 text-sm text-system-900 outline-none transition-colors focus:border-brand-600"
       >
         {OPCIONES.map((o) => (
           <option key={o.valor} value={o.valor}>

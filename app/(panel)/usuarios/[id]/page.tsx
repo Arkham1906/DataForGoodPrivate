@@ -55,7 +55,7 @@ export default async function FichaDeUsuarioPage({
           <EnlaceBoton href={`/usuarios/${u.id}/roles`}>Cambiar rol</EnlaceBoton>
           <Link
             href={`/usuarios/${u.id}/sancion`}
-            className="inline-flex items-center justify-center gap-1.5 rounded-pill border border-danger bg-surface px-3.5 py-1.5 text-[12.5px] font-semibold text-danger transition-colors hover:bg-danger-tint"
+            className="inline-flex items-center justify-center gap-1.5 rounded-pill border border-error-700 bg-white px-3.5 py-1.5 text-[12.5px] font-semibold text-error-700 transition-colors hover:bg-error-50"
           >
             Sancionar
           </Link>
@@ -80,19 +80,19 @@ export default async function FichaDeUsuarioPage({
           <TituloDeSeccion>Historial de sanciones</TituloDeSeccion>
 
           <MedidorDeStrikes acumulados={u.strikes} />
-          <p className={`mb-3 text-[12px] ${u.strikes > 0 ? "text-warn" : "text-ink-3"}`}>
+          <p className={`mb-3 text-[12px] ${u.strikes > 0 ? "text-warning-800" : "text-system-500"}`}>
             {u.strikes} de 3 strikes acumulados
           </p>
 
           {u.historialDeStrikes.length === 0 ? (
-            <p className="text-[13px] text-ink-2">Sin sanciones registradas.</p>
+            <p className="text-[13px] text-system-600">Sin sanciones registradas.</p>
           ) : (
             <Tarjeta tenue>
               <ListaClaveValor
                 filas={u.historialDeStrikes.map((s) => ({
                   clave: s.motivo,
                   valor: (
-                    <span className="text-[12.5px] text-ink-3">
+                    <span className="text-[12.5px] text-system-500">
                       {formatearFecha(s.fecha)} · {s.campana}
                     </span>
                   ),
@@ -110,21 +110,21 @@ export default async function FichaDeUsuarioPage({
           <div className="mt-6">
             <TituloDeSeccion>Baneos en campañas</TituloDeSeccion>
             {baneosEnCampanas.length === 0 ? (
-              <p className="text-[13px] text-ink-2">No está baneado de ninguna campaña.</p>
+              <p className="text-[13px] text-system-600">No está baneado de ninguna campaña.</p>
             ) : (
               <Tarjeta tenue>
                 <ListaClaveValor
                   filas={baneosEnCampanas.map((b) => ({
                     clave: (
                       <span>
-                        <Link href={`/sistema/campanas/${b.campanaId}`} className="font-semibold text-ink hover:underline">
+                        <Link href={`/sistema/campanas/${b.campanaId}`} className="font-semibold text-system-900 hover:underline">
                           {b.campana}
                         </Link>
-                        <span className="block text-[12.5px] text-ink-2">{b.motivo}</span>
+                        <span className="block text-[12.5px] text-system-600">{b.motivo}</span>
                       </span>
                     ),
                     valor: (
-                      <span className="text-[12.5px] text-ink-3">
+                      <span className="text-[12.5px] text-system-500">
                         {formatearFecha(b.baneadoEn)} · {b.baneadoPor}
                       </span>
                     ),
@@ -132,7 +132,7 @@ export default async function FichaDeUsuarioPage({
                 />
               </Tarjeta>
             )}
-            <p className="mt-2 text-[12px] text-ink-3">
+            <p className="mt-2 text-[12px] text-system-500">
               Los aplica y los quita quien creó cada campaña; solo impiden aportar a esa campaña.
             </p>
           </div>

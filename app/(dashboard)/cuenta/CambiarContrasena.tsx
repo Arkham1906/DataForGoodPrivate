@@ -55,7 +55,7 @@ export default function CambiarContrasena({
             router.refresh();
           }
         }}
-        className="m-auto w-[calc(100%-2rem)] max-w-md rounded-lg border border-line bg-surface p-0 text-ink shadow-lg backdrop:bg-ink/40"
+        className="m-auto w-[calc(100%-2rem)] max-w-md rounded-lg border border-system-200 bg-white p-0 text-system-900 shadow-lg backdrop:bg-system-900/40"
       >
         <ContrasenaConCodigo
           key={apertura}

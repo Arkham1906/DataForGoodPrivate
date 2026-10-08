@@ -32,11 +32,11 @@ export default function SidebarNav({ usuario }: { usuario: SessionUser }) {
   const { navRef, visual, indicador, alElegir } = useIndicadorDeMenu(activo);
 
   return (
-    <aside className="dashboard-user-nav dashboard-sidebar w-64 shrink-0 border-r border-line bg-surface p-4 lg:sticky lg:top-0 lg:h-[calc(100vh-61px)]">
-      <p className="mb-3 px-2 text-[10px] font-semibold uppercase tracking-wider text-ink-3">
+    <aside aria-label="Menú de la cuenta" className="dashboard-user-nav dashboard-sidebar w-64 shrink-0 border-r border-system-200 bg-white p-4 lg:sticky lg:top-0 lg:h-[calc(100vh-61px)]">
+      <p className="mb-3 px-2 text-[10px] font-semibold uppercase tracking-wider text-system-500">
         Participar
       </p>
-      <nav ref={navRef} className="dashboard-nav relative flex flex-col gap-1">
+      <nav ref={navRef} aria-label="Secciones" className="dashboard-nav relative flex flex-col gap-1">
         {indicador}
         {opciones.map((item) => {
           const marcada = visual === item.href;
@@ -48,7 +48,7 @@ export default function SidebarNav({ usuario }: { usuario: SessionUser }) {
               aria-current={activo === item.href ? "page" : undefined}
               onClick={alElegir(item.href)}
               className={`relative rounded-pill px-3.5 py-2.5 text-sm font-medium transition-colors duration-300 ${
-                marcada ? claseDeOpcionMarcada() : "text-ink-2 hover:bg-sunken hover:text-ink"
+                marcada ? claseDeOpcionMarcada() : "text-system-600 hover:bg-system-100 hover:text-system-900"
               }`}
             >
               {item.label}
@@ -58,11 +58,11 @@ export default function SidebarNav({ usuario }: { usuario: SessionUser }) {
       </nav>
 
       {/* Nota, no botón: fondo claro y franja lateral para no confundirse con la opción activa del menú. */}
-      <div className="dashboard-sidebar-callout mt-6 rounded-r-lg border-l-4 border-accent bg-accent-tint px-4 py-3.5">
-        <p className="text-[13px] leading-snug text-ink-2">
+      <div className="dashboard-sidebar-callout mt-6 rounded-r-lg border-l-4 border-brand-600 bg-brand-50 px-4 py-3.5">
+        <p className="text-[13px] leading-snug text-system-600">
           Cada aporte transforma datos en impacto para tu comunidad.
         </p>
-        <p className="mt-2 text-[13px] font-semibold text-accent-deep">¡Súmate!</p>
+        <p className="mt-2 text-[13px] font-semibold text-brand-800">¡Súmate!</p>
       </div>
     </aside>
   );

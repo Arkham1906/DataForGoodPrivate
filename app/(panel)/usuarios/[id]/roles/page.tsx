@@ -60,8 +60,8 @@ export default async function RolesPage({
 
       <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-extrabold text-ink">Roles de {u.nombre}</h1>
-          <p className="mt-1 font-mono text-[13px] text-ink-2">{detalle}</p>
+          <h1 className="text-xl font-extrabold text-system-900">Roles de {u.nombre}</h1>
+          <p className="mt-1 font-mono text-[13px] text-system-600">{detalle}</p>
         </div>
         <EnlaceBoton href={`/usuarios/${u.id}`}>Ver ficha completa</EnlaceBoton>
       </header>
@@ -76,12 +76,12 @@ export default async function RolesPage({
                 <Tarjeta
                   key={rol}
                   className={`flex items-center justify-between gap-3 ${
-                    asignado ? "border-accent" : ""
+                    asignado ? "border-brand-600" : ""
                   }`}
                 >
                   <div>
-                    <p className="text-[13.5px] font-semibold text-ink">{NOMBRE_DE_ROL[rol]}</p>
-                    <p className="text-[12.5px] text-ink-3">{QUIEN_ASIGNA[rol]}</p>
+                    <p className="text-[13.5px] font-semibold text-system-900">{NOMBRE_DE_ROL[rol]}</p>
+                    <p className="text-[12.5px] text-system-500">{QUIEN_ASIGNA[rol]}</p>
                   </div>
                   {rol === "REVISOR_DE_APORTES" ? (
                     <Tag tone={asignado ? "ok" : "default"}>
@@ -100,7 +100,7 @@ export default async function RolesPage({
           {esSupervisor && (
             <>
               <TituloDeSeccion>Campañas bajo supervisión</TituloDeSeccion>
-              <p className="mb-2.5 text-[13px] text-ink-2">
+              <p className="mb-2.5 text-[13px] text-system-600">
                 Cada supervisor escoge qué campañas en revisión supervisa; su
                 especialidad es solo informativa.
               </p>
@@ -111,8 +111,8 @@ export default async function RolesPage({
             <>
               <TituloDeSeccion>Revisor de aportes</TituloDeSeccion>
               <Tarjeta className="mb-4">
-                <p className="mb-1 text-[13.5px] font-semibold text-ink">Revisor de aportes</p>
-                <p className="text-[12.5px] text-ink-2">
+                <p className="mb-1 text-[13.5px] font-semibold text-system-900">Revisor de aportes</p>
+                <p className="text-[12.5px] text-system-600">
                   Aceptó una invitación de al menos una campaña. Revocar aquí lo
                   retira de todas las campañas donde esté aceptado.
                 </p>
@@ -124,8 +124,8 @@ export default async function RolesPage({
             <>
               <TituloDeSeccion>Rol vigente</TituloDeSeccion>
               <Tarjeta tenue className="mb-4">
-                <p className="mb-1 text-[13.5px] font-semibold text-ink">Sin rol asignado</p>
-                <p className="text-[12.5px] text-ink-2">
+                <p className="mb-1 text-[13.5px] font-semibold text-system-900">Sin rol asignado</p>
+                <p className="text-[12.5px] text-system-600">
                   Es usuario común. Ha creado {formatearNumero(u.campanasCreadas)}{" "}
                   campañas, cosa que no requiere rol alguno, y lleva{" "}
                   {formatearNumero(u.aportesEnviados)} aportes enviados.
@@ -133,7 +133,7 @@ export default async function RolesPage({
               </Tarjeta>
 
               <TituloDeSeccion>Intereses declarados</TituloDeSeccion>
-              <p className="mb-2.5 text-[13px] text-ink-2">
+              <p className="mb-2.5 text-[13px] text-system-600">
                 Si se le asigna Supervisor, las campañas se reparten por
                 especialidad declarada; si no tiene, por estos intereses.
               </p>
@@ -144,10 +144,10 @@ export default async function RolesPage({
             {u.interesesDeclarados.map((i) => (
               <div
                 key={i.tema}
-                className="flex items-center justify-between rounded border border-line-2 bg-surface px-3.5 py-2.5 text-[13px] text-ink"
+                className="flex items-center justify-between rounded border border-system-300 bg-white px-3.5 py-2.5 text-[13px] text-system-900"
               >
                 <span>{i.tema}</span>
-                <span className="font-mono text-[12px] text-ink-3">{i.campanas} campañas</span>
+                <span className="font-mono text-[12px] text-system-500">{i.campanas} campañas</span>
               </div>
             ))}
           </div>

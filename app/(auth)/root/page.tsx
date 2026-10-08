@@ -8,7 +8,7 @@ import RootLoginForm from "./RootLoginForm";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Acceso raíz · DataForGood",
+  title: "Acceso raíz",
   description: "Panel administrativo del sistema.",
   // La ruta raíz no se indexa ni se enlaza desde el sitio público.
   robots: { index: false, follow: false, nocache: true },
@@ -33,20 +33,20 @@ function ShieldIcon() {
 
 export default function AccesoRaizPage() {
   return (
-    <div className="rounded-lg border border-line bg-surface p-8">
+    <div className="rounded-lg border border-system-200 bg-white p-8">
       <div className="mb-6 text-center">
-        <span className="mx-auto mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-accent-tint text-accent">
+        <span className="mx-auto mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
           <ShieldIcon />
         </span>
-        <h1 className="text-xl font-extrabold text-ink">Acceso raíz</h1>
-        <p className="mt-1 text-[13px] text-ink-2">
+        <h1 className="text-xl font-extrabold text-system-900">Acceso raíz</h1>
+        <p className="mt-1 text-[13px] text-system-600">
           Panel administrativo del sistema
         </p>
       </div>
 
       <RootLoginForm />
 
-      <div className="mt-6 rounded-lg bg-sunken p-4 text-[12.5px] leading-relaxed text-ink-2">
+      <div className="mt-6 rounded-lg bg-system-100 p-4 text-[12.5px] leading-relaxed text-system-600">
         Ruta independiente del login público. No hay registro ni recuperación
         de contraseña: la credencial se almacena cifrada y no es gestionable
         desde la administración de usuarios.

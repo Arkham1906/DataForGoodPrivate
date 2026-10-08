@@ -1,46 +1,82 @@
 @import "tailwindcss";
 
 :root {
-  --paper: #fbfaf8;
-  --surface: #ffffff;
-  --sunken: #f4f2ef;
-  --ink: #12131a;
-  --ink-2: #5c606b;
-  --ink-3: #9298a3;
-  --line: #e9e6e1;
-  --line-2: #d8d4cd;
-  --accent: #2e5aac;
-  --accent-deep: #22447f;
-  --accent-tint: #eaf0fa;
-  --ok: #0e7a55;
-  --ok-tint: #e4f4ec;
-  --warn: #96660f;
-  --warn-tint: #fbf0dc;
-  --danger: #ae362b;
-  --danger-tint: #fbeae7;
   --r: 10px;
   --r-lg: 16px;
   --pill: 999px;
 }
 
 @theme {
-  --color-paper: var(--paper);
-  --color-surface: var(--surface);
-  --color-sunken: var(--sunken);
-  --color-ink: var(--ink);
-  --color-ink-2: var(--ink-2);
-  --color-ink-3: var(--ink-3);
-  --color-line: var(--line);
-  --color-line-2: var(--line-2);
-  --color-accent: var(--accent);
-  --color-accent-deep: var(--accent-deep);
-  --color-accent-tint: var(--accent-tint);
-  --color-ok: var(--ok);
-  --color-ok-tint: var(--ok-tint);
-  --color-warn: var(--warn);
-  --color-warn-tint: var(--warn-tint);
-  --color-danger: var(--danger);
-  --color-danger-tint: var(--danger-tint);
+  /* ── Colores (2026-10-07): 5 familias con escala del 50 (más claro) al 950 (más oscuro).
+   * No hay nombres por función (ink, accent, ok...): se usa la familia y el escalón, p. ej.
+   * text-system-600, bg-brand-600, bg-error-50. Los valores de antes quedaron fijos en su
+   * escalón (ink = system-900, ink-2 = system-600, ink-3 = system-400, line = system-200,
+   * line-2 = system-300, sunken = system-100, paper = system-50, accent = brand-600,
+   * accent-deep = brand-800, ok = success-700, danger = error-700); los demás se calcularon
+   * en OKLCH. Warning dejó el ámbar por un amarillo de verdad. Superficie: white. */
+  /* Sin la paleta por defecto de Tailwind (blue-500, red-600...): solo existen estas familias. */
+  --color-*: initial;
+  --color-white: #ffffff;
+  /* System: grises (fondos, bordes, texto) */
+  --color-system-50: #fbfaf8;
+  --color-system-100: #f4f2ef;
+  --color-system-200: #e9e6e1;
+  --color-system-300: #d8d4cd;
+  --color-system-400: #9298a3;
+  --color-system-500: #686c77; /* texto terciario: pasa 4.5:1 sobre white, system-50, system-100 y brand-50 */
+  --color-system-600: #5c606b;
+  --color-system-700: #43464f;
+  --color-system-800: #2b2d35;
+  --color-system-900: #12131a;
+  --color-system-950: #05050a;
+  /* Brand: azul de DataForGood (acciones, enlaces, selección) */
+  --color-brand-50: #eaf0fa;
+  --color-brand-100: #d8e6fd;
+  --color-brand-200: #c1d7fb;
+  --color-brand-300: #9fbff4;
+  --color-brand-400: #7099e0;
+  --color-brand-500: #4b77c8;
+  --color-brand-600: #2e5aac;
+  --color-brand-700: #214d9e;
+  --color-brand-800: #22447f;
+  --color-brand-900: #0a2d69;
+  --color-brand-950: #011745;
+  /* Error: rojos */
+  --color-error-50: #fbeae7;
+  --color-error-100: #feddd8;
+  --color-error-200: #fecbc3;
+  --color-error-300: #feafa2;
+  --color-error-400: #ee8778;
+  --color-error-500: #db6455;
+  --color-error-600: #c3493c;
+  --color-error-700: #ae362b;
+  --color-error-800: #92251d;
+  --color-error-900: #71150f;
+  --color-error-950: #4d0503;
+  /* Warning: amarillos (texto en 800; rellenos en 400-500) */
+  --color-warning-50: #fefce8;
+  --color-warning-100: #fef9c3;
+  --color-warning-200: #fef08a;
+  --color-warning-300: #fde047;
+  --color-warning-400: #facc15;
+  --color-warning-500: #eab308;
+  --color-warning-600: #ca8a04;
+  --color-warning-700: #a16207;
+  --color-warning-800: #854d0e;
+  --color-warning-900: #713f12;
+  --color-warning-950: #422006;
+  /* Success: verdes (también el botón principal) */
+  --color-success-50: #e4f4ec;
+  --color-success-100: #d8ede2;
+  --color-success-200: #c1e4d3;
+  --color-success-300: #a1d5bc;
+  --color-success-400: #72bb9a;
+  --color-success-500: #4aa37e;
+  --color-success-600: #2b8c66;
+  --color-success-700: #0e7a55;
+  --color-success-800: #0a6244;
+  --color-success-900: #004a31;
+  --color-success-950: #002f1e;
   --radius-pill: var(--pill);
   --radius-lg: var(--r-lg);
   --font-sans: var(--font-jakarta), ui-sans-serif, sans-serif;
@@ -53,8 +89,8 @@
 
 body {
   margin: 0;
-  background: var(--paper);
-  color: var(--ink);
+  background: var(--color-system-50);
+  color: var(--color-system-900);
   font-family: var(--font-jakarta), ui-sans-serif, sans-serif;
   font-size: 14.5px;
   line-height: 1.6;
@@ -66,11 +102,11 @@ body {
 .marca-animada {
   background-image: linear-gradient(
     90deg,
-    var(--accent-deep),
-    var(--accent),
-    var(--ok),
-    var(--accent),
-    var(--accent-deep)
+    var(--color-brand-800),
+    var(--color-brand-600),
+    var(--color-success-700),
+    var(--color-brand-600),
+    var(--color-brand-800)
   );
   background-size: 200% auto;
   -webkit-background-clip: text;
@@ -132,7 +168,7 @@ body {
   .landing-tarjeta:hover,
   .landing-tarjeta:focus-visible {
     transform: translateY(-4px);
-    box-shadow: 0 12px 28px -14px color-mix(in srgb, var(--accent) 45%, transparent);
+    box-shadow: 0 12px 28px -14px color-mix(in srgb, var(--color-brand-600) 45%, transparent);
   }
 
   /* Brillo lento sobre el fondo oscuro del llamado final. */
@@ -148,7 +184,7 @@ body {
     z-index: -1;
     background: radial-gradient(
       circle at center,
-      color-mix(in srgb, var(--accent) 45%, transparent),
+      color-mix(in srgb, var(--color-brand-600) 45%, transparent),
       transparent 55%
     );
     animation: landing-deriva 14s ease-in-out infinite alternate;
@@ -223,7 +259,7 @@ body {
     flex-basis: auto;
     width: 100%;
     border-right: 0;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid var(--color-system-200);
     padding: 10px 16px;
   }
 

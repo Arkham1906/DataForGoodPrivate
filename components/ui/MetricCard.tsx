@@ -11,17 +11,17 @@ interface MetricCardProps {
 
 export default function MetricCard({ label, value, links }: MetricCardProps) {
   return (
-    <div className="rounded-lg border border-line bg-surface p-4">
-      <p className="mb-1 text-[12px] text-ink-2">{label}</p>
-      <p className="text-2xl font-extrabold text-ink">{value}</p>
+    <div className="rounded-lg border border-system-200 bg-white p-4">
+      <p className="mb-1 text-[12px] text-system-600">{label}</p>
+      <p className="text-2xl font-extrabold text-system-900">{value}</p>
       {links && links.length > 0 && (
-        <div className="mt-4 flex items-center border-t border-line pt-3">
+        <div className="mt-4 flex items-center border-t border-system-200 pt-3">
           {links.map((link, i) => (
             <Link
               key={link.href}
               href={link.href}
-              className={`text-[12px] font-semibold text-accent hover:text-accent-deep hover:underline ${
-                i > 0 ? "ml-3.5 border-l border-line-2 pl-3.5" : ""
+              className={`text-[12px] font-semibold text-brand-600 hover:text-brand-800 hover:underline ${
+                i > 0 ? "ml-3.5 border-l border-system-300 pl-3.5" : ""
               }`}
             >
               {link.label} <span aria-hidden="true">›</span>

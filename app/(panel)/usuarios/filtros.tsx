@@ -18,7 +18,7 @@ const ESTADOS = [
 ];
 
 const CLASE_SELECT =
-  "rounded border border-line-2 bg-surface px-3 text-sm text-ink outline-none transition-colors focus:border-accent min-h-[38px]";
+  "rounded border border-system-300 bg-white px-3 text-sm text-system-900 outline-none transition-colors focus:border-brand-600 min-h-[38px]";
 
 /**
  * Los filtros viven en la URL: la vista filtrada se puede compartir, el botón
@@ -74,7 +74,7 @@ export default function Filtros({
           value={texto}
           onChange={(e) => setTexto(e.target.value)}
           placeholder="Buscar por correo, nombre o ID"
-          className="w-full rounded border border-line-2 bg-surface px-3.5 py-2 text-sm text-ink outline-none transition-colors focus:border-accent"
+          className="w-full rounded border border-system-300 bg-white px-3.5 py-2 text-sm text-system-900 outline-none transition-colors focus:border-brand-600"
         />
       </div>
 

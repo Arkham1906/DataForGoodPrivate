@@ -10,8 +10,8 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-paper px-4 py-10">
-      <div className="w-full max-w-md">
+    <div className="flex min-h-screen items-center justify-center bg-system-50 px-4 py-10">
+      <main id="contenido" className="w-full max-w-md">
         <Link
           href="/"
           className="mb-8 flex items-center justify-center"
@@ -19,7 +19,7 @@ export default function AuthLayout({
           <Logo />
         </Link>
         {children}
-      </div>
+      </main>
     </div>
   );
 }

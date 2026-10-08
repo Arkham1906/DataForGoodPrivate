@@ -40,15 +40,15 @@ export default function EnlaceAlPerfil({ iniciales, nombre }: { iniciales: strin
   return (
     <Link href="/cuenta" onClick={marcar} className="flex items-center gap-2.5">
       <ViewTransition name="perfil-avatar" share="perfil-viaje" default="none">
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-[12px] font-bold text-white">
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-600 text-[12px] font-bold text-white">
           {iniciales}
         </div>
       </ViewTransition>
       <div className="hidden sm:block">
         <ViewTransition name="perfil-nombre" share="perfil-viaje" default="none">
-          <p className="w-fit text-[13px] font-semibold text-ink">{nombre}</p>
+          <p className="w-fit text-[13px] font-semibold text-system-900">{nombre}</p>
         </ViewTransition>
-        <p className="text-[11.5px] text-ink-3">Ver perfil</p>
+        <p className="text-[11.5px] text-system-500">Ver perfil</p>
       </div>
     </Link>
   );

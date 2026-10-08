@@ -6,7 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useId, useState, useTransition } from "react";
 
 const CLASE_SELECT =
-  "min-h-[38px] max-w-full rounded border border-line-2 bg-surface px-3 text-sm text-ink outline-none transition-colors focus:border-accent";
+  "min-h-[38px] max-w-full rounded border border-system-300 bg-white px-3 text-sm text-system-900 outline-none transition-colors focus:border-brand-600";
 
 /** Igual que el directorio de usuarios: la vista filtrada se comparte y el filtrado lo hace el servidor. */
 export default function FiltrosDeAportes({
@@ -58,7 +58,7 @@ export default function FiltrosDeAportes({
           value={texto}
           onChange={(e) => setTexto(e.target.value)}
           placeholder="Buscar por participante o campaña"
-          className="w-full rounded border border-line-2 bg-surface px-3.5 py-2 text-sm text-ink outline-none transition-colors focus:border-accent"
+          className="w-full rounded border border-system-300 bg-white px-3.5 py-2 text-sm text-system-900 outline-none transition-colors focus:border-brand-600"
         />
       </div>
 

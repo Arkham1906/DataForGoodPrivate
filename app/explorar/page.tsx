@@ -80,17 +80,17 @@ export default async function ExplorarCampanasPage({
   }
 
   return (
-    <div className="min-h-screen bg-paper">
+    <div className="min-h-screen bg-system-50">
       <PublicHeader />
 
-      <main className="mx-auto max-w-5xl px-6 pb-24 pt-14">
-        <p className="landing-entrada mb-2 font-mono text-[10.5px] uppercase tracking-widest text-accent">
+      <main id="contenido" className="mx-auto max-w-5xl px-6 pb-24 pt-14">
+        <p className="landing-entrada mb-2 font-mono text-[10.5px] uppercase tracking-widest text-brand-600">
           Campañas
         </p>
-        <h1 style={retraso(80)} className="landing-entrada max-w-2xl text-[32px] font-extrabold leading-tight tracking-tight text-ink">
+        <h1 style={retraso(80)} className="landing-entrada max-w-2xl text-[32px] font-extrabold leading-tight tracking-tight text-system-900">
           Campañas abiertas a la comunidad
         </h1>
-        <p style={retraso(160)} className="landing-entrada mt-4 max-w-2xl text-[14.5px] leading-relaxed text-ink-2">
+        <p style={retraso(160)} className="landing-entrada mt-4 max-w-2xl text-[14.5px] leading-relaxed text-system-600">
           {nf.format(total)} {total === 1 ? "campaña activa" : "campañas activas"} recibiendo
           aportes en este momento. Crea una cuenta o inicia sesión para participar.
         </p>
@@ -115,11 +115,11 @@ export default async function ExplorarCampanasPage({
         <div className="mt-8 grid grid-cols-1 gap-8 md:grid-cols-[220px_1fr]">
           <aside style={retraso(320)} className="landing-entrada flex flex-col gap-6">
             <div className="flex items-baseline justify-between gap-2">
-              <p className="text-[12.5px] font-semibold text-ink">Filtros</p>
+              <p className="text-[12.5px] font-semibold text-system-900">Filtros</p>
               {activos > 0 && (
                 <Link
                   href={enlaceCon({ q: undefined, tematica: undefined, estado: undefined })}
-                  className="text-[12.5px] font-medium text-accent hover:underline"
+                  className="text-[12.5px] font-medium text-brand-600 hover:underline"
                 >
                   Limpiar
                 </Link>
@@ -128,7 +128,7 @@ export default async function ExplorarCampanasPage({
 
             {tematicas.length > 0 && (
               <div>
-                <p className="mb-2 text-[11.5px] font-semibold uppercase tracking-wide text-ink-3">
+                <p className="mb-2 text-[11.5px] font-semibold uppercase tracking-wide text-system-500">
                   Temática
                 </p>
                 <div className="dashboard-nav flex min-w-0 flex-row gap-2 overflow-x-auto overscroll-x-contain pb-2 [-webkit-overflow-scrolling:touch] md:flex-col md:gap-1 md:overflow-visible md:pb-0">
@@ -138,12 +138,12 @@ export default async function ExplorarCampanasPage({
                       href={enlaceCon({ tematica: tematica === t.valor ? undefined : t.valor })}
                       className={`flex shrink-0 items-center justify-between gap-2 whitespace-nowrap rounded-pill border px-3 py-1.5 text-[12.5px] md:shrink md:rounded md:border-0 md:px-2 md:py-1.5 md:text-[13px] ${
                         tematica === t.valor
-                          ? "border-accent bg-accent-tint font-semibold text-accent"
-                          : "border-line-2 bg-surface text-ink-2 hover:bg-sunken md:border-transparent md:bg-transparent"
+                          ? "border-brand-600 bg-brand-50 font-semibold text-brand-600"
+                          : "border-system-300 bg-white text-system-600 hover:bg-system-100 md:border-transparent md:bg-transparent"
                       }`}
                     >
                       <span>{t.valor}</span>
-                      <span className="font-mono text-[11px] text-ink-3">{t.total}</span>
+                      <span className="font-mono text-[11px] text-system-500">{t.total}</span>
                     </Link>
                   ))}
                 </div>
@@ -152,7 +152,7 @@ export default async function ExplorarCampanasPage({
 
             {estados.length > 0 && (
               <div>
-                <p className="mb-2 text-[11.5px] font-semibold uppercase tracking-wide text-ink-3">
+                <p className="mb-2 text-[11.5px] font-semibold uppercase tracking-wide text-system-500">
                   Estado
                 </p>
                 <div className="dashboard-nav flex min-w-0 flex-row gap-2 overflow-x-auto overscroll-x-contain pb-2 [-webkit-overflow-scrolling:touch] md:flex-col md:gap-1 md:overflow-visible md:pb-0">
@@ -162,12 +162,12 @@ export default async function ExplorarCampanasPage({
                       href={enlaceCon({ estado: locationState === e.valor ? undefined : e.valor })}
                       className={`flex shrink-0 items-center justify-between gap-2 whitespace-nowrap rounded-pill border px-3 py-1.5 text-[12.5px] md:shrink md:rounded md:border-0 md:px-2 md:py-1.5 md:text-[13px] ${
                         locationState === e.valor
-                          ? "border-accent bg-accent-tint font-semibold text-accent"
-                          : "border-line-2 bg-surface text-ink-2 hover:bg-sunken md:border-transparent md:bg-transparent"
+                          ? "border-brand-600 bg-brand-50 font-semibold text-brand-600"
+                          : "border-system-300 bg-white text-system-600 hover:bg-system-100 md:border-transparent md:bg-transparent"
                       }`}
                     >
                       <span>{e.valor}</span>
-                      <span className="font-mono text-[11px] text-ink-3">{e.total}</span>
+                      <span className="font-mono text-[11px] text-system-500">{e.total}</span>
                     </Link>
                   ))}
                 </div>
@@ -187,8 +187,8 @@ export default async function ExplorarCampanasPage({
                   href={enlaceCon({ orden: o.valor === "participacion" ? undefined : o.valor })}
                   className={`shrink-0 whitespace-nowrap rounded-pill border px-3 py-1.5 text-[12.5px] font-semibold transition-colors ${
                     orden === o.valor
-                      ? "border-accent bg-accent text-white"
-                      : "border-line-2 bg-surface text-ink-2 hover:border-accent"
+                      ? "border-brand-600 bg-brand-600 text-white"
+                      : "border-system-300 bg-white text-system-600 hover:border-brand-600"
                   }`}
                 >
                   {o.etiqueta}
@@ -196,13 +196,13 @@ export default async function ExplorarCampanasPage({
               ))}
             </nav>
 
-            <p className="mb-4 font-mono text-[12px] text-ink-2">
+            <p className="mb-4 font-mono text-[12px] text-system-600">
               {nf.format(campanas.length)} {campanas.length === 1 ? "campaña" : "campañas"}
               {activos > 0 ? ` · ${activos} ${activos === 1 ? "filtro activo" : "filtros activos"}` : ""}
             </p>
 
             {campanas.length === 0 ? (
-              <p className="rounded-lg bg-sunken p-4 text-sm text-ink-2">
+              <p className="rounded-lg bg-system-100 p-4 text-sm text-system-600">
                 {total === 0
                   ? "Por ahora no hay campañas activas. Vuelve pronto o crea la tuya."
                   : "Ninguna campaña coincide con estos filtros. Prueba quitando alguno o buscando por otro término."}
@@ -217,16 +217,16 @@ export default async function ExplorarCampanasPage({
                   return (
                     // Ver el detalle y aportar requiere sesión: sin ella, proxy.ts manda a /entrar.
                     <Link key={c.id} href={`/campanas/${c.id}`} {...entradaDeTarjeta(i)}>
-                      <Card className="landing-tarjeta flex h-full flex-col hover:border-accent">
+                      <Card className="landing-tarjeta flex h-full flex-col hover:border-brand-600">
                         <div className="mb-1 flex items-start justify-between gap-2">
-                          <p className="text-[15px] font-bold text-ink">{c.name}</p>
+                          <p className="text-[15px] font-bold text-system-900">{c.name}</p>
                           <Tag tone="ok">Activa</Tag>
                         </div>
-                        <p className="text-[12.5px] text-ink-2">
+                        <p className="text-[12.5px] text-system-600">
                           {c.organizer || "Sin organización"}
                           {lugar ? ` · ${lugar}` : ""}
                         </p>
-                        <p className="mt-2 text-[13px] leading-snug text-ink-2">
+                        <p className="mt-2 text-[13px] leading-snug text-system-600">
                           {c.description.length > 140 ? `${c.description.slice(0, 140)}…` : c.description}
                         </p>
                         <div className="mt-2.5 flex flex-wrap gap-1.5">
@@ -237,7 +237,7 @@ export default async function ExplorarCampanasPage({
                         </div>
                         <div className="mt-auto pt-3">
                           <ProgressBar pct={pct} tone="ok" />
-                          <p className="mt-2 font-mono text-[11px] text-ink-3">
+                          <p className="mt-2 font-mono text-[11px] text-system-500">
                             {nf.format(c.participants)} participantes · {pct}% de la meta ·{" "}
                             {textoDeCierre(c.daysRemaining)}
                           </p>

@@ -33,7 +33,7 @@ DataForGood conecta organizaciones con personas que aportan información en camp
 | Capa | Tecnología |
 | --- | --- |
 | Framework | **Next.js 16.3** (App Router) + React 19 + TypeScript. Sin servidor personalizado: `next start` lo atiende todo |
-| Estilos | Tailwind CSS v4, tokens de diseño en `app/globals.css` |
+| Estilos | Tailwind CSS v4, escalas de color (system, brand, success, warning, error) en `app/globals.css` |
 | API | Route handlers (`app/api/**/route.ts`) para la zona de usuario; server actions (`"use server"`) para el panel del SuperUsuario |
 | Base de datos | PostgreSQL 16 con el paquete `pg` y **SQL a mano**. No hay ORM ni migraciones versionadas: el esquema vive en `lib/db-schema.ts` |
 | Archivos | MinIO (compatible con S3) con el SDK `minio` |
@@ -92,7 +92,7 @@ DataForGood/
 ├── next.config.ts          # basePath, output standalone
 ├── app/                    # RUTAS (cada carpeta con page.tsx es una URL)
 │   ├── layout.tsx          # layout raíz: fuentes, <html>
-│   ├── globals.css         # tokens de diseño (colores, radios, tipografía)
+│   ├── globals.css         # escalas de color, radios y tipografía
 │   ├── page.tsx            # landing pública "/"
 │   ├── explorar/ datos/ contacto/ privacidad/ sobre-nosotros/   # públicas
 │   ├── cuenta-bloqueada/   # lo único que ve una cuenta sancionada
@@ -186,7 +186,7 @@ Para una **pantalla nueva**, se prefiere el patrón 2: Server Component que lee 
 6. **`types/index.ts` es el contrato** entre la API y la zona de usuario: campos en camelCase inglés, estados en español. Los handlers convierten filas snake_case con funciones `mapX(row)`.
 7. **`basePath`.** En producción la app vive en `/dataforgood`. `<Link>`, `router.push`, `redirect()` y `revalidatePath` lo agregan solos. **`fetch`, `<img src>`, `<a href>` y `window.location` no**: antepón `BASE_PATH` de `lib/base-path.ts`. Para URLs absolutas (correos, redirecciones de OAuth) usa `absoluteUrl()` de `lib/app-url.ts`.
 8. **Un componente cliente no puede importar nada que importe `pg`.** Por eso hay archivos "de opciones" sin imports de servidor (`lib/campanas/sistema-opciones.ts`, `lib/usuarios/rol-asignable.ts`, `lib/campanas/checklist.ts`).
-9. **Reutiliza componentes y tokens.** `components/ui/*` en la zona de usuario, `components/sistema/*` en el panel. Colores con tokens (`bg-surface`, `text-ink-2`, `border-line`...), no hex sueltos. Para un enlace con forma de botón usa `ButtonLink`, no un `<Link>` envolviendo un `<Button>`.
+9. **Reutiliza componentes y las familias de color.** `components/ui/*` en la zona de usuario, `components/sistema/*` en el panel. Colores con familia y escalón (`bg-white`, `text-system-600`, `border-system-200`...), no hex sueltos. Para un enlace con forma de botón usa `ButtonLink`, no un `<Link>` envolviendo un `<Button>`.
 10. **Mobile-first.** Las pantallas de `(dashboard)` tienen clases `max-md:` para móvil; consérvalas al editar.
 11. **Ubicación solo textual** (estado, ciudad). No se usa GPS.
 12. **Nombres en español** para código nuevo (`obtenerUsuario`, `exigirSesionRoot`). Hay código viejo en inglés (`getSessionUser`, `mapCampaign`); no lo renombres de paso.

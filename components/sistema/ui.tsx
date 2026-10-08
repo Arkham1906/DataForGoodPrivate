@@ -12,7 +12,7 @@ export function formatearNumero(n: number): string {
 }
 
 const CLASES_ENLACE_BOTON =
-  "inline-flex items-center justify-center gap-1.5 rounded-pill border border-line-2 bg-surface px-3.5 py-1.5 text-[12.5px] font-semibold text-ink transition-colors hover:border-ink-3 hover:bg-sunken";
+  "inline-flex items-center justify-center gap-1.5 rounded-pill border border-system-300 bg-white px-3.5 py-1.5 text-[12.5px] font-semibold text-system-900 transition-colors hover:border-system-400 hover:bg-system-100";
 
 /** Link con la misma apariencia de botón secundario que ya usa `/sistema`. */
 export function EnlaceBoton({ href, children }: { href: string; children: ReactNode }) {
@@ -39,9 +39,9 @@ export function Encabezado({
   return (
     <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
       <div>
-        <h1 className="text-xl font-extrabold text-ink">{titulo}</h1>
+        <h1 className="text-xl font-extrabold text-system-900">{titulo}</h1>
         {subtitulo ? (
-          <p className={`mt-1 text-[13px] text-ink-2 ${subtituloMono ? "font-mono" : ""}`}>
+          <p className={`mt-1 text-[13px] text-system-600 ${subtituloMono ? "font-mono" : ""}`}>
             {subtitulo}
           </p>
         ) : null}
@@ -52,13 +52,13 @@ export function Encabezado({
 }
 
 export function TituloDeSeccion({ children }: { children: ReactNode }) {
-  return <p className="mb-3 text-[12.5px] font-semibold text-ink">{children}</p>;
+  return <p className="mb-3 text-[12.5px] font-semibold text-system-900">{children}</p>;
 }
 
 /** Link de retorno, mismo estilo en toda la sección /usuarios. */
 export function Volver({ href, children }: { href: string; children: ReactNode }) {
   return (
-    <Link href={href} className="mb-5 inline-block text-[13px] text-ink-2 hover:text-accent">
+    <Link href={href} className="mb-5 inline-block text-[13px] text-system-600 hover:text-brand-600">
       ← {children}
     </Link>
   );
@@ -69,10 +69,10 @@ export function Volver({ href, children }: { href: string; children: ReactNode }
 export type TonoDeAviso = "neutro" | "info" | "aviso" | "riesgo";
 
 const CLASES_AVISO: Record<TonoDeAviso, string> = {
-  neutro: "bg-sunken text-ink-2",
-  info: "border-l-4 border-accent bg-sunken text-ink-2",
-  aviso: "bg-warn-tint text-warn",
-  riesgo: "bg-danger-tint text-danger",
+  neutro: "bg-system-100 text-system-600",
+  info: "border-l-4 border-brand-600 bg-system-100 text-system-600",
+  aviso: "bg-warning-50 text-warning-800",
+  riesgo: "bg-error-50 text-error-700",
 };
 
 export function Aviso({
@@ -121,7 +121,7 @@ export function Reparto({
     <div className="flex flex-col gap-2.5">
       {filas.map((f) => (
         <div className="flex items-center gap-2.5 text-[12.5px]" key={f.etiqueta}>
-          <span className="shrink-0 text-ink-2" style={{ width: anchoEtiqueta }}>
+          <span className="shrink-0 text-system-600" style={{ width: anchoEtiqueta }}>
             {f.etiqueta}
           </span>
           <ProgressBar pct={(f.valor / tope) * 100} tone="ok" />
@@ -145,7 +145,7 @@ export function ListaClaveValor({
   filas: { clave: ReactNode; valor: ReactNode }[];
 }) {
   return (
-    <div className="divide-y divide-line">
+    <div className="divide-y divide-system-200">
       {filas.map((f, i) => (
         <div className="flex items-center justify-between gap-3.5 py-2.5 text-[13.5px]" key={i}>
           <span>{f.clave}</span>
@@ -171,7 +171,7 @@ export function Tarjeta({
   return (
     <div
       className={`rounded-lg border p-4 ${
-        tenue ? "border-line bg-sunken" : "border-line bg-surface shadow-sm"
+        tenue ? "border-system-200 bg-system-100" : "border-system-200 bg-white shadow-sm"
       } ${className}`}
     >
       {children}
@@ -204,14 +204,14 @@ export function Identidad({
       <span
         aria-hidden="true"
         className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-[15px] font-bold text-white ${
-          riesgo ? "bg-danger" : "bg-accent"
+          riesgo ? "bg-error-700" : "bg-brand-600"
         }`}
       >
         {iniciales(nombre)}
       </span>
       <div>
-        <h1 className="text-base font-extrabold text-ink">{nombre}</h1>
-        <p className="mt-0.5 font-mono text-[13px] text-ink-2">{detalle}</p>
+        <h1 className="text-base font-extrabold text-system-900">{nombre}</h1>
+        <p className="mt-0.5 font-mono text-[13px] text-system-600">{detalle}</p>
       </div>
     </div>
   );
@@ -238,7 +238,7 @@ export function MedidorDeStrikes({
         <span
           key={i}
           className={`h-2.5 w-2.5 rounded-full ${
-            i < acumulados ? (critico ? "bg-danger" : "bg-warn") : "bg-line-2"
+            i < acumulados ? (critico ? "bg-error-700" : "bg-warning-500") : "bg-system-300"
           }`}
         />
       ))}
@@ -271,7 +271,7 @@ export function Paginacion({
       aria-label="Paginación"
       className="mt-5 flex flex-wrap items-center justify-between gap-3"
     >
-      <p className="font-mono text-[12.5px] text-ink-3">
+      <p className="font-mono text-[12.5px] text-system-500">
         {formatearNumero(desde)}–{formatearNumero(hasta)} de {formatearNumero(total)}
       </p>
       <div className="flex flex-wrap items-center gap-1.5">
@@ -287,7 +287,7 @@ export function Paginacion({
             <span
               key={p}
               aria-current="page"
-              className="inline-flex items-center justify-center rounded-pill border border-accent bg-accent px-3.5 py-1.5 text-[12.5px] font-bold text-white"
+              className="inline-flex items-center justify-center rounded-pill border border-brand-600 bg-brand-600 px-3.5 py-1.5 text-[12.5px] font-bold text-white"
             >
               {p}
             </span>
@@ -319,7 +319,7 @@ export function PieDePantalla({
   acciones?: ReactNode;
 }) {
   return (
-    <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
+    <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-system-200 pt-4">
       <EnlaceBoton href={volver.href}>← {volver.texto}</EnlaceBoton>
       {acciones ? <div className="flex flex-wrap items-center gap-2">{acciones}</div> : null}
     </div>

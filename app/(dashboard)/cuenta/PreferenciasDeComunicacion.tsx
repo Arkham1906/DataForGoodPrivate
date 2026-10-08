@@ -22,11 +22,11 @@ export default function PreferenciasDeComunicacion() {
   }
 
   return (
-    <div className="rounded border border-line bg-sunken p-4">
+    <div className="rounded border border-system-200 bg-system-100 p-4">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <p className="text-sm font-bold text-ink">Preferencias</p>
-          <p className="text-[12.5px] text-ink-2">Comunicación y notificaciones</p>
+          <p className="text-sm font-bold text-system-900">Preferencias</p>
+          <p className="text-[12.5px] text-system-600">Comunicación y notificaciones</p>
         </div>
         <Button variant="secondary" size="sm" onClick={() => dialogo.current?.showModal()}>
           Ver
@@ -40,14 +40,14 @@ export default function PreferenciasDeComunicacion() {
         onClick={(e) => {
           if (e.target === dialogo.current) cerrar();
         }}
-        className="m-auto w-[calc(100%-2rem)] max-w-lg rounded-lg border border-line bg-surface p-0 text-ink shadow-lg backdrop:bg-ink/40"
+        className="m-auto w-[calc(100%-2rem)] max-w-lg rounded-lg border border-system-200 bg-white p-0 text-system-900 shadow-lg backdrop:bg-system-900/40"
       >
         <div className="flex max-h-[85vh] flex-col">
-          <div className="border-b border-line p-5">
-            <h2 id="preferencias-titulo" className="text-lg font-extrabold text-ink">
+          <div className="border-b border-system-200 p-5">
+            <h2 id="preferencias-titulo" className="text-lg font-extrabold text-system-900">
               Comunicación y notificaciones
             </h2>
-            <p className="mt-1 text-[12.5px] text-ink-2">
+            <p className="mt-1 text-[12.5px] text-system-600">
               Los avisos que recibes de la plataforma.
             </p>
           </div>
@@ -55,18 +55,18 @@ export default function PreferenciasDeComunicacion() {
           <div className="flex-1 overflow-y-auto p-5">
             <div className="grid gap-3 sm:grid-cols-2">
               {OPCIONES.map((opcion) => (
-                <div key={opcion.titulo} className="rounded border border-line-2 bg-surface p-4">
+                <div key={opcion.titulo} className="rounded border border-system-300 bg-white p-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-ink">{opcion.titulo}</span>
-                    <span className={`h-4 w-4 rounded-full ${opcion.activa ? "bg-ok" : "bg-line-2"}`} />
+                    <span className="text-sm font-semibold text-system-900">{opcion.titulo}</span>
+                    <span className={`h-4 w-4 rounded-full ${opcion.activa ? "bg-success-700" : "bg-system-300"}`} />
                   </div>
-                  <p className="mt-2 text-[12px] text-ink-2">{opcion.detalle}</p>
+                  <p className="mt-2 text-[12px] text-system-600">{opcion.detalle}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="flex justify-end border-t border-line p-4">
+          <div className="flex justify-end border-t border-system-200 p-4">
             <Button type="button" variant="primary" size="sm" onClick={cerrar}>
               Cerrar
             </Button>

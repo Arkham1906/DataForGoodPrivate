@@ -6,6 +6,9 @@ import PanelDeCampanaSupervisor from "@/components/supervision/PanelDeCampanaSup
 import { obtenerPanelDeCampana } from "@/lib/campanas/panel";
 import { pool } from "@/lib/db";
 import { exigirSesionRoot } from "@/lib/supervision/root";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Panel de la campaña supervisada" };
 
 export default async function SupervisedCampaignPanel({ params }: { params: Promise<{ campaignId: string }> }) {
   const { campaignId } = await params;

@@ -156,39 +156,39 @@ function VerificarForm() {
 
   if (loading) {
     return (
-      <div className="rounded-lg border border-line bg-surface p-8 text-center text-[13px] text-ink-2">
+      <div className="rounded-lg border border-system-200 bg-white p-8 text-center text-[13px] text-system-600">
         Cargando…
       </div>
     );
   }
 
   return (
-    <div className="rounded-lg border border-line bg-surface p-8 text-center">
-      <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-accent-tint text-accent">
+    <div className="rounded-lg border border-system-200 bg-white p-8 text-center">
+      <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
         <MailIcon />
       </div>
-      <h1 className="text-xl font-extrabold text-ink">Verifica tu correo</h1>
-      <p className="mt-1 font-mono text-[10.5px] uppercase tracking-wider text-accent">
+      <h1 className="text-xl font-extrabold text-system-900">Verifica tu correo</h1>
+      <p className="mt-1 font-mono text-[10.5px] uppercase tracking-wider text-brand-600">
         Paso 2 de 4 · Verificación
       </p>
-      <p className="mt-3 text-[13px] text-ink-2">
-        Enviamos un código a <span className="font-medium text-ink">{email}</span>
+      <p className="mt-3 text-[13px] text-system-600">
+        Enviamos un código a <span className="font-medium text-system-900">{email}</span>
       </p>
 
       <div className="my-5 flex gap-1.5">
-        <div className="h-1 flex-1 rounded-pill bg-accent" />
-        <div className="h-1 flex-1 rounded-pill bg-accent" />
-        <div className="h-1 flex-1 rounded-pill bg-line" />
-        <div className="h-1 flex-1 rounded-pill bg-line" />
+        <div className="h-1 flex-1 rounded-pill bg-brand-600" />
+        <div className="h-1 flex-1 rounded-pill bg-brand-600" />
+        <div className="h-1 flex-1 rounded-pill bg-system-200" />
+        <div className="h-1 flex-1 rounded-pill bg-system-200" />
       </div>
 
-      <div className="mb-5 rounded-lg bg-warn-tint p-4 text-left text-[12.5px] leading-relaxed text-warn">
+      <div className="mb-5 rounded-lg bg-warning-50 p-4 text-left text-[12.5px] leading-relaxed text-warning-800">
         Tu cuenta permanece inactiva y no puedes participar en campañas hasta
         completar este paso.
       </div>
 
       <form onSubmit={handleSubmit}>
-        <p className="mb-2 text-left text-[13px] font-medium text-ink">Código de 6 dígitos</p>
+        <p className="mb-2 text-left text-[13px] font-medium text-system-900">Código de 6 dígitos</p>
         <div className="mb-2 flex justify-center gap-2">
           {digits.map((digit, i) => (
             <input
@@ -202,17 +202,17 @@ function VerificarForm() {
               inputMode="numeric"
               maxLength={1}
               disabled={expired || attemptsLeft <= 0}
-              className="h-12 w-11 rounded border border-line-2 text-center text-lg font-semibold text-ink outline-none focus:border-accent disabled:opacity-50"
+              className="h-12 w-11 rounded border border-system-300 text-center text-lg font-semibold text-system-900 outline-none focus:border-brand-600 disabled:opacity-50"
             />
           ))}
         </div>
 
-        <div className="mb-2 flex justify-between text-[12px] text-ink-3">
+        <div className="mb-2 flex justify-between text-[12px] text-system-500">
           <span>{expired ? "Código expirado" : `Expira en ${formatRemaining(remainingMs)}`}</span>
           <span>Intentos: {attemptsLeft} de {MAX_ATTEMPTS}</span>
         </div>
 
-        {error && <p className="mb-3 text-left text-[12px] text-danger">{error}</p>}
+        {error && <p className="mb-3 text-left text-[12px] text-error-700">{error}</p>}
 
         <Button
           variant="primary"
@@ -233,7 +233,7 @@ function VerificarForm() {
         </Button>
       </form>
 
-      <p className="mt-5 text-[12px] text-ink-3">
+      <p className="mt-5 text-[12px] text-system-500">
         Si no lo encuentras, revisa la carpeta de correo no deseado.
       </p>
     </div>

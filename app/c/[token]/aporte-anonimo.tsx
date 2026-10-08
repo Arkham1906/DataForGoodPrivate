@@ -93,7 +93,7 @@ export default function AporteAnonimo({
 
   if (restantes <= 0) {
     return (
-      <p className="rounded-lg border border-ok bg-ok-tint p-3.5 text-[13px] text-ok">
+      <p className="rounded-lg border border-success-700 bg-success-50 p-3.5 text-[13px] text-success-700">
         {enviado ? "¡Gracias! Tu aporte quedó pendiente de revisión. " : ""}
         Ya enviaste los {cuota} {cuota === 1 ? "aporte" : "aportes"} que permite esta campaña desde este dispositivo.
       </p>
@@ -110,26 +110,26 @@ export default function AporteAnonimo({
   return (
     <form onSubmit={enviar}>
       {enviado && (
-        <p className="mb-4 rounded-lg border border-ok bg-ok-tint p-3.5 text-[13px] text-ok" role="status">
+        <p className="mb-4 rounded-lg border border-success-700 bg-success-50 p-3.5 text-[13px] text-success-700" role="status">
           ¡Gracias! Tu aporte quedó pendiente de revisión. Puedes enviar {restantes} más.
         </p>
       )}
 
-      <p className="mb-1.5 text-[13px] font-medium text-ink">
-        Archivo <span className="text-danger">*</span>
+      <p className="mb-1.5 text-[13px] font-medium text-system-900">
+        Archivo <span className="text-error-700">*</span>
       </p>
-      <label className="mb-4 flex cursor-pointer flex-col items-center gap-1 rounded-lg border border-dashed border-line-2 bg-sunken p-6 text-center text-[13px] text-ink-2 hover:border-accent">
+      <label className="mb-4 flex cursor-pointer flex-col items-center gap-1 rounded-lg border border-dashed border-system-300 bg-system-100 p-6 text-center text-[13px] text-system-600 hover:border-brand-600">
         <input key={vuelta} type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" className="hidden" onChange={elegirArchivo} />
         {archivo ? (
-          <span className="font-medium text-ink">{archivo.name}</span>
+          <span className="font-medium text-system-900">{archivo.name}</span>
         ) : (
           <>
-            <span className="font-medium text-ink">Toca para elegir una foto</span>
+            <span className="font-medium text-system-900">Toca para elegir una foto</span>
             <span className="font-mono text-[11px]">.jpg .jpeg .png · máximo 10 MB</span>
           </>
         )}
       </label>
-      {errorArchivo && <p className="-mt-2 mb-4 rounded border border-danger bg-danger-tint p-2 text-[12px] text-danger">{errorArchivo}</p>}
+      {errorArchivo && <p className="-mt-2 mb-4 rounded border border-error-700 bg-error-50 p-2 text-[12px] text-error-700">{errorArchivo}</p>}
 
       <Field label="Descripción" required>
         <Textarea
@@ -141,17 +141,17 @@ export default function AporteAnonimo({
           required
         />
       </Field>
-      <p className="mb-4 text-right font-mono text-[11px] text-ink-3">
+      <p className="mb-4 text-right font-mono text-[11px] text-system-500">
         {descripcion.length} / {LARGO_MAXIMO_DESCRIPCION}
       </p>
 
       {secciones.map((seccion, i) => (
-        <fieldset key={seccion.titulo || i} className="mb-4 rounded-lg border border-line bg-surface p-3.5">
-          <legend className="px-1 text-[13px] font-medium text-ink">{seccion.titulo || "Marca lo que aplique"}</legend>
+        <fieldset key={seccion.titulo || i} className="mb-4 rounded-lg border border-system-200 bg-white p-3.5">
+          <legend className="px-1 text-[13px] font-medium text-system-900">{seccion.titulo || "Marca lo que aplique"}</legend>
           {seccion.opciones.map((opcion) => {
             const valor = etiquetaDeRespuesta(seccion.titulo, opcion);
             return (
-              <label key={opcion} className="mb-2 flex items-center gap-2 text-[12.5px] text-ink-2 last:mb-0">
+              <label key={opcion} className="mb-2 flex items-center gap-2 text-[12.5px] text-system-600 last:mb-0">
                 <input type="checkbox" checked={marcadas.includes(valor)} onChange={() => alternar(valor)} />
                 {opcion}
               </label>
@@ -161,7 +161,7 @@ export default function AporteAnonimo({
       ))}
 
       {error && (
-        <p className="mb-3 rounded border border-danger bg-danger-tint p-2 text-[12px] text-danger" role="alert">
+        <p className="mb-3 rounded border border-error-700 bg-error-50 p-2 text-[12px] text-error-700" role="alert">
           {error}
         </p>
       )}
@@ -169,7 +169,7 @@ export default function AporteAnonimo({
       <Button variant="primary" type="submit" className="w-full" disabled={!puedeEnviar}>
         {enviando ? "Enviando…" : espera > 0 ? `Podrás enviar otro en ${espera} s` : "Enviar aporte sin cuenta"}
       </Button>
-      <p className="mt-2 text-center text-[11.5px] text-ink-3">
+      <p className="mt-2 text-center text-[11.5px] text-system-500">
         Se registra como anónimo y queda pendiente de revisión. Te quedan {restantes} de {cuota} desde este dispositivo.
       </p>
     </form>

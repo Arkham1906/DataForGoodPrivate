@@ -67,7 +67,7 @@ export default async function DirectorioPage({
         </Suspense>
 
         {filas.length === 0 ? (
-          <p className="py-7 text-[13px] text-ink-2">
+          <p className="py-7 text-[13px] text-system-600">
             Ningún usuario coincide con la búsqueda. Prueba con otro término o quita
             alguno de los filtros.
           </p>
@@ -77,25 +77,25 @@ export default async function DirectorioPage({
               {filas.map((u) => {
                 const estado = ETIQUETA_DE_ESTADO[u.estado];
                 return (
-                  <article key={u.id} className="rounded-lg border border-line bg-surface p-4 shadow-sm">
+                  <article key={u.id} className="rounded-lg border border-system-200 bg-white p-4 shadow-sm">
                     <div className="min-w-0">
-                      <p className="break-words text-[14px] font-bold leading-snug text-ink">
+                      <p className="break-words text-[14px] font-bold leading-snug text-system-900">
                         {u.nombre}
                       </p>
-                      <p className="mt-1 break-all font-mono text-[11px] text-ink-3">{u.correo}</p>
+                      <p className="mt-1 break-all font-mono text-[11px] text-system-500">{u.correo}</p>
                     </div>
 
-                    <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-line pt-3">
+                    <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-system-200 pt-3">
                       {u.roles.map((rol) => (
                         <Tag key={rol}>{rol}</Tag>
                       ))}
                       {u.rolDetalle ? (
-                        <span className="text-[12.5px] text-ink-3">{u.rolDetalle}</span>
+                        <span className="text-[12.5px] text-system-500">{u.rolDetalle}</span>
                       ) : null}
                     </div>
 
                     <div className="mt-3 flex items-center justify-between gap-3">
-                      <span className="text-[11px] text-ink-2">Estado</span>
+                      <span className="text-[11px] text-system-600">Estado</span>
                       <Tag tone={estado.tono}>
                         {u.estado === "CON_STRIKES" ? `${u.strikes} strikes` : estado.texto}
                       </Tag>
@@ -111,9 +111,9 @@ export default async function DirectorioPage({
               })}
             </div>
 
-            <div className="hidden overflow-x-auto rounded-lg border border-line bg-surface p-5 shadow-sm md:block">
+            <div className="hidden overflow-x-auto rounded-lg border border-system-200 bg-white p-5 shadow-sm md:block">
               <table className="w-full min-w-[720px] text-left text-[13.5px]">
-                <thead className="border-b border-line font-mono text-[10px] uppercase tracking-[0.1em] text-ink-3">
+                <thead className="border-b border-system-200 font-mono text-[10px] uppercase tracking-[0.1em] text-system-500">
                   <tr>
                     <th className="pb-3 font-medium">Usuario</th>
                     <th className="pb-3 font-medium">Rol</th>
@@ -125,10 +125,10 @@ export default async function DirectorioPage({
                   {filas.map((u) => {
                     const estado = ETIQUETA_DE_ESTADO[u.estado];
                     return (
-                      <tr key={u.id} className="border-b border-line last:border-0">
+                      <tr key={u.id} className="border-b border-system-200 last:border-0">
                         <td className="py-4">
-                          <p className="font-bold text-ink">{u.nombre}</p>
-                          <p className="font-mono text-[11px] text-ink-3">{u.correo}</p>
+                          <p className="font-bold text-system-900">{u.nombre}</p>
+                          <p className="font-mono text-[11px] text-system-500">{u.correo}</p>
                         </td>
                         <td>
                           <div className="flex flex-wrap items-center gap-1.5">
@@ -136,7 +136,7 @@ export default async function DirectorioPage({
                               <Tag key={rol}>{rol}</Tag>
                             ))}
                             {u.rolDetalle ? (
-                              <span className="text-[12.5px] text-ink-3">{u.rolDetalle}</span>
+                              <span className="text-[12.5px] text-system-500">{u.rolDetalle}</span>
                             ) : null}
                           </div>
                         </td>

@@ -56,22 +56,22 @@ export default async function BajaSolicitadaPage({
   ];
 
   return (
-    <div className="min-h-screen bg-paper">
-      <header className="flex items-center justify-between border-b border-line px-6 py-4">
+    <div className="min-h-screen bg-system-50">
+      <header className="flex items-center justify-between border-b border-system-200 px-6 py-4">
         <Logo />
       </header>
 
-      <main className="mx-auto max-w-xl px-4 py-12 sm:px-6">
-        <div className="rounded-lg border border-line bg-surface p-6 sm:p-8">
-          <p className="mb-2 font-mono text-[10.5px] uppercase tracking-widest text-danger">Baja solicitada</p>
-          <h1 className="text-xl font-extrabold text-ink">Tu cuenta se eliminará el {fecha}</h1>
-          <p className="mt-1 text-[13px] text-ink-2">
+      <main id="contenido" className="mx-auto max-w-xl px-4 py-12 sm:px-6">
+        <div className="rounded-lg border border-system-200 bg-white p-6 sm:p-8">
+          <p className="mb-2 font-mono text-[10.5px] uppercase tracking-widest text-error-700">Baja solicitada</p>
+          <h1 className="text-xl font-extrabold text-system-900">Tu cuenta se eliminará el {fecha}</h1>
+          <p className="mt-1 text-[13px] text-system-600">
             Quedan {diasRestantes === 1 ? "1 día" : `${diasRestantes} días`}.
           </p>
 
-          <div className="mt-5 rounded-lg border-l-4 border-accent bg-accent-tint p-4">
-            <p className="text-[14px] font-bold text-ink">Periodo de gracia</p>
-            <p className="mt-1 text-[13px] leading-relaxed text-ink-2">
+          <div className="mt-5 rounded-lg border-l-4 border-brand-600 bg-brand-50 p-4">
+            <p className="text-[14px] font-bold text-system-900">Periodo de gracia</p>
+            <p className="mt-1 text-[13px] leading-relaxed text-system-600">
               Puedes revertirlo en cualquier momento: basta con volver a iniciar sesión antes del {fecha}. La baja se
               cancela sola.
             </p>
@@ -83,7 +83,7 @@ export default async function BajaSolicitadaPage({
           <Resumen titulo="Ya aplicado" filas={aplicado} />
           <Resumen titulo="Pendiente al vencer el plazo" filas={pendiente} />
 
-          <p className="mt-5 text-[12.5px] leading-relaxed text-ink-3">
+          <p className="mt-5 text-[12.5px] leading-relaxed text-system-500">
             Pasada esa fecha la operación es irreversible y el correo puede volver a usarse para crear una cuenta
             distinta.
           </p>
@@ -96,12 +96,12 @@ export default async function BajaSolicitadaPage({
 function Resumen({ titulo, filas }: { titulo: string; filas: { etiqueta: string; valor: string }[] }) {
   return (
     <section className="mt-5">
-      <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-3">{titulo}</p>
-      <dl className="mt-2 divide-y divide-line rounded-lg border border-line">
+      <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-system-500">{titulo}</p>
+      <dl className="mt-2 divide-y divide-system-200 rounded-lg border border-system-200">
         {filas.map((fila) => (
           <div key={fila.etiqueta} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5">
-            <dt className="text-[13px] text-ink-2">{fila.etiqueta}</dt>
-            <dd className="text-right text-[13px] font-semibold text-ink">{fila.valor}</dd>
+            <dt className="text-[13px] text-system-600">{fila.etiqueta}</dt>
+            <dd className="text-right text-[13px] font-semibold text-system-900">{fila.valor}</dd>
           </div>
         ))}
       </dl>

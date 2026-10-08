@@ -24,7 +24,7 @@ import {
 const CADA_CUANTO_MS = 60_000;
 const EN_LA_CAMPANA = 8;
 
-const COLOR_DEL_PUNTO = { ok: "bg-ok", warn: "bg-warn", danger: "bg-danger", default: "bg-accent" } as const;
+const COLOR_DEL_PUNTO = { ok: "bg-success-700", warn: "bg-warning-500", danger: "bg-error-700", default: "bg-brand-600" } as const;
 
 export default function NotificationsBell() {
   const router = useRouter();
@@ -145,11 +145,11 @@ export default function NotificationsBell() {
         aria-expanded={open}
         aria-haspopup="dialog"
         onClick={alternar}
-        className="relative flex h-9 w-9 items-center justify-center rounded-full text-ink-2 hover:bg-sunken"
+        className="relative flex h-9 w-9 items-center justify-center rounded-full text-system-600 hover:bg-system-100"
       >
         <BellIcon />
         {noLeidas > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-white">
+          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-600 px-1 text-[10px] font-bold text-white">
             {noLeidas > 9 ? "9+" : noLeidas}
           </span>
         )}
@@ -159,40 +159,40 @@ export default function NotificationsBell() {
         <div
           role="dialog"
           aria-label="Notificaciones"
-          className="absolute right-0 top-11 z-20 w-80 max-w-[calc(100vw-2rem)] rounded-lg border border-line bg-surface shadow-lg max-md:fixed max-md:left-3 max-md:right-3 max-md:top-[var(--dashboard-topbar-height,76px)] max-md:w-auto max-md:max-w-none"
+          className="absolute right-0 top-11 z-20 w-80 max-w-[calc(100vw-2rem)] rounded-lg border border-system-200 bg-white shadow-lg max-md:fixed max-md:left-3 max-md:right-3 max-md:top-[var(--dashboard-topbar-height,76px)] max-md:w-auto max-md:max-w-none"
         >
-          <div className="flex items-center justify-between gap-2 border-b border-line px-3 py-2.5">
-            <p className="text-sm font-bold text-ink">Notificaciones</p>
+          <div className="flex items-center justify-between gap-2 border-b border-system-200 px-3 py-2.5">
+            <p className="text-sm font-bold text-system-900">Notificaciones</p>
             {noLeidas > 0 && (
-              <button type="button" onClick={() => void marcarTodas()} className="text-[11.5px] font-bold text-accent hover:underline">
+              <button type="button" onClick={() => void marcarTodas()} className="text-[11.5px] font-bold text-brand-600 hover:underline">
                 Marcar todas como leídas
               </button>
             )}
           </div>
 
-          {error && <p className="mx-3 mt-2 rounded bg-danger-tint px-2.5 py-1.5 text-[12px] text-danger">{error}</p>}
+          {error && <p className="mx-3 mt-2 rounded bg-error-50 px-2.5 py-1.5 text-[12px] text-error-700">{error}</p>}
 
           {items.length === 0 ? (
-            <p className="px-3 py-6 text-center text-[12.5px] text-ink-2">No tienes notificaciones.</p>
+            <p className="px-3 py-6 text-center text-[12.5px] text-system-600">No tienes notificaciones.</p>
           ) : (
-            <ul className="max-h-96 divide-y divide-line overflow-y-auto max-md:max-h-[calc(100dvh-var(--dashboard-topbar-height,76px)-7rem)]">
+            <ul className="max-h-96 divide-y divide-system-200 overflow-y-auto max-md:max-h-[calc(100dvh-var(--dashboard-topbar-height,76px)-7rem)]">
               {items.map((item) => (
-                <li key={item.id} className={item.readAt ? "" : "bg-accent-tint"}>
+                <li key={item.id} className={item.readAt ? "" : "bg-brand-50"}>
                   <button
                     type="button"
                     onClick={() => void abrir(item)}
-                    className="flex w-full gap-2.5 px-3 py-2.5 text-left hover:bg-sunken"
+                    className="flex w-full gap-2.5 px-3 py-2.5 text-left hover:bg-system-100"
                   >
                     <span
                       aria-hidden
-                      className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${item.readAt ? "bg-line-2" : COLOR_DEL_PUNTO[tonoDeNotificacion(item.type)]}`}
+                      className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${item.readAt ? "bg-system-300" : COLOR_DEL_PUNTO[tonoDeNotificacion(item.type)]}`}
                     />
                     <span className="min-w-0 flex-1">
                       <span className="flex items-baseline justify-between gap-2">
-                        <span className={`min-w-0 flex-1 break-words text-[12.5px] text-ink ${item.readAt ? "font-semibold" : "font-bold"}`}>{item.title}</span>
-                        <span className="shrink-0 text-[10.5px] text-ink-3">{haceCuanto(item.createdAt, ahora)}</span>
+                        <span className={`min-w-0 flex-1 break-words text-[12.5px] text-system-900 ${item.readAt ? "font-semibold" : "font-bold"}`}>{item.title}</span>
+                        <span className="shrink-0 text-[10.5px] text-system-500">{haceCuanto(item.createdAt, ahora)}</span>
                       </span>
-                      <span className="mt-0.5 line-clamp-3 block text-[12px] leading-5 text-ink-2">{item.message}</span>
+                      <span className="mt-0.5 line-clamp-3 block text-[12px] leading-5 text-system-600">{item.message}</span>
                       {!item.readAt && <span className="sr-only">Sin leer</span>}
                     </span>
                   </button>
@@ -202,7 +202,7 @@ export default function NotificationsBell() {
                         type="button"
                         onClick={() => void acceptInvitation(item)}
                         disabled={loadingId === item.id}
-                        className="rounded-pill bg-accent px-3 py-1.5 text-[11.5px] font-bold text-white disabled:opacity-60"
+                        className="rounded-pill bg-brand-600 px-3 py-1.5 text-[11.5px] font-bold text-white disabled:opacity-60"
                       >
                         {loadingId === item.id ? "Aceptando…" : "Aceptar invitación"}
                       </button>
@@ -213,8 +213,8 @@ export default function NotificationsBell() {
             </ul>
           )}
 
-          <div className="border-t border-line px-3 py-2 text-center">
-            <Link href="/notificaciones" onClick={() => setOpen(false)} className="text-[12px] font-bold text-accent hover:underline">
+          <div className="border-t border-system-200 px-3 py-2 text-center">
+            <Link href="/notificaciones" onClick={() => setOpen(false)} className="text-[12px] font-bold text-brand-600 hover:underline">
               Ver todas
             </Link>
           </div>

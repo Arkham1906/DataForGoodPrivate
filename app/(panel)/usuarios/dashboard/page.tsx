@@ -91,7 +91,7 @@ export default async function DashboardDeUsuariosPage({
         <section>
           <TituloDeSeccion>Por rol asignado</TituloDeSeccion>
           <Reparto filas={d.porRol} />
-          <p className="mt-2.5 text-[12.5px] text-ink-3">
+          <p className="mt-2.5 text-[12.5px] text-system-500">
             Un mismo usuario puede aparecer en más de una fila: crear campañas no
             excluye tener rol de revisor.
           </p>
@@ -124,7 +124,7 @@ export default async function DashboardDeUsuariosPage({
         <section>
           <TituloDeSeccion>Temáticas de interés declaradas</TituloDeSeccion>
           {d.interesesDeclarados.length === 0 ? (
-            <p className="text-[13px] text-ink-2">Ningún usuario ha declarado intereses todavía.</p>
+            <p className="text-[13px] text-system-600">Ningún usuario ha declarado intereses todavía.</p>
           ) : (
             <Reparto
               anchoEtiqueta={150}
@@ -137,7 +137,7 @@ export default async function DashboardDeUsuariosPage({
               }))}
             />
           )}
-          <p className="mt-2.5 text-[12.5px] text-ink-3">
+          <p className="mt-2.5 text-[12.5px] text-system-500">
             Los cinco temas más elegidos, en porcentaje del total de usuarios registrados.
           </p>
         </section>
@@ -156,27 +156,27 @@ export default async function DashboardDeUsuariosPage({
       <TituloDeSeccion>Usuarios con mayor participación</TituloDeSeccion>
       <div className="space-y-3 md:hidden">
         {d.masActivos.map((u) => (
-          <article key={u.id} className="rounded-lg border border-line bg-surface p-4 shadow-sm">
+          <article key={u.id} className="rounded-lg border border-system-200 bg-white p-4 shadow-sm">
             <div className="min-w-0">
-              <p className="break-words text-[14px] font-bold leading-snug text-ink">{u.nombre}</p>
-              <p className="mt-1 break-all font-mono text-[11px] text-ink-3">{u.correo}</p>
+              <p className="break-words text-[14px] font-bold leading-snug text-system-900">{u.nombre}</p>
+              <p className="mt-1 break-all font-mono text-[11px] text-system-500">{u.correo}</p>
             </div>
 
-            <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-line pt-3">
+            <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-system-200 pt-3">
               <div>
-                <dt className="text-[11px] text-ink-2">Aportes aprobados</dt>
-                <dd className="mt-0.5 font-mono text-[15px] font-semibold tabular-nums text-ink">
+                <dt className="text-[11px] text-system-600">Aportes aprobados</dt>
+                <dd className="mt-0.5 font-mono text-[15px] font-semibold tabular-nums text-system-900">
                   {formatearNumero(u.aportesAprobados)}
                 </dd>
               </div>
               <div>
-                <dt className="text-[11px] text-ink-2">Campañas</dt>
-                <dd className="mt-0.5 font-mono text-[15px] font-semibold tabular-nums text-ink">
+                <dt className="text-[11px] text-system-600">Campañas</dt>
+                <dd className="mt-0.5 font-mono text-[15px] font-semibold tabular-nums text-system-900">
                   {formatearNumero(u.campanas)}
                 </dd>
               </div>
               <div className="col-span-2 flex items-center justify-between gap-3">
-                <dt className="text-[11px] text-ink-2">Estado</dt>
+                <dt className="text-[11px] text-system-600">Estado</dt>
                 <dd>
                   <Tag tone={u.estado.tono}>{u.estado.texto}</Tag>
                 </dd>
@@ -192,9 +192,9 @@ export default async function DashboardDeUsuariosPage({
         ))}
       </div>
 
-      <div className="hidden overflow-x-auto rounded-lg border border-line bg-surface p-5 shadow-sm md:block">
+      <div className="hidden overflow-x-auto rounded-lg border border-system-200 bg-white p-5 shadow-sm md:block">
         <table className="w-full min-w-[640px] text-left text-[13.5px]">
-          <thead className="border-b border-line font-mono text-[10px] uppercase tracking-[0.1em] text-ink-3">
+          <thead className="border-b border-system-200 font-mono text-[10px] uppercase tracking-[0.1em] text-system-500">
             <tr>
               <th className="pb-3 font-medium">Usuario</th>
               <th className="pb-3 font-medium">Aportes aprobados</th>
@@ -205,10 +205,10 @@ export default async function DashboardDeUsuariosPage({
           </thead>
           <tbody>
             {d.masActivos.map((u) => (
-              <tr key={u.id} className="border-b border-line last:border-0">
+              <tr key={u.id} className="border-b border-system-200 last:border-0">
                 <td className="py-4">
-                  <p className="font-bold text-ink">{u.nombre}</p>
-                  <p className="font-mono text-[11px] text-ink-3">{u.correo}</p>
+                  <p className="font-bold text-system-900">{u.nombre}</p>
+                  <p className="font-mono text-[11px] text-system-500">{u.correo}</p>
                 </td>
                 <td className="font-mono tabular-nums">{formatearNumero(u.aportesAprobados)}</td>
                 <td className="font-mono tabular-nums">{u.campanas}</td>

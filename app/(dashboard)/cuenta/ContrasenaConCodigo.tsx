@@ -118,10 +118,10 @@ export default function ContrasenaConCodigo({
   if (paso === "listo") {
     return (
       <div className="p-5">
-        <h2 id={idTitulo} className="text-lg font-extrabold text-ink">
+        <h2 id={idTitulo} className="text-lg font-extrabold text-system-900">
           {textos.listoTitulo}
         </h2>
-        <p className="mt-1 text-[13px] text-ink-2">{textos.listo}</p>
+        <p className="mt-1 text-[13px] text-system-600">{textos.listo}</p>
         <div className="mt-5 flex justify-end">
           <Button type="button" variant="primary" size="sm" onClick={onCerrar}>
             Listo
@@ -134,15 +134,15 @@ export default function ContrasenaConCodigo({
   if (paso === "aviso") {
     return (
       <div className="p-5">
-        <h2 id={idTitulo} className="text-lg font-extrabold text-ink">
+        <h2 id={idTitulo} className="text-lg font-extrabold text-system-900">
           {textos.titulo}
         </h2>
-        <p className="mt-1 text-[13px] leading-relaxed text-ink-2">
-          Para confirmar que eres tú, te enviaremos un código a <span className="font-medium text-ink">{email}</span>.{" "}
+        <p className="mt-1 text-[13px] leading-relaxed text-system-600">
+          Para confirmar que eres tú, te enviaremos un código a <span className="font-medium text-system-900">{email}</span>.{" "}
           {textos.aviso}
         </p>
         {error && (
-          <p role="alert" className="mt-4 text-[12px] text-danger">
+          <p role="alert" className="mt-4 text-[12px] text-error-700">
             {error}
           </p>
         )}
@@ -160,24 +160,24 @@ export default function ContrasenaConCodigo({
 
   return (
     <form onSubmit={guardar} className="flex max-h-[85vh] flex-col" noValidate>
-      <div className="border-b border-line p-5">
-        <h2 id={idTitulo} className="text-lg font-extrabold text-ink">
+      <div className="border-b border-system-200 p-5">
+        <h2 id={idTitulo} className="text-lg font-extrabold text-system-900">
           {textos.titulo}
         </h2>
-        <p className="mt-1 text-[12.5px] text-ink-2">
-          Escribe el código que enviamos a <span className="font-medium text-ink">{email}</span> (expira en{" "}
+        <p className="mt-1 text-[12.5px] text-system-600">
+          Escribe el código que enviamos a <span className="font-medium text-system-900">{email}</span> (expira en{" "}
           {MINUTOS_DE_VIGENCIA} minutos, tienes {INTENTOS_POR_CODIGO} intentos) y tu contraseña dos veces.
         </p>
       </div>
 
       <div className="flex-1 overflow-y-auto p-5">
-        <p className="mb-2 text-[13px] font-medium text-ink">Código</p>
+        <p className="mb-2 text-[13px] font-medium text-system-900">Código</p>
         <CodigoDeSeisDigitos valor={codigo} onCambiar={setCodigo} deshabilitado={enviando} autoFocus />
         <button
           type="button"
           onClick={pedirCodigo}
           disabled={enviando || espera > 0}
-          className="mb-4 mt-2 text-[12.5px] font-medium text-accent hover:underline disabled:cursor-not-allowed disabled:text-ink-3 disabled:no-underline"
+          className="mb-4 mt-2 text-[12.5px] font-medium text-brand-600 hover:underline disabled:cursor-not-allowed disabled:text-system-500 disabled:no-underline"
         >
           {espera > 0 ? `Reenviar código en ${espera} s` : "Reenviar código"}
         </button>
@@ -200,7 +200,7 @@ export default function ContrasenaConCodigo({
             autoComplete="new-password"
             disabled={enviando}
             required
-            className={confirmacion.length > 0 && !coinciden ? "border-danger" : ""}
+            className={confirmacion.length > 0 && !coinciden ? "border-error-700" : ""}
           />
         </Field>
 
@@ -208,7 +208,7 @@ export default function ContrasenaConCodigo({
           {REGLAS_DE_CONTRASENA.map((regla) => {
             const cumple = regla.test(nueva);
             return (
-              <li key={regla.label} className={`text-[12.5px] ${cumple ? "text-ok" : "text-ink-3"}`}>
+              <li key={regla.label} className={`text-[12.5px] ${cumple ? "text-success-700" : "text-system-500"}`}>
                 {cumple ? "✓" : "·"} {regla.label}
               </li>
             );
@@ -216,13 +216,13 @@ export default function ContrasenaConCodigo({
         </ul>
 
         {error && (
-          <p role="alert" className="mt-4 text-[12px] text-danger">
+          <p role="alert" className="mt-4 text-[12px] text-error-700">
             {error}
           </p>
         )}
       </div>
 
-      <div className="flex justify-end gap-2 border-t border-line p-4">
+      <div className="flex justify-end gap-2 border-t border-system-200 p-4">
         <Button type="button" variant="secondary" size="sm" onClick={onCerrar} disabled={enviando}>
           Cancelar
         </Button>

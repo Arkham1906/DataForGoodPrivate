@@ -74,7 +74,7 @@ export default function CodigoDeSeisDigitos({
           autoComplete={i === 0 ? "one-time-code" : "off"}
           aria-label={`Dígito ${i + 1}`}
           disabled={deshabilitado}
-          className="h-12 min-w-0 max-w-11 flex-1 rounded border border-line-2 text-center text-lg font-semibold text-ink outline-none focus:border-accent disabled:opacity-50"
+          className="h-12 min-w-0 max-w-11 flex-1 rounded border border-system-300 text-center text-lg font-semibold text-system-900 outline-none focus:border-brand-600 disabled:opacity-50"
         />
       ))}
     </div>

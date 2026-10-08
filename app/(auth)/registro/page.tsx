@@ -106,19 +106,19 @@ function RegistroForm() {
   }
 
   return (
-    <div className="rounded-lg border border-line bg-surface p-8">
+    <div className="rounded-lg border border-system-200 bg-white p-8">
       <div className="mb-2 text-center">
-        <h1 className="text-xl font-extrabold text-ink">Crea tu cuenta</h1>
-        <p className="mt-2 font-mono text-[10.5px] uppercase tracking-wider text-accent">
+        <h1 className="text-xl font-extrabold text-system-900">Crea tu cuenta</h1>
+        <p className="mt-2 font-mono text-[10.5px] uppercase tracking-wider text-brand-600">
           Paso 1 de 4 · Tus datos
         </p>
       </div>
 
       <div className="my-5 flex gap-1.5">
-        <div className="h-1 flex-1 rounded-pill bg-accent" />
-        <div className="h-1 flex-1 rounded-pill bg-line" />
-        <div className="h-1 flex-1 rounded-pill bg-line" />
-        <div className="h-1 flex-1 rounded-pill bg-line" />
+        <div className="h-1 flex-1 rounded-pill bg-brand-600" />
+        <div className="h-1 flex-1 rounded-pill bg-system-200" />
+        <div className="h-1 flex-1 rounded-pill bg-system-200" />
+        <div className="h-1 flex-1 rounded-pill bg-system-200" />
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col">
@@ -154,10 +154,10 @@ function RegistroForm() {
             }}
             placeholder="carlos@correo.com"
             required
-            className={emailTaken ? "border-danger bg-danger-tint" : ""}
+            className={emailTaken ? "border-error-700 bg-error-50" : ""}
           />
           {serverError && (
-            <p className="mt-1.5 text-[12px] text-danger">{serverError}</p>
+            <p className="mt-1.5 text-[12px] text-error-700">{serverError}</p>
           )}
         </Field>
 
@@ -177,7 +177,7 @@ function RegistroForm() {
             placeholder="••••••••"
             required
             className={
-              confirmPassword.length > 0 && !passwordsMatch ? "border-danger" : ""
+              confirmPassword.length > 0 && !passwordsMatch ? "border-error-700" : ""
             }
           />
         </Field>
@@ -188,7 +188,7 @@ function RegistroForm() {
             return (
               <li
                 key={rule.label}
-                className={`text-[12.5px] ${pass ? "text-ok" : "text-ink-3"}`}
+                className={`text-[12.5px] ${pass ? "text-success-700" : "text-system-500"}`}
               >
                 {pass ? "✓" : "·"} {rule.label}
               </li>
@@ -196,7 +196,7 @@ function RegistroForm() {
           })}
         </ul>
 
-        <label className="mb-5 flex items-start gap-2.5 text-[12.5px] text-ink-2">
+        <label className="mb-5 flex items-start gap-2.5 text-[12.5px] text-system-600">
           <input
             type="checkbox"
             checked={acceptedTerms}
@@ -204,11 +204,11 @@ function RegistroForm() {
             className="mt-0.5"
           />
           Acepto los{" "}
-          <Link href="#" className="text-accent hover:underline">
+          <Link href="#" className="text-brand-600 hover:underline">
             términos de uso
           </Link>{" "}
           y el{" "}
-          <Link href="#" className="text-accent hover:underline">
+          <Link href="#" className="text-brand-600 hover:underline">
             aviso de privacidad
           </Link>
         </label>
@@ -230,9 +230,9 @@ function RegistroForm() {
         </Button>
       </form>
 
-      <p className="mt-6 text-center text-[13px] text-ink-2">
+      <p className="mt-6 text-center text-[13px] text-system-600">
         ¿Ya tienes cuenta?{" "}
-        <Link href={conDestino("/entrar", next)} className="font-medium text-accent hover:underline">
+        <Link href={conDestino("/entrar", next)} className="font-medium text-brand-600 hover:underline">
           Inicia sesión
         </Link>
       </p>

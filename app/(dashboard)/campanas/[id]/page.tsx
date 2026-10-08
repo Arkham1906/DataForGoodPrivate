@@ -15,6 +15,7 @@ import type { Campaign } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
 import { TIPO_DE_DATO } from "@/lib/aportes/archivo";
 import CompartirCampana from "./compartir";
+import PantallaEsqueleto from "@/components/ui/Esqueletos";
 
 export default function CampaignDetailPage() {
   const params = useParams<{ id: string }>();
@@ -62,8 +63,8 @@ export default function CampaignDetailPage() {
     }
   }
 
-  if (error) return <p className="text-sm text-danger">{error}</p>;
-  if (!campaign) return <p className="text-sm text-ink-2">Cargando campaña...</p>;
+  if (error) return <p className="text-sm text-error-700">{error}</p>;
+  if (!campaign) return <PantallaEsqueleto tipo="detalle" etiqueta="Cargando campaña…" />;
 
   const parseDateOnly = (date: string | null | undefined) => {
     if (!date) return null;
@@ -85,7 +86,7 @@ export default function CampaignDetailPage() {
   return (
     <div className="mx-auto grid max-w-5xl grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
       <div>
-        <Link href="/campanas" className="mb-4 inline-block text-[13px] text-ink-2 hover:text-ink">
+        <Link href="/campanas" className="mb-4 inline-block text-[13px] text-system-600 hover:text-system-900">
           ← Volver a campañas
         </Link>
 
@@ -94,9 +95,9 @@ export default function CampaignDetailPage() {
           <CompartirCampana campanaId={campaign.id} nombre={campaign.name} />
         </div>
 
-        <h1 className="mb-2 text-[26px] font-extrabold text-ink">{campaign.name}</h1>
+        <h1 className="mb-2 text-[26px] font-extrabold text-system-900">{campaign.name}</h1>
 
-        <div className="mb-6 flex flex-wrap gap-5 text-[13px] text-ink-2">
+        <div className="mb-6 flex flex-wrap gap-5 text-[13px] text-system-600">
           <span>
             {[campaign.locationCity, campaign.locationState].filter(Boolean).join(", ")}
           </span>
@@ -113,20 +114,20 @@ export default function CampaignDetailPage() {
             })}
           </span>
         </div>
-        <p className="mb-4 font-mono text-[12px] text-ink-2">
+        <p className="mb-4 font-mono text-[12px] text-system-600">
           Fecha de cierre: {closeDate} · Días restantes: {remainingDays}
         </p>
 
-        <div className="mb-6 rounded-lg bg-accent-deep p-5 text-white">
+        <div className="mb-6 rounded-lg bg-brand-800 p-5 text-white">
           <p className="text-base font-bold">Tu observación suma conocimiento</p>
           <p className="mt-1 text-[13px] text-white/85">{campaign.description}</p>
         </div>
 
-        <h2 className="mb-2 text-lg font-bold text-ink">¿De qué trata esta campaña?</h2>
-        <p className="text-[14px] leading-relaxed text-ink-2">{campaign.description}</p>
+        <h2 className="mb-2 text-lg font-bold text-system-900">¿De qué trata esta campaña?</h2>
+        <p className="text-[14px] leading-relaxed text-system-600">{campaign.description}</p>
 
-        <h2 className="mb-2 mt-6 text-lg font-bold text-ink">¿Qué puedes aportar?</h2>
-        <p className="mb-3 text-[13px] text-ink-2">
+        <h2 className="mb-2 mt-6 text-lg font-bold text-system-900">¿Qué puedes aportar?</h2>
+        <p className="mb-3 text-[13px] text-system-600">
           Comparte la información que tengas. Cada aporte es valioso.
         </p>
         {/* Sale de la campaña: sus tipos de dato, la descripción (siempre obligatoria) y sus
@@ -135,45 +136,45 @@ export default function CampaignDetailPage() {
           {campaign.dataTypes
             .filter((tipo) => tipo !== "texto")
             .map((tipo) => (
-              <div key={tipo} className="rounded-lg border border-line bg-surface p-4">
-                <p className="text-[14px] font-bold text-ink">{TIPO_DE_DATO[tipo]?.titulo ?? tipo}</p>
-                <p className="mt-1 text-[12px] text-ink-3">{TIPO_DE_DATO[tipo]?.detalle}</p>
+              <div key={tipo} className="rounded-lg border border-system-200 bg-white p-4">
+                <p className="text-[14px] font-bold text-system-900">{TIPO_DE_DATO[tipo]?.titulo ?? tipo}</p>
+                <p className="mt-1 text-[12px] text-system-500">{TIPO_DE_DATO[tipo]?.detalle}</p>
               </div>
             ))}
-          <div className="rounded-lg border border-line bg-surface p-4">
-            <p className="text-[14px] font-bold text-ink">Descripción</p>
-            <p className="mt-1 text-[12px] text-ink-3">
+          <div className="rounded-lg border border-system-200 bg-white p-4">
+            <p className="text-[14px] font-bold text-system-900">Descripción</p>
+            <p className="mt-1 text-[12px] text-system-500">
               Qué observaste y dónde, con tus palabras. Es obligatoria.
             </p>
           </div>
           {(campaign.checklistSecciones ?? []).map((seccion, i) => (
-            <div key={seccion.titulo || i} className="rounded-lg border border-line bg-surface p-4">
-              <p className="text-[14px] font-bold text-ink">{seccion.titulo || "Marca lo que aplique"}</p>
-              <p className="mt-1 text-[12px] text-ink-3">{seccion.opciones.join(" · ")}</p>
+            <div key={seccion.titulo || i} className="rounded-lg border border-system-200 bg-white p-4">
+              <p className="text-[14px] font-bold text-system-900">{seccion.titulo || "Marca lo que aplique"}</p>
+              <p className="mt-1 text-[12px] text-system-500">{seccion.opciones.join(" · ")}</p>
             </div>
           ))}
         </div>
       </div>
 
       <aside className="flex flex-col gap-4">
-        <div className="rounded-lg border border-line bg-surface p-5">
-          <h3 className="mb-1 text-[15px] font-bold text-ink">
+        <div className="rounded-lg border border-system-200 bg-white p-5">
+          <h3 className="mb-1 text-[15px] font-bold text-system-900">
             Tu participación hace la diferencia
           </h3>
-          <p className="mb-4 text-[12.5px] text-ink-2">
+          <p className="mb-4 text-[12.5px] text-system-600">
             Esta campaña no recibe dinero. Aquí se comparte conocimiento.
           </p>
 
           <ProgressBar pct={pct} />
-          <p className="mt-2 mb-4 font-mono text-[12.5px] text-ink-2">
+          <p className="mt-2 mb-4 font-mono text-[12.5px] text-system-600">
             {campaign.currentContributions} de {campaign.goalContributions} aportes · tu
             cuota: {campaign.quotaPerUser}
           </p>
 
           {isCreator ? (
-            <p className="rounded-lg bg-sunken p-3 text-center text-[12.5px] text-ink-2">Creaste esta campaña, por lo que no puedes aportar en ella.</p>
+            <p className="rounded-lg bg-system-100 p-3 text-center text-[12.5px] text-system-600">Creaste esta campaña, por lo que no puedes aportar en ella.</p>
           ) : baneado ? (
-            <p className="rounded-lg bg-danger-tint p-3 text-center text-[12.5px] text-danger">
+            <p className="rounded-lg bg-error-50 p-3 text-center text-[12.5px] text-error-700">
               Quien creó esta campaña te retiró la posibilidad de aportar en ella.
               {motivoDeBaneo && <span className="mt-1 block font-semibold">Motivo: {motivoDeBaneo}</span>}
             </p>
@@ -182,44 +183,44 @@ export default function CampaignDetailPage() {
               <Button variant="primary" className="w-full">Realizar un aporte</Button>
             </Link>
           ) : (
-            <p className="rounded-lg bg-sunken p-3 text-center text-[12.5px] text-ink-2">Esta campaña no está recibiendo aportes.</p>
+            <p className="rounded-lg bg-system-100 p-3 text-center text-[12.5px] text-system-600">Esta campaña no está recibiendo aportes.</p>
           )}
           <Button variant="secondary" className="mt-2.5 w-full" disabled={guardando} onClick={alternarGuardado}>
             {saved ? "Campaña guardada" : "Guardar campaña"}
           </Button>
         </div>
 
-        <div className="rounded-lg border border-line bg-surface p-5">
-          <h3 className="mb-3 text-[15px] font-bold text-ink">Detalles de la campaña</h3>
+        <div className="rounded-lg border border-system-200 bg-white p-5">
+          <h3 className="mb-3 text-[15px] font-bold text-system-900">Detalles de la campaña</h3>
           <dl className="flex flex-col gap-2.5 text-[13px]">
             <div className="flex justify-between">
-              <dt className="text-ink-2">Organiza</dt>
-              <dd className="font-medium text-ink">{campaign.organizer ?? "—"}</dd>
+              <dt className="text-system-600">Organiza</dt>
+              <dd className="font-medium text-system-900">{campaign.organizer ?? "—"}</dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-ink-2">Tipo de dato</dt>
-              <dd className="font-medium text-ink">
+              <dt className="text-system-600">Tipo de dato</dt>
+              <dd className="font-medium text-system-900">
                 {campaign.dataTypes.map((t) => t[0].toUpperCase() + t.slice(1)).join(" y ")}
               </dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-ink-2">Meta</dt>
-              <dd className="font-medium text-ink">
+              <dt className="text-system-600">Meta</dt>
+              <dd className="font-medium text-system-900">
                 {campaign.goalContributions} aportes
               </dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-ink-2">Experiencia</dt>
-              <dd className="font-medium text-ink">
+              <dt className="text-system-600">Experiencia</dt>
+              <dd className="font-medium text-system-900">
                 {campaign.xpPerContribution} XP por aporte aprobado
               </dd>
             </div>
           </dl>
         </div>
 
-        <div className="rounded-lg border border-ok bg-ok-tint p-4">
-          <p className="text-[13.5px] font-bold text-ok">Tus datos están seguros</p>
-          <p className="mt-1 text-[12.5px] text-ok">Cada aporte se revisa antes de publicarse y tus archivos solo se usan dentro de esta campaña.</p>
+        <div className="rounded-lg border border-success-700 bg-success-50 p-4">
+          <p className="text-[13.5px] font-bold text-success-700">Tus datos están seguros</p>
+          <p className="mt-1 text-[12.5px] text-success-700">Cada aporte se revisa antes de publicarse y tus archivos solo se usan dentro de esta campaña.</p>
         </div>
       </aside>
     </div>

@@ -9,7 +9,7 @@ import NotificationsBell from "./NotificationsBell";
 
 export default function TopBar({ usuario }: { usuario: SessionUser }) {
   return (
-    <header className="dashboard-user-topbar dashboard-topbar flex items-center justify-between gap-4 border-b border-line bg-surface px-4 py-3 sm:px-6">
+    <header className="dashboard-user-topbar dashboard-topbar flex items-center justify-between gap-4 border-b border-system-200 bg-white px-4 py-3 sm:px-6">
       <Link href="/campanas" className="flex shrink-0 items-center">
         <Logo />
       </Link>

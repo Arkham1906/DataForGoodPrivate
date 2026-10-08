@@ -18,6 +18,7 @@ import { opcionesCon } from "@/lib/perfil-opciones";
 import { TEMAS_DE_INTERES } from "@/lib/intereses";
 import { BASE_PATH } from "@/lib/base-path";
 import { MAX_LARGO_TEXTO } from "@/lib/campanas/checklist";
+import PantallaEsqueleto from "@/components/ui/Esqueletos";
 
 /** Un checklist en edición; `clave` solo sirve como key de React. */
 type ChecklistEditable = { clave: number; titulo: string; opciones: string[]; nuevaOpcion: string };
@@ -93,7 +94,7 @@ export default function NuevaCampanaForm() {
   // editingCampaign una sola vez, al montar (ver CampanaFormulario). Si se
   // montara antes de que llegue la campaña a editar, abriría en blanco.
   if (cargando) {
-    return <p className="text-[13px] text-ink-2">Cargando...</p>;
+    return <PantallaEsqueleto tipo="formulario" etiqueta="Cargando el formulario…" />;
   }
 
   return (
@@ -265,8 +266,8 @@ function CampanaFormulario({
       <div className="mx-auto max-w-2xl">
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-extrabold text-ink">{name}</h1>
-            <p className="mt-1 text-[13px] text-ink-2">
+            <h1 className="text-xl font-extrabold text-system-900">{name}</h1>
+            <p className="mt-1 text-[13px] text-system-600">
               Esta campaña ya finalizó y queda en solo lectura: no se puede editar. Para
               reactivarla, primero define una nueva fecha/hora de finalización.
             </p>
@@ -275,13 +276,13 @@ function CampanaFormulario({
         </div>
 
         {limiteActivasAlcanzado && (
-          <div className="mb-4 max-w-lg rounded-lg bg-warn-tint p-4 text-[12.5px] text-warn">
+          <div className="mb-4 max-w-lg rounded-lg bg-warning-50 p-4 text-[12.5px] text-warning-800">
             Ya tienes {MAX_ACTIVE_CAMPAIGNS} campañas activas. Pausa o finaliza otra antes de
             reactivar esta.
           </div>
         )}
         {reactivarError && (
-          <div className="mb-4 max-w-lg rounded-lg bg-danger-tint p-4 text-[12.5px] text-danger">
+          <div className="mb-4 max-w-lg rounded-lg bg-error-50 p-4 text-[12.5px] text-error-700">
             {reactivarError}
           </div>
         )}
@@ -296,6 +297,7 @@ function CampanaFormulario({
               <Input
                 type="date"
                 value={endDate}
+                aria-label="Nueva fecha de finalización"
                 onChange={(e) => setEndDate(e.target.value)}
                 disabled={limiteActivasAlcanzado}
                 required
@@ -304,6 +306,7 @@ function CampanaFormulario({
               <Input
                 type="time"
                 value={endTime}
+                aria-label="Nueva hora de finalización (opcional)"
                 onChange={(e) => setEndTime(e.target.value)}
                 disabled={limiteActivasAlcanzado}
                 className="font-mono disabled:cursor-not-allowed disabled:opacity-50"
@@ -447,10 +450,10 @@ function CampanaFormulario({
     <div className="mx-auto max-w-4xl">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-extrabold text-ink">
+          <h1 className="text-xl font-extrabold text-system-900">
             {editingCampaign ? "Editar campaña" : "Nueva campaña"}
           </h1>
-          <p className="mt-1 text-[13px] text-ink-2">
+          <p className="mt-1 text-[13px] text-system-600">
             {edicionLimitada
               ? status === "aceptada"
                 ? "La campaña ya fue aceptada y espera su fecha de inicio: solo puedes ajustar la meta de aportes y la fecha/hora de finalización."
@@ -464,7 +467,7 @@ function CampanaFormulario({
       </div>
 
       {limitReached && (
-        <div className="mb-6 flex flex-wrap items-start justify-between gap-3 rounded-lg bg-danger-tint p-4 text-[13px] text-danger">
+        <div className="mb-6 flex flex-wrap items-start justify-between gap-3 rounded-lg bg-error-50 p-4 text-[13px] text-error-700">
           <p>
             <b>Ya tienes {MAX_ACTIVE_CAMPAIGNS} campañas activas.</b> El sistema permite un
             máximo de {MAX_ACTIVE_CAMPAIGNS} en simultáneo. Puedes guardar esta como
@@ -477,7 +480,7 @@ function CampanaFormulario({
       )}
 
       <form onSubmit={(e) => handleSubmit(e, false)}>
-        <p className="mb-3 font-mono text-[12px] uppercase tracking-wide text-ink-3">
+        <p className="mb-3 font-mono text-[12px] uppercase tracking-wide text-system-500">
           1 · Datos básicos
         </p>
         <div className="mb-8 grid grid-cols-1 gap-6 sm:grid-cols-2">
@@ -492,12 +495,12 @@ function CampanaFormulario({
                 className="disabled:cursor-not-allowed disabled:opacity-50"
               />
             </Field>
-            <p className="mb-3 -mt-3 text-right font-mono text-[11px] text-ink-3">
+            <p className="mb-3 -mt-3 text-right font-mono text-[11px] text-system-500">
               {name.length} / 80
             </p>
 
-            <p className="mb-1.5 text-[13px] font-medium text-ink">
-              Temática <span className="text-danger">*</span>
+            <p className="mb-1.5 text-[13px] font-medium text-system-900">
+              Temática <span className="text-error-700">*</span>
             </p>
             <div className="mb-1">
               {/* El mismo selector de /cuenta, con una sola temática. opcionesCon conserva
@@ -511,7 +514,7 @@ function CampanaFormulario({
                 descripcion="Marca una; define en qué categoría aparece la campaña en el catálogo público."
               />
             </div>
-            <p className="text-[11.5px] text-ink-3">
+            <p className="text-[11.5px] text-system-500">
               Define en qué categoría aparece la campaña en el catálogo público.
             </p>
           </div>
@@ -528,19 +531,19 @@ function CampanaFormulario({
                 className="disabled:cursor-not-allowed disabled:opacity-50"
               />
             </Field>
-            <p className="-mt-3 text-right font-mono text-[11px] text-ink-3">
+            <p className="-mt-3 text-right font-mono text-[11px] text-system-500">
               {description.length} / 500
             </p>
           </div>
         </div>
 
-        <p className="mb-3 font-mono text-[12px] uppercase tracking-wide text-ink-3">
+        <p className="mb-3 font-mono text-[12px] uppercase tracking-wide text-system-500">
           2 · Qué se recolecta
         </p>
         <div className="mb-8 grid grid-cols-1 gap-6 sm:grid-cols-2">
           <div>
-            <p className="mb-1.5 text-[13px] font-medium text-ink">
-              Tipo de dato solicitado <span className="text-danger">*</span>
+            <p className="mb-1.5 text-[13px] font-medium text-system-900">
+              Tipo de dato solicitado <span className="text-error-700">*</span>
             </p>
             <div className="mb-4 flex flex-wrap gap-2">
               {DATA_TYPES.map((dt) => (
@@ -551,8 +554,8 @@ function CampanaFormulario({
                   onClick={() => toggleDataType(dt.value)}
                   className={`rounded-pill border px-3 py-1.5 text-[12.5px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                     dataTypes.includes(dt.value)
-                      ? "border-accent bg-accent text-white"
-                      : "border-line-2 bg-surface text-ink-2 hover:border-accent"
+                      ? "border-brand-600 bg-brand-600 text-white"
+                      : "border-system-300 bg-white text-system-600 hover:border-brand-600"
                   }`}
                 >
                   {dt.label}
@@ -586,16 +589,16 @@ function CampanaFormulario({
           </div>
 
           <div>
-            <p className="mb-1 text-[13px] font-medium text-ink">
+            <p className="mb-1 text-[13px] font-medium text-system-900">
               Cómo describe su aporte el participante
             </p>
-            <p className="mb-2.5 text-[12px] text-ink-3">
+            <p className="mb-2.5 text-[12px] text-system-500">
               Siempre escribe una descripción con sus palabras. Además puedes agregar
               checklists con título para que marque lo que aplique: los que necesites, o ninguno.
             </p>
 
             {checklists.map((c, i) => (
-              <div key={c.clave} className="mb-3 rounded-lg border border-line bg-surface p-3.5">
+              <div key={c.clave} className="mb-3 rounded-lg border border-system-200 bg-white p-3.5">
                 <div className="mb-2.5 flex items-center gap-2">
                   <input
                     type="text"
@@ -605,32 +608,32 @@ function CampanaFormulario({
                     placeholder="Título del checklist, p. ej. Estado del árbol"
                     aria-label={`Título del checklist ${i + 1}`}
                     disabled={edicionLimitada}
-                    className="w-full rounded border border-line-2 bg-surface px-3 py-2 text-[13px] font-semibold text-ink outline-none focus:border-accent disabled:cursor-not-allowed disabled:opacity-50"
+                    className="w-full rounded border border-system-300 bg-white px-3 py-2 text-[13px] font-semibold text-system-900 outline-none focus:border-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
                   />
                   <button
                     type="button"
                     disabled={edicionLimitada}
                     onClick={() => setChecklists((prev) => prev.filter((x) => x.clave !== c.clave))}
-                    className="whitespace-nowrap text-[11.5px] font-medium text-danger disabled:cursor-not-allowed disabled:opacity-50"
+                    className="whitespace-nowrap text-[11.5px] font-medium text-error-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Quitar checklist
                   </button>
                 </div>
 
                 {c.opciones.length === 0 && (
-                  <p className="mb-2 text-[12px] text-ink-3">Aún no agregas opciones a este checklist.</p>
+                  <p className="mb-2 text-[12px] text-system-500">Aún no agregas opciones a este checklist.</p>
                 )}
                 {c.opciones.map((opcion) => (
-                  <div key={opcion} className="mb-2 flex items-center justify-between gap-2 text-[12.5px] text-ink-2">
+                  <div key={opcion} className="mb-2 flex items-center justify-between gap-2 text-[12.5px] text-system-600">
                     <span className="flex items-center gap-2">
-                      <span className="inline-block h-3.5 w-3.5 rounded-sm border border-line-2" aria-hidden />
+                      <span className="inline-block h-3.5 w-3.5 rounded-sm border border-system-300" aria-hidden />
                       {opcion}
                     </span>
                     <button
                       type="button"
                       disabled={edicionLimitada}
                       onClick={() => quitarOpcion(c.clave, opcion)}
-                      className="text-[11.5px] font-medium text-danger disabled:cursor-not-allowed disabled:opacity-50"
+                      className="text-[11.5px] font-medium text-error-700 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Quitar
                     </button>
@@ -652,13 +655,13 @@ function CampanaFormulario({
                     placeholder="Nueva opción"
                     aria-label={`Nueva opción del checklist ${c.titulo || i + 1}`}
                     disabled={edicionLimitada}
-                    className="w-full rounded border border-line-2 bg-surface px-3 py-2 text-[12.5px] text-ink outline-none focus:border-accent disabled:cursor-not-allowed disabled:opacity-50"
+                    className="w-full rounded border border-system-300 bg-white px-3 py-2 text-[12.5px] text-system-900 outline-none focus:border-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
                   />
                   <button
                     type="button"
                     onClick={() => agregarOpcion(c.clave)}
                     disabled={!c.nuevaOpcion.trim() || edicionLimitada}
-                    className="whitespace-nowrap text-[12.5px] font-medium text-accent disabled:opacity-40"
+                    className="whitespace-nowrap text-[12.5px] font-medium text-brand-600 disabled:opacity-40"
                   >
                     + Agregar opción
                   </button>
@@ -677,7 +680,7 @@ function CampanaFormulario({
           </div>
         </div>
 
-        <p className="mb-3 font-mono text-[12px] uppercase tracking-wide text-ink-3">
+        <p className="mb-3 font-mono text-[12px] uppercase tracking-wide text-system-500">
           3 · Vigencia
         </p>
         <div className="mb-2 max-w-md">
@@ -687,6 +690,7 @@ function CampanaFormulario({
                 <Input
                   type="date"
                   value={startDate}
+                  aria-label="Fecha de inicio"
                   onChange={(e) => setStartDate(e.target.value)}
                   required
                   disabled={edicionLimitada}
@@ -695,6 +699,7 @@ function CampanaFormulario({
                 <Input
                   type="time"
                   value={startTime}
+                  aria-label="Hora de inicio (opcional)"
                   onChange={(e) => setStartTime(e.target.value)}
                   disabled={edicionLimitada}
                   className="font-mono disabled:cursor-not-allowed disabled:opacity-50"
@@ -704,6 +709,7 @@ function CampanaFormulario({
                 <Input
                   type="date"
                   value={endDate}
+                  aria-label="Fecha de finalización"
                   onChange={(e) => setEndDate(e.target.value)}
                   required
                   className="font-mono"
@@ -711,6 +717,7 @@ function CampanaFormulario({
                 <Input
                   type="time"
                   value={endTime}
+                  aria-label="Hora de finalización (opcional)"
                   onChange={(e) => setEndTime(e.target.value)}
                   className="font-mono"
                 />
@@ -718,7 +725,7 @@ function CampanaFormulario({
             </div>
           </Field>
         </div>
-        <p className="mb-3 font-mono text-[12px] uppercase tracking-wide text-ink-3">
+        <p className="mb-3 font-mono text-[12px] uppercase tracking-wide text-system-500">
           Ubicación
         </p>
         <div className="mb-6 grid max-w-3xl grid-cols-1 gap-4 sm:grid-cols-3">
@@ -728,7 +735,7 @@ function CampanaFormulario({
               onChange={(e) => cambiarEstado(e.target.value)}
               required={!edicionLimitada}
               disabled={edicionLimitada}
-              className="w-full rounded border border-line-2 bg-surface px-3.5 py-3 text-sm text-ink outline-none transition-colors focus:border-accent disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-full rounded border border-system-300 bg-white px-3.5 py-3 text-sm text-system-900 outline-none transition-colors focus:border-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <option value="">Selecciona un estado</option>
               {opcionesCon(locationState, NOMBRES_DE_ESTADOS).map((opcion) => (
@@ -742,7 +749,7 @@ function CampanaFormulario({
               onChange={(e) => cambiarMunicipio(e.target.value)}
               required={!edicionLimitada}
               disabled={!locationState || edicionLimitada}
-              className="w-full rounded border border-line-2 bg-surface px-3.5 py-3 text-sm text-ink outline-none transition-colors focus:border-accent disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-full rounded border border-system-300 bg-white px-3.5 py-3 text-sm text-system-900 outline-none transition-colors focus:border-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <option value="">
                 {locationState ? "Selecciona un municipio" : "Primero selecciona un estado"}
@@ -766,26 +773,26 @@ function CampanaFormulario({
         </div>
 
         {edicionCompleta && (
-          <div className="mb-6 max-w-lg rounded-lg bg-warn-tint p-4 text-[12.5px] text-warn">
+          <div className="mb-6 max-w-lg rounded-lg bg-warning-50 p-4 text-[12.5px] text-warning-800">
             {status === "en_revision" || status === "rechazada"
               ? "Puedes editar la campaña y volver a enviarla a revisión mientras el supervisor no responda."
               : "Al enviar, la campaña pasa a “En revisión”; podrás seguir editándola mientras el supervisor no responda."}
           </div>
         )}
         {edicionLimitada && (
-          <div className="mb-6 max-w-lg rounded-lg bg-sunken p-4 text-[12.5px] text-ink-2">
+          <div className="mb-6 max-w-lg rounded-lg bg-system-100 p-4 text-[12.5px] text-system-600">
             La campaña está {status === "pausada" ? "pausada" : status === "aceptada" ? "aceptada" : "activa"}: los cambios se
             guardan y mantiene su estado actual.
           </div>
         )}
         {formError && (
-          <div className="mb-6 max-w-lg rounded-lg border border-danger bg-danger-tint p-4 text-[12.5px] text-danger">
+          <div className="mb-6 max-w-lg rounded-lg border border-error-700 bg-error-50 p-4 text-[12.5px] text-error-700">
             {formError}
           </div>
         )}
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
-          <p className="font-mono text-[12.5px] text-ink-2">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-system-200 pt-4">
+          <p className="font-mono text-[12.5px] text-system-600">
             {activeCampaigns} de {MAX_ACTIVE_CAMPAIGNS} campañas activas usadas
           </p>
           <div className="flex gap-2.5">

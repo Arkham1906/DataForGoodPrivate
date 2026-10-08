@@ -34,9 +34,9 @@ type Usuario = {
 const DURACION_DEL_AVISO_MS = 2500;
 
 const CLASE_SELECT =
-  "w-full rounded border border-line-2 bg-surface px-3.5 py-3 text-sm text-ink outline-none transition-colors focus:border-accent";
+  "w-full rounded border border-system-300 bg-white px-3.5 py-3 text-sm text-system-900 outline-none transition-colors focus:border-brand-600";
 // Campo deshabilitado (fuera de la edición, o el correo): fondo hundido y sin cursor de texto.
-const CLASE_BLOQUEADO = "disabled:cursor-default disabled:bg-sunken";
+const CLASE_BLOQUEADO = "disabled:cursor-default disabled:bg-system-100";
 
 export default function PerfilForm({
   usuario,
@@ -161,7 +161,7 @@ export default function PerfilForm({
 
   return (
     <>
-      <section className="rounded-lg border border-line bg-surface p-5">
+      <section className="rounded-lg border border-system-200 bg-white p-5">
         <div className="flex flex-wrap items-center justify-between gap-4">
           {encabezado}
           <div className="flex gap-2">
@@ -179,12 +179,12 @@ export default function PerfilForm({
       </section>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <section className="rounded-lg border border-line bg-surface p-5">
+        <section className="rounded-lg border border-system-200 bg-white p-5">
           <div className="mb-4">
-            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-3">
+            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-system-500">
               Perfil
             </p>
-            <h2 className="mt-1 text-lg font-extrabold text-ink">Datos personales</h2>
+            <h2 className="mt-1 text-lg font-extrabold text-system-900">Datos personales</h2>
           </div>
 
           {/* Los mismos campos en los dos modos; fuera de la edición quedan deshabilitados. */}
@@ -263,6 +263,7 @@ export default function PerfilForm({
                   value={specialty}
                   onChange={(e) => setSpecialty(e.target.value)}
                   placeholder="Escribe tu especialidad"
+                aria-label="Tu especialidad"
                   maxLength={150}
                   disabled={!editando}
                   className={`mt-2 ${CLASE_BLOQUEADO}`}
@@ -274,12 +275,12 @@ export default function PerfilForm({
 
         {children}
 
-        <section className="rounded-lg border border-line bg-surface p-5 md:col-span-2">
+        <section className="rounded-lg border border-system-200 bg-white p-5 md:col-span-2">
           <div className="mb-4">
-            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-3">
+            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-system-500">
               Mis intereses
             </p>
-            <h2 className="mt-1 text-lg font-extrabold text-ink">Temáticas que guían tus aportes</h2>
+            <h2 className="mt-1 text-lg font-extrabold text-system-900">Temáticas que guían tus aportes</h2>
           </div>
 
           {editando ? (
@@ -292,7 +293,7 @@ export default function PerfilForm({
           ) : (
             <>
               {interesesTexto && (
-                <p className="mb-3 whitespace-pre-line text-[13px] text-ink-2">«{interesesTexto}»</p>
+                <p className="mb-3 whitespace-pre-line text-[13px] text-system-600">«{interesesTexto}»</p>
               )}
               {intereses.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
@@ -301,13 +302,13 @@ export default function PerfilForm({
                   ))}
                 </div>
               ) : (
-                <p className="text-[13px] text-ink-3">
+                <p className="text-[13px] text-system-500">
                   Aún no tienes temáticas. Da “Editar perfil” y cuéntanos qué te gusta hacer.
                 </p>
               )}
             </>
           )}
-          <p className="mt-3 text-[12.5px] text-ink-2">
+          <p className="mt-3 text-[12.5px] text-system-600">
             Determinan qué campañas aparecen en “Sugeridas para ti”.
             {editando && " Los cambios se aplican al dar “Guardar cambios”."}
           </p>
@@ -316,7 +317,7 @@ export default function PerfilForm({
         {editando && (
           <div className="flex flex-wrap items-center justify-end gap-3 md:col-span-2">
             {error && (
-              <p role="alert" className="text-[12.5px] text-danger">
+              <p role="alert" className="text-[12.5px] text-error-700">
                 {error}
               </p>
             )}
@@ -336,15 +337,15 @@ export default function PerfilForm({
           role="status"
           aria-live="polite"
           onClick={() => setAvisoVisible(false)}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/20 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-system-900/20 p-4"
         >
-          <div className="flex flex-col items-center gap-3 rounded-lg border border-line bg-surface px-8 py-7 text-center shadow-lg">
-            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-ok-tint text-ok">
+          <div className="flex flex-col items-center gap-3 rounded-lg border border-system-200 bg-white px-8 py-7 text-center shadow-lg">
+            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-success-50 text-success-700">
               <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M5 12.5l4.5 4.5L19 7.5" />
               </svg>
             </span>
-            <p className="text-base font-extrabold text-ink">Cambios Guardados Correctamente</p>
+            <p className="text-base font-extrabold text-system-900">Cambios Guardados Correctamente</p>
           </div>
         </div>
       )}

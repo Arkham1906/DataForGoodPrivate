@@ -36,7 +36,7 @@ export default async function SancionarUsuarioPage({
       <header className="mb-6">
         <Identidad nombre={u.nombre} detalle={u.correo} riesgo={u.estado !== "ACTIVA"} />
         {u.strikes > 0 ? (
-          <p className="mt-2 text-[12.5px] text-ink-2">
+          <p className="mt-2 text-[12.5px] text-system-600">
             Ya acumula {u.strikes} de 3 strikes.
           </p>
         ) : null}

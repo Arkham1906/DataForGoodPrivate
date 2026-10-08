@@ -90,11 +90,11 @@ export default function EliminarCuentaForm({
   return (
     <form onSubmit={enviar} className="space-y-6">
       {aportes.total > 0 && (
-        <section className="rounded-lg border border-line bg-surface p-5">
-          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-3">
+        <section className="rounded-lg border border-system-200 bg-white p-5">
+          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-system-500">
             ¿Qué hacemos con tus aportes?
           </p>
-          <p className="mt-1 text-[12.5px] text-ink-2">
+          <p className="mt-1 text-[12.5px] text-system-600">
             Tienes {aportes.total} {aportes.total === 1 ? "aporte" : "aportes"} en {aportes.campanas}{" "}
             {aportes.campanas === 1 ? "campaña" : "campañas"}. Elige una opción.
           </p>
@@ -105,7 +105,7 @@ export default function EliminarCuentaForm({
                 <label
                   key={opcion.valor}
                   className={`flex cursor-pointer gap-3 rounded-lg border p-3.5 transition-colors ${
-                    elegido ? "border-accent bg-accent-tint" : "border-line-2 hover:border-accent"
+                    elegido ? "border-brand-600 bg-brand-50" : "border-system-300 hover:border-brand-600"
                   }`}
                 >
                   <input
@@ -114,14 +114,14 @@ export default function EliminarCuentaForm({
                     value={opcion.valor}
                     checked={elegido}
                     onChange={() => setDestino(opcion.valor)}
-                    className="mt-1 accent-[var(--accent)]"
+                    className="mt-1 accent-brand-600"
                   />
                   <span>
-                    <span className="flex flex-wrap items-center gap-2 text-[14px] font-bold text-ink">
+                    <span className="flex flex-wrap items-center gap-2 text-[14px] font-bold text-system-900">
                       {opcion.titulo}
                       {opcion.valor === "eliminar" && aportes.utilizados > 0 && <Tag tone="warn">Parcial</Tag>}
                     </span>
-                    <span className="mt-0.5 block text-[12.5px] leading-relaxed text-ink-2">
+                    <span className="mt-0.5 block text-[12.5px] leading-relaxed text-system-600">
                       {descripcionDe(opcion.valor, opcion.descripcion)}
                     </span>
                   </span>
@@ -132,7 +132,7 @@ export default function EliminarCuentaForm({
         </section>
       )}
 
-      <section className="rounded-lg border border-line bg-surface p-5">
+      <section className="rounded-lg border border-system-200 bg-white p-5">
         {tieneContrasena && (
           <Field label="Confirma con tu contraseña" required>
             <PasswordInput
@@ -154,7 +154,7 @@ export default function EliminarCuentaForm({
         </Field>
 
         {error && (
-          <p className="mb-3 rounded-lg bg-danger-tint px-3.5 py-2.5 text-[13px] text-danger" role="alert">
+          <p className="mb-3 rounded-lg bg-error-50 px-3.5 py-2.5 text-[13px] text-error-700" role="alert">
             {error}
           </p>
         )}

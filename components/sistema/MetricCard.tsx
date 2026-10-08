@@ -16,15 +16,15 @@ interface MetricCardProps {
 function Contador({ label, value }: { label: string; value: string | number }) {
   return (
     <div>
-      <p className="mb-1 text-[12px] text-ink-2">{label}</p>
-      <p className="text-2xl font-extrabold text-ink">{value}</p>
+      <p className="mb-1 text-[12px] text-system-600">{label}</p>
+      <p className="text-2xl font-extrabold text-system-900">{value}</p>
     </div>
   );
 }
 
 export default function MetricCard({ label, value, secundario, links, centrado = false }: MetricCardProps) {
   return (
-    <div className="rounded-lg border border-line bg-surface p-4">
+    <div className="rounded-lg border border-system-200 bg-white p-4">
       {secundario ? (
         <div className="flex items-stretch">
           <div className="flex-1 pr-4">
@@ -32,7 +32,7 @@ export default function MetricCard({ label, value, secundario, links, centrado =
               <Contador label={label} value={value} />
             </div>
           </div>
-          <div className="flex-1 border-l border-line pl-4">
+          <div className="flex-1 border-l border-system-200 pl-4">
             <div className={centrado ? "text-center" : undefined}>
               <Contador label={secundario.label} value={secundario.value} />
             </div>
@@ -44,13 +44,13 @@ export default function MetricCard({ label, value, secundario, links, centrado =
         </div>
       )}
       {links && links.length > 0 && (
-        <div className={`mt-4 flex items-center border-t border-line pt-3 ${centrado ? "justify-center" : ""}`}>
+        <div className={`mt-4 flex items-center border-t border-system-200 pt-3 ${centrado ? "justify-center" : ""}`}>
           {links.map((link, i) => (
             <Link
               key={link.href}
               href={link.href}
-              className={`text-[12px] font-semibold text-accent hover:text-accent-deep hover:underline ${
-                i > 0 ? "ml-3.5 border-l border-line-2 pl-3.5" : ""
+              className={`text-[12px] font-semibold text-brand-600 hover:text-brand-800 hover:underline ${
+                i > 0 ? "ml-3.5 border-l border-system-300 pl-3.5" : ""
               }`}
             >
               {link.label} <span aria-hidden="true">›</span>

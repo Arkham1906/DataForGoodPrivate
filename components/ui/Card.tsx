@@ -15,8 +15,8 @@ export default function Card({
 }: CardProps) {
   return (
     <div
-      className={`rounded-lg border bg-surface p-4 shadow-sm ${
-        highlighted ? "border-accent" : "border-line"
+      className={`rounded-lg border bg-white p-4 shadow-sm ${
+        highlighted ? "border-brand-600" : "border-system-200"
       } ${className}`}
       {...rest}
     >

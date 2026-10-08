@@ -39,23 +39,23 @@ export default async function TematicasPage({ searchParams }: { searchParams: Pr
           defaultValue={q}
           placeholder="Buscar temática"
           aria-label="Buscar temática"
-          className="w-full max-w-xs rounded border border-line-2 bg-surface px-3 py-2 text-[13px] text-ink outline-none focus:border-accent"
+          className="w-full max-w-xs rounded border border-system-300 bg-white px-3 py-2 text-[13px] text-system-900 outline-none focus:border-brand-600"
         />
-        <p className="font-mono text-[12px] text-ink-3">
+        <p className="font-mono text-[12px] text-system-500">
           {formatearNumero(tematicas.length)} {q ? "encontradas" : "en total"} · {formatearNumero(deUsuarios)} de usuarios ·{" "}
           {formatearNumero(ocultas)} ocultas
         </p>
       </form>
 
       {tematicas.length === 0 ? (
-        <p className="py-7 text-[13px] text-ink-2">Ninguna temática coincide con «{q}».</p>
+        <p className="py-7 text-[13px] text-system-600">Ninguna temática coincide con «{q}».</p>
       ) : (
-        <ul className="divide-y divide-line rounded-lg border border-line bg-surface shadow-sm">
+        <ul className="divide-y divide-system-200 rounded-lg border border-system-200 bg-white shadow-sm">
           {tematicas.map((t) => (
             <li key={t.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5">
               <div className="min-w-0">
-                <p className={`break-words font-bold ${t.oculta ? "text-ink-3 line-through" : "text-ink"}`}>{t.nombre}</p>
-                <p className="mt-0.5 text-[12px] text-ink-3">
+                <p className={`break-words font-bold ${t.oculta ? "text-system-500 line-through" : "text-system-900"}`}>{t.nombre}</p>
+                <p className="mt-0.5 text-[12px] text-system-500">
                   {t.origen === "base" ? "Base" : `De un usuario · ${fecha.format(new Date(t.creadaEl))}`} ·{" "}
                   {formatearNumero(t.personas)} {t.personas === 1 ? "persona" : "personas"} ·{" "}
                   {formatearNumero(t.campanas)} {t.campanas === 1 ? "campaña" : "campañas"}
