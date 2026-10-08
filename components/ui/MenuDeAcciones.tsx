@@ -23,6 +23,7 @@ export default function MenuDeAcciones({
   etiqueta = "Más acciones",
   texto = "Más",
   discreto = false,
+  alinear = "derecha",
   className = "",
 }: {
   opciones: OpcionDeMenu[];
@@ -32,6 +33,9 @@ export default function MenuDeAcciones({
   texto?: string;
   /** Botón como enlace de texto (renglones con acciones en texto, p. ej. /notificaciones). */
   discreto?: boolean;
+  /** Borde del botón con el que se alinea la lista: "derecha" si el botón está al final del
+   *  renglón (crece hacia la izquierda), "izquierda" si está al inicio (crece hacia la derecha). */
+  alinear?: "derecha" | "izquierda";
   className?: string;
 }) {
   const [abierto, setAbierto] = useState(false);
@@ -108,7 +112,7 @@ export default function MenuDeAcciones({
           id={idMenu}
           role="menu"
           aria-label={etiqueta}
-          className="absolute right-0 z-30 mt-1.5 min-w-44 overflow-hidden rounded-lg border border-system-200 bg-white py-1 shadow-lg"
+          className={`absolute ${alinear === "izquierda" ? "left-0" : "right-0"} z-30 mt-1.5 min-w-44 overflow-hidden rounded-lg border border-system-200 bg-white py-1 shadow-lg`}
         >
           {ordenadas.map((o) =>
             o.href && !o.deshabilitado ? (

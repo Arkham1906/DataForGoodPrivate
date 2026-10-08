@@ -247,6 +247,7 @@ Fuentes: pantalla pública `/` (landing) y `/datos` (catálogo).
 | Creador | `revisor_acepto` | La persona invitada acepta (`POST /api/notificaciones/[id]/aceptar`) | `/mis-campanas/[id]/aportes` |
 | Invitado | `invitacion_revisor` | El creador invita (`POST /api/campanas/[id]/revisores`). Se acepta desde la campana o `/notificaciones`; **no se puede borrar mientras siga pendiente** (409) | — |
 | Usuario | `rol_asignado`, `rol_revocado` | El SuperUsuario asigna o quita Supervisor, o quita Revisor. Solo si el rol cambió de verdad | `/supervision` al asignar |
+| Supervisor / creador | `supervision_revertida` (al supervisor, con causal y descripción), `campana_en_revision` (al creador, si el SuperUsuario marca la casilla) | `revertirAccion` (`lib/usuarios/acciones-supervisor.ts`) | `/supervision` / `/mis-campanas` |
 | Usuario | `sancion_aplicada` (strike con "Llevas N de 3", suspensión con días, baneo; también el baneo automático al tercer strike), `sancion_restaurada` | `aplicarSancion` / `restaurarAcceso`. Restaurar un strike no avisa (no bloqueaba nada). Con la cuenta bloqueada la persona no la ve hasta recuperar el acceso: mientras, `/cuenta-bloqueada` muestra el motivo | — |
 
 - **Leída:** abrir una notificación la marca como leída. También "Marcar como leída/no leída" por notificación y "Marcar todas como leídas". Se puede borrar cualquiera salvo una invitación pendiente.
@@ -256,6 +257,5 @@ Fuentes: pantalla pública `/` (landing) y `/datos` (catálogo).
   - La suscripción es del navegador, a nombre de quien tenga la sesión: al cargar se resincroniza; **al cerrar sesión se quita**; en la baja definitiva se borran. Solo se aceptan endpoints de Google, Apple, Mozilla y Microsoft (evita que el servidor haga peticiones a sitios arbitrarios). Hasta 10 por persona. TTL de 1 día.
   - El contenido del push (título y mensaje) pasa cifrado por el servicio de push del teléfono.
 - **Pendientes:**
-  - La reversión de una decisión de supervisor (`revertirAccion`) aún no tiene lógica; cuando la tenga debe avisar al supervisor con el motivo, como pide el prototipo.
   - No se borran notificaciones viejas: si crece la tabla, decidir una retención (p. ej. leídas de más de 6 meses) y correrla en `instrumentation-node.ts`.
   - El fin de una suspensión por tiempo no avisa (no hay cron).

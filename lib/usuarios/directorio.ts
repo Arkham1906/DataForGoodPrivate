@@ -63,14 +63,29 @@ export type ReporteDeSancion = {
 
 export type TipoDeSancion = "STRIKE" | "BANEO_DE_CAMPANA" | "SUSPENSION_TEMPORAL";
 
-export type SancionActiva = {
+/** Una sanción de /usuarios/sanciones, de la cuenta o de una campaña (ver listarSanciones). */
+export type RegistroDeSancion = {
+  /** Único en la lista: `s<id>` (tabla sanciones), `b<id>` (bitácora) o `cb<id>` (campana_baneados). */
   id: string;
+  /** Id en la tabla `sanciones`, para restaurarla; null en los baneos por campaña. */
+  sancionId: string | null;
   usuarioId: string;
   usuario: string;
-  desde: Date;
-  etiqueta: string;
-  tono: TonoDeEtiqueta;
+  tipo: "STRIKE" | "SUSPENSION" | "BANEO" | "BANEO_EN_CAMPANA";
+  /** Solo en la suspensión. */
+  dias?: number;
   motivo: string;
+  /** null: la sanción es de toda la cuenta. */
+  campana: { id: string; nombre: string } | null;
+  /** Aporte por el que se baneó en la campaña, si se sabe. */
+  aporteId: string | null;
+  /** Quién la aplicó: "SuperUsuario", "Automático (3 strikes)" o el creador de la campaña. */
+  quien: string;
+  fecha: Date;
+  /** Texto del estado: "Vigente", "Vigente hasta el…", "Restaurada el…", "Levantado el…". */
+  estado: string;
+  vigente: boolean;
+  restaurable: boolean;
 };
 
 /* ── etiquetas de presentación ──────────────────────────────────────────── */
@@ -375,45 +390,154 @@ export async function obtenerReporteDeSancion(
 }
 
 /**
- * Solo SUSPENSION_TEMPORAL (sin vencer) y BANEO_DE_CAMPANA cuentan como
- * "restricción vigente" con botón Restaurar: un STRIKE por sí solo no
- * restringe nada, solo suma al contador (se ve en la ficha del usuario).
+ * Todas las sanciones de los usuarios que siguen existiendo (2026-10-08), de la
+ * más reciente a la más vieja. Vienen de dos lados:
+ *   - De la cuenta (tabla `sanciones`): strike, suspensión o baneo que aplica el
+ *     SuperUsuario desde /usuarios/[id]/sancion, o el baneo automático al
+ *     tercer strike. No están ligadas a una campaña.
+ *   - Por campaña: el creador saca a alguien de su campaña por un aporte. El
+ *     historial sale de `campana.banear` en audit_log (la fila de
+ *     `campana_baneados` se borra al quitar el baneo); los baneos anteriores a
+ *     la bitácora salen de `campana_baneados`.
+ * Solo una suspensión o un baneo de cuenta vigentes se pueden restaurar desde
+ * aquí (`restaurable`). El baneo por campaña lo quita su creador.
  */
-export async function listarSancionesActivas(): Promise<SancionActiva[]> {
+export async function listarSanciones(): Promise<RegistroDeSancion[]> {
   try {
-    const result = await pool.query<{
-      id: number;
-      tipo: string;
-      detalle: string;
-      dias: number | null;
-      aplicada_en: string;
-      nombre: string;
-      apellidos: string;
-      usuario_id: number;
-    }>(
-      `SELECT s.id, s.tipo, s.detalle, s.dias, s.aplicada_en, u.nombre, u.apellidos, u.id AS usuario_id
-       FROM sanciones s
-       JOIN usuarios u ON u.id = s.usuario_id
-       WHERE s.activa = true
-         AND s.tipo IN ('SUSPENSION_TEMPORAL', 'BANEO_DE_CAMPANA')
-         AND (
-           s.tipo <> 'SUSPENSION_TEMPORAL'
-           OR s.aplicada_en + (COALESCE(s.dias, 0) || ' days')::interval > NOW()
-         )
-       ORDER BY s.aplicada_en DESC`,
-    );
+    const [cuenta, campana] = await Promise.all([
+      pool.query<{
+        id: number;
+        tipo: string;
+        detalle: string;
+        dias: number | null;
+        aplicada_en: Date;
+        aplicada_por: string;
+        activa: boolean;
+        restaurada_en: Date | null;
+        usuario_id: number;
+        nombre: string;
+        apellidos: string;
+      }>(
+        `SELECT s.id, s.tipo, s.detalle, s.dias, s.aplicada_en, s.aplicada_por, s.activa, s.restaurada_en,
+                u.id AS usuario_id, u.nombre, u.apellidos
+         FROM sanciones s
+         JOIN usuarios u ON u.id = s.usuario_id`,
+      ),
+      pool.query<{
+        clave: string;
+        fecha: Date;
+        motivo: string;
+        campana_id: number | null;
+        campana: string | null;
+        aporte_id: number | null;
+        quien: string | null;
+        levantado_en: Date | null;
+        usuario_id: number;
+        nombre: string;
+        apellidos: string;
+      }>(
+        `SELECT 'b' || a.id AS clave, a.created_at AS fecha, a.detalle->>'motivo' AS motivo,
+                c.id AS campana_id, c.name AS campana, (a.detalle->>'aporteId')::int AS aporte_id,
+                COALESCE(NULLIF(TRIM(q.nombre || ' ' || q.apellidos), ''), c.creator_name) AS quien,
+                (SELECT MIN(d.created_at) FROM audit_log d
+                  WHERE d.accion = 'campana.desbanear' AND d.objetivo_tipo = 'usuario'
+                    AND d.objetivo_id = a.objetivo_id AND d.detalle->>'campanaId' = a.detalle->>'campanaId'
+                    AND d.id > a.id) AS levantado_en,
+                u.id AS usuario_id, u.nombre, u.apellidos
+         FROM audit_log a
+         JOIN usuarios u ON a.objetivo_tipo = 'usuario' AND u.id::text = a.objetivo_id
+         LEFT JOIN campanas c ON c.id::text = a.detalle->>'campanaId'
+         LEFT JOIN usuarios q ON q.id = a.actor_id
+         WHERE a.accion = 'campana.banear'
+         UNION ALL
+         SELECT 'cb' || b.id, b.created_at, b.motivo, c.id, c.name, NULL,
+                COALESCE(NULLIF(TRIM(q.nombre || ' ' || q.apellidos), ''), c.creator_name), NULL,
+                u.id, u.nombre, u.apellidos
+         FROM campana_baneados b
+         JOIN usuarios u ON u.id = b.usuario_id
+         JOIN campanas c ON c.id = b.campana_id
+         LEFT JOIN usuarios q ON q.id = b.baneado_por
+         WHERE NOT EXISTS (
+           SELECT 1 FROM audit_log a
+           WHERE a.accion = 'campana.banear' AND a.objetivo_tipo = 'usuario'
+             AND a.objetivo_id = b.usuario_id::text AND a.detalle->>'campanaId' = b.campana_id::text
+         )`,
+      ),
+    ]);
 
-    return result.rows.map((row) => ({
-      id: String(row.id),
-      usuarioId: String(row.usuario_id),
-      usuario: `${row.nombre} ${row.apellidos}`.trim(),
-      desde: new Date(row.aplicada_en),
-      etiqueta: row.tipo === "BANEO_DE_CAMPANA" ? "Permanente" : `${row.dias ?? 0} días`,
-      tono: row.tipo === "BANEO_DE_CAMPANA" ? "danger" : "warn",
-      motivo: row.detalle,
-    }));
+    const ahora = Date.now();
+    const registros: RegistroDeSancion[] = [
+      ...cuenta.rows.map((s): RegistroDeSancion => {
+        const usuario = `${s.nombre} ${s.apellidos}`.trim();
+        const base = {
+          id: `s${s.id}`,
+          sancionId: String(s.id),
+          usuarioId: String(s.usuario_id),
+          usuario,
+          motivo: s.detalle,
+          campana: null,
+          aporteId: null,
+          quien: s.aplicada_por === "Automático" ? "Automático (3 strikes)" : s.aplicada_por,
+          fecha: s.aplicada_en,
+        };
+        if (s.tipo === "STRIKE") {
+          return {
+            ...base,
+            tipo: "STRIKE",
+            estado: s.activa ? "Cuenta para el baneo" : "Retirado",
+            vigente: s.activa,
+            restaurable: false,
+          };
+        }
+        if (s.tipo === "SUSPENSION_TEMPORAL") {
+          const vence = new Date(s.aplicada_en.getTime() + (s.dias ?? 0) * 86_400_000);
+          const vigente = s.activa && vence.getTime() > ahora;
+          return {
+            ...base,
+            tipo: "SUSPENSION",
+            dias: s.dias ?? 0,
+            estado: !s.activa
+              ? `Restaurada${s.restaurada_en ? ` el ${formatearFecha(s.restaurada_en)}` : ""}`
+              : vigente
+                ? `Vigente hasta el ${formatearFecha(vence)}`
+                : `Venció el ${formatearFecha(vence)}`,
+            vigente,
+            restaurable: vigente,
+          };
+        }
+        return {
+          ...base,
+          tipo: "BANEO",
+          estado: s.activa
+            ? "Vigente"
+            : `Restaurado${s.restaurada_en ? ` el ${formatearFecha(s.restaurada_en)}` : ""}`,
+          vigente: s.activa,
+          restaurable: s.activa,
+        };
+      }),
+      ...campana.rows.map((b): RegistroDeSancion => {
+        const vigente = !b.levantado_en;
+        return {
+          id: b.clave,
+          sancionId: null,
+          usuarioId: String(b.usuario_id),
+          usuario: `${b.nombre} ${b.apellidos}`.trim(),
+          tipo: "BANEO_EN_CAMPANA",
+          motivo: b.motivo,
+          campana: b.campana_id && b.campana ? { id: String(b.campana_id), nombre: b.campana } : null,
+          aporteId: b.aporte_id ? String(b.aporte_id) : null,
+          quien: b.quien ? `${b.quien} (creador)` : "Creador de la campaña",
+          fecha: b.fecha,
+          estado: vigente ? "Vigente" : `Levantado el ${formatearFecha(b.levantado_en as Date)}`,
+          vigente,
+          restaurable: false,
+        };
+      }),
+    ];
+
+    return registros.sort((a, b) => b.fecha.getTime() - a.fecha.getTime());
   } catch (error) {
-    console.error("Error listando sanciones activas", error);
+    console.error("Error listando sanciones", error);
     return [];
   }
 }

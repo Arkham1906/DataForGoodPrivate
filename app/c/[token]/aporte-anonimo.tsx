@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
+import IndicadorDeCarga from "@/components/ui/IndicadorDeCarga";
 import { Field, Textarea } from "@/components/ui/Input";
 import { LARGO_MAXIMO_DESCRIPCION, errorDeArchivo } from "@/lib/aportes/archivo";
 import { BASE_PATH } from "@/lib/base-path";
@@ -167,7 +168,12 @@ export default function AporteAnonimo({
       )}
 
       <Button variant="primary" type="submit" className="w-full" disabled={!puedeEnviar}>
-        {enviando ? "Enviando…" : espera > 0 ? `Podrás enviar otro en ${espera} s` : "Enviar aporte sin cuenta"}
+        {enviando ? (
+          <span className="inline-flex items-center gap-2">
+            <IndicadorDeCarga />
+            Enviando…
+          </span>
+        ) : espera > 0 ? `Podrás enviar otro en ${espera} s` : "Enviar aporte sin cuenta"}
       </Button>
       <p className="mt-2 text-center text-[11.5px] text-system-500">
         Se registra como anónimo y queda pendiente de revisión. Te quedan {restantes} de {cuota} desde este dispositivo.

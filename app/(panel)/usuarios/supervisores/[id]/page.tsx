@@ -54,8 +54,8 @@ export default async function ActividadDeSupervisorPage({
         <div>
           <h1 className="text-xl font-extrabold text-system-900">Actividad de {s.nombre}</h1>
           <p className="mt-1 text-[13px] text-system-600">
-            <span className="font-mono">{s.correo}</span> · Supervisor desde{" "}
-            {formatearFechaSup(s.desde)}
+            <span className="font-mono">{s.correo}</span> ·{" "}
+            {s.conRol ? `Supervisor desde ${formatearFechaSup(s.desde)}` : "Ya no tiene el rol de Supervisor"}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -66,12 +66,15 @@ export default async function ActividadDeSupervisorPage({
 
       <div className="mb-6 grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard label="Campañas a su cargo" value={formatearNumero(s.campanasACargo)} />
-        <MetricCard label="Aportes validados" value={formatearNumero(s.aportesValidados)} />
+        <MetricCard label="Dictámenes" value={formatearNumero(s.dictamenes)} />
         <MetricCard label="Acciones (30 días)" value={formatearNumero(s.accionesEnRango)} />
         <MetricCard label="Revertidas" value={formatearNumero(s.revertidas)} />
       </div>
 
       <TituloDeSeccion>Campañas a su cargo</TituloDeSeccion>
+      {s.campanas.length === 0 && (
+        <p className="mb-6 text-[13px] text-system-600">Todavía no ha tomado ninguna campaña.</p>
+      )}
       <div className="mb-6 grid grid-cols-1 gap-5 lg:grid-cols-2">
         {columnas.map((col, i) => (
           <ListaClaveValor
@@ -80,7 +83,8 @@ export default async function ActividadDeSupervisorPage({
               const e = ETIQUETA_DE_ESTADO_DE_CAMPANA[c.estado];
               return {
                 clave: (
-                  <Link href={`/campanas/${c.id}`} className="hover:text-brand-600">
+                  // La ficha del panel: /campanas/[id] es de la zona de usuario y pide otra sesión.
+                  <Link href={`/sistema/campanas/${c.id}`} className="hover:text-brand-600">
                     {c.nombre}
                   </Link>
                 ),
@@ -92,6 +96,9 @@ export default async function ActividadDeSupervisorPage({
       </div>
 
       <TituloDeSeccion>Historial de decisiones</TituloDeSeccion>
+      {s.acciones.length === 0 ? (
+        <p className="text-[13px] text-system-600">Todavía no tiene acciones registradas.</p>
+      ) : (
       <div className="overflow-x-auto rounded-lg border border-system-200 bg-white p-5 shadow-sm">
         <table className="w-full min-w-[720px] text-left text-[13.5px]">
           <thead className="border-b border-system-200 font-mono text-[10px] uppercase tracking-[0.1em] text-system-500">
@@ -111,7 +118,15 @@ export default async function ActividadDeSupervisorPage({
                   <td className="py-4">
                     <Tag tone={et.tono}>{et.texto}</Tag>
                   </td>
-                  <td className="text-system-600">{a.sobre}</td>
+                  <td className="text-system-600">
+                    {a.campanaId ? (
+                      <Link href={`/sistema/campanas/${a.campanaId}`} className="hover:text-brand-600">
+                        {a.sobre}
+                      </Link>
+                    ) : (
+                      a.sobre
+                    )}
+                  </td>
                   <td className="text-system-600">{a.motivo}</td>
                   <td className="font-mono text-[11px] text-system-500">
                     {formatearFechaHoraSup(a.ejecutadaEn)}
@@ -121,10 +136,13 @@ export default async function ActividadDeSupervisorPage({
                       <span className="text-[12.5px] text-system-600">
                         Revertida el {formatearFechaSup(a.revertidaEn)}
                       </span>
-                    ) : (
+                    ) : a.reversible ? (
                       <EnlaceBoton href={`/usuarios/supervisores/${s.id}/revertir/${a.id}`}>
                         Revertir<span className="sr-only"> la acción sobre {a.sobre}</span>
                       </EnlaceBoton>
+                    ) : (
+                      // Reglas en puedeRevertirse (lib/usuarios/supervisores.ts).
+                      <span className="text-[12.5px] text-system-500">{a.noReversiblePorque}</span>
                     )}
                   </td>
                 </tr>
@@ -133,8 +151,30 @@ export default async function ActividadDeSupervisorPage({
           </tbody>
         </table>
       </div>
+      )}
 
       <p className="sr-only">{formatearNumero(s.acciones.length)} decisiones registradas.</p>
+
+      {/* Lo que dejó el SuperUsuario al revertir con "Registrar una observación en el expediente". */}
+      {s.observaciones.length > 0 && (
+        <>
+          <div className="mt-6">
+            <TituloDeSeccion>Observaciones en su expediente</TituloDeSeccion>
+          </div>
+          <ul className="space-y-3">
+            {s.observaciones.map((o, i) => (
+              <li key={i} className="rounded-lg border border-system-200 bg-white p-4 shadow-sm">
+                <p className="text-[13px] font-semibold text-system-900">
+                  {o.causal}
+                  {o.sobre ? <span className="font-normal text-system-600"> · {o.sobre}</span> : null}
+                </p>
+                <p className="mt-1 text-[13px] text-system-600">{o.descripcion}</p>
+                <p className="mt-2 font-mono text-[11px] text-system-500">{formatearFechaHoraSup(o.fecha)}</p>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </div>
   );
 }

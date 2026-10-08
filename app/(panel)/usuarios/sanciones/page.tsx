@@ -1,16 +1,16 @@
-// Pantalla /usuarios/sanciones: sanciones activas de cuentas y bloqueos globales de
-// dispositivos anónimos.
-// Server Component. Datos: listarSancionesActivas() y listarBloqueosGlobales()
-// (lib/aportes/sanciones-anonimas.ts). Acciones: boton-restaurar.tsx y boton-quitar-bloqueo.tsx.
+// Pantalla /usuarios/sanciones: todas las sanciones de los usuarios (de la cuenta y por campaña,
+// vigentes y pasadas) y los bloqueos globales de dispositivos anónimos.
+// Server Component. Datos: listarSanciones() (lib/usuarios/directorio.ts) y listarBloqueosGlobales()
+// (lib/aportes/sanciones-anonimas.ts). La lista agrupada por usuario está en lista.tsx (cliente).
+// Acciones: boton-restaurar.tsx y boton-quitar-bloqueo.tsx.
 
 import type { Metadata } from "next";
 
 import Subtabs from "@/components/sistema/subtabs";
 import { Aviso, Encabezado } from "@/components/sistema/ui";
-import Tag from "@/components/sistema/Tag";
 import { PESTANAS_USUARIOS } from "@/lib/usuarios/dashboard";
-import { formatearFecha, listarSancionesActivas } from "@/lib/usuarios/directorio";
-import BotonRestaurar from "./boton-restaurar";
+import { formatearFecha, formatearFechaYHora, listarSanciones } from "@/lib/usuarios/directorio";
+import ListaDeSanciones from "./lista";
 import BotonQuitarBloqueo from "./boton-quitar-bloqueo";
 import { DIAS_DE_BLOQUEO, INAPROPIADOS_PARA_BLOQUEO, VENTANA_DE_DIAS, listarBloqueosGlobales } from "@/lib/aportes/sanciones-anonimas";
 
@@ -18,7 +18,8 @@ export const metadata: Metadata = { title: "Sanciones" };
 export const dynamic = "force-dynamic";
 
 export default async function SancionesPage() {
-  const [sanciones, bloqueos] = await Promise.all([listarSancionesActivas(), listarBloqueosGlobales()]);
+  const [sanciones, bloqueos] = await Promise.all([listarSanciones(), listarBloqueosGlobales()]);
+  const vigentes = sanciones.filter((s) => s.vigente).length;
 
   return (
     <div>
@@ -29,74 +30,20 @@ export default async function SancionesPage() {
       />
 
       <Encabezado
-        titulo="Sanciones activas"
-        subtitulo={`${sanciones.length} cuentas con restricción vigente`}
+        titulo="Sanciones"
+        subtitulo={`${sanciones.length} ${sanciones.length === 1 ? "sanción" : "sanciones"} · ${vigentes} ${vigentes === 1 ? "vigente" : "vigentes"}`}
       />
 
       {sanciones.length === 0 ? (
-        <p className="py-7 text-[13px] text-system-600">No hay restricciones vigentes.</p>
+        <p className="py-7 text-[13px] text-system-600">Ningún usuario tiene sanciones.</p>
       ) : (
-        <>
-          <div className="space-y-3 md:hidden">
-            {sanciones.map((s) => (
-              <article key={s.id} className="rounded-lg border border-system-200 bg-white p-4 shadow-sm">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="break-words text-[14px] font-bold leading-snug text-system-900">{s.usuario}</p>
-                    <p className="mt-1 text-[11px] text-system-500">Desde {formatearFecha(s.desde)}</p>
-                  </div>
-                  <Tag tone={s.tono}>{s.etiqueta}</Tag>
-                </div>
-
-                <div className="mt-3 border-t border-system-200 pt-3">
-                  <p className="text-[11px] text-system-600">Motivo</p>
-                  <p className="mt-1 break-words text-[13px] leading-relaxed text-system-900">{s.motivo}</p>
-                </div>
-
-                <div className="mt-3 grid">
-                  <BotonRestaurar sancionId={s.id} usuario={s.usuario} anchoCompleto />
-                </div>
-              </article>
-            ))}
-          </div>
-
-          <div className="hidden overflow-x-auto rounded-lg border border-system-200 bg-white p-5 shadow-sm md:block">
-            <table className="w-full min-w-[640px] text-left text-[13.5px]">
-              <thead className="border-b border-system-200 font-mono text-[10px] uppercase tracking-[0.1em] text-system-500">
-                <tr>
-                  <th className="pb-3 font-medium">Usuario</th>
-                  <th className="pb-3 font-medium">Sanción</th>
-                  <th className="pb-3 font-medium">Motivo</th>
-                  <th className="pb-3 text-right font-medium">Acción</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sanciones.map((s) => (
-                  <tr key={s.id} className="border-b border-system-200 last:border-0">
-                    <td className="py-4">
-                      <p className="font-bold text-system-900">{s.usuario}</p>
-                      <p className="font-mono text-[11px] text-system-500">
-                        desde {formatearFecha(s.desde)}
-                      </p>
-                    </td>
-                    <td>
-                      <Tag tone={s.tono}>{s.etiqueta}</Tag>
-                    </td>
-                    <td className="text-system-600">{s.motivo}</td>
-                    <td className="text-right">
-                      <BotonRestaurar sancionId={s.id} usuario={s.usuario} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
+        <ListaDeSanciones sanciones={sanciones.map(({ fecha, ...s }) => ({ ...s, fechaTexto: formatearFechaYHora(fecha) }))} />
       )}
 
       <Aviso tono="neutro" className="mt-5">
         Restaurar el acceso no borra el historial de strikes: el contador se
-        conserva para la escala de penalización.
+        conserva para la escala de penalización. El baneo en una campaña lo quita
+        quien la creó, desde la lista de aportes de su campaña.
       </Aviso>
 
       <h2 className="mb-1 mt-10 text-[17px] font-extrabold text-system-900">Dispositivos anónimos bloqueados</h2>

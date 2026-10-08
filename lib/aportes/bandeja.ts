@@ -90,7 +90,73 @@ function filtrosBase(f: FiltrosDeAportes): { condiciones: string[]; valores: unk
 
 const donde = (condiciones: string[]) => (condiciones.length ? `WHERE ${condiciones.join(" AND ")}` : "");
 
-export async function buscarAportes(f: FiltrosDeAportes): Promise<{ filas: FilaDeAporte[]; total: number }> {
+/** Un aporte tal como lo ve el SuperUsuario: sin descripción de anónimos ni datos de contacto. */
+function filaDeAporte(r: {
+  id: number;
+  participant_name: string;
+  anonimo: boolean;
+  enviado_en: string;
+  campaign_id: number;
+  campana: string;
+  resumen: string;
+  largo: number;
+  file_type: string;
+  status: string;
+}): FilaDeAporte {
+  const tipo = esTipo(r.file_type);
+  const etapa = ETIQUETA_DE_ETAPA[r.status as Etapa] ?? { texto: r.status, tono: "default" as const };
+  return {
+    id: String(r.id),
+    participante: r.anonimo ? "Anónimo" : r.participant_name,
+    anonimo: r.anonimo,
+    enviadoEn: r.enviado_en,
+    campanaId: String(r.campaign_id),
+    campana: r.campana,
+    resumen: r.anonimo ? null : `${r.resumen.trim()}${r.largo > LARGO_DEL_RESUMEN ? "…" : ""}`,
+    tipo: tipo ? NOMBRE_DE_TIPO[tipo] : r.file_type,
+    etapa,
+  };
+}
+
+/** Aportes de una misma persona en la bandeja: con cuenta, o sin cuenta desde un mismo dispositivo. */
+export type GrupoDeAportes = {
+  /** `u<id>` (con cuenta), `n<n>` (dispositivo anónimo, numerado en la página) o `a<id>` (aporte suelto). */
+  clave: string;
+  participante: string;
+  anonimo: boolean;
+  /** Id del usuario, para "Ver ficha"; null si no tiene cuenta. */
+  usuarioId: string | null;
+  total: number;
+  /** Fecha del envío más reciente ("YYYY-MM-DDTHH:MI", hora de Tepic). */
+  ultimoEnvio: string;
+  campanas: { id: string; nombre: string }[];
+  /** Cuántos hay en cada etapa (solo las que tienen alguno). */
+  porEtapa: { texto: string; tono: "default" | "ok" | "warn" | "danger"; n: number }[];
+  /** Los aportes, del más reciente al más viejo (hasta APORTES_POR_GRUPO). */
+  aportes: FilaDeAporte[];
+};
+
+/** Aportes que se muestran al desplegar a una persona; si tiene más, se avisa cuántos faltan. */
+export const APORTES_POR_GRUPO = 50;
+
+// A quién pertenece cada aporte. `a` es la fila de aportes.
+const CLAVE_DE_GRUPO = `CASE
+  WHEN a.user_id IS NOT NULL THEN 'u' || a.user_id
+  WHEN a.anonimo_id IS NOT NULL THEN 'n' || a.anonimo_id
+  ELSE 'a' || a.id
+END`;
+
+/**
+ * La bandeja agrupada por persona (2026-10-08): una fila por participante con
+ * cuántos aportes mandó, a qué campañas y en qué etapa están, y sus aportes
+ * para desplegar. La búsqueda, la campaña y la etapa filtran los aportes, y
+ * una persona aparece si le queda alguno. Se pagina por persona
+ * (POR_PAGINA), primero quien envió más recientemente, para no partir a nadie
+ * entre dos páginas. El identificador del dispositivo anónimo nunca sale de aquí.
+ */
+export async function buscarAportesPorParticipante(
+  f: FiltrosDeAportes,
+): Promise<{ grupos: GrupoDeAportes[]; totalDeGrupos: number }> {
   await exigirRoot();
   const { condiciones, valores } = filtrosBase(f);
   if (f.etapa) condiciones.push(CONDICION_DE_ETAPA[f.etapa]);
@@ -98,57 +164,96 @@ export async function buscarAportes(f: FiltrosDeAportes): Promise<{ filas: FilaD
   const pagina = Math.max(1, f.pagina ?? 1);
 
   try {
-    const [filas, total] = await Promise.all([
-      pool.query<{
-        id: number;
-        participant_name: string;
-        anonimo: boolean;
-        enviado_en: string;
-        campaign_id: number;
-        campana: string;
-        resumen: string;
-        largo: number;
-        file_type: string;
-        status: string;
-      }>(
-        `SELECT a.id, a.participant_name, (a.user_id IS NULL AND a.anonimo_id IS NOT NULL) AS anonimo,
-                to_char((a.submitted_at AT TIME ZONE 'UTC') AT TIME ZONE 'America/Mazatlan', 'YYYY-MM-DD"T"HH24:MI') AS enviado_en,
-                a.campaign_id, c.name AS campana,
-                LEFT(a.description, ${LARGO_DEL_RESUMEN}) AS resumen, char_length(a.description) AS largo,
-                a.file_type, a.status
+    const [grupos, total] = await Promise.all([
+      pool.query<{ clave: string; ultimo: Date }>(
+        `SELECT ${CLAVE_DE_GRUPO} AS clave, MAX(a.submitted_at) AS ultimo
          FROM aportes a JOIN campanas c ON c.id = a.campaign_id
          ${where}
-         ORDER BY a.submitted_at DESC, a.id DESC
+         GROUP BY 1
+         ORDER BY ultimo DESC, clave
          LIMIT ${POR_PAGINA} OFFSET ${(pagina - 1) * POR_PAGINA}`,
         valores,
       ),
       pool.query<{ n: string }>(
-        `SELECT COUNT(*) AS n FROM aportes a JOIN campanas c ON c.id = a.campaign_id ${where}`,
+        `SELECT COUNT(DISTINCT ${CLAVE_DE_GRUPO}) AS n FROM aportes a JOIN campanas c ON c.id = a.campaign_id ${where}`,
         valores,
       ),
     ]);
+    const claves = grupos.rows.map((g) => g.clave);
+    if (claves.length === 0) return { grupos: [], totalDeGrupos: Number(total.rows[0]?.n ?? 0) };
 
+    // Los aportes de esas personas, con los mismos filtros; `total_grupo` cuenta también los que no se traen.
+    valores.push(claves);
+    const { rows } = await pool.query<{
+      clave: string;
+      total_grupo: string;
+      id: number;
+      user_id: number | null;
+      participant_name: string;
+      anonimo: boolean;
+      enviado_en: string;
+      campaign_id: number;
+      campana: string;
+      resumen: string;
+      largo: number;
+      file_type: string;
+      status: string;
+    }>(
+      `SELECT * FROM (
+         SELECT ${CLAVE_DE_GRUPO} AS clave,
+                COUNT(*) OVER (PARTITION BY ${CLAVE_DE_GRUPO}) AS total_grupo,
+                ROW_NUMBER() OVER (PARTITION BY ${CLAVE_DE_GRUPO} ORDER BY a.submitted_at DESC, a.id DESC) AS n,
+                a.id, a.user_id, a.participant_name, (a.user_id IS NULL AND a.anonimo_id IS NOT NULL) AS anonimo,
+                to_char((a.submitted_at AT TIME ZONE 'UTC') AT TIME ZONE 'America/Mazatlan', 'YYYY-MM-DD"T"HH24:MI') AS enviado_en,
+                a.submitted_at, a.campaign_id, c.name AS campana,
+                LEFT(a.description, ${LARGO_DEL_RESUMEN}) AS resumen, char_length(a.description) AS largo,
+                a.file_type, a.status
+         FROM aportes a JOIN campanas c ON c.id = a.campaign_id
+         ${donde([...condiciones, `${CLAVE_DE_GRUPO} = ANY($${valores.length}::text[])`])}
+       ) t
+       WHERE n <= ${APORTES_POR_GRUPO}
+       ORDER BY submitted_at DESC, id DESC`,
+      valores,
+    );
+
+    const porClave = new Map<string, typeof rows>();
+    for (const r of rows) porClave.set(r.clave, [...(porClave.get(r.clave) ?? []), r]);
+
+    let dispositivo = 0;
     return {
-      filas: filas.rows.map((r) => {
-        const tipo = esTipo(r.file_type);
-        const etapa = ETIQUETA_DE_ETAPA[r.status as Etapa] ?? { texto: r.status, tono: "default" as const };
+      totalDeGrupos: Number(total.rows[0]?.n ?? 0),
+      grupos: claves.map((clave) => {
+        const filas = porClave.get(clave) ?? [];
+        const primera = filas[0];
+        const anonimo = Boolean(primera?.anonimo);
+        const aportes = filas.map(filaDeAporte);
+
+        const campanas = new Map<string, string>();
+        for (const a of aportes) campanas.set(a.campanaId, a.campana);
+        const etapas = new Map<string, { texto: string; tono: "default" | "ok" | "warn" | "danger"; n: number }>();
+        for (const a of aportes) {
+          const e = etapas.get(a.etapa.texto) ?? { ...a.etapa, n: 0 };
+          e.n += 1;
+          etapas.set(a.etapa.texto, e);
+        }
+
         return {
-          id: String(r.id),
-          participante: r.anonimo ? "Anónimo" : r.participant_name,
-          anonimo: r.anonimo,
-          enviadoEn: r.enviado_en,
-          campanaId: String(r.campaign_id),
-          campana: r.campana,
-          resumen: r.anonimo ? null : `${r.resumen.trim()}${r.largo > LARGO_DEL_RESUMEN ? "…" : ""}`,
-          tipo: tipo ? NOMBRE_DE_TIPO[tipo] : r.file_type,
-          etapa,
+          // El hash del dispositivo no se manda al navegador: se numera dentro de la página.
+          clave: clave.startsWith("n") ? `n${++dispositivo}` : clave,
+          participante: anonimo ? "Anónimo" : primera?.participant_name ?? "",
+          anonimo,
+          usuarioId: primera?.user_id != null ? String(primera.user_id) : null,
+          total: Number(primera?.total_grupo ?? 0),
+          ultimoEnvio: primera?.enviado_en ?? "",
+          campanas: [...campanas].map(([id, nombre]) => ({ id, nombre })),
+          porEtapa: [...etapas.values()],
+          aportes,
         };
       }),
-      total: Number(total.rows[0]?.n ?? 0),
     };
   } catch (error) {
-    console.error("Error buscando aportes", error);
-    return { filas: [], total: 0 };
+    console.error("Error buscando aportes por participante", error);
+    return { grupos: [], totalDeGrupos: 0 };
   }
 }
 

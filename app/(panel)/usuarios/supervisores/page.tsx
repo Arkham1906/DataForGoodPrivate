@@ -73,7 +73,7 @@ export default async function SupervisoresPage({
                 <div className="min-w-0">
                   <p className="break-words text-[14px] font-bold leading-snug text-system-900">{s.nombre}</p>
                   <p className="mt-1 text-[11px] text-system-500">
-                    Supervisor desde {formatearFechaSup(s.desde)}
+                    {s.conRol ? `Supervisor desde ${formatearFechaSup(s.desde)}` : "Ya no tiene el rol"}
                   </p>
                 </div>
 
@@ -85,9 +85,9 @@ export default async function SupervisoresPage({
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-[11px] text-system-600">Aportes validados</dt>
+                    <dt className="text-[11px] text-system-600">Dictámenes</dt>
                     <dd className="mt-0.5 font-mono text-[15px] font-semibold tabular-nums text-system-900">
-                      {formatearNumero(s.aportesValidados)}
+                      {formatearNumero(s.dictamenes)}
                     </dd>
                   </div>
                   <div>
@@ -119,7 +119,7 @@ export default async function SupervisoresPage({
                 <tr>
                   <th className="pb-3 font-medium">Supervisor</th>
                   <th className="pb-3 font-medium">Campañas</th>
-                  <th className="pb-3 font-medium">Aportes validados</th>
+                  <th className="pb-3 font-medium">Dictámenes</th>
                   <th className="pb-3 font-medium">Acciones</th>
                   <th className="pb-3 font-medium">Última actividad</th>
                   <th className="pb-3 text-right font-medium">Actividad</th>
@@ -131,11 +131,11 @@ export default async function SupervisoresPage({
                     <td className="py-4">
                       <p className="font-bold text-system-900">{s.nombre}</p>
                       <p className="font-mono text-[11px] text-system-500">
-                        Supervisor desde {formatearFechaSup(s.desde)}
+                        {s.conRol ? `Supervisor desde ${formatearFechaSup(s.desde)}` : "Ya no tiene el rol"}
                       </p>
                     </td>
                     <td className="font-mono tabular-nums">{s.campanasACargo}</td>
-                    <td className="font-mono tabular-nums">{formatearNumero(s.aportesValidados)}</td>
+                    <td className="font-mono tabular-nums">{formatearNumero(s.dictamenes)}</td>
                     <td className="font-mono tabular-nums">{s.accionesEnRango}</td>
                     <td className="font-mono text-[11px] text-system-500">
                       {formatearFechaHoraSup(s.ultimaActividad)}

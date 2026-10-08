@@ -2,19 +2,19 @@
 // Acceso: sesión raíz (layout de (panel) + exigirSesionRoot()). Server Component.
 // Datos: lib/aportes/bandeja.ts; filtros en filtros.tsx (?q=, ?campana=, ?etapa=, ?pagina=).
 // Solo consulta: origen y etapa de cada aporte, sin abrir el archivo ni la descripción completa.
+// Agrupada por persona (2026-10-08): la lista desplegable está en lista.tsx (cliente).
 
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 
 import Subtabs from "@/components/sistema/subtabs";
-import Tag from "@/components/sistema/Tag";
 import { Aviso, Encabezado, EnlaceBoton, Paginacion, formatearNumero } from "@/components/sistema/ui";
 import {
   FILTROS_DE_ETAPA,
   PESTANAS_APORTES,
   POR_PAGINA,
-  buscarAportes,
+  buscarAportesPorParticipante,
   campanaTieneRevisor,
   contarPorEtapa,
   esFiltroDeEtapa,
@@ -23,6 +23,7 @@ import {
 } from "@/lib/aportes/bandeja";
 import { exigirSesionRoot } from "@/lib/supervision/root";
 import FiltrosDeAportes from "./filtros";
+import ListaDeAportes from "./lista";
 
 export const metadata: Metadata = { title: "Bandeja de aportes" };
 export const dynamic = "force-dynamic";
@@ -31,15 +32,6 @@ type Busqueda = { q?: string; campana?: string; etapa?: string; pagina?: string 
 
 const BASE = "/aportes";
 
-// enviadoEn ya viene en hora de Tepic: se formatea en UTC para no moverla.
-const FECHA = new Intl.DateTimeFormat("es-MX", { day: "numeric", month: "short", timeZone: "UTC" });
-
-function formatearEnvio(enviadoEn: string): string {
-  const [dia, hora] = enviadoEn.split("T");
-  const [y, m, d] = dia.split("-").map(Number);
-  return `${FECHA.format(new Date(Date.UTC(y, m - 1, d))).replace(".", "")} · ${hora}`;
-}
-
 export default async function BandejaDeAportesPage({ searchParams }: { searchParams: Promise<Busqueda> }) {
   await exigirSesionRoot();
   const sp = await searchParams;
@@ -47,9 +39,9 @@ export default async function BandejaDeAportesPage({ searchParams }: { searchPar
   const pagina = Math.max(1, Number(sp.pagina ?? 1) || 1);
   const filtros = { q: sp.q, campanaId: sp.campana, etapa, pagina };
 
-  const [conteos, { filas, total }, campanas] = await Promise.all([
+  const [conteos, { grupos, totalDeGrupos: total }, campanas] = await Promise.all([
     contarPorEtapa(filtros),
-    buscarAportes(filtros),
+    buscarAportesPorParticipante(filtros),
     listarCampanasConAportes(),
   ]);
 
@@ -124,80 +116,16 @@ export default async function BandejaDeAportesPage({ searchParams }: { searchPar
         </Aviso>
       ) : null}
 
-      {filas.length === 0 ? (
+      {grupos.length === 0 ? (
         <p className="py-7 text-[13px] text-system-600">
           Ningún aporte coincide con estos filtros. Prueba quitando alguno o buscando por otro término.
         </p>
       ) : (
         <>
-          <div className="space-y-3 md:hidden">
-            {filas.map((a) => (
-              <article key={a.id} className="rounded-lg border border-system-200 bg-white p-4 shadow-sm">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="break-words text-[14px] font-bold leading-snug text-system-900">{a.participante}</p>
-                    <p className="mt-1 font-mono text-[11px] text-system-500">{formatearEnvio(a.enviadoEn)}</p>
-                  </div>
-                  <Tag tone={a.etapa.tono}>{a.etapa.texto}</Tag>
-                </div>
-
-                <p className="mt-3 break-words border-t border-system-200 pt-3 text-[12.5px] text-system-600">
-                  {a.resumen ?? "Vía enlace público, sin registro"}
-                </p>
-
-                <dl className="mt-3 grid grid-cols-2 gap-3">
-                  <div className="min-w-0">
-                    <dt className="text-[11px] text-system-600">Campaña</dt>
-                    <dd className="mt-0.5 break-words text-[12.5px] text-system-900">
-                      <Link href={`/sistema/campanas/${a.campanaId}`} className="hover:text-brand-600">
-                        {a.campana}
-                      </Link>
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-[11px] text-system-600">Tipo</dt>
-                    <dd className="mt-0.5 text-[12.5px] text-system-900">{a.tipo}</dd>
-                  </div>
-                </dl>
-              </article>
-            ))}
-          </div>
-
-          <div className="hidden overflow-x-auto rounded-lg border border-system-200 bg-white p-5 shadow-sm md:block">
-            <table className="w-full min-w-[820px] text-left text-[13.5px]">
-              <thead className="border-b border-system-200 font-mono text-[10px] uppercase tracking-[0.1em] text-system-500">
-                <tr>
-                  <th className="w-[22%] pb-3 font-medium">Participante</th>
-                  <th className="w-[22%] pb-3 font-medium">Campaña</th>
-                  <th className="w-[32%] pb-3 font-medium">Descripción</th>
-                  <th className="pb-3 font-medium">Tipo</th>
-                  <th className="pb-3 font-medium">Etapa</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filas.map((a) => (
-                  <tr key={a.id} className="border-b border-system-200 align-top last:border-0">
-                    <td className="py-4 pr-3">
-                      <p className="font-bold text-system-900">{a.participante}</p>
-                      <p className="font-mono text-[11px] text-system-500">{formatearEnvio(a.enviadoEn)}</p>
-                    </td>
-                    <td className="py-4 pr-3 text-[12.5px]">
-                      <Link href={`/sistema/campanas/${a.campanaId}`} className="text-system-900 hover:text-brand-600">
-                        {a.campana}
-                      </Link>
-                    </td>
-                    <td className="break-words py-4 pr-3 text-[12.5px] text-system-600">
-                      {a.resumen ?? "Vía enlace público, sin registro"}
-                    </td>
-                    <td className="py-4 pr-3 text-[12.5px] text-system-600">{a.tipo}</td>
-                    <td className="py-4">
-                      <Tag tone={a.etapa.tono}>{a.etapa.texto}</Tag>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <p className="mb-3 text-[12.5px] text-system-600">
+            {formatearNumero(total)} {total === 1 ? "participante" : "participantes"}: haz clic en uno para ver sus aportes.
+          </p>
+          <ListaDeAportes grupos={grupos} />
 
           <Paginacion desde={desde} hasta={hasta} total={total} pagina={pagina} paginas={paginas} href={(p) => enlace({ pagina: p })} />
         </>

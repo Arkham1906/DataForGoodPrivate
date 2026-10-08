@@ -65,7 +65,7 @@
 | `motivos-de-rechazo.ts` | Sin `pg`: listas de motivos para rechazar y para reportar | Pantallas del creador y del revisor |
 | `sanciones-anonimas.ts` | Sanciones a personas sin cuenta: marcar inapropiado, bloqueo por campaña, bloqueo global automático (3 inapropiados en 30 días → 30 días), borrar archivo, listar y quitar bloqueos | API de aportes y de baneos, `/usuarios/sanciones` |
 | `acciones-bloqueos.ts` | Server action `quitarBloqueoDeDispositivo` (SuperUsuario) | `/usuarios/sanciones` |
-| `bandeja.ts` | Bandeja del SuperUsuario: `buscarAportes` (filtros y paginación en SQL), `contarPorEtapa`, `listarCampanasConAportes`, `campanaTieneRevisor`, `PESTANAS_APORTES` y etiquetas de etapa. Exige sesión raíz; no lee archivos, correos ni la descripción completa | `/aportes`, `/aportes/dashboard` |
+| `bandeja.ts` | Bandeja del SuperUsuario: `buscarAportesPorParticipante` (agrupa por persona: con cuenta o mismo dispositivo anónimo; filtros y paginación por persona en SQL), `contarPorEtapa`, `listarCampanasConAportes`, `campanaTieneRevisor`, `PESTANAS_APORTES` y etiquetas de etapa. Exige sesión raíz; no lee archivos, correos ni la descripción completa | `/aportes`, `/aportes/dashboard` |
 | `dashboard.ts` | `obtenerDashboardDeAportes(rango)`: totales, cola de pendientes, tasa de aprobación, recolección por día/semana/mes (hora de Tepic), reparto por tipo y temática, motivos de rechazo (textos idénticos agrupados) y campañas que más aportan. Exige sesión raíz | `/aportes/dashboard` |
 
 ### `campanas/`
@@ -95,7 +95,7 @@
 
 | Archivo | Qué hace | Lo usa |
 | --- | --- | --- |
-| `directorio.ts` | Búsqueda de usuarios, ficha, estado de la cuenta, sanciones activas | `/usuarios/**` |
+| `directorio.ts` | Búsqueda de usuarios, ficha, estado de la cuenta, lista de sanciones (`listarSanciones`) | `/usuarios/**` |
 | `dashboard.ts` | Métricas de usuarios por rango de fechas | `/usuarios/dashboard` |
 | `supervisores.ts` | Lista de supervisores y su actividad | `/usuarios/supervisores/**` |
 | `revisor.ts` | Retirar a alguien como revisor de todas sus campañas | `revocarRol` (al quitar el rol de revisor), borrado definitivo de una cuenta |

@@ -457,6 +457,10 @@ export async function ensureAuditLogTable(): Promise<void> {
     );
     CREATE INDEX IF NOT EXISTS audit_log_created_at_idx ON audit_log (created_at DESC);
     CREATE INDEX IF NOT EXISTS audit_log_objetivo_idx ON audit_log (objetivo_tipo, objetivo_id);
+    -- Una decisión de supervisor se revierte una sola vez (lib/usuarios/acciones-supervisor.ts):
+    -- si dos SuperUsuarios la revierten a la vez, el segundo INSERT choca aquí.
+    CREATE UNIQUE INDEX IF NOT EXISTS audit_log_reversion_unica ON audit_log ((detalle->>'accionId'))
+      WHERE accion = 'supervision.revertir';
   `);
 }
 

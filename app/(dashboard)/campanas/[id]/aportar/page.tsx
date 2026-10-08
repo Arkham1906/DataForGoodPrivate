@@ -13,6 +13,7 @@ import type { Campaign } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
 import { etiquetaDeRespuesta } from "@/lib/campanas/checklist";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
+import IndicadorDeCarga from "@/components/ui/IndicadorDeCarga";
 
 export default function AportarPage() {
   const params = useParams<{ id: string }>();
@@ -201,7 +202,12 @@ export default function AportarPage() {
           {submitError && <p className="mb-3 rounded border border-error-700 bg-error-50 p-2 text-[12px] text-error-700">{submitError}</p>}
 
           <Button variant="primary" type="submit" className="w-full" disabled={!canSubmit}>
-            {submitting ? "Enviando..." : "Enviar aporte"}
+            {submitting ? (
+              <span className="inline-flex items-center gap-2">
+                <IndicadorDeCarga />
+                Enviando…
+              </span>
+            ) : "Enviar aporte"}
           </Button>
           <p className="mt-2 text-center text-[11.5px] text-system-500">
             Quedará pendiente de revisión

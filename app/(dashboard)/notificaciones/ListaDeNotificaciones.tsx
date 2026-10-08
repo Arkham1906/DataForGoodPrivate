@@ -103,9 +103,11 @@ export default function ListaDeNotificaciones({
       {items.length === 0 ? (
         <div className="rounded-lg border border-system-200 bg-white px-4 py-10 text-center text-[13px] text-system-600">{vacio}</div>
       ) : (
-        <ul className="divide-y divide-system-200 overflow-hidden rounded-lg border border-system-200 bg-white">
+        // Sin overflow-hidden: cortaría el menú "Más". Las esquinas redondeadas van en el primer y
+        // el último renglón, para que el fondo de las no leídas no se salga del borde.
+        <ul className="divide-y divide-system-200 rounded-lg border border-system-200 bg-white">
           {items.map((item) => (
-            <li key={item.id} className={`flex gap-3 px-4 py-3.5 ${item.readAt ? "" : "bg-brand-50"}`}>
+            <li key={item.id} className={`flex gap-3 px-4 py-3.5 first:rounded-t-lg last:rounded-b-lg ${item.readAt ? "" : "bg-brand-50"}`}>
               <span
                 aria-hidden
                 className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${item.readAt ? "bg-system-300" : COLOR_DEL_PUNTO[tonoDeNotificacion(item.type)]}`}
@@ -141,6 +143,7 @@ export default function ListaDeNotificaciones({
                   {/* Marcar y eliminar, en "Más" (Ley de Hick, 2026-10-07): a la vista solo lo principal. */}
                   <MenuDeAcciones
                     discreto
+                    alinear="izquierda"
                     etiqueta={`Más acciones de «${item.title}»`}
                     opciones={[
                       {

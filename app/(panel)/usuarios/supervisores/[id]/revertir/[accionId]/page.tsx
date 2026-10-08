@@ -1,5 +1,5 @@
 // Pantalla /usuarios/supervisores/[id]/revertir/[accionId]: revertir un dictamen.
-// Server Component. Datos: obtenerAccion(). La acción revertirAccion aún NO hace nada (TODO).
+// Server Component. Datos: obtenerAccion(). Revierte con revertirAccion (lib/usuarios/acciones-supervisor.ts).
 
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -43,6 +43,20 @@ export default async function RevertirAccionPage({ params }: { params: Params })
         <Aviso tono="neutro" titulo="Esta decisión ya fue revertida">
           Se revirtió el {formatearFechaHoraSup(accion.revertidaEn)}. El historial
           conserva tanto la decisión original como su reversión.
+        </Aviso>
+      </div>
+    );
+  }
+
+  // La campaña cambió desde la decisión (ver puedeRevertirse): ya no hay nada que deshacer.
+  if (!accion.reversible) {
+    return (
+      <div>
+        <Volver href={`/usuarios/supervisores/${id}`}>
+          Volver a la actividad de {supervisor.nombre}
+        </Volver>
+        <Aviso tono="neutro" titulo="Esta decisión ya no se puede revertir">
+          {accion.noReversiblePorque}.
         </Aviso>
       </div>
     );

@@ -136,6 +136,37 @@ body {
   }
 }
 
+/* Indicador de carga con la cuadrícula del logo (components/ui/IndicadorDeCarga.tsx y el ícono
+   del logo mientras se navega). Cada cuadro trae su orden en --i. Rebote del ícono al hacer clic
+   en el logo (components/layout/Logo.tsx). Con movimiento reducido, todo queda quieto. */
+@media (prefers-reduced-motion: no-preference) {
+  .indicador-de-carga rect {
+    animation: cuadro-que-llega 1.1s ease-in-out infinite backwards;
+    animation-delay: calc(var(--i, 0) * 90ms);
+  }
+
+  .logo-rebote {
+    transform-origin: center;
+    animation: logo-rebote 0.45s cubic-bezier(0.3, 1.6, 0.5, 1);
+  }
+}
+
+@keyframes logo-rebote {
+  40% {
+    transform: scale(0.8);
+  }
+}
+
+@keyframes cuadro-que-llega {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  35% {
+    opacity: 1;
+  }
+}
+
 /* ── Animaciones de la landing (app/page.tsx) ─────────────────────────────
    Todas viven dentro de `no-preference`: quien pidió reducir el movimiento
    ve la página quieta y completa. Sin JavaScript, salvo el contador de cifras

@@ -14,12 +14,16 @@ export type TipoDeNotificacion =
   | "campana_reportada"
   | "campana_iniciada"
   | "campana_finalizada"
+  // El SuperUsuario revirtió la aceptación o el rechazo (lib/usuarios/acciones-supervisor.ts).
+  | "campana_en_revision"
   | "revisor_acepto"
   | "aporte_reportado"
   // Supervisión y revisión
   | "invitacion_revisor"
   | "rol_asignado"
   | "rol_revocado"
+  // Al supervisor: el SuperUsuario revirtió una de sus decisiones.
+  | "supervision_revertida"
   // Sanciones de la cuenta
   | "sancion_aplicada"
   | "sancion_restaurada";
@@ -62,6 +66,8 @@ export function tonoDeNotificacion(tipo: string): "ok" | "warn" | "danger" | "de
     case "campana_reportada":
     case "aporte_reportado":
     case "rol_revocado":
+    case "campana_en_revision":
+    case "supervision_revertida":
       return "warn";
     case "aporte_rechazado":
     case "campana_rechazada":

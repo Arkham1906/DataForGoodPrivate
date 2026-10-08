@@ -1,7 +1,16 @@
+"use client";
+
 // Logo de DataForGood: el ícono (cuadrícula de public/logo.svg) y la palabra (trazos de
 // public/Texto.svg), dibujados aquí para animarlos y tomar los colores del tema.
 // Al pasar el cursor, "ata", "or" y "ood" se desvanecen y D, F y G se juntan en "DFG".
-// En pantallas chicas (max-md) se muestra siempre "DFG". Sin JavaScript: solo CSS.
+// En pantallas chicas (max-md) se muestra siempre "DFG".
+// Animaciones ligadas a la navegación (experimental, 2026-10-08): al hacer clic en el logo, si está
+// dentro de un enlace, el ícono da un pequeño rebote; mientras llega la página siguiente, la
+// cuadrícula se llena y sus cuadros se encienden en secuencia (navegacion-en-curso.ts). Las
+// animaciones están en app/globals.css y se detienen con movimiento reducido.
+
+import { useState } from "react";
+import { useNavegacionEnCurso } from "./navegacion-en-curso";
 
 // Trazos de cada parte de la palabra, en el viewBox original (597.56 × 75.1).
 const TRAZOS = {
@@ -29,30 +38,65 @@ const MUEVE_F = `transition-transform ${TRANSICION} group-hover/logo:[transform:
 const MUEVE_F_MOVIL = "max-md:[transform:translateX(-146.8px)]";
 const MUEVE_G = `transition-transform ${TRANSICION} group-hover/logo:[transform:translateX(-237.4px)]`;
 const MUEVE_G_MOVIL = "max-md:[transform:translateX(-237.4px)]";
+// Cuadros claros del ícono que se llenan de azul con el cursor. El retraso de cada uno solo
+// aplica al entrar: al salir se vacían los tres juntos.
+const POR_LLENAR = "fill-brand-600/30 transition-[fill] duration-300 ease-out motion-reduce:transition-none group-hover/logo:fill-brand-600";
 
-export function IconoDelLogo({ tamano = 24, className = "" }: { tamano?: number; className?: string }) {
+// Cuadros del ícono: [x, y, claro]. El orden es el de encendido mientras se navega (fila de
+// abajo, de en medio y de arriba), igual que ui/IndicadorDeCarga.
+const CUADROS: [number, number, boolean][] = [
+  [0, 42, false], [21, 42, false], [42, 42, false],
+  [0, 21, false], [21, 21, false], [42, 21, true],
+  [0, 0, false], [21, 0, true], [42, 0, true],
+];
+// Retraso al llenarse con el cursor, por cuadro claro, siguiendo la escalera.
+const RETRASO_AL_LLENAR: Record<string, string> = {
+  "42,21": "delay-0",
+  "21,0": "group-hover/logo:delay-150",
+  "42,0": "group-hover/logo:delay-300",
+};
+
+export function IconoDelLogo({
+  tamano = 24,
+  className = "",
+  cargando = false,
+  onAnimationEnd,
+}: {
+  tamano?: number;
+  className?: string;
+  /** Mientras llega la página siguiente: cuadrícula llena y cuadros encendiéndose en secuencia. */
+  cargando?: boolean;
+  onAnimationEnd?: React.AnimationEventHandler<SVGSVGElement>;
+}) {
   return (
     <svg
       viewBox="0 0 57 57"
       width={tamano}
       height={tamano}
       aria-hidden="true"
-      className={`shrink-0 ${className}`}
+      className={`shrink-0 ${cargando ? "indicador-de-carga" : ""} ${className}`}
+      onAnimationEnd={onAnimationEnd}
     >
-      <g className="fill-brand-600">
-        <rect x="0" y="0" width="15" height="15" rx="3.5" />
-        <rect x="0" y="21" width="15" height="15" rx="3.5" />
-        <rect x="21" y="21" width="15" height="15" rx="3.5" />
-        <rect x="0" y="42" width="15" height="15" rx="3.5" />
-        <rect x="21" y="42" width="15" height="15" rx="3.5" />
-        <rect x="42" y="42" width="15" height="15" rx="3.5" />
-      </g>
-      {/* Azul claro del logo original (#C5D1E8): el azul del tema al 30 %. */}
-      <g className="fill-brand-600/30">
-        <rect x="21" y="0" width="15" height="15" rx="3.5" />
-        <rect x="42" y="0" width="15" height="15" rx="3.5" />
-        <rect x="42" y="21" width="15" height="15" rx="3.5" />
-      </g>
+      {CUADROS.map(([x, y, claro], i) => (
+        <rect
+          key={i}
+          x={x}
+          y={y}
+          width="15"
+          height="15"
+          rx="3.5"
+          style={{ "--i": i } as React.CSSProperties}
+          className={
+            !claro
+              ? "fill-brand-600"
+              : // Azul claro del logo original (#C5D1E8): el azul del tema al 30 %. Con el cursor se
+                // llenan uno por uno (los aportes completan el conjunto de datos); cargando, llenos.
+                cargando
+                ? "fill-brand-600"
+                : `${POR_LLENAR} ${RETRASO_AL_LLENAR[`${x},${y}`]}`
+          }
+        />
+      ))}
     </svg>
   );
 }
@@ -74,10 +118,25 @@ export default function Logo({
   const anchoCompleto = ANCHO_COMPLETO * escala;
   const anchoAcronimo = ANCHO_ACRONIMO * escala;
   const movil = (clase: string) => (acronimoEnMovil ? clase : "");
+  const cargando = useNavegacionEnCurso();
+  const [rebote, setRebote] = useState(false);
 
   return (
-    <span className={`group/logo inline-flex items-center gap-2 ${className}`}>
-      <IconoDelLogo tamano={tamanoIcono ?? Math.round(alto * 1.5)} />
+    <span
+      className={`group/logo inline-flex items-center gap-2 ${className}`}
+      // Solo rebota si el logo es un enlace (en la 404 y otras pantallas no lo es).
+      onClick={(evento) => {
+        if (evento.currentTarget.closest("a")) setRebote(true);
+      }}
+    >
+      <IconoDelLogo
+        tamano={tamanoIcono ?? Math.round(alto * 1.5)}
+        cargando={cargando}
+        className={rebote ? "logo-rebote" : ""}
+        onAnimationEnd={(evento) => {
+          if (evento.target === evento.currentTarget) setRebote(false);
+        }}
+      />
       <span className="sr-only">DataForGood</span>
       {/* La caja conserva el ancho de la palabra al pasar el cursor (así no se recorre lo que
           está al lado ni se pierde el hover); en pantallas chicas mide solo lo que ocupa "DFG". */}
