@@ -41,7 +41,7 @@ export default async function TematicasPage({ searchParams }: { searchParams: Pr
           aria-label="Buscar temática"
           className="w-full max-w-xs rounded border border-system-300 bg-white px-3 py-2 text-[13px] text-system-900 outline-none focus:border-brand-600"
         />
-        <p className="font-mono text-[12px] text-system-400">
+        <p className="font-mono text-[12px] text-system-500">
           {formatearNumero(tematicas.length)} {q ? "encontradas" : "en total"} · {formatearNumero(deUsuarios)} de usuarios ·{" "}
           {formatearNumero(ocultas)} ocultas
         </p>
@@ -54,8 +54,8 @@ export default async function TematicasPage({ searchParams }: { searchParams: Pr
           {tematicas.map((t) => (
             <li key={t.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5">
               <div className="min-w-0">
-                <p className={`break-words font-bold ${t.oculta ? "text-system-400 line-through" : "text-system-900"}`}>{t.nombre}</p>
-                <p className="mt-0.5 text-[12px] text-system-400">
+                <p className={`break-words font-bold ${t.oculta ? "text-system-500 line-through" : "text-system-900"}`}>{t.nombre}</p>
+                <p className="mt-0.5 text-[12px] text-system-500">
                   {t.origen === "base" ? "Base" : `De un usuario · ${fecha.format(new Date(t.creadaEl))}`} ·{" "}
                   {formatearNumero(t.personas)} {t.personas === 1 ? "persona" : "personas"} ·{" "}
                   {formatearNumero(t.campanas)} {t.campanas === 1 ? "campaña" : "campañas"}

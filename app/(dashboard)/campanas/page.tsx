@@ -227,6 +227,8 @@ export default function CampanasPage() {
         </p>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {/* Las tarjetas usan h3: este h2 evita saltar del h1 al h3. */}
+          <h2 className="sr-only">Lista de campañas</h2>
           {filtered.map((campaign) => (
             <CampaignCard key={campaign.id} campaign={campaign} />
           ))}

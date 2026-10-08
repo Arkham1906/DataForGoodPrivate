@@ -135,7 +135,7 @@ export default function FormularioDeReversion({
           {pendiente ? "Revirtiendo…" : "Revertir acción"}
         </Button>
       </div>
-      <p className="mt-2 text-right text-[11.5px] text-system-400">
+      <p className="mt-2 text-right text-[11.5px] text-system-500">
         Queda asentado en el historial del supervisor y en el tuyo
       </p>
     </div>

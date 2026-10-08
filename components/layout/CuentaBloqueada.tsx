@@ -33,7 +33,7 @@ export default function CuentaBloqueada({
         <LogoutButton />
       </header>
 
-      <main className="mx-auto max-w-xl px-4 py-16 sm:px-6">
+      <main id="contenido" className="mx-auto max-w-xl px-4 py-16 sm:px-6">
         <div className="rounded-lg border border-system-200 bg-white p-6 sm:p-8" role="alert">
           <p className="mb-2 font-mono text-[10.5px] uppercase tracking-widest text-error-700">
             {bloqueo.permanente ? "Cuenta baneada" : "Cuenta suspendida"}

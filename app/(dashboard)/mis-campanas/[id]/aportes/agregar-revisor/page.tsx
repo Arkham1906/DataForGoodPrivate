@@ -169,11 +169,11 @@ export default function AgregarRevisorPage() {
 
       <div className="overflow-hidden rounded-lg border border-system-200">
         <table className="w-full text-left text-[13px]">
-          <thead className="bg-system-100 text-[11px] uppercase tracking-wide text-system-400">
+          <thead className="bg-system-100 text-[11px] uppercase tracking-wide text-system-500">
             <tr>
               <th className="px-3 py-2.5">Usuario</th>
               <th className="px-3 py-2.5">Rol actual</th>
-              <th className="px-3 py-2.5 text-right"></th>
+              <th className="px-3 py-2.5 text-right"><span className="sr-only">Acciones</span></th>
             </tr>
           </thead>
           <tbody>
@@ -197,7 +197,7 @@ export default function AgregarRevisorPage() {
                 <tr key={candidate.id} className="border-t border-system-200">
                   <td className="px-3 py-3">
                     <p className="font-medium text-system-900">{`${candidate.nombre} ${candidate.apellidos}`.trim()}</p>
-                    <p className="font-mono text-[11.5px] text-system-400">{candidate.emailOculto}</p>
+                    <p className="font-mono text-[11.5px] text-system-500">{candidate.emailOculto}</p>
                   </td>
                   <td className="px-3 py-3">
                     <Tag tone={isInvited ? "warn" : yaAceptado ? "ok" : "default"}>

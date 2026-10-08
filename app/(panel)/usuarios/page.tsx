@@ -82,7 +82,7 @@ export default async function DirectorioPage({
                       <p className="break-words text-[14px] font-bold leading-snug text-system-900">
                         {u.nombre}
                       </p>
-                      <p className="mt-1 break-all font-mono text-[11px] text-system-400">{u.correo}</p>
+                      <p className="mt-1 break-all font-mono text-[11px] text-system-500">{u.correo}</p>
                     </div>
 
                     <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-system-200 pt-3">
@@ -90,7 +90,7 @@ export default async function DirectorioPage({
                         <Tag key={rol}>{rol}</Tag>
                       ))}
                       {u.rolDetalle ? (
-                        <span className="text-[12.5px] text-system-400">{u.rolDetalle}</span>
+                        <span className="text-[12.5px] text-system-500">{u.rolDetalle}</span>
                       ) : null}
                     </div>
 
@@ -113,7 +113,7 @@ export default async function DirectorioPage({
 
             <div className="hidden overflow-x-auto rounded-lg border border-system-200 bg-white p-5 shadow-sm md:block">
               <table className="w-full min-w-[720px] text-left text-[13.5px]">
-                <thead className="border-b border-system-200 font-mono text-[10px] uppercase tracking-[0.1em] text-system-400">
+                <thead className="border-b border-system-200 font-mono text-[10px] uppercase tracking-[0.1em] text-system-500">
                   <tr>
                     <th className="pb-3 font-medium">Usuario</th>
                     <th className="pb-3 font-medium">Rol</th>
@@ -128,7 +128,7 @@ export default async function DirectorioPage({
                       <tr key={u.id} className="border-b border-system-200 last:border-0">
                         <td className="py-4">
                           <p className="font-bold text-system-900">{u.nombre}</p>
-                          <p className="font-mono text-[11px] text-system-400">{u.correo}</p>
+                          <p className="font-mono text-[11px] text-system-500">{u.correo}</p>
                         </td>
                         <td>
                           <div className="flex flex-wrap items-center gap-1.5">
@@ -136,7 +136,7 @@ export default async function DirectorioPage({
                               <Tag key={rol}>{rol}</Tag>
                             ))}
                             {u.rolDetalle ? (
-                              <span className="text-[12.5px] text-system-400">{u.rolDetalle}</span>
+                              <span className="text-[12.5px] text-system-500">{u.rolDetalle}</span>
                             ) : null}
                           </div>
                         </td>

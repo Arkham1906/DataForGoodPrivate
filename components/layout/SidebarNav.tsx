@@ -32,11 +32,11 @@ export default function SidebarNav({ usuario }: { usuario: SessionUser }) {
   const { navRef, visual, indicador, alElegir } = useIndicadorDeMenu(activo);
 
   return (
-    <aside className="dashboard-user-nav dashboard-sidebar w-64 shrink-0 border-r border-system-200 bg-white p-4 lg:sticky lg:top-0 lg:h-[calc(100vh-61px)]">
-      <p className="mb-3 px-2 text-[10px] font-semibold uppercase tracking-wider text-system-400">
+    <aside aria-label="Menú de la cuenta" className="dashboard-user-nav dashboard-sidebar w-64 shrink-0 border-r border-system-200 bg-white p-4 lg:sticky lg:top-0 lg:h-[calc(100vh-61px)]">
+      <p className="mb-3 px-2 text-[10px] font-semibold uppercase tracking-wider text-system-500">
         Participar
       </p>
-      <nav ref={navRef} className="dashboard-nav relative flex flex-col gap-1">
+      <nav ref={navRef} aria-label="Secciones" className="dashboard-nav relative flex flex-col gap-1">
         {indicador}
         {opciones.map((item) => {
           const marcada = visual === item.href;

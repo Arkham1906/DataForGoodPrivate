@@ -9,6 +9,9 @@ import { exigirUsuario } from "@/lib/session";
 import { obtenerResumenDeBaja } from "@/lib/usuarios/baja";
 import { DIAS_DE_GRACIA } from "@/lib/usuarios/baja-opciones";
 import EliminarCuentaForm from "./EliminarCuentaForm";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Eliminar cuenta" };
 
 function plural(n: number, singular: string, varios: string) {
   return `${n.toLocaleString("es-MX")} ${n === 1 ? singular : varios}`;
@@ -87,7 +90,7 @@ export default async function EliminarCuentaPage() {
       )}
 
       <section className="rounded-lg border border-system-200 bg-white p-5">
-        <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-system-400">Qué va a pasar</p>
+        <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-system-500">Qué va a pasar</p>
         <dl className="mt-3 grid gap-3 sm:grid-cols-2">
           {efectos.map((efecto) => (
             <div key={efecto.titulo} className="rounded-lg bg-system-100 p-3.5">

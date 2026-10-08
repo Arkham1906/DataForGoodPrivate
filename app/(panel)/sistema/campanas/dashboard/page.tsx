@@ -72,7 +72,7 @@ export default async function DashboardDeCampanasPage() {
           ) : (
             <>
               <Reparto filas={d.porTipoDeDato} anchoEtiqueta={96} anchoValor={30} />
-              <p className="mt-2.5 text-[12px] text-system-400">
+              <p className="mt-2.5 text-[12px] text-system-500">
                 Una campaña puede pedir varios tipos de dato, por eso la suma puede superar el total de campañas.
               </p>
             </>
@@ -124,7 +124,7 @@ export default async function DashboardDeCampanasPage() {
                 <article key={c.id} className="rounded-lg border border-system-200 bg-white p-4 shadow-sm">
                   <div className="min-w-0">
                     <p className="break-words text-[14px] font-bold leading-snug text-system-900">{c.nombre}</p>
-                    <p className="mt-1 break-words text-[11px] text-system-400">
+                    <p className="mt-1 break-words text-[11px] text-system-500">
                       {c.tiposDeDato.map((t) => NOMBRE_DE_TIPO[t]).join(" · ") || "—"}
                     </p>
                   </div>
@@ -170,7 +170,7 @@ export default async function DashboardDeCampanasPage() {
 
           <div className="hidden overflow-x-auto rounded-lg border border-system-200 bg-white p-5 shadow-sm md:block">
           <table className="w-full min-w-[720px] text-left text-[13.5px]">
-            <thead className="border-b border-system-200 font-mono text-[10px] uppercase tracking-[0.1em] text-system-400">
+            <thead className="border-b border-system-200 font-mono text-[10px] uppercase tracking-[0.1em] text-system-500">
               <tr>
                 <th className="pb-3 font-medium">Campaña</th>
                 <th className="pb-3 font-medium">Temática</th>
@@ -187,14 +187,14 @@ export default async function DashboardDeCampanasPage() {
                   <tr key={c.id} className="border-b border-system-200 last:border-0">
                     <td className="py-4 pr-3">
                       <p className="font-bold text-system-900">{c.nombre}</p>
-                      <p className="text-[12px] text-system-400">{c.tiposDeDato.map((t) => NOMBRE_DE_TIPO[t]).join(" · ") || "—"}</p>
+                      <p className="text-[12px] text-system-500">{c.tiposDeDato.map((t) => NOMBRE_DE_TIPO[t]).join(" · ") || "—"}</p>
                     </td>
                     <td className="text-[12.5px] text-system-600">{c.tematica || "Sin temática"}</td>
                     <td className="text-right font-mono tabular-nums">{formatearNumero(c.participantes)}</td>
                     <td className="text-right font-mono tabular-nums">{formatearNumero(c.aportes)}</td>
                     <td className="w-44 pl-4">
                       <ProgressBar pct={pct} tone="ok" />
-                      <span className="font-mono text-[11px] text-system-400">
+                      <span className="font-mono text-[11px] text-system-500">
                         {formatearNumero(c.aportes)}/{formatearNumero(c.meta)}
                       </span>
                     </td>

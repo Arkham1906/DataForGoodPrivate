@@ -271,7 +271,7 @@ export function Paginacion({
       aria-label="Paginación"
       className="mt-5 flex flex-wrap items-center justify-between gap-3"
     >
-      <p className="font-mono text-[12.5px] text-system-400">
+      <p className="font-mono text-[12.5px] text-system-500">
         {formatearNumero(desde)}–{formatearNumero(hasta)} de {formatearNumero(total)}
       </p>
       <div className="flex flex-wrap items-center gap-1.5">

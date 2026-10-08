@@ -164,7 +164,7 @@ export default function RevisionAportePage() {
         <section className="rounded-lg border border-system-200 bg-white p-5 shadow-sm">
           <p className="mb-3 text-[12.5px] font-semibold text-system-900">Archivo enviado</p>
           {item.archivoBorrado ? (
-            <div className="flex aspect-video items-center justify-center rounded-lg border border-dashed border-system-300 bg-system-100 text-[12.5px] text-system-400">
+            <div className="flex aspect-video items-center justify-center rounded-lg border border-dashed border-system-300 bg-system-100 text-[12.5px] text-system-500">
               El creador borró este archivo
             </div>
           ) : item.fileType === "foto" ? (
@@ -174,11 +174,11 @@ export default function RevisionAportePage() {
               className="aspect-video w-full rounded-lg border border-system-300 bg-system-100 object-contain"
             />
           ) : (
-            <div className="flex aspect-video items-center justify-center rounded-lg border border-dashed border-system-300 bg-system-100 text-[12.5px] text-system-400">
+            <div className="flex aspect-video items-center justify-center rounded-lg border border-dashed border-system-300 bg-system-100 text-[12.5px] text-system-500">
               Vista previa no disponible para {item.fileType}
             </div>
           )}
-          <p className="mt-3 font-mono text-[11.5px] text-system-400">
+          <p className="mt-3 font-mono text-[11.5px] text-system-500">
             {item.fileType} {item.fileSizeBytes ? `· ${formatearTamano(item.fileSizeBytes)}` : ""}
           </p>
         </section>
@@ -187,16 +187,16 @@ export default function RevisionAportePage() {
           <h2 className="text-lg font-extrabold text-system-900">Datos del aporte</h2>
           <div className="mt-4 space-y-4">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-system-400">Participante</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-system-500">Participante</p>
               <p className="mt-1 text-sm font-semibold text-system-900">{item.participantName}</p>
             </div>
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-system-400">Descripción</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-system-500">Descripción</p>
               <p className="mt-1 text-sm leading-relaxed text-system-600">{item.description}</p>
             </div>
             {item.caracteristicas && item.caracteristicas.length > 0 && (
               <div>
-                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-system-400">Características</p>
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-system-500">Características</p>
                 <div className="flex flex-wrap gap-2">
                   {item.caracteristicas.map((feature) => <Tag key={feature}>{feature}</Tag>)}
                 </div>
@@ -246,14 +246,14 @@ export default function RevisionAportePage() {
               <input type="checkbox" checked={inapropiado} onChange={(e) => setInapropiado(e.target.checked)} className="mt-0.5" />
               <span>
                 <span className="font-medium">Contenido inapropiado</span>
-                <span className="block text-[11.5px] text-system-400">
+                <span className="block text-[11.5px] text-system-500">
                   Úsalo solo si el contenido es ofensivo, ilegal o dañino. Si un mismo dispositivo junta varios, se
                   bloquea en toda la plataforma.
                 </span>
               </span>
             </label>
           )}
-          <p className="mb-3 text-[11.5px] text-system-400">
+          <p className="mb-3 text-[11.5px] text-system-500">
             {item.userId === null
               ? "Obligatorio al rechazar. Es un aporte anónimo: queda registrado, pero nadie lo recibe."
               : "Obligatorio al rechazar. El participante lo recibirá en una notificación y lo verá en Mis aportes."}
@@ -280,7 +280,7 @@ export default function RevisionAportePage() {
           <p className="text-[13px] font-medium text-system-900">
             Reportar al creador <span className="text-error-700">*</span>
           </p>
-          <p className="mb-3 mt-1 text-[11.5px] text-system-400">
+          <p className="mb-3 mt-1 text-[11.5px] text-system-500">
             Si el contenido es inapropiado o quien lo envió abusa de la campaña, avisa a quien la creó. Tú no
             baneas: banear o bloquear a esa persona es decisión suya.
           </p>

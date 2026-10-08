@@ -60,12 +60,14 @@ export default function CampanaEspecialPage() {
               <Input
                 type="date"
                 value={startDate}
+                aria-label="Inicio del periodo especial"
                 onChange={(e) => setStartDate(e.target.value)}
                 className="font-mono"
               />
               <Input
                 type="date"
                 value={endDate}
+                aria-label="Fin del periodo especial"
                 onChange={(e) => setEndDate(e.target.value)}
                 className="font-mono"
               />
@@ -93,7 +95,7 @@ export default function CampanaEspecialPage() {
           <Field label="Insignia exclusiva">
             <div className="rounded border border-system-300 bg-white px-3.5 py-3">
               <p className="text-[13px] font-medium text-system-900">Guardián verde</p>
-              <p className="text-[11.5px] text-system-400">Al completar la cuota</p>
+              <p className="text-[11.5px] text-system-500">Al completar la cuota</p>
             </div>
           </Field>
         </div>

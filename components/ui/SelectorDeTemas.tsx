@@ -85,7 +85,7 @@ export default function SelectorDeTemas({
     <>
       <div className="flex flex-wrap items-center gap-2">
         {seleccionados.length === 0 ? (
-          <p className="text-[12.5px] text-system-400">Aún no eliges ninguna temática.</p>
+          <p className="text-[12.5px] text-system-500">Aún no eliges ninguna temática.</p>
         ) : quitables && !unica ? (
           seleccionados.map((tema) => (
             <button
@@ -145,7 +145,7 @@ export default function SelectorDeTemas({
 
           <div className="flex-1 overflow-y-auto p-5">
             {visibles.length === 0 ? (
-              <p className="text-[12.5px] text-system-400">Ninguna temática coincide con «{busqueda}».</p>
+              <p className="text-[12.5px] text-system-500">Ninguna temática coincide con «{busqueda}».</p>
             ) : (
               <div className="flex flex-wrap gap-2">
                 {visibles.map((tema) => {
@@ -171,7 +171,7 @@ export default function SelectorDeTemas({
           </div>
 
           <div className="flex items-center justify-between gap-3 border-t border-system-200 p-4">
-            <span className="font-mono text-[12px] text-system-400">
+            <span className="font-mono text-[12px] text-system-500">
               {borrador.length} {borrador.length === 1 ? "seleccionada" : "seleccionadas"}
             </span>
             <div className="flex gap-2">

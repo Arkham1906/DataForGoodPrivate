@@ -61,13 +61,13 @@ export default function CampaignCard({ campaign }: { campaign: Campaign }) {
           <p className="font-mono text-[15px] font-bold text-system-900 max-md:text-[14px]">
             {campaign.currentContributions}/{campaign.goalContributions}
           </p>
-          <p className="text-[11px] text-system-400 max-md:text-[10px]">aportes</p>
+          <p className="text-[11px] text-system-500 max-md:text-[10px]">aportes</p>
         </div>
         <div>
           <p className="font-mono text-[15px] font-bold text-system-900 max-md:text-[14px]">
             {remainingDays}
           </p>
-          <p className="text-[11px] text-system-400 max-md:text-[10px]">días restantes</p>
+          <p className="text-[11px] text-system-500 max-md:text-[10px]">días restantes</p>
         </div>
       </div>
 

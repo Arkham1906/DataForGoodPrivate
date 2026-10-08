@@ -43,7 +43,7 @@ export default async function ConjuntoAbiertoPage({
     <div className="min-h-screen bg-system-50">
       <PublicHeader />
 
-      <main className="mx-auto max-w-3xl px-6 pb-24 pt-14">
+      <main id="contenido" className="mx-auto max-w-3xl px-6 pb-24 pt-14">
         <Link href="/datos" className="text-[12.5px] font-medium text-brand-600 hover:underline">
           ← Volver al catálogo
         </Link>
@@ -105,7 +105,7 @@ export default async function ConjuntoAbiertoPage({
             {conjunto.dataTypes.length > 0 ? (
               conjunto.dataTypes.map((dt) => <Tag key={dt}>{DATA_TYPE_LABELS[dt] ?? dt}</Tag>)
             ) : (
-              <p className="text-[12.5px] text-system-400">Sin especificar</p>
+              <p className="text-[12.5px] text-system-500">Sin especificar</p>
             )}
           </div>
         </Card>

@@ -177,7 +177,7 @@ export default function ContrasenaConCodigo({
           type="button"
           onClick={pedirCodigo}
           disabled={enviando || espera > 0}
-          className="mb-4 mt-2 text-[12.5px] font-medium text-brand-600 hover:underline disabled:cursor-not-allowed disabled:text-system-400 disabled:no-underline"
+          className="mb-4 mt-2 text-[12.5px] font-medium text-brand-600 hover:underline disabled:cursor-not-allowed disabled:text-system-500 disabled:no-underline"
         >
           {espera > 0 ? `Reenviar código en ${espera} s` : "Reenviar código"}
         </button>
@@ -208,7 +208,7 @@ export default function ContrasenaConCodigo({
           {REGLAS_DE_CONTRASENA.map((regla) => {
             const cumple = regla.test(nueva);
             return (
-              <li key={regla.label} className={`text-[12.5px] ${cumple ? "text-success-700" : "text-system-400"}`}>
+              <li key={regla.label} className={`text-[12.5px] ${cumple ? "text-success-700" : "text-system-500"}`}>
                 {cumple ? "✓" : "·"} {regla.label}
               </li>
             );

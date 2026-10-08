@@ -52,7 +52,7 @@ export default function PermitirAnonimos({
         />
         <span>
           <span className="font-medium">Permitir aportes sin cuenta</span>
-          <span className="block text-[11.5px] text-system-400">
+          <span className="block text-[11.5px] text-system-500">
             Quien abra el enlace puede aportar de forma anónima. Si lo apagas, tendrá que iniciar sesión.
           </span>
         </span>

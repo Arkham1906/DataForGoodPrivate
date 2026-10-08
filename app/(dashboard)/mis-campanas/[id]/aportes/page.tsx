@@ -125,7 +125,7 @@ export default function BandejaAportesPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="break-words text-sm font-semibold text-system-900">{item.participantName}</p>
-                    <p className="mt-1 font-mono text-[11.5px] text-system-400">
+                    <p className="mt-1 font-mono text-[11.5px] text-system-500">
                       {new Date(item.submittedAt).toLocaleDateString("es-MX", {
                         day: "numeric",
                         month: "short",
@@ -154,13 +154,13 @@ export default function BandejaAportesPage() {
 
           <div className="hidden overflow-hidden rounded-lg border border-system-200 md:block">
           <table className="w-full text-left text-[13px]">
-            <thead className="bg-system-100 text-[11px] uppercase tracking-wide text-system-400">
+            <thead className="bg-system-100 text-[11px] uppercase tracking-wide text-system-500">
               <tr>
                 <th className="px-3 py-2.5">Participante</th>
                 <th className="px-3 py-2.5">Descripción</th>
                 <th className="px-3 py-2.5">Tipo</th>
                 <th className="px-3 py-2.5">Etapa</th>
-                <th className="px-3 py-2.5" />
+                <th className="px-3 py-2.5"><span className="sr-only">Acciones</span></th>
               </tr>
             </thead>
             <tbody>
@@ -168,7 +168,7 @@ export default function BandejaAportesPage() {
                 <tr key={item.id} className="border-t border-system-200">
                   <td className="px-3 py-3">
                     <p className="font-semibold text-system-900">{item.participantName}</p>
-                    <p className="font-mono text-[11.5px] text-system-400">
+                    <p className="font-mono text-[11.5px] text-system-500">
                       {new Date(item.submittedAt).toLocaleDateString("es-MX", {
                         day: "numeric",
                         month: "short",

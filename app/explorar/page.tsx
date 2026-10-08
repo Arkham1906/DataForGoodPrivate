@@ -83,7 +83,7 @@ export default async function ExplorarCampanasPage({
     <div className="min-h-screen bg-system-50">
       <PublicHeader />
 
-      <main className="mx-auto max-w-5xl px-6 pb-24 pt-14">
+      <main id="contenido" className="mx-auto max-w-5xl px-6 pb-24 pt-14">
         <p className="landing-entrada mb-2 font-mono text-[10.5px] uppercase tracking-widest text-brand-600">
           Campañas
         </p>
@@ -128,7 +128,7 @@ export default async function ExplorarCampanasPage({
 
             {tematicas.length > 0 && (
               <div>
-                <p className="mb-2 text-[11.5px] font-semibold uppercase tracking-wide text-system-400">
+                <p className="mb-2 text-[11.5px] font-semibold uppercase tracking-wide text-system-500">
                   Temática
                 </p>
                 <div className="dashboard-nav flex min-w-0 flex-row gap-2 overflow-x-auto overscroll-x-contain pb-2 [-webkit-overflow-scrolling:touch] md:flex-col md:gap-1 md:overflow-visible md:pb-0">
@@ -143,7 +143,7 @@ export default async function ExplorarCampanasPage({
                       }`}
                     >
                       <span>{t.valor}</span>
-                      <span className="font-mono text-[11px] text-system-400">{t.total}</span>
+                      <span className="font-mono text-[11px] text-system-500">{t.total}</span>
                     </Link>
                   ))}
                 </div>
@@ -152,7 +152,7 @@ export default async function ExplorarCampanasPage({
 
             {estados.length > 0 && (
               <div>
-                <p className="mb-2 text-[11.5px] font-semibold uppercase tracking-wide text-system-400">
+                <p className="mb-2 text-[11.5px] font-semibold uppercase tracking-wide text-system-500">
                   Estado
                 </p>
                 <div className="dashboard-nav flex min-w-0 flex-row gap-2 overflow-x-auto overscroll-x-contain pb-2 [-webkit-overflow-scrolling:touch] md:flex-col md:gap-1 md:overflow-visible md:pb-0">
@@ -167,7 +167,7 @@ export default async function ExplorarCampanasPage({
                       }`}
                     >
                       <span>{e.valor}</span>
-                      <span className="font-mono text-[11px] text-system-400">{e.total}</span>
+                      <span className="font-mono text-[11px] text-system-500">{e.total}</span>
                     </Link>
                   ))}
                 </div>
@@ -237,7 +237,7 @@ export default async function ExplorarCampanasPage({
                         </div>
                         <div className="mt-auto pt-3">
                           <ProgressBar pct={pct} tone="ok" />
-                          <p className="mt-2 font-mono text-[11px] text-system-400">
+                          <p className="mt-2 font-mono text-[11px] text-system-500">
                             {nf.format(c.participants)} participantes · {pct}% de la meta ·{" "}
                             {textoDeCierre(c.daysRemaining)}
                           </p>

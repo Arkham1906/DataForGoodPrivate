@@ -177,7 +177,9 @@ export default async function LandingPage() {
     <div className="min-h-screen bg-system-50">
       <PublicHeader />
 
-      <main className="mx-auto max-w-4xl px-6 pb-24 pt-16 text-center">
+      {/* Todo el contenido va en <main> (antes las secciones de abajo quedaban fuera de toda región). */}
+      <main id="contenido">
+      <section className="mx-auto max-w-4xl px-6 pb-24 pt-16 text-center">
         <p className="landing-entrada mb-4 font-mono text-[10.5px] uppercase tracking-widest text-brand-600">
           Plataforma de crowdsourcing de datos
         </p>
@@ -213,7 +215,7 @@ export default async function LandingPage() {
                 <div className="mt-3 flex items-center justify-between">
                   <div>
                     <p className="text-[12px] font-medium text-brand-600">{comoHashtag(post.tag)}</p>
-                    <p className="font-mono text-[11px] text-system-400">
+                    <p className="font-mono text-[11px] text-system-500">
                       {new Date(post.submittedAt).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}
                     </p>
                   </div>
@@ -223,11 +225,11 @@ export default async function LandingPage() {
             ))}
           </div>
         ) : (
-          <p className="mt-14 text-[13px] text-system-400">
+          <p className="mt-14 text-[13px] text-system-500">
             Todavía no hay aportes aprobados que mostrar aquí.
           </p>
         )}
-      </main>
+      </section>
 
       <section className="w-full bg-system-900" aria-label="La plataforma en cifras">
         <div className="mx-auto grid max-w-4xl grid-cols-2 gap-6 px-6 py-8 sm:grid-cols-4">
@@ -249,7 +251,7 @@ export default async function LandingPage() {
 
       <section id="como-funciona" className="mx-auto max-w-4xl px-6 pb-24 pt-16">
         <div className="landing-revelar mb-9 text-center">
-          <p className="mb-2.5 font-mono text-[10.5px] uppercase tracking-widest text-system-400">
+          <p className="mb-2.5 font-mono text-[10.5px] uppercase tracking-widest text-system-500">
             El proceso
           </p>
           <h2 className="text-[28px] font-extrabold tracking-tight text-system-900">
@@ -259,7 +261,7 @@ export default async function LandingPage() {
         <ol className="grid grid-cols-1 gap-6 sm:grid-cols-3">
           {PASOS.map((p) => (
             <li key={p.numero} className="landing-revelar">
-              <p className="mb-1.5 font-mono text-[11px] text-system-400" aria-hidden="true">
+              <p className="mb-1.5 font-mono text-[11px] text-system-500" aria-hidden="true">
                 {p.numero}
               </p>
               <h3 className="mb-1 text-[13.5px] font-semibold text-system-900">{p.titulo}</h3>
@@ -291,7 +293,7 @@ export default async function LandingPage() {
                       <Tag tone="ok">Activa</Tag>
                     </div>
                     <ProgressBar pct={pct} tone="ok" />
-                    <p className="mt-2 font-mono text-[11px] text-system-400">
+                    <p className="mt-2 font-mono text-[11px] text-system-500">
                       {nf.format(c.participants)} participantes · {pct}% de la meta
                     </p>
                   </Card>
@@ -332,7 +334,7 @@ export default async function LandingPage() {
                         <Tag key={f}>{f}</Tag>
                       ))}
                   </div>
-                  <p className="mt-2.5 font-mono text-[11px] text-system-400">
+                  <p className="mt-2.5 font-mono text-[11px] text-system-500">
                     {nf.format(c.approvedContributions)} aportes · {c.sizeLabel} ·{" "}
                     {nf.format(c.downloads)} descargas
                   </p>
@@ -354,6 +356,8 @@ export default async function LandingPage() {
           Comenzar ahora
         </ButtonLink>
       </section>
+
+      </main>
 
       <PublicFooter />
     </div>

@@ -48,7 +48,7 @@ export default function EnlaceAlPerfil({ iniciales, nombre }: { iniciales: strin
         <ViewTransition name="perfil-nombre" share="perfil-viaje" default="none">
           <p className="w-fit text-[13px] font-semibold text-system-900">{nombre}</p>
         </ViewTransition>
-        <p className="text-[11.5px] text-system-400">Ver perfil</p>
+        <p className="text-[11.5px] text-system-500">Ver perfil</p>
       </div>
     </Link>
   );

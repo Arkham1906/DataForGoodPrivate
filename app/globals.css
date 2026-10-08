@@ -23,7 +23,7 @@
   --color-system-200: #e9e6e1;
   --color-system-300: #d8d4cd;
   --color-system-400: #9298a3;
-  --color-system-500: #757a85;
+  --color-system-500: #686c77; /* texto terciario: pasa 4.5:1 sobre white, system-50, system-100 y brand-50 */
   --color-system-600: #5c606b;
   --color-system-700: #43464f;
   --color-system-800: #2b2d35;

@@ -8,6 +8,9 @@ import { BackLink } from "../../../../_ui";
 import { pool } from "@/lib/db";
 import { exigirUsuario } from "@/lib/session";
 import { formatearTamano } from "@/lib/aportes/archivo";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Aportes de un participante" };
 
 export default async function UserContributionsPage({ params }: { params: Promise<{ campaignId: string; userId: string }> }) {
   const { campaignId, userId } = await params;
@@ -47,7 +50,7 @@ export default async function UserContributionsPage({ params }: { params: Promis
         {result.rows.map((contribution) => (
           <Link key={contribution.id} href={`/supervision/${campaignId}/usuarios/${userId}/aportes/${contribution.id}`} className="block rounded-lg border border-system-200 bg-white p-5 shadow-sm hover:border-brand-600">
             <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-[15px] font-extrabold text-system-900">Aporte #{contribution.id}</h2><p className="mt-2 max-w-2xl text-[13px] leading-6 text-system-600">{contribution.description}</p></div><Tag tone={statusTone(String(contribution.status))}>{statusLabel[String(contribution.status)] ?? contribution.status}</Tag></div>
-            <div className="mt-4 grid gap-3 border-t border-system-200 pt-4 text-[12px] sm:grid-cols-4"><p><span className="text-system-400">Enviado</span><br /><span className="font-mono text-system-600">{new Date(contribution.submitted_at).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" })}</span></p><p><span className="text-system-400">Tipo</span><br /><span className="text-system-600">{contribution.file_type}</span></p><p><span className="text-system-400">Peso</span><br /><span className="font-mono text-system-600">{contribution.file_size_bytes ? `${formatearTamano(Number(contribution.file_size_bytes))}` : "Sin dato"}</span></p><p><span className="text-system-400">Acción</span><br /><span className="font-semibold text-brand-600">Ver datos</span></p></div>
+            <div className="mt-4 grid gap-3 border-t border-system-200 pt-4 text-[12px] sm:grid-cols-4"><p><span className="text-system-500">Enviado</span><br /><span className="font-mono text-system-600">{new Date(contribution.submitted_at).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" })}</span></p><p><span className="text-system-500">Tipo</span><br /><span className="text-system-600">{contribution.file_type}</span></p><p><span className="text-system-500">Peso</span><br /><span className="font-mono text-system-600">{contribution.file_size_bytes ? `${formatearTamano(Number(contribution.file_size_bytes))}` : "Sin dato"}</span></p><p><span className="text-system-500">Acción</span><br /><span className="font-semibold text-brand-600">Ver datos</span></p></div>
           </Link>
         ))}
       </div>

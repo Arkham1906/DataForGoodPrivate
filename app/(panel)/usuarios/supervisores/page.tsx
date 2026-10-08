@@ -72,7 +72,7 @@ export default async function SupervisoresPage({
               <article key={s.id} className="rounded-lg border border-system-200 bg-white p-4 shadow-sm">
                 <div className="min-w-0">
                   <p className="break-words text-[14px] font-bold leading-snug text-system-900">{s.nombre}</p>
-                  <p className="mt-1 text-[11px] text-system-400">
+                  <p className="mt-1 text-[11px] text-system-500">
                     Supervisor desde {formatearFechaSup(s.desde)}
                   </p>
                 </div>
@@ -115,7 +115,7 @@ export default async function SupervisoresPage({
 
           <div className="hidden overflow-x-auto rounded-lg border border-system-200 bg-white p-5 shadow-sm md:block">
             <table className="w-full min-w-[720px] text-left text-[13.5px]">
-              <thead className="border-b border-system-200 font-mono text-[10px] uppercase tracking-[0.1em] text-system-400">
+              <thead className="border-b border-system-200 font-mono text-[10px] uppercase tracking-[0.1em] text-system-500">
                 <tr>
                   <th className="pb-3 font-medium">Supervisor</th>
                   <th className="pb-3 font-medium">Campañas</th>
@@ -130,14 +130,14 @@ export default async function SupervisoresPage({
                   <tr key={s.id} className="border-b border-system-200 last:border-0">
                     <td className="py-4">
                       <p className="font-bold text-system-900">{s.nombre}</p>
-                      <p className="font-mono text-[11px] text-system-400">
+                      <p className="font-mono text-[11px] text-system-500">
                         Supervisor desde {formatearFechaSup(s.desde)}
                       </p>
                     </td>
                     <td className="font-mono tabular-nums">{s.campanasACargo}</td>
                     <td className="font-mono tabular-nums">{formatearNumero(s.aportesValidados)}</td>
                     <td className="font-mono tabular-nums">{s.accionesEnRango}</td>
-                    <td className="font-mono text-[11px] text-system-400">
+                    <td className="font-mono text-[11px] text-system-500">
                       {formatearFechaHoraSup(s.ultimaActividad)}
                     </td>
                     <td className="text-right">

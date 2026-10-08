@@ -29,7 +29,7 @@ export default function ContributionCard({ contribution }: { contribution: Contr
       <div className="min-w-0">
         <p className="text-[14px] font-bold text-system-900">{contribution.campaignName}</p>
         <p className="mt-1 text-[13px] text-system-600">{contribution.description}</p>
-        <div className="mt-2 flex gap-4 text-[11.5px] text-system-400">
+        <div className="mt-2 flex gap-4 text-[11.5px] text-system-500">
           <span>{formatDateTime(contribution.submittedAt)}</span>
           <span>{contribution.fileType}</span>
           <span>{formatearTamano(contribution.fileSizeBytes)}</span>

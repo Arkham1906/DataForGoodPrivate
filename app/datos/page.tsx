@@ -78,7 +78,7 @@ export default async function CatalogoDeDatosPage({
     <div className="min-h-screen bg-system-50">
       <PublicHeader />
 
-      <main className="mx-auto max-w-5xl px-6 pb-24 pt-14">
+      <main id="contenido" className="mx-auto max-w-5xl px-6 pb-24 pt-14">
         <p className="landing-entrada mb-2 font-mono text-[10.5px] uppercase tracking-widest text-brand-600">
           Datos abiertos
         </p>
@@ -123,7 +123,7 @@ export default async function CatalogoDeDatosPage({
 
             {tematicas.length > 0 && (
               <div>
-                <p className="mb-2 text-[11.5px] font-semibold uppercase tracking-wide text-system-400">
+                <p className="mb-2 text-[11.5px] font-semibold uppercase tracking-wide text-system-500">
                   Temática
                 </p>
                 <div className="flex flex-col gap-1">
@@ -138,7 +138,7 @@ export default async function CatalogoDeDatosPage({
                       }`}
                     >
                       <span>{t.valor}</span>
-                      <span className="font-mono text-[11px] text-system-400">{t.total}</span>
+                      <span className="font-mono text-[11px] text-system-500">{t.total}</span>
                     </Link>
                   ))}
                 </div>
@@ -147,7 +147,7 @@ export default async function CatalogoDeDatosPage({
 
             {estados.length > 0 && (
               <div>
-                <p className="mb-2 text-[11.5px] font-semibold uppercase tracking-wide text-system-400">
+                <p className="mb-2 text-[11.5px] font-semibold uppercase tracking-wide text-system-500">
                   Estado
                 </p>
                 <div className="flex flex-col gap-1">
@@ -162,7 +162,7 @@ export default async function CatalogoDeDatosPage({
                       }`}
                     >
                       <span>{e.valor}</span>
-                      <span className="font-mono text-[11px] text-system-400">{e.total}</span>
+                      <span className="font-mono text-[11px] text-system-500">{e.total}</span>
                     </Link>
                   ))}
                 </div>
@@ -222,7 +222,7 @@ export default async function CatalogoDeDatosPage({
                           ? c.formats.map((f) => <Tag key={f}>{f}</Tag>)
                           : c.dataTypes.map((dt) => <Tag key={dt}>{DATA_TYPE_LABELS[dt] ?? dt}</Tag>)}
                       </div>
-                      <p className="mt-2.5 font-mono text-[11px] text-system-400">
+                      <p className="mt-2.5 font-mono text-[11px] text-system-500">
                         {c.sizeLabel} · {nf.format(c.downloads)} descargas
                         {c.quality != null ? ` · calidad ${c.quality.toFixed(1)}` : ""}
                         {(c.locationCity || c.locationState) &&

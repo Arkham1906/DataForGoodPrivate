@@ -94,7 +94,7 @@ export default async function ActividadDeSupervisorPage({
       <TituloDeSeccion>Historial de decisiones</TituloDeSeccion>
       <div className="overflow-x-auto rounded-lg border border-system-200 bg-white p-5 shadow-sm">
         <table className="w-full min-w-[720px] text-left text-[13.5px]">
-          <thead className="border-b border-system-200 font-mono text-[10px] uppercase tracking-[0.1em] text-system-400">
+          <thead className="border-b border-system-200 font-mono text-[10px] uppercase tracking-[0.1em] text-system-500">
             <tr>
               <th className="pb-3 font-medium">Acción</th>
               <th className="pb-3 font-medium">Sobre</th>
@@ -113,7 +113,7 @@ export default async function ActividadDeSupervisorPage({
                   </td>
                   <td className="text-system-600">{a.sobre}</td>
                   <td className="text-system-600">{a.motivo}</td>
-                  <td className="font-mono text-[11px] text-system-400">
+                  <td className="font-mono text-[11px] text-system-500">
                     {formatearFechaHoraSup(a.ejecutadaEn)}
                   </td>
                   <td className="text-right">

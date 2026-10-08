@@ -6,6 +6,9 @@ import { notFound } from "next/navigation";
 import { BackLink } from "../../_ui";
 import { pool } from "@/lib/db";
 import { obtenerCampanaSupervisadaPorRoot } from "@/lib/supervision/root";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Participantes de la campaña" };
 
 export default async function CampaignUsersPage({ params }: { params: Promise<{ campaignId: string }> }) {
   const { campaignId } = await params;
@@ -38,15 +41,15 @@ export default async function CampaignUsersPage({ params }: { params: Promise<{ 
       ) : (
         <div className="overflow-x-auto rounded-lg border border-system-200 bg-white p-5 shadow-sm">
           <table className="w-full min-w-[650px] text-left text-[13px]">
-            <thead className="border-b border-system-200 font-mono text-[10px] uppercase tracking-[0.1em] text-system-400">
+            <thead className="border-b border-system-200 font-mono text-[10px] uppercase tracking-[0.1em] text-system-500">
               <tr><th className="pb-3 font-medium">Usuario</th><th className="pb-3 font-medium">Aportes</th><th className="pb-3 font-medium">Último aporte</th><th className="pb-3" /></tr>
             </thead>
             <tbody>
               {result.rows.map((participant) => (
                 <tr key={participant.id} className="border-b border-system-200 last:border-0">
-                  <td className="py-4"><p className="font-bold text-system-900">{participant.name}</p><p className="font-mono text-[11px] text-system-400">{participant.email || "Sin correo"}</p></td>
+                  <td className="py-4"><p className="font-bold text-system-900">{participant.name}</p><p className="font-mono text-[11px] text-system-500">{participant.email || "Sin correo"}</p></td>
                   <td className="font-mono">{participant.contributions}</td>
-                  <td className="font-mono text-[12px] text-system-400">{new Date(participant.last_submitted).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" })}</td>
+                  <td className="font-mono text-[12px] text-system-500">{new Date(participant.last_submitted).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" })}</td>
                   <td className="text-right"><Link href={`/supervisar/${campaignId}/usuarios/${participant.id}/aportes`} className="rounded-pill border border-system-300 px-3 py-1.5 text-[12px] font-bold text-system-600 hover:border-brand-600">Ver aportes</Link></td>
                 </tr>
               ))}

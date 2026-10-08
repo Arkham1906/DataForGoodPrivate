@@ -69,7 +69,7 @@ export default function FormularioDeSancion({
               />
               <span>
                 <span className="block text-[13.5px] font-medium text-system-900">{t.etiqueta}</span>
-                <span className="block text-[12px] text-system-400">{t.hint}</span>
+                <span className="block text-[12px] text-system-500">{t.hint}</span>
               </span>
             </label>
           ))}

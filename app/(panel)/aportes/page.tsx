@@ -136,7 +136,7 @@ export default async function BandejaDeAportesPage({ searchParams }: { searchPar
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="break-words text-[14px] font-bold leading-snug text-system-900">{a.participante}</p>
-                    <p className="mt-1 font-mono text-[11px] text-system-400">{formatearEnvio(a.enviadoEn)}</p>
+                    <p className="mt-1 font-mono text-[11px] text-system-500">{formatearEnvio(a.enviadoEn)}</p>
                   </div>
                   <Tag tone={a.etapa.tono}>{a.etapa.texto}</Tag>
                 </div>
@@ -165,7 +165,7 @@ export default async function BandejaDeAportesPage({ searchParams }: { searchPar
 
           <div className="hidden overflow-x-auto rounded-lg border border-system-200 bg-white p-5 shadow-sm md:block">
             <table className="w-full min-w-[820px] text-left text-[13.5px]">
-              <thead className="border-b border-system-200 font-mono text-[10px] uppercase tracking-[0.1em] text-system-400">
+              <thead className="border-b border-system-200 font-mono text-[10px] uppercase tracking-[0.1em] text-system-500">
                 <tr>
                   <th className="w-[22%] pb-3 font-medium">Participante</th>
                   <th className="w-[22%] pb-3 font-medium">Campaña</th>
@@ -179,7 +179,7 @@ export default async function BandejaDeAportesPage({ searchParams }: { searchPar
                   <tr key={a.id} className="border-b border-system-200 align-top last:border-0">
                     <td className="py-4 pr-3">
                       <p className="font-bold text-system-900">{a.participante}</p>
-                      <p className="font-mono text-[11px] text-system-400">{formatearEnvio(a.enviadoEn)}</p>
+                      <p className="font-mono text-[11px] text-system-500">{formatearEnvio(a.enviadoEn)}</p>
                     </td>
                     <td className="py-4 pr-3 text-[12.5px]">
                       <Link href={`/sistema/campanas/${a.campanaId}`} className="text-system-900 hover:text-brand-600">

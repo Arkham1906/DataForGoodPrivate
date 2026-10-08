@@ -15,6 +15,9 @@ import { exigirUsuario } from "@/lib/session";
 import PerfilForm from "./PerfilForm";
 import CambiarContrasena from "./CambiarContrasena";
 import PreferenciasDeComunicacion from "./PreferenciasDeComunicacion";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Mi cuenta" };
 
 const ROLE_LABELS: Record<string, string> = {
   usuario: "Usuario común",
@@ -93,7 +96,7 @@ export default async function CuentaPage() {
         <section className="rounded-lg border border-system-200 bg-white p-5">
           <div className="mb-4 flex items-center justify-between">
             <div>
-              <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-system-400">
+              <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-system-500">
                 Seguridad
               </p>
               <h2 className="mt-1 text-lg font-extrabold text-system-900">
@@ -149,7 +152,14 @@ export default async function CuentaPage() {
                     Participación visible en comunidad
                   </p>
                 </div>
-                <button className="relative h-6 w-11 rounded-pill bg-brand-600">
+                {/* Aún sin función (pendiente). role="switch" + aria-checked: se anuncia como interruptor. */}
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked="true"
+                  aria-label="Participación visible en comunidad"
+                  className="relative h-6 w-11 rounded-pill bg-brand-600"
+                >
                   <span className="absolute right-1 top-1 h-4 w-4 rounded-full bg-white" />
                 </button>
               </div>
@@ -163,7 +173,7 @@ export default async function CuentaPage() {
       <section className="rounded-lg border border-system-200 bg-white p-5">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-system-400">
+            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-system-500">
               Progreso y logros
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-3 text-[14px] text-system-600">

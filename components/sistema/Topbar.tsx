@@ -36,7 +36,7 @@ export default function Topbar({ identificador }: TopbarProps) {
             <span className="block text-[13px] font-semibold leading-tight text-system-900">
               {identificador}
             </span>
-            <span className="block text-[11px] text-system-400">Sesión raíz</span>
+            <span className="block text-[11px] text-system-500">Sesión raíz</span>
           </span>
         </span>
       </div>

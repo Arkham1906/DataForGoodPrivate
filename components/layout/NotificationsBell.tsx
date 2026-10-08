@@ -190,7 +190,7 @@ export default function NotificationsBell() {
                     <span className="min-w-0 flex-1">
                       <span className="flex items-baseline justify-between gap-2">
                         <span className={`min-w-0 flex-1 break-words text-[12.5px] text-system-900 ${item.readAt ? "font-semibold" : "font-bold"}`}>{item.title}</span>
-                        <span className="shrink-0 text-[10.5px] text-system-400">{haceCuanto(item.createdAt, ahora)}</span>
+                        <span className="shrink-0 text-[10.5px] text-system-500">{haceCuanto(item.createdAt, ahora)}</span>
                       </span>
                       <span className="mt-0.5 line-clamp-3 block text-[12px] leading-5 text-system-600">{item.message}</span>
                       {!item.readAt && <span className="sr-only">Sin leer</span>}

@@ -72,7 +72,7 @@ export default function MasTematicas({
 
           <div className="flex-1 overflow-y-auto p-5">
             {visibles.length === 0 ? (
-              <p className="text-[12.5px] text-system-400">Ninguna temática coincide con «{busqueda}».</p>
+              <p className="text-[12.5px] text-system-500">Ninguna temática coincide con «{busqueda}».</p>
             ) : (
               <div className="flex flex-wrap gap-2">
                 {visibles.map(([tema, cuantas]) => (

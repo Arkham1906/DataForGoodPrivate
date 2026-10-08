@@ -207,7 +207,7 @@ function VerificarForm() {
           ))}
         </div>
 
-        <div className="mb-2 flex justify-between text-[12px] text-system-400">
+        <div className="mb-2 flex justify-between text-[12px] text-system-500">
           <span>{expired ? "Código expirado" : `Expira en ${formatRemaining(remainingMs)}`}</span>
           <span>Intentos: {attemptsLeft} de {MAX_ATTEMPTS}</span>
         </div>
@@ -233,7 +233,7 @@ function VerificarForm() {
         </Button>
       </form>
 
-      <p className="mt-5 text-[12px] text-system-400">
+      <p className="mt-5 text-[12px] text-system-500">
         Si no lo encuentras, revisa la carpeta de correo no deseado.
       </p>
     </div>

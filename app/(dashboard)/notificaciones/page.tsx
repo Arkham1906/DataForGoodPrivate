@@ -9,6 +9,9 @@ import { exigirUsuario } from "@/lib/session";
 import { listarNotificaciones, type FiltroDeNotificaciones } from "@/lib/notificaciones/notificaciones";
 import ListaDeNotificaciones from "./ListaDeNotificaciones";
 import AvisosEnEsteDispositivo from "@/components/notificaciones/AvisosEnEsteDispositivo";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Notificaciones" };
 
 const POR_PAGINA = 20;
 
@@ -82,7 +85,7 @@ export default async function NotificacionesPage({
           ) : (
             <span />
           )}
-          <span className="text-system-400">
+          <span className="text-system-500">
             Página {pagina} de {paginas}
           </span>
           {pagina < paginas ? (

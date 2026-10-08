@@ -188,7 +188,7 @@ function RegistroForm() {
             return (
               <li
                 key={rule.label}
-                className={`text-[12.5px] ${pass ? "text-success-700" : "text-system-400"}`}
+                className={`text-[12.5px] ${pass ? "text-success-700" : "text-system-500"}`}
               >
                 {pass ? "✓" : "·"} {rule.label}
               </li>

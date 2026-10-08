@@ -3,6 +3,9 @@
 
 import { Suspense } from "react";
 import NuevaCampanaForm from "./NuevaCampanaForm";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Crear o editar campaña" };
 
 export default function NuevaCampanaPage() {
   return (

@@ -8,7 +8,7 @@ import RootLoginForm from "./RootLoginForm";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Acceso raíz · DataForGood",
+  title: "Acceso raíz",
   description: "Panel administrativo del sistema.",
   // La ruta raíz no se indexa ni se enlaza desde el sitio público.
   robots: { index: false, follow: false, nocache: true },

@@ -10,7 +10,7 @@ export default function PrivacidadPage() {
   return (
     <div className="min-h-screen bg-system-50">
       <PublicHeader />
-      <main className="mx-auto max-w-2xl px-6 pb-24 pt-16">
+      <main id="contenido" className="mx-auto max-w-2xl px-6 pb-24 pt-16">
         <h1 className="text-[28px] font-extrabold tracking-tight text-system-900">Aviso de privacidad</h1>
         <p className="mt-4 text-[14.5px] leading-relaxed text-system-600">
           El aviso de privacidad todavía no está redactado ni aprobado por el equipo. Esta

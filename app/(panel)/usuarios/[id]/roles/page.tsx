@@ -81,7 +81,7 @@ export default async function RolesPage({
                 >
                   <div>
                     <p className="text-[13.5px] font-semibold text-system-900">{NOMBRE_DE_ROL[rol]}</p>
-                    <p className="text-[12.5px] text-system-400">{QUIEN_ASIGNA[rol]}</p>
+                    <p className="text-[12.5px] text-system-500">{QUIEN_ASIGNA[rol]}</p>
                   </div>
                   {rol === "REVISOR_DE_APORTES" ? (
                     <Tag tone={asignado ? "ok" : "default"}>
@@ -147,7 +147,7 @@ export default async function RolesPage({
                 className="flex items-center justify-between rounded border border-system-300 bg-white px-3.5 py-2.5 text-[13px] text-system-900"
               >
                 <span>{i.tema}</span>
-                <span className="font-mono text-[12px] text-system-400">{i.campanas} campañas</span>
+                <span className="font-mono text-[12px] text-system-500">{i.campanas} campañas</span>
               </div>
             ))}
           </div>

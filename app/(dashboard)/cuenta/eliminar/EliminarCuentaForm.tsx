@@ -91,7 +91,7 @@ export default function EliminarCuentaForm({
     <form onSubmit={enviar} className="space-y-6">
       {aportes.total > 0 && (
         <section className="rounded-lg border border-system-200 bg-white p-5">
-          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-system-400">
+          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-system-500">
             ¿Qué hacemos con tus aportes?
           </p>
           <p className="mt-1 text-[12.5px] text-system-600">

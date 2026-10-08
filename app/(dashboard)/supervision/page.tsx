@@ -180,7 +180,7 @@ export default function SupervisionPage() {
               <h2 className="text-[15px] font-extrabold text-system-900">{campaign.name}</h2>
               {campaign.supervisorId ? <Tag tone="ok">La supervisas tú</Tag> : <Tag tone="warn">Disponible</Tag>}
             </div>
-            <p className="text-[12.5px] text-system-400">
+            <p className="text-[12.5px] text-system-500">
               {(campaign.creatorName || "Usuario")} · {(campaign.tag || campaign.tematica || "Sin temática")} · meta {Number(campaign.goalContributions ?? 0)} aportes
             </p>
           </Link>
@@ -213,7 +213,7 @@ export default function SupervisionPage() {
                 <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <h3 className="text-[15px] font-extrabold text-system-900">{campaign.name}</h3>
-                    <p className="text-[12.5px] text-system-400">{campaign.tag || campaign.tematica || "Sin temática"}</p>
+                    <p className="text-[12.5px] text-system-500">{campaign.tag || campaign.tematica || "Sin temática"}</p>
                   </div>
                   <Tag tone={campaign.status === "activa" ? "ok" : "warn"}>{campaign.status === "activa" ? "Activa" : "Aceptada"}</Tag>
                 </div>
@@ -256,7 +256,7 @@ export default function SupervisionPage() {
               <div key={campaign.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
                 <div>
                   <h3 className="text-[15px] font-extrabold text-system-900">{campaign.name}</h3>
-                  <p className="text-[12.5px] text-system-400">
+                  <p className="text-[12.5px] text-system-500">
                     {campaign.creatorName || "Usuario"} · {campaign.tag || campaign.tematica || "Sin temática"}
                   </p>
                 </div>
@@ -287,7 +287,7 @@ export default function SupervisionPage() {
             <div key={campaign.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
               <div>
                 <h3 className="text-[15px] font-extrabold text-system-900">{campaign.name}</h3>
-                <p className="text-[12.5px] text-system-400">
+                <p className="text-[12.5px] text-system-500">
                   {campaign.creatorName || "Usuario"} · {campaign.tag || campaign.tematica || "Sin temática"}
                 </p>
               </div>

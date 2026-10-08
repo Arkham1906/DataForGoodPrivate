@@ -116,7 +116,7 @@ export default function InteresesDesdeTexto({
         className="disabled:cursor-default disabled:bg-system-100"
       />
       <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[11.5px] text-system-400">Presiona Enter para sacar tus temáticas del texto.</p>
+        <p className="text-[11.5px] text-system-500">Presiona Enter para sacar tus temáticas del texto.</p>
         <Button type="button" variant="secondary" size="sm" onClick={analizar} disabled={deshabilitado}>
           Analizar
         </Button>

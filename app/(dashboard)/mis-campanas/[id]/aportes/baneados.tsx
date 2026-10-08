@@ -85,7 +85,7 @@ export default function BaneadosDeCampana({ campaignId }: { campaignId: string }
             <div className="min-w-0">
               <p className="font-semibold text-system-900">{b.nombre}</p>
               <p className="text-[12.5px] text-system-600">{b.motivo}</p>
-              <p className="font-mono text-[11.5px] text-system-400">
+              <p className="font-mono text-[11.5px] text-system-500">
                 Baneado el{" "}
                 {new Date(b.baneadoEn).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" })}
               </p>
@@ -102,7 +102,7 @@ export default function BaneadosDeCampana({ campaignId }: { campaignId: string }
                 Dispositivo anónimo{d.aporteId ? ` (aporte ${d.aporteId})` : ""}
               </p>
               <p className="text-[12.5px] text-system-600">{d.motivo}</p>
-              <p className="font-mono text-[11.5px] text-system-400">
+              <p className="font-mono text-[11.5px] text-system-500">
                 Bloqueado el{" "}
                 {new Date(d.bloqueadoEn).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" })}
               </p>

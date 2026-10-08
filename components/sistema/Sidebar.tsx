@@ -66,7 +66,7 @@ export default function Sidebar() {
 
   return (
     <aside className="dashboard-sidebar w-64 shrink-0 border-r border-system-200 bg-white p-3 lg:sticky lg:top-0 lg:h-[calc(100vh-61px)]">
-      <p className="mb-1 px-3 pt-3 text-[10px] font-semibold uppercase tracking-wider text-system-400">
+      <p className="mb-1 px-3 pt-3 text-[10px] font-semibold uppercase tracking-wider text-system-500">
         Sistema
       </p>
 

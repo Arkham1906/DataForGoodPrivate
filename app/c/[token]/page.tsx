@@ -32,7 +32,7 @@ import { cookies, headers } from "next/headers";
 import AporteAnonimo from "./aporte-anonimo";
 
 export const metadata: Metadata = {
-  title: "Participa en una campaña · DataForGood",
+  title: "Participa en una campaña",
   // El token es un acceso temporal: que no lo indexen los buscadores.
   robots: { index: false, follow: false },
 };
@@ -95,7 +95,7 @@ export default async function EnlacePublicoPage({ params }: { params: Promise<{ 
   return (
     <div className="min-h-screen bg-system-50">
       <PublicHeader />
-      <main className="mx-auto max-w-xl px-6 pb-24 pt-14 max-md:px-4 max-md:pt-8">{contenido}</main>
+      <main id="contenido" className="mx-auto max-w-xl px-6 pb-24 pt-14 max-md:px-4 max-md:pt-8">{contenido}</main>
       <PublicFooter />
     </div>
   );
@@ -146,7 +146,7 @@ function Invitacion({
         )}
         <div className="mt-4">
           <ProgressBar pct={pct} tone="ok" />
-          <p className="mt-2 font-mono text-[11px] text-system-400">
+          <p className="mt-2 font-mono text-[11px] text-system-500">
             {numero.format(campana.aportesActuales)} de {numero.format(campana.meta)} aportes · hasta{" "}
             {numero.format(campana.cuotaPorPersona)} por persona
             {campana.fechaFin ? ` · cierra el ${fecha.format(new Date(`${campana.fechaFin}T00:00:00Z`))}` : ""}
@@ -181,7 +181,7 @@ function Invitacion({
             </Card>
           )}
           <div className="mt-5 flex flex-col gap-2.5">
-            <p className="text-center text-[12px] text-system-400">
+            <p className="text-center text-[12px] text-system-500">
               {sinFormulario ? "Puedes aportar con una cuenta." : "¿Prefieres que tus aportes queden en tu historial?"}
             </p>
             <div className="flex gap-2.5 max-md:flex-col">

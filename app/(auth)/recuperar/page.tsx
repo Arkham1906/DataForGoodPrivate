@@ -183,7 +183,7 @@ function RecuperarForm() {
           {REGLAS_DE_CONTRASENA.map((regla) => {
             const cumple = regla.test(nueva);
             return (
-              <li key={regla.label} className={`text-[12.5px] ${cumple ? "text-success-700" : "text-system-400"}`}>
+              <li key={regla.label} className={`text-[12.5px] ${cumple ? "text-success-700" : "text-system-500"}`}>
                 {cumple ? "✓" : "·"} {regla.label}
               </li>
             );
@@ -211,7 +211,7 @@ function RecuperarForm() {
         </Button>
       </form>
 
-      <p className="mt-5 text-center text-[12px] text-system-400">
+      <p className="mt-5 text-center text-[12px] text-system-500">
         Si no lo encuentras, revisa la carpeta de correo no deseado.{" "}
         <button
           type="button"

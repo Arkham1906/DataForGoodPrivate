@@ -74,7 +74,7 @@ export default async function DashboardDeAportesPage({
           value={d.tasaDeAprobacion === null ? "—" : `${d.tasaDeAprobacion}%`}
         />
       </div>
-      <p className="-mt-3 mb-6 text-[12px] text-system-400">
+      <p className="-mt-3 mb-6 text-[12px] text-system-500">
         Aprobados, rechazados y tasa cuentan los aportes enviados en el rango; pendientes es la
         cola de hoy, los que aún esperan la decisión del creador o del revisor.
       </p>
@@ -97,7 +97,7 @@ export default async function DashboardDeAportesPage({
             <Reparto filas={d.porTipo} anchoEtiqueta={96} anchoValor={48} />
           )}
           {d.sinCuenta > 0 ? (
-            <p className="mt-2.5 text-[12px] text-system-400">
+            <p className="mt-2.5 text-[12px] text-system-500">
               {formatearNumero(d.sinCuenta)} {d.sinCuenta === 1 ? "llegó" : "llegaron"} por enlace
               público, sin cuenta.
             </p>

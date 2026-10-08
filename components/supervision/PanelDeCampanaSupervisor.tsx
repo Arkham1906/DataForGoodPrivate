@@ -99,7 +99,7 @@ export default function PanelDeCampanaSupervisor({
 
       <section className="mb-6 rounded-lg border border-system-200 bg-white p-5 shadow-sm">
         <h2 className="text-[13px] font-bold text-system-900">
-          Recolección diaria <span className="font-normal text-system-400">· últimos 14 días</span>
+          Recolección diaria <span className="font-normal text-system-500">· últimos 14 días</span>
         </h2>
         <div className="mt-5 flex h-36 items-end gap-2 border-b border-system-200 px-1">
           {panel.recoleccionDiaria.map((dia) => (
@@ -108,11 +108,12 @@ export default function PanelDeCampanaSupervisor({
               className="flex-1 rounded-t bg-brand-600"
               style={{ height: `${(dia.valor / maxDiario) * 100}%`, minHeight: dia.valor > 0 ? 2 : 0 }}
               title={`${dia.etiqueta}: ${dia.valor} aporte${dia.valor === 1 ? "" : "s"}`}
-              aria-label={`${dia.etiqueta}: ${dia.valor} aporte${dia.valor === 1 ? "" : "s"}`}
+              role="img"
+                aria-label={`${dia.etiqueta}: ${dia.valor} aporte${dia.valor === 1 ? "" : "s"}`}
             />
           ))}
         </div>
-        <div className="mt-2 flex justify-between font-mono text-[10px] text-system-400">
+        <div className="mt-2 flex justify-between font-mono text-[10px] text-system-500">
           <span>{primerDia?.etiqueta}</span>
           <span>{ultimoDia?.etiqueta}</span>
         </div>
@@ -120,7 +121,7 @@ export default function PanelDeCampanaSupervisor({
 
       <div className="grid gap-5 md:grid-cols-2">
         <section className="rounded-lg border border-system-200 bg-white p-5 shadow-sm">
-          <h2 className="text-[13px] font-bold text-system-900">Por tipo de dato <span className="font-normal text-system-400">· aprobados</span></h2>
+          <h2 className="text-[13px] font-bold text-system-900">Por tipo de dato <span className="font-normal text-system-500">· aprobados</span></h2>
           {panel.porTipo.length === 0 || panel.metricas.aprobados === 0 ? (
             <p className="mt-5 text-[12.5px] text-system-600">Todavía no hay aportes aprobados.</p>
           ) : (
@@ -143,11 +144,11 @@ export default function PanelDeCampanaSupervisor({
           <div className="mt-5 h-2.5 overflow-hidden rounded-pill bg-system-100">
             <div className="h-full rounded-pill bg-success-700" style={{ width: `${panel.porcentajeMeta}%` }} />
           </div>
-          <div className="mt-2 flex justify-between font-mono text-[11px] text-system-400">
+          <div className="mt-2 flex justify-between font-mono text-[11px] text-system-500">
             <span>{panel.metricas.recibidos} de {panel.meta} aportes</span>
             {panel.diasRestantes !== null && panel.status !== "finalizada" && <span>{panel.diasRestantes} días restantes</span>}
           </div>
-          <p className="mt-2 text-[11.5px] text-system-400">
+          <p className="mt-2 text-[11.5px] text-system-500">
             {panel.metricas.aprobados} aprobados · {panel.metricas.pendientes} pendientes · {panel.metricas.rechazados} rechazados
           </p>
           <p className="mt-5 rounded-lg bg-system-100 p-4 text-[12.5px] leading-5 text-system-600">{mensajeRitmo}</p>

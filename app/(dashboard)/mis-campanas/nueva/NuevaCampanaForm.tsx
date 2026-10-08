@@ -297,6 +297,7 @@ function CampanaFormulario({
               <Input
                 type="date"
                 value={endDate}
+                aria-label="Nueva fecha de finalización"
                 onChange={(e) => setEndDate(e.target.value)}
                 disabled={limiteActivasAlcanzado}
                 required
@@ -305,6 +306,7 @@ function CampanaFormulario({
               <Input
                 type="time"
                 value={endTime}
+                aria-label="Nueva hora de finalización (opcional)"
                 onChange={(e) => setEndTime(e.target.value)}
                 disabled={limiteActivasAlcanzado}
                 className="font-mono disabled:cursor-not-allowed disabled:opacity-50"
@@ -478,7 +480,7 @@ function CampanaFormulario({
       )}
 
       <form onSubmit={(e) => handleSubmit(e, false)}>
-        <p className="mb-3 font-mono text-[12px] uppercase tracking-wide text-system-400">
+        <p className="mb-3 font-mono text-[12px] uppercase tracking-wide text-system-500">
           1 · Datos básicos
         </p>
         <div className="mb-8 grid grid-cols-1 gap-6 sm:grid-cols-2">
@@ -493,7 +495,7 @@ function CampanaFormulario({
                 className="disabled:cursor-not-allowed disabled:opacity-50"
               />
             </Field>
-            <p className="mb-3 -mt-3 text-right font-mono text-[11px] text-system-400">
+            <p className="mb-3 -mt-3 text-right font-mono text-[11px] text-system-500">
               {name.length} / 80
             </p>
 
@@ -512,7 +514,7 @@ function CampanaFormulario({
                 descripcion="Marca una; define en qué categoría aparece la campaña en el catálogo público."
               />
             </div>
-            <p className="text-[11.5px] text-system-400">
+            <p className="text-[11.5px] text-system-500">
               Define en qué categoría aparece la campaña en el catálogo público.
             </p>
           </div>
@@ -529,13 +531,13 @@ function CampanaFormulario({
                 className="disabled:cursor-not-allowed disabled:opacity-50"
               />
             </Field>
-            <p className="-mt-3 text-right font-mono text-[11px] text-system-400">
+            <p className="-mt-3 text-right font-mono text-[11px] text-system-500">
               {description.length} / 500
             </p>
           </div>
         </div>
 
-        <p className="mb-3 font-mono text-[12px] uppercase tracking-wide text-system-400">
+        <p className="mb-3 font-mono text-[12px] uppercase tracking-wide text-system-500">
           2 · Qué se recolecta
         </p>
         <div className="mb-8 grid grid-cols-1 gap-6 sm:grid-cols-2">
@@ -590,7 +592,7 @@ function CampanaFormulario({
             <p className="mb-1 text-[13px] font-medium text-system-900">
               Cómo describe su aporte el participante
             </p>
-            <p className="mb-2.5 text-[12px] text-system-400">
+            <p className="mb-2.5 text-[12px] text-system-500">
               Siempre escribe una descripción con sus palabras. Además puedes agregar
               checklists con título para que marque lo que aplique: los que necesites, o ninguno.
             </p>
@@ -619,7 +621,7 @@ function CampanaFormulario({
                 </div>
 
                 {c.opciones.length === 0 && (
-                  <p className="mb-2 text-[12px] text-system-400">Aún no agregas opciones a este checklist.</p>
+                  <p className="mb-2 text-[12px] text-system-500">Aún no agregas opciones a este checklist.</p>
                 )}
                 {c.opciones.map((opcion) => (
                   <div key={opcion} className="mb-2 flex items-center justify-between gap-2 text-[12.5px] text-system-600">
@@ -678,7 +680,7 @@ function CampanaFormulario({
           </div>
         </div>
 
-        <p className="mb-3 font-mono text-[12px] uppercase tracking-wide text-system-400">
+        <p className="mb-3 font-mono text-[12px] uppercase tracking-wide text-system-500">
           3 · Vigencia
         </p>
         <div className="mb-2 max-w-md">
@@ -688,6 +690,7 @@ function CampanaFormulario({
                 <Input
                   type="date"
                   value={startDate}
+                  aria-label="Fecha de inicio"
                   onChange={(e) => setStartDate(e.target.value)}
                   required
                   disabled={edicionLimitada}
@@ -696,6 +699,7 @@ function CampanaFormulario({
                 <Input
                   type="time"
                   value={startTime}
+                  aria-label="Hora de inicio (opcional)"
                   onChange={(e) => setStartTime(e.target.value)}
                   disabled={edicionLimitada}
                   className="font-mono disabled:cursor-not-allowed disabled:opacity-50"
@@ -705,6 +709,7 @@ function CampanaFormulario({
                 <Input
                   type="date"
                   value={endDate}
+                  aria-label="Fecha de finalización"
                   onChange={(e) => setEndDate(e.target.value)}
                   required
                   className="font-mono"
@@ -712,6 +717,7 @@ function CampanaFormulario({
                 <Input
                   type="time"
                   value={endTime}
+                  aria-label="Hora de finalización (opcional)"
                   onChange={(e) => setEndTime(e.target.value)}
                   className="font-mono"
                 />
@@ -719,7 +725,7 @@ function CampanaFormulario({
             </div>
           </Field>
         </div>
-        <p className="mb-3 font-mono text-[12px] uppercase tracking-wide text-system-400">
+        <p className="mb-3 font-mono text-[12px] uppercase tracking-wide text-system-500">
           Ubicación
         </p>
         <div className="mb-6 grid max-w-3xl grid-cols-1 gap-4 sm:grid-cols-3">

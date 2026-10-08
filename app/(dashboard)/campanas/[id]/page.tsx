@@ -138,19 +138,19 @@ export default function CampaignDetailPage() {
             .map((tipo) => (
               <div key={tipo} className="rounded-lg border border-system-200 bg-white p-4">
                 <p className="text-[14px] font-bold text-system-900">{TIPO_DE_DATO[tipo]?.titulo ?? tipo}</p>
-                <p className="mt-1 text-[12px] text-system-400">{TIPO_DE_DATO[tipo]?.detalle}</p>
+                <p className="mt-1 text-[12px] text-system-500">{TIPO_DE_DATO[tipo]?.detalle}</p>
               </div>
             ))}
           <div className="rounded-lg border border-system-200 bg-white p-4">
             <p className="text-[14px] font-bold text-system-900">Descripción</p>
-            <p className="mt-1 text-[12px] text-system-400">
+            <p className="mt-1 text-[12px] text-system-500">
               Qué observaste y dónde, con tus palabras. Es obligatoria.
             </p>
           </div>
           {(campaign.checklistSecciones ?? []).map((seccion, i) => (
             <div key={seccion.titulo || i} className="rounded-lg border border-system-200 bg-white p-4">
               <p className="text-[14px] font-bold text-system-900">{seccion.titulo || "Marca lo que aplique"}</p>
-              <p className="mt-1 text-[12px] text-system-400">{seccion.opciones.join(" · ")}</p>
+              <p className="mt-1 text-[12px] text-system-500">{seccion.opciones.join(" · ")}</p>
             </div>
           ))}
         </div>

@@ -80,7 +80,7 @@ export default async function FichaDeUsuarioPage({
           <TituloDeSeccion>Historial de sanciones</TituloDeSeccion>
 
           <MedidorDeStrikes acumulados={u.strikes} />
-          <p className={`mb-3 text-[12px] ${u.strikes > 0 ? "text-warning-800" : "text-system-400"}`}>
+          <p className={`mb-3 text-[12px] ${u.strikes > 0 ? "text-warning-800" : "text-system-500"}`}>
             {u.strikes} de 3 strikes acumulados
           </p>
 
@@ -92,7 +92,7 @@ export default async function FichaDeUsuarioPage({
                 filas={u.historialDeStrikes.map((s) => ({
                   clave: s.motivo,
                   valor: (
-                    <span className="text-[12.5px] text-system-400">
+                    <span className="text-[12.5px] text-system-500">
                       {formatearFecha(s.fecha)} · {s.campana}
                     </span>
                   ),
@@ -124,7 +124,7 @@ export default async function FichaDeUsuarioPage({
                       </span>
                     ),
                     valor: (
-                      <span className="text-[12.5px] text-system-400">
+                      <span className="text-[12.5px] text-system-500">
                         {formatearFecha(b.baneadoEn)} · {b.baneadoPor}
                       </span>
                     ),
@@ -132,7 +132,7 @@ export default async function FichaDeUsuarioPage({
                 />
               </Tarjeta>
             )}
-            <p className="mt-2 text-[12px] text-system-400">
+            <p className="mt-2 text-[12px] text-system-500">
               Los aplica y los quita quien creó cada campaña; solo impiden aportar a esa campaña.
             </p>
           </div>

@@ -141,7 +141,7 @@ export default function AporteAnonimo({
           required
         />
       </Field>
-      <p className="mb-4 text-right font-mono text-[11px] text-system-400">
+      <p className="mb-4 text-right font-mono text-[11px] text-system-500">
         {descripcion.length} / {LARGO_MAXIMO_DESCRIPCION}
       </p>
 
@@ -169,7 +169,7 @@ export default function AporteAnonimo({
       <Button variant="primary" type="submit" className="w-full" disabled={!puedeEnviar}>
         {enviando ? "Enviando…" : espera > 0 ? `Podrás enviar otro en ${espera} s` : "Enviar aporte sin cuenta"}
       </Button>
-      <p className="mt-2 text-center text-[11.5px] text-system-400">
+      <p className="mt-2 text-center text-[11.5px] text-system-500">
         Se registra como anónimo y queda pendiente de revisión. Te quedan {restantes} de {cuota} desde este dispositivo.
       </p>
     </form>

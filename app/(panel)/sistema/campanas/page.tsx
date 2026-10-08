@@ -146,7 +146,7 @@ export default async function ListadoDeCampanasPage({ searchParams }: { searchPa
                       <p className="break-words text-[14px] font-bold leading-snug text-system-900">
                         {c.nombre}
                       </p>
-                      <p className="mt-1 break-words text-[11px] leading-snug text-system-400">
+                      <p className="mt-1 break-words text-[11px] leading-snug text-system-500">
                         {c.tematica || "Sin temática"} · {c.creador || "Sin creador"}
                       </p>
                     </div>
@@ -201,7 +201,7 @@ export default async function ListadoDeCampanasPage({ searchParams }: { searchPa
 
           <div className="hidden overflow-x-auto rounded-lg border border-system-200 bg-white p-5 shadow-sm md:block">
             <table className="w-full min-w-[820px] text-left text-[13.5px]">
-              <thead className="border-b border-system-200 font-mono text-[10px] uppercase tracking-[0.1em] text-system-400">
+              <thead className="border-b border-system-200 font-mono text-[10px] uppercase tracking-[0.1em] text-system-500">
                 <tr>
                   <th className="pb-3 font-medium">Campaña</th>
                   <th className="pb-3 font-medium">Tipo de dato</th>
@@ -220,7 +220,7 @@ export default async function ListadoDeCampanasPage({ searchParams }: { searchPa
                     <tr key={c.id} className="border-b border-system-200 last:border-0">
                       <td className="py-4 pr-3">
                         <p className="font-bold text-system-900">{c.nombre}</p>
-                        <p className="text-[12px] text-system-400">
+                        <p className="text-[12px] text-system-500">
                           {c.tematica || "Sin temática"} · {c.creador || "Sin creador"}
                         </p>
                       </td>
@@ -233,7 +233,7 @@ export default async function ListadoDeCampanasPage({ searchParams }: { searchPa
                       <td className="text-right font-mono tabular-nums">{formatearNumero(c.participantes)}</td>
                       <td className="text-right font-mono tabular-nums">
                         {formatearNumero(c.aportes)}
-                        <span className="text-system-400">/{formatearNumero(c.meta)}</span>
+                        <span className="text-system-500">/{formatearNumero(c.meta)}</span>
                       </td>
                       <td className="pl-4 font-mono text-[12px] text-system-600">
                         {c.venceEn ? (

@@ -1,6 +1,9 @@
+"use client";
+
 // Campos de formulario del panel del SuperUsuario.
 
 import { InputHTMLAttributes, TextareaHTMLAttributes } from "react";
+import CampoEtiquetado, { marcarComoControl } from "@/components/ui/CampoEtiquetado";
 
 interface FieldWrapperProps {
   label: string;
@@ -9,19 +12,12 @@ interface FieldWrapperProps {
   children: React.ReactNode;
 }
 
-export function Field({ label, hint, required, children }: FieldWrapperProps) {
-  return (
-    <div className="mb-4">
-      <span className="mb-1.5 block text-[13px] font-medium text-system-900">
-        {label} {required && <span className="text-error-700">*</span>}
-      </span>
-      {children}
-      {hint && <p className="mt-1.5 text-[11.5px] text-system-400">{hint}</p>}
-    </div>
-  );
+/** Etiqueta, pista y campo. La conexión etiqueta–campo la hace ui/CampoEtiquetado. */
+export function Field(props: FieldWrapperProps) {
+  return <CampoEtiquetado {...props} />;
 }
 
-export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
+export const Input = marcarComoControl(function Input(props: InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
@@ -30,9 +26,9 @@ export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
       }`}
     />
   );
-}
+});
 
-export function Textarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+export const Textarea = marcarComoControl(function Textarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <textarea
       {...props}
@@ -41,4 +37,4 @@ export function Textarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
       }`}
     />
   );
-}
+});

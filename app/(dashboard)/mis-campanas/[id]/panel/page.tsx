@@ -116,13 +116,14 @@ export default function PanelCampanaPage() {
       {!isFinished && (
         <>
           <p className="mb-3 text-[12.5px] font-medium text-system-900">
-            Recolección diaria <span className="text-system-400">· últimos 14 días</span>
+            Recolección diaria <span className="text-system-500">· últimos 14 días</span>
           </p>
           <div className="mb-1.5 flex h-32 items-end gap-1.5 border-b border-system-200">
             {recoleccionDiaria.map((dia) => (
               <div
                 key={dia.fecha}
                 title={`${dia.etiqueta}: ${dia.valor} aporte${dia.valor === 1 ? "" : "s"}`}
+                role="img"
                 aria-label={`${dia.etiqueta}: ${dia.valor} aporte${dia.valor === 1 ? "" : "s"}`}
                 className="flex-1 rounded-t bg-brand-600"
                 style={{ height: `${(dia.valor / maxDaily) * 100}%`, minHeight: dia.valor > 0 ? 2 : 0 }}
@@ -133,7 +134,7 @@ export default function PanelCampanaPage() {
             {recoleccionDiaria.map((dia) => (
               <span
                 key={dia.fecha}
-                className="flex-1 text-center font-mono text-[9px] text-system-400"
+                className="flex-1 text-center font-mono text-[9px] text-system-500"
               >
                 {dia.etiqueta}
               </span>

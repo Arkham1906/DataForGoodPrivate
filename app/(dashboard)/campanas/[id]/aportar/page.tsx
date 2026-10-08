@@ -172,7 +172,7 @@ export default function AportarPage() {
               required
             />
           </Field>
-          <p className="mb-4 text-right text-[11px] font-mono text-system-400">
+          <p className="mb-4 text-right text-[11px] font-mono text-system-500">
             {description.length} / 1000
           </p>
 
@@ -203,7 +203,7 @@ export default function AportarPage() {
           <Button variant="primary" type="submit" className="w-full" disabled={!canSubmit}>
             {submitting ? "Enviando..." : "Enviar aporte"}
           </Button>
-          <p className="mt-2 text-center text-[11.5px] text-system-400">
+          <p className="mt-2 text-center text-[11.5px] text-system-500">
             Quedará pendiente de revisión
           </p>
         </div>

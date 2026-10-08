@@ -240,7 +240,7 @@ export default function RevisionAportePage() {
             {new Date(item.reporte.en).toLocaleDateString("es-MX", { day: "numeric", month: "short" })}
           </p>
           <p className="mt-1 text-system-600">Motivo: {item.reporte.motivo}</p>
-          <p className="mt-2 text-[11.5px] text-system-400">
+          <p className="mt-2 text-[11.5px] text-system-500">
             Banear o bloquear a quien lo envió es decisión tuya: usa el botón de abajo si corresponde.
           </p>
         </section>
@@ -248,7 +248,7 @@ export default function RevisionAportePage() {
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
         {item.archivoBorrado ? (
-          <div className="flex h-44 items-center justify-center rounded-lg border border-dashed border-system-300 bg-system-100 text-[12.5px] text-system-400">
+          <div className="flex h-44 items-center justify-center rounded-lg border border-dashed border-system-300 bg-system-100 text-[12.5px] text-system-500">
             Archivo borrado
           </div>
         ) : item.fileType === "foto" ? (
@@ -258,7 +258,7 @@ export default function RevisionAportePage() {
             className="h-44 w-full rounded-lg border border-system-300 bg-system-100 object-contain"
           />
         ) : (
-          <div className="flex h-44 items-center justify-center rounded-lg border border-dashed border-system-300 bg-system-100 text-[12.5px] text-system-400">
+          <div className="flex h-44 items-center justify-center rounded-lg border border-dashed border-system-300 bg-system-100 text-[12.5px] text-system-500">
             Vista previa del archivo · {item.fileType}
             {item.fileSizeBytes && ` · ${formatearTamano(item.fileSizeBytes)}`}
           </div>
@@ -353,14 +353,14 @@ export default function RevisionAportePage() {
                   />
                   <span>
                     <span className="font-medium">Contenido inapropiado</span>
-                    <span className="block text-[11.5px] text-system-400">
+                    <span className="block text-[11.5px] text-system-500">
                       Úsalo solo si el contenido es ofensivo, ilegal o dañino. Si un mismo dispositivo junta varios, se
                       bloquea en toda la plataforma.
                     </span>
                   </span>
                 </label>
               )}
-              <p className="mb-3 text-[11.5px] text-system-400">
+              <p className="mb-3 text-[11.5px] text-system-500">
                 {item.userId === null
                   ? "Obligatorio al rechazar. Es un aporte anónimo: queda registrado, pero nadie lo recibe."
                   : "Obligatorio al rechazar. El participante lo verá en Mis aportes."}
@@ -388,7 +388,7 @@ export default function RevisionAportePage() {
                 required
               />
               {!esAnonimo && (
-                <p className="mt-2 text-[11.5px] text-system-400">
+                <p className="mt-2 text-[11.5px] text-system-500">
                   La persona recibirá este motivo en una notificación y lo verá en la campaña.
                 </p>
               )}

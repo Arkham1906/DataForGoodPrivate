@@ -75,7 +75,7 @@ export default async function PanelDeCampanaSistemaPage({ params }: { params: Pr
             {c.fechaInicio ? formatearFechaCampana(c.fechaInicio) : "sin inicio"} –{" "}
             {c.fechaFin ? formatearFechaCampana(c.fechaFin) : "sin cierre"} · {et.texto.toLowerCase()}
           </p>
-          <p className="mt-1 text-[12.5px] text-system-400">
+          <p className="mt-1 text-[12.5px] text-system-500">
             {cabecera.tematica || "Sin temática"} · creada por {cabecera.creador || "—"} · supervisa: {cabecera.supervisadaPor}
           </p>
         </div>
@@ -134,7 +134,7 @@ export default async function PanelDeCampanaSistemaPage({ params }: { params: Pr
           <div role="img" aria-label={`${c.porcentajeMeta}% de la meta: ${c.metricas.recibidos} de ${c.meta} aportes`}>
             <ProgressBar pct={c.porcentajeMeta} tone="ok" />
           </div>
-          <div className="mb-1 mt-2 flex justify-between font-mono text-[12px] text-system-400">
+          <div className="mb-1 mt-2 flex justify-between font-mono text-[12px] text-system-500">
             <span>
               {formatearNumero(c.metricas.recibidos)} de {formatearNumero(c.meta)} aportes
             </span>
@@ -148,7 +148,7 @@ export default async function PanelDeCampanaSistemaPage({ params }: { params: Pr
                   : "sin fecha de cierre"}
             </span>
           </div>
-          <p className="mb-3.5 text-[11.5px] text-system-400">
+          <p className="mb-3.5 text-[11.5px] text-system-500">
             {formatearNumero(c.metricas.aprobados)} aprobados · {formatearNumero(c.metricas.pendientes)} pendientes ·{" "}
             {formatearNumero(c.metricas.rechazados)} rechazados
           </p>

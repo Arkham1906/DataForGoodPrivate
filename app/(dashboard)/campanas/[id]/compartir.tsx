@@ -181,7 +181,7 @@ export default function CompartirCampana({ campanaId, nombre }: { campanaId: str
                           height={148}
                           className="h-37 w-37 rounded-md"
                         />
-                        <span className="font-mono text-[11.5px] text-system-400">{enlace.token} · 512 × 512 px</span>
+                        <span className="font-mono text-[11.5px] text-system-500">{enlace.token} · 512 × 512 px</span>
                       </div>
                       <div className="flex gap-2">
                         <a
@@ -203,7 +203,7 @@ export default function CompartirCampana({ campanaId, nombre }: { campanaId: str
                   ) : (
                     <>
                       <div className="mb-3 flex min-h-42 items-center justify-center rounded-lg border border-dashed border-system-300 bg-system-100 opacity-40">
-                        <span className="font-mono text-[12.5px] text-system-400">QR inactivo</span>
+                        <span className="font-mono text-[12.5px] text-system-500">QR inactivo</span>
                       </div>
                       {datos.esCreador && <Actividad enlace={enlace} titulo="Actividad del enlace caducado" />}
                     </>

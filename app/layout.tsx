@@ -2,6 +2,7 @@
 // Todas las rutas pasan por aquí; cada route group agrega su propio layout encima.
 
 import type { Metadata } from "next";
+import { PLANTILLA_DE_TITULO } from "@/lib/titulo";
 import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { BASE_PATH } from "@/lib/base-path";
@@ -21,7 +22,8 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "DataForGood — Plataforma de crowdsourcing de datos",
+  // Cada pantalla declara el suyo y queda "Título · DataForGood" (WCAG 2.4.2: títulos que dicen dónde estás).
+  title: { default: "DataForGood — Plataforma de crowdsourcing de datos", template: PLANTILLA_DE_TITULO },
   description:
     "DataForGood conecta organizaciones con personas dispuestas a aportar información en campo para causas sociales, ambientales y comunitarias.",
   // Ícono y modo "app" al agregarla a la pantalla de inicio del iPhone (requisito para el push en iOS).
@@ -38,6 +40,14 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body className={`${jakarta.variable} ${jetbrainsMono.variable} font-sans`}>
+        {/* Primer elemento con Tab: salta menús y encabezado (WCAG 2.4.1). Invisible hasta recibir el foco.
+            Cada <main> de la app lleva id="contenido". */}
+        <a
+          href="#contenido"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-pill focus:bg-brand-600 focus:px-4 focus:py-2 focus:text-[13px] focus:font-bold focus:text-white"
+        >
+          Saltar al contenido
+        </a>
         {children}
       </body>
     </html>

@@ -23,7 +23,7 @@ export default async function DashboardLayout({
       <TopBar usuario={usuario} />
       <div className="dashboard-shell flex">
         <SidebarNav usuario={usuario} />
-        <main className="min-w-0 flex-1">
+        <main id="contenido" className="min-w-0 flex-1">
           <div className="dashboard-content mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
             {children}
           </div>

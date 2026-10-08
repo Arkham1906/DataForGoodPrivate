@@ -181,7 +181,7 @@ export default function PerfilForm({
       <div className="grid gap-4 md:grid-cols-2">
         <section className="rounded-lg border border-system-200 bg-white p-5">
           <div className="mb-4">
-            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-system-400">
+            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-system-500">
               Perfil
             </p>
             <h2 className="mt-1 text-lg font-extrabold text-system-900">Datos personales</h2>
@@ -263,6 +263,7 @@ export default function PerfilForm({
                   value={specialty}
                   onChange={(e) => setSpecialty(e.target.value)}
                   placeholder="Escribe tu especialidad"
+                aria-label="Tu especialidad"
                   maxLength={150}
                   disabled={!editando}
                   className={`mt-2 ${CLASE_BLOQUEADO}`}
@@ -276,7 +277,7 @@ export default function PerfilForm({
 
         <section className="rounded-lg border border-system-200 bg-white p-5 md:col-span-2">
           <div className="mb-4">
-            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-system-400">
+            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-system-500">
               Mis intereses
             </p>
             <h2 className="mt-1 text-lg font-extrabold text-system-900">Temáticas que guían tus aportes</h2>
@@ -301,7 +302,7 @@ export default function PerfilForm({
                   ))}
                 </div>
               ) : (
-                <p className="text-[13px] text-system-400">
+                <p className="text-[13px] text-system-500">
                   Aún no tienes temáticas. Da “Editar perfil” y cuéntanos qué te gusta hacer.
                 </p>
               )}

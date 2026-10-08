@@ -227,6 +227,7 @@ function BienvenidaForm() {
                 value={specialty}
                 onChange={(e) => setSpecialty(e.target.value)}
                 placeholder="Escribe tu especialidad"
+                aria-label="Tu especialidad"
                 maxLength={150}
                 className="mt-2"
               />
@@ -241,7 +242,7 @@ function BienvenidaForm() {
               onCambiar={setSelected}
             />
           </div>
-          <p className="mb-5 text-[11.5px] text-system-400">
+          <p className="mb-5 text-[11.5px] text-system-500">
             Podrás cambiar tu texto y tus temáticas en cualquier momento desde tu perfil.
           </p>
 

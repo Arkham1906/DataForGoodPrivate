@@ -143,11 +143,19 @@ Las pantallas del panel usan solo ese kit, y las de usuario solo `components/ui/
 
 ## 7. Accesibilidad
 
-- **Contraste:** `text-system-400` (#9298a3) sobre blanco no llega a AA en texto pequeño. Úsalo solo para información secundaria, no para instrucciones ni errores.
-- **Formularios:** `Field` muestra el texto de la etiqueta, pero no lo asocia al input (usa `<span>`, no `<label htmlFor>`). Al conectar formularios, conviértelo en `<label>` o agrega `id` y `aria-describedby` para la pista y el error.
+**Objetivo: WCAG 2.2 AA.** Revisión del 2026-10-07 con axe-core 4.10 en 26 pantallas (públicas, de acceso y de usuario): 0 problemas después de los arreglos. No se pasó por el panel ni por las pantallas de revisor o supervisor (sin esos roles ni sesión raíz) ni con un lector de pantalla real. Para revisar una pantalla nueva: en Chrome, cargar `https://cdnjs.cloudflare.com/ajax/libs/axe-core/4.10.2/axe.min.js` con un `<script>` y correr `axe.run(document, { runOnly: { type: "tag", values: ["wcag2a","wcag2aa","wcag21aa","wcag22aa","best-practice"] } })` (la portada tiene animaciones de entrada: espera a que terminen).
+
+- **Contraste:** el texto terciario es `text-system-500` (#686c77: 4.6–5.3:1 sobre white, system-50, system-100 y brand-50). **`system-400` y más claros no van en texto** (2.6–2.9:1): solo en bordes y decoración. Íconos con significado: 3:1 como mínimo.
+- **Formularios:** `Field` (de `ui/Input` y `sistema/Input`) usa `ui/CampoEtiquetado`: si su primer hijo es un control (`input`, `select`, `textarea` o un componente con `marcarComoControl`: `Input`, `Textarea`, `PasswordInput`), pone `<label htmlFor>` y conecta la pista con `aria-describedby`; si son varios controles, los agrupa (`role="group"`). **En un grupo, cada control necesita su `aria-label`** (fecha y hora de la vigencia). Un control nuevo hecho a mano: envuélvelo con `marcarComoControl`. Si un control tiene etiqueta visible, su `aria-label` debe contener ese texto (2.5.3).
+- **Títulos de pestaña (2.4.2):** cada pantalla declara el suyo y queda "Título · DataForGood". Página de servidor: `export const metadata = { title: "..." }`. Página cliente: un `layout.tsx` en su carpeta con `title: tituloDeSeccion("...")` (`lib/titulo.ts`). **Los layouts usan `tituloDeSeccion`, no un texto simple:** un texto corta la plantilla para las páginas más profundas.
+- **Saltar al contenido (2.4.1):** el layout raíz tiene el enlace "Saltar al contenido" (aparece con Tab) a `#contenido`. **Todo `<main>` lleva `id="contenido"`**, y todo el contenido de una página va dentro de `<main>` (no secciones sueltas fuera).
+- **Objetivos táctiles (2.5.8):** botones y enlaces que no están dentro de un texto miden al menos 24×24 px (`min-h-6 min-w-6`).
+- **Tablas:** una columna de acciones lleva `<th><span className="sr-only">Acciones</span></th>`, nunca `<th />`.
+- **Gráficas:** barras con `aria-label` llevan `role="img"` (si no, el `aria-label` no vale en un `div`); las del panel ya usan `role="img"` en el SVG.
+- **Interruptores:** `role="switch"` + `aria-checked` + nombre.
 - **Estado seleccionado:** los chips de filtro son `button` o `Link`. Agrega `aria-pressed` o `aria-current` en el activo.
 - **Iconos:** los botones solo con icono llevan `aria-label` (la campana ya lo tiene) y los SVG decorativos `aria-hidden`.
-- **Estructura:** un `<h1>` por página. Respeta `prefers-reduced-motion` en animaciones nuevas.
+- **Estructura:** un `<h1>` por página y sin saltos de nivel (si las tarjetas usan `h3`, pon un `h2` antes, aunque sea `sr-only`). Menús y `aside` con `aria-label` distinto cada uno. Respeta `prefers-reduced-motion` en animaciones nuevas.
 
 ## 8. Checklist por pantalla
 

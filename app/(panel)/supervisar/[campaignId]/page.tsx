@@ -7,6 +7,9 @@ import Tag from "@/components/ui/Tag";
 import { obtenerCampanaParaRoot } from "@/lib/supervision/root";
 import { BackLink } from "../_ui";
 import AccionesDeSupervision from "./acciones";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Supervisar campaña" };
 
 const statusMap = {
   en_revision: { label: "En revisión", tone: "warn" },

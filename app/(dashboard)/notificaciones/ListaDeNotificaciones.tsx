@@ -121,7 +121,7 @@ export default function ListaDeNotificaciones({
                     {item.title}
                     {!item.readAt && <span className="sr-only"> (sin leer)</span>}
                   </button>
-                  <time dateTime={item.createdAt} className="shrink-0 text-[11.5px] text-system-400">
+                  <time dateTime={item.createdAt} className="shrink-0 text-[11.5px] text-system-500">
                     {fechaDeNotificacion(item.createdAt)}
                   </time>
                 </div>
@@ -134,7 +134,7 @@ export default function ListaDeNotificaciones({
                     </Button>
                   )}
                   {item.href && (
-                    <button type="button" onClick={() => void abrir(item)} className="text-brand-600 hover:underline">
+                    <button type="button" onClick={() => void abrir(item)} className="inline-flex min-h-6 min-w-6 items-center text-brand-600 hover:underline">
                       Ver
                     </button>
                   )}

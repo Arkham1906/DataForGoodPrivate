@@ -7,6 +7,9 @@ import { BackLink } from "../../../../../_ui";
 import { pool } from "@/lib/db";
 import { exigirUsuario } from "@/lib/session";
 import { formatearTamano } from "@/lib/aportes/archivo";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Aporte de un participante" };
 
 export default async function SupervisedContributionPage({ params }: { params: Promise<{ campaignId: string; userId: string; aporteId: string }> }) {
   const { campaignId, userId, aporteId } = await params;

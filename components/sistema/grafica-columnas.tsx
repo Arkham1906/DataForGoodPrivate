@@ -58,7 +58,7 @@ export default function GraficaDeColumnas({
           y2={BASE + 1}
           strokeWidth={1}
         />
-        <g className="fill-system-400 font-mono" fontSize={9}>
+        <g className="fill-system-500 font-mono" fontSize={9}>
           {columnas.map((c, i) => (
             <text key={c.etiqueta} x={i * paso + paso / 2} y={alto} textAnchor="middle">
               {c.etiqueta}

@@ -43,7 +43,7 @@ export default async function SancionesPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="break-words text-[14px] font-bold leading-snug text-system-900">{s.usuario}</p>
-                    <p className="mt-1 text-[11px] text-system-400">Desde {formatearFecha(s.desde)}</p>
+                    <p className="mt-1 text-[11px] text-system-500">Desde {formatearFecha(s.desde)}</p>
                   </div>
                   <Tag tone={s.tono}>{s.etiqueta}</Tag>
                 </div>
@@ -62,7 +62,7 @@ export default async function SancionesPage() {
 
           <div className="hidden overflow-x-auto rounded-lg border border-system-200 bg-white p-5 shadow-sm md:block">
             <table className="w-full min-w-[640px] text-left text-[13.5px]">
-              <thead className="border-b border-system-200 font-mono text-[10px] uppercase tracking-[0.1em] text-system-400">
+              <thead className="border-b border-system-200 font-mono text-[10px] uppercase tracking-[0.1em] text-system-500">
                 <tr>
                   <th className="pb-3 font-medium">Usuario</th>
                   <th className="pb-3 font-medium">Sanción</th>
@@ -75,7 +75,7 @@ export default async function SancionesPage() {
                   <tr key={s.id} className="border-b border-system-200 last:border-0">
                     <td className="py-4">
                       <p className="font-bold text-system-900">{s.usuario}</p>
-                      <p className="font-mono text-[11px] text-system-400">
+                      <p className="font-mono text-[11px] text-system-500">
                         desde {formatearFecha(s.desde)}
                       </p>
                     </td>
@@ -114,7 +114,7 @@ export default async function SancionesPage() {
               <article key={b.id} className="rounded-lg border border-system-200 bg-white p-4 shadow-sm">
                 <div>
                   <p className="text-[14px] font-bold text-system-900">Anónimo #{b.id}</p>
-                  <p className="mt-1 break-words text-[11px] text-system-400">
+                  <p className="mt-1 break-words text-[11px] text-system-500">
                     Desde {formatearFecha(b.desde)}
                     {b.campana ? ` · ${b.campana}` : ""}
                   </p>
@@ -142,7 +142,7 @@ export default async function SancionesPage() {
 
           <div className="hidden overflow-x-auto rounded-lg border border-system-200 bg-white p-5 shadow-sm md:block">
             <table className="w-full min-w-[640px] text-left text-[13.5px]">
-              <thead className="border-b border-system-200 font-mono text-[10px] uppercase tracking-[0.1em] text-system-400">
+              <thead className="border-b border-system-200 font-mono text-[10px] uppercase tracking-[0.1em] text-system-500">
                 <tr>
                   <th className="pb-3 font-medium">Dispositivo</th>
                   <th className="pb-3 font-medium">Motivo</th>
@@ -155,7 +155,7 @@ export default async function SancionesPage() {
                   <tr key={b.id} className="border-b border-system-200 last:border-0">
                     <td className="py-4">
                       <p className="font-bold text-system-900">Anónimo #{b.id}</p>
-                      <p className="font-mono text-[11px] text-system-400">
+                      <p className="font-mono text-[11px] text-system-500">
                         desde {formatearFecha(b.desde)}
                         {b.campana ? ` · ${b.campana}` : ""}
                       </p>

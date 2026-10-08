@@ -8,6 +8,9 @@ import { pool } from "@/lib/db";
 import { exigirUsuario } from "@/lib/session";
 import { BASE_PATH } from "@/lib/base-path";
 import { formatearTamano } from "@/lib/aportes/archivo";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Aporte revisado" };
 
 export default async function ReviewerContributionDetailPage({ params }: { params: Promise<{ campaignId: string; userId: string; aporteId: string }> }) {
   const { campaignId, userId, aporteId } = await params;
@@ -60,11 +63,11 @@ export default async function ReviewerContributionDetailPage({ params }: { param
               <span className="mt-3 inline-block text-[12.5px] font-bold text-brand-600">Abrir imagen en tamaño completo</span>
             </a>
           ) : (
-            <div className="flex aspect-video items-center justify-center rounded-lg border border-dashed border-system-300 bg-system-100 text-[12.5px] text-system-400">
+            <div className="flex aspect-video items-center justify-center rounded-lg border border-dashed border-system-300 bg-system-100 text-[12.5px] text-system-500">
               Vista previa no disponible para {contribution.file_type}
             </div>
           )}
-          <p className="mt-3 font-mono text-[11.5px] text-system-400">{contribution.file_type}{fileSize}</p>
+          <p className="mt-3 font-mono text-[11.5px] text-system-500">{contribution.file_type}{fileSize}</p>
         </section>
 
         <section className="rounded-lg border border-system-200 bg-white p-5 shadow-sm">

@@ -96,7 +96,7 @@ export default function MenuDeAcciones({
         onClick={() => setAbierto((a) => !a)}
         className={
           discreto
-            ? "inline-flex items-center gap-1 text-[12px] font-semibold text-system-600 hover:text-system-900"
+            ? "inline-flex min-h-6 items-center gap-1 px-1 text-[12px] font-semibold text-system-600 hover:text-system-900"
             : buttonClasses("secondary", "sm", "max-md:px-2 max-md:py-1.5 max-md:text-[11px]")
         }
       >
