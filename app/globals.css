@@ -253,12 +253,17 @@ body {
 }
 
 /* ── Abrir el perfil (experimental, 2026-10-07) ───────────────────────────
- * "Ver perfil" de la barra superior (components/layout/EnlaceAlPerfil.tsx) navega a
- * /cuenta con el tipo de transición "abrir-perfil". El avatar y el nombre tienen el mismo
+ * "Ver perfil" de la barra superior (components/layout/EnlaceAlPerfil.tsx) marca
+ * <html data-abrir-perfil> y navega a /cuenta. El avatar y el nombre tienen el mismo
  * `name` en los dos lugares (clase perfil-viaje): el navegador los mueve y agranda hasta el
- * encabezado del perfil. El resto de /cuenta (clase perfil-desplegar) se despliega de
- * arriba abajo cuando el avatar ya va llegando. Navegadores sin View Transitions cambian de
+ * encabezado del perfil. El resto de /cuenta (clase perfil-desplegar, puesta en cada entrada)
+ * se despliega de arriba abajo cuando el avatar ya va llegando, solo con la marca; sin ella
+ * (atrás, adelante) aparece sin animar. Navegadores sin View Transitions cambian de
  * pantalla sin animar. Con movimiento reducido no se anima nada. */
+::view-transition-new(.perfil-desplegar) {
+  animation: none;
+}
+
 @media (prefers-reduced-motion: no-preference) {
   ::view-transition-group(.perfil-viaje) {
     animation-duration: 450ms;
@@ -267,7 +272,7 @@ body {
   ::view-transition-image-pair(.perfil-viaje) {
     animation-name: perfil-desenfoque;
   }
-  ::view-transition-new(.perfil-desplegar) {
+  :root[data-abrir-perfil]::view-transition-new(.perfil-desplegar) {
     animation: perfil-desplegar 520ms cubic-bezier(0.2, 0.8, 0.2, 1) 180ms both;
   }
 }
@@ -275,8 +280,7 @@ body {
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-group(.perfil-viaje),
   ::view-transition-old(.perfil-viaje),
-  ::view-transition-new(.perfil-viaje),
-  ::view-transition-new(.perfil-desplegar) {
+  ::view-transition-new(.perfil-viaje) {
     animation: none;
   }
 }

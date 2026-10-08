@@ -28,9 +28,10 @@ export default async function CuentaPage() {
   const roleLabel = ROLE_LABELS[primaryRole] ?? primaryRole;
 
   return (
-    // Al llegar con "Ver perfil" (tipo abrir-perfil) la pantalla se despliega de arriba abajo
-    // mientras el avatar y el nombre llegan a su lugar; con cualquier otra navegación, nada.
-    <ViewTransition enter={{ "abrir-perfil": "perfil-desplegar", default: "none" }} default="none">
+    // Al llegar con "Ver perfil" la pantalla se despliega de arriba abajo mientras el avatar y el
+    // nombre llegan a su lugar. La clase se pone siempre; globals.css solo la anima si
+    // EnlaceAlPerfil marcó <html data-abrir-perfil> (el tipo de transición a veces se perdía).
+    <ViewTransition enter="perfil-desplegar" default="none">
     <div className="space-y-6">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
