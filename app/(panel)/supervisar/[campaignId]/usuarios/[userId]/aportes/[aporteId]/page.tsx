@@ -11,7 +11,7 @@ import { formatearTamano } from "@/lib/aportes/archivo";
 export default async function SupervisedContributionPage({ params }: { params: Promise<{ campaignId: string; userId: string; aporteId: string }> }) {
   const { campaignId, userId, aporteId } = await params;
   const campaign = await obtenerCampanaSupervisadaPorRoot(campaignId);
-  if (!campaign || !/^d+$/.test(userId) || !/^d+$/.test(aporteId)) notFound();
+  if (!campaign || !/^\d+$/.test(userId) || !/^\d+$/.test(aporteId)) notFound();
 
   const result = await pool.query(
     `SELECT a.id, a.user_id, a.participant_name, a.participant_email, a.description,
