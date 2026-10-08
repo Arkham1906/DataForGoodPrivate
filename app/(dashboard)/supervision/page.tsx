@@ -212,7 +212,7 @@ export default function SupervisionPage() {
               <div key={campaign.id} className="p-4">
                 <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <h3 className="text-[15px] font-extrabold text-system-900">{campaign.name}</h3>
+                    <h2 className="text-[15px] font-extrabold text-system-900">{campaign.name}</h2>
                     <p className="text-[12.5px] text-system-500">{campaign.tag || campaign.tematica || "Sin temática"}</p>
                   </div>
                   <Tag tone={campaign.status === "activa" ? "ok" : "warn"}>{campaign.status === "activa" ? "Activa" : "Aceptada"}</Tag>
@@ -255,7 +255,7 @@ export default function SupervisionPage() {
             return (
               <div key={campaign.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
                 <div>
-                  <h3 className="text-[15px] font-extrabold text-system-900">{campaign.name}</h3>
+                  <h2 className="text-[15px] font-extrabold text-system-900">{campaign.name}</h2>
                   <p className="text-[12.5px] text-system-500">
                     {campaign.creatorName || "Usuario"} · {campaign.tag || campaign.tematica || "Sin temática"}
                   </p>
@@ -286,7 +286,7 @@ export default function SupervisionPage() {
           {filteredFinishedCampaigns.map((campaign) => (
             <div key={campaign.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
               <div>
-                <h3 className="text-[15px] font-extrabold text-system-900">{campaign.name}</h3>
+                <h2 className="text-[15px] font-extrabold text-system-900">{campaign.name}</h2>
                 <p className="text-[12.5px] text-system-500">
                   {campaign.creatorName || "Usuario"} · {campaign.tag || campaign.tematica || "Sin temática"}
                 </p>
@@ -316,7 +316,8 @@ export default function SupervisionPage() {
     <div className="mx-auto max-w-4xl lg:mx-0 lg:max-w-none">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div className="w-full min-w-0">
-          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-600">Supervisión</p>
+          {/* h1 con aspecto de etiqueta: el título de la pantalla (WCAG 1.3.1); antes era un <p>. */}
+          <h1 className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-600">Supervisión</h1>
           <div className="mt-3 w-full min-w-0">{renderCategoryTabs(activeTab, setActiveTab)}</div>
           <p className="mt-1 text-[13px] text-system-600">
             {activeTab === "pending" ? `${filteredPendingCampaigns.length} esperando revisión` : activeTab === "supervised" ? `${filteredSupervisedCampaigns.length} bajo supervisión` : activeTab === "finished" ? `${filteredFinishedCampaigns.length} finalizadas` : `${filteredFlaggedCampaigns.length} con incidencia`}

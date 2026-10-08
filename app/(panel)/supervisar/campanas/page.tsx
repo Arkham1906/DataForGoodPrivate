@@ -21,7 +21,7 @@ export default async function SupervisedCampaignsPage() {
       </div>
       <div className="overflow-x-auto rounded-lg border border-system-200 bg-white p-5 shadow-sm">
         <table className="w-full min-w-[700px] text-left text-[13px]">
-          <thead className="border-b border-system-200 font-mono text-[10px] uppercase tracking-[0.1em] text-system-500"><tr><th className="pb-3 font-medium">Campaña</th><th className="pb-3 font-medium">Estado</th><th className="pb-3 font-medium">Progreso</th><th className="pb-3 font-medium">Participantes</th><th className="pb-3" /></tr></thead>
+          <thead className="border-b border-system-200 font-mono text-[10px] uppercase tracking-[0.1em] text-system-500"><tr><th className="pb-3 font-medium">Campaña</th><th className="pb-3 font-medium">Estado</th><th className="pb-3 font-medium">Progreso</th><th className="pb-3 font-medium">Participantes</th><th className="pb-3"><span className="sr-only">Acciones</span></th></tr></thead>
           <tbody>
             {campaigns.map((campaign) => {
               const percent = campaign.goalContributions > 0

@@ -42,7 +42,7 @@ export default async function CampaignUsersPage({ params }: { params: Promise<{ 
         <div className="overflow-x-auto rounded-lg border border-system-200 bg-white p-5 shadow-sm">
           <table className="w-full min-w-[650px] text-left text-[13px]">
             <thead className="border-b border-system-200 font-mono text-[10px] uppercase tracking-[0.1em] text-system-500">
-              <tr><th className="pb-3 font-medium">Usuario</th><th className="pb-3 font-medium">Aportes</th><th className="pb-3 font-medium">Último aporte</th><th className="pb-3" /></tr>
+              <tr><th className="pb-3 font-medium">Usuario</th><th className="pb-3 font-medium">Aportes</th><th className="pb-3 font-medium">Último aporte</th><th className="pb-3"><span className="sr-only">Acciones</span></th></tr>
             </thead>
             <tbody>
               {result.rows.map((participant) => (

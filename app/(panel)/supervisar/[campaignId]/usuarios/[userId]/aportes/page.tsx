@@ -16,7 +16,7 @@ export default async function UserContributionsPage({ params }: { params: Promis
   const { campaignId, userId } = await params;
   const campaign = await obtenerCampanaSupervisadaPorRoot(campaignId);
   if (!campaign) notFound();
-  if (!/^d+$/.test(userId)) notFound();
+  if (!/^\d+$/.test(userId)) notFound();
 
   const result = await pool.query(
     `SELECT id, participant_name, participant_email, description, file_type, file_size_bytes,

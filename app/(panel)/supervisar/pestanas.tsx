@@ -90,7 +90,7 @@ export default function PestanasDeSupervision({
             <div key={campaign.id} className="p-4">
               <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <h3 className="text-[15px] font-extrabold text-system-900">{campaign.name}</h3>
+                  <h2 className="text-[15px] font-extrabold text-system-900">{campaign.name}</h2>
                   <p className="text-[12.5px] text-system-500">{campaign.tag || "Sin temática"}</p>
                 </div>
                 <Tag tone={campaign.status === "activa" ? "ok" : "warn"}>{campaign.status === "activa" ? "Activa" : "Aceptada"}</Tag>
@@ -132,7 +132,7 @@ export default function PestanasDeSupervision({
             return (
               <div key={campaign.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
                 <div>
-                  <h3 className="text-[15px] font-extrabold text-system-900">{campaign.name}</h3>
+                  <h2 className="text-[15px] font-extrabold text-system-900">{campaign.name}</h2>
                   <p className="text-[12.5px] text-system-500">
                     {campaign.creatorName || "Usuario"} · {campaign.tag || "Sin temática"}
                   </p>
@@ -163,7 +163,7 @@ export default function PestanasDeSupervision({
           {finalizadas.map((campaign) => (
             <div key={campaign.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
               <div>
-                <h3 className="text-[15px] font-extrabold text-system-900">{campaign.name}</h3>
+                <h2 className="text-[15px] font-extrabold text-system-900">{campaign.name}</h2>
                 <p className="text-[12.5px] text-system-500">
                   {campaign.creatorName || "Usuario"} · {campaign.tag || "Sin temática"}
                 </p>
