@@ -57,6 +57,7 @@ export default async function CuentaPage() {
           city: currentUser.city,
           specialty: currentUser.specialty,
           intereses: currentUser.intereses,
+          interesesTexto: currentUser.intereses_texto,
         }}
         encabezado={
           <div className="flex items-center gap-4">

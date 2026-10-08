@@ -4,7 +4,6 @@
 import type { Pestana } from "@/components/sistema/subtabs";
 import { pool } from "@/lib/db";
 import { ETIQUETA_DE_ESTADO, RESUMEN_DE_SANCIONES, estadoDesdeSanciones } from "@/lib/usuarios/directorio";
-import { TEMAS_DE_INTERES } from "@/lib/intereses";
 
 /** Pestañas de la sección Usuarios. Las comparten las cuatro pantallas. */
 export const PESTANAS_USUARIOS: Pestana[] = [
@@ -222,9 +221,10 @@ export async function obtenerDashboardDeUsuarios(
     }
 
     const interesesPorTema = new Map(interesesResult.rows.map((r) => [r.tema, Number(r.n)]));
-    // Solo temas que declaró al menos un usuario: con 23 temas, el top 5
-    // se llenaba de filas en 0% cuando pocos habían elegido intereses.
-    const interesesDeclarados = TEMAS_DE_INTERES.filter((tema) => (interesesPorTema.get(tema) ?? 0) > 0)
+    // Solo temas que declaró al menos un usuario (con 23 temas, el top 5 se llenaba de filas en
+    // 0%). Desde 2026-10-07 entran también las temáticas nuevas que salen de los textos.
+    const interesesDeclarados = [...interesesPorTema.keys()]
+      .filter((tema) => (interesesPorTema.get(tema) ?? 0) > 0)
       .map((tema) => ({
         etiqueta: tema,
         n: interesesPorTema.get(tema) ?? 0,

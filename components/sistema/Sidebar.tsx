@@ -12,6 +12,7 @@ import {
   IconoAportes,
   IconoCampanas,
   IconoEscudo,
+  IconoEtiqueta,
   IconoInicio,
   IconoUsuarios,
 } from "./icons";
@@ -44,6 +45,7 @@ const MENU: Entrada[] = [
     seccion: ["/sistema/campanas"],
   },
   { href: "/aportes", etiqueta: "Aportes", Icono: IconoAportes, seccion: ["/aportes"] },
+  { href: "/sistema/tematicas", etiqueta: "Temáticas", Icono: IconoEtiqueta, seccion: ["/sistema/tematicas"] },
   {
     href: "/supervisar",
     etiqueta: "Modo supervisor",

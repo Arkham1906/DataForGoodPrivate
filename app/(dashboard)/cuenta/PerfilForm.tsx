@@ -4,16 +4,16 @@
 // personales e intereses. Los campos están deshabilitados; "Editar perfil" los habilita y
 // muestra "Guardar cambios", que guarda con PATCH /api/usuarios/[id] (solo la propia
 // cuenta) y avisa con un mensaje al centro de la pantalla.
-// Catálogos: lib/mexico-geo.ts, lib/intereses.ts, lib/perfil-opciones.ts.
+// Intereses: texto libre del que salen las temáticas (ui/InteresesDesdeTexto), editable en edición.
+// Catálogos: lib/mexico-geo.ts, lib/perfil-opciones.ts; temáticas en GET /api/tematicas.
 
 import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Input";
-import SelectorDeTemas from "@/components/ui/SelectorDeTemas";
+import InteresesDesdeTexto from "@/components/ui/InteresesDesdeTexto";
 import Tag from "@/components/ui/Tag";
 import LogoutButton from "@/components/auth/LogoutButton";
-import { TEMAS_DE_INTERES } from "@/lib/intereses";
 import { ESPECIALIDADES, OTRA_ESPECIALIDAD, opcionesCon } from "@/lib/perfil-opciones";
 import { municipiosDe, NOMBRES_DE_ESTADOS } from "@/lib/mexico-geo";
 import { BASE_PATH } from "@/lib/base-path";
@@ -26,6 +26,7 @@ type Usuario = {
   city: string | null;
   specialty: string | null;
   intereses: string[];
+  interesesTexto: string | null;
   email: string;
 };
 
@@ -59,6 +60,7 @@ export default function PerfilForm({
     () => specialty !== "" && !ESPECIALIDADES.includes(specialty),
   );
   const [intereses, setIntereses] = useState<string[]>(usuario.intereses);
+  const [interesesTexto, setInteresesTexto] = useState(usuario.interesesTexto ?? "");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState("");
   const [avisoVisible, setAvisoVisible] = useState(false);
@@ -73,6 +75,7 @@ export default function PerfilForm({
     city: usuario.city ?? "",
     specialty: usuario.specialty ?? "",
     intereses: usuario.intereses,
+    interesesTexto: usuario.interesesTexto ?? "",
   });
 
   useEffect(() => {
@@ -105,6 +108,7 @@ export default function PerfilForm({
     setSpecialty(guardado.specialty);
     setEspecialidadPersonalizada(guardado.specialty !== "" && !ESPECIALIDADES.includes(guardado.specialty));
     setIntereses(guardado.intereses);
+    setInteresesTexto(guardado.interesesTexto);
     setError("");
     setEditando(false);
   }
@@ -125,6 +129,7 @@ export default function PerfilForm({
         city,
         specialty: specialty.trim(),
         intereses,
+        interesesTexto: interesesTexto.trim(),
       };
       const response = await fetch(`${BASE_PATH}/api/usuarios/${usuario.id}`, {
         method: "PATCH",
@@ -132,15 +137,18 @@ export default function PerfilForm({
         body: JSON.stringify(cambios),
       });
 
-      if (!response.ok) {
-        const body = await response.json().catch(() => ({}));
-        throw new Error(body.error ?? "No se pudo guardar el perfil");
-      }
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error ?? "No se pudo guardar el perfil");
+      // El servidor devuelve los intereses con el nombre del catálogo (p. ej. una temática nueva
+      // que otra persona creó con otra mayúscula): se muestran esos.
+      const guardados = Array.isArray(body.data?.intereses) ? (body.data.intereses as string[]) : intereses;
 
       setNombre(cambios.nombre);
       setApellidos(cambios.apellidos);
       setSpecialty(cambios.specialty);
-      setGuardado(cambios);
+      setIntereses(guardados);
+      setInteresesTexto(cambios.interesesTexto);
+      setGuardado({ ...cambios, intereses: guardados });
       setEditando(false);
       setAvisoVisible(true);
       router.refresh();
@@ -275,22 +283,29 @@ export default function PerfilForm({
           </div>
 
           {editando ? (
-            // Solo las elegidas; las demás se agregan desde la ventana. Un interés
-            // guardado que ya no esté en la lista se conserva como opción.
-            <SelectorDeTemas
-              opciones={[...TEMAS_DE_INTERES, ...intereses.filter((t) => !TEMAS_DE_INTERES.includes(t))]}
+            <InteresesDesdeTexto
+              texto={interesesTexto}
+              onTexto={setInteresesTexto}
               seleccionados={intereses}
-              onAceptar={setIntereses}
-              quitables
+              onCambiar={setIntereses}
             />
-          ) : intereses.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {intereses.map((tema) => (
-                <Tag key={tema}>{tema}</Tag>
-              ))}
-            </div>
           ) : (
-            <p className="text-[13px] text-ink-3">Aún no eliges temáticas.</p>
+            <>
+              {interesesTexto && (
+                <p className="mb-3 whitespace-pre-line text-[13px] text-ink-2">«{interesesTexto}»</p>
+              )}
+              {intereses.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {intereses.map((tema) => (
+                    <Tag key={tema}>{tema}</Tag>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[13px] text-ink-3">
+                  Aún no tienes temáticas. Da “Editar perfil” y cuéntanos qué te gusta hacer.
+                </p>
+              )}
+            </>
           )}
           <p className="mt-3 text-[12.5px] text-ink-2">
             Determinan qué campañas aparecen en “Sugeridas para ti”.

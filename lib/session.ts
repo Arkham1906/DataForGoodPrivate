@@ -28,6 +28,8 @@ export interface SessionUser {
   city: string | null;
   specialty: string | null;
   intereses: string[];
+  /** Lo que escribió sobre sus gustos (/bienvenida o /cuenta); null si no ha escrito nada. */
+  intereses_texto: string | null;
   role: string[];
   xp_total: number;
   level: number;
@@ -72,7 +74,7 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
 
   const result = await pool.query(
     `SELECT u.id, u.nombre, u.apellidos, u.email, u.state, u.city, u.specialty,
-            u.intereses, u.role, u.xp_total, u.level, u.streak_days, u.email_verificado,
+            u.intereses, u.intereses_texto, u.role, u.xp_total, u.level, u.streak_days, u.email_verificado,
           (u.password_hash IS NOT NULL) AS tiene_contrasena,
           EXISTS (
             SELECT 1 FROM campana_revisores cr

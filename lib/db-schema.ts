@@ -1,4 +1,6 @@
 import { pool } from "@/lib/db";
+import { TEMAS_DE_INTERES } from "@/lib/intereses";
+import { claveDeTematica } from "@/lib/tematicas/analizar";
 
 /**
  * Único lugar donde se define el DDL de cada tabla. Antes estaba duplicado
@@ -24,6 +26,8 @@ export async function ensureUsuariosTable(): Promise<void> {
       city VARCHAR(100),
       specialty VARCHAR(150),
       intereses JSONB NOT NULL DEFAULT '[]'::jsonb,
+      -- Lo que la persona escribió sobre sus gustos; de ahí salen sus intereses (lib/tematicas/analizar.ts).
+      intereses_texto VARCHAR(500),
       role JSONB NOT NULL DEFAULT '["usuario"]'::jsonb,
       xp_total INTEGER NOT NULL DEFAULT 0,
       level INTEGER NOT NULL DEFAULT 1,
@@ -61,6 +65,7 @@ export async function ensureUsuariosTable(): Promise<void> {
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS city VARCHAR(100);
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS specialty VARCHAR(150);
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS intereses JSONB NOT NULL DEFAULT '[]'::jsonb;
+    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS intereses_texto VARCHAR(500);
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS email_verificado BOOLEAN NOT NULL DEFAULT false;
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS failed_login_attempts INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ;
@@ -455,6 +460,35 @@ export async function ensureAuditLogTable(): Promise<void> {
   `);
 }
 
+/**
+ * Catálogo de temáticas (2026-10-07): intereses de los perfiles y temática de las campañas son
+ * la misma lista. Empieza con las 23 de lib/intereses.ts (origen 'base') y crece con las palabras
+ * clave que salen de lo que escriben los usuarios (origen 'usuario', lib/tematicas/catalogo.ts).
+ * `clave` es el nombre sin acentos ni mayúsculas: evita "Ciclismo" y "ciclismo" duplicadas.
+ * El SuperUsuario puede ocultar una (`oculta`): deja de ofrecerse, pero no se quita de los perfiles
+ * ni de las campañas que ya la tienen.
+ */
+export async function ensureTematicasTable(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS tematicas (
+      id SERIAL PRIMARY KEY,
+      nombre VARCHAR(60) NOT NULL,
+      clave VARCHAR(60) NOT NULL UNIQUE,
+      origen VARCHAR(10) NOT NULL DEFAULT 'usuario' CHECK (origen IN ('base', 'usuario')),
+      creada_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+      oculta BOOLEAN NOT NULL DEFAULT false,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+  // Las 23 de siempre, en su orden (id). ON CONFLICT: repetirlo en cada arranque es inofensivo.
+  await pool.query(
+    `INSERT INTO tematicas (nombre, clave, origen)
+     SELECT nombre, clave, 'base' FROM unnest($1::text[], $2::text[]) AS t(nombre, clave)
+     ON CONFLICT (clave) DO NOTHING`,
+    [TEMAS_DE_INTERES, TEMAS_DE_INTERES.map(claveDeTematica)],
+  );
+}
+
 /** Crea (si falta) todo el esquema. Lo llama instrumentation.ts al arrancar. */
 export async function ensureCoreSchema(): Promise<void> {
   await ensureUsuariosTable();
@@ -472,4 +506,5 @@ export async function ensureCoreSchema(): Promise<void> {
   await ensureDispositivosBloqueadosTable(); // después de aportes: aporte_id la referencia
   await ensureSancionesTable();
   await ensureAuditLogTable();
+  await ensureTematicasTable(); // después de usuarios: creada_por la referencia
 }

@@ -165,7 +165,13 @@ Fuentes: `especial`, `campanas/[id]` y `mis-aportes`.
 
 ## 8. Catálogos
 
-- **Temáticas de campaña e intereses del perfil:** una sola lista de 23 en `lib/intereses.ts` (`TEMAS_DE_INTERES`), desde el 2026-09-30.
+- **Temáticas de campaña e intereses del perfil:** una sola lista desde el 2026-09-30. **Desde el 2026-10-07 es un catálogo en la base** (tabla `tematicas`, `lib/tematicas/catalogo.ts`) que empieza con las 23 de `lib/intereses.ts` y crece con lo que escriben los usuarios (decisiones del usuario):
+  - **Intereses desde un texto:** en `/bienvenida` (paso 4) y en `/cuenta` la persona escribe qué le gusta; al dar Enter (o "Analizar") `lib/tematicas/analizar.ts` saca las temáticas **en el navegador, con un diccionario local** (nada sale a un servicio externo): palabra del diccionario → una de las 23 ("bici" → Movilidad); palabra que ya está en el catálogo → esa; palabra vacía ("gusta", "hacer"), grosería o de menos de 4 letras → nada; cualquier otra → **temática nueva** en singular y con mayúscula ("Ajedrez", "Astronomía"). Máximo 10 por análisis y 20 por perfil. El texto se guarda en `usuarios.intereses_texto` (500).
+  - **La persona corrige:** las detectadas se suman a las que tenía como fichas con ×, y "Agregar temáticas" abre la lista completa. Nada se guarda hasta "Finalizar" o "Guardar cambios".
+  - **Las nuevas se dan de alta al guardar** (`PATCH /api/usuarios/[id]` → `resolverIntereses()`), con las mismas reglas que el análisis (letras, 4 a 40, hasta tres palabras, sin groserías); si una no pasa, 400. Sin repetir por `clave` (sin acentos ni mayúsculas). El registro (`POST /api/usuarios`) solo acepta temáticas que ya existen.
+  - **Catálogo único:** las nuevas también se ofrecen como temática al crear una campaña (`GET /api/tematicas`) y aparecen en los filtros cuando una campaña las usa.
+  - **Moderación:** lista local de groserías y palabras vacías, y el SuperUsuario **oculta** temáticas en `/sistema/tematicas` (bitácora `tematica.ocultar`/`tematica.mostrar`). Una oculta deja de ofrecerse y no se puede volver a agregar, pero **no se quita** de los perfiles ni de las campañas que ya la tienen.
+  - Pendiente: `POST /api/campanas` no valida que la temática exista en el catálogo (nunca lo hizo).
 - **Estados y municipios:** `lib/mexico-geo.ts`. **Especialidades:** `lib/perfil-opciones.ts`.
 - **Motivos de rechazo:** ver sección 5 (todavía repetidos en las pantallas que los usan).
 

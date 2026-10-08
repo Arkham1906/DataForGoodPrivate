@@ -26,7 +26,9 @@ function nuevoChecklist(titulo = "", opciones: string[] = []): ChecklistEditable
   return { clave: siguienteClave++, titulo, opciones, nuevaOpcion: "" };
 }
 
-// Las temáticas de campaña son los mismos temas de interés del perfil.
+// Las temáticas de campaña son las mismas que los intereses del perfil: el catálogo de
+// GET /api/tematicas (las 23 base y las que salen de los textos de los usuarios). Mientras carga,
+// o si falla, se ofrecen las 23 base.
 const THEMES = TEMAS_DE_INTERES;
 
 const DATA_TYPES: { value: DataType; label: string }[] = [
@@ -128,6 +130,19 @@ function CampanaFormulario({
   const [name, setName] = useState(editingCampaign?.name ?? "");
   const [description, setDescription] = useState(editingCampaign?.description ?? "");
   const [theme, setTheme] = useState(editingCampaign?.tag || THEMES[0]);
+  const [catalogoDeTemas, setCatalogoDeTemas] = useState<string[]>(THEMES);
+  useEffect(() => {
+    let vigente = true;
+    fetch(`${BASE_PATH}/api/tematicas`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body) => {
+        if (vigente && Array.isArray(body?.data)) setCatalogoDeTemas(body.data as string[]);
+      })
+      .catch(() => {});
+    return () => {
+      vigente = false;
+    };
+  }, []);
   const [dataTypes, setDataTypes] = useState<DataType[]>(editingCampaign?.dataTypes ?? ["foto"]);
   // Sin ejemplos: una campaña nueva empieza sin checklists. Los de campañas
   // viejas (lista plana, sin título) se titulan "Checklist" para poder guardarlos.
@@ -489,7 +504,7 @@ function CampanaFormulario({
                   la temática de una campaña vieja aunque ya no esté en la lista. */}
               <SelectorDeTemas
                 unica
-                opciones={opcionesCon(theme, THEMES)}
+                opciones={opcionesCon(theme, catalogoDeTemas)}
                 seleccionados={theme ? [theme] : []}
                 onAceptar={(temas) => setTheme(temas[0] ?? theme)}
                 deshabilitado={edicionLimitada}

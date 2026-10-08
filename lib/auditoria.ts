@@ -49,7 +49,10 @@ export type AccionAuditada =
   | "campana.bloquear_dispositivo"
   | "campana.desbloquear_dispositivo"
   | "sancion.dispositivo_bloquear"
-  | "sancion.dispositivo_restaurar";
+  | "sancion.dispositivo_restaurar"
+  // Catálogo de temáticas (lib/tematicas/acciones-tematicas.ts).
+  | "tematica.ocultar"
+  | "tematica.mostrar";
 
 export async function registrarAuditoria(entrada: {
   actor: ActorDeAuditoria;

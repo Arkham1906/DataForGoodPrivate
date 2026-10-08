@@ -43,7 +43,7 @@
 
 | Archivo | Contenido |
 | --- | --- |
-| `intereses.ts` 🟢 | `TEMAS_DE_INTERES`: las 23 temáticas. Se usan como intereses del perfil **y** como temática de las campañas |
+| `intereses.ts` 🟢 | `TEMAS_DE_INTERES`: las 23 temáticas base, con las que se siembra la tabla `tematicas` al arrancar. El catálogo real (que crece) está en `tematicas/` |
 | `mexico-geo.ts` 🟢 | Estados y municipios de México (`ESTADOS_DE_MEXICO`, `municipiosDe`) |
 | `perfil-opciones.ts` 🟢 | Especialidades del perfil |
 | `campaign-date.ts` | Fechas de campaña y las transiciones automáticas (`activateScheduledCampaigns`, `finalizeExpiredCampaigns`, `hasCampaignStarted`, `hasCampaignEnded`). Al activar o finalizar por fecha, avisa al creador |
@@ -104,9 +104,19 @@
 | `recuperacion-opciones.ts` 🟢 | Números de la recuperación: 15 min, 3 intentos, 60 s entre correos | `/recuperar`, `recuperacion.ts` |
 | `contrasena-actual.ts` | Comprueba la contraseña actual; un error suma al bloqueo del login | Cambio de contraseña, baja de cuenta |
 | `rol-asignable.ts` 🟢 | Nombres y descripciones de roles para la interfaz | Panel |
-| `perfil.ts` 🟢 | Largos máximos de los campos del perfil (`errorDeLargo`) y `interesesValidos()` contra `lib/intereses.ts` | `POST /api/usuarios`, `PATCH /api/usuarios/[id]` |
+| `perfil.ts` 🟢 | Largos máximos de los campos del perfil (`errorDeLargo`). Los intereses se validan en `tematicas/catalogo.ts` | `POST /api/usuarios`, `PATCH /api/usuarios/[id]` |
 | `acciones-usuarios.ts` ⚡ | `asignarRol`, `revocarRol`, `aplicarSancion`, `restaurarAcceso`. Cada una notifica a la persona | `/usuarios/[id]/{roles,sancion}`, `/usuarios/sanciones` |
 | `acciones-supervisor.ts` ⚡ | `revertirAccion` (**sin implementar**) | `/usuarios/supervisores/[id]/revertir/...` |
+
+### `tematicas/`
+
+Catálogo de temáticas (intereses del perfil y temática de campaña), desde el 2026-10-07.
+
+| Archivo | Qué hace | Lo usa |
+| --- | --- | --- |
+| `analizar.ts` 🟢 | `analizarIntereses(texto, catalogo)`: temáticas que salen de un texto (diccionario local, palabras vacías, groserías, singular). `esTematicaNuevaValida`, `claveDeTematica`, `conMayuscula`, `MAXIMO_DE_INTERESES` (20), `LARGO_MAXIMO_DEL_TEXTO` (500) | `ui/InteresesDesdeTexto`, `catalogo.ts`, `db-schema.ts` |
+| `catalogo.ts` | `tematicasVisibles()`, `resolverIntereses()` (valida y da de alta las nuevas), `listarTematicasDelPanel(q)`, `cambiarVisibilidad()` | `GET /api/tematicas`, `POST`/`PATCH /api/usuarios`, `/sistema/tematicas` |
+| `acciones-tematicas.ts` | Server action `cambiarVisibilidadDeTematica(id, oculta)`: sesión raíz, bitácora `tematica.ocultar`/`tematica.mostrar` | `/sistema/tematicas` |
 
 ### `notificaciones/`
 

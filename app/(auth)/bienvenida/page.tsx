@@ -3,14 +3,14 @@
 // Pantalla /bienvenida: perfil inicial tras verificar, en dos pasos del registro: paso 3 (estado y
 // municipio) y paso 4 (especialidad e intereses). Se puede omitir.
 // Datos: GET /api/auth/sesion. Guarda con PATCH /api/usuarios/[id] al pasar al paso 4 y al finalizar.
-// Catálogos: lib/mexico-geo.ts, lib/intereses.ts, lib/perfil-opciones.ts.
+// Intereses: la persona escribe qué le gusta y de ahí salen sus temáticas (ui/InteresesDesdeTexto).
+// Catálogos: lib/mexico-geo.ts, lib/perfil-opciones.ts; temáticas en GET /api/tematicas.
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Button from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Input";
-import SelectorDeTemas from "@/components/ui/SelectorDeTemas";
-import { TEMAS_DE_INTERES as INTERESTS } from "@/lib/intereses";
+import InteresesDesdeTexto from "@/components/ui/InteresesDesdeTexto";
 import { ESPECIALIDADES, OTRA_ESPECIALIDAD, opcionesCon } from "@/lib/perfil-opciones";
 import { municipiosDe, NOMBRES_DE_ESTADOS } from "@/lib/mexico-geo";
 import { BASE_PATH } from "@/lib/base-path";
@@ -24,6 +24,7 @@ type SessionUser = {
   city?: string | null;
   specialty?: string | null;
   intereses?: string[];
+  intereses_texto?: string | null;
 };
 
 export default function BienvenidaPage() {
@@ -40,6 +41,7 @@ function BienvenidaForm() {
   const next = useSearchParams().get("next");
   const [user, setUser] = useState<SessionUser | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
+  const [textoDeIntereses, setTextoDeIntereses] = useState("");
   const [state, setState] = useState("");
   const [city, setCity] = useState("");
   const [specialty, setSpecialty] = useState("");
@@ -62,6 +64,7 @@ function BienvenidaForm() {
       const especialidad = currentUser.specialty ?? "";
       setUser(currentUser);
       setSelected(currentUser.intereses ?? ["Medio ambiente", "Educación"]);
+      setTextoDeIntereses(currentUser.intereses_texto ?? "");
       setState(currentUser.state ?? "");
       setCity(currentUser.city ?? "");
       setSpecialty(especialidad);
@@ -107,7 +110,7 @@ function BienvenidaForm() {
   }
 
   async function finish() {
-    await guardar({ state, city, specialty, intereses: selected });
+    await guardar({ state, city, specialty, intereses: selected, interesesTexto: textoDeIntereses });
     router.push(destinoSeguro(next));
   }
 
@@ -201,13 +204,16 @@ function BienvenidaForm() {
             )}
           </Field>
 
-          <p className="mb-2 text-[13px] font-medium text-ink">¿Qué temas te interesan?</p>
-          {/* Con 23 temáticas, se eligen en una ventana en vez de mostrarlas todas aquí. */}
           <div className="mb-3">
-            <SelectorDeTemas opciones={INTERESTS} seleccionados={selected} onAceptar={setSelected} />
+            <InteresesDesdeTexto
+              texto={textoDeIntereses}
+              onTexto={setTextoDeIntereses}
+              seleccionados={selected}
+              onCambiar={setSelected}
+            />
           </div>
           <p className="mb-5 text-[11.5px] text-ink-3">
-            Podrás agregar o quitar etiquetas en cualquier momento desde tu perfil.
+            Podrás cambiar tu texto y tus temáticas en cualquier momento desde tu perfil.
           </p>
 
           <div className="mb-5 rounded-lg bg-sunken p-4 text-[12.5px] text-ink-2">

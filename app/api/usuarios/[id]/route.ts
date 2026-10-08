@@ -5,7 +5,9 @@ import { NextResponse } from "next/server";
 import { pool } from "@/lib/db";
 import { destroySession, getSessionUser } from "@/lib/session";
 import { hasRootSession } from "@/lib/rootSession";
-import { errorDeLargo, interesesValidos } from "@/lib/usuarios/perfil";
+import { errorDeLargo } from "@/lib/usuarios/perfil";
+import { resolverIntereses } from "@/lib/tematicas/catalogo";
+import { LARGO_MAXIMO_DEL_TEXTO } from "@/lib/tematicas/analizar";
 import { comprobarContrasenaActual } from "@/lib/usuarios/contrasena-actual";
 import { solicitarBaja } from "@/lib/usuarios/baja";
 import { esDestinoDeAportes, PALABRA_DE_CONFIRMACION } from "@/lib/usuarios/baja-opciones";
@@ -49,6 +51,7 @@ export async function GET(
         city,
         specialty,
         intereses,
+        intereses_texto,
         role,
         xp_total,
         level,
@@ -125,10 +128,26 @@ export async function PATCH(
     const state = body.state !== undefined ? String(body.state).trim() || null : undefined;
     const city = body.city !== undefined ? String(body.city).trim() || null : undefined;
     const specialty = body.specialty !== undefined ? String(body.specialty).trim() || null : undefined;
-    // Solo intereses de la lista oficial (antes se guardaba cualquier arreglo, sin tope).
-    const intereses = Array.isArray(body.intereses) ? JSON.stringify(interesesValidos(body.intereses)) : null;
     const errorLargo = errorDeLargo({ nombre, apellidos, state, city, specialty });
     if (errorLargo) return NextResponse.json({ error: errorLargo }, { status: 400 });
+
+    // Texto libre de gustos (de ahí salen los intereses, lib/tematicas/analizar.ts). "" lo borra.
+    const interesesTexto =
+      body.interesesTexto !== undefined ? String(body.interesesTexto ?? "").trim() || null : undefined;
+    if (interesesTexto && interesesTexto.length > LARGO_MAXIMO_DEL_TEXTO) {
+      return NextResponse.json(
+        { error: `El texto de intereses no puede pasar de ${LARGO_MAXIMO_DEL_TEXTO} caracteres` },
+        { status: 400 }
+      );
+    }
+    // Intereses del catálogo de temáticas; las palabras nuevas se dan de alta ahí
+    // (lib/tematicas/catalogo.ts). Una temática oculta solo se conserva si ya la tenía.
+    let intereses: string | null = null;
+    if (Array.isArray(body.intereses)) {
+      const resueltos = await resolverIntereses(body.intereses, sessionUser.id, sessionUser.intereses ?? []);
+      if (!resueltos.ok) return NextResponse.json({ error: resueltos.error }, { status: 400 });
+      intereses = JSON.stringify(resueltos.intereses);
+    }
 
     const result = await pool.query(
       `UPDATE usuarios
@@ -138,9 +157,10 @@ export async function PATCH(
            city = CASE WHEN $6::boolean THEN $7 ELSE city END,
            specialty = CASE WHEN $8::boolean THEN $9 ELSE specialty END,
            intereses = COALESCE($10::jsonb, intereses),
+           intereses_texto = CASE WHEN $11::boolean THEN $12 ELSE intereses_texto END,
            updated_at = NOW()
        WHERE id = $1
-       RETURNING id, nombre, apellidos, email, state, city, specialty, intereses, role, xp_total, level, streak_days`,
+       RETURNING id, nombre, apellidos, email, state, city, specialty, intereses, intereses_texto, role, xp_total, level, streak_days`,
       [
         Number(rawId),
         nombre,
@@ -152,6 +172,8 @@ export async function PATCH(
         specialty !== undefined,
         specialty ?? null,
         intereses,
+        interesesTexto !== undefined,
+        interesesTexto ?? null,
       ]
     );
 

@@ -1093,6 +1093,19 @@
       "metaSortKey": 36.3
     },
     {
+      "_id": "req_tematicas",
+      "_type": "request",
+      "parentId": "fld_otros",
+      "name": "Catálogo de temáticas",
+      "method": "GET",
+      "url": "{{ _.base }}/api/tematicas",
+      "headers": [],
+      "parameters": [],
+      "body": {},
+      "description": "Las 23 base y las que salieron de los textos de intereses, sin las ocultas.",
+      "metaSortKey": 36.35
+    },
+    {
       "_id": "req_push_llave",
       "_type": "request",
       "parentId": "fld_otros",

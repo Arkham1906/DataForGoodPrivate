@@ -126,6 +126,7 @@ Patrón: página de servidor que lee de `lib/` + componente cliente hermano que 
 | --- | --- | --- | --- |
 | `/sistema` | `sistema/page.tsx` | `lib/sistema/metricas.ts` | — |
 | `/sistema/campanas` | `sistema/campanas/page.tsx` + `filtros.tsx` | `lib/campanas/sistema.ts` (`buscarCampanas`, `contarPorEstado`, `listarTematicas`); constantes en `sistema-opciones.ts` | — (solo consulta) |
+| `/sistema/tematicas` | `sistema/tematicas/page.tsx` + `BotonDeVisibilidad.tsx` | `lib/tematicas/catalogo.ts` (`listarTematicasDelPanel`, `?q=`): cada temática con su origen, cuántas personas y campañas la tienen. Llama a `exigirSesionRoot()` | `cambiarVisibilidadDeTematica` (ocultar / mostrar) |
 | `/sistema/campanas/dashboard` | `sistema/campanas/dashboard/page.tsx` | `obtenerDashboardDeCampanas` | — |
 | `/sistema/campanas/[id]` | `sistema/campanas/[id]/page.tsx` | `obtenerCabeceraDeCampana`, `lib/campanas/panel.ts` | — |
 | `/aportes` | `aportes/page.tsx` + `filtros.tsx` | `lib/aportes/bandeja.ts` (`buscarAportes`, `contarPorEtapa`, `listarCampanasConAportes`, `campanaTieneRevisor`; `?q=`, `?campana=`, `?etapa=pendientes\|aceptado\|rechazado`, `?pagina=`). Llama a `exigirSesionRoot()`. Muestra participante ("Anónimo" sin cuenta), fecha, campaña, los primeros 90 caracteres de la descripción (nada en anónimos), tipo y etapa; nunca el archivo ni el correo. `/sistema/campanas/[id]` enlaza aquí con "Ver aportes recibidos" | — (solo consulta) |
@@ -177,7 +178,8 @@ Todos los archivos están en `app/api/<ruta>/route.ts`. Respuesta: `{ data }` o 
 | `GET /api/usuarios?q=&rol=&estado=&pagina=` | Sesión raíz (cookie o Bearer) | Todos los usuarios del sistema, 20 por página (`buscarUsuarios()` del directorio) | Swagger |
 | `GET /api/usuarios?campanaId=&q=` | Sesión + creador de esa campaña | Busca personas para invitar como revisor (máx. 10, correo oculto) | `agregar-revisor` |
 | `GET /api/usuarios/[id]` | Sesión + la cuenta propia, o sesión raíz (cualquier id) | Perfil | Swagger |
-| `PATCH /api/usuarios/[id]` | Sesión, solo tu propio id | Actualiza perfil (estado, ciudad, especialidad, intereses...) | `/bienvenida`, `/cuenta` |
+| `PATCH /api/usuarios/[id]` | Sesión, solo tu propio id | Actualiza perfil (estado, ciudad, especialidad, intereses, `interesesTexto`...). Los intereses que no existen se dan de alta en el catálogo de temáticas | `/bienvenida`, `/cuenta` |
+| `GET /api/tematicas` | Sesión | Catálogo de temáticas visibles (las 23 base y las de los usuarios) | `/bienvenida`, `/cuenta`, formulario de campaña |
 | `DELETE /api/usuarios/[id]` | Sesión, solo tu propio id | Pide la baja: `{ destino, confirmacion: "ELIMINAR", contrasena }` (sin contraseña en cuentas de Google). Cierra las sesiones, finaliza o borra campañas propias y fija el borrado definitivo a 30 días | `/cuenta/eliminar` |
 | `PATCH /api/usuarios/[id]/contrasena` | Sesión, solo tu propio id, cuenta con contraseña | Cambia la contraseña tras revisar la actual (los fallos cuentan para el bloqueo del login). No cierra sesiones. **Ya no lo usa ninguna pantalla** (desde el 2026-10-07 `/cuenta` cambia con código); queda para clientes de la API | — |
 | `POST /api/usuarios/[id]/contrasena/codigo` | Sesión, solo tu propio id | Manda al correo de la cuenta un código para poner contraseña sin la actual: cambiarla o, en una cuenta de Google, crearla. 15 min, 3 intentos; uno cada 60 s (429) | `/cuenta` |

@@ -409,6 +409,12 @@ paths:
     patch:
       tags: [Usuarios]
       summary: Editar el propio perfil
+      description: |
+        Las llaves que no se mandan no se tocan. `intereses` son temáticas del catálogo
+        (`GET /api/tematicas`); una que no existe se da de alta en el catálogo si es válida (letras,
+        de 4 a 40, hasta tres palabras, sin groserías) o responde 400. Máximo 20. Una temática oculta
+        solo se conserva si ya estaba en el perfil. `interesesTexto` es lo que la persona escribió
+        sobre sus gustos (máx. 500; "" lo borra): de ahí la app saca los intereses.
       requestBody:
         required: true
         content:
@@ -421,9 +427,11 @@ paths:
                 state: { type: string }
                 city: { type: string }
                 specialty: { type: string }
-                intereses: { type: array, items: { type: string } }
+                intereses: { type: array, items: { type: string }, maxItems: 20 }
+                interesesTexto: { type: string, maxLength: 500 }
+            example: { interesesTexto: "Me gusta andar en bici y la fotografía", intereses: [Movilidad, Fotografía] }
       responses:
-        "200": { description: Perfil actualizado }
+        "200": { description: Perfil actualizado (con `intereses` ya con el nombre del catálogo) }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
@@ -1354,6 +1362,29 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
+  /api/tematicas:
+    get:
+      tags: [Usuarios]
+      summary: Catálogo de temáticas
+      description: |
+        Las temáticas que se ofrecen como intereses y como temática de campaña: las 23 base en su
+        orden y después las que salieron de los textos de los usuarios, en orden alfabético. Sin las
+        que ocultó el SuperUsuario.
+      responses:
+        "200":
+          description: Catálogo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { type: string } }
+              example: { data: [Medio ambiente, Salud urbana, Educación, Ajedrez, Fotografía] }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500":
+          description: No se pudo leer el catálogo
+          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+
   /api/push:
     get:
       tags: [Revisiones y notificaciones]
@@ -1583,6 +1614,7 @@ components:
         city: { type: string }
         specialty: { type: string }
         intereses: { type: array, items: { type: string } }
+        intereses_texto: { type: [string, "null"], description: "Lo que escribió sobre sus gustos" }
         role: { type: string, enum: [usuario, supervisor, revisor, admin] }
         xpTotal: { type: integer }
         level: { type: integer }
@@ -1599,7 +1631,7 @@ components:
         state: { type: string }
         city: { type: string }
         specialty: { type: string }
-        intereses: { type: array, items: { type: string } }
+        intereses: { type: array, items: { type: string }, description: "Solo temáticas que ya existen en el catálogo; las demás se ignoran" }
       example:
         nombre: Ana
         apellidos: Pérez López
@@ -1608,7 +1640,7 @@ components:
         state: Nayarit
         city: Tepic
         specialty: ""
-        intereses: [medio ambiente]
+        intereses: [Medio ambiente]
 
     CampaignInput:
       type: object

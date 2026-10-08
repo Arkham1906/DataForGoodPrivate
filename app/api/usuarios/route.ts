@@ -11,7 +11,8 @@ import { startVerification } from "@/lib/verification";
 import { getSessionUser } from "@/lib/session";
 import { hasRootSession } from "@/lib/rootSession";
 import { buscarUsuarios, POR_PAGINA } from "@/lib/usuarios/directorio";
-import { errorDeLargo, interesesValidos } from "@/lib/usuarios/perfil";
+import { errorDeLargo } from "@/lib/usuarios/perfil";
+import { resolverIntereses } from "@/lib/tematicas/catalogo";
 
 // POST: registro. Crea la cuenta sin verificar y envía el código por correo.
 export async function POST(request: Request) {
@@ -25,7 +26,6 @@ export async function POST(request: Request) {
     const state = String(body.state ?? "").trim();
     const city = String(body.city ?? "").trim();
     const specialty = String(body.specialty ?? "").trim();
-    const intereses = interesesValidos(body.intereses);
     // Nunca se leen roles del body: antes cualquiera podía registrarse como supervisor.
     const roles = ["usuario"];
 
@@ -54,6 +54,10 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+
+    // En el registro aún no hay cuenta: solo se aceptan temáticas que ya existen (no se crean).
+    const resueltos = await resolverIntereses(Array.isArray(body.intereses) ? body.intereses : [], null);
+    const intereses = resueltos.ok ? resueltos.intereses : [];
 
     const emailExists = await pool.query(
       `SELECT 1 FROM usuarios WHERE email = $1 LIMIT 1`,
