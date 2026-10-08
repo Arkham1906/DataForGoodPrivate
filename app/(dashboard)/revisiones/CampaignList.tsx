@@ -11,6 +11,7 @@ import Tag from "@/components/ui/Tag";
 import BarraDeFiltros, { type ValoresDeFiltros } from "@/components/campanas/BarraDeFiltros";
 import { BASE_PATH } from "@/lib/base-path";
 import { FILTROS_VACIOS, avisoSinResultados, filtrarCampanas, opcionesDeTematica, type FiltrosLocales } from "@/lib/campanas/filtro-local";
+import { EsqueletoDeFilas } from "@/components/ui/Esqueletos";
 
 type ReviewCampaign = {
   id: string;
@@ -87,7 +88,12 @@ export default function CampaignList({ completed = false }: { completed?: boolea
         {!loading && <Tag tone={completed ? "default" : "on"}>{visibleCampaigns.length}</Tag>}
       </div>
 
-      {loading ? <p className="text-[13px] text-system-600">Cargando campañas…</p> : error ? <p className="rounded border border-error-700 bg-error-50 p-3 text-sm text-error-700">{error}</p> : visibleCampaigns.length === 0 ? (
+      {loading ? (
+        <div role="status" aria-live="polite">
+          <span className="sr-only">Cargando campañas…</span>
+          <EsqueletoDeFilas cantidad={3} />
+        </div>
+      ) : error ? <p className="rounded border border-error-700 bg-error-50 p-3 text-sm text-error-700">{error}</p> : visibleCampaigns.length === 0 ? (
         <div className="rounded-lg border border-dashed border-system-300 p-6 text-sm text-system-600">
           {avisoSinResultados(tabCampaigns.length, `No tienes campañas ${completed ? "finalizadas" : "en curso"} asignadas.`)}
         </div>

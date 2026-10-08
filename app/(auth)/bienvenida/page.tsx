@@ -11,6 +11,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Button from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Input";
 import InteresesDesdeTexto from "@/components/ui/InteresesDesdeTexto";
+import Skeleton from "@/components/ui/Skeleton";
 import { ESPECIALIDADES, OTRA_ESPECIALIDAD, opcionesCon } from "@/lib/perfil-opciones";
 import { municipiosDe, NOMBRES_DE_ESTADOS } from "@/lib/mexico-geo";
 import { BASE_PATH } from "@/lib/base-path";
@@ -112,6 +113,34 @@ function BienvenidaForm() {
   async function finish() {
     await guardar({ state, city, specialty, intereses: selected, interesesTexto: textoDeIntereses });
     router.push(destinoSeguro(next));
+  }
+
+  // Mientras llega el perfil: la misma tarjeta con bloques grises, para no mostrar campos vacíos
+  // que luego cambian solos.
+  if (!user) {
+    return (
+      <div role="status" aria-live="polite" className="rounded-lg border border-system-200 bg-white p-8">
+        <span className="sr-only">Cargando tu perfil…</span>
+        <Skeleton className="h-6 w-40" />
+        <Skeleton className="mt-2 h-3 w-36" />
+        <Skeleton className="mb-4 mt-3 h-3.5 w-64 max-w-full" />
+        <div className="mb-5 flex gap-1.5">
+          {[0, 1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-1 flex-1 rounded-pill" />
+          ))}
+        </div>
+        {[0, 1].map((i) => (
+          <div key={i} className="mb-4">
+            <Skeleton className="h-3.5 w-24" />
+            <Skeleton className="mt-2 h-11 w-full" />
+          </div>
+        ))}
+        <div className="flex justify-end gap-2.5">
+          <Skeleton className="h-10 w-36 rounded-pill" />
+          <Skeleton className="h-10 w-28 rounded-pill" />
+        </div>
+      </div>
+    );
   }
 
   return (

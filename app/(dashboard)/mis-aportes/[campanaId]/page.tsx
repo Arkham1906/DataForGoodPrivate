@@ -14,6 +14,7 @@ import ProgressBar from "@/components/ui/ProgressBar";
 import Tag from "@/components/ui/Tag";
 import type { Campaign, Contribution } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
+import PantallaEsqueleto from "@/components/ui/Esqueletos";
 
 export default function CampaignContributionsPage() {
   const params = useParams<{ campanaId: string }>();
@@ -53,7 +54,7 @@ export default function CampaignContributionsPage() {
   }, [params.campanaId]);
 
   if (error) return <p className="text-sm text-error-700">{error}</p>;
-  if (!campaign) return <p className="text-sm text-system-600">Cargando...</p>;
+  if (!campaign) return <PantallaEsqueleto tipo="tabla" etiqueta="Cargando tus aportes…" />;
 
   const visible = items.filter((item) => !removedIds.includes(item.id));
   const accepted = visible.filter((item) => item.status === "aceptado");

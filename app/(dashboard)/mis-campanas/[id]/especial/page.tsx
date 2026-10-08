@@ -10,6 +10,7 @@ import Button from "@/components/ui/Button";
 import Tag from "@/components/ui/Tag";
 import type { Campaign } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
+import PantallaEsqueleto from "@/components/ui/Esqueletos";
 
 const MAX_MULTIPLIER = 3;
 
@@ -33,7 +34,7 @@ export default function CampanaEspecialPage() {
   }, [params.id]);
 
   if (!campaign) {
-    return <p className="text-sm text-system-600">Cargando campaña…</p>;
+    return <PantallaEsqueleto tipo="formulario" etiqueta="Cargando campaña…" />;
   }
 
   function handlePublish() {

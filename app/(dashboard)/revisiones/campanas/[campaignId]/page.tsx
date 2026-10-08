@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import Tag from "@/components/ui/Tag";
 import type { Campaign, Contribution } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
+import PantallaEsqueleto from "@/components/ui/Esqueletos";
 
 export default function ReviewerCampaignPage() {
   const { campaignId } = useParams<{ campaignId: string }>();
@@ -37,7 +38,7 @@ export default function ReviewerCampaignPage() {
   }, [campaignId]);
 
   if (error) return <p className="mx-auto max-w-4xl text-sm text-error-700">{error}</p>;
-  if (!campaign) return <p className="mx-auto max-w-4xl text-sm text-system-600">Cargando campaña…</p>;
+  if (!campaign) return <PantallaEsqueleto tipo="tabla" etiqueta="Cargando campaña…" className="mx-auto max-w-4xl" />;
 
   const pending = contributions.filter((item) => item.status === "pendiente");
   const accepted = contributions.filter((item) => item.status === "aceptado");

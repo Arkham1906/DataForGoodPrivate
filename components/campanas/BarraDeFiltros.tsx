@@ -2,7 +2,7 @@
 
 // Barra de filtros de campañas: búsqueda, temática, tipo de dato, vigencia (opcional) y orden.
 // Solo dibuja y avisa de los cambios; quien la usa decide qué hacer con ellos:
-// /sistema/campanas los escribe en la URL y /supervision y /supervisar filtran en el navegador.
+// /sistema/campanas los escribe en la URL y /supervision, /supervisar y /campanas filtran en el navegador.
 // Constantes de lib/campanas/sistema-opciones.ts (sin imports de servidor).
 
 import { useEffect, useId, useState } from "react";
@@ -28,6 +28,7 @@ export default function BarraDeFiltros({
   onCambiar,
   conVigencia = false,
   colapsableEnMovil = false,
+  conTematica = true,
 }: {
   valores: ValoresDeFiltros;
   tematicas: string[];
@@ -36,6 +37,8 @@ export default function BarraDeFiltros({
   conVigencia?: boolean;
   /** En móvil mantiene la búsqueda visible y coloca los controles en un panel emergente. */
   colapsableEnMovil?: boolean;
+  /** false: sin el select de temática (/campanas, donde la temática se elige con botones). */
+  conTematica?: boolean;
 }) {
   const [texto, setTexto] = useState(valores.q);
   const [panelAbierto, setPanelAbierto] = useState(false);
@@ -92,24 +95,26 @@ export default function BarraDeFiltros({
 
     return (
       <>
-        <div className="min-w-0 flex-1">
-          <label className="sr-only" htmlFor={`${idTema}-${sufijo}`}>
-            Filtrar por temática
-          </label>
-          <select
-            id={`${idTema}-${sufijo}`}
-            className={CLASE_SELECT}
-            value={filtros.tematica}
-            onChange={(e) => cambiar("tematica", e.target.value)}
-          >
-            <option value="">Temática: todas</option>
-            {tematicas.map((tema) => (
-              <option key={tema} value={tema}>
-                {tema}
-              </option>
-            ))}
-          </select>
-        </div>
+        {conTematica && (
+          <div className="min-w-0 flex-1">
+            <label className="sr-only" htmlFor={`${idTema}-${sufijo}`}>
+              Filtrar por temática
+            </label>
+            <select
+              id={`${idTema}-${sufijo}`}
+              className={CLASE_SELECT}
+              value={filtros.tematica}
+              onChange={(e) => cambiar("tematica", e.target.value)}
+            >
+              <option value="">Temática: todas</option>
+              {tematicas.map((tema) => (
+                <option key={tema} value={tema}>
+                  {tema}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div className="min-w-0 flex-1">
           <label className="sr-only" htmlFor={`${idTipo}-${sufijo}`}>
@@ -186,7 +191,7 @@ export default function BarraDeFiltros({
   }
 
   function aplicarPanel() {
-    onCambiar("tematica", filtrosBorrador.tematica);
+    if (conTematica) onCambiar("tematica", filtrosBorrador.tematica);
     onCambiar("tipo", filtrosBorrador.tipo);
     onCambiar("orden", filtrosBorrador.orden);
     if (filtrosBorrador.vigencia !== undefined) onCambiar("vigencia", filtrosBorrador.vigencia);

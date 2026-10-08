@@ -15,6 +15,7 @@ import type { Campaign } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
 import { TIPO_DE_DATO } from "@/lib/aportes/archivo";
 import CompartirCampana from "./compartir";
+import PantallaEsqueleto from "@/components/ui/Esqueletos";
 
 export default function CampaignDetailPage() {
   const params = useParams<{ id: string }>();
@@ -63,7 +64,7 @@ export default function CampaignDetailPage() {
   }
 
   if (error) return <p className="text-sm text-error-700">{error}</p>;
-  if (!campaign) return <p className="text-sm text-system-600">Cargando campaña...</p>;
+  if (!campaign) return <PantallaEsqueleto tipo="detalle" etiqueta="Cargando campaña…" />;
 
   const parseDateOnly = (date: string | null | undefined) => {
     if (!date) return null;

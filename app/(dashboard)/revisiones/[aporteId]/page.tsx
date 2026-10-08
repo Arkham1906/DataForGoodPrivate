@@ -19,6 +19,7 @@ import type { Contribution } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
 import { formatearTamano } from "@/lib/aportes/archivo";
 import { MAXIMO_MOTIVO_DE_REPORTE, MOTIVOS_DE_RECHAZO, MOTIVOS_DE_REPORTE } from "@/lib/aportes/motivos-de-rechazo";
+import PantallaEsqueleto from "@/components/ui/Esqueletos";
 
 const STATUS_LABELS: Record<string, string> = {
   pendiente: "Sin revisar",
@@ -128,7 +129,7 @@ export default function RevisionAportePage() {
   }
 
   if (!item) {
-    return <p className="mx-auto max-w-3xl text-sm text-system-600">Cargando aporte...</p>;
+    return <PantallaEsqueleto tipo="detalle" etiqueta="Cargando aporte…" className="mx-auto max-w-3xl" />;
   }
 
   const yaDecidido = item.status === "aceptado" || item.status === "rechazado";

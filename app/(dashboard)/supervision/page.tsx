@@ -11,6 +11,7 @@ import Tag from "@/components/ui/Tag";
 import BarraDeFiltros, { type ValoresDeFiltros } from "@/components/campanas/BarraDeFiltros";
 import { BASE_PATH } from "@/lib/base-path";
 import { FILTROS_VACIOS, avisoSinResultados, filtrarCampanas, opcionesDeTematica, type FiltrosLocales } from "@/lib/campanas/filtro-local";
+import PantallaEsqueleto from "@/components/ui/Esqueletos";
 
 type CampaignApiItem = {
   id: string;
@@ -302,7 +303,9 @@ export default function SupervisionPage() {
   );
 
   if (loading) {
-    return <div className="mx-auto max-w-4xl text-[13px] text-system-600 lg:mx-0 lg:max-w-none">Cargando campañas por supervisar…</div>;
+    return (
+      <PantallaEsqueleto tipo="tabla" etiqueta="Cargando campañas por supervisar…" className="mx-auto max-w-4xl lg:mx-0 lg:max-w-none" />
+    );
   }
 
   if (error) {

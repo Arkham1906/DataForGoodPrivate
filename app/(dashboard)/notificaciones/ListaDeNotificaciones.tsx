@@ -8,6 +8,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
+import MenuDeAcciones from "@/components/ui/MenuDeAcciones";
 import { BASE_PATH } from "@/lib/base-path";
 import {
   EVENTO_NOTIFICACIONES,
@@ -137,24 +138,21 @@ export default function ListaDeNotificaciones({
                       Ver
                     </button>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => void marcar(item, !item.readAt)}
-                    disabled={ocupado === item.id}
-                    className="text-system-600 hover:text-system-900 disabled:opacity-50"
-                  >
-                    {item.readAt ? "Marcar como no leída" : "Marcar como leída"}
-                  </button>
-                  {!item.invitationPending && (
-                    <button
-                      type="button"
-                      onClick={() => void borrar(item)}
-                      disabled={ocupado === item.id}
-                      className="text-error-700 hover:underline disabled:opacity-50"
-                    >
-                      Eliminar
-                    </button>
-                  )}
+                  {/* Marcar y eliminar, en "Más" (Ley de Hick, 2026-10-07): a la vista solo lo principal. */}
+                  <MenuDeAcciones
+                    discreto
+                    etiqueta={`Más acciones de «${item.title}»`}
+                    opciones={[
+                      {
+                        etiqueta: item.readAt ? "Marcar como no leída" : "Marcar como leída",
+                        alElegir: () => void marcar(item, !item.readAt),
+                        deshabilitado: ocupado === item.id,
+                      },
+                      ...(item.invitationPending
+                        ? []
+                        : [{ etiqueta: "Eliminar", alElegir: () => void borrar(item), peligro: true, deshabilitado: ocupado === item.id }]),
+                    ]}
+                  />
                 </div>
               </div>
             </li>

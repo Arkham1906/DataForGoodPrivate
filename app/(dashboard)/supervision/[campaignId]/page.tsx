@@ -12,6 +12,7 @@ import Tag from "@/components/ui/Tag";
 import { Textarea } from "@/components/ui/Input";
 import { BackLink } from "../_ui";
 import { BASE_PATH } from "@/lib/base-path";
+import PantallaEsqueleto from "@/components/ui/Esqueletos";
 
 type Campaign = {
   id: string;
@@ -140,7 +141,7 @@ export default function CampaignDetailPage() {
   }
 
   if (loading) {
-    return <div className="mx-auto max-w-4xl text-[13px] text-system-600">Cargando campaña…</div>;
+    return <PantallaEsqueleto tipo="detalle" etiqueta="Cargando campaña…" className="mx-auto max-w-4xl" />;
   }
 
   if (error || !campaign) {

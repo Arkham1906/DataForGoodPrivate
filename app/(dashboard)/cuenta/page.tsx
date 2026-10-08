@@ -6,6 +6,8 @@
 // "Eliminar cuenta" (hasta abajo) lleva a /cuenta/eliminar (baja voluntaria, SCR-WEB-31).
 // Experimental (2026-10-07): al llegar con "Ver perfil" de la barra superior, el avatar y el
 // nombre vuelan a su lugar y la pantalla se despliega (View Transitions; ver EnlaceAlPerfil.tsx).
+// Sin loading.tsx a propósito: si la pantalla mostrara un esqueleto antes, el avatar y el nombre
+// ya no volarían (no hay con qué emparejarlos). Probado el 2026-10-07: 0 de 4 con esqueleto.
 
 import { ViewTransition } from "react";
 import ButtonLink from "@/components/ui/ButtonLink";

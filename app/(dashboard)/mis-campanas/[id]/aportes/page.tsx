@@ -13,6 +13,7 @@ import ButtonLink from "@/components/ui/ButtonLink";
 import type { Campaign, Contribution } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
 import BaneadosDeCampana from "./baneados";
+import PantallaEsqueleto from "@/components/ui/Esqueletos";
 
 const STAGE_LABEL: Record<string, string> = {
   pendiente: "Sin revisar",
@@ -60,7 +61,7 @@ export default function BandejaAportesPage() {
   }, [params.id]);
 
   if (error) return <p className="text-sm text-error-700">{error}</p>;
-  if (!campaign) return <p className="text-sm text-system-600">Cargando...</p>;
+  if (!campaign) return <PantallaEsqueleto tipo="tabla" etiqueta="Cargando aportes…" />;
 
   const filtros: { id: Filtro; etiqueta: string }[] = [
     { id: "todos", etiqueta: "Todos" },

@@ -18,6 +18,7 @@ import { opcionesCon } from "@/lib/perfil-opciones";
 import { TEMAS_DE_INTERES } from "@/lib/intereses";
 import { BASE_PATH } from "@/lib/base-path";
 import { MAX_LARGO_TEXTO } from "@/lib/campanas/checklist";
+import PantallaEsqueleto from "@/components/ui/Esqueletos";
 
 /** Un checklist en edición; `clave` solo sirve como key de React. */
 type ChecklistEditable = { clave: number; titulo: string; opciones: string[]; nuevaOpcion: string };
@@ -93,7 +94,7 @@ export default function NuevaCampanaForm() {
   // editingCampaign una sola vez, al montar (ver CampanaFormulario). Si se
   // montara antes de que llegue la campaña a editar, abriría en blanco.
   if (cargando) {
-    return <p className="text-[13px] text-system-600">Cargando...</p>;
+    return <PantallaEsqueleto tipo="formulario" etiqueta="Cargando el formulario…" />;
   }
 
   return (

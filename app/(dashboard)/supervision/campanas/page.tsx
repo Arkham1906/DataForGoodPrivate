@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import Tag from "@/components/ui/Tag";
 import { BackLink } from "../_ui";
 import { BASE_PATH } from "@/lib/base-path";
+import PantallaEsqueleto from "@/components/ui/Esqueletos";
 
 type CampaignRow = {
   id: string;
@@ -50,7 +51,7 @@ export default function SupervisedCampaignsPage() {
   }, []);
 
   if (loading) {
-    return <div className="mx-auto max-w-5xl text-[13px] text-system-600">Cargando campañas supervisadas…</div>;
+    return <PantallaEsqueleto tipo="tabla" etiqueta="Cargando campañas supervisadas…" className="mx-auto max-w-5xl" />;
   }
 
   if (error) {

@@ -12,6 +12,7 @@ import MetricCard from "@/components/ui/MetricCard";
 import ProgressBar from "@/components/ui/ProgressBar";
 import type { Campaign } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
+import PantallaEsqueleto from "@/components/ui/Esqueletos";
 
 type DiaDeRecoleccion = { fecha: string; etiqueta: string; valor: number };
 type TipoDeAporte = { tipo: string; etiqueta: string; valor: number; porcentaje: number };
@@ -56,7 +57,7 @@ export default function PanelCampanaPage() {
   }, [params.id]);
 
   if (!campaign) {
-    return <p className="text-sm text-system-600">Cargando campaña…</p>;
+    return <PantallaEsqueleto tipo="tablero" etiqueta="Cargando el panel de la campaña…" />;
   }
 
   const parseDateOnly = (date: string | null | undefined) => {

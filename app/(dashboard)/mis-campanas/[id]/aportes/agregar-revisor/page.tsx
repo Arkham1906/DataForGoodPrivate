@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import Tag from "@/components/ui/Tag";
 import { BASE_PATH } from "@/lib/base-path";
+import PantallaEsqueleto from "@/components/ui/Esqueletos";
 
 type UserCandidate = {
   id: number;
@@ -100,7 +101,7 @@ export default function AgregarRevisorPage() {
   }, [query, params.id]);
 
   if (!campaign) {
-    return <p className="text-sm text-system-600">Cargando campaña…</p>;
+    return <PantallaEsqueleto tipo="formulario" etiqueta="Cargando campaña…" />;
   }
 
   const textoBuscado = query.trim();

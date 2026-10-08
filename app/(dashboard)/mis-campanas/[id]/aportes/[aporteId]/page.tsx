@@ -18,6 +18,7 @@ import type { Contribution } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
 import { formatearTamano } from "@/lib/aportes/archivo";
 import { MOTIVOS_DE_RECHAZO } from "@/lib/aportes/motivos-de-rechazo";
+import PantallaEsqueleto from "@/components/ui/Esqueletos";
 
 
 /**
@@ -73,7 +74,7 @@ export default function RevisionAportePage() {
   }, [params.aporteId, params.id]);
 
   if (loadError) return <p className="text-sm text-error-700">{loadError}</p>;
-  if (!item) return <p className="text-sm text-system-600">Cargando...</p>;
+  if (!item) return <PantallaEsqueleto tipo="detalle" etiqueta="Cargando aporte…" />;
 
   const contributionId = item.id;
 

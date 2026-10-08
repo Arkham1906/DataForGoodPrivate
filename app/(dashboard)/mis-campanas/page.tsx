@@ -5,12 +5,13 @@
 // Acción: "Finalizar" con PATCH /api/campanas/[id] { status: "finalizada" } (activa o pausada).
 
 import { useEffect, useState } from "react";
-import Button from "@/components/ui/Button";
 import ButtonLink from "@/components/ui/ButtonLink";
+import MenuDeAcciones from "@/components/ui/MenuDeAcciones";
 import Tag from "@/components/ui/Tag";
 import ProgressBar from "@/components/ui/ProgressBar";
 import type { Campaign, CampaignStatus } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
+import { EsqueletoDeTarjetas } from "@/components/ui/Esqueletos";
 
 const labels: Record<CampaignStatus, string> = {
   borrador: "Borrador",
@@ -162,7 +163,10 @@ export default function MisCampanasPage() {
       {error ? (
         <p className="rounded-lg bg-error-50 p-4 text-sm text-error-700">{error}</p>
       ) : cargando ? (
-        <p className="rounded-lg bg-system-100 p-4 text-sm text-system-600">Cargando tus campañas…</p>
+        <div role="status" aria-live="polite">
+          <span className="sr-only">Cargando tus campañas…</span>
+          <EsqueletoDeTarjetas cantidad={4} columnas={2} />
+        </div>
       ) : campaigns.length === 0 ? (
         <p className="rounded-lg bg-system-100 p-4 text-sm text-system-600">Todavía no has creado campañas.</p>
       ) : visibles.length === 0 ? (
@@ -191,21 +195,29 @@ export default function MisCampanasPage() {
                 <p className="my-2.5 font-mono text-[12px] text-system-600 max-md:text-[11px]">
                   {campaign.currentContributions} / {campaign.goalContributions} - {campaign.pendingContributions} aportes pendientes
                 </p>
-                <div className="flex flex-wrap gap-1.5 max-md:gap-1">
-                  <ButtonLink href={`/mis-campanas/${campaign.id}/aportes`} variant="primary" size="sm" className="max-md:px-2 max-md:py-1.5 max-md:text-[11px]">Revisar aportes</ButtonLink>
+                {/* Una acción principal y "Panel" a la vista; lo demás en "Más" (Ley de Hick, 2026-10-07). */}
+                <div className="flex flex-wrap items-center gap-1.5 max-md:gap-1">
+                  <ButtonLink href={`/mis-campanas/${campaign.id}/aportes`} variant="primary" size="sm" className="max-md:px-2 max-md:py-1.5 max-md:text-[11px]">
+                    Revisar aportes
+                    {campaign.pendingContributions > 0 && <span className="font-mono">({campaign.pendingContributions})</span>}
+                  </ButtonLink>
                   <ButtonLink href={`/mis-campanas/${campaign.id}/panel`} size="sm" className="max-md:px-2 max-md:py-1.5 max-md:text-[11px]">Panel</ButtonLink>
-                  <ButtonLink href={`/mis-campanas/nueva?edit=${campaign.id}`} size="sm" className="max-md:px-2 max-md:py-1.5 max-md:text-[11px]">Editar</ButtonLink>
-                  {puedeFinalizar && (
-                    <Button
-                      size="sm"
-                      variant="danger"
-                      className="max-md:px-2 max-md:py-1.5 max-md:text-[11px]"
-                      disabled={finalizandoId === campaign.id}
-                      onClick={() => finalizarCampana(campaign.id)}
-                    >
-                      {finalizandoId === campaign.id ? "Finalizando..." : "Finalizar campaña"}
-                    </Button>
-                  )}
+                  <MenuDeAcciones
+                    etiqueta={`Más acciones de ${campaign.name}`}
+                    opciones={[
+                      { etiqueta: "Editar", href: `/mis-campanas/nueva?edit=${campaign.id}` },
+                      ...(puedeFinalizar
+                        ? [
+                            {
+                              etiqueta: finalizandoId === campaign.id ? "Finalizando..." : "Finalizar campaña",
+                              alElegir: () => void finalizarCampana(campaign.id),
+                              peligro: true,
+                              deshabilitado: finalizandoId === campaign.id,
+                            },
+                          ]
+                        : []),
+                    ]}
+                  />
                 </div>
                 {finalizarError[campaign.id] && (
                   <p className="mt-2 text-[11.5px] text-error-700">{finalizarError[campaign.id]}</p>

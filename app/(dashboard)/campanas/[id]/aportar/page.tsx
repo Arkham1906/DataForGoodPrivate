@@ -12,6 +12,7 @@ import Button from "@/components/ui/Button";
 import type { Campaign } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
 import { etiquetaDeRespuesta } from "@/lib/campanas/checklist";
+import PantallaEsqueleto from "@/components/ui/Esqueletos";
 
 export default function AportarPage() {
   const params = useParams<{ id: string }>();
@@ -56,7 +57,7 @@ export default function AportarPage() {
   }, [params.id]);
 
   if (loadError) return <p className="text-sm text-error-700">{loadError}</p>;
-  if (!campaign) return <p className="text-sm text-system-600">Cargando campaña...</p>;
+  if (!campaign) return <PantallaEsqueleto tipo="formulario" etiqueta="Cargando campaña…" />;
   if (isCreator) return <p className="rounded-lg bg-system-100 p-4 text-sm text-system-600">No puedes aportar en una campaña que creaste.</p>;
   // El servidor también lo rechaza (POST /api/aportes); esto evita llenar el formulario en balde.
   if (baneado) {
