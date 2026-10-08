@@ -70,12 +70,12 @@ export default async function PanelDeCampanaSistemaPage({ params }: { params: Pr
 
       <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-extrabold text-ink">{c.nombre}</h1>
-          <p className="mt-1 font-mono text-[13px] text-ink-2">
+          <h1 className="text-xl font-extrabold text-system-900">{c.nombre}</h1>
+          <p className="mt-1 font-mono text-[13px] text-system-600">
             {c.fechaInicio ? formatearFechaCampana(c.fechaInicio) : "sin inicio"} –{" "}
             {c.fechaFin ? formatearFechaCampana(c.fechaFin) : "sin cierre"} · {et.texto.toLowerCase()}
           </p>
-          <p className="mt-1 text-[12.5px] text-ink-3">
+          <p className="mt-1 text-[12.5px] text-system-400">
             {cabecera.tematica || "Sin temática"} · creada por {cabecera.creador || "—"} · supervisa: {cabecera.supervisadaPor}
           </p>
         </div>
@@ -107,7 +107,7 @@ export default async function PanelDeCampanaSistemaPage({ params }: { params: Pr
       </div>
 
       <TituloDeSeccion>Recolección diaria · últimos 14 días</TituloDeSeccion>
-      <div className="mb-6 rounded-lg border border-line bg-surface p-4 shadow-sm">
+      <div className="mb-6 rounded-lg border border-system-200 bg-white p-4 shadow-sm">
         <GraficaDeColumnas
           columnas={c.recoleccionDiaria.map((d) => ({ etiqueta: d.etiqueta, valor: d.valor }))}
           descripcion={`Aportes recibidos por día en ${c.nombre}, últimos 14 días`}
@@ -118,7 +118,7 @@ export default async function PanelDeCampanaSistemaPage({ params }: { params: Pr
         <section>
           <TituloDeSeccion>{finalizada ? "Resultado por tipo de dato" : "Por tipo de dato"} · aprobados</TituloDeSeccion>
           {c.porTipo.length === 0 || c.metricas.aprobados === 0 ? (
-            <p className="text-[12.5px] text-ink-2">Todavía no hay aportes aprobados.</p>
+            <p className="text-[12.5px] text-system-600">Todavía no hay aportes aprobados.</p>
           ) : (
             <Reparto
               filas={c.porTipo.map((t) => ({ etiqueta: t.etiqueta, valor: t.valor }))}
@@ -134,7 +134,7 @@ export default async function PanelDeCampanaSistemaPage({ params }: { params: Pr
           <div role="img" aria-label={`${c.porcentajeMeta}% de la meta: ${c.metricas.recibidos} de ${c.meta} aportes`}>
             <ProgressBar pct={c.porcentajeMeta} tone="ok" />
           </div>
-          <div className="mb-1 mt-2 flex justify-between font-mono text-[12px] text-ink-3">
+          <div className="mb-1 mt-2 flex justify-between font-mono text-[12px] text-system-400">
             <span>
               {formatearNumero(c.metricas.recibidos)} de {formatearNumero(c.meta)} aportes
             </span>
@@ -148,12 +148,12 @@ export default async function PanelDeCampanaSistemaPage({ params }: { params: Pr
                   : "sin fecha de cierre"}
             </span>
           </div>
-          <p className="mb-3.5 text-[11.5px] text-ink-3">
+          <p className="mb-3.5 text-[11.5px] text-system-400">
             {formatearNumero(c.metricas.aprobados)} aprobados · {formatearNumero(c.metricas.pendientes)} pendientes ·{" "}
             {formatearNumero(c.metricas.rechazados)} rechazados
           </p>
           <Tarjeta tenue>
-            <p className="text-[12px] leading-relaxed text-ink-2">{proyeccion}</p>
+            <p className="text-[12px] leading-relaxed text-system-600">{proyeccion}</p>
           </Tarjeta>
         </section>
       </div>

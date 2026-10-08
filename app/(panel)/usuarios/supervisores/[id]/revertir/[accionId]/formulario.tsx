@@ -61,7 +61,7 @@ export default function FormularioDeReversion({
           id={idCausal}
           value={causal}
           onChange={(e) => setCausal(e.target.value)}
-          className="w-full rounded border border-line-2 bg-surface px-3.5 py-3 text-sm text-ink outline-none transition-colors focus:border-accent"
+          className="w-full rounded border border-system-300 bg-white px-3.5 py-3 text-sm text-system-900 outline-none transition-colors focus:border-brand-600"
         >
           <option value="">Selecciona una causal</option>
           {CAUSALES.map((c) => (
@@ -93,7 +93,7 @@ export default function FormularioDeReversion({
             onChange={(e) => setNotificar(e.target.checked)}
             className="mt-0.5"
           />
-          <span className="text-[12.5px] text-ink-2">{notificable}</span>
+          <span className="text-[12.5px] text-system-600">{notificable}</span>
         </label>
       ) : null}
 
@@ -104,13 +104,13 @@ export default function FormularioDeReversion({
           onChange={(e) => setObservacion(e.target.checked)}
           className="mt-0.5"
         />
-        <span className="text-[12.5px] text-ink-2">
+        <span className="text-[12.5px] text-system-600">
           Registrar una observación en el expediente de {supervisor}
         </span>
       </label>
 
       {error ? (
-        <p role="alert" className="mb-3 text-[12.5px] text-danger">
+        <p role="alert" className="mb-3 text-[12.5px] text-error-700">
           {error}
         </p>
       ) : null}
@@ -135,7 +135,7 @@ export default function FormularioDeReversion({
           {pendiente ? "Revirtiendo…" : "Revertir acción"}
         </Button>
       </div>
-      <p className="mt-2 text-right text-[11.5px] text-ink-3">
+      <p className="mt-2 text-right text-[11.5px] text-system-400">
         Queda asentado en el historial del supervisor y en el tuyo
       </p>
     </div>

@@ -52,8 +52,8 @@ export default function CampaignContributionsPage() {
     void load();
   }, [params.campanaId]);
 
-  if (error) return <p className="text-sm text-danger">{error}</p>;
-  if (!campaign) return <p className="text-sm text-ink-2">Cargando...</p>;
+  if (error) return <p className="text-sm text-error-700">{error}</p>;
+  if (!campaign) return <p className="text-sm text-system-600">Cargando...</p>;
 
   const visible = items.filter((item) => !removedIds.includes(item.id));
   const accepted = visible.filter((item) => item.status === "aceptado");
@@ -94,15 +94,15 @@ export default function CampaignContributionsPage() {
     <div className="mx-auto max-w-3xl">
       <Link
         href="/mis-aportes"
-        className="mb-4 inline-block text-[13px] text-ink-2 hover:text-ink"
+        className="mb-4 inline-block text-[13px] text-system-600 hover:text-system-900"
       >
         ← Volver a mis aportes
       </Link>
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-extrabold text-ink">{campaign.name}</h1>
-          <p className="text-[13px] text-ink-2">{campaign.tag} · campaña {isActive ? "activa" : "finalizada"}</p>
+          <h1 className="text-xl font-extrabold text-system-900">{campaign.name}</h1>
+          <p className="text-[13px] text-system-600">{campaign.tag} · campaña {isActive ? "activa" : "finalizada"}</p>
         </div>
         <div className="flex gap-2">
           <Link href={`/campanas/${campaign.id}`}><Button size="sm">Ver campaña</Button></Link>
@@ -110,21 +110,21 @@ export default function CampaignContributionsPage() {
         </div>
       </div>
 
-      <div className="mb-6 rounded-lg border border-line bg-surface p-4">
-        <div className="mb-2 flex items-center justify-between gap-4 text-[13px] font-semibold text-ink">
+      <div className="mb-6 rounded-lg border border-system-200 bg-white p-4">
+        <div className="mb-2 flex items-center justify-between gap-4 text-[13px] font-semibold text-system-900">
           <span>Tu cuota en esta campaña</span><span className="font-mono">{visible.length} de {campaign.quotaPerUser} aportes</span>
         </div>
         <ProgressBar pct={progress} />
         <div className="mt-3 grid grid-cols-3 gap-3">
-          <div><p className="font-mono text-[15px] font-bold text-ok">{accepted.length}</p><p className="text-[11px] text-ink-3">aceptados · {accepted.length * campaign.xpPerContribution} XP</p></div>
-          <div><p className="font-mono text-[15px] font-bold text-warn">{pending.length}</p><p className="text-[11px] text-ink-3">en revisión</p></div>
-          <div><p className="font-mono text-[15px] font-bold text-ink">{Math.max(campaign.quotaPerUser - visible.length, 0)}</p><p className="text-[11px] text-ink-3">disponibles</p></div>
+          <div><p className="font-mono text-[15px] font-bold text-success-700">{accepted.length}</p><p className="text-[11px] text-system-400">aceptados · {accepted.length * campaign.xpPerContribution} XP</p></div>
+          <div><p className="font-mono text-[15px] font-bold text-warning-800">{pending.length}</p><p className="text-[11px] text-system-400">en revisión</p></div>
+          <div><p className="font-mono text-[15px] font-bold text-system-900">{Math.max(campaign.quotaPerUser - visible.length, 0)}</p><p className="text-[11px] text-system-400">disponibles</p></div>
         </div>
       </div>
 
-      <p className="mb-2 text-[12.5px] font-semibold text-ink">Filtrar historial</p>
+      <p className="mb-2 text-[12.5px] font-semibold text-system-900">Filtrar historial</p>
       <div className="mb-5 flex flex-wrap gap-2">
-        <select className="rounded border border-line-2 bg-surface px-3 py-2 text-[13px] text-ink" aria-label="Filtrar por estado" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+        <select className="rounded border border-system-300 bg-white px-3 py-2 text-[13px] text-system-900" aria-label="Filtrar por estado" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
           <option value="todos">Todos los estados</option>
           <option value="aceptados">Aceptados</option>
           <option value="revision">En revisión</option>
@@ -135,32 +135,32 @@ export default function CampaignContributionsPage() {
 
       <div className="mb-4 flex flex-wrap gap-2">
         {[{ id: "todos", label: "Todos", count: visible.length }, { id: "aceptados", label: "Aceptados", count: accepted.length }, { id: "revision", label: "En revisión", count: pending.length }, { id: "rechazados", label: "Rechazados", count: rejected.length }].map((filter) => (
-          <button key={filter.id} type="button" onClick={() => setStatusFilter(filter.id)} className={`rounded-pill border px-3 py-1.5 text-[12.5px] font-semibold ${statusFilter === filter.id ? "border-accent bg-accent text-white" : "border-line-2 bg-surface text-ink-2"}`}>
+          <button key={filter.id} type="button" onClick={() => setStatusFilter(filter.id)} className={`rounded-pill border px-3 py-1.5 text-[12.5px] font-semibold ${statusFilter === filter.id ? "border-brand-600 bg-brand-600 text-white" : "border-system-300 bg-white text-system-600"}`}>
             {filter.label} <span className="ml-1 font-mono">{filter.count}</span>
           </button>
         ))}
       </div>
 
       {filteredItems.length === 0 ? (
-        <p className="text-sm text-ink-2">Aún no has enviado aportes a esta campaña.</p>
+        <p className="text-sm text-system-600">Aún no has enviado aportes a esta campaña.</p>
       ) : (
         <div className="flex flex-col gap-3">
           {filteredItems.map((item) => (
             <div key={item.id}>
               <ContributionCard contribution={item} />
               {item.status !== "aceptado" && (
-                <div className="-mt-2 rounded-b-lg border border-t-0 border-warn bg-warn-tint px-4 pb-3 pt-4">
-                  <button type="button" className="text-[12px] font-bold text-danger underline disabled:cursor-not-allowed disabled:opacity-50" disabled={deletingId === item.id} onClick={() => void deleteContribution(item.id)}>
+                <div className="-mt-2 rounded-b-lg border border-t-0 border-warning-500 bg-warning-50 px-4 pb-3 pt-4">
+                  <button type="button" className="text-[12px] font-bold text-error-700 underline disabled:cursor-not-allowed disabled:opacity-50" disabled={deletingId === item.id} onClick={() => void deleteContribution(item.id)}>
                     {deletingId === item.id ? "Eliminando..." : "Eliminar aporte"}
                   </button>
-                  <span className="ml-3 text-[11.5px] text-ink-2">Al eliminarlo desaparece del historial y recuperas el cupo en tu cuota.</span>
+                  <span className="ml-3 text-[11.5px] text-system-600">Al eliminarlo desaparece del historial y recuperas el cupo en tu cuota.</span>
                 </div>
               )}
             </div>
           ))}
         </div>
       )}
-      <div className="mt-5 flex items-center gap-2 rounded-lg border border-line bg-surface p-3 text-[12px] text-ink-2">
+      <div className="mt-5 flex items-center gap-2 rounded-lg border border-system-200 bg-white p-3 text-[12px] text-system-600">
         <Tag>{isActive ? "Consulta" : "Solo lectura"}</Tag>
         <span>{isActive ? "Para enviar contenido nuevo usa Añadir aporte." : "La campaña finalizó: ya no puedes añadir ni eliminar aportes."}</span>
       </div>

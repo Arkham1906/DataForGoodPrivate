@@ -24,7 +24,7 @@ export default async function PanelLayout({ children }: { children: ReactNode })
   }
 
   return (
-    <div className="min-h-screen bg-paper">
+    <div className="min-h-screen bg-system-50">
       <Topbar identificador={process.env.ROOT_USER_ID ?? "raíz"} />
       <div className="dashboard-shell flex">
         <Sidebar />

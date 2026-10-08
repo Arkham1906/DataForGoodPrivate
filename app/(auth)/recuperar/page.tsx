@@ -99,10 +99,10 @@ function RecuperarForm() {
 
   if (paso === "correo") {
     return (
-      <div className="rounded-lg border border-line bg-surface p-8">
+      <div className="rounded-lg border border-system-200 bg-white p-8">
         <div className="mb-6 text-center">
-          <h1 className="text-xl font-extrabold text-ink">Recupera tu contraseña</h1>
-          <p className="mt-1 text-[13px] text-ink-2">
+          <h1 className="text-xl font-extrabold text-system-900">Recupera tu contraseña</h1>
+          <p className="mt-1 text-[13px] text-system-600">
             Escribe el correo de tu cuenta y te enviaremos un código para elegir una contraseña nueva.
           </p>
         </div>
@@ -124,7 +124,7 @@ function RecuperarForm() {
               placeholder="nombre@correo.com"
               required
             />
-            {error && <p className="mt-1.5 text-[12px] text-danger">{error}</p>}
+            {error && <p className="mt-1.5 text-[12px] text-error-700">{error}</p>}
           </Field>
 
           <Button variant="primary" type="submit" className="w-full" disabled={enviando}>
@@ -132,9 +132,9 @@ function RecuperarForm() {
           </Button>
         </form>
 
-        <p className="mt-6 text-center text-[13px] text-ink-2">
+        <p className="mt-6 text-center text-[13px] text-system-600">
           ¿La recordaste?{" "}
-          <Link href={conDestino("/entrar", next)} className="font-medium text-accent hover:underline">
+          <Link href={conDestino("/entrar", next)} className="font-medium text-brand-600 hover:underline">
             Volver a entrar
           </Link>
         </p>
@@ -143,18 +143,18 @@ function RecuperarForm() {
   }
 
   return (
-    <div className="rounded-lg border border-line bg-surface p-8">
+    <div className="rounded-lg border border-system-200 bg-white p-8">
       <div className="mb-5 text-center">
-        <h1 className="text-xl font-extrabold text-ink">Elige una contraseña nueva</h1>
-        <p className="mt-2 text-[13px] text-ink-2">
-          Si <span className="font-medium text-ink">{email}</span> tiene una cuenta, le enviamos un código de 6
+        <h1 className="text-xl font-extrabold text-system-900">Elige una contraseña nueva</h1>
+        <p className="mt-2 text-[13px] text-system-600">
+          Si <span className="font-medium text-system-900">{email}</span> tiene una cuenta, le enviamos un código de 6
           dígitos. Expira en {MINUTOS_DE_VIGENCIA} minutos y tienes {INTENTOS_POR_CODIGO} intentos.
         </p>
       </div>
 
       <form onSubmit={cambiarContrasena} className="flex flex-col">
         <div className="mb-4">
-          <p className="mb-2 text-[13px] font-medium text-ink">Código</p>
+          <p className="mb-2 text-[13px] font-medium text-system-900">Código</p>
           <CodigoDeSeisDigitos valor={codigo} onCambiar={setCodigo} deshabilitado={enviando} autoFocus />
         </div>
 
@@ -175,7 +175,7 @@ function RecuperarForm() {
             onChange={(e) => setConfirmar(e.target.value)}
             placeholder="••••••••"
             required
-            className={confirmar.length > 0 && !coinciden ? "border-danger" : ""}
+            className={confirmar.length > 0 && !coinciden ? "border-error-700" : ""}
           />
         </Field>
 
@@ -183,19 +183,19 @@ function RecuperarForm() {
           {REGLAS_DE_CONTRASENA.map((regla) => {
             const cumple = regla.test(nueva);
             return (
-              <li key={regla.label} className={`text-[12.5px] ${cumple ? "text-ok" : "text-ink-3"}`}>
+              <li key={regla.label} className={`text-[12.5px] ${cumple ? "text-success-700" : "text-system-400"}`}>
                 {cumple ? "✓" : "·"} {regla.label}
               </li>
             );
           })}
         </ul>
 
-        <div className="mb-5 rounded-lg bg-sunken p-3.5 text-[12.5px] leading-relaxed text-ink-2">
+        <div className="mb-5 rounded-lg bg-system-100 p-3.5 text-[12.5px] leading-relaxed text-system-600">
           Al cambiarla se cerrará tu sesión en todos los dispositivos y tendrás que volver a activar los avisos en
           tu teléfono.
         </div>
 
-        {error && <p className="mb-3 text-[12px] text-danger">{error}</p>}
+        {error && <p className="mb-3 text-[12px] text-error-700">{error}</p>}
 
         <Button variant="primary" type="submit" className="w-full" disabled={!puedeCambiar || enviando}>
           {enviando ? "Guardando..." : "Cambiar contraseña"}
@@ -211,7 +211,7 @@ function RecuperarForm() {
         </Button>
       </form>
 
-      <p className="mt-5 text-center text-[12px] text-ink-3">
+      <p className="mt-5 text-center text-[12px] text-system-400">
         Si no lo encuentras, revisa la carpeta de correo no deseado.{" "}
         <button
           type="button"
@@ -219,7 +219,7 @@ function RecuperarForm() {
             setPaso("correo");
             setError("");
           }}
-          className="font-medium text-accent hover:underline"
+          className="font-medium text-brand-600 hover:underline"
         >
           Usar otro correo
         </button>

@@ -100,7 +100,7 @@ export default function AgregarRevisorPage() {
   }, [query, params.id]);
 
   if (!campaign) {
-    return <p className="text-sm text-ink-2">Cargando campaña…</p>;
+    return <p className="text-sm text-system-600">Cargando campaña…</p>;
   }
 
   const textoBuscado = query.trim();
@@ -127,15 +127,15 @@ export default function AgregarRevisorPage() {
     <div className="mx-auto max-w-3xl">
       <Link
         href={`/mis-campanas/${params.id}/aportes`}
-        className="mb-4 inline-block text-[13px] text-ink-2 hover:text-ink"
+        className="mb-4 inline-block text-[13px] text-system-600 hover:text-system-900"
       >
         ← Volver a aportes
       </Link>
 
       <div className="mb-5 flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-extrabold text-ink">Agregar revisor</h1>
-          <p className="mt-1 text-[13px] text-ink-2">{campaign.name}</p>
+          <h1 className="text-xl font-extrabold text-system-900">Agregar revisor</h1>
+          <p className="mt-1 text-[13px] text-system-600">{campaign.name}</p>
         </div>
         <Input
           placeholder="Nombre o correo completo"
@@ -149,26 +149,26 @@ export default function AgregarRevisorPage() {
       </div>
 
       {invitedName && (
-        <div className="mb-5 rounded-lg border-l-4 border-accent bg-sunken p-3.5 text-[12.5px] text-ink-2">
+        <div className="mb-5 rounded-lg border-l-4 border-brand-600 bg-system-100 p-3.5 text-[12.5px] text-system-600">
           Invitaste a {invitedName} como revisor de aportes. Queda pendiente hasta que la acepte.
         </div>
       )}
 
-      {error && <p className="mb-4 rounded border border-danger bg-danger-tint p-3 text-[12.5px] text-danger">{error}</p>}
+      {error && <p className="mb-4 rounded border border-error-700 bg-error-50 p-3 text-[12.5px] text-error-700">{error}</p>}
 
       {!busquedaSuficiente ? (
-        <p className="mb-4 rounded-lg bg-sunken p-3.5 text-[12.5px] text-ink-2">
+        <p className="mb-4 rounded-lg bg-system-100 p-3.5 text-[12.5px] text-system-600">
           Escribe al menos {MINIMO_BUSQUEDA} letras del nombre, o el correo completo de la persona que quieres invitar.
         </p>
       ) : !buscando && users.length === 0 ? (
-        <p className="mb-4 rounded-lg border border-dashed border-line-2 bg-surface p-6 text-center text-[12.5px] text-ink-2">
+        <p className="mb-4 rounded-lg border border-dashed border-system-300 bg-white p-6 text-center text-[12.5px] text-system-600">
           No encontramos usuarios verificados con “{textoBuscado}”.
         </p>
       ) : null}
 
-      <div className="overflow-hidden rounded-lg border border-line">
+      <div className="overflow-hidden rounded-lg border border-system-200">
         <table className="w-full text-left text-[13px]">
-          <thead className="bg-sunken text-[11px] uppercase tracking-wide text-ink-3">
+          <thead className="bg-system-100 text-[11px] uppercase tracking-wide text-system-400">
             <tr>
               <th className="px-3 py-2.5">Usuario</th>
               <th className="px-3 py-2.5">Rol actual</th>
@@ -193,10 +193,10 @@ export default function AgregarRevisorPage() {
                   : "Usuario común";
 
               return (
-                <tr key={candidate.id} className="border-t border-line">
+                <tr key={candidate.id} className="border-t border-system-200">
                   <td className="px-3 py-3">
-                    <p className="font-medium text-ink">{`${candidate.nombre} ${candidate.apellidos}`.trim()}</p>
-                    <p className="font-mono text-[11.5px] text-ink-3">{candidate.emailOculto}</p>
+                    <p className="font-medium text-system-900">{`${candidate.nombre} ${candidate.apellidos}`.trim()}</p>
+                    <p className="font-mono text-[11.5px] text-system-400">{candidate.emailOculto}</p>
                   </td>
                   <td className="px-3 py-3">
                     <Tag tone={isInvited ? "warn" : yaAceptado ? "ok" : "default"}>
@@ -219,7 +219,7 @@ export default function AgregarRevisorPage() {
         </table>
       </div>
 
-      <p className="mt-4 text-[12.5px] text-ink-2">
+      <p className="mt-4 text-[12.5px] text-system-600">
         La persona invitada recibe una notificación; el rol de Revisor de aportes se
         aplica solo dentro de esta campaña.
       </p>

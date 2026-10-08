@@ -55,13 +55,13 @@ export default function AportarPage() {
     void loadCampaign();
   }, [params.id]);
 
-  if (loadError) return <p className="text-sm text-danger">{loadError}</p>;
-  if (!campaign) return <p className="text-sm text-ink-2">Cargando campaña...</p>;
-  if (isCreator) return <p className="rounded-lg bg-sunken p-4 text-sm text-ink-2">No puedes aportar en una campaña que creaste.</p>;
+  if (loadError) return <p className="text-sm text-error-700">{loadError}</p>;
+  if (!campaign) return <p className="text-sm text-system-600">Cargando campaña...</p>;
+  if (isCreator) return <p className="rounded-lg bg-system-100 p-4 text-sm text-system-600">No puedes aportar en una campaña que creaste.</p>;
   // El servidor también lo rechaza (POST /api/aportes); esto evita llenar el formulario en balde.
   if (baneado) {
     return (
-      <p className="rounded-lg bg-danger-tint p-4 text-sm text-danger">
+      <p className="rounded-lg bg-error-50 p-4 text-sm text-error-700">
         Quien creó esta campaña te retiró la posibilidad de aportar en ella.
         {motivoDeBaneo && <span className="mt-1 block font-semibold">Motivo: {motivoDeBaneo}</span>}
       </p>
@@ -133,31 +133,31 @@ export default function AportarPage() {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <h1 className="text-xl font-extrabold text-ink">Nuevo aporte</h1>
-      <p className="mb-6 text-[13px] text-ink-2">
+      <h1 className="text-xl font-extrabold text-system-900">Nuevo aporte</h1>
+      <p className="mb-6 text-[13px] text-system-600">
         {campaign.name} · aporte {Math.min(submittedCount + 1, campaign.quotaPerUser)}{" "}
         de tu cuota de {campaign.quotaPerUser}
       </p>
 
-      {quotaReached && <p className="mb-5 rounded-lg border border-ok bg-ok-tint p-3 text-[13px] text-ok">Alcanzaste tu cuota en esta campaña. La campaña sigue abierta para otras personas, pero ya no puedes enviar más aportes.</p>}
+      {quotaReached && <p className="mb-5 rounded-lg border border-success-700 bg-success-50 p-3 text-[13px] text-success-700">Alcanzaste tu cuota en esta campaña. La campaña sigue abierta para otras personas, pero ya no puedes enviar más aportes.</p>}
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6 sm:grid-cols-2">
         <div>
-          <p className="mb-1.5 text-[13px] font-medium text-ink">
-            Archivo <span className="text-danger">*</span>
+          <p className="mb-1.5 text-[13px] font-medium text-system-900">
+            Archivo <span className="text-error-700">*</span>
           </p>
-          <label className="flex cursor-pointer flex-col items-center gap-1 rounded-lg border border-dashed border-line-2 bg-sunken p-6 text-center text-[13px] text-ink-2 hover:border-accent">
+          <label className="flex cursor-pointer flex-col items-center gap-1 rounded-lg border border-dashed border-system-300 bg-system-100 p-6 text-center text-[13px] text-system-600 hover:border-brand-600">
             <input type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" className="hidden" onChange={handleFileChange} />
             {file ? (
-              <span className="font-medium text-ink">{file.name}</span>
+              <span className="font-medium text-system-900">{file.name}</span>
             ) : (
               <>
-                <span className="font-medium text-ink">Arrastra una imagen o haz clic para buscarla</span>
+                <span className="font-medium text-system-900">Arrastra una imagen o haz clic para buscarla</span>
                 <span className="font-mono text-[11px]">.jpg .jpeg .png · máximo 10 MB</span>
               </>
             )}
           </label>
-          {fileError && <p className="mt-2 rounded border border-danger bg-danger-tint p-2 text-[12px] text-danger">{fileError}</p>}
+          {fileError && <p className="mt-2 rounded border border-error-700 bg-error-50 p-2 text-[12px] text-error-700">{fileError}</p>}
         </div>
 
         <div>
@@ -171,20 +171,20 @@ export default function AportarPage() {
               required
             />
           </Field>
-          <p className="mb-4 text-right text-[11px] font-mono text-ink-3">
+          <p className="mb-4 text-right text-[11px] font-mono text-system-400">
             {description.length} / 1000
           </p>
 
           {checklists.map((checklist, i) => (
-            <fieldset key={checklist.titulo || i} className="mb-4 rounded-lg border border-line bg-surface p-3.5">
-              <legend className="px-1 text-[13px] font-medium text-ink">
+            <fieldset key={checklist.titulo || i} className="mb-4 rounded-lg border border-system-200 bg-white p-3.5">
+              <legend className="px-1 text-[13px] font-medium text-system-900">
                 {checklist.titulo || "Marca lo que aplique"}
               </legend>
               {checklist.opciones.map((opcion) => {
                 // Se guarda como "Título: opción" para saber a qué checklist pertenece.
                 const valor = etiquetaDeRespuesta(checklist.titulo, opcion);
                 return (
-                  <label key={opcion} className="mb-2 flex items-center gap-2 text-[12.5px] text-ink-2 last:mb-0">
+                  <label key={opcion} className="mb-2 flex items-center gap-2 text-[12.5px] text-system-600 last:mb-0">
                     <input
                       type="checkbox"
                       checked={caracteristicas.includes(valor)}
@@ -197,12 +197,12 @@ export default function AportarPage() {
             </fieldset>
           ))}
 
-          {submitError && <p className="mb-3 rounded border border-danger bg-danger-tint p-2 text-[12px] text-danger">{submitError}</p>}
+          {submitError && <p className="mb-3 rounded border border-error-700 bg-error-50 p-2 text-[12px] text-error-700">{submitError}</p>}
 
           <Button variant="primary" type="submit" className="w-full" disabled={!canSubmit}>
             {submitting ? "Enviando..." : "Enviar aporte"}
           </Button>
-          <p className="mt-2 text-center text-[11.5px] text-ink-3">
+          <p className="mt-2 text-center text-[11.5px] text-system-400">
             Quedará pendiente de revisión
           </p>
         </div>

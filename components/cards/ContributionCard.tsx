@@ -27,15 +27,15 @@ export default function ContributionCard({ contribution }: { contribution: Contr
   return (
     <Card className="flex items-start justify-between gap-4">
       <div className="min-w-0">
-        <p className="text-[14px] font-bold text-ink">{contribution.campaignName}</p>
-        <p className="mt-1 text-[13px] text-ink-2">{contribution.description}</p>
-        <div className="mt-2 flex gap-4 text-[11.5px] text-ink-3">
+        <p className="text-[14px] font-bold text-system-900">{contribution.campaignName}</p>
+        <p className="mt-1 text-[13px] text-system-600">{contribution.description}</p>
+        <div className="mt-2 flex gap-4 text-[11.5px] text-system-400">
           <span>{formatDateTime(contribution.submittedAt)}</span>
           <span>{contribution.fileType}</span>
           <span>{formatearTamano(contribution.fileSizeBytes)}</span>
         </div>
         {contribution.status === "rechazado" && contribution.rejectionReason && (
-          <p className="mt-2 rounded border border-danger bg-danger-tint px-3 py-2 text-[12px] text-ink">
+          <p className="mt-2 rounded border border-error-700 bg-error-50 px-3 py-2 text-[12px] text-system-900">
             <span className="font-semibold">Motivo del rechazo:</span> {contribution.rejectionReason}
           </p>
         )}

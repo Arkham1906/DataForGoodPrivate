@@ -18,7 +18,7 @@ export default async function DashboardLayout({
   const usuario = await exigirUsuario();
 
   return (
-    <div className="min-h-screen bg-paper">
+    <div className="min-h-screen bg-system-50">
       <VigilanteDeSesion />
       <TopBar usuario={usuario} />
       <div className="dashboard-shell flex">

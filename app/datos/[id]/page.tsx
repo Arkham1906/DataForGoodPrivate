@@ -40,24 +40,24 @@ export default async function ConjuntoAbiertoPage({
   if (!conjunto) notFound();
 
   return (
-    <div className="min-h-screen bg-paper">
+    <div className="min-h-screen bg-system-50">
       <PublicHeader />
 
       <main className="mx-auto max-w-3xl px-6 pb-24 pt-14">
-        <Link href="/datos" className="text-[12.5px] font-medium text-accent hover:underline">
+        <Link href="/datos" className="text-[12.5px] font-medium text-brand-600 hover:underline">
           ← Volver al catálogo
         </Link>
 
         <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-[28px] font-extrabold leading-tight tracking-tight text-ink">
+            <h1 className="text-[28px] font-extrabold leading-tight tracking-tight text-system-900">
               {conjunto.name}
             </h1>
             {conjunto.verified && <Tag tone="ok">Verificado</Tag>}
           </div>
           <Tag tone="ok">{nf.format(conjunto.approvedContributions)} aportes aprobados</Tag>
         </div>
-        <p className="mt-2 text-[13.5px] text-ink-2">
+        <p className="mt-2 text-[13.5px] text-system-600">
           {conjunto.organizer || "Sin organización"}
           {conjunto.closedAt
             ? ` · cerró el ${new Date(conjunto.closedAt).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" })}`
@@ -65,7 +65,7 @@ export default async function ConjuntoAbiertoPage({
         </p>
 
         {conjunto.description && (
-          <p className="mt-5 max-w-2xl text-[14.5px] leading-relaxed text-ink-2">
+          <p className="mt-5 max-w-2xl text-[14.5px] leading-relaxed text-system-600">
             {conjunto.description}
           </p>
         )}
@@ -80,41 +80,41 @@ export default async function ConjuntoAbiertoPage({
 
         <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Card>
-            <p className="text-[11px] text-ink-2">Tamaño</p>
-            <p className="font-mono text-[15px] font-bold text-ink">{conjunto.sizeLabel}</p>
+            <p className="text-[11px] text-system-600">Tamaño</p>
+            <p className="font-mono text-[15px] font-bold text-system-900">{conjunto.sizeLabel}</p>
           </Card>
           <Card>
-            <p className="text-[11px] text-ink-2">Descargas</p>
-            <p className="font-mono text-[15px] font-bold text-ink">{nf.format(conjunto.downloads)}</p>
+            <p className="text-[11px] text-system-600">Descargas</p>
+            <p className="font-mono text-[15px] font-bold text-system-900">{nf.format(conjunto.downloads)}</p>
           </Card>
           <Card>
-            <p className="text-[11px] text-ink-2">Calidad</p>
-            <p className="font-mono text-[15px] font-bold text-ink">
+            <p className="text-[11px] text-system-600">Calidad</p>
+            <p className="font-mono text-[15px] font-bold text-system-900">
               {conjunto.quality != null ? `${conjunto.quality.toFixed(1)}/10` : "—"}
             </p>
           </Card>
           <Card>
-            <p className="text-[11px] text-ink-2">Formatos</p>
-            <p className="font-mono text-[15px] font-bold text-ink">{conjunto.formats.length || "—"}</p>
+            <p className="text-[11px] text-system-600">Formatos</p>
+            <p className="font-mono text-[15px] font-bold text-system-900">{conjunto.formats.length || "—"}</p>
           </Card>
         </div>
 
         <Card className="mt-4">
-          <p className="mb-3 text-[13px] font-semibold text-ink">Tipos de dato incluidos</p>
+          <p className="mb-3 text-[13px] font-semibold text-system-900">Tipos de dato incluidos</p>
           <div className="flex flex-wrap gap-1.5">
             {conjunto.dataTypes.length > 0 ? (
               conjunto.dataTypes.map((dt) => <Tag key={dt}>{DATA_TYPE_LABELS[dt] ?? dt}</Tag>)
             ) : (
-              <p className="text-[12.5px] text-ink-3">Sin especificar</p>
+              <p className="text-[12.5px] text-system-400">Sin especificar</p>
             )}
           </div>
         </Card>
 
-        <Card className="mt-4 bg-sunken">
-          <p className="text-[13px] font-semibold text-ink">Descarga del conjunto</p>
+        <Card className="mt-4 bg-system-100">
+          <p className="text-[13px] font-semibold text-system-900">Descarga del conjunto</p>
           {conjunto.approvedContributions > 0 ? (
             <>
-              <p className="mt-1.5 text-[12.5px] leading-relaxed text-ink-2">
+              <p className="mt-1.5 text-[12.5px] leading-relaxed text-system-600">
                 ZIP con la tabla <span className="font-mono">aportes.csv</span> (cada aporte aprobado
                 con su campaña, ubicación, descripción y tipo; quien participó aparece como
                 “Participante 1”, “Participante 2”… o “Anónimo”, nunca con su nombre ni correo)
@@ -131,7 +131,7 @@ export default async function ConjuntoAbiertoPage({
               </ButtonLink>
             </>
           ) : (
-            <p className="mt-1.5 text-[12.5px] leading-relaxed text-ink-2">
+            <p className="mt-1.5 text-[12.5px] leading-relaxed text-system-600">
               Esta campaña todavía no tiene aportes aprobados, así que no hay nada que descargar.
             </p>
           )}

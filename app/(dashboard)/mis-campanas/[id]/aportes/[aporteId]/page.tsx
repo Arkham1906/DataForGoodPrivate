@@ -72,8 +72,8 @@ export default function RevisionAportePage() {
     void load();
   }, [params.aporteId, params.id]);
 
-  if (loadError) return <p className="text-sm text-danger">{loadError}</p>;
-  if (!item) return <p className="text-sm text-ink-2">Cargando...</p>;
+  if (loadError) return <p className="text-sm text-error-700">{loadError}</p>;
+  if (!item) return <p className="text-sm text-system-600">Cargando...</p>;
 
   const contributionId = item.id;
 
@@ -206,14 +206,14 @@ export default function RevisionAportePage() {
     <div className="mx-auto max-w-3xl">
       <Link
         href={`/mis-campanas/${params.id}/aportes`}
-        className="mb-4 inline-block text-[13px] text-ink-2 hover:text-ink"
+        className="mb-4 inline-block text-[13px] text-system-600 hover:text-system-900"
       >
         ← Volver a aportes
       </Link>
 
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-extrabold text-ink">Aporte {item.id}</h1>
+          <h1 className="text-xl font-extrabold text-system-900">Aporte {item.id}</h1>
         </div>
         <div className="flex flex-wrap justify-end gap-1.5">
           {item.inapropiado && <Tag tone="danger">Contenido inapropiado</Tag>}
@@ -229,17 +229,17 @@ export default function RevisionAportePage() {
         </div>
       </div>
 
-      {aviso && <p className="mb-4 rounded border border-warn bg-warn-tint p-3 text-[12.5px] text-warn">{aviso}</p>}
+      {aviso && <p className="mb-4 rounded border border-warning-500 bg-warning-50 p-3 text-[12.5px] text-warning-800">{aviso}</p>}
 
       {item.reporte && (
-        <section role="note" className="mb-4 rounded-lg border border-warn bg-warn-tint p-4 text-[12.5px] text-ink">
-          <p className="font-bold text-warn">Un revisor reportó este aporte</p>
+        <section role="note" className="mb-4 rounded-lg border border-warning-500 bg-warning-50 p-4 text-[12.5px] text-system-900">
+          <p className="font-bold text-warning-800">Un revisor reportó este aporte</p>
           <p className="mt-1">
             <span className="font-semibold">{item.reporte.revisor}</span> ·{" "}
             {new Date(item.reporte.en).toLocaleDateString("es-MX", { day: "numeric", month: "short" })}
           </p>
-          <p className="mt-1 text-ink-2">Motivo: {item.reporte.motivo}</p>
-          <p className="mt-2 text-[11.5px] text-ink-3">
+          <p className="mt-1 text-system-600">Motivo: {item.reporte.motivo}</p>
+          <p className="mt-2 text-[11.5px] text-system-400">
             Banear o bloquear a quien lo envió es decisión tuya: usa el botón de abajo si corresponde.
           </p>
         </section>
@@ -247,31 +247,31 @@ export default function RevisionAportePage() {
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
         {item.archivoBorrado ? (
-          <div className="flex h-44 items-center justify-center rounded-lg border border-dashed border-line-2 bg-sunken text-[12.5px] text-ink-3">
+          <div className="flex h-44 items-center justify-center rounded-lg border border-dashed border-system-300 bg-system-100 text-[12.5px] text-system-400">
             Archivo borrado
           </div>
         ) : item.fileType === "foto" ? (
           <img
             src={`${BASE_PATH}/api/aportes/${item.id}/archivo`}
             alt="Archivo del aporte"
-            className="h-44 w-full rounded-lg border border-line-2 bg-sunken object-contain"
+            className="h-44 w-full rounded-lg border border-system-300 bg-system-100 object-contain"
           />
         ) : (
-          <div className="flex h-44 items-center justify-center rounded-lg border border-dashed border-line-2 bg-sunken text-[12.5px] text-ink-3">
+          <div className="flex h-44 items-center justify-center rounded-lg border border-dashed border-system-300 bg-system-100 text-[12.5px] text-system-400">
             Vista previa del archivo · {item.fileType}
             {item.fileSizeBytes && ` · ${formatearTamano(item.fileSizeBytes)}`}
           </div>
         )}
 
         <div>
-          <p className="mb-1.5 text-[12.5px] font-medium text-ink">
+          <p className="mb-1.5 text-[12.5px] font-medium text-system-900">
             Descripción del participante
           </p>
-          <p className="mb-4 text-[14px] leading-relaxed text-ink-2">{item.description}</p>
+          <p className="mb-4 text-[14px] leading-relaxed text-system-600">{item.description}</p>
 
           {item.caracteristicas && item.caracteristicas.length > 0 && (
             <div className="mb-4">
-              <p className="mb-1.5 text-[12.5px] font-medium text-ink">Marcó como aplicable</p>
+              <p className="mb-1.5 text-[12.5px] font-medium text-system-900">Marcó como aplicable</p>
               <div className="flex flex-wrap gap-1.5">
                 {item.caracteristicas.map((c) => (
                   <Tag key={c}>{c}</Tag>
@@ -282,12 +282,12 @@ export default function RevisionAportePage() {
 
           <dl className="mb-4 flex flex-col gap-2 text-[13px]">
             <div className="flex justify-between">
-              <dt className="text-ink-2">Autor</dt>
-              <dd className="font-medium text-ink">{item.participantName}</dd>
+              <dt className="text-system-600">Autor</dt>
+              <dd className="font-medium text-system-900">{item.participantName}</dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-ink-2">Enviado</dt>
-              <dd className="font-mono font-medium text-ink">
+              <dt className="text-system-600">Enviado</dt>
+              <dd className="font-mono font-medium text-system-900">
                 {new Date(item.submittedAt).toLocaleDateString("es-MX", {
                   day: "numeric",
                   month: "short",
@@ -301,31 +301,31 @@ export default function RevisionAportePage() {
             </div>
             {item.firstPassBy && (
               <div className="flex justify-between">
-                <dt className="text-ink-2">Revisor</dt>
-                <dd className="font-medium text-ink">{item.firstPassBy}</dd>
+                <dt className="text-system-600">Revisor</dt>
+                <dd className="font-medium text-system-900">{item.firstPassBy}</dd>
               </div>
             )}
             {item.status === "rechazado" && item.rejectionReason && (
               <div className="flex justify-between gap-4">
-                <dt className="text-ink-2">Motivo de rechazo</dt>
-                <dd className="text-right font-medium text-danger">{item.rejectionReason}</dd>
+                <dt className="text-system-600">Motivo de rechazo</dt>
+                <dd className="text-right font-medium text-error-700">{item.rejectionReason}</dd>
               </div>
             )}
           </dl>
 
           {actionError && (
-            <p className="mb-3 rounded border border-danger bg-danger-tint p-2 text-[12px] text-danger">{actionError}</p>
+            <p className="mb-3 rounded border border-error-700 bg-error-50 p-2 text-[12px] text-error-700">{actionError}</p>
           )}
 
           {showRejectForm && (
-            <form ref={llevarALaVista} onSubmit={confirmReject} className="mb-4 rounded-lg border border-danger p-4">
-              <p className="mb-2 text-[13px] font-medium text-ink">
-                Motivo del rechazo <span className="text-danger">*</span>
+            <form ref={llevarALaVista} onSubmit={confirmReject} className="mb-4 rounded-lg border border-error-700 p-4">
+              <p className="mb-2 text-[13px] font-medium text-system-900">
+                Motivo del rechazo <span className="text-error-700">*</span>
               </p>
               <select
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                className="mb-2.5 w-full rounded border border-line-2 bg-surface px-3 py-2.5 text-[13px] text-ink outline-none focus:border-accent"
+                className="mb-2.5 w-full rounded border border-system-300 bg-white px-3 py-2.5 text-[13px] text-system-900 outline-none focus:border-brand-600"
               >
                 <option value="">Selecciona un motivo ▾</option>
                 {MOTIVOS_DE_RECHAZO.map((r) => (
@@ -343,7 +343,7 @@ export default function RevisionAportePage() {
                 />
               </Field>
               {esAnonimo && (
-                <label className="mb-3 flex items-start gap-2 text-[12.5px] text-ink">
+                <label className="mb-3 flex items-start gap-2 text-[12.5px] text-system-900">
                   <input
                     type="checkbox"
                     checked={inapropiado}
@@ -352,14 +352,14 @@ export default function RevisionAportePage() {
                   />
                   <span>
                     <span className="font-medium">Contenido inapropiado</span>
-                    <span className="block text-[11.5px] text-ink-3">
+                    <span className="block text-[11.5px] text-system-400">
                       Úsalo solo si el contenido es ofensivo, ilegal o dañino. Si un mismo dispositivo junta varios, se
                       bloquea en toda la plataforma.
                     </span>
                   </span>
                 </label>
               )}
-              <p className="mb-3 text-[11.5px] text-ink-3">
+              <p className="mb-3 text-[11.5px] text-system-400">
                 {item.userId === null
                   ? "Obligatorio al rechazar. Es un aporte anónimo: queda registrado, pero nadie lo recibe."
                   : "Obligatorio al rechazar. El participante lo verá en Mis aportes."}
@@ -371,8 +371,8 @@ export default function RevisionAportePage() {
           )}
 
           {showBanForm && (
-            <form ref={llevarALaVista} onSubmit={banUser} className="mb-4 rounded-lg border border-danger p-4">
-              <p className="mb-2 text-[13px] font-medium text-ink">
+            <form ref={llevarALaVista} onSubmit={banUser} className="mb-4 rounded-lg border border-error-700 p-4">
+              <p className="mb-2 text-[13px] font-medium text-system-900">
                 {esAnonimo ? "Bloquear este dispositivo en la campaña" : "Banear usuario de la campaña"}
               </p>
               <Textarea
@@ -387,7 +387,7 @@ export default function RevisionAportePage() {
                 required
               />
               {!esAnonimo && (
-                <p className="mt-2 text-[11.5px] text-ink-3">
+                <p className="mt-2 text-[11.5px] text-system-400">
                   La persona recibirá este motivo en una notificación y lo verá en la campaña.
                 </p>
               )}
@@ -401,9 +401,9 @@ export default function RevisionAportePage() {
       </div>
 
       {esAnonimo && !item.archivoBorrado && !alreadyReviewed && (
-        <div className="mt-6 rounded-lg border border-line p-4">
-          <p className="text-[13px] font-medium text-ink">Borrar el archivo</p>
-          <p className="mb-3 text-[12px] text-ink-2">
+        <div className="mt-6 rounded-lg border border-system-200 p-4">
+          <p className="text-[13px] font-medium text-system-900">Borrar el archivo</p>
+          <p className="mb-3 text-[12px] text-system-600">
             Para contenido ilegal o dañino. Se borra del almacenamiento y no se puede recuperar; el registro del aporte se
             conserva.
           </p>
@@ -424,7 +424,7 @@ export default function RevisionAportePage() {
 
       {/* Banear o bloquear se puede antes o después de decidir (es sobre la persona). La decisión,
           en cambio, ya no se cambia (dominio.md § 5). */}
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-system-200 pt-4">
         {esAnonimo ? (
           // Aporte sin cuenta (enlace público): se bloquea el dispositivo, no una cuenta.
           item.dispositivoBloqueadoId ? (
@@ -452,7 +452,7 @@ export default function RevisionAportePage() {
           </Button>
         )}
         {alreadyReviewed ? (
-          <p className="text-[12.5px] text-ink-2">Este aporte ya tiene una decisión y no se puede cambiar.</p>
+          <p className="text-[12.5px] text-system-600">Este aporte ya tiene una decisión y no se puede cambiar.</p>
         ) : (
           <div className="flex gap-2">
             <Button onClick={() => setShowRejectForm(true)} disabled={submitting}>Rechazar</Button>

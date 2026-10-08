@@ -44,12 +44,12 @@ export default function CampaignCard({ campaign }: { campaign: Campaign }) {
       </div>
 
       <div>
-        <h3 className="text-base font-bold text-ink max-md:text-[15px]">{campaign.name}</h3>
-        <p className="mt-1 text-[13px] text-ink-2 max-md:text-[12px] max-md:leading-5">{campaign.description}</p>
-        <p className="mt-1.5 font-mono text-[11px] text-ink-2 max-md:text-[10.5px]">
+        <h3 className="text-base font-bold text-system-900 max-md:text-[15px]">{campaign.name}</h3>
+        <p className="mt-1 text-[13px] text-system-600 max-md:text-[12px] max-md:leading-5">{campaign.description}</p>
+        <p className="mt-1.5 font-mono text-[11px] text-system-600 max-md:text-[10.5px]">
           {formatDateRange(campaign.startDate, campaign.endDate)}
         </p>
-        <p className="mt-1 font-mono text-[11px] text-ink-2 max-md:text-[10.5px]">
+        <p className="mt-1 font-mono text-[11px] text-system-600 max-md:text-[10.5px]">
           Cierre: {closeDate} · {remainingDays} días restantes
         </p>
       </div>
@@ -58,16 +58,16 @@ export default function CampaignCard({ campaign }: { campaign: Campaign }) {
 
       <div className="flex gap-6 max-md:gap-5">
         <div>
-          <p className="font-mono text-[15px] font-bold text-ink max-md:text-[14px]">
+          <p className="font-mono text-[15px] font-bold text-system-900 max-md:text-[14px]">
             {campaign.currentContributions}/{campaign.goalContributions}
           </p>
-          <p className="text-[11px] text-ink-3 max-md:text-[10px]">aportes</p>
+          <p className="text-[11px] text-system-400 max-md:text-[10px]">aportes</p>
         </div>
         <div>
-          <p className="font-mono text-[15px] font-bold text-ink max-md:text-[14px]">
+          <p className="font-mono text-[15px] font-bold text-system-900 max-md:text-[14px]">
             {remainingDays}
           </p>
-          <p className="text-[11px] text-ink-3 max-md:text-[10px]">días restantes</p>
+          <p className="text-[11px] text-system-400 max-md:text-[10px]">días restantes</p>
         </div>
       </div>
 

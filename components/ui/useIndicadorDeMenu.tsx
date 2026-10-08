@@ -75,7 +75,7 @@ export function useIndicadorDeMenu(activo: string | null) {
     <span
       ref={indicadorRef}
       aria-hidden="true"
-      className="pointer-events-none absolute left-0 top-0 rounded-pill bg-accent opacity-0 data-[listo=true]:transition-[transform,width,height,opacity] data-[listo=true]:duration-300 data-[listo=true]:ease-[cubic-bezier(0.2,0.7,0.2,1)] motion-reduce:transition-none!"
+      className="pointer-events-none absolute left-0 top-0 rounded-pill bg-brand-600 opacity-0 data-[listo=true]:transition-[transform,width,height,opacity] data-[listo=true]:duration-300 data-[listo=true]:ease-[cubic-bezier(0.2,0.7,0.2,1)] motion-reduce:transition-none!"
     />
   );
 
@@ -88,5 +88,5 @@ export function useIndicadorDeMenu(activo: string | null) {
  * quedaría sobre fondo blanco un instante.
  */
 export function claseDeOpcionMarcada(): string {
-  return "text-white bg-accent in-data-[indicador=listo]:bg-transparent";
+  return "text-white bg-brand-600 in-data-[indicador=listo]:bg-transparent";
 }

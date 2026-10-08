@@ -59,8 +59,8 @@ export default async function RevertirAccionPage({ params }: { params: Params })
       </Volver>
 
       <header className="mb-6">
-        <h1 className="text-xl font-extrabold text-ink">{d.titulo}</h1>
-        <p className="mt-1 text-[13px] text-ink-2">
+        <h1 className="text-xl font-extrabold text-system-900">{d.titulo}</h1>
+        <p className="mt-1 text-[13px] text-system-600">
           Decisión de {supervisor.nombre} · {formatearFechaHoraSup(accion.ejecutadaEn)}
         </p>
       </header>
@@ -84,11 +84,11 @@ export default async function RevertirAccionPage({ params }: { params: Params })
           />
 
           <div className="mt-3.5">
-            <span className="mb-1.5 block text-[13px] font-medium text-ink">
+            <span className="mb-1.5 block text-[13px] font-medium text-system-900">
               Motivo que registró el supervisor
             </span>
-            <div className="rounded-lg border border-line bg-sunken p-4">
-              <p className="text-[12.5px] text-ink-2">«{accion.motivo}»</p>
+            <div className="rounded-lg border border-system-200 bg-system-100 p-4">
+              <p className="text-[12.5px] text-system-600">«{accion.motivo}»</p>
             </div>
           </div>
 

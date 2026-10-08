@@ -93,16 +93,16 @@ function EntrarForm() {
 
   if (bajaCancelada) {
     return (
-      <div className="rounded-lg border border-line bg-surface p-8" role="status">
-        <p className="mb-2 font-mono text-[10.5px] uppercase tracking-widest text-ok">Baja cancelada</p>
-        <h1 className="text-xl font-extrabold text-ink">Tu cuenta sigue activa</h1>
-        <p className="mt-2 text-[13.5px] leading-relaxed text-ink-2">
+      <div className="rounded-lg border border-system-200 bg-white p-8" role="status">
+        <p className="mb-2 font-mono text-[10.5px] uppercase tracking-widest text-success-700">Baja cancelada</p>
+        <h1 className="text-xl font-extrabold text-system-900">Tu cuenta sigue activa</h1>
+        <p className="mt-2 text-[13.5px] leading-relaxed text-system-600">
           Al iniciar sesión cancelamos la baja que habías pedido: no se borrará nada y tus aportes se quedan como
           estaban.
         </p>
-        <p className="mt-3 rounded-lg bg-sunken p-3.5 text-[12.5px] leading-relaxed text-ink-2">
+        <p className="mt-3 rounded-lg bg-system-100 p-3.5 text-[12.5px] leading-relaxed text-system-600">
           Las campañas que se finalizaron al pedir la baja siguen finalizadas: puedes reactivarlas desde{" "}
-          <span className="font-semibold text-ink">Mis campañas</span> con una nueva fecha de fin. Las que no tenían
+          <span className="font-semibold text-system-900">Mis campañas</span> con una nueva fecha de fin. Las que no tenían
           aportes se borraron y no se pueden recuperar.
         </p>
         <Button variant="primary" className="mt-5 w-full" onClick={continuar}>
@@ -113,16 +113,16 @@ function EntrarForm() {
   }
 
   return (
-    <div className="landing-entrada rounded-lg border border-line bg-surface p-8">
+    <div className="landing-entrada rounded-lg border border-system-200 bg-white p-8">
       <div style={retraso(120)} className="landing-entrada mb-6 text-center">
-        <h1 className="text-xl font-extrabold text-ink">Entra a tu cuenta</h1>
-        <p className="mt-1 text-[13px] text-ink-2">
+        <h1 className="text-xl font-extrabold text-system-900">Entra a tu cuenta</h1>
+        <p className="mt-1 text-[13px] text-system-600">
           Participa en campañas o administra las tuyas.
         </p>
       </div>
 
       {contrasenaCambiada && (
-        <div role="status" className="mb-5 rounded-lg bg-ok-tint p-3.5 text-[12.5px] leading-relaxed text-ok">
+        <div role="status" className="mb-5 rounded-lg bg-success-50 p-3.5 text-[12.5px] leading-relaxed text-success-700">
           Tu contraseña se cambió y cerramos tu sesión en todos los dispositivos. Ya puedes entrar con la nueva.
         </div>
       )}
@@ -147,11 +147,11 @@ function EntrarForm() {
             required
           />
           {serverError && (
-            <p className="mt-1.5 text-[12px] text-danger">{serverError}</p>
+            <p className="mt-1.5 text-[12px] text-error-700">{serverError}</p>
           )}
         </Field>
 
-        <Link href={conDestino("/recuperar", next)} className="mb-5 text-[13px] font-medium text-accent hover:underline">
+        <Link href={conDestino("/recuperar", next)} className="mb-5 text-[13px] font-medium text-brand-600 hover:underline">
           ¿Olvidaste tu contraseña?
         </Link>
 
@@ -170,14 +170,14 @@ function EntrarForm() {
         </Button>
       </form>
 
-      <p style={retraso(320)} className="landing-entrada mt-6 text-center text-[13px] text-ink-2">
+      <p style={retraso(320)} className="landing-entrada mt-6 text-center text-[13px] text-system-600">
         ¿No tienes cuenta?{" "}
-        <Link href={conDestino("/registro", next)} className="font-medium text-accent hover:underline">
+        <Link href={conDestino("/registro", next)} className="font-medium text-brand-600 hover:underline">
           Regístrate
         </Link>
       </p>
 
-      <div style={retraso(400)} className="landing-entrada mt-6 rounded-lg bg-sunken p-4 text-[12.5px] leading-relaxed text-ink-2">
+      <div style={retraso(400)} className="landing-entrada mt-6 rounded-lg bg-system-100 p-4 text-[12.5px] leading-relaxed text-system-600">
         Toda cuenta entra como usuario común. El rol de supervisor solo lo
         asigna el SuperUsuario; el de revisor de aportes te lo ofrece quien
         creó una campaña, y lo aceptas desde tus notificaciones. Aparecen

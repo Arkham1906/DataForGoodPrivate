@@ -48,36 +48,36 @@ export default async function EliminarCuentaPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <Link href="/cuenta" className="text-[13px] font-semibold text-accent hover:underline">
+      <Link href="/cuenta" className="text-[13px] font-semibold text-brand-600 hover:underline">
         ← Volver a mi cuenta
       </Link>
 
       <div>
-        <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-danger">Cuenta</p>
-        <h1 className="mt-2 text-2xl font-extrabold text-ink">Eliminar tu cuenta</h1>
-        <p className="mt-1 text-[13px] text-ink-2">
+        <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-error-700">Cuenta</p>
+        <h1 className="mt-2 text-2xl font-extrabold text-system-900">Eliminar tu cuenta</h1>
+        <p className="mt-1 text-[13px] text-system-600">
           {`${usuario.nombre ?? ""} ${usuario.apellidos ?? ""}`.trim()} · {usuario.email} ·{" "}
           {plural(aportes.total, "aporte", "aportes")} en {plural(aportes.campanas, "campaña", "campañas")}
         </p>
       </div>
 
       {aportes.utilizados > 0 && (
-        <section className="rounded-lg border border-warn bg-warn-tint p-5" role="note">
-          <p className="text-[14px] font-bold text-ink">
+        <section className="rounded-lg border border-warning-500 bg-warning-50 p-5" role="note">
+          <p className="text-[14px] font-bold text-system-900">
             {plural(aportes.utilizados, "de tus aportes ya no puede eliminarse", "de tus aportes ya no pueden eliminarse")}
           </p>
-          <p className="mt-1.5 text-[13px] leading-relaxed text-ink-2">
+          <p className="mt-1.5 text-[13px] leading-relaxed text-system-600">
             Fueron aprobados en campañas finalizadas y forman parte de sus datos abiertos publicados. Se conservarán de
             forma anónima aunque elijas borrarlos.
             {eliminables === 1 && " El restante sí puede eliminarse por completo."}
             {eliminables > 1 && ` Los ${eliminables} restantes sí pueden eliminarse por completo.`}
           </p>
-          <dl className="mt-4 divide-y divide-line rounded-lg border border-line bg-surface">
+          <dl className="mt-4 divide-y divide-system-200 rounded-lg border border-system-200 bg-white">
             {desglose.map((fila) => (
               <div key={fila.etiqueta} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5">
-                <dt className="text-[13px] text-ink-2">{fila.etiqueta}</dt>
+                <dt className="text-[13px] text-system-600">{fila.etiqueta}</dt>
                 <dd className="flex items-center gap-2.5">
-                  <span className="font-mono text-[13px] font-bold text-ink">{fila.valor}</span>
+                  <span className="font-mono text-[13px] font-bold text-system-900">{fila.valor}</span>
                   <Tag tone={fila.eliminable ? "default" : "warn"}>{fila.eliminable ? "Eliminables" : "No eliminables"}</Tag>
                 </dd>
               </div>
@@ -86,17 +86,17 @@ export default async function EliminarCuentaPage() {
         </section>
       )}
 
-      <section className="rounded-lg border border-line bg-surface p-5">
-        <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-3">Qué va a pasar</p>
+      <section className="rounded-lg border border-system-200 bg-white p-5">
+        <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-system-400">Qué va a pasar</p>
         <dl className="mt-3 grid gap-3 sm:grid-cols-2">
           {efectos.map((efecto) => (
-            <div key={efecto.titulo} className="rounded-lg bg-sunken p-3.5">
-              <dt className="text-[13px] font-bold text-ink">{efecto.titulo}</dt>
-              <dd className="mt-0.5 text-[12.5px] leading-relaxed text-ink-2">{efecto.texto}</dd>
+            <div key={efecto.titulo} className="rounded-lg bg-system-100 p-3.5">
+              <dt className="text-[13px] font-bold text-system-900">{efecto.titulo}</dt>
+              <dd className="mt-0.5 text-[12.5px] leading-relaxed text-system-600">{efecto.texto}</dd>
             </div>
           ))}
         </dl>
-        <p className="mt-4 text-[12.5px] text-ink-2">
+        <p className="mt-4 text-[12.5px] text-system-600">
           Al borrarse la cuenta se pierden tus {resumen.xp.toLocaleString("es-MX")} XP y el nivel {resumen.nivel}; no se
           pueden recuperar.
         </p>

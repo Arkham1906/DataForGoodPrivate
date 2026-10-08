@@ -75,8 +75,8 @@ export default function CampanasPage() {
     <div>
       <div className="mb-6 flex items-start justify-between gap-4 max-md:mb-4 max-md:gap-3">
         <div>
-          <h1 className="text-2xl font-extrabold text-ink max-md:text-xl max-md:leading-tight">Campañas disponibles</h1>
-          <p className="mt-1 text-[13px] text-ink-2 max-md:max-w-[220px] max-md:text-[12px] max-md:leading-5">
+          <h1 className="text-2xl font-extrabold text-system-900 max-md:text-xl max-md:leading-tight">Campañas disponibles</h1>
+          <p className="mt-1 text-[13px] text-system-600 max-md:max-w-[220px] max-md:text-[12px] max-md:leading-5">
             Descubre proyectos con impacto social cerca de ti.
           </p>
         </div>
@@ -109,8 +109,8 @@ export default function CampanasPage() {
               title={filtro === TU_LOCALIDAD && miEstado ? `Campañas en ${miEstado}` : undefined}
               className={`shrink-0 whitespace-nowrap rounded-pill border px-3.5 py-1.5 text-[13px] font-semibold transition-colors max-md:px-2.5 max-md:py-1 max-md:text-[12px] ${
                 active
-                  ? "border-accent bg-accent text-white"
-                  : "border-line-2 bg-surface text-ink-2 hover:border-accent"
+                  ? "border-brand-600 bg-brand-600 text-white"
+                  : "border-system-300 bg-white text-system-600 hover:border-brand-600"
               }`}
             >
               {filtro}
@@ -121,19 +121,19 @@ export default function CampanasPage() {
       </div>
 
       {error ? (
-        <p className="rounded-lg bg-danger-tint p-4 text-sm text-danger">{error}</p>
+        <p className="rounded-lg bg-error-50 p-4 text-sm text-error-700">{error}</p>
       ) : cargando ? (
-        <p className="text-sm text-ink-2">Cargando campañas…</p>
+        <p className="text-sm text-system-600">Cargando campañas…</p>
       ) : activeTag === TU_LOCALIDAD && !miEstado ? (
-        <p className="text-sm text-ink-2">
+        <p className="text-sm text-system-600">
           Aún no indicas en qué estado vives.{" "}
-          <Link href="/cuenta" className="font-semibold text-accent hover:underline">
+          <Link href="/cuenta" className="font-semibold text-brand-600 hover:underline">
             Agrégalo en Mi cuenta
           </Link>{" "}
           para ver las campañas de tu localidad.
         </p>
       ) : filtered.length === 0 ? (
-        <p className="text-sm text-ink-2">
+        <p className="text-sm text-system-600">
           {activeTag === "Guardadas"
             ? "Todavía no has guardado ninguna campaña."
             : activeTag === TU_LOCALIDAD

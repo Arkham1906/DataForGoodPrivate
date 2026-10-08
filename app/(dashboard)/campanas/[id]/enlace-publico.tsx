@@ -78,12 +78,12 @@ export default function EnlacePublico({
 
   return (
     <div className="mb-4">
-      <label htmlFor="enlace-publico" className="mb-1.5 block text-[13px] font-medium text-ink">
+      <label htmlFor="enlace-publico" className="mb-1.5 block text-[13px] font-medium text-system-900">
         Enlace público
       </label>
       <div
-        className={`flex min-h-11 items-center justify-between gap-2 rounded border py-1.5 pl-3.5 pr-1.5 focus-within:border-accent ${
-          vencido ? "border-danger bg-danger-tint" : "border-line-2 bg-surface"
+        className={`flex min-h-11 items-center justify-between gap-2 rounded border py-1.5 pl-3.5 pr-1.5 focus-within:border-brand-600 ${
+          vencido ? "border-error-700 bg-error-50" : "border-system-300 bg-white"
         }`}
       >
         <input
@@ -92,7 +92,7 @@ export default function EnlacePublico({
           readOnly
           onFocus={(e) => e.currentTarget.select()}
           className={`min-w-0 flex-1 truncate bg-transparent font-mono text-[13px] outline-none ${
-            vencido ? "text-danger line-through opacity-70" : "text-ink"
+            vencido ? "text-error-700 line-through opacity-70" : "text-system-900"
           }`}
         />
         {vencido ? (
@@ -103,7 +103,7 @@ export default function EnlacePublico({
           </Button>
         )}
       </div>
-      <p className={`mt-1.5 text-[11.5px] ${vencido ? "font-medium text-danger" : "text-warn"}`} aria-live="polite">
+      <p className={`mt-1.5 text-[11.5px] ${vencido ? "font-medium text-error-700" : "text-warning-800"}`} aria-live="polite">
         {ahora === null
           ? "Calculando la vigencia del token…"
           : vencido

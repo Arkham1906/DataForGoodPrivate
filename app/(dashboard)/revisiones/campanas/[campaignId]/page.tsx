@@ -36,28 +36,28 @@ export default function ReviewerCampaignPage() {
     if (campaignId) void load();
   }, [campaignId]);
 
-  if (error) return <p className="mx-auto max-w-4xl text-sm text-danger">{error}</p>;
-  if (!campaign) return <p className="mx-auto max-w-4xl text-sm text-ink-2">Cargando campaña…</p>;
+  if (error) return <p className="mx-auto max-w-4xl text-sm text-error-700">{error}</p>;
+  if (!campaign) return <p className="mx-auto max-w-4xl text-sm text-system-600">Cargando campaña…</p>;
 
   const pending = contributions.filter((item) => item.status === "pendiente");
   const accepted = contributions.filter((item) => item.status === "aceptado");
 
   return (
     <div className="mx-auto max-w-4xl">
-      <Link href={campaign.status === "finalizada" ? "/revisiones/finalizadas" : "/revisiones"} className="mb-5 inline-block text-[13px] text-ink-2 hover:text-ink">← Volver a campañas</Link>
+      <Link href={campaign.status === "finalizada" ? "/revisiones/finalizadas" : "/revisiones"} className="mb-5 inline-block text-[13px] text-system-600 hover:text-system-900">← Volver a campañas</Link>
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div><p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-accent">Revisor de aportes</p><h1 className="mt-2 text-2xl font-extrabold text-ink">{campaign.name}</h1><p className="mt-1 text-[13px] text-ink-2">{campaign.tag || "Sin temática"} · {campaign.participants} participantes</p></div>
+        <div><p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-600">Revisor de aportes</p><h1 className="mt-2 text-2xl font-extrabold text-system-900">{campaign.name}</h1><p className="mt-1 text-[13px] text-system-600">{campaign.tag || "Sin temática"} · {campaign.participants} participantes</p></div>
         <Tag tone={campaign.status === "finalizada" ? "default" : "on"}>{campaign.status === "finalizada" ? "Finalizada" : "En curso"}</Tag>
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-4">
-        <section className="rounded-lg border border-warn-tint bg-warn-tint p-5"><p className="text-[12px] font-bold uppercase tracking-wide text-warn">Por aceptar</p><p className="mt-2 text-3xl font-extrabold text-ink">{pending.length}</p><p className="mt-1 text-[13px] text-ink-2">Aportes que requieren tu revisión.</p></section>
-        <Link href={`/revisiones/campanas/${campaignId}/usuarios`} className="rounded-lg border border-line bg-surface p-5 shadow-sm transition-colors hover:border-accent"><p className="text-[12px] font-bold uppercase tracking-wide text-ok">Aceptados por ti</p><p className="mt-2 text-3xl font-extrabold text-ink">{accepted.length}</p><p className="mt-1 text-[13px] text-ink-2">Explora usuarios y sus aportes aceptados.</p><p className="mt-4 text-[13px] font-bold text-accent">Ver usuarios →</p></Link>
+        <section className="rounded-lg border border-warning-200 bg-warning-50 p-5"><p className="text-[12px] font-bold uppercase tracking-wide text-warning-800">Por aceptar</p><p className="mt-2 text-3xl font-extrabold text-system-900">{pending.length}</p><p className="mt-1 text-[13px] text-system-600">Aportes que requieren tu revisión.</p></section>
+        <Link href={`/revisiones/campanas/${campaignId}/usuarios`} className="rounded-lg border border-system-200 bg-white p-5 shadow-sm transition-colors hover:border-brand-600"><p className="text-[12px] font-bold uppercase tracking-wide text-success-700">Aceptados por ti</p><p className="mt-2 text-3xl font-extrabold text-system-900">{accepted.length}</p><p className="mt-1 text-[13px] text-system-600">Explora usuarios y sus aportes aceptados.</p><p className="mt-4 text-[13px] font-bold text-brand-600">Ver usuarios →</p></Link>
       </div>
 
-      <section className="rounded-lg border border-line bg-surface p-5 shadow-sm">
-        <div className="mb-4 flex items-center justify-between gap-3"><h2 className="text-lg font-extrabold text-ink">Aportes por aceptar</h2><Tag tone="warn">{pending.length}</Tag></div>
-        {pending.length === 0 ? <p className="text-[13px] text-ink-2">No hay aportes pendientes de validación.</p> : <div className="space-y-3">{pending.map((item) => <Link key={item.id} href={`/revisiones/${item.id}`} className="flex flex-wrap items-center justify-between gap-3 rounded border border-line bg-sunken p-3 hover:border-accent"><div><p className="text-[13px] font-semibold text-ink">{item.participantName}</p><p className="mt-1 line-clamp-1 text-[12px] text-ink-2">{item.description}</p></div><span className="text-[12.5px] font-bold text-accent">Revisar aporte →</span></Link>)}</div>}
+      <section className="rounded-lg border border-system-200 bg-white p-5 shadow-sm">
+        <div className="mb-4 flex items-center justify-between gap-3"><h2 className="text-lg font-extrabold text-system-900">Aportes por aceptar</h2><Tag tone="warn">{pending.length}</Tag></div>
+        {pending.length === 0 ? <p className="text-[13px] text-system-600">No hay aportes pendientes de validación.</p> : <div className="space-y-3">{pending.map((item) => <Link key={item.id} href={`/revisiones/${item.id}`} className="flex flex-wrap items-center justify-between gap-3 rounded border border-system-200 bg-system-100 p-3 hover:border-brand-600"><div><p className="text-[13px] font-semibold text-system-900">{item.participantName}</p><p className="mt-1 line-clamp-1 text-[12px] text-system-600">{item.description}</p></div><span className="text-[12.5px] font-bold text-brand-600">Revisar aporte →</span></Link>)}</div>}
       </section>
     </div>
   );

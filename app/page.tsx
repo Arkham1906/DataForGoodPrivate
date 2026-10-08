@@ -39,9 +39,9 @@ const PASOS = [
 ];
 
 const COVER_GRADIENTS = [
-  "from-accent to-accent/40",
-  "from-ok to-ok/40",
-  "from-warn to-warn/40",
+  "from-brand-600 to-brand-600/40",
+  "from-success-700 to-success-700/40",
+  "from-warning-500 to-warning-500/40",
 ];
 
 interface CifrasReales {
@@ -174,17 +174,17 @@ export default async function LandingPage() {
   ]);
 
   return (
-    <div className="min-h-screen bg-paper">
+    <div className="min-h-screen bg-system-50">
       <PublicHeader />
 
       <main className="mx-auto max-w-4xl px-6 pb-24 pt-16 text-center">
-        <p className="landing-entrada mb-4 font-mono text-[10.5px] uppercase tracking-widest text-accent">
+        <p className="landing-entrada mb-4 font-mono text-[10.5px] uppercase tracking-widest text-brand-600">
           Plataforma de crowdsourcing de datos
         </p>
-        <h1 style={retraso(90)} className="landing-entrada mx-auto max-w-2xl text-[46px] font-extrabold leading-[1.08] tracking-tight text-ink">
+        <h1 style={retraso(90)} className="landing-entrada mx-auto max-w-2xl text-[46px] font-extrabold leading-[1.08] tracking-tight text-system-900">
           Cada dato cuenta, cuando lo cuenta la comunidad
         </h1>
-        <p style={retraso(180)} className="landing-entrada mx-auto mt-5 max-w-xl text-[16.5px] leading-relaxed text-ink-2">
+        <p style={retraso(180)} className="landing-entrada mx-auto mt-5 max-w-xl text-[16.5px] leading-relaxed text-system-600">
           <span className="marca-animada">DataForGood</span> conecta organizaciones con personas dispuestas a aportar
           información en campo —fotos, audio o texto— para causas sociales,
           ambientales y comunitarias.
@@ -204,16 +204,16 @@ export default async function LandingPage() {
             {aportesRecientes.map((post, i) => (
               <div
                 key={post.id}
-                className="landing-entrada landing-tarjeta flex flex-col justify-between rounded-lg border border-line bg-surface p-4 text-left"
+                className="landing-entrada landing-tarjeta flex flex-col justify-between rounded-lg border border-system-200 bg-white p-4 text-left"
                 style={{ minHeight: 140, ...retraso(380 + i * 90) }}
               >
-                <p className="text-[13px] leading-snug text-ink">
+                <p className="text-[13px] leading-snug text-system-900">
                   &ldquo;{post.description.length > 90 ? `${post.description.slice(0, 90)}…` : post.description}&rdquo;
                 </p>
                 <div className="mt-3 flex items-center justify-between">
                   <div>
-                    <p className="text-[12px] font-medium text-accent">{comoHashtag(post.tag)}</p>
-                    <p className="font-mono text-[11px] text-ink-3">
+                    <p className="text-[12px] font-medium text-brand-600">{comoHashtag(post.tag)}</p>
+                    <p className="font-mono text-[11px] text-system-400">
                       {new Date(post.submittedAt).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}
                     </p>
                   </div>
@@ -223,13 +223,13 @@ export default async function LandingPage() {
             ))}
           </div>
         ) : (
-          <p className="mt-14 text-[13px] text-ink-3">
+          <p className="mt-14 text-[13px] text-system-400">
             Todavía no hay aportes aprobados que mostrar aquí.
           </p>
         )}
       </main>
 
-      <section className="w-full bg-ink" aria-label="La plataforma en cifras">
+      <section className="w-full bg-system-900" aria-label="La plataforma en cifras">
         <div className="mx-auto grid max-w-4xl grid-cols-2 gap-6 px-6 py-8 sm:grid-cols-4">
           {[
             { valor: cifras.campanasCreadas, etiqueta: "Campañas creadas" },
@@ -249,21 +249,21 @@ export default async function LandingPage() {
 
       <section id="como-funciona" className="mx-auto max-w-4xl px-6 pb-24 pt-16">
         <div className="landing-revelar mb-9 text-center">
-          <p className="mb-2.5 font-mono text-[10.5px] uppercase tracking-widest text-ink-3">
+          <p className="mb-2.5 font-mono text-[10.5px] uppercase tracking-widest text-system-400">
             El proceso
           </p>
-          <h2 className="text-[28px] font-extrabold tracking-tight text-ink">
+          <h2 className="text-[28px] font-extrabold tracking-tight text-system-900">
             Tres pasos, de la idea al dato
           </h2>
         </div>
         <ol className="grid grid-cols-1 gap-6 sm:grid-cols-3">
           {PASOS.map((p) => (
             <li key={p.numero} className="landing-revelar">
-              <p className="mb-1.5 font-mono text-[11px] text-ink-3" aria-hidden="true">
+              <p className="mb-1.5 font-mono text-[11px] text-system-400" aria-hidden="true">
                 {p.numero}
               </p>
-              <h3 className="mb-1 text-[13.5px] font-semibold text-ink">{p.titulo}</h3>
-              <p className="text-[13px] leading-relaxed text-ink-2">{p.texto}</p>
+              <h3 className="mb-1 text-[13.5px] font-semibold text-system-900">{p.titulo}</h3>
+              <p className="text-[13px] leading-relaxed text-system-600">{p.texto}</p>
             </li>
           ))}
         </ol>
@@ -272,8 +272,8 @@ export default async function LandingPage() {
       {campanasDestacadas.length > 0 && (
         <section className="mx-auto max-w-4xl px-6 pb-24" aria-label="Campañas destacadas">
           <div className="landing-revelar mb-5 flex flex-wrap items-end justify-between gap-3">
-            <h2 className="text-2xl font-extrabold text-ink">Campañas destacadas</h2>
-            <Link href="/explorar" className="text-[13px] font-semibold text-accent hover:underline">
+            <h2 className="text-2xl font-extrabold text-system-900">Campañas destacadas</h2>
+            <Link href="/explorar" className="text-[13px] font-semibold text-brand-600 hover:underline">
               Ver todas →
             </Link>
           </div>
@@ -284,14 +284,14 @@ export default async function LandingPage() {
                 : 0;
               return (
                 <Link key={c.id} href={`/campanas/${c.id}`} className="landing-revelar block rounded-lg">
-                  <Card className="landing-tarjeta h-full hover:border-accent">
+                  <Card className="landing-tarjeta h-full hover:border-brand-600">
                     <div className={`-mx-4 -mt-4 mb-3 h-24 rounded-t-lg bg-gradient-to-br ${COVER_GRADIENTS[i % COVER_GRADIENTS.length]}`} />
                     <div className="mb-2 flex items-start justify-between gap-2">
-                      <p className="text-[15px] font-bold text-ink">{c.name}</p>
+                      <p className="text-[15px] font-bold text-system-900">{c.name}</p>
                       <Tag tone="ok">Activa</Tag>
                     </div>
                     <ProgressBar pct={pct} tone="ok" />
-                    <p className="mt-2 font-mono text-[11px] text-ink-3">
+                    <p className="mt-2 font-mono text-[11px] text-system-400">
                       {nf.format(c.participants)} participantes · {pct}% de la meta
                     </p>
                   </Card>
@@ -306,23 +306,23 @@ export default async function LandingPage() {
         <section className="mx-auto max-w-4xl px-6 pb-24" aria-label="Datos abiertos">
           <div className="landing-revelar mb-5 flex flex-wrap items-end justify-between gap-3">
             <div>
-              <h2 className="text-2xl font-extrabold text-ink">Datos abiertos</h2>
-              <p className="mt-1 max-w-md text-left text-[13.5px] text-ink-2">
+              <h2 className="text-2xl font-extrabold text-system-900">Datos abiertos</h2>
+              <p className="mt-1 max-w-md text-left text-[13.5px] text-system-600">
                 Cuando una campaña cierra, sus aportes aprobados se publican como un conjunto
                 consultable. {nf.format(totalConjuntos)}{" "}
                 {totalConjuntos === 1 ? "conjunto disponible" : "conjuntos disponibles"}.
               </p>
             </div>
-            <Link href="/datos" className="text-[13px] font-semibold text-accent hover:underline">
+            <Link href="/datos" className="text-[13px] font-semibold text-brand-600 hover:underline">
               Explorar el catálogo →
             </Link>
           </div>
           <div className="grid grid-cols-1 gap-3 text-left sm:grid-cols-3">
             {destacados.slice(0, 3).map((c) => (
               <Link key={c.id} href={`/datos/${c.id}`} className="landing-revelar block rounded-lg">
-                <Card className="landing-tarjeta h-full hover:border-accent">
-                  <p className="text-[14px] font-bold text-ink">{c.name}</p>
-                  <p className="mt-1 text-[12px] text-ink-2">
+                <Card className="landing-tarjeta h-full hover:border-brand-600">
+                  <p className="text-[14px] font-bold text-system-900">{c.name}</p>
+                  <p className="mt-1 text-[12px] text-system-600">
                     {c.organizer || "Sin organización"}
                   </p>
                   <div className="mt-2.5 flex flex-wrap gap-1.5">
@@ -332,7 +332,7 @@ export default async function LandingPage() {
                         <Tag key={f}>{f}</Tag>
                       ))}
                   </div>
-                  <p className="mt-2.5 font-mono text-[11px] text-ink-3">
+                  <p className="mt-2.5 font-mono text-[11px] text-system-400">
                     {nf.format(c.approvedContributions)} aportes · {c.sizeLabel} ·{" "}
                     {nf.format(c.downloads)} descargas
                   </p>
@@ -343,7 +343,7 @@ export default async function LandingPage() {
         </section>
       )}
 
-      <section className="landing-brillo w-full bg-ink px-6 py-16 text-center">
+      <section className="landing-brillo w-full bg-system-900 px-6 py-16 text-center">
         <h2 className="mx-auto max-w-xl text-[26px] font-extrabold tracking-tight text-white">
           ¿Tienes un proyecto con impacto social?
         </h2>

@@ -59,7 +59,7 @@ export default function BotonRegenerar({
           {enviando ? "Generando…" : ETIQUETA[modo]}
         </Button>
         {error && (
-          <p className="mt-1.5 text-[12px] font-medium text-danger" role="alert">
+          <p className="mt-1.5 text-[12px] font-medium text-error-700" role="alert">
             {error}
           </p>
         )}
@@ -69,7 +69,7 @@ export default function BotonRegenerar({
 
   return (
     <div className="mb-2.5">
-      <p className="mb-2.5 text-[12px] text-ink-2">
+      <p className="mb-2.5 text-[12px] text-system-600">
         Se creará una dirección nueva y la actual dejará de funcionar de forma permanente. Los aportes ya recibidos se
         conservan.
       </p>
@@ -82,7 +82,7 @@ export default function BotonRegenerar({
         </Button>
       </div>
       {error && (
-        <p className="mt-1.5 text-[12px] font-medium text-danger" role="alert">
+        <p className="mt-1.5 text-[12px] font-medium text-error-700" role="alert">
           {error}
         </p>
       )}

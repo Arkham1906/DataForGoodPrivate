@@ -19,7 +19,7 @@ export default function PasswordInput({ className, ...props }: PasswordInputProp
         aria-label={visible ? "Ocultar contraseña" : "Mostrar contraseña"}
         aria-pressed={visible}
         title={visible ? "Ocultar contraseña" : "Mostrar contraseña"}
-        className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-ink-3 transition-colors hover:text-ink"
+        className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-system-400 transition-colors hover:text-system-900"
       >
         {visible ? <IconoOjoTachado /> : <IconoOjo />}
       </button>

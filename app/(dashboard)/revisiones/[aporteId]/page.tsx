@@ -124,11 +124,11 @@ export default function RevisionAportePage() {
   }
 
   if (error && !item) {
-    return <p className="mx-auto max-w-3xl text-sm text-danger">{error}</p>;
+    return <p className="mx-auto max-w-3xl text-sm text-error-700">{error}</p>;
   }
 
   if (!item) {
-    return <p className="mx-auto max-w-3xl text-sm text-ink-2">Cargando aporte...</p>;
+    return <p className="mx-auto max-w-3xl text-sm text-system-600">Cargando aporte...</p>;
   }
 
   const yaDecidido = item.status === "aceptado" || item.status === "rechazado";
@@ -141,15 +141,15 @@ export default function RevisionAportePage() {
 
   return (
     <div className="mx-auto max-w-4xl">
-      <Link href="/revisiones" className="mb-5 inline-block text-[13px] text-ink-2 hover:text-ink">
+      <Link href="/revisiones" className="mb-5 inline-block text-[13px] text-system-600 hover:text-system-900">
         ← Volver a revisiones
       </Link>
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-accent">Revisor de aportes</p>
-          <h1 className="mt-2 text-2xl font-extrabold text-ink">Vista previa del aporte</h1>
-          <p className="mt-1 text-[13px] text-ink-2">Revisa el contenido y decide si se acepta o se rechaza.</p>
+          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-600">Revisor de aportes</p>
+          <h1 className="mt-2 text-2xl font-extrabold text-system-900">Vista previa del aporte</h1>
+          <p className="mt-1 text-[13px] text-system-600">Revisa el contenido y decide si se acepta o se rechaza.</p>
         </div>
         <div className="flex flex-wrap justify-end gap-1.5">
           {item.inapropiado && <Tag tone="danger">Contenido inapropiado</Tag>}
@@ -157,73 +157,73 @@ export default function RevisionAportePage() {
         </div>
       </div>
 
-      {error && <p className="mb-4 rounded border border-danger bg-danger-tint p-3 text-[12.5px] text-danger">{error}</p>}
+      {error && <p className="mb-4 rounded border border-error-700 bg-error-50 p-3 text-[12.5px] text-error-700">{error}</p>}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(280px,.9fr)]">
-        <section className="rounded-lg border border-line bg-surface p-5 shadow-sm">
-          <p className="mb-3 text-[12.5px] font-semibold text-ink">Archivo enviado</p>
+        <section className="rounded-lg border border-system-200 bg-white p-5 shadow-sm">
+          <p className="mb-3 text-[12.5px] font-semibold text-system-900">Archivo enviado</p>
           {item.archivoBorrado ? (
-            <div className="flex aspect-video items-center justify-center rounded-lg border border-dashed border-line-2 bg-sunken text-[12.5px] text-ink-3">
+            <div className="flex aspect-video items-center justify-center rounded-lg border border-dashed border-system-300 bg-system-100 text-[12.5px] text-system-400">
               El creador borró este archivo
             </div>
           ) : item.fileType === "foto" ? (
             <img
               src={`${BASE_PATH}/api/aportes/${item.id}/archivo`}
               alt={`Vista previa del aporte de ${item.participantName}`}
-              className="aspect-video w-full rounded-lg border border-line-2 bg-sunken object-contain"
+              className="aspect-video w-full rounded-lg border border-system-300 bg-system-100 object-contain"
             />
           ) : (
-            <div className="flex aspect-video items-center justify-center rounded-lg border border-dashed border-line-2 bg-sunken text-[12.5px] text-ink-3">
+            <div className="flex aspect-video items-center justify-center rounded-lg border border-dashed border-system-300 bg-system-100 text-[12.5px] text-system-400">
               Vista previa no disponible para {item.fileType}
             </div>
           )}
-          <p className="mt-3 font-mono text-[11.5px] text-ink-3">
+          <p className="mt-3 font-mono text-[11.5px] text-system-400">
             {item.fileType} {item.fileSizeBytes ? `· ${formatearTamano(item.fileSizeBytes)}` : ""}
           </p>
         </section>
 
-        <section className="rounded-lg border border-line bg-surface p-5 shadow-sm">
-          <h2 className="text-lg font-extrabold text-ink">Datos del aporte</h2>
+        <section className="rounded-lg border border-system-200 bg-white p-5 shadow-sm">
+          <h2 className="text-lg font-extrabold text-system-900">Datos del aporte</h2>
           <div className="mt-4 space-y-4">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-3">Participante</p>
-              <p className="mt-1 text-sm font-semibold text-ink">{item.participantName}</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-system-400">Participante</p>
+              <p className="mt-1 text-sm font-semibold text-system-900">{item.participantName}</p>
             </div>
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-3">Descripción</p>
-              <p className="mt-1 text-sm leading-relaxed text-ink-2">{item.description}</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-system-400">Descripción</p>
+              <p className="mt-1 text-sm leading-relaxed text-system-600">{item.description}</p>
             </div>
             {item.caracteristicas && item.caracteristicas.length > 0 && (
               <div>
-                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-ink-3">Características</p>
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-system-400">Características</p>
                 <div className="flex flex-wrap gap-2">
                   {item.caracteristicas.map((feature) => <Tag key={feature}>{feature}</Tag>)}
                 </div>
               </div>
             )}
-            <dl className="space-y-2 border-t border-line pt-4 text-[13px]">
-              <div className="flex justify-between gap-4"><dt className="text-ink-2">Enviado</dt><dd className="font-mono text-right text-ink">{submittedAt.toLocaleDateString("es-MX", { day: "numeric", month: "short" })} · {submittedAt.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}</dd></div>
-              <div className="flex justify-between gap-4"><dt className="text-ink-2">Tipo</dt><dd className="text-ink">{item.fileType}</dd></div>
+            <dl className="space-y-2 border-t border-system-200 pt-4 text-[13px]">
+              <div className="flex justify-between gap-4"><dt className="text-system-600">Enviado</dt><dd className="font-mono text-right text-system-900">{submittedAt.toLocaleDateString("es-MX", { day: "numeric", month: "short" })} · {submittedAt.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}</dd></div>
+              <div className="flex justify-between gap-4"><dt className="text-system-600">Tipo</dt><dd className="text-system-900">{item.fileType}</dd></div>
             </dl>
           </div>
         </section>
       </div>
 
       {item.status === "rechazado" && item.rejectionReason && (
-        <p className="mt-6 rounded border border-danger bg-danger-tint p-3 text-[12.5px] text-danger">
+        <p className="mt-6 rounded border border-error-700 bg-error-50 p-3 text-[12.5px] text-error-700">
           Motivo del rechazo: {item.rejectionReason}
         </p>
       )}
 
       {rechazando && !yaDecidido && (
-        <form onSubmit={confirmarRechazo} className="mt-6 rounded-lg border border-danger bg-surface p-4">
-          <p className="mb-2 text-[13px] font-medium text-ink">
-            Motivo del rechazo <span className="text-danger">*</span>
+        <form onSubmit={confirmarRechazo} className="mt-6 rounded-lg border border-error-700 bg-white p-4">
+          <p className="mb-2 text-[13px] font-medium text-system-900">
+            Motivo del rechazo <span className="text-error-700">*</span>
           </p>
           <select
             value={motivo}
             onChange={(e) => setMotivo(e.target.value)}
-            className="mb-2.5 w-full rounded border border-line-2 bg-surface px-3 py-2.5 text-[13px] text-ink outline-none focus:border-accent"
+            className="mb-2.5 w-full rounded border border-system-300 bg-white px-3 py-2.5 text-[13px] text-system-900 outline-none focus:border-brand-600"
           >
             <option value="">Selecciona un motivo ▾</option>
             {MOTIVOS_DE_RECHAZO.map((m) => (
@@ -241,18 +241,18 @@ export default function RevisionAportePage() {
             />
           </Field>
           {item.userId === null && !item.inapropiado && (
-            <label className="mb-3 flex items-start gap-2 text-[12.5px] text-ink">
+            <label className="mb-3 flex items-start gap-2 text-[12.5px] text-system-900">
               <input type="checkbox" checked={inapropiado} onChange={(e) => setInapropiado(e.target.checked)} className="mt-0.5" />
               <span>
                 <span className="font-medium">Contenido inapropiado</span>
-                <span className="block text-[11.5px] text-ink-3">
+                <span className="block text-[11.5px] text-system-400">
                   Úsalo solo si el contenido es ofensivo, ilegal o dañino. Si un mismo dispositivo junta varios, se
                   bloquea en toda la plataforma.
                 </span>
               </span>
             </label>
           )}
-          <p className="mb-3 text-[11.5px] text-ink-3">
+          <p className="mb-3 text-[11.5px] text-system-400">
             {item.userId === null
               ? "Obligatorio al rechazar. Es un aporte anónimo: queda registrado, pero nadie lo recibe."
               : "Obligatorio al rechazar. El participante lo recibirá en una notificación y lo verá en Mis aportes."}
@@ -268,25 +268,25 @@ export default function RevisionAportePage() {
         </form>
       )}
 
-      {aviso && <p className="mt-6 rounded border border-ok bg-ok-tint p-3 text-[12.5px] text-ok">{aviso}</p>}
+      {aviso && <p className="mt-6 rounded border border-success-700 bg-success-50 p-3 text-[12.5px] text-success-700">{aviso}</p>}
 
       {item.reporte ? (
-        <p className="mt-6 rounded border border-warn bg-warn-tint p-3 text-[12.5px] text-warn">
+        <p className="mt-6 rounded border border-warning-500 bg-warning-50 p-3 text-[12.5px] text-warning-800">
           Reportado a quien creó la campaña · {item.reporte.motivo}
         </p>
       ) : reportando ? (
-        <form onSubmit={(e) => void confirmarReporte(e)} className="mt-6 rounded-lg border border-warn bg-surface p-4">
-          <p className="text-[13px] font-medium text-ink">
-            Reportar al creador <span className="text-danger">*</span>
+        <form onSubmit={(e) => void confirmarReporte(e)} className="mt-6 rounded-lg border border-warning-500 bg-white p-4">
+          <p className="text-[13px] font-medium text-system-900">
+            Reportar al creador <span className="text-error-700">*</span>
           </p>
-          <p className="mb-3 mt-1 text-[11.5px] text-ink-3">
+          <p className="mb-3 mt-1 text-[11.5px] text-system-400">
             Si el contenido es inapropiado o quien lo envió abusa de la campaña, avisa a quien la creó. Tú no
             baneas: banear o bloquear a esa persona es decisión suya.
           </p>
           <select
             value={motivoDeReporte}
             onChange={(e) => setMotivoDeReporte(e.target.value)}
-            className="mb-2.5 w-full rounded border border-line-2 bg-surface px-3 py-2.5 text-[13px] text-ink outline-none focus:border-accent"
+            className="mb-2.5 w-full rounded border border-system-300 bg-white px-3 py-2.5 text-[13px] text-system-900 outline-none focus:border-brand-600"
           >
             <option value="">Selecciona un motivo ▾</option>
             {MOTIVOS_DE_REPORTE.map((m) => (
@@ -315,8 +315,8 @@ export default function RevisionAportePage() {
         </form>
       ) : null}
 
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5">
-        <p className="max-w-xl text-[12.5px] text-ink-2">
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-system-200 pt-5">
+        <p className="max-w-xl text-[12.5px] text-system-600">
           {yaDecidido
             ? "Este aporte ya tiene una decisión."
             : "Tu decisión es final: el aporte queda aceptado o rechazado, sin pasar por quien creó la campaña."}

@@ -59,7 +59,7 @@ export default async function DashboardDeCampanasPage() {
         <section>
           <TituloDeSeccion>Por temática · activas</TituloDeSeccion>
           {d.porTematica.length === 0 ? (
-            <p className="text-[12.5px] text-ink-2">No hay campañas activas.</p>
+            <p className="text-[12.5px] text-system-600">No hay campañas activas.</p>
           ) : (
             <Reparto filas={d.porTematica} anchoEtiqueta={130} anchoValor={30} />
           )}
@@ -68,11 +68,11 @@ export default async function DashboardDeCampanasPage() {
         <section>
           <TituloDeSeccion>Por tipo de dato solicitado · activas</TituloDeSeccion>
           {d.porTipoDeDato.length === 0 ? (
-            <p className="text-[12.5px] text-ink-2">No hay campañas activas.</p>
+            <p className="text-[12.5px] text-system-600">No hay campañas activas.</p>
           ) : (
             <>
               <Reparto filas={d.porTipoDeDato} anchoEtiqueta={96} anchoValor={30} />
-              <p className="mt-2.5 text-[12px] text-ink-3">
+              <p className="mt-2.5 text-[12px] text-system-400">
                 Una campaña puede pedir varios tipos de dato, por eso la suma puede superar el total de campañas.
               </p>
             </>
@@ -114,42 +114,42 @@ export default async function DashboardDeCampanasPage() {
 
       <TituloDeSeccion>Campañas activas con mayor participación</TituloDeSeccion>
       {d.masParticipacion.length === 0 ? (
-        <p className="py-4 text-[13px] text-ink-2">No hay campañas activas.</p>
+        <p className="py-4 text-[13px] text-system-600">No hay campañas activas.</p>
       ) : (
         <>
           <div className="space-y-3 md:hidden">
             {d.masParticipacion.map((c) => {
               const pct = porcentajeDeMeta(c.aportes, c.meta);
               return (
-                <article key={c.id} className="rounded-lg border border-line bg-surface p-4 shadow-sm">
+                <article key={c.id} className="rounded-lg border border-system-200 bg-white p-4 shadow-sm">
                   <div className="min-w-0">
-                    <p className="break-words text-[14px] font-bold leading-snug text-ink">{c.nombre}</p>
-                    <p className="mt-1 break-words text-[11px] text-ink-3">
+                    <p className="break-words text-[14px] font-bold leading-snug text-system-900">{c.nombre}</p>
+                    <p className="mt-1 break-words text-[11px] text-system-400">
                       {c.tiposDeDato.map((t) => NOMBRE_DE_TIPO[t]).join(" · ") || "—"}
                     </p>
                   </div>
 
-                  <p className="mt-3 break-words border-t border-line pt-3 text-[12px] text-ink-2">
+                  <p className="mt-3 break-words border-t border-system-200 pt-3 text-[12px] text-system-600">
                     {c.tematica || "Sin temática"}
                   </p>
 
                   <dl className="mt-3 grid grid-cols-2 gap-3">
                     <div>
-                      <dt className="text-[11px] text-ink-2">Participantes</dt>
-                      <dd className="mt-0.5 font-mono text-[14px] font-semibold tabular-nums text-ink">
+                      <dt className="text-[11px] text-system-600">Participantes</dt>
+                      <dd className="mt-0.5 font-mono text-[14px] font-semibold tabular-nums text-system-900">
                         {formatearNumero(c.participantes)}
                       </dd>
                     </div>
                     <div>
-                      <dt className="text-[11px] text-ink-2">Aportes</dt>
-                      <dd className="mt-0.5 font-mono text-[14px] font-semibold tabular-nums text-ink">
+                      <dt className="text-[11px] text-system-600">Aportes</dt>
+                      <dd className="mt-0.5 font-mono text-[14px] font-semibold tabular-nums text-system-900">
                         {formatearNumero(c.aportes)}
                       </dd>
                     </div>
                   </dl>
 
                   <div className="mt-3">
-                    <div className="mb-1 flex items-center justify-between gap-3 text-[11px] text-ink-2">
+                    <div className="mb-1 flex items-center justify-between gap-3 text-[11px] text-system-600">
                       <span>Avance de meta</span>
                       <span className="font-mono tabular-nums">
                         {formatearNumero(c.aportes)}/{formatearNumero(c.meta)}
@@ -168,9 +168,9 @@ export default async function DashboardDeCampanasPage() {
             })}
           </div>
 
-          <div className="hidden overflow-x-auto rounded-lg border border-line bg-surface p-5 shadow-sm md:block">
+          <div className="hidden overflow-x-auto rounded-lg border border-system-200 bg-white p-5 shadow-sm md:block">
           <table className="w-full min-w-[720px] text-left text-[13.5px]">
-            <thead className="border-b border-line font-mono text-[10px] uppercase tracking-[0.1em] text-ink-3">
+            <thead className="border-b border-system-200 font-mono text-[10px] uppercase tracking-[0.1em] text-system-400">
               <tr>
                 <th className="pb-3 font-medium">Campaña</th>
                 <th className="pb-3 font-medium">Temática</th>
@@ -184,17 +184,17 @@ export default async function DashboardDeCampanasPage() {
               {d.masParticipacion.map((c) => {
                 const pct = porcentajeDeMeta(c.aportes, c.meta);
                 return (
-                  <tr key={c.id} className="border-b border-line last:border-0">
+                  <tr key={c.id} className="border-b border-system-200 last:border-0">
                     <td className="py-4 pr-3">
-                      <p className="font-bold text-ink">{c.nombre}</p>
-                      <p className="text-[12px] text-ink-3">{c.tiposDeDato.map((t) => NOMBRE_DE_TIPO[t]).join(" · ") || "—"}</p>
+                      <p className="font-bold text-system-900">{c.nombre}</p>
+                      <p className="text-[12px] text-system-400">{c.tiposDeDato.map((t) => NOMBRE_DE_TIPO[t]).join(" · ") || "—"}</p>
                     </td>
-                    <td className="text-[12.5px] text-ink-2">{c.tematica || "Sin temática"}</td>
+                    <td className="text-[12.5px] text-system-600">{c.tematica || "Sin temática"}</td>
                     <td className="text-right font-mono tabular-nums">{formatearNumero(c.participantes)}</td>
                     <td className="text-right font-mono tabular-nums">{formatearNumero(c.aportes)}</td>
                     <td className="w-44 pl-4">
                       <ProgressBar pct={pct} tone="ok" />
-                      <span className="font-mono text-[11px] text-ink-3">
+                      <span className="font-mono text-[11px] text-system-400">
                         {formatearNumero(c.aportes)}/{formatearNumero(c.meta)}
                       </span>
                     </td>

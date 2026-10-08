@@ -90,7 +90,7 @@ export default function RootLoginForm() {
           required
         />
         {error && (
-          <p className="mt-1.5 text-[12px] text-danger" id={idError} role="alert">
+          <p className="mt-1.5 text-[12px] text-error-700" id={idError} role="alert">
             {error}
           </p>
         )}

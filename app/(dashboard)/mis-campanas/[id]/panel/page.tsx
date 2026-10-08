@@ -56,7 +56,7 @@ export default function PanelCampanaPage() {
   }, [params.id]);
 
   if (!campaign) {
-    return <p className="text-sm text-ink-2">Cargando campaña…</p>;
+    return <p className="text-sm text-system-600">Cargando campaña…</p>;
   }
 
   const parseDateOnly = (date: string | null | undefined) => {
@@ -74,15 +74,15 @@ export default function PanelCampanaPage() {
     <div className="mx-auto max-w-4xl">
       <Link
         href="/mis-campanas"
-        className="mb-4 inline-block text-[13px] text-ink-2 hover:text-ink"
+        className="mb-4 inline-block text-[13px] text-system-600 hover:text-system-900"
       >
         ← Volver a mis campañas
       </Link>
 
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-extrabold text-ink">{campaign.name}</h1>
-          <p className="mt-1 font-mono text-[13px] text-ink-2">
+          <h1 className="text-xl font-extrabold text-system-900">{campaign.name}</h1>
+          <p className="mt-1 font-mono text-[13px] text-system-600">
             {campaign.startDate && parseDateOnly(campaign.startDate)?.toLocaleDateString("es-MX", {
               day: "numeric",
               month: "short",
@@ -114,16 +114,16 @@ export default function PanelCampanaPage() {
 
       {!isFinished && (
         <>
-          <p className="mb-3 text-[12.5px] font-medium text-ink">
-            Recolección diaria <span className="text-ink-3">· últimos 14 días</span>
+          <p className="mb-3 text-[12.5px] font-medium text-system-900">
+            Recolección diaria <span className="text-system-400">· últimos 14 días</span>
           </p>
-          <div className="mb-1.5 flex h-32 items-end gap-1.5 border-b border-line">
+          <div className="mb-1.5 flex h-32 items-end gap-1.5 border-b border-system-200">
             {recoleccionDiaria.map((dia) => (
               <div
                 key={dia.fecha}
                 title={`${dia.etiqueta}: ${dia.valor} aporte${dia.valor === 1 ? "" : "s"}`}
                 aria-label={`${dia.etiqueta}: ${dia.valor} aporte${dia.valor === 1 ? "" : "s"}`}
-                className="flex-1 rounded-t bg-accent"
+                className="flex-1 rounded-t bg-brand-600"
                 style={{ height: `${(dia.valor / maxDaily) * 100}%`, minHeight: dia.valor > 0 ? 2 : 0 }}
               />
             ))}
@@ -132,7 +132,7 @@ export default function PanelCampanaPage() {
             {recoleccionDiaria.map((dia) => (
               <span
                 key={dia.fecha}
-                className="flex-1 text-center font-mono text-[9px] text-ink-3"
+                className="flex-1 text-center font-mono text-[9px] text-system-400"
               >
                 {dia.etiqueta}
               </span>
@@ -143,18 +143,18 @@ export default function PanelCampanaPage() {
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
         <div>
-          <p className="mb-3 text-[12.5px] font-medium text-ink">
+          <p className="mb-3 text-[12.5px] font-medium text-system-900">
             {isFinished ? "Resultado por tipo de dato" : "Por tipo de dato"}
           </p>
           {porTipo.length === 0 ? (
-            <p className="text-[12.5px] text-ink-2">Todavía no hay aportes aprobados.</p>
+            <p className="text-[12.5px] text-system-600">Todavía no hay aportes aprobados.</p>
           ) : (
             porTipo.map((tipo, i) => (
               <div
                 key={tipo.tipo}
                 className={`flex items-center gap-2.5 text-[12.5px] ${i < porTipo.length - 1 ? "mb-2.5" : ""}`}
               >
-                <span className="w-16 flex-none text-ink-2">{tipo.etiqueta}</span>
+                <span className="w-16 flex-none text-system-600">{tipo.etiqueta}</span>
                 <div className="flex-1">
                   <ProgressBar pct={tipo.porcentaje} />
                 </div>
@@ -165,20 +165,20 @@ export default function PanelCampanaPage() {
         </div>
 
         <div>
-          <p className="mb-3 text-[12.5px] font-medium text-ink">
+          <p className="mb-3 text-[12.5px] font-medium text-system-900">
             {isFinished ? "Cierre" : "Progreso hacia la meta"}
           </p>
           {isFinished ? (
             <div className="flex flex-col gap-2 text-[13px]">
               <div className="flex justify-between">
-                <span className="text-ink-2">Meta</span>
-                <span className="font-mono font-medium text-ink">
+                <span className="text-system-600">Meta</span>
+                <span className="font-mono font-medium text-system-900">
                   {campaign.approvedContributions} de {campaign.goalContributions}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-ink-2">Cerrada el</span>
-                <span className="font-mono font-medium text-ink">
+                <span className="text-system-600">Cerrada el</span>
+                <span className="font-mono font-medium text-system-900">
                   {campaign.endDate && parseDateOnly(campaign.endDate)?.toLocaleDateString("es-MX", {
                     day: "numeric",
                     month: "short",
@@ -190,13 +190,13 @@ export default function PanelCampanaPage() {
           ) : (
             <>
               <ProgressBar pct={pct} tone="ok" />
-              <div className="my-3 flex justify-between font-mono text-[12.5px] text-ink-2">
+              <div className="my-3 flex justify-between font-mono text-[12.5px] text-system-600">
                 <span>
                   {campaign.currentContributions} de {campaign.goalContributions} aportes
                 </span>
                 <span>{campaign.daysRemaining ?? 0} días restantes</span>
               </div>
-              <div className="rounded-lg bg-sunken p-3.5 text-[12px] leading-relaxed text-ink-2">
+              <div className="rounded-lg bg-system-100 p-3.5 text-[12px] leading-relaxed text-system-600">
                 Al ritmo actual, la meta se alcanza antes de la fecha de cierre.
               </div>
             </>

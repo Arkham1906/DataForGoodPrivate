@@ -140,14 +140,14 @@ export default function CampaignDetailPage() {
   }
 
   if (loading) {
-    return <div className="mx-auto max-w-4xl text-[13px] text-ink-2">Cargando campaña…</div>;
+    return <div className="mx-auto max-w-4xl text-[13px] text-system-600">Cargando campaña…</div>;
   }
 
   if (error || !campaign) {
     return (
       <div className="mx-auto max-w-4xl">
         <BackLink href="/supervision">Volver a supervisar</BackLink>
-        <p className="text-[14px] text-ink-2">{error ?? "No se encontró la campaña."}</p>
+        <p className="text-[14px] text-system-600">{error ?? "No se encontró la campaña."}</p>
       </div>
     );
   }
@@ -184,9 +184,9 @@ export default function CampaignDetailPage() {
 
       <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-accent">Detalle de campaña</p>
-          <h1 className="mt-2 text-2xl font-extrabold text-ink">{campaign.name}</h1>
-          <p className="mt-1 text-[13px] text-ink-2">
+          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-600">Detalle de campaña</p>
+          <h1 className="mt-2 text-2xl font-extrabold text-system-900">{campaign.name}</h1>
+          <p className="mt-1 text-[13px] text-system-600">
             {(campaign.tag || campaign.tematica || "Sin temática")} · creada por {campaign.creatorName || "Usuario"} · meta {Number(campaign.goalContributions ?? 0)} aportes
           </p>
         </div>
@@ -199,7 +199,7 @@ export default function CampaignDetailPage() {
             type="button"
             onClick={() => void handleTake()}
             disabled={actionLoading !== null}
-            className="rounded-pill bg-accent px-4 py-2 text-[12.5px] font-bold text-white shadow-sm hover:bg-accent-deep disabled:opacity-60"
+            className="rounded-pill bg-brand-600 px-4 py-2 text-[12.5px] font-bold text-white shadow-sm hover:bg-brand-800 disabled:opacity-60"
           >
             {actionLoading === "tomar" ? "Tomando…" : "Supervisar esta campaña"}
           </button>
@@ -215,7 +215,7 @@ export default function CampaignDetailPage() {
                 setShowRejectForm(true);
               }}
               disabled={actionLoading !== null}
-              className="rounded-pill border border-danger/40 bg-danger-tint px-3.5 py-2 text-[12.5px] font-bold text-danger disabled:opacity-60"
+              className="rounded-pill border border-error-700/40 bg-error-50 px-3.5 py-2 text-[12.5px] font-bold text-error-700 disabled:opacity-60"
             >
               Rechazar
             </button>
@@ -225,7 +225,7 @@ export default function CampaignDetailPage() {
               type="button"
               onClick={() => handleDecision("reportada")}
               disabled={actionLoading !== null}
-              className="rounded-pill border border-line-2 bg-surface px-3.5 py-2 text-[12.5px] font-bold text-ink-2 disabled:opacity-60"
+              className="rounded-pill border border-system-300 bg-white px-3.5 py-2 text-[12.5px] font-bold text-system-600 disabled:opacity-60"
             >
               {actionLoading === "reportada" ? "Reportando…" : "Reportar"}
             </button>
@@ -235,7 +235,7 @@ export default function CampaignDetailPage() {
               type="button"
               onClick={() => handleDecision("aceptada")}
               disabled={actionLoading !== null}
-              className="rounded-pill border border-ok/40 bg-ok-tint px-3.5 py-2 text-[12.5px] font-bold text-ok disabled:opacity-60"
+              className="rounded-pill border border-success-700/40 bg-success-50 px-3.5 py-2 text-[12.5px] font-bold text-success-700 disabled:opacity-60"
             >
               {actionLoading === "aceptada" ? "Aceptando…" : "Aceptar campaña"}
             </button>
@@ -245,9 +245,9 @@ export default function CampaignDetailPage() {
       </div>
 
       {showRejectForm && isMySupervision && campaign.status === "en_revision" && (
-        <form onSubmit={confirmRejection} className="mb-5 rounded-lg border border-danger/40 bg-danger-tint p-4">
-          <label htmlFor="campaign-rejection-reason" className="mb-2 block text-[13px] font-semibold text-ink">
-            Motivo del rechazo <span className="text-danger">*</span>
+        <form onSubmit={confirmRejection} className="mb-5 rounded-lg border border-error-700/40 bg-error-50 p-4">
+          <label htmlFor="campaign-rejection-reason" className="mb-2 block text-[13px] font-semibold text-system-900">
+            Motivo del rechazo <span className="text-error-700">*</span>
           </label>
           <Textarea
             id="campaign-rejection-reason"
@@ -262,14 +262,14 @@ export default function CampaignDetailPage() {
               type="button"
               onClick={() => setShowRejectForm(false)}
               disabled={actionLoading !== null}
-              className="rounded-pill border border-line-2 bg-surface px-3.5 py-2 text-[12.5px] font-bold text-ink-2 disabled:opacity-60"
+              className="rounded-pill border border-system-300 bg-white px-3.5 py-2 text-[12.5px] font-bold text-system-600 disabled:opacity-60"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={actionLoading !== null || !rejectionReason.trim()}
-              className="rounded-pill bg-danger px-3.5 py-2 text-[12.5px] font-bold text-white disabled:opacity-60"
+              className="rounded-pill bg-error-700 px-3.5 py-2 text-[12.5px] font-bold text-white disabled:opacity-60"
             >
               {actionLoading === "rechazada" ? "Rechazando…" : "Confirmar rechazo"}
             </button>
@@ -277,56 +277,56 @@ export default function CampaignDetailPage() {
         </form>
       )}
 
-      <div className="mb-5 rounded-lg border border-line bg-sunken p-4 text-[13px] text-ink-2">
+      <div className="mb-5 rounded-lg border border-system-200 bg-system-100 p-4 text-[13px] text-system-600">
         La decisión queda registrada y vinculada al supervisor que la toma.
       </div>
 
-      <section className="rounded-lg border border-line bg-surface p-5 shadow-sm">
-        <p className="text-[13.5px] leading-6 text-ink-2">{campaign.description}</p>
+      <section className="rounded-lg border border-system-200 bg-white p-5 shadow-sm">
+        <p className="text-[13.5px] leading-6 text-system-600">{campaign.description}</p>
 
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <div className="space-y-3">
-            <div className="flex justify-between gap-4 border-b border-line pb-3 text-[13px]">
-              <span className="text-ink-2">Usuario de la campaña</span>
+            <div className="flex justify-between gap-4 border-b border-system-200 pb-3 text-[13px]">
+              <span className="text-system-600">Usuario de la campaña</span>
               <span className="text-right font-semibold">{campaign.creatorName || "Usuario"}</span>
             </div>
-            <div className="flex justify-between gap-4 border-b border-line pb-3 text-[13px]">
-              <span className="text-ink-2">Organizador</span>
+            <div className="flex justify-between gap-4 border-b border-system-200 pb-3 text-[13px]">
+              <span className="text-system-600">Organizador</span>
               <span className="text-right">{campaign.organizer || "Sin especificar"}</span>
             </div>
-            <div className="flex justify-between gap-4 border-b border-line pb-3 text-[13px]">
-              <span className="text-ink-2">Temática</span>
+            <div className="flex justify-between gap-4 border-b border-system-200 pb-3 text-[13px]">
+              <span className="text-system-600">Temática</span>
               <span className="text-right">{campaign.tag || campaign.tematica || "Sin temática"}</span>
             </div>
-            <div className="flex justify-between border-b border-line pb-3 text-[13px]">
-              <span className="text-ink-2">Estado</span>
+            <div className="flex justify-between border-b border-system-200 pb-3 text-[13px]">
+              <span className="text-system-600">Estado</span>
               <Tag tone={currentStatus.tone}>{currentStatus.label}</Tag>
             </div>
-            <div className="flex justify-between border-b border-line pb-3 text-[13px]">
-              <span className="text-ink-2">Tipo de aporte</span>
+            <div className="flex justify-between border-b border-system-200 pb-3 text-[13px]">
+              <span className="text-system-600">Tipo de aporte</span>
               <span>{dataTypes.join(" y ")}</span>
             </div>
           </div>
 
           <div className="space-y-3">
-            <div className="flex justify-between gap-4 border-b border-line pb-3 text-[13px]">
-              <span className="text-ink-2">Ubicación</span>
+            <div className="flex justify-between gap-4 border-b border-system-200 pb-3 text-[13px]">
+              <span className="text-system-600">Ubicación</span>
               <span className="text-right">{location}</span>
             </div>
-            <div className="flex justify-between border-b border-line pb-3 text-[13px]">
-              <span className="text-ink-2">Periodo</span>
+            <div className="flex justify-between border-b border-system-200 pb-3 text-[13px]">
+              <span className="text-system-600">Periodo</span>
               <span className="text-right font-mono">{formatDate(campaign.startDate)} - {formatDate(campaign.endDate)}</span>
             </div>
-            <div className="flex justify-between border-b border-line pb-3 text-[13px]">
-              <span className="text-ink-2">Progreso</span>
+            <div className="flex justify-between border-b border-system-200 pb-3 text-[13px]">
+              <span className="text-system-600">Progreso</span>
               <span className="font-mono">{Number(campaign.currentContributions ?? 0)} / {Number(campaign.goalContributions ?? 0)} aportes</span>
             </div>
-            <div className="flex justify-between border-b border-line pb-3 text-[13px]">
-              <span className="text-ink-2">Participantes</span>
+            <div className="flex justify-between border-b border-system-200 pb-3 text-[13px]">
+              <span className="text-system-600">Participantes</span>
               <span className="font-mono">{Number(campaign.participants ?? 0)}</span>
             </div>
-            <div className="flex justify-between border-b border-line pb-3 text-[13px]">
-              <span className="text-ink-2">Cuota por usuario</span>
+            <div className="flex justify-between border-b border-system-200 pb-3 text-[13px]">
+              <span className="text-system-600">Cuota por usuario</span>
               <span className="font-mono">{Number(campaign.quotaPerUser ?? 0)}</span>
             </div>
           </div>
@@ -334,12 +334,12 @@ export default function CampaignDetailPage() {
 
         <div className="mt-5 flex flex-wrap gap-3">
           {(campaign.status === "activa" || campaign.status === "finalizada") && (
-            <Link href={`/supervision/${campaign.id}/usuarios`} className="rounded-pill bg-accent px-5 py-3 text-[12.5px] font-bold text-white shadow-sm hover:bg-accent-deep">
+            <Link href={`/supervision/${campaign.id}/usuarios`} className="rounded-pill bg-brand-600 px-5 py-3 text-[12.5px] font-bold text-white shadow-sm hover:bg-brand-800">
               Ver participantes
             </Link>
           )}
           {isMySupervision && (
-            <Link href={`/supervision/${campaign.id}/panel`} className="rounded-pill border border-line-2 bg-surface px-5 py-3 text-[12.5px] font-bold text-ink-2 hover:border-accent hover:text-accent">
+            <Link href={`/supervision/${campaign.id}/panel`} className="rounded-pill border border-system-300 bg-white px-5 py-3 text-[12.5px] font-bold text-system-600 hover:border-brand-600 hover:text-brand-600">
               Abrir panel
             </Link>
           )}

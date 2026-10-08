@@ -37,7 +37,7 @@ export default function BuscadorDeSupervisores({ q }: { q: string }) {
         value={texto}
         onChange={(e) => setTexto(e.target.value)}
         placeholder="Buscar supervisor"
-        className="w-full rounded border border-line-2 bg-surface px-3.5 py-2 text-sm text-ink outline-none transition-colors focus:border-accent"
+        className="w-full rounded border border-system-300 bg-white px-3.5 py-2 text-sm text-system-900 outline-none transition-colors focus:border-brand-600"
       />
     </div>
   );

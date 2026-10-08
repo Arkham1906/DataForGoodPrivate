@@ -37,7 +37,7 @@ DataForGood conecta organizaciones con personas que aportan información en camp
     - `/aportes/dashboard` (SCR-WEB-34, `lib/aportes/dashboard.ts`): aprobados, pendientes (cola de hoy, sin importar el rango), rechazados, tasa, recolección por día/semana/mes **en hora de Tepic** (`submitted_at` es `TIMESTAMP` en UTC), tipo, temática, motivos de rechazo (texto libre: se agrupan textos idénticos) y campañas que más aportan. Rango `?rango=30d|90d|12m` con el selector de `/usuarios/dashboard`. Sin botones al pie (se quitaron a pedido del usuario).
     - `/aportes` (SCR-WEB-14, `lib/aportes/bandeja.ts`): toda la plataforma, fichas por etapa (`?etapa=pendientes|aceptado|rechazado`), búsqueda, filtro `?campana=`, paginación y aviso de si la campaña tiene revisor. **El SuperUsuario ve el registro, no el contenido:** participante ("Anónimo" sin cuenta), fecha, campaña, resumen de 90 caracteres (nada en anónimos), tipo y etapa; nunca el archivo ni el correo. `/sistema/campanas/[id]` enlaza con "Ver aportes recibidos".
     - El prototipo de origen es `DataForGood_Pantallas_Web_SuperUsuario_v16.html`; las carpetas `.tsx` sueltas que manda el usuario pueden ser de otra pantalla: revisar antes de usarlas.
-  - **Ajustes de interfaz:** sin la nota gris al final de `/usuarios/supervisores/[id]`; el recuadro motivacional de los dos menús laterales ya no es azul sólido (parecía botón): fondo `accent-tint` con franja `border-accent`.
+  - **Ajustes de interfaz:** sin la nota gris al final de `/usuarios/supervisores/[id]`; el recuadro motivacional de los dos menús laterales ya no es azul sólido (parecía botón): fondo `accent-tint` con franja `border-brand-600`.
   - **Animaciones** (todas se detienen con movimiento reducido; cómo, en `references/ui-responsiva.md`):
     - Landing, `/explorar`, `/datos` y `/entrar`: `.landing-entrada` (escalonada con `retraso()`; `backwards`, no `both`, para no bloquear el hover), `.landing-revelar` (al hacer scroll, `animation-timeline: view()` dentro de `@supports`), `.landing-tarjeta` (elevación con el cursor) y `.landing-brillo` (llamado final). Ayudantes en `lib/animaciones.ts` (`retraso`, `entradaDeTarjeta`: las 6 primeras tarjetas entran al cargar, las demás con el scroll).
     - "DataForGood" del texto de la landing lleva `.marca-animada` (degradado accent/ok). Las cifras cuentan desde 0 con `ui/ContadorAnimado` (escribe en el DOM, sin estado: el lint prohíbe `setState` en efectos; el lector de pantalla oye solo el valor final).
@@ -115,7 +115,7 @@ DataForGood conecta organizaciones con personas que aportan información en camp
 10. **`'use client'` nunca en una función `async`.** En las páginas, lee los parámetros con `await params` / `await searchParams`.
 11. **La app vive bajo un `basePath`** (`/dataforgood` en producción, según `BASE_PATH` en el build). `<Link>`, `router.push`, `redirect()` y `revalidatePath` lo aplican solos. **Todo lo demás lo antepone a mano con `BASE_PATH` de `lib/base-path.ts`**: `fetch(\`${BASE_PATH}/api/...\`)`, `<img src>`, `<a href>` y `window.location`. No lo agregues a un `<Link>`, porque quedaría duplicado. Para URLs absolutas usa `absoluteUrl()` de `lib/app-url.ts` (`APP_ORIGIN` + `BASE_PATH`): `new URL(path, request.url)` da `http://0.0.0.0:3000` dentro de Docker y no lleva la subruta.
 12. **Páginas prerenderizadas que leen Postgres** (`revalidate` o estáticas) envuelven sus consultas en `try/catch` con valores vacíos: `next build` corre sin base de datos dentro del Dockerfile.
-13. **Reutiliza componentes y tokens** (`components/ui/*` para la zona de usuario, `components/sistema/*` para el panel; `bg-surface`, `text-ink-2`, `border-line`...). Nada de colores sueltos, otra tipografía ni botones nuevos. **No anides `<Link>` con `<Button>`**: usa `ButtonLink`.
+13. **Reutiliza componentes y las familias de color** (`components/ui/*` para la zona de usuario, `components/sistema/*` para el panel; `bg-white`, `text-system-600`, `border-system-200`...). Nada de colores sueltos, otra tipografía ni botones nuevos. **No anides `<Link>` con `<Button>`**: usa `ButtonLink`.
 14. **Diseño mobile-first.** Revisa cada pantalla en 360, 768 y 1280 px.
 15. **Roles:**
     - Supervisor **solo lo asigna el SuperUsuario** (`asignarRol` en `lib/usuarios/acciones-usuarios.ts`).
@@ -134,7 +134,7 @@ DataForGood/
 ├── AGENTS.md, CLAUDE.md          # instrucciones de Next 16 para agentes
 ├── proxy.ts                      # redirige a /entrar?next=... o /root si falta la cookie (no autoriza)
 ├── app/
-│   ├── layout.tsx, globals.css   # fuentes y tokens de diseño
+│   ├── layout.tsx, globals.css   # fuentes y escalas de color (system, brand, success, warning, error)
 │   ├── page.tsx, explorar/, datos/, contacto/, privacidad/, sobre-nosotros/   # públicas
 │   ├── cuenta-bloqueada/         # lo único que ve una cuenta suspendida o baneada
 │   ├── (auth)/                   # entrar, registro, verificar, bienvenida, root

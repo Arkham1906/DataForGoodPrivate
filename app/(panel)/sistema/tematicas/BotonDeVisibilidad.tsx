@@ -15,7 +15,7 @@ export default function BotonDeVisibilidad({ id, nombre, oculta }: { id: number;
   return (
     <>
       {error ? (
-        <span role="alert" className="text-[12px] text-danger">
+        <span role="alert" className="text-[12px] text-error-700">
           {error}
         </span>
       ) : null}

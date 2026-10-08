@@ -68,11 +68,11 @@ export default function AvisosEnEsteDispositivo() {
   const { titulo, texto } = TEXTOS[estado];
 
   return (
-    <section className={`rounded-lg border p-4 ${estado === "activo" ? "border-ok bg-ok-tint" : "border-line bg-surface"}`}>
+    <section className={`rounded-lg border p-4 ${estado === "activo" ? "border-success-700 bg-success-50" : "border-system-200 bg-white"}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p className={`text-[13.5px] font-bold ${estado === "activo" ? "text-ok" : "text-ink"}`}>{titulo}</p>
-          <p className="mt-1 text-[12.5px] leading-5 text-ink-2">{texto}</p>
+          <p className={`text-[13.5px] font-bold ${estado === "activo" ? "text-success-700" : "text-system-900"}`}>{titulo}</p>
+          <p className="mt-1 text-[12.5px] leading-5 text-system-600">{texto}</p>
         </div>
         {estado === "inactivo" && (
           <Button size="sm" variant="primary" onClick={() => void activar()} disabled={ocupado}>
@@ -86,7 +86,7 @@ export default function AvisosEnEsteDispositivo() {
         )}
       </div>
       {error && (
-        <p role="alert" className="mt-2 text-[12px] text-danger">
+        <p role="alert" className="mt-2 text-[12px] text-error-700">
           {error}
         </p>
       )}

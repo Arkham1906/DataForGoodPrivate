@@ -75,17 +75,17 @@ export default async function CatalogoDeDatosPage({
   }
 
   return (
-    <div className="min-h-screen bg-paper">
+    <div className="min-h-screen bg-system-50">
       <PublicHeader />
 
       <main className="mx-auto max-w-5xl px-6 pb-24 pt-14">
-        <p className="landing-entrada mb-2 font-mono text-[10.5px] uppercase tracking-widest text-accent">
+        <p className="landing-entrada mb-2 font-mono text-[10.5px] uppercase tracking-widest text-brand-600">
           Datos abiertos
         </p>
-        <h1 style={retraso(80)} className="landing-entrada max-w-2xl text-[32px] font-extrabold leading-tight tracking-tight text-ink">
+        <h1 style={retraso(80)} className="landing-entrada max-w-2xl text-[32px] font-extrabold leading-tight tracking-tight text-system-900">
           Conjuntos de datos de la comunidad
         </h1>
-        <p style={retraso(160)} className="landing-entrada mt-4 max-w-2xl text-[14.5px] leading-relaxed text-ink-2">
+        <p style={retraso(160)} className="landing-entrada mt-4 max-w-2xl text-[14.5px] leading-relaxed text-system-600">
           {nf.format(total)} {total === 1 ? "conjunto publicado" : "conjuntos publicados"} a
           partir de campañas ya cerradas. Cada uno reúne solo aportes aprobados, sin datos que
           identifiquen a quien participó.
@@ -112,9 +112,9 @@ export default async function CatalogoDeDatosPage({
           <aside style={retraso(320)} className="landing-entrada flex flex-col gap-6">
             <div>
               <div className="mb-2 flex items-baseline justify-between gap-2">
-                <p className="text-[12.5px] font-semibold text-ink">Filtros</p>
+                <p className="text-[12.5px] font-semibold text-system-900">Filtros</p>
                 {activos > 0 && (
-                  <Link href={enlaceCon({ q: undefined, tematica: undefined, estado: undefined })} className="text-[12.5px] font-medium text-accent hover:underline">
+                  <Link href={enlaceCon({ q: undefined, tematica: undefined, estado: undefined })} className="text-[12.5px] font-medium text-brand-600 hover:underline">
                     Limpiar
                   </Link>
                 )}
@@ -123,7 +123,7 @@ export default async function CatalogoDeDatosPage({
 
             {tematicas.length > 0 && (
               <div>
-                <p className="mb-2 text-[11.5px] font-semibold uppercase tracking-wide text-ink-3">
+                <p className="mb-2 text-[11.5px] font-semibold uppercase tracking-wide text-system-400">
                   Temática
                 </p>
                 <div className="flex flex-col gap-1">
@@ -133,12 +133,12 @@ export default async function CatalogoDeDatosPage({
                       href={enlaceCon({ tematica: tematica === t.valor ? undefined : t.valor })}
                       className={`flex items-center justify-between rounded px-2 py-1.5 text-[13px] ${
                         tematica === t.valor
-                          ? "bg-accent-tint font-semibold text-accent"
-                          : "text-ink-2 hover:bg-sunken"
+                          ? "bg-brand-50 font-semibold text-brand-600"
+                          : "text-system-600 hover:bg-system-100"
                       }`}
                     >
                       <span>{t.valor}</span>
-                      <span className="font-mono text-[11px] text-ink-3">{t.total}</span>
+                      <span className="font-mono text-[11px] text-system-400">{t.total}</span>
                     </Link>
                   ))}
                 </div>
@@ -147,7 +147,7 @@ export default async function CatalogoDeDatosPage({
 
             {estados.length > 0 && (
               <div>
-                <p className="mb-2 text-[11.5px] font-semibold uppercase tracking-wide text-ink-3">
+                <p className="mb-2 text-[11.5px] font-semibold uppercase tracking-wide text-system-400">
                   Estado
                 </p>
                 <div className="flex flex-col gap-1">
@@ -157,12 +157,12 @@ export default async function CatalogoDeDatosPage({
                       href={enlaceCon({ estado: locationState === e.valor ? undefined : e.valor })}
                       className={`flex items-center justify-between rounded px-2 py-1.5 text-[13px] ${
                         locationState === e.valor
-                          ? "bg-accent-tint font-semibold text-accent"
-                          : "text-ink-2 hover:bg-sunken"
+                          ? "bg-brand-50 font-semibold text-brand-600"
+                          : "text-system-600 hover:bg-system-100"
                       }`}
                     >
                       <span>{e.valor}</span>
-                      <span className="font-mono text-[11px] text-ink-3">{e.total}</span>
+                      <span className="font-mono text-[11px] text-system-400">{e.total}</span>
                     </Link>
                   ))}
                 </div>
@@ -178,8 +178,8 @@ export default async function CatalogoDeDatosPage({
                   href={enlaceCon({ orden: o.valor === "recientes" ? undefined : o.valor })}
                   className={`rounded-pill border px-3 py-1.5 text-[12.5px] font-semibold transition-colors ${
                     orden === o.valor
-                      ? "border-accent bg-accent text-white"
-                      : "border-line-2 bg-surface text-ink-2 hover:border-accent"
+                      ? "border-brand-600 bg-brand-600 text-white"
+                      : "border-system-300 bg-white text-system-600 hover:border-brand-600"
                   }`}
                 >
                   {o.etiqueta}
@@ -187,13 +187,13 @@ export default async function CatalogoDeDatosPage({
               ))}
             </nav>
 
-            <p className="mb-4 font-mono text-[12px] text-ink-2">
+            <p className="mb-4 font-mono text-[12px] text-system-600">
               {nf.format(conjuntos.length)} {conjuntos.length === 1 ? "conjunto" : "conjuntos"}
               {activos > 0 ? ` · ${activos} ${activos === 1 ? "filtro activo" : "filtros activos"}` : ""}
             </p>
 
             {conjuntos.length === 0 ? (
-              <p className="rounded-lg bg-sunken p-4 text-sm text-ink-2">
+              <p className="rounded-lg bg-system-100 p-4 text-sm text-system-600">
                 {total === 0
                   ? "Todavía no hay conjuntos de datos publicados: aparecerán aquí en cuanto una campaña se finalice."
                   : "Ningún conjunto coincide con estos filtros. Prueba quitando alguno o buscando por otro término."}
@@ -202,15 +202,15 @@ export default async function CatalogoDeDatosPage({
               <div className="flex flex-col gap-3">
                 {conjuntos.map((c, i) => (
                   <Link key={c.id} href={`/datos/${c.id}`} {...entradaDeTarjeta(i)}>
-                    <Card className="landing-tarjeta hover:border-accent">
+                    <Card className="landing-tarjeta hover:border-brand-600">
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <div className="flex items-center gap-2">
-                          <p className="text-[15px] font-bold text-ink">{c.name}</p>
+                          <p className="text-[15px] font-bold text-system-900">{c.name}</p>
                           {c.verified && <Tag tone="ok">Verificado</Tag>}
                         </div>
                         <Tag tone="ok">{nf.format(c.approvedContributions)} aportes</Tag>
                       </div>
-                      <p className="mt-1 text-[12.5px] text-ink-2">
+                      <p className="mt-1 text-[12.5px] text-system-600">
                         {c.organizer || "Sin organización"} ·{" "}
                         {c.closedAt
                           ? `cerró el ${new Date(c.closedAt).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" })}`
@@ -222,7 +222,7 @@ export default async function CatalogoDeDatosPage({
                           ? c.formats.map((f) => <Tag key={f}>{f}</Tag>)
                           : c.dataTypes.map((dt) => <Tag key={dt}>{DATA_TYPE_LABELS[dt] ?? dt}</Tag>)}
                       </div>
-                      <p className="mt-2.5 font-mono text-[11px] text-ink-3">
+                      <p className="mt-2.5 font-mono text-[11px] text-system-400">
                         {c.sizeLabel} · {nf.format(c.downloads)} descargas
                         {c.quality != null ? ` · calidad ${c.quality.toFixed(1)}` : ""}
                         {(c.locationCity || c.locationState) &&

@@ -74,18 +74,18 @@ export default function BaneadosDeCampana({ campaignId }: { campaignId: string }
 
   return (
     <section className="mt-8" aria-label="Participantes baneados">
-      <h2 className="text-[15px] font-bold text-ink">Participantes baneados</h2>
-      <p className="mb-3 text-[12.5px] text-ink-2">
+      <h2 className="text-[15px] font-bold text-system-900">Participantes baneados</h2>
+      <p className="mb-3 text-[12.5px] text-system-600">
         No pueden enviar aportes a esta campaña. Al quitar el baneo pueden volver a participar.
       </p>
-      {error && <p className="mb-3 rounded border border-danger bg-danger-tint p-2 text-[12px] text-danger">{error}</p>}
-      <ul className="divide-y divide-line rounded-lg border border-line">
+      {error && <p className="mb-3 rounded border border-error-700 bg-error-50 p-2 text-[12px] text-error-700">{error}</p>}
+      <ul className="divide-y divide-system-200 rounded-lg border border-system-200">
         {baneados.map((b) => (
           <li key={b.usuarioId} className="flex flex-wrap items-start justify-between gap-3 px-3 py-3">
             <div className="min-w-0">
-              <p className="font-semibold text-ink">{b.nombre}</p>
-              <p className="text-[12.5px] text-ink-2">{b.motivo}</p>
-              <p className="font-mono text-[11.5px] text-ink-3">
+              <p className="font-semibold text-system-900">{b.nombre}</p>
+              <p className="text-[12.5px] text-system-600">{b.motivo}</p>
+              <p className="font-mono text-[11.5px] text-system-400">
                 Baneado el{" "}
                 {new Date(b.baneadoEn).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" })}
               </p>
@@ -98,11 +98,11 @@ export default function BaneadosDeCampana({ campaignId }: { campaignId: string }
         {dispositivos.map((d) => (
           <li key={`d${d.bloqueoId}`} className="flex flex-wrap items-start justify-between gap-3 px-3 py-3">
             <div className="min-w-0">
-              <p className="font-semibold text-ink">
+              <p className="font-semibold text-system-900">
                 Dispositivo anónimo{d.aporteId ? ` (aporte ${d.aporteId})` : ""}
               </p>
-              <p className="text-[12.5px] text-ink-2">{d.motivo}</p>
-              <p className="font-mono text-[11.5px] text-ink-3">
+              <p className="text-[12.5px] text-system-600">{d.motivo}</p>
+              <p className="font-mono text-[11.5px] text-system-400">
                 Bloqueado el{" "}
                 {new Date(d.bloqueadoEn).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" })}
               </p>

@@ -52,8 +52,8 @@ export default async function ActividadDeSupervisorPage({
 
       <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-extrabold text-ink">Actividad de {s.nombre}</h1>
-          <p className="mt-1 text-[13px] text-ink-2">
+          <h1 className="text-xl font-extrabold text-system-900">Actividad de {s.nombre}</h1>
+          <p className="mt-1 text-[13px] text-system-600">
             <span className="font-mono">{s.correo}</span> · Supervisor desde{" "}
             {formatearFechaSup(s.desde)}
           </p>
@@ -80,7 +80,7 @@ export default async function ActividadDeSupervisorPage({
               const e = ETIQUETA_DE_ESTADO_DE_CAMPANA[c.estado];
               return {
                 clave: (
-                  <Link href={`/campanas/${c.id}`} className="hover:text-accent">
+                  <Link href={`/campanas/${c.id}`} className="hover:text-brand-600">
                     {c.nombre}
                   </Link>
                 ),
@@ -92,9 +92,9 @@ export default async function ActividadDeSupervisorPage({
       </div>
 
       <TituloDeSeccion>Historial de decisiones</TituloDeSeccion>
-      <div className="overflow-x-auto rounded-lg border border-line bg-surface p-5 shadow-sm">
+      <div className="overflow-x-auto rounded-lg border border-system-200 bg-white p-5 shadow-sm">
         <table className="w-full min-w-[720px] text-left text-[13.5px]">
-          <thead className="border-b border-line font-mono text-[10px] uppercase tracking-[0.1em] text-ink-3">
+          <thead className="border-b border-system-200 font-mono text-[10px] uppercase tracking-[0.1em] text-system-400">
             <tr>
               <th className="pb-3 font-medium">Acción</th>
               <th className="pb-3 font-medium">Sobre</th>
@@ -107,18 +107,18 @@ export default async function ActividadDeSupervisorPage({
             {s.acciones.map((a) => {
               const et = ETIQUETA_DE_ACCION[a.tipo];
               return (
-                <tr key={a.id} className="border-b border-line last:border-0">
+                <tr key={a.id} className="border-b border-system-200 last:border-0">
                   <td className="py-4">
                     <Tag tone={et.tono}>{et.texto}</Tag>
                   </td>
-                  <td className="text-ink-2">{a.sobre}</td>
-                  <td className="text-ink-2">{a.motivo}</td>
-                  <td className="font-mono text-[11px] text-ink-3">
+                  <td className="text-system-600">{a.sobre}</td>
+                  <td className="text-system-600">{a.motivo}</td>
+                  <td className="font-mono text-[11px] text-system-400">
                     {formatearFechaHoraSup(a.ejecutadaEn)}
                   </td>
                   <td className="text-right">
                     {a.revertidaEn ? (
-                      <span className="text-[12.5px] text-ink-2">
+                      <span className="text-[12.5px] text-system-600">
                         Revertida el {formatearFechaSup(a.revertidaEn)}
                       </span>
                     ) : (

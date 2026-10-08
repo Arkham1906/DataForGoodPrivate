@@ -44,8 +44,8 @@ export default async function NotificacionesPage({
   return (
     <div className="mx-auto max-w-3xl space-y-5">
       <div>
-        <h1 className="text-2xl font-extrabold text-ink max-md:text-xl max-md:leading-tight">Notificaciones</h1>
-        <p className="mt-1 text-[13px] text-ink-2">
+        <h1 className="text-2xl font-extrabold text-system-900 max-md:text-xl max-md:leading-tight">Notificaciones</h1>
+        <p className="mt-1 text-[13px] text-system-600">
           Avisos sobre tus aportes, tus campañas, tus roles y tu cuenta.
         </p>
       </div>
@@ -59,7 +59,7 @@ export default async function NotificacionesPage({
             href={enlace({ filtro: f.valor })}
             aria-current={filtro === f.valor ? "page" : undefined}
             className={`rounded-pill border px-3.5 py-1.5 text-[12.5px] font-semibold ${
-              filtro === f.valor ? "border-accent bg-accent text-white" : "border-line-2 bg-surface text-ink-2 hover:border-accent"
+              filtro === f.valor ? "border-brand-600 bg-brand-600 text-white" : "border-system-300 bg-white text-system-600 hover:border-brand-600"
             }`}
           >
             {f.etiqueta}
@@ -76,17 +76,17 @@ export default async function NotificacionesPage({
       {paginas > 1 && (
         <nav className="flex items-center justify-between gap-3 text-[13px]" aria-label="Páginas">
           {pagina > 1 ? (
-            <Link href={enlace({ pagina: pagina - 1 })} className="font-semibold text-accent hover:underline">
+            <Link href={enlace({ pagina: pagina - 1 })} className="font-semibold text-brand-600 hover:underline">
               ← Más recientes
             </Link>
           ) : (
             <span />
           )}
-          <span className="text-ink-3">
+          <span className="text-system-400">
             Página {pagina} de {paginas}
           </span>
           {pagina < paginas ? (
-            <Link href={enlace({ pagina: pagina + 1 })} className="font-semibold text-accent hover:underline">
+            <Link href={enlace({ pagina: pagina + 1 })} className="font-semibold text-brand-600 hover:underline">
               Anteriores →
             </Link>
           ) : (

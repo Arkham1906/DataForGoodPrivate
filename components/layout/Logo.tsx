@@ -39,7 +39,7 @@ export function IconoDelLogo({ tamano = 24, className = "" }: { tamano?: number;
       aria-hidden="true"
       className={`shrink-0 ${className}`}
     >
-      <g className="fill-accent">
+      <g className="fill-brand-600">
         <rect x="0" y="0" width="15" height="15" rx="3.5" />
         <rect x="0" y="21" width="15" height="15" rx="3.5" />
         <rect x="21" y="21" width="15" height="15" rx="3.5" />
@@ -48,7 +48,7 @@ export function IconoDelLogo({ tamano = 24, className = "" }: { tamano?: number;
         <rect x="42" y="42" width="15" height="15" rx="3.5" />
       </g>
       {/* Azul claro del logo original (#C5D1E8): el azul del tema al 30 %. */}
-      <g className="fill-accent/30">
+      <g className="fill-brand-600/30">
         <rect x="21" y="0" width="15" height="15" rx="3.5" />
         <rect x="42" y="0" width="15" height="15" rx="3.5" />
         <rect x="42" y="21" width="15" height="15" rx="3.5" />
@@ -93,12 +93,12 @@ export default function Logo({
         className={`block w-(--logo-ancho) overflow-hidden ${movil("max-md:w-(--logo-ancho-acronimo)")}`}
       >
         <svg viewBox={`0 0 ${ANCHO_COMPLETO} ${ALTO_VB}`} width={anchoCompleto} height={alto} className="block max-w-none">
-          <path className="fill-ink" d={TRAZOS.D} />
-          <path className={`fill-ink ${SOBRA} ${movil(SOBRA_MOVIL)}`} d={TRAZOS.ata} />
-          <path className={`fill-accent ${MUEVE_F} ${movil(MUEVE_F_MOVIL)}`} d={TRAZOS.F} />
-          <path className={`fill-accent ${SOBRA} ${movil(SOBRA_MOVIL)}`} d={TRAZOS.or} />
-          <path className={`fill-ink ${MUEVE_G} ${movil(MUEVE_G_MOVIL)}`} d={TRAZOS.G} />
-          <path className={`fill-ink ${SOBRA} ${movil(SOBRA_MOVIL)}`} d={TRAZOS.ood} />
+          <path className="fill-system-900" d={TRAZOS.D} />
+          <path className={`fill-system-900 ${SOBRA} ${movil(SOBRA_MOVIL)}`} d={TRAZOS.ata} />
+          <path className={`fill-brand-600 ${MUEVE_F} ${movil(MUEVE_F_MOVIL)}`} d={TRAZOS.F} />
+          <path className={`fill-brand-600 ${SOBRA} ${movil(SOBRA_MOVIL)}`} d={TRAZOS.or} />
+          <path className={`fill-system-900 ${MUEVE_G} ${movil(MUEVE_G_MOVIL)}`} d={TRAZOS.G} />
+          <path className={`fill-system-900 ${SOBRA} ${movil(SOBRA_MOVIL)}`} d={TRAZOS.ood} />
         </svg>
       </span>
     </span>

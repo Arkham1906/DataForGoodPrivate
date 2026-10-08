@@ -35,7 +35,7 @@ export default function GraficaDeColumnas({
         role="img"
         aria-label={descripcion}
       >
-        <g className="fill-accent">
+        <g className="fill-brand-600">
           {columnas.map((c, i) => {
             const h = Math.max(2, Math.round((c.valor / tope) * ALTO_MAX));
             return (
@@ -51,14 +51,14 @@ export default function GraficaDeColumnas({
           })}
         </g>
         <line
-          className="stroke-line-2"
+          className="stroke-system-300"
           x1="0"
           y1={BASE + 1}
           x2={ANCHO}
           y2={BASE + 1}
           strokeWidth={1}
         />
-        <g className="fill-ink-3 font-mono" fontSize={9}>
+        <g className="fill-system-400 font-mono" fontSize={9}>
           {columnas.map((c, i) => (
             <text key={c.etiqueta} x={i * paso + paso / 2} y={alto} textAnchor="middle">
               {c.etiqueta}

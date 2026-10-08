@@ -10,22 +10,21 @@
 7. Accesibilidad
 8. Checklist por pantalla
 
-## 1. Tokens y tipografía
+## 1. Colores y tipografía
 
-Definidos en `app/globals.css` como variables en `:root`, expuestas a Tailwind v4 con `@theme`. **Usa siempre estas utilidades; no escribas hex sueltos.**
+**Colores (desde el 2026-10-07, a pedido del usuario): 5 familias con escala, sin nombres por función.** Definidas en `@theme` de `app/globals.css` como `--color-<familia>-<escalón>`, del 50 (más claro) al 950 (más oscuro). La paleta por defecto de Tailwind está desactivada (`--color-*: initial`): `blue-500` o `red-600` no existen. **Usa siempre familia + escalón; no escribas hex sueltos** (excepciones: `app/manifest.ts` y el QR de `lib/campanas/enlaces.ts`, que necesitan hex).
 
-| Utilidad | Valor | Uso |
+| Familia | Para qué | Escalones de uso común |
 | --- | --- | --- |
-| `bg-paper` | #fbfaf8 | Fondo general (tono cálido) |
-| `bg-surface` | #ffffff | Tarjetas, inputs, barras |
-| `bg-sunken` | #f4f2ef | Cajas informativas neutras, zonas de carga, cabecera de tablas |
-| `text-ink` / `text-ink-2` / `text-ink-3` | #12131a / #5c606b / #9298a3 | Texto principal, secundario, terciario |
-| `border-line` / `border-line-2` | #e9e6e1 / #d8d4cd | Bordes de tarjeta / de inputs y botones secundarios |
-| `accent`, `accent-deep`, `accent-tint` | #2e5aac / #22447f / #eaf0fa | Selección activa, enlaces, foco, bloques destacados |
-| `ok`, `ok-tint` | #0e7a55 / #e4f4ec | **Botón primario**, éxito, aceptado |
-| `warn`, `warn-tint` | #96660f / #fbf0dc | Pendiente, avisos |
-| `danger`, `danger-tint` | #ae362b / #fbeae7 | Rechazo, errores, acciones destructivas |
-| `rounded-pill`, `rounded-lg` | 999px, 16px | Botones, chips y etiquetas; tarjetas |
+| `system` (grises) | Fondos, bordes, texto | `system-50` fondo general · `white` tarjetas, inputs, barras · `system-100` cajas neutras y cabeceras de tabla · `system-200` bordes de tarjeta · `system-300` bordes de inputs y botones secundarios · `system-400` texto terciario · `system-600` texto secundario · `system-900` texto principal |
+| `brand` (azul #2e5aac) | Selección activa, enlaces, foco, destacados | `brand-50` fondo destacado · `brand-600` el azul de la marca · `brand-800` hover y énfasis |
+| `success` (verdes) | **Botón primario**, éxito, aceptado | `success-50` fondo · `success-700` botón primario y texto · `success-800` hover del botón primario |
+| `warning` (amarillos) | Pendiente, avisos | `warning-50` fondo · `warning-200` borde suave · `warning-500` rellenos (puntos, medidores) y bordes · `warning-800` **texto** (el amarillo no se lee como texto) |
+| `error` (rojos) | Rechazo, errores, acciones destructivas | `error-50` fondo · `error-700` texto, bordes y botón de peligro |
+
+Equivalencias con los nombres de antes (para leer commits viejos): `paper` → `system-50`, `surface` → `white`, `sunken` → `system-100`, `line` → `system-200`, `line-2` → `system-300`, `ink-3` → `system-400`, `ink-2` → `system-600`, `ink` → `system-900`, `accent` → `brand-600`, `accent-deep` → `brand-800`, `accent-tint` → `brand-50`, `ok` → `success-700`, `danger` → `error-700`, `*-tint` → `*-50`. `warn` cambió de ámbar (#96660f) a amarillo: texto `warning-800`, relleno `warning-500`. Contrastes medidos: `system-600` sobre blanco 6.3, `brand-600` 6.6, `success-700` sobre `success-50` 4.7, `error-700` sobre `error-50` 5.4, `warning-800` sobre `warning-50` 6.6.
+
+Radios: `rounded-pill` (999px) en botones, chips y etiquetas; `rounded-lg` (16px) en tarjetas.
 
 **Tipografía** (`app/layout.tsx`):
 
@@ -42,8 +41,8 @@ Todos usan `export default`, nombre de archivo en PascalCase, variantes en un `R
 | Componente | API | Notas |
 | --- | --- | --- |
 | `ui/Button` | `variant`: primary (verde) · secondary · danger · ghost; `size`: sm · md | Forma de píldora. Para navegar usa `ui/ButtonLink` (nunca `<Link>` envolviendo `<Button>`) |
-| `ui/Card` | `highlighted` | `rounded-lg border bg-surface p-4 shadow-sm` |
-| `ui/Input` | `Field` (label, hint, required), `Input`, `Textarea` | Asterisco rojo en obligatorios; la pista va en `text-ink-3` |
+| `ui/Card` | `highlighted` | `rounded-lg border bg-white p-4 shadow-sm` |
+| `ui/Input` | `Field` (label, hint, required), `Input`, `Textarea` | Asterisco rojo en obligatorios; la pista va en `text-system-400` |
 | `ui/PasswordInput` | Las de `Input`, sin `type` | Cliente. `Input` con botón de ojo para mostrar u ocultar la contraseña. Úsalo en todo campo de contraseña de la zona de usuario (`/entrar`, `/registro`, la ventana de contraseña de `/cuenta`) |
 | `ui/Tag` | `tone`: default · ok · warn · danger · on | Estados y temáticas |
 | `ui/ProgressBar` | `pct`, `tone`: accent · ok | Limita el valor entre 0 y 100 |
@@ -71,13 +70,13 @@ Antes de crear un componente, busca si ya existe uno equivalente. Si hace falta 
 
 ## 3. Patrones visuales de la rama
 
-- **Chips de filtro:** `rounded-pill border px-3.5 py-1.5 text-[13px] font-semibold`. Activo: `border-accent bg-accent text-white`. Inactivo: `border-line-2 bg-surface text-ink-2 hover:border-accent`. Si hay contador, va dentro en `font-mono`.
-- **Cajas informativas:** `rounded-lg p-3.5` o `p-4` con `text-[12.5px]`: neutra `bg-sunken text-ink-2`, aviso `bg-warn-tint text-warn`, información `border-l-4 border-accent bg-sunken text-ink-2` (no uses `bg-accent-tint` para avisos: se confundía con un botón), error `bg-danger-tint text-danger`, éxito `border border-ok bg-ok-tint text-ok`.
-- **Etiqueta de sección o de paso:** `font-mono text-[10.5px]` a `[12px] uppercase tracking-wide text-accent` o `text-ink-3` (por ejemplo "Paso 1 de 4 · Tus datos", "1 · Datos básicos").
-- **Enlace de regreso:** `← Volver a …` con `text-[13px] text-ink-2 hover:text-ink`, arriba del título.
-- **Cabecera de página:** título `text-xl` o `text-2xl font-extrabold` + subtítulo `text-[13px] text-ink-2`, con acciones a la derecha.
-- **Listas de datos:** `<dl>` con filas `flex justify-between`, `dt` en `text-ink-2` y `dd` en `font-medium text-ink`.
-- **Estado vacío:** `rounded-lg border border-dashed border-line-2 bg-surface p-8 text-center`.
+- **Chips de filtro:** `rounded-pill border px-3.5 py-1.5 text-[13px] font-semibold`. Activo: `border-brand-600 bg-brand-600 text-white`. Inactivo: `border-system-300 bg-white text-system-600 hover:border-brand-600`. Si hay contador, va dentro en `font-mono`.
+- **Cajas informativas:** `rounded-lg p-3.5` o `p-4` con `text-[12.5px]`: neutra `bg-system-100 text-system-600`, aviso `bg-warning-50 text-warning-800`, información `border-l-4 border-brand-600 bg-system-100 text-system-600` (no uses `bg-brand-50` para avisos: se confundía con un botón), error `bg-error-50 text-error-700`, éxito `border border-success-700 bg-success-50 text-success-700`.
+- **Etiqueta de sección o de paso:** `font-mono text-[10.5px]` a `[12px] uppercase tracking-wide text-brand-600` o `text-system-400` (por ejemplo "Paso 1 de 4 · Tus datos", "1 · Datos básicos").
+- **Enlace de regreso:** `← Volver a …` con `text-[13px] text-system-600 hover:text-system-900`, arriba del título.
+- **Cabecera de página:** título `text-xl` o `text-2xl font-extrabold` + subtítulo `text-[13px] text-system-600`, con acciones a la derecha.
+- **Listas de datos:** `<dl>` con filas `flex justify-between`, `dt` en `text-system-600` y `dd` en `font-medium text-system-900`.
+- **Estado vacío:** `rounded-lg border border-dashed border-system-300 bg-white p-8 text-center`.
 - **Fechas:** `toLocaleDateString("es-MX", …)`. Centraliza el formateo en `lib/format.ts`, porque hoy está repetido en varias páginas.
 
 ## 4. Layouts
@@ -85,7 +84,7 @@ Antes de crear un componente, busca si ya existe uno equivalente. Si hace falta 
 | Grupo | Layout |
 | --- | --- |
 | `app/page.tsx` | `PublicHeader` + contenido centrado + `PublicFooter` |
-| `(auth)` | Logo y tarjeta centrados, `max-w-md`, fondo `bg-paper` |
+| `(auth)` | Logo y tarjeta centrados, `max-w-md`, fondo `bg-system-50` |
 | `(dashboard)` | `TopBar` arriba; `SidebarNav` a la izquierda (16rem, sticky en `lg`); contenido `max-w-7xl` con `px-4 sm:px-6 lg:px-10` |
 
 `(dashboard)/layout.tsx` obtiene el usuario con `getSessionUser()` (redirige a `/entrar` si no hay) y se lo pasa a `TopBar` y `SidebarNav`, que muestran los elementos según `usuario.role`.
@@ -139,7 +138,7 @@ Las pantallas del panel usan solo ese kit, y las de usuario solo `components/ui/
 
 ## 7. Accesibilidad
 
-- **Contraste:** `text-ink-3` (#9298a3) sobre blanco no llega a AA en texto pequeño. Úsalo solo para información secundaria, no para instrucciones ni errores.
+- **Contraste:** `text-system-400` (#9298a3) sobre blanco no llega a AA en texto pequeño. Úsalo solo para información secundaria, no para instrucciones ni errores.
 - **Formularios:** `Field` muestra el texto de la etiqueta, pero no lo asocia al input (usa `<span>`, no `<label htmlFor>`). Al conectar formularios, conviértelo en `<label>` o agrega `id` y `aria-describedby` para la pista y el error.
 - **Estado seleccionado:** los chips de filtro son `button` o `Link`. Agrega `aria-pressed` o `aria-current` en el activo.
 - **Iconos:** los botones solo con icono llevan `aria-label` (la campana ya lo tiene) y los SVG decorativos `aria-hidden`.
@@ -147,7 +146,7 @@ Las pantallas del panel usan solo ese kit, y las de usuario solo `components/ui/
 
 ## 8. Checklist por pantalla
 
-- [ ] Usa tokens y componentes existentes; no quedan valores de color sueltos.
+- [ ] Usa las familias de color (system, brand, success, warning, error) y componentes existentes; no quedan valores de color sueltos.
 - [ ] Se ve bien en 360, 768 y 1280 px, sin scroll horizontal.
 - [ ] Inputs de 16 px o más en móvil; áreas táctiles razonables.
 - [ ] Estados vacío, cargando (`loading.tsx`) y error.

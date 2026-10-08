@@ -41,8 +41,8 @@ export default function PermitirAnonimos({
   }
 
   return (
-    <div className="mb-4 rounded-lg border border-line px-3.5 py-3">
-      <label className="flex cursor-pointer items-start gap-2.5 text-[13px] text-ink">
+    <div className="mb-4 rounded-lg border border-system-200 px-3.5 py-3">
+      <label className="flex cursor-pointer items-start gap-2.5 text-[13px] text-system-900">
         <input
           type="checkbox"
           checked={permitir}
@@ -52,13 +52,13 @@ export default function PermitirAnonimos({
         />
         <span>
           <span className="font-medium">Permitir aportes sin cuenta</span>
-          <span className="block text-[11.5px] text-ink-3">
+          <span className="block text-[11.5px] text-system-400">
             Quien abra el enlace puede aportar de forma anónima. Si lo apagas, tendrá que iniciar sesión.
           </span>
         </span>
       </label>
       {error && (
-        <p className="mt-1.5 text-[12px] font-medium text-danger" role="alert">
+        <p className="mt-1.5 text-[12px] font-medium text-error-700" role="alert">
           {error}
         </p>
       )}

@@ -57,7 +57,7 @@ export default function FormularioDeSancion({
             <label
               key={t.valor}
               className={`flex cursor-pointer items-start gap-2.5 rounded border px-3.5 py-2.5 transition-colors ${
-                tipo === t.valor ? "border-accent bg-accent/5" : "border-line-2 bg-surface"
+                tipo === t.valor ? "border-brand-600 bg-brand-600/5" : "border-system-300 bg-white"
               }`}
             >
               <input
@@ -68,8 +68,8 @@ export default function FormularioDeSancion({
                 className="mt-0.5"
               />
               <span>
-                <span className="block text-[13.5px] font-medium text-ink">{t.etiqueta}</span>
-                <span className="block text-[12px] text-ink-3">{t.hint}</span>
+                <span className="block text-[13.5px] font-medium text-system-900">{t.etiqueta}</span>
+                <span className="block text-[12px] text-system-400">{t.hint}</span>
               </span>
             </label>
           ))}
@@ -102,7 +102,7 @@ export default function FormularioDeSancion({
       </Field>
 
       {error ? (
-        <p role="alert" className="mb-3 text-[12.5px] text-danger">
+        <p role="alert" className="mb-3 text-[12.5px] text-error-700">
           {error}
         </p>
       ) : null}

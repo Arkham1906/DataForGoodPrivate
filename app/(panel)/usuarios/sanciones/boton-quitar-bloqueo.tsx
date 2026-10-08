@@ -60,7 +60,7 @@ export default function BotonQuitarBloqueo({
           {pendiente ? "…" : "Confirmar"}
         </Button>
       </div>
-      {error && <p className={`text-[12px] text-danger ${anchoCompleto ? "text-center" : ""}`}>{error}</p>}
+      {error && <p className={`text-[12px] text-error-700 ${anchoCompleto ? "text-center" : ""}`}>{error}</p>}
     </div>
   );
 }

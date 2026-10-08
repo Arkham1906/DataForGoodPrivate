@@ -115,11 +115,11 @@ function BienvenidaForm() {
   }
 
   return (
-    <div className="rounded-lg border border-line bg-surface p-8">
+    <div className="rounded-lg border border-system-200 bg-white p-8">
       <div className="mb-1 flex items-start justify-between">
         <div>
-          <h1 className="text-xl font-extrabold text-ink">Cuéntanos de ti</h1>
-          <p className="mt-1 font-mono text-[10.5px] uppercase tracking-wider text-accent">
+          <h1 className="text-xl font-extrabold text-system-900">Cuéntanos de ti</h1>
+          <p className="mt-1 font-mono text-[10.5px] uppercase tracking-wider text-brand-600">
             {paso === 3 ? "Paso 3 de 4 · Tu ubicación" : "Paso 4 de 4 · Tus intereses"}
           </p>
         </div>
@@ -127,15 +127,15 @@ function BienvenidaForm() {
           Omitir
         </Button>
       </div>
-      <p className="mb-4 text-[13px] text-ink-2">
+      <p className="mb-4 text-[13px] text-system-600">
         {paso === 3 ? "Con esto te mostramos campañas cercanas." : "Con esto te mostramos campañas relevantes para ti."}
       </p>
 
       <div className="mb-5 flex gap-1.5">
-        <div className="h-1 flex-1 rounded-pill bg-accent" />
-        <div className="h-1 flex-1 rounded-pill bg-accent" />
-        <div className="h-1 flex-1 rounded-pill bg-accent" />
-        <div className={`h-1 flex-1 rounded-pill ${paso === 4 ? "bg-accent" : "bg-line"}`} />
+        <div className="h-1 flex-1 rounded-pill bg-brand-600" />
+        <div className="h-1 flex-1 rounded-pill bg-brand-600" />
+        <div className="h-1 flex-1 rounded-pill bg-brand-600" />
+        <div className={`h-1 flex-1 rounded-pill ${paso === 4 ? "bg-brand-600" : "bg-system-200"}`} />
       </div>
 
       {paso === 3 ? (
@@ -144,7 +144,7 @@ function BienvenidaForm() {
             <select
               value={state}
               onChange={(e) => cambiarEstado(e.target.value)}
-              className="w-full rounded border border-line-2 bg-surface px-3.5 py-3 text-sm text-ink outline-none focus:border-accent"
+              className="w-full rounded border border-system-300 bg-white px-3.5 py-3 text-sm text-system-900 outline-none focus:border-brand-600"
             >
               <option value="">Selecciona un estado</option>
               {opcionesCon(state, NOMBRES_DE_ESTADOS).map((opcion) => (
@@ -158,7 +158,7 @@ function BienvenidaForm() {
               value={city}
               onChange={(e) => setCity(e.target.value)}
               disabled={!state}
-              className="w-full rounded border border-line-2 bg-surface px-3.5 py-3 text-sm text-ink outline-none focus:border-accent disabled:opacity-50"
+              className="w-full rounded border border-system-300 bg-white px-3.5 py-3 text-sm text-system-900 outline-none focus:border-brand-600 disabled:opacity-50"
             >
               <option value="">{state ? "Selecciona un municipio" : "Primero selecciona un estado"}</option>
               {opcionesCon(city, municipiosDe(state)).map((opcion) => (
@@ -185,7 +185,7 @@ function BienvenidaForm() {
             <select
               value={especialidadPersonalizada ? OTRA_ESPECIALIDAD : specialty}
               onChange={(e) => elegirEspecialidad(e.target.value)}
-              className="w-full rounded border border-line-2 bg-surface px-3.5 py-3 text-sm text-ink outline-none focus:border-accent"
+              className="w-full rounded border border-system-300 bg-white px-3.5 py-3 text-sm text-system-900 outline-none focus:border-brand-600"
             >
               <option value="">Selecciona una especialidad</option>
               {ESPECIALIDADES.map((opcion) => (
@@ -212,11 +212,11 @@ function BienvenidaForm() {
               onCambiar={setSelected}
             />
           </div>
-          <p className="mb-5 text-[11.5px] text-ink-3">
+          <p className="mb-5 text-[11.5px] text-system-400">
             Podrás cambiar tu texto y tus temáticas en cualquier momento desde tu perfil.
           </p>
 
-          <div className="mb-5 rounded-lg bg-sunken p-4 text-[12.5px] text-ink-2">
+          <div className="mb-5 rounded-lg bg-system-100 p-4 text-[12.5px] text-system-600">
             Si omites este paso te asignamos etiquetas por defecto según las
             campañas más populares de tu zona.
           </div>

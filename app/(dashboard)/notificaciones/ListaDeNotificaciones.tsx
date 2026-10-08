@@ -16,7 +16,7 @@ import {
   type Notificacion,
 } from "@/lib/notificaciones/tipos";
 
-const COLOR_DEL_PUNTO = { ok: "bg-ok", warn: "bg-warn", danger: "bg-danger", default: "bg-accent" } as const;
+const COLOR_DEL_PUNTO = { ok: "bg-success-700", warn: "bg-warning-500", danger: "bg-error-700", default: "bg-brand-600" } as const;
 
 export default function ListaDeNotificaciones({
   items,
@@ -94,20 +94,20 @@ export default function ListaDeNotificaciones({
       )}
 
       {error && (
-        <p role="alert" className="rounded-lg border border-danger bg-danger-tint px-4 py-2.5 text-[13px] text-danger">
+        <p role="alert" className="rounded-lg border border-error-700 bg-error-50 px-4 py-2.5 text-[13px] text-error-700">
           {error}
         </p>
       )}
 
       {items.length === 0 ? (
-        <div className="rounded-lg border border-line bg-surface px-4 py-10 text-center text-[13px] text-ink-2">{vacio}</div>
+        <div className="rounded-lg border border-system-200 bg-white px-4 py-10 text-center text-[13px] text-system-600">{vacio}</div>
       ) : (
-        <ul className="divide-y divide-line overflow-hidden rounded-lg border border-line bg-surface">
+        <ul className="divide-y divide-system-200 overflow-hidden rounded-lg border border-system-200 bg-white">
           {items.map((item) => (
-            <li key={item.id} className={`flex gap-3 px-4 py-3.5 ${item.readAt ? "" : "bg-accent-tint"}`}>
+            <li key={item.id} className={`flex gap-3 px-4 py-3.5 ${item.readAt ? "" : "bg-brand-50"}`}>
               <span
                 aria-hidden
-                className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${item.readAt ? "bg-line-2" : COLOR_DEL_PUNTO[tonoDeNotificacion(item.type)]}`}
+                className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${item.readAt ? "bg-system-300" : COLOR_DEL_PUNTO[tonoDeNotificacion(item.type)]}`}
               />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
@@ -115,16 +115,16 @@ export default function ListaDeNotificaciones({
                     type="button"
                     onClick={() => void abrir(item)}
                     disabled={ocupado === item.id}
-                    className={`text-left text-[14px] text-ink hover:text-accent ${item.readAt ? "font-semibold" : "font-bold"}`}
+                    className={`text-left text-[14px] text-system-900 hover:text-brand-600 ${item.readAt ? "font-semibold" : "font-bold"}`}
                   >
                     {item.title}
                     {!item.readAt && <span className="sr-only"> (sin leer)</span>}
                   </button>
-                  <time dateTime={item.createdAt} className="shrink-0 text-[11.5px] text-ink-3">
+                  <time dateTime={item.createdAt} className="shrink-0 text-[11.5px] text-system-400">
                     {fechaDeNotificacion(item.createdAt)}
                   </time>
                 </div>
-                <p className="mt-1 break-words text-[13px] leading-5 text-ink-2">{item.message}</p>
+                <p className="mt-1 break-words text-[13px] leading-5 text-system-600">{item.message}</p>
 
                 <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-[12px] font-semibold">
                   {item.invitationPending && (
@@ -133,7 +133,7 @@ export default function ListaDeNotificaciones({
                     </Button>
                   )}
                   {item.href && (
-                    <button type="button" onClick={() => void abrir(item)} className="text-accent hover:underline">
+                    <button type="button" onClick={() => void abrir(item)} className="text-brand-600 hover:underline">
                       Ver
                     </button>
                   )}
@@ -141,7 +141,7 @@ export default function ListaDeNotificaciones({
                     type="button"
                     onClick={() => void marcar(item, !item.readAt)}
                     disabled={ocupado === item.id}
-                    className="text-ink-2 hover:text-ink disabled:opacity-50"
+                    className="text-system-600 hover:text-system-900 disabled:opacity-50"
                   >
                     {item.readAt ? "Marcar como no leída" : "Marcar como leída"}
                   </button>
@@ -150,7 +150,7 @@ export default function ListaDeNotificaciones({
                       type="button"
                       onClick={() => void borrar(item)}
                       disabled={ocupado === item.id}
-                      className="text-danger hover:underline disabled:opacity-50"
+                      className="text-error-700 hover:underline disabled:opacity-50"
                     >
                       Eliminar
                     </button>

@@ -41,7 +41,7 @@ export function BotonAsignar({
         <span className="sr-only"> el rol de {NOMBRE_DE_ROL[rol]}</span>
       </Button>
       {error ? (
-        <p role="alert" className="mt-1.5 text-[12px] text-danger">
+        <p role="alert" className="mt-1.5 text-[12px] text-error-700">
           {error}
         </p>
       ) : null}

@@ -12,7 +12,7 @@ import { NOMBRE_DE_TIPO, ORDENES_DE_CAMPANA, VIGENCIAS, type TipoDeDato } from "
 const TIPOS = Object.keys(NOMBRE_DE_TIPO) as TipoDeDato[];
 
 const CLASE_SELECT =
-  "min-h-[38px] w-full rounded border border-line-2 bg-surface px-3 text-sm text-ink outline-none transition-colors focus:border-accent";
+  "min-h-[38px] w-full rounded border border-system-300 bg-white px-3 text-sm text-system-900 outline-none transition-colors focus:border-brand-600";
 
 export type ValoresDeFiltros = {
   q: string;
@@ -74,7 +74,7 @@ export default function BarraDeFiltros({
           value={texto}
           onChange={(e) => setTexto(e.target.value)}
           placeholder="Buscar por nombre, temática, creador o ID"
-          className="w-full rounded border border-line-2 bg-surface px-3.5 py-2 text-sm text-ink outline-none transition-colors focus:border-accent"
+          className="w-full rounded border border-system-300 bg-white px-3.5 py-2 text-sm text-system-900 outline-none transition-colors focus:border-brand-600"
         />
       </div>
     );
@@ -205,8 +205,8 @@ export default function BarraDeFiltros({
               aria-expanded={panelAbierto}
               aria-controls={idPanel}
               onClick={alternarPanel}
-              className={`grid size-[42px] shrink-0 place-items-center rounded border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
-                panelAbierto ? "border-accent bg-accent-tint text-accent" : "border-line-2 bg-surface text-ink-2 hover:border-accent hover:text-accent"
+              className={`grid size-[42px] shrink-0 place-items-center rounded border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 ${
+                panelAbierto ? "border-brand-600 bg-brand-50 text-brand-600" : "border-system-300 bg-white text-system-600 hover:border-brand-600 hover:text-brand-600"
               }`}
             >
               <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="size-5">
@@ -219,14 +219,14 @@ export default function BarraDeFiltros({
             id={idPanel}
             aria-label="Filtros de campañas"
             hidden={!panelAbierto}
-            className="absolute inset-x-0 top-full z-30 mt-2 rounded-lg border border-line bg-surface p-4 shadow-lg"
+            className="absolute inset-x-0 top-full z-30 mt-2 rounded-lg border border-system-200 bg-white p-4 shadow-lg"
           >
-            <h2 className="mb-3 text-sm font-bold text-ink">Filtros de campañas</h2>
+            <h2 className="mb-3 text-sm font-bold text-system-900">Filtros de campañas</h2>
             <div className="flex flex-col gap-2.5">{controles("mobile", true)}</div>
             <button
               type="button"
               onClick={aplicarPanel}
-              className="mt-4 w-full rounded border border-accent bg-accent px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-accent/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              className="mt-4 w-full rounded border border-brand-600 bg-brand-600 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-brand-600/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
             >
               Filtrar
             </button>

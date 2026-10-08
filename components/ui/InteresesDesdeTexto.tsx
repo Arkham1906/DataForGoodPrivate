@@ -94,7 +94,7 @@ export default function InteresesDesdeTexto({
 
   return (
     <div>
-      <label htmlFor={id} className="mb-1.5 block text-[13px] font-medium text-ink">
+      <label htmlFor={id} className="mb-1.5 block text-[13px] font-medium text-system-900">
         Cuéntanos qué te gusta hacer
       </label>
       <Textarea
@@ -113,15 +113,15 @@ export default function InteresesDesdeTexto({
         rows={3}
         disabled={deshabilitado}
         placeholder="Por ejemplo: me gusta andar en bici, cuidar a los perritos de la calle y la fotografía."
-        className="disabled:cursor-default disabled:bg-sunken"
+        className="disabled:cursor-default disabled:bg-system-100"
       />
       <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[11.5px] text-ink-3">Presiona Enter para sacar tus temáticas del texto.</p>
+        <p className="text-[11.5px] text-system-400">Presiona Enter para sacar tus temáticas del texto.</p>
         <Button type="button" variant="secondary" size="sm" onClick={analizar} disabled={deshabilitado}>
           Analizar
         </Button>
       </div>
-      <p aria-live="polite" className="mt-2 min-h-[1lh] text-[12.5px] text-ink-2">
+      <p aria-live="polite" className="mt-2 min-h-[1lh] text-[12.5px] text-system-600">
         {aviso}
       </p>
 

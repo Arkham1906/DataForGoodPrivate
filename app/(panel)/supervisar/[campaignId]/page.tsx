@@ -61,28 +61,28 @@ export default async function SupervisarCampanaPage({ params }: { params: Promis
         supervision={campaign.supervision}
         encabezado={
           <div>
-            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-accent">Detalle de campaña</p>
-            <h1 className="mt-2 text-2xl font-extrabold text-ink">{campaign.name}</h1>
-            <p className="mt-1 text-[13px] text-ink-2">
+            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-600">Detalle de campaña</p>
+            <h1 className="mt-2 text-2xl font-extrabold text-system-900">{campaign.name}</h1>
+            <p className="mt-1 text-[13px] text-system-600">
               {campaign.tag || "Sin temática"} · creada por {campaign.creatorName || "Usuario"} · meta {campaign.goalContributions} aportes
             </p>
           </div>
         }
       />
 
-      <div className="mb-5 rounded-lg border border-line bg-sunken p-4 text-[13px] text-ink-2">
+      <div className="mb-5 rounded-lg border border-system-200 bg-system-100 p-4 text-[13px] text-system-600">
         La decisión queda registrada como tomada por el SuperUsuario.
       </div>
 
-      <section className="rounded-lg border border-line bg-surface p-5 shadow-sm">
-        <p className="text-[13.5px] leading-6 text-ink-2">{campaign.description}</p>
+      <section className="rounded-lg border border-system-200 bg-white p-5 shadow-sm">
+        <p className="text-[13.5px] leading-6 text-system-600">{campaign.description}</p>
 
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           {filas.map((columna, i) => (
             <div key={i} className="space-y-3">
               {columna.map(([etiqueta, valor]) => (
-                <div key={etiqueta} className="flex justify-between gap-4 border-b border-line pb-3 text-[13px]">
-                  <span className="text-ink-2">{etiqueta}</span>
+                <div key={etiqueta} className="flex justify-between gap-4 border-b border-system-200 pb-3 text-[13px]">
+                  <span className="text-system-600">{etiqueta}</span>
                   <span className="text-right">{valor}</span>
                 </div>
               ))}
@@ -92,12 +92,12 @@ export default async function SupervisarCampanaPage({ params }: { params: Promis
 
         <div className="mt-5 flex flex-wrap gap-3">
           {(campaign.status === "activa" || campaign.status === "finalizada") && (
-            <Link href={`/supervisar/${campaign.id}/usuarios`} className="rounded-pill bg-accent px-5 py-3 text-[12.5px] font-bold text-white shadow-sm hover:bg-accent-deep">
+            <Link href={`/supervisar/${campaign.id}/usuarios`} className="rounded-pill bg-brand-600 px-5 py-3 text-[12.5px] font-bold text-white shadow-sm hover:bg-brand-800">
               Ver participantes
             </Link>
           )}
           {campaign.supervision === "mia" && (
-            <Link href={`/supervisar/${campaign.id}/panel`} className="rounded-pill border border-line-2 bg-surface px-5 py-3 text-[12.5px] font-bold text-ink-2 hover:border-accent hover:text-accent">
+            <Link href={`/supervisar/${campaign.id}/panel`} className="rounded-pill border border-system-300 bg-white px-5 py-3 text-[12.5px] font-bold text-system-600 hover:border-brand-600 hover:text-brand-600">
               Abrir panel
             </Link>
           )}

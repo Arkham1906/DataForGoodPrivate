@@ -76,7 +76,7 @@ export default function AccionesDeSupervision({
             type="button"
             onClick={tomar}
             disabled={pendiente}
-            className="rounded-pill bg-accent px-4 py-2 text-[12.5px] font-bold text-white shadow-sm hover:bg-accent-deep disabled:opacity-60"
+            className="rounded-pill bg-brand-600 px-4 py-2 text-[12.5px] font-bold text-white shadow-sm hover:bg-brand-800 disabled:opacity-60"
           >
             {accionEnCurso === "tomar" ? "Tomando…" : "Supervisar esta campaña"}
           </button>
@@ -92,7 +92,7 @@ export default function AccionesDeSupervision({
                 setShowRejectForm(true);
               }}
               disabled={pendiente}
-              className="rounded-pill border border-danger/40 bg-danger-tint px-3.5 py-2 text-[12.5px] font-bold text-danger disabled:opacity-60"
+              className="rounded-pill border border-error-700/40 bg-error-50 px-3.5 py-2 text-[12.5px] font-bold text-error-700 disabled:opacity-60"
             >
               Rechazar
             </button>
@@ -102,7 +102,7 @@ export default function AccionesDeSupervision({
               type="button"
               onClick={() => decidir("reportada")}
               disabled={pendiente}
-              className="rounded-pill border border-line-2 bg-surface px-3.5 py-2 text-[12.5px] font-bold text-ink-2 disabled:opacity-60"
+              className="rounded-pill border border-system-300 bg-white px-3.5 py-2 text-[12.5px] font-bold text-system-600 disabled:opacity-60"
             >
               {accionEnCurso === "reportada" ? "Reportando…" : "Reportar"}
             </button>
@@ -112,7 +112,7 @@ export default function AccionesDeSupervision({
               type="button"
               onClick={() => decidir("aceptada")}
               disabled={pendiente}
-              className="rounded-pill border border-ok/40 bg-ok-tint px-3.5 py-2 text-[12.5px] font-bold text-ok disabled:opacity-60"
+              className="rounded-pill border border-success-700/40 bg-success-50 px-3.5 py-2 text-[12.5px] font-bold text-success-700 disabled:opacity-60"
             >
               {accionEnCurso === "aceptada" ? "Aceptando…" : "Aceptar campaña"}
             </button>
@@ -122,13 +122,13 @@ export default function AccionesDeSupervision({
       </div>
 
       {error && (
-        <div className="mb-5 rounded-lg border border-danger/30 bg-danger-tint p-4 text-sm text-danger">{error}</div>
+        <div className="mb-5 rounded-lg border border-error-700/30 bg-error-50 p-4 text-sm text-error-700">{error}</div>
       )}
 
       {showRejectForm && supervision === "mia" && status === "en_revision" && (
-        <form onSubmit={confirmRejection} className="mb-5 rounded-lg border border-danger/40 bg-danger-tint p-4">
-          <label htmlFor="campaign-rejection-reason" className="mb-2 block text-[13px] font-semibold text-ink">
-            Motivo del rechazo <span className="text-danger">*</span>
+        <form onSubmit={confirmRejection} className="mb-5 rounded-lg border border-error-700/40 bg-error-50 p-4">
+          <label htmlFor="campaign-rejection-reason" className="mb-2 block text-[13px] font-semibold text-system-900">
+            Motivo del rechazo <span className="text-error-700">*</span>
           </label>
           <Textarea
             id="campaign-rejection-reason"
@@ -143,14 +143,14 @@ export default function AccionesDeSupervision({
               type="button"
               onClick={() => setShowRejectForm(false)}
               disabled={pendiente}
-              className="rounded-pill border border-line-2 bg-surface px-3.5 py-2 text-[12.5px] font-bold text-ink-2 disabled:opacity-60"
+              className="rounded-pill border border-system-300 bg-white px-3.5 py-2 text-[12.5px] font-bold text-system-600 disabled:opacity-60"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={pendiente || !rejectionReason.trim()}
-              className="rounded-pill bg-danger px-3.5 py-2 text-[12.5px] font-bold text-white disabled:opacity-60"
+              className="rounded-pill bg-error-700 px-3.5 py-2 text-[12.5px] font-bold text-white disabled:opacity-60"
             >
               {accionEnCurso === "rechazada" ? "Rechazando…" : "Confirmar rechazo"}
             </button>

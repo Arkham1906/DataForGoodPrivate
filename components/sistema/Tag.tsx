@@ -10,11 +10,11 @@ interface TagProps {
 }
 
 const toneClasses: Record<Tone, string> = {
-  default: "bg-surface border-line-2 text-ink-2",
-  ok: "bg-ok-tint border-ok-tint text-ok",
-  warn: "bg-warn-tint border-warn-tint text-warn",
-  danger: "bg-danger-tint border-danger-tint text-danger",
-  on: "bg-accent border-accent text-white",
+  default: "bg-white border-system-300 text-system-600",
+  ok: "bg-success-50 border-success-50 text-success-700",
+  warn: "bg-warning-50 border-warning-200 text-warning-800",
+  danger: "bg-error-50 border-error-50 text-error-700",
+  on: "bg-brand-600 border-brand-600 text-white",
 };
 
 export default function Tag({ children, tone = "default" }: TagProps) {

@@ -65,8 +65,8 @@ export default function Sidebar() {
   const { navRef, visual, indicador, alElegir } = useIndicadorDeMenu(activo);
 
   return (
-    <aside className="dashboard-sidebar w-64 shrink-0 border-r border-line bg-surface p-3 lg:sticky lg:top-0 lg:h-[calc(100vh-61px)]">
-      <p className="mb-1 px-3 pt-3 text-[10px] font-semibold uppercase tracking-wider text-ink-3">
+    <aside className="dashboard-sidebar w-64 shrink-0 border-r border-system-200 bg-white p-3 lg:sticky lg:top-0 lg:h-[calc(100vh-61px)]">
+      <p className="mb-1 px-3 pt-3 text-[10px] font-semibold uppercase tracking-wider text-system-400">
         Sistema
       </p>
 
@@ -78,14 +78,14 @@ export default function Sidebar() {
           return (
             <Fragment key={href}>
               {/* Separador aparte, no en el enlace: así no queda dentro de la pastilla. */}
-              {apartado ? <span aria-hidden="true" className="my-1.5 border-t border-line" /> : null}
+              {apartado ? <span aria-hidden="true" className="my-1.5 border-t border-system-200" /> : null}
               <Link
                 href={href}
                 data-menu-clave={href}
                 aria-current={activo === href ? "page" : undefined}
                 onClick={alElegir(href)}
                 className={`group relative flex items-center gap-2.5 rounded-pill px-3.5 py-2.5 text-sm font-medium transition-colors duration-300 ${
-                  marcada ? claseDeOpcionMarcada() : "text-ink-2 hover:bg-sunken hover:text-ink"
+                  marcada ? claseDeOpcionMarcada() : "text-system-600 hover:bg-system-100 hover:text-system-900"
                 }`}
               >
                 <Icono className="h-4 w-4 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transition-none" />
@@ -97,11 +97,11 @@ export default function Sidebar() {
       </nav>
 
       {/* Nota, no botón: fondo claro y franja lateral para no confundirse con la opción activa del menú. */}
-      <div className="dashboard-sidebar-callout mt-5 rounded-r-lg border-l-4 border-accent bg-accent-tint px-4 py-3.5">
-        <p className="text-[12.5px] leading-relaxed text-ink-2">
+      <div className="dashboard-sidebar-callout mt-5 rounded-r-lg border-l-4 border-brand-600 bg-brand-50 px-4 py-3.5">
+        <p className="text-[12.5px] leading-relaxed text-system-600">
           Revisa con criterio: cada validación sostiene la calidad de los datos.
         </p>
-        <p className="mt-2 text-[13px] font-semibold text-accent-deep">Gracias por moderar</p>
+        <p className="mt-2 text-[13px] font-semibold text-brand-800">Gracias por moderar</p>
       </div>
     </aside>
   );

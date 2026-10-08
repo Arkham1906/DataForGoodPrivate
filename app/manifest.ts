@@ -14,8 +14,8 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: `${BASE_PATH}/campanas`,
     scope: `${BASE_PATH}/`,
     display: "standalone",
-    background_color: "#fbfaf8",
-    theme_color: "#2e5aac",
+    background_color: "#fbfaf8", // system-50 (app/globals.css)
+    theme_color: "#2e5aac", // brand-600
     lang: "es-MX",
     icons: [
       { src: `${BASE_PATH}/icono-192.png`, sizes: "192x192", type: "image/png", purpose: "any" },
