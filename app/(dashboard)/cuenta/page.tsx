@@ -20,22 +20,17 @@ import PreferenciasDeComunicacion from "./PreferenciasDeComunicacion";
 import EditarAvatar from "./EditarAvatar";
 import Avatar from "@/components/ui/Avatar";
 import { datosDeAvatar } from "@/lib/usuarios/avatar-opciones";
+import { nombresDeRoles } from "@/lib/usuarios/rol-asignable";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Mi cuenta" };
 
-const ROLE_LABELS: Record<string, string> = {
-  usuario: "Usuario común",
-  revisor: "Revisor de aportes",
-  supervisor: "Supervisor",
-  admin: "SuperUsuario",
-};
-
 export default async function CuentaPage() {
   const currentUser = await exigirUsuario();
 
-  const primaryRole = currentUser.role[0] ?? "usuario";
-  const roleLabel = ROLE_LABELS[primaryRole] ?? primaryRole;
+  // El rol más alto (SuperUsuario > Supervisor > Revisor de aportes > Usuario común). No usar role[0]:
+  // normalizeRoles() siempre pone "usuario" primero.
+  const roleLabel = nombresDeRoles(currentUser.role)[0];
   const avatar = datosDeAvatar({ ...currentUser, nombre: currentUser.nombre ?? "" });
 
   return (
