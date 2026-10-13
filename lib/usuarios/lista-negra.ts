@@ -36,7 +36,7 @@ export async function quitarDeListaNegra(sancionId: number): Promise<void> {
 
 export type CorreoEnListaNegra = { email: string; usuarioId: string | null; usuario: string | null; motivo: string | null; desde: Date };
 
-/** Para /usuarios/sanciones. */
+/** Para la lista de sanciones de la moderación (/supervisar/sanciones y /supervision/sanciones). */
 export async function listarListaNegra(): Promise<CorreoEnListaNegra[]> {
   try {
     const { rows } = await pool.query<{

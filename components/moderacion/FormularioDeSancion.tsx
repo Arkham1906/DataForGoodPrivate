@@ -1,28 +1,32 @@
 "use client";
 
-// Formulario de sanción (2026-10-12). Llama a la server action aplicarSancion (lib/usuarios/acciones-usuarios.ts):
+// Formulario de sanción (2026-10-12) de la moderación (/supervisar o /supervision, desde el 2026-10-13).
+// Llama a la server action aplicarSancion (lib/moderacion/acciones.ts) con la zona:
 // un aviso, que sigue la escala de lib/usuarios/escala-de-avisos.ts (mensaje, 2 días, 7 días, baneo + lista
 // negra), o un baneo inmediato para casos graves (también con lista negra).
-// Con `reportes` (desde /reportes) la sanción confirma los reportes de esa campaña o aporte.
+// Con `reportes` (desde la bandeja de reportes) la sanción confirma los reportes de esa campaña o aporte.
 
 import { useRouter } from "next/navigation";
 import { useId, useState, useTransition } from "react";
 
 import Button from "@/components/sistema/Button";
 import { Field, Textarea } from "@/components/sistema/Input";
-import { aplicarSancion } from "@/lib/usuarios/acciones-usuarios";
+import { aplicarSancion } from "@/lib/moderacion/acciones";
+import { rutasDeModeracion, type ZonaDeModeracion } from "@/lib/moderacion/rutas";
 import type { TipoDeSancion } from "@/lib/usuarios/directorio";
 import { AVISOS_PARA_BANEO, consecuenciaDelAviso, describirConsecuencia } from "@/lib/usuarios/escala-de-avisos";
 
 const MINIMO = 20;
 
 export default function FormularioDeSancion({
+  zona,
   usuarioId,
   usuario,
   avisos,
   baneada,
   reportes,
 }: {
+  zona: ZonaDeModeracion;
   usuarioId: string;
   usuario: string;
   /** Avisos que ya lleva la cuenta (los strikes de antes cuentan). */
@@ -61,7 +65,7 @@ export default function FormularioDeSancion({
   function enviar() {
     setError(null);
     iniciar(async () => {
-      const r = await aplicarSancion(usuarioId, { tipo, detalle, reportes });
+      const r = await aplicarSancion(zona, usuarioId, { tipo, detalle, reportes });
       if (r && !r.ok) setError(r.error);
     });
   }
@@ -119,7 +123,7 @@ export default function FormularioDeSancion({
           variant="secondary"
           size="sm"
           disabled={pendiente}
-          onClick={() => router.push(reportes ? "/reportes" : `/usuarios/${usuarioId}`)}
+          onClick={() => router.push(reportes ? rutasDeModeracion(zona).reportes : rutasDeModeracion(zona).sanciones)}
         >
           Cancelar
         </Button>

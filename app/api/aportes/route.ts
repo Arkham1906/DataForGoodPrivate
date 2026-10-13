@@ -7,6 +7,7 @@ import { estaBaneadoDeCampana } from "@/lib/campanas/baneos";
 import { respuestasValidas, seccionesDesdeFila } from "@/lib/campanas/checklist";
 import { idDeEnlaceVigente } from "@/lib/campanas/enlaces";
 import { LARGO_MAXIMO_DESCRIPCION, errorDeArchivo, guardarFotoDelAporte, insertarAporteConCuota } from "@/lib/aportes/comun";
+import { errorDeConsentimiento } from "@/lib/aportes/consentimiento";
 
 function mapAporte(row: Record<string, unknown>) {
   return {
@@ -96,6 +97,7 @@ export async function GET(request: Request) {
 
 // POST: envía un aporte (multipart/form-data). Valida campaña activa, que no seas el creador,
 // que no estés baneado, la cuota, el tipo y tamaño del archivo; lo sube a MinIO e inserta la fila.
+// Exige aceptaUso=si y confirmaContenido=si (lib/aportes/consentimiento.ts); guarda la hora en consentimiento_en.
 // Campo opcional `enlace`: token de /c/[token]; si es el vigente de la campaña, se guarda en enlace_id.
 export async function POST(request: Request) {
   try {
@@ -117,6 +119,11 @@ export async function POST(request: Request) {
 
     if (description.length > LARGO_MAXIMO_DESCRIPCION) {
       return NextResponse.json({ error: "La descripción no puede superar 1000 caracteres" }, { status: 400 });
+    }
+
+    const errorConsentimiento = errorDeConsentimiento(formData);
+    if (errorConsentimiento) {
+      return NextResponse.json({ error: errorConsentimiento }, { status: 400 });
     }
 
     const errorArchivo = errorDeArchivo(file);
@@ -180,8 +187,9 @@ export async function POST(request: Request) {
         const { rows } = await client.query(
           `INSERT INTO aportes (
             campaign_id, user_id, participant_name, participant_email, description,
-            file_type, file_path, file_original_name, file_mime_type, file_size_bytes, caracteristicas, enlace_id
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12)
+            file_type, file_path, file_original_name, file_mime_type, file_size_bytes, caracteristicas, enlace_id,
+            consentimiento_en
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12, NOW())
           RETURNING *`,
           [
             campaignId,

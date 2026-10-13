@@ -1,5 +1,5 @@
 // Esqueleto mientras el servidor arma la página (Next lo muestra solo; ver ui/Esqueletos).
-// Aplicar una sanción.
+// Dar un aviso o banear.
 
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
 

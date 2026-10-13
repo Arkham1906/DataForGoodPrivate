@@ -35,7 +35,7 @@ export const ETIQUETA_DE_ESTADO_DE_REPORTE: Record<EstadoDeReporte, string> = {
 /**
  * Qué se reportó: "campana-116" (la campaña 116, contra su creador) o "aporte-55" (el aporte 55, contra
  * quien lo envió). Se resuelven juntos todos los reportes pendientes de esa clave. Va en la URL de
- * /usuarios/[id]/sancion?reportes=<clave> y en descartarReportes.
+ * .../sanciones/[usuarioId]?reportes=<clave> y en descartarReportes.
  */
 export type ClaveDeReportes = { tipo: TipoDeReporte; id: number };
 

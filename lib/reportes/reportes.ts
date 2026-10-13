@@ -3,7 +3,8 @@
 //   - de aporte: el creador de la campaña o un revisor aceptado; va contra quien lo envió (solo aportes
 //     con cuenta: los anónimos tienen su propio bloqueo por dispositivo).
 // Llegan a la bandeja del SuperUsuario (/reportes), que los descarta o los confirma con un aviso (o un
-// baneo) desde /usuarios/[id]/sancion?reportes=<clave> (aplicarSancion, lib/usuarios/acciones-usuarios.ts).
+// baneo) desde .../sanciones/[usuarioId]?reportes=<clave> de /supervisar o /supervision (aplicarSancion,
+// lib/moderacion/acciones.ts).
 // La persona reportada no se entera del reporte ni de quién lo hizo; solo recibe el aviso si se confirma.
 // Lo usan POST /api/campanas/[id]/reportar, POST /api/aportes/[id]/reportar-participante, los GET de
 // campaña y aporte, la bandeja, la pantalla de sanción y el layout del panel.
@@ -139,11 +140,11 @@ export async function yaReporto(clave: ClaveDeReportes, usuarioId: number): Prom
   return (rowCount ?? 0) > 0;
 }
 
-/* ── Bandeja del SuperUsuario ──────────────────────────────────────────── */
+/* ── Bandeja de quien modera (SuperUsuario en modo supervisor o supervisor) ── */
 
 export type ReporteParaBandeja = {
   id: string;
-  /** Quién reportó; "Cuenta eliminada" si ya no existe. Solo lo ve el SuperUsuario. */
+  /** Quién reportó; "Cuenta eliminada" si ya no existe. Solo lo ve quien modera, nunca la persona reportada. */
   quien: string;
   motivo: string | null;
   descripcion: string | null;
@@ -171,8 +172,9 @@ export type FiltroDeReportes = "pendientes" | "resueltos";
 /**
  * Reportes agrupados por lo que se reportó (una campaña o un aporte), primero el más reciente.
  * Pendientes: todos. Resueltos: los últimos 300 (no hay paginación todavía).
+ * `sinContraCuenta`: id del supervisor que modera; no ve los reportes contra él mismo.
  */
-export async function listarReportes(filtro: FiltroDeReportes): Promise<GrupoDeReportes[]> {
+export async function listarReportes(filtro: FiltroDeReportes, sinContraCuenta: number | null = null): Promise<GrupoDeReportes[]> {
   try {
     const { rows } = await pool.query<{
       id: number;
@@ -202,8 +204,10 @@ export async function listarReportes(filtro: FiltroDeReportes): Promise<GrupoDeR
        LEFT JOIN usuarios q ON q.id = r.reportado_por
        LEFT JOIN sanciones s ON s.id = r.sancion_id
        WHERE ${filtro === "pendientes" ? "r.estado = 'pendiente'" : "r.estado <> 'pendiente'"}
+         AND ($1::int IS NULL OR r.reportado_id IS DISTINCT FROM $1)
        ORDER BY ${filtro === "pendientes" ? "r.created_at" : "r.resuelto_en"} DESC, r.id DESC
        ${filtro === "resueltos" ? "LIMIT 300" : ""}`,
+      [sinContraCuenta],
     );
 
     const grupos = new Map<string, GrupoDeReportes>();
@@ -242,13 +246,15 @@ export async function listarReportes(filtro: FiltroDeReportes): Promise<GrupoDeR
   }
 }
 
-/** Cuántos reportes y casos (campañas o aportes) esperan decisión (bandeja y menú lateral). */
-export async function contarReportesPendientes(): Promise<{ reportes: number; casos: number }> {
+/** Cuántos reportes y casos (campañas o aportes) esperan decisión (bandeja y menú lateral). Sin los
+ * reportes contra `sinContraCuenta` (el supervisor que modera). */
+export async function contarReportesPendientes(sinContraCuenta: number | null = null): Promise<{ reportes: number; casos: number }> {
   try {
     const { rows } = await pool.query<{ reportes: number; casos: number }>(
       `SELECT COUNT(*)::int AS reportes,
               COUNT(DISTINCT CASE WHEN tipo = 'campana' THEN 'c' || campana_id ELSE 'a' || COALESCE(aporte_id, -id) END)::int AS casos
-       FROM reportes WHERE estado = 'pendiente'`,
+       FROM reportes WHERE estado = 'pendiente' AND ($1::int IS NULL OR reportado_id IS DISTINCT FROM $1)`,
+      [sinContraCuenta],
     );
     return rows[0] ?? { reportes: 0, casos: 0 };
   } catch {
@@ -265,7 +271,7 @@ export function sqlDeClave(clave: ClaveDeReportes, a = ""): string {
 
 /**
  * Reportes pendientes de una clave contra una persona: lo que se resuelve al sancionarla desde
- * /usuarios/[id]/sancion?reportes=<clave>. null si no queda ninguno.
+ * .../sanciones/[usuarioId]?reportes=<clave>. null si no queda ninguno.
  */
 export async function reportesPendientesContra(
   clave: ClaveDeReportes,

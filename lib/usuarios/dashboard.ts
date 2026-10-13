@@ -5,7 +5,8 @@ import type { Pestana } from "@/components/sistema/subtabs";
 import { pool } from "@/lib/db";
 import { ETIQUETA_DE_ESTADO, RESUMEN_DE_SANCIONES, estadoDesdeSanciones } from "@/lib/usuarios/directorio";
 
-/** Pestañas de la sección Usuarios. Las comparten las cuatro pantallas. */
+/** Pestañas de la sección Usuarios. Las comparten las cuatro pantallas. Sanciones aquí es solo consulta
+ * (2026-10-13): aplicar y restaurar se hace en modo supervisor (/supervisar/sanciones). */
 export const PESTANAS_USUARIOS: Pestana[] = [
   { href: "/usuarios/dashboard", etiqueta: "Dashboard" },
   { href: "/usuarios", etiqueta: "Directorio" },

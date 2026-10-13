@@ -11,13 +11,16 @@
 import { useEffect, ViewTransition, type MouseEvent } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import Avatar from "@/components/ui/Avatar";
+import type { DatosDeAvatar } from "@/lib/usuarios/avatar-opciones";
 
 const MARCA = "data-abrir-perfil";
 // La transición dura ~0.75 s (vuelo de 450 ms; despliegue de 520 ms que empieza a los 180 ms).
 // Quitar la marca antes cortaría la animación.
 const QUITAR_MARCA_MS = 1500;
 
-export default function EnlaceAlPerfil({ iniciales, nombre }: { iniciales: string; nombre: string }) {
+/** avatar: iniciales, ícono predefinido o foto (components/ui/Avatar, elegido en /cuenta). */
+export default function EnlaceAlPerfil({ avatar, nombre }: { avatar: DatosDeAvatar; nombre: string }) {
   const ruta = usePathname();
 
   // Ya en /cuenta, quita la marca cuando terminó la animación, para que llegar a /cuenta de otra
@@ -40,9 +43,7 @@ export default function EnlaceAlPerfil({ iniciales, nombre }: { iniciales: strin
   return (
     <Link href="/cuenta" onClick={marcar} className="flex items-center gap-2.5">
       <ViewTransition name="perfil-avatar" share="perfil-viaje" default="none">
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-600 text-[12px] font-bold text-white">
-          {iniciales}
-        </div>
+        <Avatar datos={avatar} tamano="sm" />
       </ViewTransition>
       <div className="hidden sm:block">
         <ViewTransition name="perfil-nombre" share="perfil-viaje" default="none">

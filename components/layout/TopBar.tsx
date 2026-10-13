@@ -3,6 +3,7 @@
 
 import Link from "next/link";
 import type { SessionUser } from "@/lib/session";
+import { datosDeAvatar } from "@/lib/usuarios/avatar-opciones";
 import EnlaceAlPerfil from "./EnlaceAlPerfil";
 import Logo from "./Logo";
 import NotificationsBell from "./NotificationsBell";
@@ -18,11 +19,7 @@ export default function TopBar({ usuario }: { usuario: SessionUser }) {
         <NotificationsBell />
         <div className="flex items-center gap-2.5">
           <EnlaceAlPerfil
-            iniciales={(usuario.nombre ?? "")
-              .split(" ")
-              .map((p) => p[0])
-              .join("")
-              .slice(0, 2)}
+            avatar={datosDeAvatar({ ...usuario, nombre: usuario.nombre ?? "" })}
             nombre={`${usuario.nombre ?? ""} ${usuario.apellidos ?? ""}`.trim()}
           />
         </div>

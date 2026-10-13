@@ -1,34 +1,42 @@
-// Pantalla /reportes (2026-10-12): bandeja de reportes del SuperUsuario (de campañas, contra su creador,
-// y de aportes, contra quien los envió).
-// Acceso: sesión raíz (layout de (panel) + exigirSesionRoot()). Server Component.
-// Datos: listarReportes() y contarReportesPendientes() (lib/reportes/reportes.ts); ?estado=resueltos
-// muestra los ya resueltos. La lista agrupada por caso está en lista.tsx (cliente).
-// Acciones: "Dar aviso a <persona>" lleva a /usuarios/[id]/sancion?reportes=<clave> (el aviso queda en
-// /usuarios/sanciones y resuelve los reportes); "Descartar" en boton-descartar.tsx.
+// Contenido de la bandeja de reportes (2026-10-12) de la moderación: /supervisar/reportes (SuperUsuario en
+// modo supervisor) y /supervision/reportes (usuario con rol de supervisor), desde el 2026-10-13; antes era
+// /reportes del panel. Reportes de campañas (contra su creador) y de aportes (contra quien los envió).
+// Server Component; la página de cada zona comprueba antes la sesión (exigirModerador).
+// Datos: listarReportes() y contarReportesPendientes() (lib/reportes/reportes.ts), sin los reportes contra el
+// supervisor que modera; ?estado=resueltos muestra los ya resueltos. La lista agrupada por caso está en
+// ListaDeReportes (cliente). Acciones: "Dar aviso a <persona>" lleva a .../sanciones/[usuarioId]?reportes=<clave>
+// (el aviso queda en la lista de sanciones y resuelve los reportes); "Descartar" en BotonDescartar.
 
-import type { Metadata } from "next";
 import Link from "next/link";
 
 import { Aviso, Encabezado, formatearNumero } from "@/components/sistema/ui";
 import { contarReportesPendientes, listarReportes, type FiltroDeReportes } from "@/lib/reportes/reportes";
-import { exigirSesionRoot } from "@/lib/supervision/root";
+import { cuentaDelModerador, type Moderador } from "@/lib/moderacion/moderador";
+import { rutasDeModeracion, type ZonaDeModeracion } from "@/lib/moderacion/rutas";
 import { formatearFechaYHora } from "@/lib/usuarios/directorio";
-import ListaDeReportes, { type GrupoParaLista } from "./lista";
-
-export const metadata: Metadata = { title: "Reportes" };
-export const dynamic = "force-dynamic";
+import ListaDeReportes, { type GrupoParaLista } from "./ListaDeReportes";
+import PestanasDeModeracion from "./PestanasDeModeracion";
 
 const NOMBRE_DE_SANCION: Record<string, string> = {
   STRIKE: "Aviso",
   BANEO_DE_CAMPANA: "Baneo",
 };
 
-export default async function BandejaDeReportesPage({ searchParams }: { searchParams: Promise<{ estado?: string }> }) {
-  await exigirSesionRoot();
-  const { estado } = await searchParams;
+export default async function PantallaDeReportes({
+  zona,
+  moderador,
+  estado,
+}: {
+  zona: ZonaDeModeracion;
+  moderador: Moderador;
+  /** ?estado= de la URL: "resueltos" o nada (pendientes). */
+  estado?: string;
+}) {
+  const rutas = rutasDeModeracion(zona);
   const filtro: FiltroDeReportes = estado === "resueltos" ? "resueltos" : "pendientes";
+  const propia = cuentaDelModerador(moderador);
 
-  const [grupos, pendientes] = await Promise.all([listarReportes(filtro), contarReportesPendientes()]);
+  const [grupos, pendientes] = await Promise.all([listarReportes(filtro, propia), contarReportesPendientes(propia)]);
 
   const paraLista: GrupoParaLista[] = grupos.map((g) => ({
     clave: g.clave,
@@ -56,6 +64,8 @@ export default async function BandejaDeReportesPage({ searchParams }: { searchPa
 
   return (
     <div>
+      <PestanasDeModeracion zona={zona} />
+
       <Encabezado
         titulo="Reportes"
         subtitulo={
@@ -69,10 +79,10 @@ export default async function BandejaDeReportesPage({ searchParams }: { searchPa
         className="dashboard-nav mb-4 w-full min-w-0 max-w-full touch-pan-x flex flex-nowrap gap-2 overflow-x-auto overscroll-x-contain pb-2 [-webkit-overflow-scrolling:touch] md:flex-wrap md:overflow-visible md:pb-0"
         aria-label="Filtrar reportes"
       >
-        <Link href="/reportes" scroll={false} className={claseChip(filtro === "pendientes")} aria-current={filtro === "pendientes" ? "true" : undefined}>
+        <Link href={rutas.reportes} scroll={false} className={claseChip(filtro === "pendientes")} aria-current={filtro === "pendientes" ? "true" : undefined}>
           Pendientes&nbsp; <span className="font-mono text-[11px]">{formatearNumero(pendientes.reportes)}</span>
         </Link>
-        <Link href="/reportes?estado=resueltos" scroll={false} className={claseChip(filtro === "resueltos")} aria-current={filtro === "resueltos" ? "true" : undefined}>
+        <Link href={rutas.reportesResueltos} scroll={false} className={claseChip(filtro === "resueltos")} aria-current={filtro === "resueltos" ? "true" : undefined}>
           Resueltos
         </Link>
       </nav>
@@ -82,7 +92,7 @@ export default async function BandejaDeReportesPage({ searchParams }: { searchPa
           {filtro === "pendientes" ? "No hay reportes por revisar." : "Todavía no se ha resuelto ningún reporte."}
         </p>
       ) : (
-        <ListaDeReportes grupos={paraLista} />
+        <ListaDeReportes zona={zona} grupos={paraLista} />
       )}
 
       <Aviso tono="neutro" className="mt-5">
@@ -90,7 +100,7 @@ export default async function BandejaDeReportesPage({ searchParams }: { searchPa
         creó la campaña o un revisor (va contra quien lo envió). La persona reportada no se entera ni sabe quién
         la reportó: si das el aviso, recibe solo el aviso, que queda en el registro de sanciones. Escala de
         avisos: 1.º mensaje, 2.º suspensión de 2 días, 3.º de 7 días, 4.º baneo y correo a la lista negra.
-        Resueltos muestra los últimos 300.
+        Resueltos muestra los últimos 300.{propia ? " Los reportes contra ti no aparecen aquí: los resuelve otro supervisor." : ""}
       </Aviso>
     </div>
   );

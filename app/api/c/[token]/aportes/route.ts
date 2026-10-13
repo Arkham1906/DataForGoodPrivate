@@ -6,11 +6,13 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { COOKIE_ANONIMO, dispositivoValido } from "@/lib/aportes/anonimato";
+import { errorDeConsentimiento } from "@/lib/aportes/consentimiento";
 import { enviarAporteAnonimo } from "@/lib/campanas/aportes-anonimos";
 import { ipDelCliente } from "@/lib/ip";
 import { getSessionUser } from "@/lib/session";
 
-// POST (multipart/form-data: file, description, caracteristicas[]): envía el aporte como
+// POST (multipart/form-data: file, description, caracteristicas[], aceptaUso=si,
+// confirmaContenido=si; sin las dos casillas responde 400): envía el aporte como
 // "Anónimo". Cuota por dispositivo (cookie anonimo_id, se crea aquí si no existe), tope por IP
 // y espera entre aportes del mismo dispositivo (429 con esperaSegundos y Retry-After).
 export async function POST(request: Request, context: { params: Promise<{ token: string }> }) {
@@ -23,6 +25,11 @@ export async function POST(request: Request, context: { params: Promise<{ token:
     }
 
     const formData = await request.formData();
+    const errorConsentimiento = errorDeConsentimiento(formData);
+    if (errorConsentimiento) {
+      return NextResponse.json({ error: errorConsentimiento }, { status: 400 });
+    }
+
     const cookieStore = await cookies();
     const resultado = await enviarAporteAnonimo({
       token,

@@ -1,7 +1,8 @@
 "use client";
 
 // Menú lateral de la zona de usuario. Agrega "Supervisión" si el usuario tiene rol supervisor
-// y "Revisor de aportes" si tiene rol revisor. La opción activa la marca una pastilla que
+// y "Revisor de aportes" si tiene rol revisor. "Supervisión" lleva el número de reportes pendientes
+// (Reportes y Sanciones están dentro, 2026-10-13). La opción activa la marca una pastilla que
 // se desliza entre opciones (components/ui/useIndicadorDeMenu.tsx).
 
 import Link from "next/link";
@@ -18,7 +19,14 @@ const NAV_ITEMS: Opcion[] = [
   { href: "/mis-campanas", label: "Mis campañas" },
 ];
 
-export default function SidebarNav({ usuario }: { usuario: SessionUser }) {
+export default function SidebarNav({
+  usuario,
+  reportesPendientes = 0,
+}: {
+  usuario: SessionUser;
+  /** Lo cuenta el layout de (dashboard), solo para supervisores. */
+  reportesPendientes?: number;
+}) {
   const pathname = usePathname();
   const roles = Array.isArray(usuario.role) ? usuario.role : [];
 
@@ -52,6 +60,12 @@ export default function SidebarNav({ usuario }: { usuario: SessionUser }) {
               }`}
             >
               {item.label}
+              {item.href === "/supervision" && reportesPendientes > 0 ? (
+                <span className="ml-2 rounded-pill bg-error-700 px-2 py-0.5 font-mono text-[10.5px] font-bold text-white">
+                  {reportesPendientes > 99 ? "99+" : reportesPendientes}
+                  <span className="sr-only"> reportes pendientes</span>
+                </span>
+              ) : null}
             </Link>
           );
         })}

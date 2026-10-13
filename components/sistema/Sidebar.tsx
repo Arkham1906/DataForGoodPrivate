@@ -10,7 +10,6 @@ import { claseDeOpcionMarcada, useIndicadorDeMenu } from "@/components/ui/useInd
 
 import {
   IconoAportes,
-  IconoAlerta,
   IconoCampanas,
   IconoEscudo,
   IconoEtiqueta,
@@ -46,10 +45,9 @@ const MENU: Entrada[] = [
     seccion: ["/sistema/campanas"],
   },
   { href: "/aportes", etiqueta: "Aportes", Icono: IconoAportes, seccion: ["/aportes"] },
-  // Bandeja de reportes de campañas (2026-10-12); lleva el número de pendientes.
-  { href: "/reportes", etiqueta: "Reportes", Icono: IconoAlerta, seccion: ["/reportes"] },
   { href: "/sistema/tematicas", etiqueta: "Temáticas", Icono: IconoEtiqueta, seccion: ["/sistema/tematicas"] },
   {
+    // Reportes y sanciones están dentro (2026-10-13): lleva el número de reportes pendientes.
     href: "/supervisar",
     etiqueta: "Modo supervisor",
     Icono: IconoEscudo,
@@ -94,10 +92,10 @@ export default function Sidebar({ reportesPendientes = 0 }: { reportesPendientes
               >
                 <Icono className="h-4 w-4 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transition-none" />
                 {etiqueta}
-                {href === "/reportes" && reportesPendientes > 0 ? (
+                {href === "/supervisar" && reportesPendientes > 0 ? (
                   <span className="ml-auto rounded-pill bg-error-700 px-2 py-0.5 font-mono text-[10.5px] font-bold text-white">
                     {reportesPendientes > 99 ? "99+" : reportesPendientes}
-                    <span className="sr-only"> pendientes</span>
+                    <span className="sr-only"> reportes pendientes</span>
                   </span>
                 ) : null}
               </Link>

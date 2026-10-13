@@ -23,7 +23,7 @@ export type AccionAuditada =
   | "supervision.tomar"
   | "supervision.dictaminar"
   | "campana.banear"
-  // Reportes de campañas y de participantes (lib/reportes/reportes.ts y lib/reportes/acciones-reportes.ts).
+  // Reportes de campañas y de participantes (lib/reportes/reportes.ts y lib/moderacion/acciones.ts).
   | "campana.reportar"
   | "aporte.reportar_participante"
   | "reporte.descartar"

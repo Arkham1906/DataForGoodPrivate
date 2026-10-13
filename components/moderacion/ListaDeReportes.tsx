@@ -1,9 +1,10 @@
 "use client";
 
-// Lista de la bandeja /reportes (2026-10-12), con el mismo patrón que /aportes y /usuarios/sanciones:
+// Lista de la bandeja de reportes (2026-10-12; desde el 2026-10-13 en /supervisar/reportes y
+// /supervision/reportes, antes /reportes), con el mismo patrón que /aportes y la lista de sanciones:
 // cada caso (una campaña reportada o un aporte reportado) ocupa un renglón resumen (a quién se reporta,
 // cuántos reportes, por qué motivos) aunque tenga uno solo, y al hacer clic se despliegan sus reportes.
-// Con reportes pendientes, al pie van "Dar aviso a <persona>" (/usuarios/[id]/sancion?reportes=<clave>)
+// Con reportes pendientes, al pie van "Dar aviso a <persona>" (.../sanciones/[usuarioId]?reportes=<clave>)
 // y "Descartar". En escritorio, renglones con rejilla y, al desplegar, una tabla; en móvil, tarjetas.
 
 import Link from "next/link";
@@ -11,7 +12,8 @@ import { useState } from "react";
 
 import Tag from "@/components/sistema/Tag";
 import { ETIQUETA_DE_ESTADO_DE_REPORTE, type EstadoDeReporte, type TipoDeReporte } from "@/lib/reportes/motivos";
-import BotonDescartar from "./boton-descartar";
+import { rutasDeModeracion, type ZonaDeModeracion } from "@/lib/moderacion/rutas";
+import BotonDescartar from "./BotonDescartar";
 
 /** Lo que llega del servidor: fechas ya formateadas en hora de Tepic. */
 export type ReporteParaLista = {
@@ -87,7 +89,7 @@ function EstadoDelReporte({ r }: { r: ReporteParaLista }) {
 }
 
 /** Cómo se resolvieron (una línea por resolución distinta) o las acciones si sigue pendiente. */
-function PieDelGrupo({ g }: { g: GrupoParaLista }) {
+function PieDelGrupo({ g, zona }: { g: GrupoParaLista; zona: ZonaDeModeracion }) {
   const pendientes = g.reportes.some((r) => r.estado === "pendiente");
   if (pendientes) {
     if (g.clave.startsWith("reporte-")) {
@@ -97,7 +99,7 @@ function PieDelGrupo({ g }: { g: GrupoParaLista }) {
       <div className="flex flex-wrap items-start justify-end gap-2.5">
         {g.reportado ? (
           <Link
-            href={`/usuarios/${g.reportado.id}/sancion?reportes=${g.clave}`}
+            href={rutasDeModeracion(zona).sancionar(g.reportado.id, g.clave)}
             className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-pill border border-error-700 bg-white px-3.5 py-2 text-[12.5px] font-bold text-error-700 transition-colors hover:bg-error-50"
           >
             Dar aviso a {g.reportado.nombre}
@@ -105,7 +107,7 @@ function PieDelGrupo({ g }: { g: GrupoParaLista }) {
         ) : (
           <p className="text-[12px] text-system-500">La cuenta reportada ya no existe: solo se puede descartar.</p>
         )}
-        <BotonDescartar clave={g.clave} caso={titulo(g)} />
+        <BotonDescartar zona={zona} clave={g.clave} caso={titulo(g)} />
       </div>
     );
   }
@@ -132,17 +134,18 @@ function PieDelGrupo({ g }: { g: GrupoParaLista }) {
   );
 }
 
-/** Nombre de la persona reportada, enlazado a su ficha. */
-function Reportado({ g }: { g: GrupoParaLista }) {
+/** Nombre de la persona reportada, enlazado a su pantalla de sanción (cuántos avisos lleva). */
+function Reportado({ g, zona }: { g: GrupoParaLista; zona: ZonaDeModeracion }) {
   if (!g.reportado) return <span className="text-system-500">Cuenta eliminada</span>;
   return (
-    <Link href={`/usuarios/${g.reportado.id}`} className="text-system-900 hover:text-brand-600">
+    <Link href={rutasDeModeracion(zona).sancionar(g.reportado.id)} className="text-system-900 hover:text-brand-600">
       {g.reportado.nombre}
     </Link>
   );
 }
 
-export default function ListaDeReportes({ grupos }: { grupos: GrupoParaLista[] }) {
+export default function ListaDeReportes({ grupos, zona }: { grupos: GrupoParaLista[]; zona: ZonaDeModeracion }) {
+  const rutas = rutasDeModeracion(zona);
   const [abiertos, setAbiertos] = useState<Set<string>>(new Set());
   const alternar = (clave: string) =>
     setAbiertos((actual) => {
@@ -185,13 +188,13 @@ export default function ListaDeReportes({ grupos }: { grupos: GrupoParaLista[] }
               </button>
               {abierto && (
                 <div id={idPanel} className="space-y-3 border-t border-system-200 bg-system-50 p-3">
-                  <Link href={`/sistema/campanas/${g.campana.id}`} className="block text-[12px] font-semibold text-brand-600 hover:underline">
+                  <Link href={rutas.campana(g.campana.id)} className="block text-[12px] font-semibold text-brand-600 hover:underline">
                     Ver la campaña
                   </Link>
                   {g.reportes.map((r) => (
                     <TarjetaDeReporte key={r.id} r={r} />
                   ))}
-                  <PieDelGrupo g={g} />
+                  <PieDelGrupo g={g} zona={zona} />
                 </div>
               )}
             </article>
@@ -234,14 +237,14 @@ export default function ListaDeReportes({ grupos }: { grupos: GrupoParaLista[] }
                 </button>
                 <div className="min-w-0 break-words text-[12.5px]">
                   <span className="block font-mono text-[10px] uppercase tracking-[0.1em] text-system-500">{rolDelReportado(g)}</span>
-                  <span className="mt-1 block"><Reportado g={g} /></span>
+                  <span className="mt-1 block"><Reportado g={g} zona={zona} /></span>
                 </div>
                 <div className="min-w-0">
                   <span className="block font-mono text-[10px] uppercase tracking-[0.1em] text-system-500">Motivos</span>
                   <span className="mt-1 block"><Motivos g={g} /></span>
                 </div>
                 <div className="text-right">
-                  <Link href={`/sistema/campanas/${g.campana.id}`} className="whitespace-nowrap text-[12.5px] font-semibold text-brand-600 hover:underline">
+                  <Link href={rutas.campana(g.campana.id)} className="whitespace-nowrap text-[12.5px] font-semibold text-brand-600 hover:underline">
                     Ver campaña<span className="sr-only"> {g.campana.nombre}</span>
                   </Link>
                 </div>
@@ -279,7 +282,7 @@ export default function ListaDeReportes({ grupos }: { grupos: GrupoParaLista[] }
                     </tbody>
                   </table>
                   <div className="mt-3 border-t border-system-200 pt-3">
-                    <PieDelGrupo g={g} />
+                    <PieDelGrupo g={g} zona={zona} />
                   </div>
                 </div>
               )}

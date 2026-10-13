@@ -217,8 +217,8 @@ export async function enviarAporteAnonimo(entrada: {
         `INSERT INTO aportes (
           campaign_id, user_id, participant_name, participant_email, description,
           file_type, file_path, file_original_name, file_mime_type, file_size_bytes,
-          caracteristicas, enlace_id, anonimo_id
-        ) VALUES ($1, NULL, 'Anónimo', NULL, $2, 'foto', $3, NULL, $4, $5, $6::jsonb, $7, $8)
+          caracteristicas, enlace_id, anonimo_id, consentimiento_en
+        ) VALUES ($1, NULL, 'Anónimo', NULL, $2, 'foto', $3, NULL, $4, $5, $6::jsonb, $7, $8, NOW())
         RETURNING id`,
         // file_original_name va NULL: el nombre del archivo puede traer datos personales.
         [

@@ -55,13 +55,9 @@ export default async function FichaDeUsuarioPage({
       <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <Identidad nombre={u.nombre} detalle={u.correo} riesgo={baneado} />
         <div className="flex flex-wrap items-center gap-2">
+          {/* Sancionar ya no está aquí (2026-10-13): se hace en modo supervisor (/supervisar/sanciones/[id]); en el
+              panel, /usuarios/sanciones solo se consulta. */}
           <EnlaceBoton href={`/usuarios/${u.id}/roles`}>Cambiar rol</EnlaceBoton>
-          <Link
-            href={`/usuarios/${u.id}/sancion`}
-            className="inline-flex items-center justify-center gap-1.5 rounded-pill border border-error-700 bg-white px-3.5 py-1.5 text-[12.5px] font-semibold text-error-700 transition-colors hover:bg-error-50"
-          >
-            Sancionar
-          </Link>
         </div>
       </header>
 

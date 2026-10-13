@@ -4,6 +4,8 @@
 // La contraseña se cambia (o, en una cuenta de Google, se crea) en CambiarContrasena.tsx con un
 // código enviado al correo de la cuenta; no se pide la actual.
 // "Eliminar cuenta" (hasta abajo) lleva a /cuenta/eliminar (baja voluntaria, SCR-WEB-31).
+// "Cambiar ícono" (EditarAvatar.tsx, 2026-10-13; solo con "Editar perfil"): iniciales, ícono predefinido o foto propia
+// (PUT /api/usuarios/[id]/avatar); el ícono se pinta con components/ui/Avatar.
 // Experimental (2026-10-07): al llegar con "Ver perfil" de la barra superior, el avatar y el
 // nombre vuelan a su lugar y la pantalla se despliega (View Transitions; ver EnlaceAlPerfil.tsx).
 // Sin loading.tsx a propósito: si la pantalla mostrara un esqueleto antes, el avatar y el nombre
@@ -15,6 +17,9 @@ import { exigirUsuario } from "@/lib/session";
 import PerfilForm from "./PerfilForm";
 import CambiarContrasena from "./CambiarContrasena";
 import PreferenciasDeComunicacion from "./PreferenciasDeComunicacion";
+import EditarAvatar from "./EditarAvatar";
+import Avatar from "@/components/ui/Avatar";
+import { datosDeAvatar } from "@/lib/usuarios/avatar-opciones";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Mi cuenta" };
@@ -31,6 +36,7 @@ export default async function CuentaPage() {
 
   const primaryRole = currentUser.role[0] ?? "usuario";
   const roleLabel = ROLE_LABELS[primaryRole] ?? primaryRole;
+  const avatar = datosDeAvatar({ ...currentUser, nombre: currentUser.nombre ?? "" });
 
   return (
     // Al llegar con "Ver perfil" la pantalla se despliega de arriba abajo mientras el avatar y el
@@ -64,17 +70,12 @@ export default async function CuentaPage() {
           intereses: currentUser.intereses,
           interesesTexto: currentUser.intereses_texto,
         }}
+        editarAvatar={<EditarAvatar actual={avatar} />}
         encabezado={
           <div className="flex items-center gap-4">
             {/* Mismo name que el avatar y el nombre de la barra superior (EnlaceAlPerfil): vuelan hasta aquí. */}
             <ViewTransition name="perfil-avatar" share="perfil-viaje" default="none">
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-brand-600 text-lg font-extrabold text-white">
-                {(currentUser.nombre ?? "")
-                  .split(" ")
-                  .map((p) => p[0])
-                  .join("")
-                  .slice(0, 2)}
-              </div>
+              <Avatar datos={avatar} tamano="lg" />
             </ViewTransition>
             <div>
               <ViewTransition name="perfil-nombre" share="perfil-viaje" default="none">

@@ -24,7 +24,7 @@
 1. `getSessionUser()`, campaña activa, sin baneo, cuota disponible, sin ser el creador.
 2. **Validación rápida:** `errorDeArchivo()` (`lib/aportes/archivo.ts`): solo `image/jpeg` e `image/png` según `file.type`, hasta 10 MB. La interfaz usa la misma función para avisar pronto.
 3. **Validación real y limpieza** (`limpiarImagen()` en `lib/aportes/imagen.ts`, desde `guardarFotoDelAporte()` de `lib/aportes/comun.ts`): los primeros bytes deben ser la firma de JPEG o PNG, la imagen no puede pasar de 50 megapíxeles (se lee solo el encabezado antes de decodificarla), y la foto se **vuelve a codificar con `sharp`**, lo que quita todos los metadatos (EXIF con GPS, modelo del teléfono, fecha). Se aplica antes la orientación del EXIF para que no quede girada. Un archivo que solo parece imagen se rechaza con 400.
-4. `guardarArchivo()` con `subdir = campanas/<campaignId>`, y después `insertarAporteConCuota()` (`lib/aportes/comun.ts`): cuenta e inserta dentro de una transacción con `pg_advisory_xact_lock` por campaña y persona, para que dos envíos simultáneos no pasen la cuota. Si la cuota ya se llenó, borra de MinIO el archivo recién subido.
+4. `guardarArchivo()` con `subdir = campanas/<campaignId>` (las fotos de perfil, desde el 2026-10-13, van en `perfiles/<usuarioId>/`: `lib/usuarios/avatar.ts`), y después `insertarAporteConCuota()` (`lib/aportes/comun.ts`): cuenta e inserta dentro de una transacción con `pg_advisory_xact_lock` por campaña y persona, para que dos envíos simultáneos no pasen la cuota. Si la cuota ya se llenó, borra de MinIO el archivo recién subido.
 
 El aporte anónimo (`POST /api/c/[token]/aportes`, `lib/campanas/aportes-anonimos.ts`) sigue los mismos pasos 2 a 4.
 

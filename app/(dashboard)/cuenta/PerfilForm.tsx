@@ -5,6 +5,7 @@
 // muestra "Guardar cambios", que guarda con PATCH /api/usuarios/[id] (solo la propia
 // cuenta) y avisa con un mensaje al centro de la pantalla.
 // Intereses: texto libre del que salen las temáticas (ui/InteresesDesdeTexto), editable en edición.
+// "Cambiar ícono" (editarAvatar, 2026-10-13) también aparece solo en edición, debajo del encabezado.
 // Catálogos: lib/mexico-geo.ts, lib/perfil-opciones.ts; temáticas en GET /api/tematicas.
 
 import { useRouter } from "next/navigation";
@@ -41,11 +42,14 @@ const CLASE_BLOQUEADO = "disabled:cursor-default disabled:bg-system-100";
 export default function PerfilForm({
   usuario,
   encabezado,
+  editarAvatar,
   children,
 }: {
   usuario: Usuario;
   /** Avatar, nombre y rol: la parte izquierda de la tarjeta superior. */
   encabezado: ReactNode;
+  /** "Cambiar ícono" (EditarAvatar): solo se muestra con "Editar perfil". */
+  editarAvatar?: ReactNode;
   /** Tarjeta de seguridad, que va junto a los datos personales. */
   children?: ReactNode;
 }) {
@@ -176,6 +180,7 @@ export default function PerfilForm({
             <LogoutButton />
           </div>
         </div>
+        {editando && editarAvatar ? <div className="mt-3">{editarAvatar}</div> : null}
       </section>
 
       <div className="grid gap-4 md:grid-cols-2">

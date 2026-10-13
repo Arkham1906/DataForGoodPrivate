@@ -34,6 +34,10 @@ export interface SessionUser {
   xp_total: number;
   level: number;
   streak_days: number;
+  /** Ícono del perfil (lib/usuarios/avatar-opciones.ts): null = iniciales. */
+  avatar: "masculino" | "femenino" | "otro" | "foto" | null;
+  /** Clave en MinIO de la foto propia; solo la usa datosDeAvatar() para la versión de la URL. */
+  avatar_foto: string | null;
   email_verificado: boolean;
   tiene_contrasena: boolean;
 }
@@ -75,6 +79,7 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
   const result = await pool.query(
     `SELECT u.id, u.nombre, u.apellidos, u.email, u.state, u.city, u.specialty,
             u.intereses, u.intereses_texto, u.role, u.xp_total, u.level, u.streak_days, u.email_verificado,
+            u.avatar, u.avatar_foto,
           (u.password_hash IS NOT NULL) AS tiene_contrasena,
           EXISTS (
             SELECT 1 FROM campana_revisores cr

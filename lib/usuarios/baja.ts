@@ -208,8 +208,8 @@ async function ejecutarBaja(usuarioId: number): Promise<void> {
     await client.query("BEGIN");
 
     // Se vuelve a revisar con la fila bloqueada: si inició sesión justo ahora, ya no aplica.
-    const usuario = await client.query<{ baja_destino_aportes: DestinoDeAportes }>(
-      `SELECT baja_destino_aportes FROM usuarios
+    const usuario = await client.query<{ baja_destino_aportes: DestinoDeAportes; avatar_foto: string | null }>(
+      `SELECT baja_destino_aportes, avatar_foto FROM usuarios
        WHERE id = $1 AND baja_efectiva_en <= NOW() AND eliminada_en IS NULL
        FOR UPDATE`,
       [usuarioId]
@@ -219,6 +219,8 @@ async function ejecutarBaja(usuarioId: number): Promise<void> {
       return;
     }
     destino = usuario.rows[0].baja_destino_aportes ?? "anonimizar";
+    // La foto de perfil es un dato personal: se borra siempre.
+    if (usuario.rows[0].avatar_foto) archivosABorrar.push(usuario.rows[0].avatar_foto);
 
     if (destino === "eliminar") {
       // Todo menos lo ya utilizado (aceptado en una campaña finalizada).
@@ -271,7 +273,7 @@ async function ejecutarBaja(usuarioId: number): Promise<void> {
        SET nombre = $2, apellidos = '', email = 'eliminada-' || id || '@cuenta.invalid',
            password_hash = NULL, google_id = NULL, email_verificado = false,
            state = NULL, city = NULL, specialty = NULL, intereses = '[]'::jsonb, role = '["usuario"]'::jsonb,
-           xp_total = 0, level = 1, streak_days = 0,
+           xp_total = 0, level = 1, streak_days = 0, avatar = NULL, avatar_foto = NULL,
            failed_login_attempts = 0, locked_until = NULL,
            verification_code_hash = NULL, verification_code_expires_at = NULL, verification_attempts = 0,
            eliminada_en = NOW(), updated_at = NOW()

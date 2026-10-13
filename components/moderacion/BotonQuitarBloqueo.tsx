@@ -1,17 +1,20 @@
 "use client";
 
 // Botón "Quitar bloqueo" de un dispositivo anónimo. Llama a la server action
-// quitarBloqueoDeDispositivo (lib/aportes/acciones-bloqueos.ts).
+// quitarBloqueoDeDispositivo (lib/moderacion/acciones.ts) con la zona (/supervisar o /supervision).
 
 import { useState, useTransition } from "react";
 
 import Button from "@/components/sistema/Button";
-import { quitarBloqueoDeDispositivo } from "@/lib/aportes/acciones-bloqueos";
+import { quitarBloqueoDeDispositivo } from "@/lib/moderacion/acciones";
+import type { ZonaDeModeracion } from "@/lib/moderacion/rutas";
 
 export default function BotonQuitarBloqueo({
+  zona,
   bloqueoId,
   anchoCompleto = false,
 }: {
+  zona: ZonaDeModeracion;
   bloqueoId: string;
   anchoCompleto?: boolean;
 }) {
@@ -51,7 +54,7 @@ export default function BotonQuitarBloqueo({
           disabled={pendiente}
           onClick={() =>
             iniciar(async () => {
-              const resultado = await quitarBloqueoDeDispositivo(bloqueoId);
+              const resultado = await quitarBloqueoDeDispositivo(zona, bloqueoId);
               if (resultado.ok) setConfirmando(false);
               else setError(resultado.error);
             })

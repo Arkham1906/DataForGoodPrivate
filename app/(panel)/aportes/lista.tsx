@@ -1,6 +1,6 @@
 "use client";
 
-// Lista de la bandeja /aportes agrupada por persona (2026-10-08), como /usuarios/sanciones: cada
+// Lista de la bandeja /aportes agrupada por persona (2026-10-08), como la lista de sanciones: cada
 // participante (con cuenta, o anónimo desde un mismo dispositivo) ocupa un renglón resumen
 // (cuántos aportes, a qué campañas, en qué etapa) y al hacer clic se despliegan sus aportes.
 // En escritorio, renglones por persona y, al desplegar, una tabla con sus aportes; en móvil, tarjetas.

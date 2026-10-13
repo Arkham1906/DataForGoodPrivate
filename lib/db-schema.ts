@@ -51,6 +51,10 @@ export async function ensureUsuariosTable(): Promise<void> {
       baja_efectiva_en TIMESTAMPTZ,
       baja_destino_aportes VARCHAR(20),
       eliminada_en TIMESTAMPTZ,
+      -- Ícono del perfil (lib/usuarios/avatar.ts): NULL = iniciales; masculino, femenino, otro o foto.
+      avatar VARCHAR(12),
+      -- Clave en MinIO de la foto propia (perfiles/<id>/<uuid>.jpg), si la eligió.
+      avatar_foto VARCHAR(500),
       created_at TIMESTAMP NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMP NOT NULL DEFAULT NOW()
     );
@@ -82,6 +86,8 @@ export async function ensureUsuariosTable(): Promise<void> {
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS baja_efectiva_en TIMESTAMPTZ;
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS baja_destino_aportes VARCHAR(20);
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS eliminada_en TIMESTAMPTZ;
+    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS avatar VARCHAR(12);
+    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS avatar_foto VARCHAR(500);
   `);
 }
 
@@ -353,6 +359,7 @@ export async function ensureAportesTable(): Promise<void> {
       reporte_motivo TEXT,
       reporte_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
       reporte_en TIMESTAMPTZ,
+      consentimiento_en TIMESTAMPTZ,
       submitted_at TIMESTAMP NOT NULL DEFAULT NOW(),
       reviewed_at TIMESTAMP,
       created_at TIMESTAMP NOT NULL DEFAULT NOW(),
@@ -371,6 +378,9 @@ export async function ensureAportesTable(): Promise<void> {
     ALTER TABLE aportes ADD COLUMN IF NOT EXISTS anonimo_id CHAR(64);
     CREATE INDEX IF NOT EXISTS aportes_anonimo_idx ON aportes (campaign_id, anonimo_id) WHERE anonimo_id IS NOT NULL;
     ALTER TABLE aportes ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMP;
+    -- Cuándo aceptó la persona los avisos de "Antes de enviar" (uso del aporte y contenido acorde,
+    -- lib/aportes/consentimiento.ts). NULL en los aportes enviados antes del 2026-10-13.
+    ALTER TABLE aportes ADD COLUMN IF NOT EXISTS consentimiento_en TIMESTAMPTZ;
     -- La IP de un aporte sin cuenta ya no se guarda de ninguna forma (2026-10-01): se quita
     -- la columna del HMAC que existió unas horas, con los hashes que alcanzó a guardar.
     DROP INDEX IF EXISTS aportes_ip_fecha_idx;
@@ -397,7 +407,7 @@ export async function ensureAportesTable(): Promise<void> {
  *   - campana_id con valor: el creador bloqueó ese dispositivo en su campaña.
  *     No vence; se quita desde "Participantes baneados". Solo por dispositivo.
  *   - campana_id NULL: bloqueo global automático al juntar aportes inapropiados.
- *     Vence en `hasta`. El SuperUsuario lo ve y lo quita en /usuarios/sanciones.
+ *     Vence en `hasta`. Lo ve y lo quita quien modera, en /supervisar/sanciones o /supervision/sanciones.
  * anonimo_id es el hash de la cookie, nunca su valor. No se guarda la IP.
  */
 export async function ensureDispositivosBloqueadosTable(): Promise<void> {

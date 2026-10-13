@@ -124,7 +124,7 @@ Puede participar **solo si le comparten una campaña** (enlace o QR `/c/[token]`
 - **Sanciones** (`lib/aportes/sanciones-anonimas.ts`):
   - Creador y revisor marcan un aporte anónimo como "Contenido inapropiado" (al rechazarlo o con un botón que no cambia el estado). Banear y bloquear, solo el creador. Un aporte ya decidido no se marca ni se borra su archivo; banear desde él sí se puede.
   - Solo el creador bloquea el dispositivo en su campaña (se quita en "Participantes baneados"), borra el archivo y apaga los aportes sin cuenta.
-  - 3 aportes inapropiados del mismo dispositivo en 30 días lo bloquean 30 días en toda la plataforma. Solo el SuperUsuario lo quita antes (`/usuarios/sanciones`).
+  - 3 aportes inapropiados del mismo dispositivo en 30 días lo bloquean 30 días en toda la plataforma. Lo quita antes quien modera: el SuperUsuario en modo supervisor o un supervisor (`.../sanciones` de `/supervisar` o `/supervision`).
 
 ## 7. Sanciones y baneos
 
@@ -135,7 +135,7 @@ Hay dos cosas distintas con nombres parecidos:
 - Tabla `campana_baneados`. Endpoint `GET`/`POST`/`DELETE /api/campanas/[id]/baneos`. Consultas en `lib/campanas/baneos.ts`.
 - El participante ve la etiqueta "Baneado" en las listas (`isBanned`) y un aviso antes de aportar (`viewer.baneado`).
 
-**Sanciones de cuenta** (las aplica el SuperUsuario desde `/usuarios/[id]/sancion`, a mano o confirmando reportes de `/reportes`): afectan toda la cuenta. Desde el 2026-10-12 solo hay dos opciones: **aviso** o **baneo inmediato**.
+**Sanciones de cuenta** (desde el 2026-10-13 las aplica quien modera: un usuario con rol `supervisor` en `/supervision/sanciones/[usuarioId]` o el SuperUsuario en modo supervisor en `/supervisar/sanciones/[usuarioId]`, a mano o confirmando reportes de `.../reportes`; a cualquier usuario menos a sí mismo. En el panel normal el SuperUsuario solo las consulta, en `/usuarios/sanciones`): afectan toda la cuenta. Desde el 2026-10-12 solo hay dos opciones: **aviso** o **baneo inmediato**.
 
 | Tipo | Efecto |
 | --- | --- |

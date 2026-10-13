@@ -2,7 +2,9 @@
 
 // Pantalla /campanas/[id]/aportar: formulario para enviar un aporte (archivo, descripción, checklists).
 // Componente cliente. Datos: GET /api/campanas?id= y GET /api/aportes?campaignId=&mine=true (cuota usada).
-// Acción: POST /api/aportes (multipart/form-data). El servidor valida cuota, baneo, tipo y tamaño.
+// Acción: POST /api/aportes (multipart/form-data). El servidor valida cuota, baneo, tipo, tamaño
+// y las dos casillas de la ventana "Antes de enviar" (components/ui/AvisosDeAporte), que se abre
+// al dar "Enviar aporte" y es la que envía.
 // Con ?enlace=<token> (viene de /c/[token]) lo reenvía para atribuir el aporte a ese enlace.
 
 import { useEffect, useState } from "react";
@@ -14,6 +16,7 @@ import { BASE_PATH } from "@/lib/base-path";
 import { etiquetaDeRespuesta } from "@/lib/campanas/checklist";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import IndicadorDeCarga from "@/components/ui/IndicadorDeCarga";
+import AvisosDeAporte, { agregarAvisos, type Avisos } from "@/components/ui/AvisosDeAporte";
 
 export default function AportarPage() {
   const params = useParams<{ id: string }>();
@@ -30,6 +33,8 @@ export default function AportarPage() {
   const [fileError, setFileError] = useState<string | null>(null);
   const [description, setDescription] = useState("");
   const [caracteristicas, setCaracteristicas] = useState<string[]>([]);
+  // "Enviar aporte" abre la ventana de avisos; el envío sale de ahí.
+  const [confirmando, setConfirmando] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -105,8 +110,12 @@ export default function AportarPage() {
     );
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (canSubmit) setConfirmando(true);
+  }
+
+  async function enviar(avisos: Avisos) {
     if (!file || !campaign) return;
 
     setSubmitting(true);
@@ -119,6 +128,7 @@ export default function AportarPage() {
       formData.set("file", file);
       caracteristicas.forEach((item) => formData.append("caracteristicas", item));
       if (enlace) formData.set("enlace", enlace);
+      agregarAvisos(formData, avisos);
 
       const response = await fetch(`${BASE_PATH}/api/aportes`, { method: "POST", body: formData });
       const payload = await response.json().catch(() => ({}));
@@ -128,6 +138,7 @@ export default function AportarPage() {
     } catch (cause) {
       setSubmitError(cause instanceof Error ? cause.message : "No se pudo enviar el aporte");
       setSubmitting(false);
+      setConfirmando(false);
     }
   }
 
@@ -214,6 +225,13 @@ export default function AportarPage() {
           </p>
         </div>
       </form>
+
+      <AvisosDeAporte
+        abierto={confirmando}
+        enviando={submitting}
+        onCancelar={() => setConfirmando(false)}
+        onConfirmar={(avisos) => void enviar(avisos)}
+      />
     </div>
   );
 }

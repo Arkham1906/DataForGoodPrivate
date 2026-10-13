@@ -1,7 +1,7 @@
 import { pool } from "@/lib/db";
 
 /*
- * Qué hace cada sanción (según el formulario del panel, /usuarios/[id]/sancion):
+ * Qué hace cada sanción (según el formulario de sanción de la moderación, .../sanciones/[usuarioId] en /supervisar o /supervision):
  *   - STRIKE: un aviso (en la interfaz, "Aviso"). No bloquea por sí mismo: según cuántos lleve la
  *     cuenta, aplicarSancion agrega la suspensión o el baneo que toca (lib/usuarios/escala-de-avisos.ts).
  *   - SUSPENSION_TEMPORAL: bloquea la cuenta durante `dias` desde aplicada_en.

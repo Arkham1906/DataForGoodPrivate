@@ -702,6 +702,14 @@
             "value": "Bache grande frente a la escuela"
           },
           {
+            "name": "aceptaUso",
+            "value": "si"
+          },
+          {
+            "name": "confirmaContenido",
+            "value": "si"
+          },
+          {
             "name": "file",
             "type": "file",
             "fileName": ""
@@ -731,6 +739,14 @@
           {
             "name": "description",
             "value": "Foto tomada sin cuenta"
+          },
+          {
+            "name": "aceptaUso",
+            "value": "si"
+          },
+          {
+            "name": "confirmaContenido",
+            "value": "si"
           },
           {
             "name": "file",

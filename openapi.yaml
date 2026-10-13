@@ -583,6 +583,67 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
 
+  /api/usuarios/{id}/avatar:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [Usuarios]
+      summary: Foto de perfil de la cuenta propia
+      description: |
+        JPEG cuadrado de 256 px. Solo la cuenta propia (hoy no se muestra a nadie más). 404 si la
+        cuenta usa las iniciales o un ícono predefinido. La app la pide con `?v=<versión>`, que cambia
+        con cada foto nueva, así que se puede guardar en caché.
+      responses:
+        "200":
+          description: La foto
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      tags: [Usuarios]
+      summary: Cambiar el ícono del perfil
+      description: |
+        Solo la cuenta propia. Las iniciales, un ícono predefinido o una foto propia. La foto (JPG o PNG
+        de hasta 5 MB, se revisa su firma) se recorta a 256 px y se guarda sin metadatos en MinIO
+        (`perfiles/<id>/`). Elegir otra opción borra la foto anterior.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [avatar]
+              properties:
+                avatar:
+                  type: string
+                  enum: [iniciales, masculino, femenino, otro, foto]
+                file:
+                  type: string
+                  format: binary
+                  description: Obligatorio con `avatar=foto`. .jpg, .jpeg o .png, máximo 5 MB
+      responses:
+        "200":
+          description: Ícono actualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+                  data:
+                    type: object
+                    properties:
+                      usuarioId: { type: integer }
+                      nombre: { type: string }
+                      avatar: { type: string, nullable: true, enum: [masculino, femenino, otro, foto, null] }
+                      version: { type: string, nullable: true, description: Va en la URL de la foto }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
   # ---------------------------------------------------------------- Campañas
   /api/campanas:
     get:
@@ -1054,16 +1115,26 @@ paths:
         El archivo se sube a MinIO. Reglas: la campaña debe estar activa, no puedes
         ser su creador ni estar baneado, y no debes haber alcanzado tu cuota (se cuenta con
         candado: dos envíos simultáneos no la pasan). El archivo debe ser de verdad JPG o PNG
-        (se revisa su firma) y se guarda sin metadatos (EXIF con GPS, etc.).
+        (se revisa su firma) y se guarda sin metadatos (EXIF con GPS, etc.). La persona debe
+        aceptar el uso de su aporte y confirmar que corresponde a la campaña (`aceptaUso` y
+        `confirmaContenido` con valor `si`); sin ellos responde 400.
       requestBody:
         required: true
         content:
           multipart/form-data:
             schema:
               type: object
-              required: [campaignId, description, file]
+              required: [campaignId, description, file, aceptaUso, confirmaContenido]
               properties:
                 campaignId: { type: string }
+                aceptaUso:
+                  type: string
+                  enum: [si]
+                  description: Acepta que el aporte se use para la campaña y se publique como dato abierto (CC BY 4.0) sin nombre ni correo
+                confirmaContenido:
+                  type: string
+                  enum: [si]
+                  description: Confirma que el aporte corresponde a la temática y descripción de la campaña y no tiene contenido inadecuado o sensible
                 description: { type: string, maxLength: 1000 }
                 caracteristicas:
                   type: array
@@ -1111,9 +1182,17 @@ paths:
           multipart/form-data:
             schema:
               type: object
-              required: [description, file]
+              required: [description, file, aceptaUso, confirmaContenido]
               properties:
                 description: { type: string, maxLength: 1000 }
+                aceptaUso:
+                  type: string
+                  enum: [si]
+                  description: Igual que en POST /api/aportes; sin él responde 400
+                confirmaContenido:
+                  type: string
+                  enum: [si]
+                  description: Igual que en POST /api/aportes; sin él responde 400
                 caracteristicas:
                   type: array
                   items: { type: string }

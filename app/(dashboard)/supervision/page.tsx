@@ -3,7 +3,8 @@
 // Pantalla /supervision: campañas en revisión que puedes tomar y las que ya supervisas.
 // Componente cliente. Datos: GET /api/campanas, GET /api/campanas?supervised=true y GET /api/auth/sesion.
 // Filtros y categorías: components/campanas/BarraDeFiltros.tsx; aplicados en el navegador
-// con lib/campanas/filtro-local.ts.
+// con lib/campanas/filtro-local.ts. Arriba, las pestañas Campañas / Reportes / Sanciones
+// (components/moderacion/PestanasDeModeracion).
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -12,6 +13,7 @@ import BarraDeFiltros, { type ValoresDeFiltros } from "@/components/campanas/Bar
 import { BASE_PATH } from "@/lib/base-path";
 import { FILTROS_VACIOS, avisoSinResultados, filtrarCampanas, opcionesDeTematica, type FiltrosLocales } from "@/lib/campanas/filtro-local";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
+import PestanasDeModeracion from "@/components/moderacion/PestanasDeModeracion";
 
 type CampaignApiItem = {
   id: string;
@@ -314,6 +316,7 @@ export default function SupervisionPage() {
 
   return (
     <div className="mx-auto max-w-4xl lg:mx-0 lg:max-w-none">
+      <PestanasDeModeracion zona="supervision" />
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div className="w-full min-w-0">
           {/* h1 con aspecto de etiqueta: el título de la pantalla (WCAG 1.3.1); antes era un <p>. */}

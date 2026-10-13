@@ -10,13 +10,13 @@
 //   3. Enlace: regenerar el token (ya existía) y el interruptor campanas.permite_anonimos.
 //   4. Plataforma: INAPROPIADOS_PARA_BLOQUEO aportes inapropiados del mismo dispositivo en
 //      VENTANA_DE_DIAS lo bloquean en toda la plataforma DIAS_DE_BLOQUEO días. El
-//      SuperUsuario lo ve y lo quita en /usuarios/sanciones.
+//      SuperUsuario (modo supervisor) o un supervisor lo ve y lo quita en .../sanciones.
 //
 // Los route handlers verifican quién puede hacer qué; aquí solo se aplican las reglas.
 
 import { pool } from "@/lib/db";
 import { borrarArchivo } from "@/lib/minio";
-import { registrarAuditoria } from "@/lib/auditoria";
+import { registrarAuditoria, type ActorDeAuditoria } from "@/lib/auditoria";
 import { tieneDecision } from "@/lib/aportes/decision";
 
 // TODO(dominio): números provisionales que fijó el usuario el 2026-10-01 ("luego se ajusta").
@@ -278,7 +278,7 @@ export type BloqueoGlobal = {
   campana: string | null; // campaña del aporte que lo disparó
 };
 
-/** Bloqueos globales vigentes, para /usuarios/sanciones. */
+/** Bloqueos globales vigentes, para la pantalla de sanciones de la moderación (/supervisar o /supervision). */
 export async function listarBloqueosGlobales(): Promise<BloqueoGlobal[]> {
   const { rows } = await pool.query(
     `SELECT b.id, b.motivo, b.creado_en, b.hasta, c.name AS campana
@@ -297,8 +297,8 @@ export async function listarBloqueosGlobales(): Promise<BloqueoGlobal[]> {
   }));
 }
 
-/** El SuperUsuario quita un bloqueo global antes de que venza. */
-export async function restaurarBloqueoGlobal(bloqueoId: number): Promise<boolean> {
+/** Quien modera (SuperUsuario en modo supervisor o un supervisor) quita un bloqueo global antes de que venza. */
+export async function restaurarBloqueoGlobal(bloqueoId: number, actor: ActorDeAuditoria): Promise<boolean> {
   const { rowCount } = await pool.query(
     `UPDATE dispositivos_bloqueados SET activo = false, restaurado_en = NOW()
      WHERE id = $1 AND campana_id IS NULL AND activo`,
@@ -306,7 +306,7 @@ export async function restaurarBloqueoGlobal(bloqueoId: number): Promise<boolean
   );
   if (!rowCount) return false;
   await registrarAuditoria({
-    actor: { tipo: "superusuario" },
+    actor,
     accion: "sancion.dispositivo_restaurar",
     objetivo: { tipo: "dispositivo", id: bloqueoId },
   });

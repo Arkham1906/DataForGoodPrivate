@@ -8,6 +8,7 @@
 import { useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
 import IndicadorDeCarga from "@/components/ui/IndicadorDeCarga";
+import AvisosDeAporte, { agregarAvisos, type Avisos } from "@/components/ui/AvisosDeAporte";
 import { Field, Textarea } from "@/components/ui/Input";
 import { LARGO_MAXIMO_DESCRIPCION, errorDeArchivo } from "@/lib/aportes/archivo";
 import { BASE_PATH } from "@/lib/base-path";
@@ -33,6 +34,8 @@ export default function AporteAnonimo({
   const [errorArchivo, setErrorArchivo] = useState<string | null>(null);
   const [descripcion, setDescripcion] = useState("");
   const [marcadas, setMarcadas] = useState<string[]>([]);
+  // "Enviar aporte sin cuenta" abre la ventana de avisos; el envío sale de ahí.
+  const [confirmando, setConfirmando] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [enviado, setEnviado] = useState(false);
@@ -58,8 +61,12 @@ export default function AporteAnonimo({
     setMarcadas((actual) => (actual.includes(valor) ? actual.filter((v) => v !== valor) : [...actual, valor]));
   }
 
-  async function enviar(e: React.FormEvent) {
+  function pedirConfirmacion(e: React.FormEvent) {
     e.preventDefault();
+    if (puedeEnviar) setConfirmando(true);
+  }
+
+  async function enviar(avisos: Avisos) {
     if (!archivo) return;
     setEnviando(true);
     setError(null);
@@ -68,6 +75,7 @@ export default function AporteAnonimo({
       datos.set("file", archivo);
       datos.set("description", descripcion);
       marcadas.forEach((valor) => datos.append("caracteristicas", valor));
+      agregarAvisos(datos, avisos);
       const response = await fetch(`${BASE_PATH}/api/c/${encodeURIComponent(token)}/aportes`, { method: "POST", body: datos });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -89,6 +97,7 @@ export default function AporteAnonimo({
       setError(cause instanceof Error ? cause.message : "No se pudo enviar el aporte");
     } finally {
       setEnviando(false);
+      setConfirmando(false);
     }
   }
 
@@ -109,7 +118,7 @@ export default function AporteAnonimo({
     espera === 0;
 
   return (
-    <form onSubmit={enviar}>
+    <form onSubmit={pedirConfirmacion}>
       {enviado && (
         <p className="mb-4 rounded-lg border border-success-700 bg-success-50 p-3.5 text-[13px] text-success-700" role="status">
           ¡Gracias! Tu aporte quedó pendiente de revisión. Puedes enviar {restantes} más.
@@ -178,6 +187,13 @@ export default function AporteAnonimo({
       <p className="mt-2 text-center text-[11.5px] text-system-500">
         Se registra como anónimo y queda pendiente de revisión. Te quedan {restantes} de {cuota} desde este dispositivo.
       </p>
+
+      <AvisosDeAporte
+        abierto={confirmando}
+        enviando={enviando}
+        onCancelar={() => setConfirmando(false)}
+        onConfirmar={(avisos) => void enviar(avisos)}
+      />
     </form>
   );
 }

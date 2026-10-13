@@ -65,7 +65,7 @@ export type ReporteDeSancion = {
 /** Lo que aplica el SuperUsuario: un aviso (STRIKE) o un baneo inmediato. */
 export type TipoDeSancion = "STRIKE" | "BANEO_DE_CAMPANA";
 
-/** Una sanción de /usuarios/sanciones, de la cuenta o de una campaña (ver listarSanciones). */
+/** Una sanción de la lista de sanciones (/supervisar/sanciones y /supervision/sanciones), de la cuenta o de una campaña (ver listarSanciones). */
 export type RegistroDeSancion = {
   /** Único en la lista: `s<id>` (tabla sanciones), `b<id>` (bitácora) o `cb<id>` (campana_baneados). */
   id: string;
@@ -404,7 +404,7 @@ export async function obtenerReporteDeSancion(
  * Todas las sanciones de los usuarios que siguen existiendo (2026-10-08), de la
  * más reciente a la más vieja. Vienen de dos lados:
  *   - De la cuenta (tabla `sanciones`): avisos (STRIKE) y baneos que aplica el
- *     SuperUsuario desde /usuarios/[id]/sancion, y la suspensión o el baneo que
+ *     moderador (SuperUsuario o supervisor) desde .../sanciones/[usuarioId], y la suspensión o el baneo que
  *     trae cada aviso (escala de avisos). Si se dieron al confirmar reportes,
  *     `porReportes` dice de qué campaña o aporte.
  *   - Por campaña: el creador saca a alguien de su campaña por un aporte. El
