@@ -28,6 +28,7 @@ import { PESTANAS_USUARIOS } from "@/lib/usuarios/dashboard";
 import { DIAS_DE_BLOQUEO, INAPROPIADOS_PARA_BLOQUEO, VENTANA_DE_DIAS, listarBloqueosGlobales } from "@/lib/aportes/sanciones-anonimas";
 import { listarListaNegra } from "@/lib/usuarios/lista-negra";
 import { AVISOS_PARA_BANEO } from "@/lib/usuarios/escala-de-avisos";
+import { BASE_PATH } from "@/lib/base-path";
 
 export default async function PantallaDeSanciones({
   zona,
@@ -73,7 +74,7 @@ export default async function PantallaDeSanciones({
       <section aria-labelledby="sancionar-a-alguien" className="mb-8 max-w-xl">
         <h2 id="sancionar-a-alguien" className="mb-1 text-[15px] font-bold text-system-900">Sancionar a alguien</h2>
         <p className="mb-3 text-[12.5px] text-system-600">Busca a la persona por su nombre, su correo o su número de usuario.</p>
-        <form method="get" action={rutas.sanciones} className="flex gap-2">
+        <form method="get" action={`${BASE_PATH}${rutas.sanciones}`} className="flex gap-2">
           <label htmlFor="buscar-usuario" className="sr-only">Nombre, correo o número de usuario</label>
           <Input id="buscar-usuario" name="buscar" defaultValue={texto} maxLength={100} placeholder="Nombre, correo o número" />
           <Button type="submit" variant="secondary" size="sm" className="shrink-0">Buscar</Button>
@@ -121,7 +122,7 @@ export default async function PantallaDeSanciones({
         {" "}{AVISOS_PARA_BANEO}.º la banea y pone su correo en la lista negra. Los avisos no caducan ni se
         restauran (los strikes de antes cuentan como avisos). Restaurar un baneo saca el correo de la lista
         negra. El baneo en una campaña lo quita quien la creó, desde la lista de aportes de su campaña.
-        {soloLectura ? "" : "Para dar un aviso o banear a alguien, búscalo arriba o entra desde un reporte."}
+        {soloLectura ? "" : " Para dar un aviso o banear a alguien, búscalo arriba o entra desde un reporte."}
       </Aviso>
 
       <h2 className="mb-1 mt-10 text-[17px] font-extrabold text-system-900">Lista negra de correos</h2>

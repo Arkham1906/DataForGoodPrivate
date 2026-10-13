@@ -2,6 +2,7 @@
 // Datos: lib/campanas/publicas.ts. Al abrir una campaña va a /campanas/[id], que sí pide sesión.
 
 import Link from "next/link";
+import { BASE_PATH } from "@/lib/base-path";
 import { entradaDeTarjeta, retraso } from "@/lib/animaciones";
 import type { Metadata } from "next";
 import PublicHeader from "@/components/layout/PublicHeader";
@@ -95,7 +96,7 @@ export default async function ExplorarCampanasPage({
           aportes en este momento. Crea una cuenta o inicia sesión para participar.
         </p>
 
-        <form style={retraso(240)} className="landing-entrada mt-6 flex flex-wrap gap-2.5" action="/explorar" method="get">
+        <form style={retraso(240)} className="landing-entrada mt-6 flex flex-wrap gap-2.5" action={`${BASE_PATH}/explorar`} method="get">
           {orden !== "participacion" && <input type="hidden" name="orden" value={orden} />}
           {tematica && <input type="hidden" name="tematica" value={tematica} />}
           {locationState && <input type="hidden" name="estado" value={locationState} />}
