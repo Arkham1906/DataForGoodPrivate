@@ -5,8 +5,8 @@ import { pool } from "@/lib/db";
  *   - STRIKE: un aviso (en la interfaz, "Aviso"). No bloquea por sí mismo: según cuántos lleve la
  *     cuenta, aplicarSancion agrega la suspensión o el baneo que toca (lib/usuarios/escala-de-avisos.ts).
  *   - SUSPENSION_TEMPORAL: bloquea la cuenta durante `dias` desde aplicada_en.
- *   - BANEO_DE_CAMPANA ("Baneo permanente" en la interfaz): bloquea la cuenta
- *     hasta que el SuperUsuario la restaure.
+ *   - BANEO_DE_CAMPANA ("Baneo inmediato" en el formulario, "Baneo" en las listas): bloquea la
+ *     cuenta hasta que el SuperUsuario la restaure y pone su correo en la lista negra.
  * Una cuenta bloqueada sí puede iniciar sesión y conserva sus sesiones, pero
  * getSessionUser devuelve null: ninguna ruta ni acción la deja pasar.
  * exigirUsuario() la manda a /cuenta-bloqueada, donde ve el motivo
