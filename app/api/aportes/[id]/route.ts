@@ -10,6 +10,7 @@ import { recalcularContadores } from "@/lib/aportes/comun";
 import { borrarArchivo } from "@/lib/minio";
 import { notificar } from "@/lib/notificaciones/notificaciones";
 import { ESTADOS_SIN_DECISION, tieneDecision } from "@/lib/aportes/decision";
+import { yaReporto } from "@/lib/reportes/reportes";
 
 // Una sola instancia (dominio.md § 5): el creador y el revisor aceptado deciden igual, aceptado o rechazado.
 const ALLOWED_STATUS = new Set(["aceptado", "rechazado"]);
@@ -93,6 +94,10 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
         ...(isOwner || isCampaignCreator ? { participantEmail } : {}),
         ...(isCampaignCreator ? { dispositivoBloqueadoId: bloqueoId != null ? String(bloqueoId) : null } : {}),
         ...(isCampaignCreator || isReviewer ? { reporte: mapReporte(row) } : {}),
+        // Ya reportó a quien aportó a la plataforma (POST /api/aportes/[id]/reportar-participante).
+        ...(isCampaignCreator || isReviewer
+          ? { participanteReportado: await yaReporto({ tipo: "aporte", id: Number(row.id) }, Number(user.id)) }
+          : {}),
       },
     });
   } catch (error) {

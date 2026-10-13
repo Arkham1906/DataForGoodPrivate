@@ -2,6 +2,7 @@
 // Vincula google_id a la cuenta con ese correo o crea una ya verificada, abre sesión y redirige.
 
 import { NextResponse } from "next/server";
+import { correoEnListaNegra } from "@/lib/usuarios/lista-negra";
 import { cookies } from "next/headers";
 import { pool } from "@/lib/db";
 import { createSession } from "@/lib/session";
@@ -49,6 +50,10 @@ export async function GET(request: Request) {
         [usuarioId, profile.googleId]
       );
     } else {
+      // Correo de una cuenta baneada (lista negra, 2026-10-12): no se crea una cuenta nueva con él.
+      if (await correoEnListaNegra(profile.email)) {
+        return NextResponse.redirect(absoluteUrl(conDestino("/entrar?error=correo_bloqueado", destino)));
+      }
       const inserted = await pool.query(
         `INSERT INTO usuarios (nombre, apellidos, email, password_hash, google_id, email_verificado, role, xp_total, level, streak_days)
          VALUES ($1, $2, $3, NULL, $4, true, $5::jsonb, 0, 1, 0)

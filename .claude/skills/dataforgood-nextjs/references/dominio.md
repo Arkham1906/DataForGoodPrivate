@@ -55,10 +55,9 @@ Fuentes: texto informativo de `/entrar` y la pantalla `agregar-revisor`.
   - **El SuperUsuario** no tiene fila en `usuarios` (entra por `/root`, sesión en `root_sessions`). Supervisa desde **`/supervisar`**, dentro de `app/(panel)`. Es una copia aislada de `/supervision`: solo responde con sesión raíz, y un usuario con rol de supervisor que entre por URL es redirigido a `/root`. **Solo supervisa:** no crea campañas, no aporta ni revisa aportes. Sus dictámenes pasan por la server action `decidirComoSuperUsuario` (`lib/supervision/acciones-root.ts`) y dejan `campanas.supervisor_id = NULL` + `supervisado_por_root = true`, y en el historial `campana_supervisores.supervisor_id = NULL` + `por_superusuario = true`. Las reglas del dictamen (motivo obligatorio, "aceptada" con inicio futuro, notificación) viven en un solo lugar: `lib/supervision/decision.ts`, que también usa el `PATCH`.
 - **Supervisor y Revisor de aportes no son excluyentes** (usuario promovido). Un Supervisor también puede crear campañas, aportar y revisar aportes (si lo invitan y acepta). Tiene dos límites: **no aporta a sus propias campañas** (regla general para cualquier creador, `app/api/aportes/route.ts`) y **no supervisa sus propias campañas** (no puede aceptar, rechazar ni reportar; se rechaza en `PATCH /api/campanas/[id]` y la interfaz lo oculta).
 - **Sanciones de cuenta** (las aplica el SuperUsuario desde `/usuarios/[id]/sancion`; se implementan en `lib/sanciones.ts`):
-  - `STRIKE` suma al contador, que nunca se borra.
-  - **Al tercer strike la cuenta se banea automáticamente** (decidido el 2026-09-25). Si el SuperUsuario restaura ese baneo, el siguiente strike vuelve a banear. No es retroactivo: una cuenta que ya tenía 3 strikes antes de esta regla se banea con su próximo strike.
-  - `SUSPENSION_TEMPORAL` bloquea la cuenta N días.
-  - `BANEO_DE_CAMPANA` ("Baneo permanente") la bloquea hasta que se restaure.
+  - **Escala de avisos (2026-10-12, reemplaza a "3 strikes = baneo"):** el SuperUsuario solo da un **aviso** (`STRIKE`) o un **baneo inmediato**. Cada aviso trae, según cuántos lleve la cuenta: 1.º solo un mensaje ("Tu cuenta lleva un reporte" con el motivo), 2.º suspensión de 2 días, 3.º de 7 días, 4.º o más baneo y el correo a la lista negra. Los strikes de antes cuentan como avisos; no caducan ni se restauran. Constantes en `lib/usuarios/escala-de-avisos.ts`.
+  - `SUSPENSION_TEMPORAL` bloquea la cuenta N días (ya no se elige a mano: la pone la escala).
+  - `BANEO_DE_CAMPANA` ("Baneo") la bloquea hasta que se restaure y pone el correo en la lista negra; restaurarlo lo saca.
   - Una cuenta bloqueada no puede entrar, y pierde sus sesiones abiertas.
 - **El rol de Supervisor no da acceso a los archivos de aportes**, pero tampoco lo quita: los ve si es quien aportó, quien creó la campaña o revisor aceptado de ella (`app/api/aportes/[id]/archivo/route.ts`).
 
@@ -88,6 +87,7 @@ Fuentes: `mis-campanas`, `NuevaCampanaForm`, `campanas/[id]` y `panel`.
   - **Activa:** revisar aportes, panel, editar, hacer especial, compartir y pausar.
   - **Finalizada:** ver datos, descargar y compartir aportes.
 - **Explorar:** filtro por temática en `searchParams` (`/campanas?tag=...`); se puede guardar como favorita.
+- **Reportar a la plataforma** (2026-10-12): una campaña (cualquiera con sesión menos el creador; va contra el creador) o a quien envió un aporte (el creador o un revisor, solo aportes con cuenta). Una vez por persona, con motivo de la lista y/o descripción. Va a `/reportes`; el SuperUsuario descarta o lo confirma con un aviso. Nadie se entera del reporte ni de quién lo hizo. Reglas completas en `references/roles-y-sesiones.md` § 6.
 
 ## 4. Aportes y cuota
 
@@ -248,7 +248,7 @@ Fuentes: pantalla pública `/` (landing) y `/datos` (catálogo).
 | Invitado | `invitacion_revisor` | El creador invita (`POST /api/campanas/[id]/revisores`). Se acepta desde la campana o `/notificaciones`; **no se puede borrar mientras siga pendiente** (409) | — |
 | Usuario | `rol_asignado`, `rol_revocado` | El SuperUsuario asigna o quita Supervisor, o quita Revisor. Solo si el rol cambió de verdad | `/supervision` al asignar |
 | Supervisor / creador | `supervision_revertida` (al supervisor, con causal y descripción), `campana_en_revision` (al creador, si el SuperUsuario marca la casilla) | `revertirAccion` (`lib/usuarios/acciones-supervisor.ts`) | `/supervision` / `/mis-campanas` |
-| Usuario | `sancion_aplicada` (strike con "Llevas N de 3", suspensión con días, baneo; también el baneo automático al tercer strike), `sancion_restaurada` | `aplicarSancion` / `restaurarAcceso`. Restaurar un strike no avisa (no bloqueaba nada). Con la cuenta bloqueada la persona no la ve hasta recuperar el acceso: mientras, `/cuenta-bloqueada` muestra el motivo | — |
+| Usuario | `sancion_aplicada` (aviso: "Tu cuenta lleva un reporte", "Tu cuenta se suspendió 2/7 días" o "Tu cuenta fue baneada", con el motivo, "Es tu aviso N de 4" y qué trae el siguiente; o el baneo inmediato), `sancion_restaurada` | `aplicarSancion` / `restaurarAcceso`. Restaurar un strike no avisa (no bloqueaba nada). Con la cuenta bloqueada la persona no la ve hasta recuperar el acceso: mientras, `/cuenta-bloqueada` muestra el motivo | — |
 
 - **Leída:** abrir una notificación la marca como leída. También "Marcar como leída/no leída" por notificación y "Marcar todas como leídas". Se puede borrar cualquiera salvo una invitación pendiente.
 - **Sin correo.** La campana consulta cada minuto (decisión del usuario, 2026-10-06).

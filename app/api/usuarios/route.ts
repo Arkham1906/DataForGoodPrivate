@@ -3,6 +3,7 @@
 // SuperUsuario (Supervisor) o se ganan al aceptar una invitación (Revisor).
 
 import { NextResponse } from "next/server";
+import { MENSAJE_CORREO_BLOQUEADO, correoEnListaNegra } from "@/lib/usuarios/lista-negra";
 import { pool } from "@/lib/db";
 import { hashPassword } from "@/lib/password";
 import { cumpleReglasDeContrasena } from "@/lib/reglas-contrasena";
@@ -58,6 +59,11 @@ export async function POST(request: Request) {
     // En el registro aún no hay cuenta: solo se aceptan temáticas que ya existen (no se crean).
     const resueltos = await resolverIntereses(Array.isArray(body.intereses) ? body.intereses : [], null);
     const intereses = resueltos.ok ? resueltos.intereses : [];
+
+    // Correo de una cuenta baneada (lista negra, 2026-10-12): no puede volver a registrarse.
+    if (await correoEnListaNegra(email)) {
+      return NextResponse.json({ error: MENSAJE_CORREO_BLOQUEADO }, { status: 403 });
+    }
 
     const emailExists = await pool.query(
       `SELECT 1 FROM usuarios WHERE email = $1 LIMIT 1`,

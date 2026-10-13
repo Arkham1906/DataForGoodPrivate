@@ -35,7 +35,7 @@
 | `google.ts` | OAuth de Google | `getGoogleAuthUrl`, `exchangeCodeForProfile` |
 | `redireccion.ts` 🟢 | Valida el parámetro `?next=` para que solo apunte a rutas internas | `destinoSeguro`, `conDestino`, `DESTINO_POR_DEFECTO` |
 | `roles.ts` | Códigos de rol válidos | `VALID_ROLES`, `normalizeRoles` |
-| `sanciones.ts` | ¿La cuenta está bloqueada? Tipos de sanción y regla de 3 strikes | `obtenerBloqueo`, `contarSanciones`, `TIPOS_DE_SANCION`, `STRIKES_PARA_BANEO`, `SQL_SANCION_BLOQUEANTE` |
+| `sanciones.ts` | ¿La cuenta está bloqueada? Tipos que aplica el SuperUsuario (aviso o baneo) | `obtenerBloqueo`, `contarSanciones`, `TIPOS_DE_SANCION`, `SQL_SANCION_BLOQUEANTE` |
 | `auditoria.ts` | Escribe en `audit_log` | `registrarAuditoria`, `AccionAuditada` |
 | `validation.ts` 🟢 | Validaciones sueltas | `isValidEmail` |
 
@@ -106,8 +106,18 @@
 | `contrasena-actual.ts` | Comprueba la contraseña actual; un error suma al bloqueo del login | Cambio de contraseña, baja de cuenta |
 | `rol-asignable.ts` 🟢 | Nombres y descripciones de roles para la interfaz | Panel |
 | `perfil.ts` 🟢 | Largos máximos de los campos del perfil (`errorDeLargo`). Los intereses se validan en `tematicas/catalogo.ts` | `POST /api/usuarios`, `PATCH /api/usuarios/[id]` |
+| `escala-de-avisos.ts` 🟢 | La escala de avisos: `AVISOS_PARA_BANEO`, `consecuenciaDelAviso(n)`, `describirConsecuencia` | `aplicarSancion`, pantallas del panel |
+| `lista-negra.ts` | Lista negra de correos: `correoEnListaNegra`, `agregarAListaNegra` (en la transacción del baneo), `quitarDeListaNegra`, `listarListaNegra` | `aplicarSancion`, `restaurarAcceso`, `POST /api/usuarios`, callback de Google, `/usuarios/sanciones` |
 | `acciones-usuarios.ts` ⚡ | `asignarRol`, `revocarRol`, `aplicarSancion`, `restaurarAcceso`. Cada una notifica a la persona | `/usuarios/[id]/{roles,sancion}`, `/usuarios/sanciones` |
-| `acciones-supervisor.ts` ⚡ | `revertirAccion` (**sin implementar**) | `/usuarios/supervisores/[id]/revertir/...` |
+| `acciones-supervisor.ts` ⚡ | `revertirAccion`: deshace una decisión de supervisor | `/usuarios/supervisores/[id]/revertir/...` |
+
+### `reportes/`
+
+| Archivo | Qué hace | Lo usa |
+| --- | --- | --- |
+| `reportes.ts` | Reportes: `reportarCampana` (contra el creador), `reportarParticipante` (contra quien aportó; creador o revisor), `yaReporto`, `listarReportes` (agrupados por caso), `contarReportesPendientes`, `reportesPendientesContra`, `sqlDeClave` | `POST /api/campanas/[id]/reportar`, `POST /api/aportes/[id]/reportar-participante`, GET de campaña y de aporte, `/reportes`, `/usuarios/[id]/sancion`, layout del panel, `aplicarSancion` |
+| `motivos.ts` 🟢 | Motivos para reportar una campaña o un aporte, largo máximo, estados y la clave del caso (`campana-116`, `aporte-55`) | `/campanas/[id]`, detalle del aporte, `/reportes` |
+| `acciones-reportes.ts` ⚡ | `descartarReportes(clave, nota)` (SuperUsuario). Confirmar se hace con `aplicarSancion` | `/reportes` |
 
 ### `tematicas/`
 

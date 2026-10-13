@@ -3,6 +3,7 @@
 
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { AVISOS_PARA_BANEO } from "@/lib/usuarios/escala-de-avisos";
 
 import {
   Aviso,
@@ -173,7 +174,7 @@ export default async function RolesPage({
             )}
             {!esSupervisor && !esRevisor && u.strikes > 0 && (
               <Aviso tono="aviso">
-                Acumula {u.strikes} de 3 strikes. Conviene revisar el historial de
+                Acumula {u.strikes} de {AVISOS_PARA_BANEO} avisos. Conviene revisar el historial de
                 sanciones en su ficha antes de asignarle un rol.
               </Aviso>
             )}

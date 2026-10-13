@@ -19,6 +19,8 @@ import { BASE_PATH } from "@/lib/base-path";
 import { formatearTamano } from "@/lib/aportes/archivo";
 import { MOTIVOS_DE_RECHAZO } from "@/lib/aportes/motivos-de-rechazo";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
+import ReportarAPlataforma from "@/components/ui/ReportarAPlataforma";
+import { MOTIVOS_DE_REPORTE_DE_APORTE } from "@/lib/reportes/motivos";
 
 
 /**
@@ -463,6 +465,22 @@ export default function RevisionAportePage() {
           </div>
         )}
       </div>
+
+      {/* Reportar a la plataforma (2026-10-12): solo aportes con cuenta. Va a /reportes; si el
+          SuperUsuario lo confirma, quien aportó recibe un aviso (lib/usuarios/escala-de-avisos.ts). */}
+      {item.userId && (
+        <div className="mt-4 flex flex-col">
+          <ReportarAPlataforma
+            url={`/api/aportes/${item.id}/reportar-participante`}
+            motivos={MOTIVOS_DE_REPORTE_DE_APORTE}
+            titulo="Reportar a quien aportó"
+            explicacion="Para faltas que van más allá de tu campaña (acoso, contenido ilegal, abuso repetido). Lo revisa el equipo de DataForGood, que decide si da un aviso a la cuenta. Esa persona no sabrá quién la reportó. Para tu campaña basta con banearla."
+            placeholder="Qué hizo quien envió el aporte"
+            yaReportado={Boolean(item.participanteReportado)}
+            textoYaReportado="Ya reportaste a quien envió este aporte. El equipo de DataForGood lo está revisando."
+          />
+        </div>
+      )}
     </div>
   );
 }

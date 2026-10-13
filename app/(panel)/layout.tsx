@@ -8,6 +8,7 @@ import { redirect } from "next/navigation";
 import Sidebar from "@/components/sistema/Sidebar";
 import Topbar from "@/components/sistema/Topbar";
 import { hasRootSession } from "@/lib/rootSession";
+import { contarReportesPendientes } from "@/lib/reportes/reportes";
 import { tituloDeSeccion } from "@/lib/titulo";
 
 export const dynamic = "force-dynamic";
@@ -23,12 +24,13 @@ export default async function PanelLayout({ children }: { children: ReactNode })
   if (!sesionValida) {
     redirect("/root");
   }
+  const { reportes } = await contarReportesPendientes();
 
   return (
     <div className="min-h-screen bg-system-50">
       <Topbar identificador={process.env.ROOT_USER_ID ?? "raíz"} />
       <div className="dashboard-shell flex">
-        <Sidebar />
+        <Sidebar reportesPendientes={reportes} />
         <main id="contenido" className="min-w-0 flex-1">
           <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
             {children}

@@ -97,7 +97,7 @@ export default async function DirectorioPage({
                     <div className="mt-3 flex items-center justify-between gap-3">
                       <span className="text-[11px] text-system-600">Estado</span>
                       <Tag tone={estado.tono}>
-                        {u.estado === "CON_STRIKES" ? `${u.strikes} strikes` : estado.texto}
+                        {u.estado === "CON_STRIKES" ? `${u.strikes} ${u.strikes === 1 ? "aviso" : "avisos"}` : estado.texto}
                       </Tag>
                     </div>
 
@@ -142,7 +142,7 @@ export default async function DirectorioPage({
                         </td>
                         <td>
                           <Tag tone={estado.tono}>
-                            {u.estado === "CON_STRIKES" ? `${u.strikes} strikes` : estado.texto}
+                            {u.estado === "CON_STRIKES" ? `${u.strikes} ${u.strikes === 1 ? "aviso" : "avisos"}` : estado.texto}
                           </Tag>
                         </td>
                         <td className="text-right">

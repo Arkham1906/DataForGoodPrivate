@@ -4,6 +4,7 @@
 // Componente cliente. Datos: GET /api/campanas?id= (incluye viewer: creador, baneado, aportes propios).
 // Acción: guardar/quitar de favoritos con POST/DELETE /api/campanas/[id]/guardar.
 // "Compartir" abre el cuadro de compartir.tsx (enlace público /c/[token] y QR).
+// "Reportar campaña" (reportar.tsx) para quien no la creó: va a la bandeja del SuperUsuario.
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -15,6 +16,7 @@ import type { Campaign } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
 import { TIPO_DE_DATO } from "@/lib/aportes/archivo";
 import CompartirCampana from "./compartir";
+import ReportarCampana from "./reportar";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
 
 export default function CampaignDetailPage() {
@@ -23,6 +25,7 @@ export default function CampaignDetailPage() {
   const [isCreator, setIsCreator] = useState(false);
   const [baneado, setBaneado] = useState(false);
   const [motivoDeBaneo, setMotivoDeBaneo] = useState<string | null>(null);
+  const [yaReportada, setYaReportada] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [guardando, setGuardando] = useState(false);
@@ -37,6 +40,7 @@ export default function CampaignDetailPage() {
         setIsCreator(Boolean(payload.viewer?.isCreator));
         setBaneado(Boolean(payload.viewer?.baneado));
         setMotivoDeBaneo(payload.viewer?.motivoDeBaneo ?? null);
+        setYaReportada(Boolean(payload.viewer?.yaReportada));
         setSaved(Boolean((payload.data as Campaign)?.isSaved));
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : "No se pudo cargar la campaña");
@@ -222,6 +226,8 @@ export default function CampaignDetailPage() {
           <p className="text-[13.5px] font-bold text-success-700">Tus datos están seguros</p>
           <p className="mt-1 text-[12.5px] text-success-700">Cada aporte se revisa antes de publicarse y tus archivos solo se usan dentro de esta campaña.</p>
         </div>
+
+        {!isCreator && <ReportarCampana campanaId={campaign.id} yaReportada={yaReportada} />}
       </aside>
     </div>
   );

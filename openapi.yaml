@@ -591,7 +591,7 @@ paths:
       description: Usa uno de los filtros a la vez. Sin filtros lista las campañas visibles.
       security: []
       parameters:
-        - { name: id, in: query, schema: { type: integer }, description: "Una sola campaña. La respuesta trae además `viewer: { isCreator, isMySupervision, baneado }` (`baneado`: el creador te baneó de esta campaña)" }
+        - { name: id, in: query, schema: { type: integer }, description: "Una sola campaña. La respuesta trae además `viewer: { isCreator, isMySupervision, baneado, motivoDeBaneo, yaReportada }` (`baneado`: el creador te baneó de esta campaña; `yaReportada`: ya la reportaste)" }
         - { name: available, in: query, schema: { type: boolean }, description: Campañas en las que puedo aportar (excluye aquellas de las que el creador me baneó) }
         - { name: mine, in: query, schema: { type: boolean }, description: Campañas que creé (requiere sesión) }
         - { name: supervised, in: query, schema: { type: boolean }, description: Campañas que superviso (requiere sesión) }
@@ -644,6 +644,10 @@ paths:
                     type: object
                     properties:
                       isCreator: { type: boolean }
+                      isMySupervision: { type: boolean }
+                      baneado: { type: boolean }
+                      motivoDeBaneo: { type: string, nullable: true }
+                      yaReportada: { type: boolean, description: "Ya reportaste esta campaña (POST /api/campanas/{id}/reportar)" }
         "404": { $ref: "#/components/responses/NotFound" }
     put:
       tags: [Campañas]
@@ -690,6 +694,44 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/campanas/{id}/reportar:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    post:
+      tags: [Campañas]
+      summary: Reportar una campaña (cualquier persona con sesión, salvo el creador)
+      description: |
+        El reporte va contra quien creó la campaña y llega a la bandeja del SuperUsuario (/reportes),
+        que lo descarta o lo confirma con un aviso (escala: mensaje, 2 días, 7 días, baneo y lista negra),
+        que queda en el registro de sanciones. El creador no se entera del reporte ni sabe quién lo hizo. Motivo de la lista y/o descripción (al menos
+        uno). Uno por persona y campaña. Un borrador responde 404. Bitácora `campana.reportar`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                motivo:
+                  type: string
+                  enum:
+                    - Contenido ofensivo o inapropiado
+                    - "Engaño o fraude: pide datos para otro fin"
+                    - Pide datos personales o sensibles
+                    - Información falsa o engañosa
+                    - Spam o publicidad
+                    - Pone en riesgo a quien participa
+                descripcion: { type: string, maxLength: 500 }
+      responses:
+        "201": { $ref: "#/components/responses/Message" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Ya reportaste esta campaña
+          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
 
   /api/campanas/{id}/guardar:
     parameters:
@@ -1247,6 +1289,43 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
           description: Este aporte ya se reportó al creador
+          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+
+  /api/aportes/{id}/reportar-participante:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    post:
+      tags: [Aportes]
+      summary: Reportar a la plataforma a quien envió el aporte (creador o revisor aceptado)
+      description: |
+        Va a la bandeja del SuperUsuario (/reportes), que lo descarta o lo confirma con un aviso
+        (escala: mensaje, 2 días, 7 días, baneo y lista negra). Quien aportó no se entera. Solo aportes
+        con cuenta (anónimo: 400). Uno por persona y aporte. Bitácora `aporte.reportar_participante`.
+        Distinto de /reportar ("Reportar al creador" del revisor).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                motivo:
+                  type: string
+                  enum:
+                    - Contenido ofensivo o inapropiado
+                    - Contenido ilegal o peligroso
+                    - Información falsa a propósito
+                    - Aportes repetidos o spam
+                    - Acoso o amenazas
+                descripcion: { type: string, maxLength: 500 }
+      responses:
+        "201": { $ref: "#/components/responses/Message" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Ya reportaste a quien envió este aporte
           content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
 
   /api/aportes/{id}/inapropiado:
