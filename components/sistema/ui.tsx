@@ -217,11 +217,11 @@ export function Identidad({
   );
 }
 
-/* ── medidor de strikes ─────────────────────────────────────────────────── */
+/* ── medidor de avisos (strikes) ────────────────────────────────────────── */
 
 export function MedidorDeStrikes({
   acumulados,
-  limite = 3,
+  limite = 4,
 }: {
   acumulados: number;
   limite?: number;
@@ -231,7 +231,7 @@ export function MedidorDeStrikes({
   return (
     <div
       role="img"
-      aria-label={`${acumulados} de ${limite} strikes acumulados`}
+      aria-label={`${acumulados} de ${limite} avisos`}
       className="mb-2 flex items-center gap-1.5"
     >
       {Array.from({ length: limite }, (_, i) => (

@@ -103,7 +103,7 @@ export default async function DashboardDeUsuariosPage({
             filas={[
               { clave: <Tag tone="ok">Activas</Tag>, valor: formatearNumero(e.activas) },
               {
-                clave: <Tag tone="warn">Con strikes acumulados</Tag>,
+                clave: <Tag tone="warn">Con avisos acumulados</Tag>,
                 valor: formatearNumero(e.conStrikes),
               },
               {

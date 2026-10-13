@@ -4,6 +4,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { AVISOS_PARA_BANEO, consecuenciaDelAviso, describirConsecuencia } from "@/lib/usuarios/escala-de-avisos";
 
 import {
   Aviso,
@@ -43,7 +44,9 @@ export default async function FichaDeUsuarioPage({
   const baneosEnCampanas = await baneosDeUsuario(u.id);
 
   const baneado = u.estado === "BANEADA";
-  const alLimite = u.strikes >= 2;
+  // El siguiente aviso banea y manda el correo a la lista negra.
+  const alLimite = u.strikes >= AVISOS_PARA_BANEO - 1;
+  const siguiente = consecuenciaDelAviso(u.strikes + 1);
 
   return (
     <div>
@@ -79,9 +82,9 @@ export default async function FichaDeUsuarioPage({
         <section>
           <TituloDeSeccion>Historial de sanciones</TituloDeSeccion>
 
-          <MedidorDeStrikes acumulados={u.strikes} />
+          <MedidorDeStrikes acumulados={u.strikes} limite={AVISOS_PARA_BANEO} />
           <p className={`mb-3 text-[12px] ${u.strikes > 0 ? "text-warning-800" : "text-system-500"}`}>
-            {u.strikes} de 3 strikes acumulados
+            {u.strikes} de {AVISOS_PARA_BANEO} avisos · el siguiente trae: {describirConsecuencia(siguiente)}
           </p>
 
           {u.historialDeStrikes.length === 0 ? (
@@ -103,7 +106,7 @@ export default async function FichaDeUsuarioPage({
 
           {alLimite ? (
             <Aviso tono="aviso" className="mt-3">
-              Un strike más activa el baneo permanente.
+              Un aviso más banea la cuenta y pone su correo en la lista negra.
             </Aviso>
           ) : null}
 

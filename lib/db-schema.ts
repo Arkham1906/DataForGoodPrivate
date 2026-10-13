@@ -438,6 +438,60 @@ export async function ensureSancionesTable(): Promise<void> {
 }
 
 /**
+ * Reportes (2026-10-12): de una campaña (contra quien la creó; cualquiera con sesión menos el creador)
+ * o de un aporte (contra quien lo envió; lo reportan el creador o un revisor aceptado). `reportado_id`
+ * es la cuenta reportada, copiada al reportar. Llegan a la bandeja del SuperUsuario (/reportes), que los
+ * descarta o aplica un aviso (o banea); la sanción queda en `sanciones` y aquí en `sancion_id`.
+ * Uno por persona y campaña, o por persona y aporte. Se crea después de `sanciones` y `aportes`.
+ */
+export async function ensureReportesTable(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS reportes (
+      id SERIAL PRIMARY KEY,
+      -- campana | aporte
+      tipo VARCHAR(10) NOT NULL CHECK (tipo IN ('campana', 'aporte')),
+      campana_id INTEGER NOT NULL REFERENCES campanas(id) ON DELETE CASCADE,
+      -- SET NULL: si quien aportó borra el aporte, el reporte en su contra se conserva.
+      aporte_id INTEGER REFERENCES aportes(id) ON DELETE SET NULL,
+      reportado_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+      reportado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+      motivo VARCHAR(120),
+      descripcion TEXT,
+      -- pendiente | descartado | sancionado
+      estado VARCHAR(20) NOT NULL DEFAULT 'pendiente',
+      nota_de_resolucion TEXT,
+      sancion_id INTEGER REFERENCES sanciones(id) ON DELETE SET NULL,
+      resuelto_en TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      CHECK (motivo IS NOT NULL OR descripcion IS NOT NULL),
+      CHECK (tipo = 'aporte' OR aporte_id IS NULL)
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS reportes_campana_una_por_persona
+      ON reportes (campana_id, reportado_por) WHERE tipo = 'campana';
+    CREATE UNIQUE INDEX IF NOT EXISTS reportes_aporte_uno_por_persona
+      ON reportes (aporte_id, reportado_por) WHERE tipo = 'aporte';
+    CREATE INDEX IF NOT EXISTS reportes_estado_idx ON reportes (estado, created_at DESC);
+  `);
+}
+
+/**
+ * Lista negra de correos (2026-10-12): al cuarto aviso o con un baneo inmediato, el correo de la cuenta
+ * entra aquí y ya no puede registrarse ni entrar con Google como cuenta nueva
+ * (lib/usuarios/lista-negra.ts). Restaurar ese baneo lo saca. Correo en minúsculas.
+ */
+export async function ensureListaNegraTable(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS lista_negra_correos (
+      email VARCHAR(255) PRIMARY KEY,
+      usuario_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+      sancion_id INTEGER REFERENCES sanciones(id) ON DELETE SET NULL,
+      motivo TEXT,
+      creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+}
+
+/**
  * Bitácora de acciones sensibles (roles, sanciones, dictámenes, baneos,
  * accesos raíz). Solo se inserta, nunca se edita. `actor_id` es NULL cuando
  * el actor es el SuperUsuario (no tiene fila en usuarios).
@@ -509,6 +563,8 @@ export async function ensureCoreSchema(): Promise<void> {
   await ensureAportesTable();
   await ensureDispositivosBloqueadosTable(); // después de aportes: aporte_id la referencia
   await ensureSancionesTable();
+  await ensureReportesTable(); // después de sanciones y aportes: los referencia
+  await ensureListaNegraTable();
   await ensureAuditLogTable();
   await ensureTematicasTable(); // después de usuarios: creada_por la referencia
 }

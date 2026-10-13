@@ -1,50 +1,67 @@
 "use client";
 
-// Formulario de sanción. Llama a la server action aplicarSancion (lib/usuarios/acciones-usuarios.ts):
-// STRIKE, SUSPENSION_TEMPORAL o BANEO_DE_CAMPANA. El tercer strike banea solo.
+// Formulario de sanción (2026-10-12). Llama a la server action aplicarSancion (lib/usuarios/acciones-usuarios.ts):
+// un aviso, que sigue la escala de lib/usuarios/escala-de-avisos.ts (mensaje, 2 días, 7 días, baneo + lista
+// negra), o un baneo inmediato para casos graves (también con lista negra).
+// Con `reportes` (desde /reportes) la sanción confirma los reportes de esa campaña o aporte.
 
 import { useRouter } from "next/navigation";
 import { useId, useState, useTransition } from "react";
 
 import Button from "@/components/sistema/Button";
-import { Field, Input, Textarea } from "@/components/sistema/Input";
+import { Field, Textarea } from "@/components/sistema/Input";
 import { aplicarSancion } from "@/lib/usuarios/acciones-usuarios";
 import type { TipoDeSancion } from "@/lib/usuarios/directorio";
+import { AVISOS_PARA_BANEO, consecuenciaDelAviso, describirConsecuencia } from "@/lib/usuarios/escala-de-avisos";
 
 const MINIMO = 20;
-
-const TIPOS: { valor: TipoDeSancion; etiqueta: string; hint: string }[] = [
-  { valor: "STRIKE", etiqueta: "Strike", hint: "Suma al contador. Al tercer strike la cuenta se banea automáticamente." },
-  { valor: "SUSPENSION_TEMPORAL", etiqueta: "Suspensión temporal", hint: "Bloquea la cuenta por un número de días." },
-  { valor: "BANEO_DE_CAMPANA", etiqueta: "Baneo permanente", hint: "Bloquea la cuenta hasta que se restaure a mano." },
-];
 
 export default function FormularioDeSancion({
   usuarioId,
   usuario,
+  avisos,
+  baneada,
+  reportes,
 }: {
   usuarioId: string;
   usuario: string;
+  /** Avisos que ya lleva la cuenta (los strikes de antes cuentan). */
+  avisos: number;
+  /** Ya tiene un baneo vigente: no se ofrece el baneo inmediato. */
+  baneada: boolean;
+  /** Clave de los reportes que se confirman ("campana-116" o "aporte-55"). */
+  reportes?: string;
 }) {
   const router = useRouter();
   const [tipo, setTipo] = useState<TipoDeSancion>("STRIKE");
   const [detalle, setDetalle] = useState("");
-  const [dias, setDias] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pendiente, iniciar] = useTransition();
   const idTipo = useId();
 
+  const siguiente = avisos + 1;
+  const tipos: { valor: TipoDeSancion; etiqueta: string; hint: string; deshabilitado?: boolean }[] = [
+    {
+      valor: "STRIKE",
+      etiqueta: `Aviso (${Math.min(siguiente, AVISOS_PARA_BANEO)}.º de ${AVISOS_PARA_BANEO})`,
+      hint: `Lleva ${avisos} ${avisos === 1 ? "aviso" : "avisos"}. Este trae: ${describirConsecuencia(consecuenciaDelAviso(siguiente))}.`,
+    },
+    {
+      valor: "BANEO_DE_CAMPANA",
+      etiqueta: "Baneo inmediato",
+      hint: baneada
+        ? "La cuenta ya está baneada."
+        : "Para casos graves. Bloquea la cuenta hasta que se restaure a mano y pone su correo en la lista negra.",
+      deshabilitado: baneada,
+    },
+  ];
+
   const corto = detalle.trim().length < MINIMO;
-  const faltanDias = tipo === "SUSPENSION_TEMPORAL" && !Number(dias);
 
   function enviar() {
     setError(null);
     iniciar(async () => {
-      const r = await aplicarSancion(usuarioId, {
-        tipo,
-        detalle,
-        dias: tipo === "SUSPENSION_TEMPORAL" ? Number(dias) : undefined,
-      });
+      const r = await aplicarSancion(usuarioId, { tipo, detalle, reportes });
       if (r && !r.ok) setError(r.error);
     });
   }
@@ -53,17 +70,18 @@ export default function FormularioDeSancion({
     <div>
       <Field label="Tipo de sanción" required>
         <div className="flex flex-col gap-2">
-          {TIPOS.map((t) => (
+          {tipos.map((t) => (
             <label
               key={t.valor}
-              className={`flex cursor-pointer items-start gap-2.5 rounded border px-3.5 py-2.5 transition-colors ${
-                tipo === t.valor ? "border-brand-600 bg-brand-600/5" : "border-system-300 bg-white"
-              }`}
+              className={`flex items-start gap-2.5 rounded border px-3.5 py-2.5 transition-colors ${
+                t.deshabilitado ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+              } ${tipo === t.valor ? "border-brand-600 bg-brand-600/5" : "border-system-300 bg-white"}`}
             >
               <input
                 type="radio"
                 name={idTipo}
                 checked={tipo === t.valor}
+                disabled={t.deshabilitado}
                 onChange={() => setTipo(t.valor)}
                 className="mt-0.5"
               />
@@ -76,22 +94,10 @@ export default function FormularioDeSancion({
         </div>
       </Field>
 
-      {tipo === "SUSPENSION_TEMPORAL" ? (
-        <Field label="Días de suspensión" required>
-          <Input
-            type="number"
-            min={1}
-            value={dias}
-            onChange={(e) => setDias(e.target.value)}
-            placeholder="7"
-          />
-        </Field>
-      ) : null}
-
       <Field
-        label="Detalle"
+        label="Motivo"
         required
-        hint={`${detalle.trim().length} / ${MINIMO} caracteres mínimos`}
+        hint={`${detalle.trim().length} / ${MINIMO} caracteres mínimos. ${usuario} lo verá en el aviso.`}
       >
         <Textarea
           value={detalle}
@@ -113,18 +119,12 @@ export default function FormularioDeSancion({
           variant="secondary"
           size="sm"
           disabled={pendiente}
-          onClick={() => router.push(`/usuarios/${usuarioId}`)}
+          onClick={() => router.push(reportes ? "/reportes" : `/usuarios/${usuarioId}`)}
         >
           Cancelar
         </Button>
-        <Button
-          type="button"
-          variant="danger"
-          size="sm"
-          disabled={pendiente || corto || faltanDias}
-          onClick={enviar}
-        >
-          {pendiente ? "Aplicando…" : "Aplicar sanción"}
+        <Button type="button" variant="danger" size="sm" disabled={pendiente || corto} onClick={enviar}>
+          {pendiente ? "Aplicando…" : tipo === "STRIKE" ? "Dar aviso" : "Banear"}
         </Button>
       </div>
     </div>

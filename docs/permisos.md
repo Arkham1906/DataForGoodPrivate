@@ -135,17 +135,17 @@ Hay dos cosas distintas con nombres parecidos:
 - Tabla `campana_baneados`. Endpoint `GET`/`POST`/`DELETE /api/campanas/[id]/baneos`. Consultas en `lib/campanas/baneos.ts`.
 - El participante ve la etiqueta "Baneado" en las listas (`isBanned`) y un aviso antes de aportar (`viewer.baneado`).
 
-**Sanciones de cuenta** (las aplica el SuperUsuario desde `/usuarios/[id]/sancion`): afectan toda la cuenta.
+**Sanciones de cuenta** (las aplica el SuperUsuario desde `/usuarios/[id]/sancion`, a mano o confirmando reportes de `/reportes`): afectan toda la cuenta. Desde el 2026-10-12 solo hay dos opciones: **aviso** o **baneo inmediato**.
 
 | Tipo | Efecto |
 | --- | --- |
-| `STRIKE` | Suma al contador. **Al tercero, la cuenta se banea sola** (`STRIKES_PARA_BANEO = 3`), dentro de la misma transacción |
-| `SUSPENSION_TEMPORAL` | Bloquea la cuenta `dias` días desde `aplicada_en`. Se levanta sola al vencer |
-| `BANEO_DE_CAMPANA` | En la interfaz se llama "Baneo permanente": bloquea la cuenta hasta que se restaure |
+| `STRIKE` (aviso) | Escala según cuántos lleve la cuenta (los strikes de antes cuentan; no caducan): 1.º solo un mensaje ("Tu cuenta lleva un reporte" con el motivo), 2.º suspensión de 2 días, 3.º de 7 días, 4.º o más baneo y el correo a la lista negra. La consecuencia se guarda como su propia sanción con `aplicada_por = 'Automático'` |
+| `SUSPENSION_TEMPORAL` | La pone la escala (2.º y 3.º aviso). Bloquea la cuenta `dias` días desde `aplicada_en`. Se levanta sola al vencer |
+| `BANEO_DE_CAMPANA` | Baneo: bloquea la cuenta hasta que se restaure y pone su correo en `lista_negra_correos`, que impide registrarse o entrar con Google como cuenta nueva |
 
 - La lógica de "¿está bloqueado?" vive en `lib/sanciones.ts` (`obtenerBloqueo`, `SQL_SANCION_BLOQUEANTE`).
 - **Qué pasa con una cuenta bloqueada:** `getSessionUser()` devuelve `null`, así que ninguna API ni acción la deja pasar. Conserva su sesión, pero `exigirUsuario()` la manda a `/cuenta-bloqueada`, donde ve el motivo y puede cerrar sesión. `VigilanteDeSesion` (cliente) la saca si la sancionan mientras navega.
-- `restaurarAcceso()` desactiva la sanción de inmediato.
+- `restaurarAcceso()` levanta una suspensión o un baneo de inmediato (un aviso no se restaura). Restaurar un baneo saca el correo de la lista negra.
 
 ## 8. Bitácora (`audit_log`)
 

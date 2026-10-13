@@ -12,7 +12,7 @@ const ROLES = [
 ];
 const ESTADOS = [
   { valor: "ACTIVA", etiqueta: "Activo" },
-  { valor: "CON_STRIKES", etiqueta: "Con strikes" },
+  { valor: "CON_STRIKES", etiqueta: "Con avisos" },
   { valor: "SUSPENDIDA", etiqueta: "Suspendida" },
   { valor: "BANEADA", etiqueta: "Baneada" },
 ];

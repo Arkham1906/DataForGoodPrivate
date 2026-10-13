@@ -2,7 +2,8 @@ import { pool } from "@/lib/db";
 
 /*
  * Qué hace cada sanción (según el formulario del panel, /usuarios/[id]/sancion):
- *   - STRIKE: solo suma al contador; no bloquea.
+ *   - STRIKE: un aviso (en la interfaz, "Aviso"). No bloquea por sí mismo: según cuántos lleve la
+ *     cuenta, aplicarSancion agrega la suspensión o el baneo que toca (lib/usuarios/escala-de-avisos.ts).
  *   - SUSPENSION_TEMPORAL: bloquea la cuenta durante `dias` desde aplicada_en.
  *   - BANEO_DE_CAMPANA ("Baneo permanente" en la interfaz): bloquea la cuenta
  *     hasta que el SuperUsuario la restaure.
@@ -12,15 +13,11 @@ import { pool } from "@/lib/db";
  * (obtenerBloqueoDeLaSesion en lib/session.ts).
  */
 
-/** Los tres tipos que acepta aplicarSancion (TipoDeSancion en lib/usuarios/directorio.ts). */
-export const TIPOS_DE_SANCION: ReadonlySet<string> = new Set(["STRIKE", "SUSPENSION_TEMPORAL", "BANEO_DE_CAMPANA"]);
-
 /**
- * Al acumular este número de strikes, la cuenta se banea sola
- * (aplicarSancion). Los strikes no se borran nunca, así que si el
- * SuperUsuario restaura ese baneo, el siguiente strike vuelve a banear.
+ * Lo que el SuperUsuario aplica a mano (aplicarSancion): un aviso (STRIKE) o un baneo inmediato.
+ * Las suspensiones ya no se eligen: las pone la escala de avisos (2026-10-12).
  */
-export const STRIKES_PARA_BANEO = 3;
+export const TIPOS_DE_SANCION: ReadonlySet<string> = new Set(["STRIKE", "BANEO_DE_CAMPANA"]);
 
 /**
  * Condición SQL: hay una sanción vigente que bloquea a `usuarios u`. Es la

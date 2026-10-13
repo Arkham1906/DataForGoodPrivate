@@ -23,7 +23,7 @@ export default function CuentaBloqueada({
     { etiqueta: "Sanciones en total", valor: historial.total },
     { etiqueta: historial.baneos === 1 ? "Baneo" : "Baneos", valor: historial.baneos },
     { etiqueta: historial.suspensiones === 1 ? "Suspensión" : "Suspensiones", valor: historial.suspensiones },
-    { etiqueta: historial.strikes === 1 ? "Strike" : "Strikes", valor: historial.strikes },
+    { etiqueta: historial.strikes === 1 ? "Aviso" : "Avisos", valor: historial.strikes },
   ];
 
   return (

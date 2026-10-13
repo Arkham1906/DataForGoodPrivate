@@ -15,26 +15,46 @@ import BotonRestaurar from "./boton-restaurar";
 export type SancionParaLista = Omit<RegistroDeSancion, "fecha"> & { fechaTexto: string };
 
 const ETIQUETA: Record<RegistroDeSancion["tipo"], { texto: string; plural: string; tono: "warn" | "danger" }> = {
-  STRIKE: { texto: "Strike", plural: "Strikes", tono: "warn" },
+  STRIKE: { texto: "Aviso", plural: "Avisos", tono: "warn" },
   SUSPENSION: { texto: "Suspensión", plural: "Suspensiones", tono: "warn" },
   BANEO: { texto: "Baneo", plural: "Baneos", tono: "danger" },
   BANEO_EN_CAMPANA: { texto: "Baneo en campaña", plural: "Baneos en campaña", tono: "danger" },
 };
 
-/** Strike, Suspensión (con sus días), Baneo o Baneo en campaña. */
+/** Aviso (con su número), Suspensión (con sus días), Baneo o Baneo en campaña. */
 function EtiquetaDeSancion({ s }: { s: SancionParaLista }) {
   const e = ETIQUETA[s.tipo];
   return (
-    <Tag tone={s.vigente ? e.tono : "default"}>
+    <Tag tone={s.vigente || s.tipo === "STRIKE" ? e.tono : "default"}>
       {e.texto}
+      {s.tipo === "STRIKE" && s.aviso ? ` ${s.aviso}` : ""}
       {s.tipo === "SUSPENSION" ? ` · ${s.dias} ${s.dias === 1 ? "día" : "días"}` : ""}
     </Tag>
   );
 }
 
-/** La campaña y el aporte que la originaron, o "Toda la cuenta". */
+/** La campaña y el aporte que la originaron, o "Toda la cuenta" (con los reportes que la originaron). */
 function DondeSeAplico({ s }: { s: SancionParaLista }) {
-  if (s.tipo !== "BANEO_EN_CAMPANA") return <span className="text-system-500">Toda la cuenta</span>;
+  if (s.tipo !== "BANEO_EN_CAMPANA") {
+    return (
+      <>
+        <span className="text-system-500">Toda la cuenta</span>
+        {s.porReportes && (
+          <span className="block text-[11px] text-system-500">
+            Por {s.porReportes.reportes} {s.porReportes.reportes === 1 ? "reporte" : "reportes"}
+            {s.porReportes.tipo === "aporte" ? ` del aporte ${s.porReportes.aporteId ? `#${s.porReportes.aporteId}` : "borrado"} en` : " de"}{" "}
+            {s.porReportes.campana ? (
+              <Link href={`/sistema/campanas/${s.porReportes.campana.id}`} className="hover:text-brand-600">
+                {s.porReportes.campana.nombre}
+              </Link>
+            ) : (
+              "una campaña eliminada"
+            )}
+          </span>
+        )}
+      </>
+    );
+  }
   return (
     <>
       {s.campana ? (

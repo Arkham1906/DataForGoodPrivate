@@ -19,6 +19,8 @@ import { conDestino, destinoSeguro } from "@/lib/redireccion";
 
 const ERRORES_DE_URL: Record<string, string> = {
   google: "No se pudo iniciar sesión con Google. Intenta de nuevo.",
+  // Google con un correo de la lista negra y sin cuenta (lib/usuarios/lista-negra.ts).
+  correo_bloqueado: "Este correo no puede usarse en DataForGood porque su cuenta fue baneada.",
 };
 
 export default function EntrarPage() {

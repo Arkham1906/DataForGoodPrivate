@@ -1,6 +1,7 @@
 // Directorio de usuarios del panel (/usuarios/**): búsqueda, ficha, estado de la cuenta y sanciones.
 // Ojo: estas consultas no verifican la sesión raíz; dependen del layout del panel (docs/README.md § 8).
 
+import { AVISOS_PARA_BANEO } from "@/lib/usuarios/escala-de-avisos";
 import { pool } from "@/lib/db";
 import {
   nombreDeRolPrincipal,
@@ -61,7 +62,8 @@ export type ReporteDeSancion = {
   };
 };
 
-export type TipoDeSancion = "STRIKE" | "BANEO_DE_CAMPANA" | "SUSPENSION_TEMPORAL";
+/** Lo que aplica el SuperUsuario: un aviso (STRIKE) o un baneo inmediato. */
+export type TipoDeSancion = "STRIKE" | "BANEO_DE_CAMPANA";
 
 /** Una sanción de /usuarios/sanciones, de la cuenta o de una campaña (ver listarSanciones). */
 export type RegistroDeSancion = {
@@ -79,7 +81,16 @@ export type RegistroDeSancion = {
   campana: { id: string; nombre: string } | null;
   /** Aporte por el que se baneó en la campaña, si se sabe. */
   aporteId: string | null;
-  /** Quién la aplicó: "SuperUsuario", "Automático (3 strikes)" o el creador de la campaña. */
+  /** Sanción de la cuenta aplicada al resolver reportes de una campaña (bandeja /reportes). */
+  porReportes: {
+    tipo: "campana" | "aporte";
+    campana: { id: string; nombre: string } | null;
+    aporteId: string | null;
+    reportes: number;
+  } | null;
+  /** Número del aviso (1, 2, 3...) en los STRIKE; la escala está en lib/usuarios/escala-de-avisos.ts. */
+  aviso?: number;
+  /** Quién la aplicó: "SuperUsuario", "Escala de avisos" o el creador de la campaña. */
   quien: string;
   fecha: Date;
   /** Texto del estado: "Vigente", "Vigente hasta el…", "Restaurada el…", "Levantado el…". */
@@ -96,7 +107,7 @@ export const ETIQUETA_DE_ESTADO: Record<
   { texto: string; tono: TonoDeEtiqueta }
 > = {
   ACTIVA: { texto: "Activo", tono: "ok" },
-  CON_STRIKES: { texto: "Con strikes", tono: "warn" },
+  CON_STRIKES: { texto: "Con avisos", tono: "warn" },
   SUSPENDIDA: { texto: "Suspendida", tono: "danger" },
   BANEADA: { texto: "Baneada", tono: "danger" },
 };
@@ -392,9 +403,10 @@ export async function obtenerReporteDeSancion(
 /**
  * Todas las sanciones de los usuarios que siguen existiendo (2026-10-08), de la
  * más reciente a la más vieja. Vienen de dos lados:
- *   - De la cuenta (tabla `sanciones`): strike, suspensión o baneo que aplica el
- *     SuperUsuario desde /usuarios/[id]/sancion, o el baneo automático al
- *     tercer strike. No están ligadas a una campaña.
+ *   - De la cuenta (tabla `sanciones`): avisos (STRIKE) y baneos que aplica el
+ *     SuperUsuario desde /usuarios/[id]/sancion, y la suspensión o el baneo que
+ *     trae cada aviso (escala de avisos). Si se dieron al confirmar reportes,
+ *     `porReportes` dice de qué campaña o aporte.
  *   - Por campaña: el creador saca a alguien de su campaña por un aporte. El
  *     historial sale de `campana.banear` en audit_log (la fila de
  *     `campana_baneados` se borra al quitar el baneo); los baneos anteriores a
@@ -417,11 +429,29 @@ export async function listarSanciones(): Promise<RegistroDeSancion[]> {
         usuario_id: number;
         nombre: string;
         apellidos: string;
+        aviso: number | null;
+        rep_tipo: "campana" | "aporte" | null;
+        rep_campana_id: number | null;
+        rep_campana: string | null;
+        rep_aporte_id: number | null;
+        reportes: number;
       }>(
         `SELECT s.id, s.tipo, s.detalle, s.dias, s.aplicada_en, s.aplicada_por, s.activa, s.restaurada_en,
-                u.id AS usuario_id, u.nombre, u.apellidos
+                u.id AS usuario_id, u.nombre, u.apellidos,
+                CASE WHEN s.tipo = 'STRIKE'
+                     THEN ROW_NUMBER() OVER (PARTITION BY s.usuario_id, s.tipo ORDER BY s.aplicada_en, s.id)
+                END::int AS aviso,
+                rep.tipo AS rep_tipo, rep.campana_id AS rep_campana_id, c.name AS rep_campana,
+                rep.aporte_id AS rep_aporte_id, COALESCE(rep.n, 0)::int AS reportes
          FROM sanciones s
-         JOIN usuarios u ON u.id = s.usuario_id`,
+         JOIN usuarios u ON u.id = s.usuario_id
+         -- Los reportes que se confirmaron con esta sanción (bandeja /reportes): todos son del mismo caso.
+         LEFT JOIN LATERAL (
+           SELECT MIN(r.tipo) AS tipo, MIN(r.campana_id) AS campana_id, MIN(r.aporte_id) AS aporte_id, COUNT(*) AS n
+           FROM reportes r WHERE r.sancion_id = s.id
+           HAVING COUNT(*) > 0
+         ) rep ON true
+         LEFT JOIN campanas c ON c.id = rep.campana_id`,
       ),
       pool.query<{
         clave: string;
@@ -477,15 +507,28 @@ export async function listarSanciones(): Promise<RegistroDeSancion[]> {
           motivo: s.detalle,
           campana: null,
           aporteId: null,
-          quien: s.aplicada_por === "Automático" ? "Automático (3 strikes)" : s.aplicada_por,
+          porReportes:
+            s.reportes > 0 && s.rep_tipo
+              ? {
+                  tipo: s.rep_tipo,
+                  campana:
+                    s.rep_campana_id && s.rep_campana ? { id: String(s.rep_campana_id), nombre: s.rep_campana } : null,
+                  aporteId: s.rep_aporte_id ? String(s.rep_aporte_id) : null,
+                  reportes: s.reportes,
+                }
+              : null,
+          // "Automático": la suspensión o el baneo que trajo un aviso (o el baneo de los 3 strikes de antes).
+          quien: s.aplicada_por === "Automático" ? "Escala de avisos" : s.aplicada_por,
           fecha: s.aplicada_en,
         };
         if (s.tipo === "STRIKE") {
           return {
             ...base,
             tipo: "STRIKE",
-            estado: s.activa ? "Cuenta para el baneo" : "Retirado",
-            vigente: s.activa,
+            aviso: s.aviso ?? undefined,
+            estado: `Aviso ${s.aviso} de ${AVISOS_PARA_BANEO}`,
+            // Un aviso no bloquea por sí mismo: no cuenta entre las vigentes (lo que bloquea la cuenta).
+            vigente: false,
             restaurable: false,
           };
         }
@@ -526,6 +569,7 @@ export async function listarSanciones(): Promise<RegistroDeSancion[]> {
           motivo: b.motivo,
           campana: b.campana_id && b.campana ? { id: String(b.campana_id), nombre: b.campana } : null,
           aporteId: b.aporte_id ? String(b.aporte_id) : null,
+          porReportes: null,
           quien: b.quien ? `${b.quien} (creador)` : "Creador de la campaña",
           fecha: b.fecha,
           estado: vigente ? "Vigente" : `Levantado el ${formatearFecha(b.levantado_en as Date)}`,
