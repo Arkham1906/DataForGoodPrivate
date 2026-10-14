@@ -22,8 +22,8 @@ export async function reportarAlCreador(entrada: {
     return { ok: false, status: 400, error: `El motivo no puede pasar de ${MAXIMO_MOTIVO_DE_REPORTE} caracteres` };
   }
 
-  const { rows } = await pool.query<{ campaign_id: number; creator_id: number; name: string; es_revisor: boolean }>(
-    `SELECT a.campaign_id, c.creator_id, c.name,
+  const { rows } = await pool.query<{ campaign_id: number; creator_id: number; user_id: number | null; name: string; es_revisor: boolean }>(
+    `SELECT a.campaign_id, a.user_id, c.creator_id, c.name,
             EXISTS (SELECT 1 FROM campana_revisores r
                     WHERE r.campana_id = a.campaign_id AND r.usuario_id = $2 AND r.estado = 'aceptado') AS es_revisor
      FROM aportes a JOIN campanas c ON c.id = a.campaign_id
@@ -35,6 +35,9 @@ export async function reportarAlCreador(entrada: {
   // El creador no se reporta a sí mismo: él banea directamente.
   if (!fila.es_revisor || Number(fila.creator_id) === entrada.revisor.id) {
     return { ok: false, status: 403, error: "Solo un revisor de la campaña puede reportar un aporte al creador" };
+  }
+  if (fila.user_id != null && Number(fila.user_id) === entrada.revisor.id) {
+    return { ok: false, status: 403, error: "No puedes reportar tu propio aporte" };
   }
 
   // reporte_en IS NULL en el WHERE: uno por aporte, aunque dos revisores reporten a la vez.

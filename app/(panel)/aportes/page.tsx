@@ -9,7 +9,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 
 import Subtabs from "@/components/sistema/subtabs";
-import { Aviso, Encabezado, EnlaceBoton, Paginacion, formatearNumero } from "@/components/sistema/ui";
+import { Aviso, Encabezado, Paginacion, formatearNumero } from "@/components/sistema/ui";
 import {
   FILTROS_DE_ETAPA,
   PESTANAS_APORTES,
@@ -77,7 +77,6 @@ export default async function BandejaDeAportesPage({ searchParams }: { searchPar
       <Encabezado
         titulo="Aportes recibidos"
         subtitulo={campana ? campana.nombre : "Todas las campañas"}
-        acciones={<EnlaceBoton href={`${BASE}/dashboard`}>Ver dashboard</EnlaceBoton>}
       />
 
       <nav

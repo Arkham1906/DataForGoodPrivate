@@ -150,9 +150,15 @@ export default function RevisionAportePage() {
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-600">Revisor de aportes</p>
+          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-600">
+            {item.canReview ? "Revisor de aportes" : "Tu aporte"}
+          </p>
           <h1 className="mt-2 text-2xl font-extrabold text-system-900">Vista previa del aporte</h1>
-          <p className="mt-1 text-[13px] text-system-600">Revisa el contenido y decide si se acepta o se rechaza.</p>
+          <p className="mt-1 text-[13px] text-system-600">
+            {item.canReview
+              ? "Revisa el contenido y decide si se acepta o se rechaza."
+              : "Este es tu propio aporte. Puedes consultar su estado, pero no revisarlo."}
+          </p>
         </div>
         <div className="flex flex-wrap justify-end gap-1.5">
           {item.inapropiado && <Tag tone="danger">Contenido inapropiado</Tag>}
@@ -218,7 +224,7 @@ export default function RevisionAportePage() {
         </p>
       )}
 
-      {rechazando && !yaDecidido && (
+      {item.canReview && rechazando && !yaDecidido && (
         <form onSubmit={confirmarRechazo} className="mt-6 rounded-lg border border-error-700 bg-white p-4">
           <p className="mb-2 text-[13px] font-medium text-system-900">
             Motivo del rechazo <span className="text-error-700">*</span>
@@ -273,11 +279,11 @@ export default function RevisionAportePage() {
 
       {aviso && <p className="mt-6 rounded border border-success-700 bg-success-50 p-3 text-[12.5px] text-success-700">{aviso}</p>}
 
-      {item.reporte ? (
+      {item.canReview && item.reporte ? (
         <p className="mt-6 rounded border border-warning-500 bg-warning-50 p-3 text-[12.5px] text-warning-800">
           Reportado a quien creó la campaña · {item.reporte.motivo}
         </p>
-      ) : reportando ? (
+      ) : item.canReview && reportando ? (
         <form onSubmit={(e) => void confirmarReporte(e)} className="mt-6 rounded-lg border border-warning-500 bg-white p-4">
           <p className="text-[13px] font-medium text-system-900">
             Reportar al creador <span className="text-error-700">*</span>
@@ -318,39 +324,41 @@ export default function RevisionAportePage() {
         </form>
       ) : null}
 
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-system-200 pt-5">
-        <p className="max-w-xl text-[12.5px] text-system-600">
-          {yaDecidido
-            ? "Este aporte ya tiene una decisión."
-            : "Tu decisión es final: el aporte queda aceptado o rechazado, sin pasar por quien creó la campaña."}
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {item.userId === null && !item.inapropiado && !yaDecidido && (
-            <Button variant="danger" disabled={submitting} onClick={() => void marcarInapropiado()}>
-              Marcar como inapropiado
-            </Button>
-          )}
-          {!item.reporte && (
-            <Button variant="ghost" disabled={submitting || reportando} onClick={() => setReportando(true)}>
-              Reportar al creador
-            </Button>
-          )}
-          {!yaDecidido && (
-            <>
-              <Button disabled={submitting || rechazando} onClick={() => setRechazando(true)}>
-                Rechazar
+      {item.canReview && (
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-system-200 pt-5">
+          <p className="max-w-xl text-[12.5px] text-system-600">
+            {yaDecidido
+              ? "Este aporte ya tiene una decisión."
+              : "Tu decisión es final: el aporte queda aceptado o rechazado, sin pasar por quien creó la campaña."}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {item.userId === null && !item.inapropiado && !yaDecidido && (
+              <Button variant="danger" disabled={submitting} onClick={() => void marcarInapropiado()}>
+                Marcar como inapropiado
               </Button>
-              <Button variant="primary" disabled={submitting} onClick={() => void decidir("aceptado")}>
-                {submitting ? "Guardando..." : "Aceptar aporte"}
+            )}
+            {!item.reporte && (
+              <Button variant="ghost" disabled={submitting || reportando} onClick={() => setReportando(true)}>
+                Reportar al creador
               </Button>
-            </>
-          )}
+            )}
+            {!yaDecidido && (
+              <>
+                <Button disabled={submitting || rechazando} onClick={() => setRechazando(true)}>
+                  Rechazar
+                </Button>
+                <Button variant="primary" disabled={submitting} onClick={() => void decidir("aceptado")}>
+                  {submitting ? "Guardando..." : "Aceptar aporte"}
+                </Button>
+              </>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Reportar a la plataforma (2026-10-12): solo aportes con cuenta. Va a /reportes; si el
           SuperUsuario lo confirma, quien aportó recibe un aviso (lib/usuarios/escala-de-avisos.ts). */}
-      {item.userId && (
+      {item.canReview && item.userId && (
         <div className="mt-4 flex flex-col">
           <ReportarAPlataforma
             url={`/api/aportes/${item.id}/reportar-participante`}

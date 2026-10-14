@@ -140,27 +140,6 @@ export default async function CuentaPage() {
               </div>
             </div>
 
-            <div className="rounded border border-system-200 bg-system-100 p-4">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm font-bold text-system-900">Privacidad</p>
-                  <p className="text-[12.5px] text-system-600">
-                    Participación visible en comunidad
-                  </p>
-                </div>
-                {/* Aún sin función (pendiente). role="switch" + aria-checked: se anuncia como interruptor. */}
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked="true"
-                  aria-label="Participación visible en comunidad"
-                  className="relative h-6 w-11 rounded-pill bg-brand-600"
-                >
-                  <span className="absolute right-1 top-1 h-4 w-4 rounded-full bg-white" />
-                </button>
-              </div>
-            </div>
-
             <PreferenciasDeComunicacion />
           </div>
         </section>

@@ -1090,7 +1090,7 @@ paths:
     get:
       tags: [Aportes]
       summary: Aportes de una campaña
-      description: Sin `mine`, solo el creador o un revisor aceptado de la campaña.
+      description: Sin `mine`, solo el creador o un revisor aceptado de la campaña. En la vista de revisor se excluyen los aportes enviados por el propio revisor.
       parameters:
         - { name: campaignId, in: query, required: true, schema: { type: integer } }
         - { name: mine, in: query, schema: { type: boolean }, description: Solo mis aportes }
@@ -1275,6 +1275,7 @@ paths:
         Una sola instancia: el creador y el revisor aceptado deciden igual
         (`aceptado` o `rechazado`) y esa decisión es la final: un aporte decidido ya no
         se puede cambiar, ni por el creador ni por el revisor (409). Si deciden a la vez, gana uno.
+        Un revisor no puede decidir sobre un aporte que él mismo envió (403).
         La decisión le llega al participante como notificación.
         `rejectionReason` es obligatorio al rechazar. `inapropiado: true` (creador o revisor) marca un aporte
         anónimo como contenido inapropiado al rechazarlo; con 3 marcados en 30 días, el
@@ -1350,7 +1351,7 @@ paths:
         El revisor avisa al creador de la campaña que el aporte o quien lo envió merece una sanción.
         No banea ni cambia el estado: banear o bloquear es decisión del creador, que recibe una
         notificación `aporte_reportado` con enlace al aporte. Uno por aporte; se puede antes o
-        después de decidirlo. Bitácora `aporte.reportar`.
+        después de decidirlo. No se puede reportar un aporte propio. Bitácora `aporte.reportar`.
       requestBody:
         required: true
         content:
@@ -1907,6 +1908,7 @@ components:
         fileSizeBytes: { type: integer }
         caracteristicas: { type: array, items: { type: string } }
         status: { $ref: "#/components/schemas/ContributionStatus" }
+        canReview: { type: boolean, description: Si la sesión actual puede revisar este aporte }
         submittedAt: { type: string, format: date-time }
         rejectionReason: { type: string }
         firstPassBy: { type: string }

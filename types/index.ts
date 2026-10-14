@@ -96,6 +96,8 @@ export interface Contribution {
   fileSizeBytes?: number;
   caracteristicas?: string[];
   status: ContributionStatus;
+  /** Indica si la sesión actual puede revisar este aporte (no es quien lo envió). */
+  canReview?: boolean;
   submittedAt: string; // ISO datetime
   rejectionReason?: string;
   firstPassBy?: string; // nombre del revisor que decidió el aporte

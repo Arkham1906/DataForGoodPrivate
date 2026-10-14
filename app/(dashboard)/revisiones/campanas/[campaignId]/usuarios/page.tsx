@@ -14,7 +14,7 @@ export default async function ReviewerUsersPage({ params }: { params: Promise<{ 
   const reviewer = await exigirUsuario();
   const campaignResult = await pool.query(`SELECT c.id, c.name FROM campanas c JOIN campana_revisores cr ON cr.campana_id = c.id WHERE c.id = $1 AND cr.usuario_id = $2 AND cr.estado = 'aceptado' LIMIT 1`, [campaignId, reviewer.id]);
   if (campaignResult.rowCount === 0) notFound();
-  const users = await pool.query(`SELECT a.user_id AS id, MAX(a.participant_name) AS name, MAX(a.participant_email) AS email, COUNT(*)::int AS contributions, MAX(a.reviewed_at) AS last_reviewed FROM aportes a WHERE a.campaign_id = $1 AND a.first_pass_by_user_id = $2 AND a.status = 'aceptado' AND a.user_id IS NOT NULL GROUP BY a.user_id ORDER BY MAX(a.reviewed_at) DESC`, [campaignId, reviewer.id]);
+  const users = await pool.query(`SELECT a.user_id AS id, MAX(a.participant_name) AS name, MAX(a.participant_email) AS email, COUNT(*)::int AS contributions, MAX(a.reviewed_at) AS last_reviewed FROM aportes a WHERE a.campaign_id = $1 AND a.first_pass_by_user_id = $2 AND a.status = 'aceptado' AND a.user_id IS NOT NULL AND a.user_id IS DISTINCT FROM $2 GROUP BY a.user_id ORDER BY MAX(a.reviewed_at) DESC`, [campaignId, reviewer.id]);
 
   return <div className="mx-auto max-w-5xl">
     <Link href={`/revisiones/campanas/${campaignId}`} className="mb-5 inline-block text-[13px] text-system-600 hover:text-system-900">← Volver a campaña</Link>

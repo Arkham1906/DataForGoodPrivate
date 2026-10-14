@@ -81,6 +81,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     if (!isOwner && !isCampaignCreator && !isReviewer) {
       return NextResponse.json({ error: "No tienes permiso para ver este aporte" }, { status: 403 });
     }
+    const canReview = !isOwner && (isCampaignCreator || isReviewer);
 
     // Al creador, si el dispositivo de un aporte anónimo ya está bloqueado en su campaña.
     const bloqueoId =
@@ -91,6 +92,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     return NextResponse.json({
       data: {
         ...aporte,
+        canReview,
         ...(isOwner || isCampaignCreator ? { participantEmail } : {}),
         ...(isCampaignCreator ? { dispositivoBloqueadoId: bloqueoId != null ? String(bloqueoId) : null } : {}),
         ...(isCampaignCreator || isReviewer ? { reporte: mapReporte(row) } : {}),
@@ -122,6 +124,10 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       [row.campaign_id, user.id]
     );
     const isReviewer = (reviewerResult.rowCount ?? 0) > 0;
+    const isOwner = row.user_id != null && Number(row.user_id) === Number(user.id);
+    if (isOwner) {
+      return NextResponse.json({ error: "No puedes revisar tu propio aporte" }, { status: 403 });
+    }
     if (!isCampaignCreator && !isReviewer) {
       return NextResponse.json({ error: "Solo el creador o un revisor aceptado puede revisar este aporte" }, { status: 403 });
     }

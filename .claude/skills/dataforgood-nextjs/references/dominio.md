@@ -109,6 +109,7 @@ Fuentes: `campanas/[id]/aportar`, `mis-aportes` y `mis-aportes/[campanaId]`.
 Fuentes: `mis-campanas/[id]/aportes` y `[aporteId]`.
 
 - **Estados del aporte:** `pendiente` (sin revisar), `aceptado` y `rechazado`.
+- **El revisor no revisa sus propios aportes** (a pedido del usuario, 2026-10-14): los aportes que envió se excluyen de la bandeja y del contador de pendientes de `/revisiones`; si abre el detalle directamente, no se muestran las acciones. El servidor también rechaza que un revisor acepte o rechace su propio aporte (403), y no puede reportarlo al creador.
 - **El revisor de aportes tiene la misma autoridad que el creador sobre los aportes** (decisión del usuario, 2026-10-06): cualquiera de los dos acepta o rechaza (`pendiente` → `aceptado` o `rechazado`) y **esa decisión es la final**; no hay segunda revisión.
   - **La decisión no se cambia** (decisión del usuario, 2026-10-06), la haya tomado quien sea: nadie cambia aceptado ↔ rechazado (409), quien aportó ya no lo edita, y el creador no borra su archivo ni lo marca inapropiado (409).
   - **Excepciones:** quien aportó **puede borrar su aporte rechazado** y recupera ese espacio de su cuota (uno aceptado no se borra nunca); el creador **puede banear o bloquear** desde un aporte ya decidido, porque es una acción sobre la persona. La regla vive en `lib/aportes/decision.ts` (`tieneDecision`, `ESTADOS_SIN_DECISION`) y cada escritura la vuelve a comprobar en el `WHERE` o con la fila bloqueada, así que si revisor y creador deciden a la vez, gana uno y el otro recibe 409.

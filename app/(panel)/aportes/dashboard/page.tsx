@@ -12,7 +12,6 @@ import MetricCard from "@/components/sistema/MetricCard";
 import Subtabs from "@/components/sistema/subtabs";
 import {
   Encabezado,
-  EnlaceBoton,
   ListaClaveValor,
   Reparto,
   TituloDeSeccion,
@@ -56,12 +55,9 @@ export default async function DashboardDeAportesPage({
         subtitulo={`${formatearNumero(d.total)} en total · ${formatearNumero(d.enRango)} en el rango · ${formatearCorte(d.cortadoEn).toLowerCase()}`}
         subtituloMono
         acciones={
-          <>
-            <Suspense fallback={null}>
-              <SelectorDeRango valor={activo} />
-            </Suspense>
-            <EnlaceBoton href="/aportes">Ver lista</EnlaceBoton>
-          </>
+          <Suspense fallback={null}>
+            <SelectorDeRango valor={activo} />
+          </Suspense>
         }
       />
 

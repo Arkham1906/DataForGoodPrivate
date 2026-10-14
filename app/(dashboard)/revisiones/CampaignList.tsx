@@ -81,7 +81,12 @@ export default function CampaignList({ completed = false }: { completed?: boolea
         <Link href="/revisiones/finalizadas" className={`rounded-pill border px-3.5 py-1.5 text-[13px] font-semibold transition-colors max-md:px-2.5 max-md:py-1 max-md:text-[12px] ${activeTab === "finalizadas" ? "border-brand-600 bg-brand-600 text-white" : "border-system-300 bg-white text-system-600 hover:border-brand-600"}`}>Finalizadas {completedCount}</Link>
       </nav>
 
-      <BarraDeFiltros valores={filtros} tematicas={tematicas} onCambiar={cambiarFiltro} />
+      <BarraDeFiltros
+        valores={filtros}
+        tematicas={tematicas}
+        onCambiar={cambiarFiltro}
+        colapsableEnMovil
+      />
 
       <div className="mb-4 flex items-center justify-between gap-3">
         <h2 className="text-lg font-extrabold text-system-900">{title}</h2>

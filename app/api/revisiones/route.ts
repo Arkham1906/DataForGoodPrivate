@@ -15,8 +15,10 @@ export async function GET() {
               c.goal_contributions, c.participants, c.current_contributions,
               c.creator_name, c.data_types, c.end_date,
               -- Lo que le toca al revisor: solo "pendiente". Los que ya validó (espera_final)
-              -- esperan al creador; c.pending_contributions los incluye y confundía.
-              (SELECT COUNT(*)::int FROM aportes a WHERE a.campaign_id = c.id AND a.status = 'pendiente') AS por_revisar,
+              -- esperan al creador; los aportes propios también quedan fuera del conteo.
+              (SELECT COUNT(*)::int FROM aportes a
+               WHERE a.campaign_id = c.id AND a.status = 'pendiente'
+                 AND a.user_id IS DISTINCT FROM cr.usuario_id) AS por_revisar,
               cr.aceptado_en
        FROM campana_revisores cr
        JOIN campanas c ON c.id = cr.campana_id

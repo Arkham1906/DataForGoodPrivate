@@ -29,7 +29,7 @@ function mapAporte(row: Record<string, unknown>) {
 }
 
 // GET: aportes de una campaña. ?campaignId=&mine=true → los tuyos; ?campaignId= → todos (solo el creador);
-// ?campaignId=&reviewer=true → para revisar (revisor aceptado).
+// ?campaignId=&reviewer=true → para revisar (revisor aceptado), sin los aportes propios.
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
@@ -75,6 +75,7 @@ export async function GET(request: Request) {
         ? await pool.query(
             `SELECT * FROM aportes
              WHERE campaign_id = $1
+               AND user_id IS DISTINCT FROM $2
                AND (status = 'pendiente' OR first_pass_by_user_id = $2)
              ORDER BY submitted_at DESC`,
             [campaignId, user.id]
