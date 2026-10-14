@@ -3,6 +3,7 @@
 // El POST exige sesión y solo crea borradores o campañas en revisión (lib/campanas/estado-del-creador.ts).
 
 import { NextResponse } from "next/server";
+import { especialDesdeFila } from "@/lib/campanas/especial";
 import { pool } from "@/lib/db";
 import { getSessionUser } from "@/lib/session";
 import { idsDeCampanasConBaneo, motivoDeBaneo } from "@/lib/campanas/baneos";
@@ -103,6 +104,7 @@ function mapCampaign(row: Record<string, unknown>) {
     organizer: String(row.organizer ?? ""),
     xpPerContribution: Number(row.xp_per_contribution ?? 0),
     isSpecial: Boolean(row.is_special),
+    especial: especialDesdeFila(row),
     daysRemaining: calculateCampaignDaysRemaining(row.end_date ?? row.endDate),
     hasReviewerAssigned: Boolean(row.has_reviewer_assigned),
     shareToken: String(row.share_token ?? ""),

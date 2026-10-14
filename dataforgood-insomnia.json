@@ -716,7 +716,7 @@
           }
         ]
       },
-      "description": "Elige el archivo en el campo file: .jpg/.jpeg/.png, máximo 10 MB.",
+      "description": "Elige el archivo en el campo file, de un tipo que acepte la campaña: foto .jpg/.png (10 MB), video .mp4/.mov/.webm (50 MB), audio .mp3/.m4a/.wav/.ogg (20 MB), documento .pdf/.docx (20 MB), texto .txt (1 MB). Si la campaña acepta texto, file es opcional.",
       "metaSortKey": 25
     },
     {

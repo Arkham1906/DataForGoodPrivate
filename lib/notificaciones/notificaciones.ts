@@ -7,6 +7,9 @@ import { pool } from "@/lib/db";
 import type { Notificacion, PaginaDeNotificaciones, TipoDeNotificacion } from "./tipos";
 import { enviarPush } from "./push";
 
+/** Avisos que se apagan con la preferencia "Aportes" (usuarios.avisos_aportes). */
+const TIPOS_DE_APORTES: ReadonlySet<TipoDeNotificacion> = new Set(["aporte_aceptado", "aporte_rechazado"]);
+
 export type NuevaNotificacion = {
   usuarioId: number | string;
   tipo: TipoDeNotificacion;
@@ -25,6 +28,11 @@ export type NuevaNotificacion = {
  */
 export async function notificar(n: NuevaNotificacion): Promise<void> {
   try {
+    // Preferencia "Aportes" de /cuenta: apagada, no se avisa del estado de sus aportes.
+    if (TIPOS_DE_APORTES.has(n.tipo)) {
+      const { rows } = await pool.query<{ si: boolean }>(`SELECT avisos_aportes AS si FROM usuarios WHERE id = $1`, [n.usuarioId]);
+      if (rows[0] && !rows[0].si) return;
+    }
     const { rows } = await pool.query<{ id: number }>(
       `INSERT INTO notificaciones (usuario_id, tipo, titulo, mensaje, campana_id, metadata)
        VALUES ($1, $2, $3, $4, $5, $6::jsonb)

@@ -6,7 +6,7 @@ DataForGood guarda las notificaciones dentro de la aplicación y, si la persona 
 
 1. Una acción o evento del servidor detecta algo que debe comunicarse: por ejemplo, una decisión sobre un aporte, una invitación a revisar o una sanción.
 2. El código llama a `notificar()` de [`lib/notificaciones/notificaciones.ts`](./lib/notificaciones/notificaciones.ts) con el destinatario, el tipo, el título, el mensaje y, si corresponde, la campaña y el enlace de destino.
-3. `notificar()` inserta la notificación en PostgreSQL. El registro se conserva aunque la persona no tenga push activado.
+3. `notificar()` inserta la notificación en PostgreSQL. El registro se conserva aunque la persona no tenga push activado. Si es `aporte_aceptado` o `aporte_rechazado` y la persona apagó "Aportes" en sus Preferencias, no se crea.
 4. Después de guardar, se inicia `enviarPush()` sin esperar a que termine. Si esa persona tiene suscripciones push activas, se intenta enviar el aviso a cada dispositivo.
 5. La campana y la página `/notificaciones` consultan la base de datos y reflejan el estado leído/no leído.
 
@@ -56,8 +56,27 @@ Los tipos están declarados en [`lib/notificaciones/tipos.ts`](./lib/notificacio
 | `supervision_revertida` | El supervisor recibe el aviso de que el SuperUsuario revirtió una de sus decisiones. |
 | `sancion_aplicada` | La cuenta recibe el aviso de una sanción aplicada por la administración, con la consecuencia correspondiente. |
 | `sancion_restaurada` | La cuenta recibe el aviso de que la administración levantó una sanción que limitaba su acceso. |
+| `campana_nueva` | Al activarse una campaña, quien tiene su temática en sus intereses y vive en su estado (y municipio, si la campaña tiene uno). Máximo 3 al día por persona. |
+| `campana_especial` | Al publicarse los incentivos de una campaña especial activa (o al reanudarla), quien participa en ella (aportó o la guardó) y quien cumple lo de `campana_nueva`. |
+| `recordatorio_semanal` | Los lunes desde las 9:00, quien encendió "Recordatorios" y tiene cuota pendiente en campañas donde aportó o que guardó y cierran pronto. |
+| `resumen_mensual` | El día 1 desde las 9:00, quien tiene "Newsletter" encendido: sus aportes aceptados, campañas de sus temáticas en su zona y datos abiertos publicados del mes anterior. |
+
+Los cuatro últimos (2026-10-14) los envían [`lib/notificaciones/campanas-por-interes.ts`](./lib/notificaciones/campanas-por-interes.ts) y [`lib/notificaciones/periodicas.ts`](./lib/notificaciones/periodicas.ts) en segundo plano, de 10 en 10, una vez por persona y campaña o periodo, y nunca a cuentas sin verificar, bloqueadas, con baja pedida ni baneadas de la campaña. Los periódicos no tienen cron: los dispara la tarea de cada hora de [`instrumentation-node.ts`](./instrumentation-node.ts).
 
 Los avisos de invitación a revisar tienen además un estado de invitación en `campana_revisores`. La invitación solo se considera pendiente mientras esa relación siga en estado `invitado`.
+
+## Preferencias de la persona
+
+En `/cuenta` → Preferencias, "Comunicación y notificaciones" tiene cuatro interruptores que se guardan al tocarlos (`PATCH /api/usuarios/[id]/preferencias`, columnas de `usuarios`, lista en [`lib/usuarios/preferencias-opciones.ts`](./lib/usuarios/preferencias-opciones.ts)):
+
+| Interruptor | Columna | Por defecto | Qué controla |
+| --- | --- | --- | --- |
+| Campañas nuevas | `avisos_campanas_nuevas` | Encendido | `campana_nueva` y `campana_especial` por interés (quien participa recibe la especial igual) |
+| Aportes | `avisos_aportes` | Encendido | `aporte_aceptado` y `aporte_rechazado` |
+| Recordatorios | `recordatorio_semanal` | Apagado | `recordatorio_semanal` |
+| Newsletter | `resumen_mensual` | Encendido | `resumen_mensual` |
+
+Todo llega como notificación de la aplicación (y push si está activado); nada se manda por correo. Debajo está "Privacidad", que todavía no tiene función.
 
 ## Campana y página de historial
 
@@ -115,6 +134,8 @@ El service worker muestra el aviso y, al tocarlo, abre su ruta. Si ya hay una ve
 
 - [`lib/notificaciones/notificaciones.ts`](./lib/notificaciones/notificaciones.ts): creación, consulta, lectura, borrado y conteos.
 - [`lib/notificaciones/tipos.ts`](./lib/notificaciones/tipos.ts): tipos compartidos, tonos y formato de fechas.
+- [`lib/notificaciones/campanas-por-interes.ts`](./lib/notificaciones/campanas-por-interes.ts): avisos de campañas nuevas y especiales por temática y zona.
+- [`lib/notificaciones/periodicas.ts`](./lib/notificaciones/periodicas.ts): recordatorio semanal y resumen mensual.
 - [`lib/notificaciones/push.ts`](./lib/notificaciones/push.ts): suscripciones y envío Web Push del servidor.
 - [`lib/notificaciones/registro-push.ts`](./lib/notificaciones/registro-push.ts): activación, desactivación y sincronización en el navegador.
 - [`components/layout/NotificationsBell.tsx`](./components/layout/NotificationsBell.tsx): campana, contador y actualización periódica.

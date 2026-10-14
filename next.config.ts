@@ -16,6 +16,13 @@ const nextConfig: NextConfig = {
     "/api/docs/spec": ["./openapi.yaml"],
   },
   basePath,
+  experimental: {
+    // Con proxy.ts, Next guarda en memoria el cuerpo de cada petición hasta este tope y
+    // CORTA lo que sobra (por defecto 10 MB). Debe dejar pasar el archivo más grande de un
+    // aporte (video, 50 MB: TAMANO_MAXIMO de lib/aportes/archivo.ts) más el resto del
+    // formulario. Si subes el tope de un tipo, súbelo aquí y en el proxy del servidor.
+    proxyClientMaxBodySize: 52_000_000,
+  },
   // Sin "X-Powered-By: Next.js": no anunciar la tecnología.
   poweredByHeader: false,
   // Cabeceras de seguridad para todo (páginas y API). Sin CSP global: la ruta del

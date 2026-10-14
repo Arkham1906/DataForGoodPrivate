@@ -68,7 +68,11 @@ export default async function EnlacePublicoPage({ params }: { params: Promise<{ 
     contenido = (
       <Aviso
         titulo={resultado.campana.nombre}
-        texto="Esta campaña ya no está recibiendo aportes."
+        texto={
+          resultado.campana.status === "pausada"
+            ? "Quien organiza esta campaña la pausó. Vuelve a abrir este enlace más tarde."
+            : "Esta campaña ya no está recibiendo aportes."
+        }
         explorar
       />
     );
@@ -168,12 +172,13 @@ function Invitacion({
             <Card className="mt-5">
               <h2 className="mb-1 text-[15px] font-bold text-system-900">Aporta sin crear una cuenta</h2>
               <p className="mb-4 text-[12.5px] text-system-600">
-                No pedimos tu nombre ni tu correo: el aporte se registra como anónimo y la foto se guarda sin sus
-                metadatos (ubicación, fecha, modelo del teléfono).
+                No pedimos tu nombre ni tu correo: el aporte se registra como anónimo. Las fotos y los documentos se
+                guardan sin sus metadatos (ubicación, fecha, modelo del teléfono, autor).
               </p>
               <AporteAnonimo
                 token={token}
                 secciones={campana.secciones}
+                tipos={campana.tiposDeArchivo}
                 cuota={campana.cuotaPorPersona}
                 restantesIniciales={restantes}
                 esperaInicial={espera}

@@ -4,6 +4,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import Tag from "@/components/ui/Tag";
+import ArchivoDelAporte from "@/components/ui/ArchivoDelAporte";
 import { pool } from "@/lib/db";
 import { exigirUsuario } from "@/lib/session";
 import { BASE_PATH } from "@/lib/base-path";
@@ -17,7 +18,7 @@ export default async function ReviewerContributionDetailPage({ params }: { param
   const reviewer = await exigirUsuario();
 
   const result = await pool.query(
-    `SELECT a.id, a.participant_name, a.participant_email, a.description, a.file_type,
+    `SELECT a.id, a.participant_name, a.participant_email, a.description, a.file_type, a.file_path, a.archivo_borrado_en,
             a.file_size_bytes, a.caracteristicas, a.submitted_at, a.reviewed_at,
             c.name AS campaign_name
      FROM aportes a
@@ -53,19 +54,22 @@ export default async function ReviewerContributionDetailPage({ params }: { param
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(280px,.9fr)]">
         <section className="rounded-lg border border-system-200 bg-white p-5 shadow-sm">
           <h2 className="mb-3 text-[15px] font-extrabold text-system-900">Archivo aprobado</h2>
-          {contribution.file_type === "foto" ? (
+          {contribution.archivo_borrado_en ? (
+            <div className="flex aspect-video items-center justify-center rounded-lg border border-dashed border-system-300 bg-system-100 text-[12.5px] text-system-500">
+              El creador borró este archivo
+            </div>
+          ) : contribution.file_type === "foto" && contribution.file_path ? (
             <a href={`${BASE_PATH}/api/aportes/${aporteId}/archivo`} target="_blank" rel="noreferrer" className="block">
-              <img
-                src={`${BASE_PATH}/api/aportes/${aporteId}/archivo`}
-                alt={`Imagen aportada por ${contribution.participant_name}`}
-                className="aspect-video w-full rounded-lg border border-system-300 bg-system-100 object-contain"
-              />
+              <ArchivoDelAporte aporteId={aporteId} tipo="foto" alt={`Imagen aportada por ${contribution.participant_name}`} />
               <span className="mt-3 inline-block text-[12.5px] font-bold text-brand-600">Abrir imagen en tamaño completo</span>
             </a>
           ) : (
-            <div className="flex aspect-video items-center justify-center rounded-lg border border-dashed border-system-300 bg-system-100 text-[12.5px] text-system-500">
-              Vista previa no disponible para {contribution.file_type}
-            </div>
+            <ArchivoDelAporte
+              aporteId={aporteId}
+              tipo={String(contribution.file_type)}
+              sinArchivo={!contribution.file_path}
+              alt={`Archivo aportado por ${contribution.participant_name}`}
+            />
           )}
           <p className="mt-3 font-mono text-[11.5px] text-system-500">{contribution.file_type}{fileSize}</p>
         </section>

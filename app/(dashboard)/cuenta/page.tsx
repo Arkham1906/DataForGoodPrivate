@@ -140,7 +140,15 @@ export default async function CuentaPage() {
               </div>
             </div>
 
-            <PreferenciasDeComunicacion />
+            <PreferenciasDeComunicacion
+              usuarioId={currentUser.id}
+              iniciales={{
+                avisosCampanasNuevas: currentUser.avisos_campanas_nuevas,
+                avisosAportes: currentUser.avisos_aportes,
+                recordatorioSemanal: currentUser.recordatorio_semanal,
+                resumenMensual: currentUser.resumen_mensual,
+              }}
+            />
           </div>
         </section>
       </PerfilForm>

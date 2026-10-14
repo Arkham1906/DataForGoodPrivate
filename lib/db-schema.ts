@@ -70,6 +70,15 @@ export async function ensureUsuariosTable(): Promise<void> {
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS specialty VARCHAR(150);
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS intereses JSONB NOT NULL DEFAULT '[]'::jsonb;
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS intereses_texto VARCHAR(500);
+    -- Preferencias de /cuenta: "Campañas nuevas" (avisos por temática y ubicación, 2026-10-14).
+    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS avisos_campanas_nuevas BOOLEAN NOT NULL DEFAULT true;
+    -- El resto de Preferencias (lib/usuarios/preferencias-opciones.ts) y el último envío de los
+    -- avisos periódicos (lib/notificaciones/periodicas.ts), para mandar uno por semana o por mes.
+    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS avisos_aportes BOOLEAN NOT NULL DEFAULT true;
+    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS recordatorio_semanal BOOLEAN NOT NULL DEFAULT false;
+    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS resumen_mensual BOOLEAN NOT NULL DEFAULT true;
+    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS ultimo_recordatorio DATE;
+    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS ultimo_resumen DATE;
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS email_verificado BOOLEAN NOT NULL DEFAULT false;
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS failed_login_attempts INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ;
@@ -198,6 +207,12 @@ export async function ensureCampanasTable(): Promise<void> {
     -- El SuperUsuario no tiene fila en usuarios: cuando dictamina desde
     -- /supervisar, supervisor_id queda NULL y se marca aquí.
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS supervisado_por_root BOOLEAN NOT NULL DEFAULT false;
+    -- Campaña especial (2026-10-14, lib/campanas/especial.ts): periodo, multiplicador de XP
+    -- (1 a 3) e insignia opcional. is_special dice si los tiene; al quitarlos vuelven a NULL.
+    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS especial_inicio DATE;
+    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS especial_fin DATE;
+    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS especial_multiplicador SMALLINT;
+    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS especial_insignia VARCHAR(40);
     -- Interruptor del creador: si es false, /c/[token] no acepta aportes sin cuenta.
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS permite_anonimos BOOLEAN NOT NULL DEFAULT true;
   `);

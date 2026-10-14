@@ -6,7 +6,15 @@ import { getSessionUser } from "@/lib/session";
 import { estaBaneadoDeCampana } from "@/lib/campanas/baneos";
 import { respuestasValidas, seccionesDesdeFila } from "@/lib/campanas/checklist";
 import { idDeEnlaceVigente } from "@/lib/campanas/enlaces";
-import { LARGO_MAXIMO_DESCRIPCION, errorDeArchivo, guardarFotoDelAporte, insertarAporteConCuota } from "@/lib/aportes/comun";
+import {
+  LARGO_MAXIMO_DESCRIPCION,
+  MENSAJE_CUERPO_GRANDE,
+  cuerpoDemasiadoGrande,
+  errorDeArchivo,
+  guardarArchivoDelAporte,
+  insertarAporteConCuota,
+  tiposAceptados,
+} from "@/lib/aportes/comun";
 import { errorDeConsentimiento } from "@/lib/aportes/consentimiento";
 
 function mapAporte(row: Record<string, unknown>) {
@@ -19,6 +27,7 @@ function mapAporte(row: Record<string, unknown>) {
     description: String(row.description ?? ""),
     fileType: String(row.file_type ?? "foto"),
     fileSizeBytes: row.file_size_bytes != null ? Number(row.file_size_bytes) : undefined,
+    sinArchivo: !row.file_path,
     caracteristicas: Array.isArray(row.caracteristicas) ? row.caracteristicas : [],
     status: String(row.status ?? "pendiente"),
     submittedAt: row.submitted_at ? new Date(String(row.submitted_at)).toISOString() : new Date().toISOString(),
@@ -107,6 +116,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Debes iniciar sesion" }, { status: 401 });
     }
 
+    if (cuerpoDemasiadoGrande(request)) {
+      return NextResponse.json({ error: MENSAJE_CUERPO_GRANDE }, { status: 413 });
+    }
     const formData = await request.formData();
     const campaignId = String(formData.get("campaignId") ?? "").trim();
     const description = String(formData.get("description") ?? "").trim();
@@ -127,23 +139,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: errorConsentimiento }, { status: 400 });
     }
 
-    const errorArchivo = errorDeArchivo(file);
-    if (errorArchivo || !(file instanceof File)) {
-      return NextResponse.json({ error: errorArchivo ?? "El archivo es obligatorio" }, { status: 400 });
-    }
-
     const campaignResult = await pool.query(`SELECT * FROM campanas WHERE id = $1 LIMIT 1`, [campaignId]);
     if (campaignResult.rowCount === 0) {
       return NextResponse.json({ error: "Campaña no encontrada" }, { status: 404 });
     }
     const campaign = campaignResult.rows[0];
 
+    // El archivo debe ser de un tipo que acepta la campaña; sin archivo, solo si acepta texto.
+    const tipos = tiposAceptados(campaign.data_types);
+    const errorArchivo = errorDeArchivo(file, tipos);
+    if (errorArchivo) {
+      return NextResponse.json({ error: errorArchivo }, { status: 400 });
+    }
+
     if (Number(campaign.creator_id) === Number(user.id)) {
       return NextResponse.json({ error: "No puedes aportar en una campaña que creaste" }, { status: 403 });
     }
 
     if (String(campaign.status) !== "activa") {
-      return NextResponse.json({ error: "Esta campaña no está activa" }, { status: 400 });
+      const error = String(campaign.status) === "pausada" ? "Quien organiza esta campaña la pausó; podrás aportar cuando la reanude" : "Esta campaña no está activa";
+      return NextResponse.json({ error }, { status: 400 });
     }
 
     if (await estaBaneadoDeCampana(campaignId, user.id)) {
@@ -166,17 +181,17 @@ export async function POST(request: Request) {
     // vigente de esta campaña. Uno inválido o caducado no bloquea el aporte.
     const enlaceId = tokenDeEnlace ? await idDeEnlaceVigente(tokenDeEnlace, campaignId) : null;
 
-    // Se comprueba que sea de verdad JPG/PNG y se guarda sin metadatos (EXIF con GPS, etc.).
-    const foto = await guardarFotoDelAporte(file, campaignId);
-    if (!foto.ok) return NextResponse.json({ error: foto.error }, { status: 400 });
-    const saved = foto.guardado;
+    // Se comprueba por su contenido y se guarda sin los metadatos que se pueden quitar.
+    const subida = await guardarArchivoDelAporte(file, campaignId, tipos);
+    if (!subida.ok) return NextResponse.json({ error: subida.error }, { status: 400 });
+    const { tipo, guardado: saved } = subida.archivo;
 
     // Cuenta e inserta con candado: dos envíos simultáneos no pasan la cuota.
     const insertado = await insertarAporteConCuota({
       campaignId,
       persona: `usuario:${user.id}`,
       cuota: Number(campaign.quota_per_user),
-      archivoSubido: saved.relativePath,
+      archivoSubido: saved?.relativePath ?? null,
       contar: async (client) => {
         const { rows } = await client.query(
           `SELECT COUNT(*)::int AS count FROM aportes WHERE campaign_id = $1 AND user_id = $2`,
@@ -198,12 +213,13 @@ export async function POST(request: Request) {
             `${user.nombre} ${user.apellidos}`.trim(),
             user.email,
             description,
-            "foto",
-            saved.relativePath,
+            tipo,
+            // Aporte de solo texto: sin archivo ('', como ya lo leen los datos abiertos).
+            saved?.relativePath ?? "",
             // Sin nombre original: el del teléfono puede traer nombres o fechas, y nadie lo usa.
             null,
-            saved.mimeType,
-            saved.sizeBytes,
+            saved?.mimeType ?? null,
+            saved?.sizeBytes ?? null,
             JSON.stringify(caracteristicas),
             enlaceId,
           ]

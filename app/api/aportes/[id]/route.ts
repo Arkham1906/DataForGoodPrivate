@@ -25,6 +25,7 @@ function mapAporte(row: Record<string, unknown>) {
     description: String(row.description ?? ""),
     fileType: String(row.file_type ?? "foto"),
     fileSizeBytes: row.file_size_bytes != null ? Number(row.file_size_bytes) : undefined,
+    sinArchivo: !row.file_path,
     caracteristicas: Array.isArray(row.caracteristicas) ? row.caracteristicas : [],
     status: String(row.status ?? "pendiente"),
     submittedAt: row.submitted_at ? new Date(String(row.submitted_at)).toISOString() : new Date().toISOString(),

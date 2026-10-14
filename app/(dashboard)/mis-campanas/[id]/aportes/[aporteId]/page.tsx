@@ -16,7 +16,7 @@ import Button from "@/components/ui/Button";
 import Tag from "@/components/ui/Tag";
 import type { Contribution } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
-import { formatearTamano } from "@/lib/aportes/archivo";
+import ArchivoDelAporte from "@/components/ui/ArchivoDelAporte";
 import { MOTIVOS_DE_RECHAZO } from "@/lib/aportes/motivos-de-rechazo";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import ReportarAPlataforma from "@/components/ui/ReportarAPlataforma";
@@ -253,17 +253,8 @@ export default function RevisionAportePage() {
           <div className="flex h-44 items-center justify-center rounded-lg border border-dashed border-system-300 bg-system-100 text-[12.5px] text-system-500">
             Archivo borrado
           </div>
-        ) : item.fileType === "foto" ? (
-          <img
-            src={`${BASE_PATH}/api/aportes/${item.id}/archivo`}
-            alt="Archivo del aporte"
-            className="h-44 w-full rounded-lg border border-system-300 bg-system-100 object-contain"
-          />
         ) : (
-          <div className="flex h-44 items-center justify-center rounded-lg border border-dashed border-system-300 bg-system-100 text-[12.5px] text-system-500">
-            Vista previa del archivo · {item.fileType}
-            {item.fileSizeBytes && ` · ${formatearTamano(item.fileSizeBytes)}`}
-          </div>
+          <ArchivoDelAporte aporteId={item.id} tipo={item.fileType} sinArchivo={item.sinArchivo} alt="Archivo del aporte" alto="h-44" />
         )}
 
         <div>
@@ -403,7 +394,7 @@ export default function RevisionAportePage() {
         </div>
       </div>
 
-      {esAnonimo && !item.archivoBorrado && !alreadyReviewed && (
+      {esAnonimo && !item.archivoBorrado && !item.sinArchivo && !alreadyReviewed && (
         <div className="mt-6 rounded-lg border border-system-200 p-4">
           <p className="text-[13px] font-medium text-system-900">Borrar el archivo</p>
           <p className="mb-3 text-[12px] text-system-600">

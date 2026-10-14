@@ -3,6 +3,7 @@
 // runtime Edge, donde process.exit y `pg` no existen.
 import { ensureCoreSchema } from "@/lib/db-schema";
 import { ejecutarBajasVencidas } from "@/lib/usuarios/baja";
+import { enviarAvisosPeriodicos } from "@/lib/notificaciones/periodicas";
 
 const UNA_HORA_MS = 60 * 60 * 1000;
 
@@ -16,8 +17,11 @@ function programarBajasVencidas(): void {
   if (marca.__bajasProgramadas) return;
   marca.__bajasProgramadas = true;
 
+  // En la misma vuelta: recordatorio semanal y resumen mensual de Preferencias (lib/notificaciones/periodicas.ts).
   const correr = () =>
-    ejecutarBajasVencidas().catch((error) => console.error("Error al ejecutar las bajas de cuenta vencidas", error));
+    ejecutarBajasVencidas()
+      .catch((error) => console.error("Error al ejecutar las bajas de cuenta vencidas", error))
+      .then(() => enviarAvisosPeriodicos());
   void correr();
   setInterval(correr, UNA_HORA_MS).unref();
 }

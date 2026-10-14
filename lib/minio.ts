@@ -2,9 +2,11 @@
 // - guardarArchivo(buffer, { subdir, extension, mimeType }): guarda <subdir>/<uuid><ext> y devuelve la clave.
 // - borrarArchivo(key): borra el objeto (archivo de un aporte que el creador quitó).
 // - readUploadedFile(key): descarga el objeto a un Buffer.
+// - abrirArchivo(key, rango?) y tamanoDeArchivo(key): para enviar un archivo por partes (video y audio).
 // El archivo siempre pasa por el servidor; el bucket es privado y no se expone al navegador.
 
 import { randomUUID } from "crypto";
+import type { Readable } from "stream";
 import { Client } from "minio";
 
 const BUCKET = process.env.MINIO_BUCKET || "aportes";
@@ -92,4 +94,26 @@ export async function readUploadedFile(objectKey: string): Promise<Buffer> {
     chunks.push(chunk as Buffer);
   }
   return Buffer.concat(chunks);
+}
+
+/**
+ * Abre un objeto para enviarlo al navegador sin cargarlo entero en memoria. Con `rango`
+ * (inclusivo, como en la cabecera Range) lee solo esos bytes: los <video> y <audio> piden
+ * el archivo por partes para adelantar, y Safari no los reproduce sin eso.
+ */
+export async function abrirArchivo(
+  objectKey: string,
+  rango?: { inicio: number; fin: number }
+): Promise<Readable> {
+  await ensureBucket();
+  return rango
+    ? getClient().getPartialObject(BUCKET, objectKey, rango.inicio, rango.fin - rango.inicio + 1)
+    : getClient().getObject(BUCKET, objectKey);
+}
+
+/** Tamaño en bytes de un objeto (para responder a una petición Range). */
+export async function tamanoDeArchivo(objectKey: string): Promise<number> {
+  await ensureBucket();
+  const { size } = await getClient().statObject(BUCKET, objectKey);
+  return size;
 }

@@ -730,6 +730,10 @@ paths:
       description: |
         - **Creador:** manda solo los campos a cambiar (mismos nombres que `CampaignInput`).
           Los campos permitidos dependen del estado actual; una campaña `finalizada` es de solo lectura.
+        - **Pausar y reanudar (solo el creador):** `{ "status": "pausada" }` sobre una `activa` y
+          `{ "status": "activa" }` sobre una `pausada`, sin otros campos. Una pausada no recibe aportes
+          ni aparece en las listas públicas. Reanudar da 400 si su fecha de cierre ya pasó o si el
+          creador ya tiene 5 campañas activas.
         - **Supervisor:** `{ "action": "tomar" }` para tomarla, o
           `{ "action": "aceptada" | "rechazada" | "reportada", "motivo": "..." }` para decidir.
       requestBody:
@@ -747,6 +751,8 @@ paths:
                     motivo: { type: string }
             examples:
               finalizar: { value: { status: finalizada } }
+              pausar: { value: { status: pausada } }
+              reanudar: { value: { status: activa } }
               tomar: { value: { action: tomar } }
               rechazar: { value: { action: rechazada, motivo: La campaña no cumple los lineamientos } }
       responses:
@@ -793,6 +799,73 @@ paths:
         "409":
           description: Ya reportaste esta campaña
           content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+
+  /api/usuarios/{id}/preferencias:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    patch:
+      tags: [Usuarios]
+      summary: Preferencias de notificaciones (cuenta propia)
+      description: |
+        Una o varias de las cuatro opciones de "Comunicación y notificaciones" (booleanos). Cualquier
+        otra llave o un valor que no sea booleano da 400.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 1
+              additionalProperties: false
+              properties:
+                avisosCampanasNuevas: { type: boolean, description: Campañas nuevas y especiales por temática y zona }
+                avisosAportes: { type: boolean, description: Aporte aceptado o rechazado }
+                recordatorioSemanal: { type: boolean, description: "Lunes 9:00: cuota pendiente" }
+                resumenMensual: { type: boolean, description: "Día 1, 9:00: resumen del mes" }
+      responses:
+        "200": { description: Guardado }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/campanas/{id}/especial:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    put:
+      tags: [Campañas]
+      summary: Hacer especial o cambiar sus incentivos
+      description: |
+        Solo el creador y solo con la campaña `activa` o `pausada`. El periodo va dentro de la
+        vigencia de la campaña y no puede haber terminado; multiplicador de 1 a 3; insignia opcional
+        (solo el nombre, hasta 40 caracteres). El bono por cuota (300 XP) es fijo. Guarda la
+        configuración: otorgar el XP lo hace la gamificación.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [inicio, fin, multiplicador]
+              properties:
+                inicio: { type: string, format: date }
+                fin: { type: string, format: date }
+                multiplicador: { type: integer, minimum: 1, maximum: 3 }
+                insignia: { type: string, maxLength: 40 }
+            example: { inicio: "2026-10-15", fin: "2026-10-22", multiplicador: 2, insignia: Guardián verde }
+      responses:
+        "200": { description: Campaña especial publicada, content: { application/json: { schema: { $ref: "#/components/schemas/Message" } } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [Campañas]
+      summary: Quitar los incentivos
+      responses:
+        "200": { description: Se quitaron los incentivos, content: { application/json: { schema: { $ref: "#/components/schemas/Message" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /api/campanas/{id}/guardar:
     parameters:
@@ -1114,8 +1187,12 @@ paths:
       description: |
         El archivo se sube a MinIO. Reglas: la campaña debe estar activa, no puedes
         ser su creador ni estar baneado, y no debes haber alcanzado tu cuota (se cuenta con
-        candado: dos envíos simultáneos no la pasan). El archivo debe ser de verdad JPG o PNG
-        (se revisa su firma) y se guarda sin metadatos (EXIF con GPS, etc.). La persona debe
+        candado: dos envíos simultáneos no la pasan). El archivo debe ser de un tipo que acepta
+        la campaña (`dataTypes`) y su contenido debe coincidir con la extensión (se revisa la
+        firma): foto .jpg/.jpeg/.png (10 MB), video .mp4/.mov/.webm (50 MB), audio
+        .mp3/.m4a/.wav/.ogg (20 MB), documento .pdf/.docx (20 MB) y texto .txt (1 MB). Fotos y
+        documentos se guardan sin metadatos (EXIF con GPS, autor...); video y audio, tal cual. Si
+        la campaña acepta texto, `file` es opcional. 413 si el cuerpo pasa de 51 MB. La persona debe
         aceptar el uso de su aporte y confirmar que corresponde a la campaña (`aceptaUso` y
         `confirmaContenido` con valor `si`); sin ellos responde 400.
       requestBody:
@@ -1124,7 +1201,7 @@ paths:
           multipart/form-data:
             schema:
               type: object
-              required: [campaignId, description, file, aceptaUso, confirmaContenido]
+              required: [campaignId, description, aceptaUso, confirmaContenido]
               properties:
                 campaignId: { type: string }
                 aceptaUso:
@@ -1143,7 +1220,7 @@ paths:
                 file:
                   type: string
                   format: binary
-                  description: .jpg, .jpeg o .png, máximo 10 MB
+                  description: Según los tipos de la campaña (ver arriba). Opcional solo si la campaña acepta texto
                 enlace:
                   type: string
                   description: |
@@ -1156,6 +1233,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "413": { description: El cuerpo de la petición pasa del archivo más grande permitido }
 
   /api/c/{token}/aportes:
     parameters:
@@ -1171,7 +1249,7 @@ paths:
         Público, sin sesión: es lo único que una persona sin cuenta puede hacer. Solo con un
         enlace vigente de una campaña activa que permita aportes sin cuenta. Con sesión iniciada
         responde 409 (se aporta con la cuenta). El aporte se guarda sin datos personales (`user_id`
-        NULL, "Anónimo", sin correo ni nombre de archivo, foto sin metadatos) y sin ninguna
+        NULL, "Anónimo", sin correo ni nombre de archivo; fotos y documentos sin metadatos) y sin ninguna
         forma de la IP. Cuota: la cuota por persona de la campaña, contada por dispositivo con la
         cookie `anonimo_id` (se crea en la primera respuesta exitosa); además, un tope de 20 aportes
         anónimos por IP por hora, y 60 segundos de espera entre dos aportes del mismo
@@ -1182,7 +1260,7 @@ paths:
           multipart/form-data:
             schema:
               type: object
-              required: [description, file, aceptaUso, confirmaContenido]
+              required: [description, aceptaUso, confirmaContenido]
               properties:
                 description: { type: string, maxLength: 1000 }
                 aceptaUso:
@@ -1200,7 +1278,7 @@ paths:
                 file:
                   type: string
                   format: binary
-                  description: .jpg, .jpeg o .png, máximo 10 MB
+                  description: Mismas reglas que en POST /api/aportes (tipos de la campaña; opcional si acepta texto)
       responses:
         "201":
           description: Aporte enviado; queda pendiente de revisión
@@ -1223,6 +1301,7 @@ paths:
           description: Hay sesión iniciada, o la campaña ya no recibe aportes
         "410":
           description: El enlace caducó o fue reemplazado
+        "413": { description: El cuerpo de la petición pasa del archivo más grande permitido }
         "429":
           description: |
             Tope de aportes anónimos por IP alcanzado, o el dispositivo envió otro hace menos de
@@ -1318,15 +1397,27 @@ paths:
     get:
       tags: [Aportes]
       summary: Descargar el archivo del aporte
+      description: |
+        Quien aportó, el creador o un revisor aceptado. Fotos, video, audio y texto se muestran en el
+        navegador; PDF y Word se descargan (`Content-Disposition: attachment`). Acepta `Range`
+        (un solo rango) para que video y audio se puedan adelantar.
+      parameters:
+        - name: Range
+          in: header
+          required: false
+          schema: { type: string, example: "bytes=0-1023" }
       responses:
         "200":
-          description: Contenido del archivo (image/jpeg o image/png) con `X-Content-Type-Options nosniff`
+          description: Contenido del archivo con su tipo real, `X-Content-Type-Options nosniff` y una CSP `sandbox`
           content:
             application/octet-stream:
               schema: { type: string, format: binary }
+        "206":
+          description: La parte pedida con `Range`, con `Content-Range`
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
-        "404": { $ref: "#/components/responses/NotFound" }
+        "404": { description: "No existe el aporte, o es de solo texto (sin archivo)" }
+        "416": { description: "El rango pedido no existe en el archivo" }
         "410":
           description: El creador borró el archivo
     delete:
@@ -1924,7 +2015,7 @@ components:
         type:
           type: string
           description: Evento que la generó (TipoDeNotificacion en lib/notificaciones/tipos.ts)
-          enum: [aporte_aceptado, aporte_rechazado, campana_baneo, campana_desbaneo, campana_aceptada, campana_rechazada, campana_reportada, campana_iniciada, campana_finalizada, revisor_acepto, aporte_reportado, invitacion_revisor, rol_asignado, rol_revocado, sancion_aplicada, sancion_restaurada]
+          enum: [aporte_aceptado, aporte_rechazado, campana_baneo, campana_desbaneo, campana_aceptada, campana_rechazada, campana_reportada, campana_iniciada, campana_nueva, campana_especial, recordatorio_semanal, resumen_mensual, campana_finalizada, revisor_acepto, aporte_reportado, invitacion_revisor, rol_asignado, rol_revocado, sancion_aplicada, sancion_restaurada]
         title: { type: string }
         message: { type: string }
         campaignId: { type: [string, "null"] }

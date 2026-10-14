@@ -22,6 +22,7 @@ import { MAXIMO_MOTIVO_DE_REPORTE, MOTIVOS_DE_RECHAZO, MOTIVOS_DE_REPORTE } from
 import ReportarAPlataforma from "@/components/ui/ReportarAPlataforma";
 import { MOTIVOS_DE_REPORTE_DE_APORTE } from "@/lib/reportes/motivos";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
+import ArchivoDelAporte from "@/components/ui/ArchivoDelAporte";
 
 const STATUS_LABELS: Record<string, string> = {
   pendiente: "Sin revisar",
@@ -175,16 +176,13 @@ export default function RevisionAportePage() {
             <div className="flex aspect-video items-center justify-center rounded-lg border border-dashed border-system-300 bg-system-100 text-[12.5px] text-system-500">
               El creador borró este archivo
             </div>
-          ) : item.fileType === "foto" ? (
-            <img
-              src={`${BASE_PATH}/api/aportes/${item.id}/archivo`}
-              alt={`Vista previa del aporte de ${item.participantName}`}
-              className="aspect-video w-full rounded-lg border border-system-300 bg-system-100 object-contain"
-            />
           ) : (
-            <div className="flex aspect-video items-center justify-center rounded-lg border border-dashed border-system-300 bg-system-100 text-[12.5px] text-system-500">
-              Vista previa no disponible para {item.fileType}
-            </div>
+            <ArchivoDelAporte
+              aporteId={item.id}
+              tipo={item.fileType}
+              sinArchivo={item.sinArchivo}
+              alt={`Archivo del aporte de ${item.participantName}`}
+            />
           )}
           <p className="mt-3 font-mono text-[11.5px] text-system-500">
             {item.fileType} {item.fileSizeBytes ? `· ${formatearTamano(item.fileSizeBytes)}` : ""}

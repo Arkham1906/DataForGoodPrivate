@@ -10,6 +10,7 @@
 import { randomInt } from "node:crypto";
 import QRCode from "qrcode";
 import { absoluteUrl } from "@/lib/app-url";
+import { tiposAceptados, type TipoDeArchivo } from "@/lib/aportes/archivo";
 import { normalizeCampaignDate } from "@/lib/campaign-date";
 import { seccionesDesdeFila, type SeccionDeChecklist } from "@/lib/campanas/checklist";
 import { pool } from "@/lib/db";
@@ -197,6 +198,8 @@ export type CampanaDelEnlace = {
   secciones: SeccionDeChecklist[];
   /** Interruptor del creador: si es false, /c/[token] no acepta aportes sin cuenta. */
   permiteAnonimos: boolean;
+  /** Tipos de archivo que acepta (campanas.data_types; lib/aportes/archivo.ts). */
+  tiposDeArchivo: TipoDeArchivo[];
 };
 
 export type ResultadoDeToken =
@@ -210,7 +213,7 @@ export async function buscarEnlacePorToken(token: string): Promise<ResultadoDeTo
     `SELECT e.*, (SELECT COUNT(*) FROM aportes a WHERE a.enlace_id = e.id)::int AS aportes_recibidos,
             c.name, c.description, c.tematica, c.tag, c.organizer, c.creator_name, c.location_city, c.location_state,
             c.status, c.goal_contributions, c.current_contributions, c.quota_per_user, c.end_date,
-            c.checklist_secciones, c.checklist_opciones, c.collection_mode, c.permite_anonimos
+            c.checklist_secciones, c.checklist_opciones, c.collection_mode, c.permite_anonimos, c.data_types
      FROM campana_enlaces e
      JOIN campanas c ON c.id = e.campana_id
      WHERE e.token = $1
@@ -236,6 +239,7 @@ export async function buscarEnlacePorToken(token: string): Promise<ResultadoDeTo
     fechaFin: normalizeCampaignDate(row.end_date),
     secciones: seccionesDesdeFila(row),
     permiteAnonimos: row.permite_anonimos !== false,
+    tiposDeArchivo: tiposAceptados(row.data_types),
   };
 
   if (enlace.revocadoEn) return { tipo: "revocado", enlace, campana };

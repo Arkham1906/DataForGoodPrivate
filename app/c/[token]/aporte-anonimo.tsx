@@ -10,19 +10,23 @@ import Button from "@/components/ui/Button";
 import IndicadorDeCarga from "@/components/ui/IndicadorDeCarga";
 import AvisosDeAporte, { agregarAvisos, type Avisos } from "@/components/ui/AvisosDeAporte";
 import { Field, Textarea } from "@/components/ui/Input";
-import { LARGO_MAXIMO_DESCRIPCION, errorDeArchivo } from "@/lib/aportes/archivo";
+import SelectorDeArchivo from "@/components/ui/SelectorDeArchivo";
+import { LARGO_MAXIMO_DESCRIPCION, archivoEsOpcional, type TipoDeArchivo } from "@/lib/aportes/archivo";
 import { BASE_PATH } from "@/lib/base-path";
 import { etiquetaDeRespuesta, type SeccionDeChecklist } from "@/lib/campanas/checklist";
 
 export default function AporteAnonimo({
   token,
   secciones,
+  tipos,
   cuota,
   restantesIniciales,
   esperaInicial,
 }: {
   token: string;
   secciones: SeccionDeChecklist[];
+  /** Tipos de archivo que acepta la campaña; con "texto", el archivo es opcional. */
+  tipos: TipoDeArchivo[];
   cuota: number;
   restantesIniciales: number;
   /** Segundos que faltan para poder enviar otro (lo calcula el servidor). */
@@ -50,13 +54,6 @@ export default function AporteAnonimo({
     return () => clearInterval(intervalo);
   }, [enEspera]);
 
-  function elegirArchivo(e: React.ChangeEvent<HTMLInputElement>) {
-    const elegido = e.target.files?.[0] ?? null;
-    const problema = elegido ? errorDeArchivo(elegido) : null;
-    setErrorArchivo(problema);
-    setArchivo(problema ? null : elegido);
-  }
-
   function alternar(valor: string) {
     setMarcadas((actual) => (actual.includes(valor) ? actual.filter((v) => v !== valor) : [...actual, valor]));
   }
@@ -67,12 +64,11 @@ export default function AporteAnonimo({
   }
 
   async function enviar(avisos: Avisos) {
-    if (!archivo) return;
     setEnviando(true);
     setError(null);
     try {
       const datos = new FormData();
-      datos.set("file", archivo);
+      if (archivo) datos.set("file", archivo);
       datos.set("description", descripcion);
       marcadas.forEach((valor) => datos.append("caracteristicas", valor));
       agregarAvisos(datos, avisos);
@@ -111,7 +107,7 @@ export default function AporteAnonimo({
   }
 
   const puedeEnviar =
-    Boolean(archivo) &&
+    (Boolean(archivo) || archivoEsOpcional(tipos)) &&
     descripcion.trim().length > 0 &&
     descripcion.length <= LARGO_MAXIMO_DESCRIPCION &&
     !enviando &&
@@ -125,28 +121,24 @@ export default function AporteAnonimo({
         </p>
       )}
 
-      <p className="mb-1.5 text-[13px] font-medium text-system-900">
-        Archivo <span className="text-error-700">*</span>
-      </p>
-      <label className="mb-4 flex cursor-pointer flex-col items-center gap-1 rounded-lg border border-dashed border-system-300 bg-system-100 p-6 text-center text-[13px] text-system-600 hover:border-brand-600">
-        <input key={vuelta} type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" className="hidden" onChange={elegirArchivo} />
-        {archivo ? (
-          <span className="font-medium text-system-900">{archivo.name}</span>
-        ) : (
-          <>
-            <span className="font-medium text-system-900">Toca para elegir una foto</span>
-            <span className="font-mono text-[11px]">.jpg .jpeg .png · máximo 10 MB</span>
-          </>
-        )}
-      </label>
-      {errorArchivo && <p className="-mt-2 mb-4 rounded border border-error-700 bg-error-50 p-2 text-[12px] text-error-700">{errorArchivo}</p>}
+      <SelectorDeArchivo
+        className="mb-4"
+        tipos={tipos}
+        archivo={archivo}
+        error={errorArchivo}
+        reinicio={vuelta}
+        onCambio={(elegido, problema) => {
+          setArchivo(elegido);
+          setErrorArchivo(problema);
+        }}
+      />
 
       <Field label="Descripción" required>
         <Textarea
           rows={4}
           value={descripcion}
           onChange={(e) => setDescripcion(e.target.value)}
-          placeholder="Describe qué se ve en la foto"
+          placeholder="Describe lo que aportas"
           maxLength={LARGO_MAXIMO_DESCRIPCION}
           required
         />

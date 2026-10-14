@@ -6,7 +6,8 @@
 //     (campanas.permite_anonimos). Sin enlace no hay forma de aportar sin cuenta: la
 //     persona anónima no ve ni toca nada más del sistema.
 //   - El aporte no lleva datos personales: user_id NULL, participante "Anónimo", sin correo,
-//     sin nombre de archivo y la foto sin metadatos (lib/aportes/imagen.ts).
+//     sin nombre de archivo, y fotos y documentos sin metadatos (lib/aportes/limpiar-archivo.ts;
+//     video y audio se guardan tal cual).
 //   - Cuota por dispositivo: la misma cuota por persona de la campaña, contada por una cookie
 //     anónima (lib/aportes/anonimato.ts). En la BD solo va su sha256 (aportes.anonimo_id).
 //   - La IP no se guarda en la BD de ninguna forma. Los límites por IP viven en memoria
@@ -20,7 +21,7 @@
 import { randomBytes } from "node:crypto";
 import type { PoolClient } from "pg";
 import { pool } from "@/lib/db";
-import { LARGO_MAXIMO_DESCRIPCION, errorDeArchivo, guardarFotoDelAporte, insertarAporteConCuota } from "@/lib/aportes/comun";
+import { LARGO_MAXIMO_DESCRIPCION, errorDeArchivo, guardarArchivoDelAporte, insertarAporteConCuota } from "@/lib/aportes/comun";
 import { hashDeDispositivo } from "@/lib/aportes/anonimato";
 import { bloqueoDelDispositivo } from "@/lib/aportes/sanciones-anonimas";
 import { registrarAuditoria } from "@/lib/auditoria";
@@ -146,6 +147,7 @@ export async function enviarAporteAnonimo(entrada: {
   if (resultado.tipo === "inexistente") return { ok: false, status: 404, error: "Enlace no válido" };
   if (resultado.tipo !== "valido") return { ok: false, status: 410, error: "Este enlace ya no permite aportar" };
   const { campana, enlace } = resultado;
+  if (campana.status === "pausada") return { ok: false, status: 409, error: "Quien organiza esta campaña la pausó; vuelve a intentarlo más tarde" };
   if (campana.status !== "activa") return { ok: false, status: 409, error: "Esta campaña ya no está recibiendo aportes" };
   if (!campana.permiteAnonimos) {
     return { ok: false, status: 403, error: "Esta campaña solo recibe aportes con cuenta." };
@@ -171,10 +173,8 @@ export async function enviarAporteAnonimo(entrada: {
   if (descripcion.length > LARGO_MAXIMO_DESCRIPCION) {
     return { ok: false, status: 400, error: "La descripción no puede superar 1000 caracteres" };
   }
-  const errorArchivo = errorDeArchivo(entrada.archivo);
-  if (errorArchivo || !(entrada.archivo instanceof File)) {
-    return { ok: false, status: 400, error: errorArchivo ?? "El archivo es obligatorio" };
-  }
+  const errorArchivo = errorDeArchivo(entrada.archivo, campana.tiposDeArchivo);
+  if (errorArchivo) return { ok: false, status: 400, error: errorArchivo };
 
   // Aviso rápido antes de subir nada; la comprobación que cuenta va dentro de la transacción.
   const MENSAJE_CUOTA = "Ya enviaste todos los aportes que permite esta campaña";
@@ -190,14 +190,15 @@ export async function enviarAporteAnonimo(entrada: {
 
   // Solo respuestas que existen en los checklists de la campaña ("Título: opción").
   const caracteristicas = respuestasValidas(entrada.caracteristicas, campana.secciones);
-  const foto = await guardarFotoDelAporte(entrada.archivo, campana.id);
-  if (!foto.ok) return { ok: false, status: 400, error: foto.error };
+  const subida = await guardarArchivoDelAporte(entrada.archivo, campana.id, campana.tiposDeArchivo);
+  if (!subida.ok) return { ok: false, status: 400, error: subida.error };
+  const { tipo, guardado } = subida.archivo;
 
   const insertado = await insertarAporteConCuota({
     campaignId: campana.id,
     persona: `dispositivo:${anonimoId}`,
     cuota: campana.cuotaPorPersona,
-    archivoSubido: foto.guardado.relativePath,
+    archivoSubido: guardado?.relativePath ?? null,
     comprobar: async (client) => {
       // Candado por dispositivo (el de la cuota es por campaña): dos envíos simultáneos a
       // campañas distintas tampoco se saltan la espera.
@@ -218,18 +219,20 @@ export async function enviarAporteAnonimo(entrada: {
           campaign_id, user_id, participant_name, participant_email, description,
           file_type, file_path, file_original_name, file_mime_type, file_size_bytes,
           caracteristicas, enlace_id, anonimo_id, consentimiento_en
-        ) VALUES ($1, NULL, 'Anónimo', NULL, $2, 'foto', $3, NULL, $4, $5, $6::jsonb, $7, $8, NOW())
+        ) VALUES ($1, NULL, 'Anónimo', NULL, $2, $9, $3, NULL, $4, $5, $6::jsonb, $7, $8, NOW())
         RETURNING id`,
         // file_original_name va NULL: el nombre del archivo puede traer datos personales.
+        // Sin archivo (solo texto): file_path '' y sin tipo MIME ni tamaño.
         [
           campana.id,
           descripcion,
-          foto.guardado.relativePath,
-          foto.guardado.mimeType,
-          foto.guardado.sizeBytes,
+          guardado?.relativePath ?? "",
+          guardado?.mimeType ?? null,
+          guardado?.sizeBytes ?? null,
           JSON.stringify(caracteristicas),
           enlace.id,
           anonimoId,
+          tipo,
         ]
       );
       return rows[0].id;

@@ -14,7 +14,7 @@
 | --- | --- | --- |
 | `db.ts` | Pool de conexiones a PostgreSQL (se crea en el primer uso) | `pool`, `dbQuery` |
 | `db-schema.ts` | **El esquema completo** de la BD. Lo ejecuta `instrumentation.ts` al arrancar | `ensureCoreSchema`, `ensure<Tabla>Table` |
-| `minio.ts` | Cliente de MinIO: guardar, leer y borrar archivos | `guardarArchivo`, `readUploadedFile`, `borrarArchivo` |
+| `minio.ts` | Cliente de MinIO: guardar, leer (entero o por partes) y borrar archivos | `guardarArchivo`, `readUploadedFile`, `abrirArchivo`, `tamanoDeArchivo`, `borrarArchivo` |
 | `base-path.ts` 🟢 | Prefijo de la app (`/dataforgood` en producción, vacío en `next dev`) | `BASE_PATH` |
 | `app-url.ts` | URL absoluta con `APP_ORIGIN` + `BASE_PATH` (para redirecciones y correos) | `absoluteUrl` |
 | `ip.ts` | IP real del cliente detrás del proxy | `ipDelCliente` |
@@ -56,10 +56,11 @@
 
 | Archivo | Qué hace | Lo usa |
 | --- | --- | --- |
-| `archivo.ts` 🟢 | Tipos y tamaño de archivo permitidos, largo de la descripción, `errorDeArchivo()`, `formatearTamano()` (KB/MB) y `TIPO_DE_DATO` (cómo se describe cada tipo a quien aporta) | Endpoints de aportes, formulario anónimo, pantallas de aportes y `/campanas/[id]` |
+| `archivo.ts` 🟢 | Formatos y tamaño por tipo (`FORMATOS`: foto 10 MB, video 50 MB, audio y documento 20 MB, texto 1 MB), `tiposAceptados(dataTypes)`, `archivoEsOpcional()` (con texto), `errorDeArchivo(file, tipos)`, `acceptDeArchivo()`, largo de la descripción, `formatearTamano()` (KB/MB), `TIPO_DE_DATO` (cómo se describe cada tipo a quien aporta) y el aviso de metadatos de video y audio | Endpoints de aportes, `components/ui/SelectorDeArchivo`, pantallas de aportes y `/campanas/[id]` |
 | `consentimiento.ts` 🟢 | Textos de los avisos de "Antes de enviar" (uso del aporte y contenido acorde), nombres de los campos (`aceptaUso`, `confirmaContenido`) y `errorDeConsentimiento()` | `components/ui/AvisosDeAporte`, `POST /api/aportes`, `POST /api/c/[token]/aportes` |
-| `comun.ts` | `guardarFotoDelAporte()` (valida, limpia y sube a MinIO), `insertarAporteConCuota()` (cuenta e inserta con candado: sin carrera de cuota), `recalcularContadores()` (contadores de la campaña desde `aportes`, con la campaña bloqueada) y reexporta `archivo.ts` | `POST /api/aportes`, `aportes-anonimos.ts` |
-| `imagen.ts` | `limpiarImagen()`: comprueba la firma JPG/PNG y vuelve a codificar con `sharp`, quitando EXIF (GPS), ICC y XMP | `comun.ts` |
+| `comun.ts` | `guardarArchivoDelAporte()` (valida por contenido, limpia y sube a MinIO; sin archivo si la campaña acepta texto), `cuerpoDemasiadoGrande()` (413 antes de leer el formulario), `insertarAporteConCuota()` (cuenta e inserta con candado: sin carrera de cuota), `recalcularContadores()` (contadores de la campaña desde `aportes`, con la campaña bloqueada) y reexporta `archivo.ts` | `POST /api/aportes`, `aportes-anonimos.ts` |
+| `limpiar-archivo.ts` | `limpiarArchivo(file, tipos)`: el tipo lo decide la firma del contenido y debe coincidir con la extensión. Fotos con `imagen.ts`; PDF sin Info ni XMP (`pdf-lib`; rechaza cifrados); .docx sin propiedades ni autores (`jszip`; rechaza macros); .txt a UTF-8; video y audio tal cual | `comun.ts` |
+| `imagen.ts` | `limpiarImagen()`: comprueba la firma JPG/PNG y vuelve a codificar con `sharp`, quitando EXIF (GPS), ICC y XMP | `limpiar-archivo.ts` |
 | `anonimato.ts` | Cookie `anonimo_id` y `hashDeDispositivo()` | Aporte anónimo, `/c/[token]`, sanciones |
 | `reporte.ts` | "Reportar al creador": el revisor avisa al creador (guarda el motivo en el aporte, notifica y registra en bitácora). No banea | `POST /api/aportes/[id]/reportar` |
 | `decision.ts` | Sin `pg`: `tieneDecision()` y `ESTADOS_SIN_DECISION`, la regla de que una decisión no se cambia | API de aportes, `sanciones-anonimas.ts`, pantallas |

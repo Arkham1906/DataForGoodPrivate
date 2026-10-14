@@ -6,13 +6,15 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { COOKIE_ANONIMO, dispositivoValido } from "@/lib/aportes/anonimato";
+import { MENSAJE_CUERPO_GRANDE, cuerpoDemasiadoGrande } from "@/lib/aportes/comun";
 import { errorDeConsentimiento } from "@/lib/aportes/consentimiento";
 import { enviarAporteAnonimo } from "@/lib/campanas/aportes-anonimos";
 import { ipDelCliente } from "@/lib/ip";
 import { getSessionUser } from "@/lib/session";
 
 // POST (multipart/form-data: file, description, caracteristicas[], aceptaUso=si,
-// confirmaContenido=si; sin las dos casillas responde 400): envía el aporte como
+// confirmaContenido=si; sin las dos casillas responde 400; file es opcional si la campaña
+// acepta texto; 413 si el cuerpo pasa del archivo más grande permitido): envía el aporte como
 // "Anónimo". Cuota por dispositivo (cookie anonimo_id, se crea aquí si no existe), tope por IP
 // y espera entre aportes del mismo dispositivo (429 con esperaSegundos y Retry-After).
 export async function POST(request: Request, context: { params: Promise<{ token: string }> }) {
@@ -24,6 +26,9 @@ export async function POST(request: Request, context: { params: Promise<{ token:
       return NextResponse.json({ error: "Ya iniciaste sesión: aporta desde la campaña con tu cuenta" }, { status: 409 });
     }
 
+    if (cuerpoDemasiadoGrande(request)) {
+      return NextResponse.json({ error: MENSAJE_CUERPO_GRANDE }, { status: 413 });
+    }
     const formData = await request.formData();
     const errorConsentimiento = errorDeConsentimiento(formData);
     if (errorConsentimiento) {

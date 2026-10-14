@@ -24,6 +24,12 @@ export type TipoDeNotificacion =
   | "rol_revocado"
   // Al supervisor: el SuperUsuario revirtió una de sus decisiones.
   | "supervision_revertida"
+  // Campañas para participar (lib/notificaciones/campanas-por-interes.ts)
+  | "campana_nueva"
+  | "campana_especial"
+  // Periódicas, según Preferencias (lib/notificaciones/periodicas.ts)
+  | "recordatorio_semanal"
+  | "resumen_mensual"
   // Sanciones de la cuenta
   | "sancion_aplicada"
   | "sancion_restaurada";
@@ -58,11 +64,13 @@ export function tonoDeNotificacion(tipo: string): "ok" | "warn" | "danger" | "de
     case "aporte_aceptado":
     case "campana_aceptada":
     case "campana_iniciada":
+    case "campana_nueva":
     case "revisor_acepto":
     case "rol_asignado":
     case "sancion_restaurada":
     case "campana_desbaneo":
       return "ok";
+    case "campana_especial":
     case "campana_reportada":
     case "aporte_reportado":
     case "rol_revocado":

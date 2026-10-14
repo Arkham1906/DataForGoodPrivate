@@ -2,7 +2,9 @@
 
 // Pantalla /mis-campanas: campañas que creaste, con filtros por estado.
 // Componente cliente. Datos: GET /api/campanas?mine=true.
-// Acción: "Finalizar" con PATCH /api/campanas/[id] { status: "finalizada" } (activa o pausada).
+// Acciones en "Más", con PATCH /api/campanas/[id] { status }: "Pausar" (activa → pausada),
+// "Reanudar" (pausada → activa) y "Finalizar" (activa o pausada). Solo el creador las ve:
+// la lista viene de mine=true y el servidor revisa creator_id.
 
 import { useEffect, useState } from "react";
 import ButtonLink from "@/components/ui/ButtonLink";
@@ -12,6 +14,8 @@ import ProgressBar from "@/components/ui/ProgressBar";
 import type { Campaign, CampaignStatus } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
 import { EsqueletoDeTarjetas } from "@/components/ui/Esqueletos";
+import VentanaDeConfirmacion from "@/components/ui/VentanaDeConfirmacion";
+import { resumenDeIncentivos, textoDelPeriodo } from "@/lib/campanas/especial-reglas";
 
 const labels: Record<CampaignStatus, string> = {
   borrador: "Borrador",
@@ -62,14 +66,17 @@ function mapCampaign(row: Record<string, unknown>): Campaign {
     xpPerContribution: Number(row.xpPerContribution ?? 0),
     daysRemaining: row.daysRemaining as number | null,
     hasReviewerAssigned: Boolean(row.hasReviewerAssigned),
+    especial: (row.especial as Campaign["especial"]) ?? null,
   };
 }
 
 export default function MisCampanasPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [finalizandoId, setFinalizandoId] = useState<string | null>(null);
-  const [finalizarError, setFinalizarError] = useState<Record<string, string>>({});
+  const [cambiandoId, setCambiandoId] = useState<string | null>(null);
+  const [cambioError, setCambioError] = useState<Record<string, string>>({});
+  // Campaña cuya ventana de "Pausar" está abierta.
+  const [porPausar, setPorPausar] = useState<Campaign | null>(null);
   const [cargando, setCargando] = useState(true);
   const [filtro, setFiltro] = useState<Filtro>("todas");
 
@@ -95,27 +102,30 @@ export default function MisCampanasPage() {
 
   // Solo el creador ve esta pantalla (viene de mine=true): no hace falta
   // revisar rol ni dueño aparte, ya está filtrado por sesión.
-  async function finalizarCampana(id: string) {
-    if (!window.confirm("¿Finalizar esta campaña? Dejará de aceptar aportes nuevos.")) return;
+  async function cambiarEstado(id: string, nuevo: "pausada" | "activa" | "finalizada") {
+    if (nuevo === "finalizada" && !window.confirm("¿Finalizar esta campaña? Dejará de aceptar aportes nuevos.")) return;
+    // "Pausar" ya se confirmó en la ventana emergente (VentanaDeConfirmacion).
 
-    setFinalizandoId(id);
-    setFinalizarError((prev) => ({ ...prev, [id]: "" }));
+    const fallo = {
+      finalizada: "No se pudo finalizar la campaña",
+      pausada: "No se pudo pausar la campaña",
+      activa: "No se pudo reanudar la campaña",
+    }[nuevo];
+    setCambiandoId(id);
+    setCambioError((prev) => ({ ...prev, [id]: "" }));
     try {
       const response = await fetch(`${BASE_PATH}/api/campanas/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "finalizada" }),
+        body: JSON.stringify({ status: nuevo }),
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error ?? "No se pudo finalizar la campaña");
-      setCampaigns((prev) => prev.map((c) => (c.id === id ? { ...c, status: "finalizada" } : c)));
+      if (!response.ok) throw new Error(payload.error ?? fallo);
+      setCampaigns((prev) => prev.map((c) => (c.id === id ? { ...c, status: nuevo } : c)));
     } catch (cause) {
-      setFinalizarError((prev) => ({
-        ...prev,
-        [id]: cause instanceof Error ? cause.message : "No se pudo finalizar la campaña",
-      }));
+      setCambioError((prev) => ({ ...prev, [id]: cause instanceof Error ? cause.message : fallo }));
     } finally {
-      setFinalizandoId(null);
+      setCambiandoId(null);
     }
   }
 
@@ -178,12 +188,16 @@ export default function MisCampanasPage() {
               ? Math.min(100, Math.round((campaign.currentContributions / campaign.goalContributions) * 100))
               : 0;
             const puedeFinalizar = campaign.status === "activa" || campaign.status === "pausada";
+            const cambiando = cambiandoId === campaign.id;
 
             return (
               <div key={campaign.id} className="rounded-lg border border-system-200 bg-white p-4 max-md:p-3.5">
                 <div className="mb-1 flex items-start justify-between gap-2">
                   <p className="text-[13.5px] font-medium text-system-900 max-md:text-[13px]">{campaign.name}</p>
-                  <Tag tone={campaign.status === "activa" ? "ok" : campaign.status === "aceptada" ? "warn" : "default"}>{labels[campaign.status]}</Tag>
+                  <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
+                    {campaign.especial && campaign.especial.etapa !== "terminada" && <Tag tone="warn">Especial ×{campaign.especial.multiplicador}</Tag>}
+                    <Tag tone={campaign.status === "activa" ? "ok" : campaign.status === "aceptada" || campaign.status === "pausada" ? "warn" : "default"}>{labels[campaign.status]}</Tag>
+                  </div>
                 </div>
                 <p className="mb-2.5 font-mono text-[11.5px] text-system-600 max-md:text-[10.5px]">
                   {campaign.startDate ?? "Sin fecha"} - {campaign.endDate ?? "Sin fecha"}
@@ -194,7 +208,11 @@ export default function MisCampanasPage() {
                 />
                 <p className="my-2.5 font-mono text-[12px] text-system-600 max-md:text-[11px]">
                   {campaign.currentContributions} / {campaign.goalContributions} - {campaign.pendingContributions} aportes pendientes
+                  {campaign.especial && <> · {textoDelPeriodo(campaign.especial)}</>}
                 </p>
+                {campaign.especial && (
+                  <p className="-mt-1 mb-2.5 text-[12px] text-system-600 max-md:text-[11px]">{resumenDeIncentivos(campaign.especial)}</p>
+                )}
                 {/* Una acción principal y "Panel" a la vista; lo demás en "Más" (Ley de Hick, 2026-10-07). */}
                 <div className="flex flex-wrap items-center gap-1.5 max-md:gap-1">
                   <ButtonLink href={`/mis-campanas/${campaign.id}/aportes`} variant="primary" size="sm" className="max-md:px-2 max-md:py-1.5 max-md:text-[11px]">
@@ -207,26 +225,60 @@ export default function MisCampanasPage() {
                     opciones={[
                       { etiqueta: "Editar", href: `/mis-campanas/nueva?edit=${campaign.id}` },
                       ...(puedeFinalizar
+                        ? [{ etiqueta: campaign.especial ? "Editar incentivos" : "Hacer especial", href: `/mis-campanas/${campaign.id}/especial` }]
+                        : []),
+                      ...(campaign.status === "activa"
+                        ? [{ etiqueta: "Pausar campaña", alElegir: () => setPorPausar(campaign), deshabilitado: cambiando }]
+                        : []),
+                      ...(campaign.status === "pausada"
+                        ? [{ etiqueta: "Reanudar campaña", alElegir: () => void cambiarEstado(campaign.id, "activa"), deshabilitado: cambiando }]
+                        : []),
+                      ...(puedeFinalizar
                         ? [
                             {
-                              etiqueta: finalizandoId === campaign.id ? "Finalizando..." : "Finalizar campaña",
-                              alElegir: () => void finalizarCampana(campaign.id),
+                              etiqueta: "Finalizar campaña",
+                              alElegir: () => void cambiarEstado(campaign.id, "finalizada"),
                               peligro: true,
-                              deshabilitado: finalizandoId === campaign.id,
+                              deshabilitado: cambiando,
                             },
                           ]
                         : []),
                     ]}
                   />
                 </div>
-                {finalizarError[campaign.id] && (
-                  <p className="mt-2 text-[11.5px] text-error-700">{finalizarError[campaign.id]}</p>
+                {campaign.status === "pausada" && (
+                  <p className="mt-2 text-[11.5px] text-system-600">Pausada: no recibe aportes ni aparece en Campañas hasta que la reanudes.</p>
+                )}
+                {cambioError[campaign.id] && (
+                  <p role="alert" className="mt-2 text-[11.5px] text-error-700">{cambioError[campaign.id]}</p>
                 )}
               </div>
             );
           })}
         </div>
       )}
+
+      <VentanaDeConfirmacion
+        abierto={porPausar !== null}
+        titulo="¿Pausar esta campaña?"
+        textoConfirmar="Pausar campaña"
+        textoOcupado="Pausando…"
+        ocupado={porPausar !== null && cambiandoId === porPausar.id}
+        onCancelar={() => setPorPausar(null)}
+        onConfirmar={() => {
+          if (!porPausar) return;
+          void cambiarEstado(porPausar.id, "pausada").finally(() => setPorPausar(null));
+        }}
+      >
+        {porPausar && <p className="mb-3 font-semibold text-system-900">{porPausar.name}</p>}
+        <ul className="flex list-disc flex-col gap-1.5 pl-5">
+          <li>No recibirá aportes nuevos, ni de personas con cuenta ni por su enlace público.</li>
+          <li>Dejará de aparecer en Campañas y en Explorar.</li>
+          <li>Los aportes que ya recibió se conservan y puedes seguir revisándolos.</li>
+          <li>No se finaliza sola: si su fecha de cierre pasa mientras está pausada, tendrás que poner una nueva para reanudarla.</li>
+        </ul>
+        <p className="mt-3">Puedes reanudarla cuando quieras desde el menú «Más».</p>
+      </VentanaDeConfirmacion>
     </div>
   );
 }

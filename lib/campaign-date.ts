@@ -25,7 +25,7 @@ const PARTES_DE_AHORA = new Intl.DateTimeFormat("en-CA", {
 });
 
 /** Fecha y hora de pared de Tepic en este momento. */
-function ahoraEnZona(): { year: number; month: number; day: number; hour: number; minute: number; second: number } {
+export function ahoraEnZona(): { year: number; month: number; day: number; hour: number; minute: number; second: number } {
   const partes = Object.fromEntries(
     PARTES_DE_AHORA.formatToParts(new Date())
       .filter((p) => p.type !== "literal")
@@ -39,6 +39,12 @@ function ahoraEnZona(): { year: number; month: number; day: number; hour: number
     minute: partes.minute,
     second: partes.second,
   };
+}
+
+/** "Hoy" en Tepic como "YYYY-MM-DD" (comparable como texto con las columnas DATE normalizadas). */
+export function hoyEnTepic(): string {
+  const a = ahoraEnZona();
+  return `${a.year}-${String(a.month).padStart(2, "0")}-${String(a.day).padStart(2, "0")}`;
 }
 
 /** Milisegundos de "ahora" como hora de pared de Tepic, comparables con campaignMoment(). */
@@ -175,8 +181,12 @@ export async function activateScheduledCampaigns(): Promise<void> {
   // Al empezar, cada campaña recibe su enlace público. Import dinámico:
   // lib/campanas/enlaces.ts importa este archivo y un import estático haría un ciclo.
   const { asegurarEnlaceVigente } = await import("@/lib/campanas/enlaces");
+  // Mismo motivo: campanas-por-interes importa este archivo.
+  const { avisarCampanaNueva } = await import("@/lib/notificaciones/campanas-por-interes");
   for (const { id, creator_id, name } of rows) {
     await asegurarEnlaceVigente(Number(id));
+    // A quien tiene su temática y vive donde se hace (en segundo plano).
+    avisarCampanaNueva(Number(id));
     // El UPDATE solo devuelve la fila a quien la activó, así que se avisa una sola vez.
     await notificar({
       usuarioId: creator_id,

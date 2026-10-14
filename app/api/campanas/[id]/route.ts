@@ -3,6 +3,8 @@
 // ({ action: "aceptada" | "rechazada" | "reportada", motivo }) o edición del creador.
 
 import { NextResponse } from "next/server";
+import { especialDesdeFila } from "@/lib/campanas/especial";
+import { avisarCampanaEspecial } from "@/lib/notificaciones/campanas-por-interes";
 import {
   ESTADOS_CON_EDICION_COMPLETA,
   MAX_CAMPANAS_ACTIVAS as MAX_ACTIVE_CAMPAIGNS,
@@ -90,6 +92,7 @@ function mapCampaign(row: Record<string, unknown>) {
     organizer: String(row.organizer ?? ""),
     xpPerContribution: Number(row.xp_per_contribution ?? 0),
     isSpecial: Boolean(row.is_special),
+    especial: especialDesdeFila(row),
     daysRemaining: calculateCampaignDaysRemaining(row.end_date ?? row.endDate),
     hasReviewerAssigned: Boolean(row.has_reviewer_assigned),
     shareToken: String(row.share_token ?? ""),
@@ -243,10 +246,38 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     }
 
     if (currentStatus === "activa" || currentStatus === "pausada") {
-      // El creador puede finalizarla desde aquí (botón "Finalizar campaña"),
-      // sin tocar ningún otro campo a la vez.
-      const soloFinaliza = Object.keys(body).length === 1 && normalizeCampaignStatus(body.status) === "finalizada";
-      if (!soloFinaliza) {
+      // El creador puede finalizarla, pausarla (activa) o reanudarla (pausada)
+      // desde /mis-campanas, sin tocar ningún otro campo a la vez.
+      const pedido = Object.keys(body).length === 1 ? normalizeCampaignStatus(body.status) : null;
+      const cambiaEstado =
+        pedido === "finalizada" ||
+        (currentStatus === "activa" && pedido === "pausada") ||
+        (currentStatus === "pausada" && pedido === "activa");
+      if (pedido === "activa" && cambiaEstado) {
+        // Reanudar: vuelve a contar para el tope de activas, y si su cierre ya
+        // pasó mientras estaba pausada, finalizeExpiredCampaigns la cerraría
+        // en la siguiente lectura.
+        if (hasCampaignEnded(normalizeCampaignDate(existing.rows[0].end_date), normalizeCampaignTime(existing.rows[0].end_time))) {
+          return NextResponse.json(
+            { error: "La fecha de cierre ya pasó. Edita la campaña y pon una nueva antes de reanudarla" },
+            { status: 400 }
+          );
+        }
+        const activas = await pool.query(
+          `SELECT COUNT(*)::int AS count FROM campanas WHERE creator_id = $1 AND status = 'activa'`,
+          [user.id]
+        );
+        if (Number(activas.rows[0].count) >= MAX_ACTIVE_CAMPAIGNS) {
+          return NextResponse.json(
+            { error: `Ya tienes ${MAX_ACTIVE_CAMPAIGNS} campañas activas; pausa o finaliza otra antes de reanudar esta` },
+            { status: 400 }
+          );
+        }
+      }
+      if (!cambiaEstado) {
+        if (pedido) {
+          return NextResponse.json({ error: "Ese cambio de estado no está permitido para esta campaña" }, { status: 400 });
+        }
         const camposPermitidos = new Set(["goalContributions", "goal_contributions", "endDate", "end_date", "endTime", "end_time"]);
         const camposNoPermitidos = Object.keys(body).filter((key) => !camposPermitidos.has(key));
         if (camposNoPermitidos.length > 0) {
@@ -407,6 +438,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     // Pasó a activa (p. ej. se reactivó una finalizada): genera su enlace público.
     if (result.rows[0].status === "activa" && currentStatus !== "activa") {
       await asegurarEnlaceVigente(Number(id));
+      // Se reanudó con incentivos que no se avisaron mientras estaba pausada.
+      if (result.rows[0].is_special) avisarCampanaEspecial(Number(id));
     }
 
     return NextResponse.json({ message: "Campaña actualizada", data: mapCampaign(result.rows[0]) });

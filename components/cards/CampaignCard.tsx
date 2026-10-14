@@ -36,11 +36,14 @@ export default function CampaignCard({ campaign }: { campaign: Campaign }) {
     <Card className="flex flex-col gap-3 max-md:gap-2.5 max-md:p-3.5">
       <div className="flex items-center justify-between gap-2">
         <Tag tone="ok">{campaign.tag}</Tag>
-        {campaign.isBanned ? (
-          <Tag tone="danger">Baneado</Tag>
-        ) : (
-          <Tag>{isActive ? "● Activa" : campaign.status === "en_revision" ? "◦ Próxima" : campaign.status}</Tag>
-        )}
+        <div className="flex flex-wrap justify-end gap-1.5">
+          {campaign.especial?.etapa === "vigente" && <Tag tone="warn">★ Especial ×{campaign.especial.multiplicador}</Tag>}
+          {campaign.isBanned ? (
+            <Tag tone="danger">Baneado</Tag>
+          ) : (
+            <Tag>{isActive ? "● Activa" : campaign.status === "en_revision" ? "◦ Próxima" : campaign.status}</Tag>
+          )}
+        </div>
       </div>
 
       <div>

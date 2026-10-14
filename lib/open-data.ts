@@ -60,6 +60,8 @@ const MIME_FORMAT_LABELS: Record<string, string> = {
   "audio/wav": "WAV",
   "audio/ogg": "OGG",
   "application/pdf": "PDF",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "DOCX",
+  "text/plain": "TXT",
 };
 
 export function formatMime(mime: string): string {

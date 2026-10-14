@@ -216,7 +216,8 @@ Están anotados para que no te sorprendan. No los "arregles de paso": cada uno e
 | **Fotos anteriores al 2026-10-01 en el servidor:** pueden conservar su EXIF (GPS incluido) hasta correr `scripts/limpiar-metadatos.mjs --aplicar` (comando en su cabecera) | MinIO |
 | **Sin CSP global:** hay X-Frame-Options, nosniff, Referrer-Policy y Permissions-Policy (`next.config.ts`), pero una Content-Security-Policy completa necesita probar Google OAuth y las fuentes | `next.config.ts` |
 | **Un usuario sancionado puede aportar como anónimo** desde un enlace (al no tener sesión válida ve el formulario anónimo), igual que cualquiera que cierre sesión. No hay forma de ligar el dispositivo a la cuenta | `app/c/[token]/page.tsx` |
-| Solo se aceptan fotos JPG/PNG de hasta 10 MB | `app/api/aportes/route.ts` |
+| **Video y audio se guardan con sus metadatos** (pueden llevar la ubicación de donde se grabaron): limpiarlos exige ffmpeg en la imagen. La pantalla de aportar lo avisa. Tampoco se limpian las imágenes incrustadas en un .docx o .pdf | `lib/aportes/limpiar-archivo.ts` |
+| **Archivos de hasta 50 MB pasan por la memoria del servidor** (`request.formData()` y la limpieza los cargan completos). Para archivos más grandes conviene subir directo a MinIO con POST firmado. El proxy del servidor también debe aceptar cuerpos de ~51 MB | `lib/aportes/comun.ts`, `next.config.ts` |
 | El build falla a veces descargando Google Fonts; reintentar. La solución es `next/font/local` | `app/layout.tsx` |
 | La imagen de MinIO ya no se puede descargar de internet; solo sirve la que está en caché | `docker-compose.yml` |
 | Sin respaldos de Postgres ni MinIO, y sin `/api/health` | — |

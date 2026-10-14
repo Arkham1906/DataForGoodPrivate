@@ -1,6 +1,8 @@
 // Tipos centrales del proyecto. Reflejan el modelo de datos del backend
 // y se usan para consumir la API real de campañas y usuarios.
 
+import type { CampanaEspecial } from "@/lib/campanas/especial-reglas";
+
 export type CampaignStatus =
   | "borrador"
   | "en_revision"
@@ -71,6 +73,8 @@ export interface Campaign {
   organizer?: string;
   xpPerContribution: number;
   isSpecial?: boolean;
+  /** Incentivos de campaña especial (lib/campanas/especial.ts), o null si no es especial. */
+  especial?: CampanaEspecial | null;
   daysRemaining: number | null;
   hasReviewerAssigned: boolean;
   shareToken?: string;
@@ -94,6 +98,7 @@ export interface Contribution {
   description: string;
   fileType: DataType;
   fileSizeBytes?: number;
+  sinArchivo?: boolean; // aporte de solo texto: la descripción es el dato (2026-10-14)
   caracteristicas?: string[];
   status: ContributionStatus;
   /** Indica si la sesión actual puede revisar este aporte (no es quien lo envió). */

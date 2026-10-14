@@ -15,6 +15,7 @@ import Tag from "@/components/ui/Tag";
 import type { Campaign } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
 import { TIPO_DE_DATO } from "@/lib/aportes/archivo";
+import { fechaCorta } from "@/lib/campanas/especial-reglas";
 import CompartirCampana from "./compartir";
 import ReportarCampana from "./reportar";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
@@ -122,6 +123,22 @@ export default function CampaignDetailPage() {
           Fecha de cierre: {closeDate} · Días restantes: {remainingDays}
         </p>
 
+        {campaign.especial && campaign.especial.etapa !== "terminada" && (
+          <div className="mb-4 rounded-lg border border-warning-200 bg-warning-50 p-4 text-[13px] text-warning-900">
+            <p className="font-bold">
+              ★ Campaña especial: experiencia ×{campaign.especial.multiplicador}
+              {campaign.especial.etapa === "vigente"
+                ? ` hasta el ${fechaCorta(campaign.especial.fin)}`
+                : ` del ${fechaCorta(campaign.especial.inicio)} al ${fechaCorta(campaign.especial.fin)}`}
+            </p>
+            <p className="mt-1 text-[12.5px]">
+              Cada aporte aprobado en ese periodo da {campaign.especial.multiplicador === 1 ? "la experiencia normal" : `${campaign.especial.multiplicador} veces la experiencia`}.
+              {" "}Al completar tu cuota ganas {campaign.especial.bono} XP
+              {campaign.especial.insignia ? <> y la insignia <b>“{campaign.especial.insignia}”</b></> : null}.
+            </p>
+          </div>
+        )}
+
         <div className="mb-6 rounded-lg bg-brand-800 p-5 text-white">
           <p className="text-base font-bold">Tu observación suma conocimiento</p>
           <p className="mt-1 text-[13px] text-white/85">{campaign.description}</p>
@@ -186,6 +203,8 @@ export default function CampaignDetailPage() {
             <Link href={`/campanas/${campaign.id}/aportar`}>
               <Button variant="primary" className="w-full">Realizar un aporte</Button>
             </Link>
+          ) : campaign.status === "pausada" ? (
+            <p className="rounded-lg bg-system-100 p-3 text-center text-[12.5px] text-system-600">Quien organiza esta campaña la pausó. Podrás aportar cuando la reanude.</p>
           ) : (
             <p className="rounded-lg bg-system-100 p-3 text-center text-[12.5px] text-system-600">Esta campaña no está recibiendo aportes.</p>
           )}

@@ -6,26 +6,49 @@
 import type { PoolClient } from "pg";
 import { pool } from "@/lib/db";
 import { borrarArchivo, guardarArchivo, type SavedUpload } from "@/lib/minio";
-import { limpiarImagen } from "@/lib/aportes/imagen";
+import { limpiarArchivo } from "@/lib/aportes/limpiar-archivo";
+import { TAMANO_MAXIMO as TAMANO_MAXIMO_DE_ARCHIVO, archivoEsOpcional, type TipoDeArchivo } from "@/lib/aportes/archivo";
 
-export { LARGO_MAXIMO_DESCRIPCION, TAMANO_MAXIMO, TIPOS_DE_ARCHIVO, errorDeArchivo } from "@/lib/aportes/archivo";
+export { LARGO_MAXIMO_DESCRIPCION, TAMANO_MAXIMO, errorDeArchivo, tiposAceptados } from "@/lib/aportes/archivo";
 
 /**
- * Comprueba que el archivo sea de verdad una foto JPG o PNG, le quita los metadatos
- * (EXIF con GPS, etc.) y la guarda en MinIO. Devuelve un error para la persona si no sirve.
+ * El cuerpo declarado pasa del archivo más grande permitido más 1 MB de formulario. Se mira
+ * antes de leer el formulario: lo que pasa de proxyClientMaxBodySize (next.config.ts) llega
+ * cortado y daría un 500 en vez de un 413.
  */
-export async function guardarFotoDelAporte(
-  archivo: File,
-  campaignId: string | number
-): Promise<{ ok: true; guardado: SavedUpload } | { ok: false; error: string }> {
-  const limpia = await limpiarImagen(archivo);
-  if (!limpia.ok) return limpia;
-  const guardado = await guardarArchivo(limpia.imagen.contenido, {
+export function cuerpoDemasiadoGrande(request: Request): boolean {
+  return Number(request.headers.get("content-length") ?? 0) > TAMANO_MAXIMO_DE_ARCHIVO + 1_000_000;
+}
+
+export const MENSAJE_CUERPO_GRANDE = "El archivo es demasiado grande para subirlo.";
+
+/** Lo que se guarda en las columnas file_* de `aportes`. Sin archivo: texto, con file_path ''. */
+export type ArchivoDelAporte = { tipo: TipoDeArchivo; guardado: SavedUpload | null };
+
+/**
+ * Comprueba por su contenido que el archivo sea de un tipo que acepta la campaña, le quita
+ * los metadatos que se pueden quitar (lib/aportes/limpiar-archivo.ts) y lo guarda en MinIO.
+ * Sin archivo, solo si la campaña acepta texto: el aporte es la descripción.
+ * Devuelve un error para la persona si no sirve.
+ */
+export async function guardarArchivoDelAporte(
+  archivo: FormDataEntryValue | null,
+  campaignId: string | number,
+  tipos: TipoDeArchivo[]
+): Promise<{ ok: true; archivo: ArchivoDelAporte } | { ok: false; error: string }> {
+  if (!(archivo instanceof File) || archivo.size === 0) {
+    return archivoEsOpcional(tipos)
+      ? { ok: true, archivo: { tipo: "texto", guardado: null } }
+      : { ok: false, error: "El archivo es obligatorio" };
+  }
+  const limpio = await limpiarArchivo(archivo, tipos);
+  if (!limpio.ok) return limpio;
+  const guardado = await guardarArchivo(limpio.archivo.contenido, {
     subdir: `campanas/${campaignId}`,
-    extension: limpia.imagen.extension,
-    mimeType: limpia.imagen.mimeType,
+    extension: limpio.archivo.extension,
+    mimeType: limpio.archivo.mimeType,
   });
-  return { ok: true, guardado };
+  return { ok: true, archivo: { tipo: limpio.archivo.tipo, guardado } };
 }
 
 /**
@@ -48,8 +71,8 @@ export async function insertarAporteConCuota<T>(entrada: {
   contar: (client: PoolClient) => Promise<number>;
   insertar: (client: PoolClient) => Promise<T>;
   comprobar?: (client: PoolClient) => Promise<{ error: string; esperaSegundos: number } | null>;
-  /** Clave en MinIO del archivo ya subido, para borrarlo si no se inserta. */
-  archivoSubido: string;
+  /** Clave en MinIO del archivo ya subido, para borrarlo si no se inserta (null: aporte sin archivo). */
+  archivoSubido: string | null;
 }): Promise<
   | { ok: true; fila: T; yaEnviados: number }
   | { ok: false; motivo: "cuota" }
@@ -82,7 +105,7 @@ export async function insertarAporteConCuota<T>(entrada: {
     throw error;
   } finally {
     client.release();
-    if (!insertado) {
+    if (!insertado && entrada.archivoSubido) {
       await borrarArchivo(entrada.archivoSubido).catch((error) => {
         console.error("No se pudo borrar el archivo de un aporte que no se guardó", error);
       });

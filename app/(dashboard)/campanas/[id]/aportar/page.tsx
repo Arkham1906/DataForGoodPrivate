@@ -2,6 +2,7 @@
 
 // Pantalla /campanas/[id]/aportar: formulario para enviar un aporte (archivo, descripción, checklists).
 // Componente cliente. Datos: GET /api/campanas?id= y GET /api/aportes?campaignId=&mine=true (cuota usada).
+// El archivo sigue los tipos de la campaña (components/ui/SelectorDeArchivo); con "texto" es opcional.
 // Acción: POST /api/aportes (multipart/form-data). El servidor valida cuota, baneo, tipo, tamaño
 // y las dos casillas de la ventana "Antes de enviar" (components/ui/AvisosDeAporte), que se abre
 // al dar "Enviar aporte" y es la que envía.
@@ -17,6 +18,8 @@ import { etiquetaDeRespuesta } from "@/lib/campanas/checklist";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import IndicadorDeCarga from "@/components/ui/IndicadorDeCarga";
 import AvisosDeAporte, { agregarAvisos, type Avisos } from "@/components/ui/AvisosDeAporte";
+import SelectorDeArchivo from "@/components/ui/SelectorDeArchivo";
+import { archivoEsOpcional, tiposAceptados } from "@/lib/aportes/archivo";
 
 export default function AportarPage() {
   const params = useParams<{ id: string }>();
@@ -79,30 +82,8 @@ export default function AportarPage() {
   // La API ya convierte las campañas viejas (lista plana) en un checklist sin título.
   const checklists = campaign.checklistSecciones ?? [];
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const selected = e.target.files?.[0];
-    if (!selected) {
-      setFile(null);
-      setFileError(null);
-      return;
-    }
-
-    const allowedTypes = ["image/jpeg", "image/png"];
-    if (!allowedTypes.includes(selected.type)) {
-      setFile(null);
-      setFileError("Formato no válido. Usa .jpg, .jpeg o .png.");
-      return;
-    }
-
-    if (selected.size > 10_000_000) {
-      setFile(null);
-      setFileError("El archivo pesa más de 10 MB. Elige otro: no se comprime automáticamente.");
-      return;
-    }
-
-    setFileError(null);
-    setFile(selected);
-  }
+  // Tipos que acepta la campaña; con "texto", el archivo es opcional.
+  const tipos = tiposAceptados(campaign.dataTypes);
 
   function toggleCaracteristica(value: string) {
     setCaracteristicas((current) =>
@@ -116,7 +97,7 @@ export default function AportarPage() {
   }
 
   async function enviar(avisos: Avisos) {
-    if (!file || !campaign) return;
+    if (!campaign) return;
 
     setSubmitting(true);
     setSubmitError(null);
@@ -125,7 +106,7 @@ export default function AportarPage() {
       const formData = new FormData();
       formData.set("campaignId", campaign.id);
       formData.set("description", description);
-      formData.set("file", file);
+      if (file) formData.set("file", file);
       caracteristicas.forEach((item) => formData.append("caracteristicas", item));
       if (enlace) formData.set("enlace", enlace);
       agregarAvisos(formData, avisos);
@@ -142,7 +123,7 @@ export default function AportarPage() {
     }
   }
 
-  const canSubmit = !quotaReached && Boolean(file) && description.trim().length > 0 && description.length <= 1000 && !submitting;
+  const canSubmit = !quotaReached && (Boolean(file) || archivoEsOpcional(tipos)) && description.trim().length > 0 && description.length <= 1000 && !submitting;
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -155,23 +136,15 @@ export default function AportarPage() {
       {quotaReached && <p className="mb-5 rounded-lg border border-success-700 bg-success-50 p-3 text-[13px] text-success-700">Alcanzaste tu cuota en esta campaña. La campaña sigue abierta para otras personas, pero ya no puedes enviar más aportes.</p>}
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-        <div>
-          <p className="mb-1.5 text-[13px] font-medium text-system-900">
-            Archivo <span className="text-error-700">*</span>
-          </p>
-          <label className="flex cursor-pointer flex-col items-center gap-1 rounded-lg border border-dashed border-system-300 bg-system-100 p-6 text-center text-[13px] text-system-600 hover:border-brand-600">
-            <input type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" className="hidden" onChange={handleFileChange} />
-            {file ? (
-              <span className="font-medium text-system-900">{file.name}</span>
-            ) : (
-              <>
-                <span className="font-medium text-system-900">Arrastra una imagen o haz clic para buscarla</span>
-                <span className="font-mono text-[11px]">.jpg .jpeg .png · máximo 10 MB</span>
-              </>
-            )}
-          </label>
-          {fileError && <p className="mt-2 rounded border border-error-700 bg-error-50 p-2 text-[12px] text-error-700">{fileError}</p>}
-        </div>
+        <SelectorDeArchivo
+          tipos={tipos}
+          archivo={file}
+          error={fileError}
+          onCambio={(elegido, problema) => {
+            setFile(elegido);
+            setFileError(problema);
+          }}
+        />
 
         <div>
           <Field label="Descripción" required>
