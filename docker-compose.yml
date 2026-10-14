@@ -107,6 +107,8 @@ services:
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-}
+      # Tabla de líderes de la landing (lib/gamificacion): "si" para verla; oculta mientras use datos de ejemplo.
+      MOSTRAR_TABLA_DE_LIDERES: ${MOSTRAR_TABLA_DE_LIDERES:-no}
       # La contraseña va dentro de una URL: usa solo letras, números y guiones.
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       MINIO_ENDPOINT: minio

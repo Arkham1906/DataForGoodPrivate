@@ -12,6 +12,8 @@ import ProgressBar from "@/components/ui/ProgressBar";
 import Tag from "@/components/ui/Tag";
 import { retraso } from "@/lib/animaciones";
 import { pool } from "@/lib/db";
+import TablaDeLideres from "@/components/gamificacion/TablaDeLideres";
+import { mostrarTablaDeLideres, obtenerTablaDeLideres } from "@/lib/gamificacion/clasificacion";
 import { DATA_TYPE_LABELS, buscarConjuntosAbiertos, contarConjuntosPublicados } from "@/lib/open-data";
 
 // Página pública: se regenera cada cinco minutos y el resto del tiempo se
@@ -172,6 +174,8 @@ export default async function LandingPage() {
     obtenerCifras(),
     obtenerCampanasDestacadas(),
   ]);
+  // Tabla de líderes: oculta hasta que lea datos reales (MOSTRAR_TABLA_DE_LIDERES=si para verla).
+  const tablaDeLideres = mostrarTablaDeLideres() ? await obtenerTablaDeLideres() : null;
 
   return (
     <div className="min-h-screen bg-system-50">
@@ -300,6 +304,20 @@ export default async function LandingPage() {
                 </Link>
               );
             })}
+          </div>
+        </section>
+      )}
+
+      {tablaDeLideres && (
+        <section className="mx-auto max-w-4xl px-6 pb-24" aria-labelledby="tabla-de-lideres">
+          <div className="landing-revelar mb-5">
+            <h2 id="tabla-de-lideres" className="text-2xl font-extrabold text-system-900">Tabla de líderes</h2>
+            <p className="mt-1 max-w-md text-[13.5px] text-system-600">
+              Quienes más aportan a la comunidad. Solo cuentan los aportes aprobados.
+            </p>
+          </div>
+          <div className="landing-revelar">
+            <TablaDeLideres tabla={tablaDeLideres} />
           </div>
         </section>
       )}

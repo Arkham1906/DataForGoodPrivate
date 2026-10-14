@@ -130,6 +130,18 @@ Reportes y sanciones, que antes eran del panel del SuperUsuario. Las mismas pant
 | `moderador.ts` | `moderadorDe(zona)` (para server actions: raíz o usuario con rol `supervisor`, según la zona), `exigirModerador(zona)` (para páginas: redirige a `/root` o `/campanas`), `actorDeModerador`, `firmaDeModerador` (`aplicada_por`), `cuentaDelModerador` | Páginas de las dos zonas, `acciones.ts` |
 | `acciones.ts` ⚡ | `aplicarSancion`, `restaurarAcceso`, `descartarReportes`, `quitarBloqueoDeDispositivo`; reciben la zona y comprueban su sesión. Un supervisor no se modera a sí mismo | `components/moderacion/*` |
 
+### `gamificacion/` (2026-10-13)
+
+Tabla de líderes de la landing. **Hoy devuelve datos de ejemplo** y la sección está oculta salvo con `MOSTRAR_TABLA_DE_LIDERES=si`; la lógica real la hace quien lleva la gamificación (instrucciones en el comentario de `obtenerTablaDeLideres`).
+
+| Archivo | Qué hace | Lo usa |
+| --- | --- | --- |
+| `tipos.ts` 🟢 | Contrato: `Lider`, `TablaDeLideres`, `CategoriaDeClasificacion`, `LIDERES_POR_CATEGORIA` (6), `LUGARES_DEL_PODIO` (3), `textoDelValor()`, `nombreParaMostrar()` ("Carlos P.") | `components/gamificacion/*`, `clasificacion.ts` |
+| `clasificacion.ts` | `obtenerTablaDeLideres()` (TODO: consultas reales) y `mostrarTablaDeLideres()` (interruptor del entorno) | `app/page.tsx` |
+| `datos-de-ejemplo.ts` 🟢 | `TABLA_DE_EJEMPLO`: 6 personas inventadas; se borra al conectar la base | `clasificacion.ts` |
+
+Componentes en `components/gamificacion/`: `TablaDeLideres` (cliente: categorías y selector de temática), `Podio` (lugares 1 a 3) y `ListaDeLideres` (del 4 en adelante).
+
 ### `tematicas/`
 
 Catálogo de temáticas (intereses del perfil y temática de campaña), desde el 2026-10-07.

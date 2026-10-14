@@ -557,6 +557,38 @@ export async function ensureTematicasTable(): Promise<void> {
   );
 }
 
+/**
+ * Medallas de la gamificación (2026-10-13, diagrama del usuario; la lógica la hace quien lleva la
+ * gamificación). `medallas` es el catálogo: nombre único, imagen en MinIO (file_*, como en aportes),
+ * `criterio` con la regla para ganarla (su forma la define la gamificación) y `activa` para retirar
+ * una sin borrarla. `medallas_usuario` dice quién ganó cuál y cuándo; una vez por persona.
+ * Una medalla con ganadores no se puede borrar (FK sin cascada): se desactiva.
+ */
+export async function ensureMedallasTables(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS medallas (
+      id SERIAL PRIMARY KEY,
+      nombre VARCHAR(160) NOT NULL UNIQUE,
+      descripcion TEXT NOT NULL,
+      file_type VARCHAR(20) NOT NULL,
+      file_path VARCHAR(500) NOT NULL,
+      file_original_name VARCHAR(255),
+      file_mime_type VARCHAR(100),
+      file_size_bytes INTEGER,
+      criterio JSONB NOT NULL,
+      activa BOOLEAN NOT NULL DEFAULT true,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS medallas_usuario (
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+      medalla_id INTEGER NOT NULL REFERENCES medallas(id),
+      fecha_obtencion TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (usuario_id, medalla_id)
+    );
+    CREATE INDEX IF NOT EXISTS medallas_usuario_medalla_idx ON medallas_usuario (medalla_id);
+  `);
+}
+
 /** Crea (si falta) todo el esquema. Lo llama instrumentation.ts al arrancar. */
 export async function ensureCoreSchema(): Promise<void> {
   await ensureUsuariosTable();
@@ -577,4 +609,5 @@ export async function ensureCoreSchema(): Promise<void> {
   await ensureListaNegraTable();
   await ensureAuditLogTable();
   await ensureTematicasTable(); // después de usuarios: creada_por la referencia
+  await ensureMedallasTables(); // después de usuarios: medallas_usuario.usuario_id la referencia
 }
