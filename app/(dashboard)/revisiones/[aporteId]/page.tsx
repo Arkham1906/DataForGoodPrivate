@@ -6,8 +6,9 @@
 // La decisión del revisor es final, igual que la del creador (dominio.md § 5).
 // Aporte anónimo sin decisión: "Contenido inapropiado" al rechazar o "Marcar como inapropiado" sin decidir
 // (POST /api/aportes/[id]/inapropiado). Banear, bloquear o borrar archivos es solo del creador.
-// "Reportar al creador" (POST /api/aportes/[id]/reportar, con motivo): avisa al creador para que decida
-// si banea a quien lo envió. Uno por aporte, antes o después de decidirlo.
+// "Reportar a supervisión" (POST /api/aportes/[id]/reportar, con motivo; antes "Reportar al creador"): entra a
+// la bandeja de Reportes y avisa solo a los supervisores (2026-10-15). Solo aportes con cuenta. Uno por
+// aporte, antes o después de decidirlo.
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -98,7 +99,7 @@ export default function RevisionAportePage() {
         actual ? { ...actual, reporte: { motivo: motivoCompleto, revisor: "Tú", en: new Date().toISOString() } } : actual
       );
       setReportando(false);
-      setAviso(payload.message ?? "Aviso enviado a quien creó la campaña");
+      setAviso(payload.message ?? "Reporte enviado a supervisión");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se pudo enviar el reporte");
     } finally {
@@ -279,16 +280,16 @@ export default function RevisionAportePage() {
 
       {item.canReview && item.reporte ? (
         <p className="mt-6 rounded border border-warning-500 bg-warning-50 p-3 text-[12.5px] text-warning-800">
-          Reportado a quien creó la campaña · {item.reporte.motivo}
+          Reportado a supervisión · {item.reporte.motivo}
         </p>
       ) : item.canReview && reportando ? (
         <form onSubmit={(e) => void confirmarReporte(e)} className="mt-6 rounded-lg border border-warning-500 bg-white p-4">
           <p className="text-[13px] font-medium text-system-900">
-            Reportar al creador <span className="text-error-700">*</span>
+            Reportar a supervisión <span className="text-error-700">*</span>
           </p>
           <p className="mb-3 mt-1 text-[11.5px] text-system-500">
-            Si el contenido es inapropiado o quien lo envió abusa de la campaña, avisa a quien la creó. Tú no
-            baneas: banear o bloquear a esa persona es decisión suya.
+            Si el contenido es inapropiado o quien lo envió abusa de la campaña, avisa a los supervisores: lo
+            revisan y deciden si le dan un aviso. Quien creó la campaña no recibe este reporte.
           </p>
           <select
             value={motivoDeReporte}
@@ -335,9 +336,9 @@ export default function RevisionAportePage() {
                 Marcar como inapropiado
               </Button>
             )}
-            {!item.reporte && (
+            {!item.reporte && item.userId !== null && (
               <Button variant="ghost" disabled={submitting || reportando} onClick={() => setReportando(true)}>
-                Reportar al creador
+                Reportar a supervisión
               </Button>
             )}
             {!yaDecidido && (
@@ -362,7 +363,7 @@ export default function RevisionAportePage() {
             url={`/api/aportes/${item.id}/reportar-participante`}
             motivos={MOTIVOS_DE_REPORTE_DE_APORTE}
             titulo="Reportar a quien aportó"
-            explicacion="Para faltas graves de la cuenta (acoso, contenido ilegal, abuso repetido). Lo revisa el equipo de DataForGood, que decide si le da un aviso. Esa persona no sabrá quién la reportó. Para la campaña, usa «Reportar al creador»."
+            explicacion="Para faltas graves de la cuenta (acoso, contenido ilegal, abuso repetido). Lo revisa el equipo de DataForGood, que decide si le da un aviso. Esa persona no sabrá quién la reportó. Para contenido inapropiado en la campaña, usa «Reportar a supervisión»."
             placeholder="Qué hizo quien envió el aporte"
             yaReportado={Boolean(item.participanteReportado)}
             textoYaReportado="Ya reportaste a quien envió este aporte. El equipo de DataForGood lo está revisando."

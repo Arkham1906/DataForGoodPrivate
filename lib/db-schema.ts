@@ -324,6 +324,29 @@ export async function ensureCampanasGuardadasTable(): Promise<void> {
 }
 
 /**
+ * Inscripción a una campaña para aportar (2026-10-15, lib/campanas/inscripciones.ts): la persona acepta
+ * una sola vez los acuerdos de confirmación y de uso del aporte (lib/aportes/consentimiento.ts), en vez
+ * de aceptarlos en cada aporte. POST /api/aportes la exige. Se crea después de aportes: quien ya había
+ * aportado aceptando los avisos queda inscrita con la hora de su primer consentimiento.
+ */
+export async function ensureCampanaInscripcionesTable(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS campana_inscripciones (
+      campana_id INTEGER NOT NULL REFERENCES campanas(id) ON DELETE CASCADE,
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+      aceptada_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (campana_id, usuario_id)
+    );
+    INSERT INTO campana_inscripciones (campana_id, usuario_id, aceptada_en)
+    SELECT campaign_id, user_id, MIN(consentimiento_en)
+      FROM aportes
+     WHERE user_id IS NOT NULL AND consentimiento_en IS NOT NULL
+     GROUP BY campaign_id, user_id
+    ON CONFLICT DO NOTHING;
+  `);
+}
+
+/**
  * Enlaces públicos de participación (/c/[token]). Cada regeneración inserta
  * una fila nueva y marca la anterior como revocada, sin borrarla: así se
  * conserva cuántas visitas y aportes entraron por cada token. Vigente =
@@ -409,8 +432,8 @@ export async function ensureAportesTable(): Promise<void> {
     ALTER TABLE aportes ADD COLUMN IF NOT EXISTS inapropiado_en TIMESTAMPTZ;
     -- El creador borró el archivo de MinIO (ilegal o dañino). La fila se conserva.
     ALTER TABLE aportes ADD COLUMN IF NOT EXISTS archivo_borrado_en TIMESTAMPTZ;
-    -- "Reportar al creador": el revisor avisa que el aporte o quien lo envió merece una sanción
-    -- (2026-10-06). Uno por aporte. Banear sigue siendo decisión del creador.
+    -- "Reportar a supervisión" (2026-10-06 como "Reportar al creador"): el revisor reporta el aporte o a
+    -- quien lo envió. Uno por aporte. Desde el 2026-10-15 también entra a reportes y no avisa al creador.
     ALTER TABLE aportes ADD COLUMN IF NOT EXISTS reporte_motivo TEXT;
     ALTER TABLE aportes ADD COLUMN IF NOT EXISTS reporte_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL;
     ALTER TABLE aportes ADD COLUMN IF NOT EXISTS reporte_en TIMESTAMPTZ;
@@ -618,6 +641,7 @@ export async function ensureCoreSchema(): Promise<void> {
   await ensureCampanasGuardadasTable();
   await ensureCampanaEnlacesTable(); // antes de aportes: aportes.enlace_id la referencia
   await ensureAportesTable();
+  await ensureCampanaInscripcionesTable(); // después de aportes: toma de ahí a quien ya había aceptado
   await ensureDispositivosBloqueadosTable(); // después de aportes: aporte_id la referencia
   await ensureSancionesTable();
   await ensureReportesTable(); // después de sanciones y aportes: los referencia

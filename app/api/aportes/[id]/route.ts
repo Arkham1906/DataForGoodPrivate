@@ -37,7 +37,7 @@ function mapAporte(row: Record<string, unknown>) {
   };
 }
 
-/** "Reportar al creador" del revisor. Solo para el creador y los revisores: quien aportó no lo ve. */
+/** "Reportar a supervisión" del revisor. Solo para los revisores: ni el creador ni quien aportó lo ven. */
 function mapReporte(row: Record<string, unknown>) {
   return row.reporte_en
     ? {
@@ -96,7 +96,8 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
         canReview,
         ...(isOwner || isCampaignCreator ? { participantEmail } : {}),
         ...(isCampaignCreator ? { dispositivoBloqueadoId: bloqueoId != null ? String(bloqueoId) : null } : {}),
-        ...(isCampaignCreator || isReviewer ? { reporte: mapReporte(row) } : {}),
+        // "Reportar a supervisión" del revisor: desde el 2026-10-15 el creador no lo ve, solo los revisores.
+        ...(isReviewer ? { reporte: mapReporte(row) } : {}),
         // Ya reportó a quien aportó a la plataforma (POST /api/aportes/[id]/reportar-participante).
         ...(isCampaignCreator || isReviewer
           ? { participanteReportado: await yaReporto({ tipo: "aporte", id: Number(row.id) }, Number(user.id)) }

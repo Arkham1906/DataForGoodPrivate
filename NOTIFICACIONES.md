@@ -40,12 +40,12 @@ Los tipos están declarados en [`lib/notificaciones/tipos.ts`](./lib/notificacio
 | --- | --- |
 | `aporte_aceptado` | La persona participante recibe la decisión final de que aceptaron su aporte. No se envía a aportes anónimos. |
 | `aporte_rechazado` | La persona participante recibe el rechazo y su motivo. No se envía a aportes anónimos. |
-| `aporte_reportado` | El creador recibe el aviso de que un revisor aceptado reportó un aporte para que lo revise. |
+| `aporte_reportado` | Ya no se crea (2026-10-15): el reporte del revisor va solo a los supervisores como `reporte_nuevo`. Puede aparecer en avisos viejos. |
 | `invitacion_revisor` | La persona invitada recibe la invitación del creador a revisar aportes de una campaña. |
 | `revisor_acepto` | El creador recibe el aviso de que la persona invitada aceptó revisar su campaña. |
 | `campana_aceptada` | El creador recibe la decisión de supervisión que acepta su campaña. |
 | `campana_rechazada` | El creador recibe el rechazo de supervisión y su motivo. |
-| `campana_reportada` | El creador recibe el aviso de que supervisión reportó su campaña. No representa por sí mismo un reporte nuevo enviado por otra persona. |
+| `campana_reportada` | Ya no se crea (2026-10-15): cuando un supervisor reporta una campaña, el creador no recibe aviso. Puede aparecer en avisos viejos. |
 | `campana_en_revision` | El creador recibe el aviso de que su campaña vuelve a revisión después de que el SuperUsuario revierte una decisión. |
 | `campana_iniciada` | El creador recibe el aviso de que llegó la fecha de inicio y su campaña empezó a recibir aportes. |
 | `campana_finalizada` | El creador recibe el aviso de que llegó la fecha de fin y su campaña dejó de recibir aportes. |
@@ -54,6 +54,8 @@ Los tipos están declarados en [`lib/notificaciones/tipos.ts`](./lib/notificacio
 | `rol_asignado` | La cuenta recibe el aviso de que se le asignó un rol administrado por el SuperUsuario, como supervisor. |
 | `rol_revocado` | La cuenta recibe el aviso de que se le retiró ese rol. |
 | `supervision_revertida` | El supervisor recibe el aviso de que el SuperUsuario revirtió una de sus decisiones. |
+| `campana_por_revisar` | Cada supervisor (menos el creador) recibe el aviso de que una campaña entró a revisión: la envió su creador o el SuperUsuario revirtió una decisión. Lleva a la campaña en Supervisión para tomarla. |
+| `reporte_nuevo` | Cada supervisor recibe el aviso de un reporte nuevo de campaña o de aporte (qué campaña y el motivo), y lleva a Reportes de supervisión. Incluye el "Reportar a supervisión" del revisor. No le llega a quien reportó, a la persona reportada ni, si reporta un revisor, al creador de la campaña. |
 | `sancion_aplicada` | La cuenta recibe el aviso de una sanción aplicada por la administración, con la consecuencia correspondiente. |
 | `sancion_restaurada` | La cuenta recibe el aviso de que la administración levantó una sanción que limitaba su acceso. |
 | `campana_nueva` | Al activarse una campaña, quien tiene su temática en sus intereses y vive en su estado (y municipio, si la campaña tiene uno). Máximo 3 al día por persona. |

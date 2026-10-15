@@ -11,6 +11,7 @@ import { redirect } from "next/navigation";
 import { pool } from "@/lib/db";
 import { ipDelCliente } from "@/lib/ip";
 import { notificar } from "@/lib/notificaciones/notificaciones";
+import { avisarCampanaPorRevisar } from "@/lib/notificaciones/avisos-a-supervisores";
 import { hasRootSession } from "@/lib/rootSession";
 import {
   CAUSALES_DE_REVERSION,
@@ -178,6 +179,10 @@ export async function revertirAccion(
       campanaId,
       enlace: "/mis-campanas",
     });
+  }
+  // Volvió a la fila de revisión sin supervisor: avisa a los demás supervisores.
+  if (ESTADOS_PARA_REVERTIR[accion.tipo]) {
+    avisarCampanaPorRevisar({ id: campanaId, creadorId: Number(accion.creadorId), otraVez: true, excluir: [supervisor] });
   }
 
   revalidatePath(`/usuarios/supervisores/${supervisorId}`);

@@ -5,12 +5,15 @@
 import { NextResponse } from "next/server";
 import { especialDesdeFila } from "@/lib/campanas/especial";
 import { pool } from "@/lib/db";
+import { avisarCampanaPorRevisar } from "@/lib/notificaciones/avisos-a-supervisores";
 import { getSessionUser } from "@/lib/session";
 import { idsDeCampanasConBaneo, motivoDeBaneo } from "@/lib/campanas/baneos";
 import { yaReporto } from "@/lib/reportes/reportes";
+import { inscripcionDe } from "@/lib/campanas/inscripciones";
+import { errorDeOrganizacion } from "@/lib/campanas/organizacion";
 import { normalizarSecciones, seccionesDesdeFila } from "@/lib/campanas/checklist";
 import { XP_POR_APORTE, errorDeEstadoPedido } from "@/lib/campanas/estado-del-creador";
-import { activateScheduledCampaigns, calculateCampaignDaysRemaining, finalizeExpiredCampaigns, normalizeCampaignDate, normalizeCampaignTime } from "@/lib/campaign-date";
+import { activateScheduledCampaigns, calculateCampaignDaysRemaining, errorDeFinAntesDeInicio, errorDeInicioPasado, finalizeExpiredCampaigns, normalizeCampaignDate, normalizeCampaignTime } from "@/lib/campaign-date";
 
 async function obtenerIdsGuardados(usuarioId: number): Promise<Set<number>> {
   const result = await pool.query<{ campana_id: number }>(
@@ -181,6 +184,8 @@ export async function GET(request: Request) {
           motivoDeBaneo: user && campaign.isBanned ? await motivoDeBaneo(campaign.id, user.id) : null,
           // Ya reportó la campaña: /campanas/[id] no le ofrece reportarla otra vez.
           yaReportada: user ? await yaReporto({ tipo: "campana", id: Number(campaign.id) }, Number(user.id)) : false,
+          // Ya aceptó los acuerdos para aportar (lib/campanas/inscripciones.ts).
+          inscrito: user ? (await inscripcionDe(campaign.id, user.id)) !== null : false,
         },
       });
     }
@@ -290,9 +295,18 @@ export async function POST(request: Request) {
     // Sin municipio la campaña abarca todo el estado, y la colonia no aplica.
     const locationColonia = locationCity ? String(body.locationColonia ?? body.location_colonia ?? "").trim() : "";
     const organizer = String(body.organizer ?? "").trim();
+    const errorOrganizacion = errorDeOrganizacion(organizer);
+    if (errorOrganizacion) return NextResponse.json({ error: errorOrganizacion }, { status: 400 });
     // Columnas viejas del enlace (ya no se usan: campana_enlaces).
     const shareToken = "";
     const shareTokenExpiresAt = null;
+
+    // Ni siquiera un borrador empieza antes de hoy (día de Tepic; hoy sí se permite)
+    // ni termina antes de empezar.
+    const errorDeInicio = errorDeInicioPasado(startDate) ?? errorDeFinAntesDeInicio(startDate, endDate);
+    if (errorDeInicio) {
+      return NextResponse.json({ error: errorDeInicio }, { status: 400 });
+    }
 
     // Un borrador puede quedar incompleto a propósito; para cualquier otro
     // estado (en_revision, activa...) sí se exigen los campos importantes,
@@ -312,9 +326,6 @@ export async function POST(request: Request) {
       }
       if (!endDate) {
         return NextResponse.json({ error: "La fecha de finalización es obligatoria" }, { status: 400 });
-      }
-      if (endDate < startDate) {
-        return NextResponse.json({ error: "La fecha de finalización no puede ser anterior a la de inicio" }, { status: 400 });
       }
       if (!locationState) {
         return NextResponse.json({ error: "Selecciona un estado" }, { status: 400 });
@@ -398,6 +409,10 @@ export async function POST(request: Request) {
         JSON.stringify(checklistSecciones),
       ]
     );
+
+    if (result.rows[0].status === "en_revision") {
+      avisarCampanaPorRevisar({ id: Number(result.rows[0].id), creadorId: creatorId });
+    }
 
     return NextResponse.json(
       {

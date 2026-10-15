@@ -11,6 +11,7 @@
 
 import { pool } from "@/lib/db";
 import { registrarAuditoria } from "@/lib/auditoria";
+import { avisarReporteASupervisores } from "@/lib/notificaciones/avisos-a-supervisores";
 import {
   MAXIMO_DESCRIPCION_DE_REPORTE,
   MOTIVOS_DE_REPORTE_DE_APORTE,
@@ -74,6 +75,13 @@ export async function reportarCampana(entrada: {
     objetivo: { tipo: "campana", id: entrada.campanaId },
     detalle: { reporteId: guardado.rows[0].id, reportadoId: campana.creator_id, motivo: motivo || null },
   });
+  avisarReporteASupervisores({
+    tipo: "campana",
+    campanaId: entrada.campanaId,
+    reportadoId: Number(campana.creator_id),
+    reportadoPor: entrada.usuarioId,
+    motivo: motivo || null,
+  });
   return { ok: true };
 }
 
@@ -89,8 +97,8 @@ export async function reportarParticipante(entrada: {
   const error = errorDeMotivo(motivo, descripcion, MOTIVOS_DE_REPORTE_DE_APORTE);
   if (error) return { ok: false, status: 400, error };
 
-  const { rows } = await pool.query<{ campaign_id: number; user_id: number | null; puede: boolean }>(
-    `SELECT a.campaign_id, a.user_id,
+  const { rows } = await pool.query<{ campaign_id: number; user_id: number | null; creator_id: number; puede: boolean }>(
+    `SELECT a.campaign_id, a.user_id, c.creator_id,
             (c.creator_id = $2 OR EXISTS (
               SELECT 1 FROM campana_revisores r
               WHERE r.campana_id = a.campaign_id AND r.usuario_id = $2 AND r.estado = 'aceptado'
@@ -125,6 +133,16 @@ export async function reportarParticipante(entrada: {
     accion: "aporte.reportar_participante",
     objetivo: { tipo: "aporte", id: entrada.aporteId },
     detalle: { reporteId: guardado.rows[0].id, reportadoId: aporte.user_id, motivo: motivo || null },
+  });
+  avisarReporteASupervisores({
+    tipo: "aporte",
+    campanaId: Number(aporte.campaign_id),
+    aporteId: entrada.aporteId,
+    reportadoId: Number(aporte.user_id),
+    reportadoPor: entrada.usuarioId,
+    motivo: motivo || null,
+    // Si reporta un revisor, el creador de la campaña no se entera (2026-10-15).
+    excluir: [Number(aporte.creator_id)],
   });
   return { ok: true };
 }
@@ -246,7 +264,7 @@ export async function listarReportes(filtro: FiltroDeReportes, sinContraCuenta: 
   }
 }
 
-/** Cuántos reportes y casos (campañas o aportes) esperan decisión (bandeja y menú lateral). Sin los
+/** Cuántos reportes y casos (campañas o aportes) esperan decisión (bandeja y "Modo supervisor" del panel). Sin los
  * reportes contra `sinContraCuenta` (el supervisor que modera). */
 export async function contarReportesPendientes(sinContraCuenta: number | null = null): Promise<{ reportes: number; casos: number }> {
   try {

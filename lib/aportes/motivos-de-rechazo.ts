@@ -1,5 +1,5 @@
 // Motivos que se ofrecen en una lista (también se puede redactar uno): rechazar un aporte y
-// "Reportar al creador". Sin imports de servidor: lo usan las pantallas cliente del creador y del revisor.
+// "Reportar a supervisión" del revisor. Sin imports de servidor: lo usan las pantallas cliente del creador y del revisor.
 
 export const MOTIVOS_DE_RECHAZO = [
   "Contenido borroso o ilegible",

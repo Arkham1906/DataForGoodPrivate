@@ -10,7 +10,13 @@ import { hasRootSession } from "@/lib/rootSession";
  * sesión raíz (root_sessions), nunca con la sesión de un usuario, aunque
  * tenga rol de supervisor. El SuperUsuario solo supervisa: no tiene fila en
  * `usuarios`, así que no puede crear campañas, aportar ni revisar aportes.
+ * Desde el 2026-10-15 (a pedido del usuario) ve TODAS las campañas que ya pasaron
+ * la supervisión, las haya aceptado él o cualquier supervisor, y las supervisa
+ * igual que las suyas: panel, participantes, aportes y "Reportar".
  */
+
+/** Estados de una campaña que ya pasó la supervisión (la aceptó alguien). */
+export const ESTADOS_SUPERVISADOS = ["aceptada", "activa", "pausada", "finalizada"];
 
 /** Guardia de cada página: el layout de (panel) ya la aplica, pero no basta solo. */
 export async function exigirSesionRoot(): Promise<void> {
@@ -26,6 +32,8 @@ export type CampanaSupervisable = {
   latestSupervisionAction: string | null;
   /** libre: nadie la ha tomado; mia: la tomó el SuperUsuario; otro: la tomó un usuario supervisor. */
   supervision: "libre" | "mia" | "otro";
+  /** Quién la supervisa: "SuperUsuario", el nombre del supervisor, o null si nadie. */
+  supervisadaPor: string | null;
   currentContributions: number;
   goalContributions: number;
   participants: number;
@@ -49,6 +57,11 @@ function mapear(row: Record<string, unknown>): CampanaSupervisable {
     status: String(row.status ?? ""),
     latestSupervisionAction: row.latest_supervision_action ? String(row.latest_supervision_action) : null,
     supervision: row.supervisado_por_root ? "mia" : row.supervisor_id != null ? "otro" : "libre",
+    supervisadaPor: row.supervisado_por_root
+      ? "SuperUsuario"
+      : row.supervisor_id != null
+        ? String(row.supervisor_nombre ?? "").trim() || "Un supervisor"
+        : null,
     currentContributions: Number(row.current_contributions ?? 0),
     goalContributions: Number(row.goal_contributions ?? 0),
     participants: Number(row.participants ?? 0),
@@ -64,14 +77,20 @@ function mapear(row: Record<string, unknown>): CampanaSupervisable {
   };
 }
 
+// Último dictamen de cualquier supervisor (o del SuperUsuario) y el nombre de quien la supervisa.
 const ULTIMA_ACCION_ROOT = `
   LEFT JOIN LATERAL (
     SELECT cs.accion
     FROM campana_supervisores cs
-    WHERE cs.campana_id = c.id AND cs.por_superusuario
+    WHERE cs.campana_id = c.id
     ORDER BY cs.created_at DESC, cs.id DESC
     LIMIT 1
-  ) ultima ON true`;
+  ) ultima ON true
+  LEFT JOIN LATERAL (
+    SELECT CONCAT_WS(' ', u.nombre, u.apellidos) AS supervisor_nombre
+    FROM usuarios u
+    WHERE u.id = c.supervisor_id
+  ) sup ON true`;
 
 export async function listarCampanasParaRoot(): Promise<{
   pendientes: CampanaSupervisable[];
@@ -84,16 +103,20 @@ export async function listarCampanasParaRoot(): Promise<{
   const [pendientes, supervisadas] = await Promise.all([
     // Por supervisar: las libres y las que ya tomó el SuperUsuario (un solo supervisor por campaña).
     pool.query(
-      `SELECT c.* FROM campanas c
+      `SELECT c.*, sup.supervisor_nombre FROM campanas c ${ULTIMA_ACCION_ROOT}
        WHERE c.status = 'en_revision'
          AND (c.supervisado_por_root OR c.supervisor_id IS NULL)
        ORDER BY c.created_at DESC`,
     ),
+    // Supervisadas: todas las que ya pasaron la supervisión (las aceptó él o un supervisor) y las
+    // que rechazó o reportó cualquiera, para la pestaña de incidencias.
     pool.query(
-      `SELECT c.*, ultima.accion AS latest_supervision_action
+      `SELECT c.*, ultima.accion AS latest_supervision_action, sup.supervisor_nombre
        FROM campanas c ${ULTIMA_ACCION_ROOT}
-       WHERE c.supervisado_por_root
+       WHERE c.status = ANY($1::text[])
+          OR (c.status IN ('en_revision', 'rechazada') AND (c.supervisado_por_root OR c.supervisor_id IS NOT NULL))
        ORDER BY c.created_at DESC`,
+      [ESTADOS_SUPERVISADOS],
     ),
   ]);
 
@@ -105,7 +128,7 @@ export async function obtenerCampanaParaRoot(id: string): Promise<CampanaSupervi
   if (!/^\d+$/.test(id)) return null;
 
   const result = await pool.query(
-    `SELECT c.*, ultima.accion AS latest_supervision_action
+    `SELECT c.*, ultima.accion AS latest_supervision_action, sup.supervisor_nombre
      FROM campanas c ${ULTIMA_ACCION_ROOT}
      WHERE c.id = $1
      LIMIT 1`,
@@ -114,14 +137,14 @@ export async function obtenerCampanaParaRoot(id: string): Promise<CampanaSupervi
   return result.rowCount === 0 ? null : mapear(result.rows[0]);
 }
 
-/** Campaña que el SuperUsuario supervisa y ya recolecta (para ver participantes y aportes). */
+/** Campaña que ya recolecta (o recolectó), la haya aceptado quien sea: participantes, aportes y panel. */
 export async function obtenerCampanaSupervisadaPorRoot(id: string): Promise<{ id: number; name: string } | null> {
   await exigirSesionRoot();
   if (!/^\d+$/.test(id)) return null;
 
   const result = await pool.query<{ id: number; name: string }>(
     `SELECT id, name FROM campanas
-     WHERE id = $1 AND supervisado_por_root AND status IN ('activa', 'finalizada')
+     WHERE id = $1 AND status IN ('activa', 'pausada', 'finalizada')
      LIMIT 1`,
     [id],
   );

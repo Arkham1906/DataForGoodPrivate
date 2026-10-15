@@ -4,11 +4,13 @@
 // que valida el enlace, la cuota por dispositivo, el tope por IP y la espera entre aportes.
 // Después de enviar, la persona solo ve cuántos aportes le quedan y una cuenta regresiva
 // hasta el siguiente: no puede consultar ni editar lo que mandó.
+// Sin cuenta no hay inscripción: las dos casillas de los acuerdos (ui/AcuerdosDeAporte) van en el
+// formulario, sin ventana, y se quedan marcadas entre aportes de la misma visita (2026-10-15).
 
 import { useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
 import IndicadorDeCarga from "@/components/ui/IndicadorDeCarga";
-import AvisosDeAporte, { agregarAvisos, type Avisos } from "@/components/ui/AvisosDeAporte";
+import { CasillasDeAcuerdos, SIN_ACUERDOS, acuerdosCompletos, agregarAcuerdos } from "@/components/ui/AcuerdosDeAporte";
 import { Field, Textarea } from "@/components/ui/Input";
 import SelectorDeArchivo from "@/components/ui/SelectorDeArchivo";
 import { LARGO_MAXIMO_DESCRIPCION, archivoEsOpcional, type TipoDeArchivo } from "@/lib/aportes/archivo";
@@ -38,8 +40,7 @@ export default function AporteAnonimo({
   const [errorArchivo, setErrorArchivo] = useState<string | null>(null);
   const [descripcion, setDescripcion] = useState("");
   const [marcadas, setMarcadas] = useState<string[]>([]);
-  // "Enviar aporte sin cuenta" abre la ventana de avisos; el envío sale de ahí.
-  const [confirmando, setConfirmando] = useState(false);
+  const [acuerdos, setAcuerdos] = useState(SIN_ACUERDOS);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [enviado, setEnviado] = useState(false);
@@ -58,12 +59,9 @@ export default function AporteAnonimo({
     setMarcadas((actual) => (actual.includes(valor) ? actual.filter((v) => v !== valor) : [...actual, valor]));
   }
 
-  function pedirConfirmacion(e: React.FormEvent) {
+  async function enviar(e: React.FormEvent) {
     e.preventDefault();
-    if (puedeEnviar) setConfirmando(true);
-  }
-
-  async function enviar(avisos: Avisos) {
+    if (!puedeEnviar) return;
     setEnviando(true);
     setError(null);
     try {
@@ -71,7 +69,7 @@ export default function AporteAnonimo({
       if (archivo) datos.set("file", archivo);
       datos.set("description", descripcion);
       marcadas.forEach((valor) => datos.append("caracteristicas", valor));
-      agregarAvisos(datos, avisos);
+      agregarAcuerdos(datos, acuerdos);
       const response = await fetch(`${BASE_PATH}/api/c/${encodeURIComponent(token)}/aportes`, { method: "POST", body: datos });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -93,7 +91,6 @@ export default function AporteAnonimo({
       setError(cause instanceof Error ? cause.message : "No se pudo enviar el aporte");
     } finally {
       setEnviando(false);
-      setConfirmando(false);
     }
   }
 
@@ -110,11 +107,12 @@ export default function AporteAnonimo({
     (Boolean(archivo) || archivoEsOpcional(tipos)) &&
     descripcion.trim().length > 0 &&
     descripcion.length <= LARGO_MAXIMO_DESCRIPCION &&
+    acuerdosCompletos(acuerdos) &&
     !enviando &&
     espera === 0;
 
   return (
-    <form onSubmit={pedirConfirmacion}>
+    <form onSubmit={(e) => void enviar(e)}>
       {enviado && (
         <p className="mb-4 rounded-lg border border-success-700 bg-success-50 p-3.5 text-[13px] text-success-700" role="status">
           ¡Gracias! Tu aporte quedó pendiente de revisión. Puedes enviar {restantes} más.
@@ -162,6 +160,10 @@ export default function AporteAnonimo({
         </fieldset>
       ))}
 
+      <div className="mb-4 rounded-lg border border-system-200 bg-white p-3.5">
+        <CasillasDeAcuerdos acuerdos={acuerdos} onCambio={setAcuerdos} deshabilitado={enviando} />
+      </div>
+
       {error && (
         <p className="mb-3 rounded border border-error-700 bg-error-50 p-2 text-[12px] text-error-700" role="alert">
           {error}
@@ -179,13 +181,6 @@ export default function AporteAnonimo({
       <p className="mt-2 text-center text-[11.5px] text-system-500">
         Se registra como anónimo y queda pendiente de revisión. Te quedan {restantes} de {cuota} desde este dispositivo.
       </p>
-
-      <AvisosDeAporte
-        abierto={confirmando}
-        enviando={enviando}
-        onCancelar={() => setConfirmando(false)}
-        onConfirmar={(avisos) => void enviar(avisos)}
-      />
     </form>
   );
 }

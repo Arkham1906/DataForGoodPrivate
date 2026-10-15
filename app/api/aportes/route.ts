@@ -15,7 +15,7 @@ import {
   insertarAporteConCuota,
   tiposAceptados,
 } from "@/lib/aportes/comun";
-import { errorDeConsentimiento } from "@/lib/aportes/consentimiento";
+import { inscripcionDe } from "@/lib/campanas/inscripciones";
 
 function mapAporte(row: Record<string, unknown>) {
   return {
@@ -107,7 +107,8 @@ export async function GET(request: Request) {
 
 // POST: envía un aporte (multipart/form-data). Valida campaña activa, que no seas el creador,
 // que no estés baneado, la cuota, el tipo y tamaño del archivo; lo sube a MinIO e inserta la fila.
-// Exige aceptaUso=si y confirmaContenido=si (lib/aportes/consentimiento.ts); guarda la hora en consentimiento_en.
+// Exige estar inscrito a la campaña (aceptó los acuerdos una vez: lib/campanas/inscripciones.ts, 403 si no);
+// guarda la hora de la inscripción en consentimiento_en.
 // Campo opcional `enlace`: token de /c/[token]; si es el vigente de la campaña, se guarda en enlace_id.
 export async function POST(request: Request) {
   try {
@@ -134,11 +135,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "La descripción no puede superar 1000 caracteres" }, { status: 400 });
     }
 
-    const errorConsentimiento = errorDeConsentimiento(formData);
-    if (errorConsentimiento) {
-      return NextResponse.json({ error: errorConsentimiento }, { status: 400 });
-    }
-
     const campaignResult = await pool.query(`SELECT * FROM campanas WHERE id = $1 LIMIT 1`, [campaignId]);
     if (campaignResult.rowCount === 0) {
       return NextResponse.json({ error: "Campaña no encontrada" }, { status: 404 });
@@ -163,6 +159,15 @@ export async function POST(request: Request) {
 
     if (await estaBaneadoDeCampana(campaignId, user.id)) {
       return NextResponse.json({ error: "No puedes aportar en esta campaña porque estás baneado de ella" }, { status: 403 });
+    }
+
+    // Los acuerdos se aceptan una vez, al inscribirse a la campaña (2026-10-15); su hora va en consentimiento_en.
+    const inscritoEn = await inscripcionDe(campaignId, user.id);
+    if (!inscritoEn) {
+      return NextResponse.json(
+        { error: "Inscríbete a la campaña y acepta sus acuerdos antes de aportar" },
+        { status: 403 }
+      );
     }
 
     // Solo se guardan respuestas que existen en los checklists de la campaña ("Título: opción").
@@ -205,7 +210,8 @@ export async function POST(request: Request) {
             campaign_id, user_id, participant_name, participant_email, description,
             file_type, file_path, file_original_name, file_mime_type, file_size_bytes, caracteristicas, enlace_id,
             consentimiento_en
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12, NOW())
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12,
+            (SELECT aceptada_en FROM campana_inscripciones WHERE campana_id = $1 AND usuario_id = $2))
           RETURNING *`,
           [
             campaignId,

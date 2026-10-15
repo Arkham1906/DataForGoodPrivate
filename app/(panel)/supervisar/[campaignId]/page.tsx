@@ -1,5 +1,6 @@
 // Pantalla /supervisar/[campaignId]: revisar una campaña y dictaminar como SuperUsuario.
 // Server Component. Datos: obtenerCampanaParaRoot(). Botones en acciones.tsx.
+// Participantes y panel de cualquier campaña que ya recolecta, la haya aceptado él u otro supervisor.
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -35,12 +36,14 @@ export default async function SupervisarCampanaPage({ params }: { params: Promis
 
   const currentStatus = statusMap[campaign.status as keyof typeof statusMap] ?? { label: "En revisión", tone: "warn" };
   const dataTypes = campaign.dataTypes.length > 0 ? campaign.dataTypes : ["texto"];
+  const yaRecolecta = campaign.status === "activa" || campaign.status === "pausada" || campaign.status === "finalizada";
   const location = [campaign.locationColonia, campaign.locationCity, campaign.locationState].filter(Boolean).join(", ") || "Sin ubicación";
 
   const filas: [string, React.ReactNode][][] = [
     [
       ["Usuario de la campaña", <span key="c" className="font-semibold">{campaign.creatorName || "Usuario"}</span>],
       ["Organizador", campaign.organizer || "Sin especificar"],
+      ["Supervisada por", campaign.supervisadaPor ?? "Nadie todavía"],
       ["Temática", campaign.tag || "Sin temática"],
       ["Estado", <Tag key="s" tone={currentStatus.tone}>{currentStatus.label}</Tag>],
       ["Tipo de aporte", dataTypes.join(" y ")],
@@ -94,12 +97,13 @@ export default async function SupervisarCampanaPage({ params }: { params: Promis
         </div>
 
         <div className="mt-5 flex flex-wrap gap-3">
-          {(campaign.status === "activa" || campaign.status === "finalizada") && (
+          {/* Cualquier campaña que ya recolecta, la haya aceptado quien sea (2026-10-15). */}
+          {yaRecolecta && (
             <Link href={`/supervisar/${campaign.id}/usuarios`} className="rounded-pill bg-brand-600 px-5 py-3 text-[12.5px] font-bold text-white shadow-sm hover:bg-brand-800">
               Ver participantes
             </Link>
           )}
-          {campaign.supervision === "mia" && (
+          {yaRecolecta && (
             <Link href={`/supervisar/${campaign.id}/panel`} className="rounded-pill border border-system-300 bg-white px-5 py-3 text-[12.5px] font-bold text-system-600 hover:border-brand-600 hover:text-brand-600">
               Abrir panel
             </Link>

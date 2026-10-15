@@ -6,7 +6,7 @@
 // banear o desbanear al participante con POST/DELETE /api/campanas/[id]/baneos.
 // Aporte anónimo (sin cuenta): "Contenido inapropiado" al rechazar, bloquear su dispositivo
 // en la campaña (misma API de baneos) y borrar el archivo (DELETE /api/aportes/[id]/archivo).
-// Si un revisor lo reportó ("Reportar al creador"), se muestra su motivo arriba.
+// Si un revisor lo reportó a supervisión, el creador no lo ve (2026-10-15): solo los supervisores.
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -234,19 +234,6 @@ export default function RevisionAportePage() {
 
       {aviso && <p className="mb-4 rounded border border-warning-500 bg-warning-50 p-3 text-[12.5px] text-warning-800">{aviso}</p>}
 
-      {item.reporte && (
-        <section role="note" className="mb-4 rounded-lg border border-warning-500 bg-warning-50 p-4 text-[12.5px] text-system-900">
-          <p className="font-bold text-warning-800">Un revisor reportó este aporte</p>
-          <p className="mt-1">
-            <span className="font-semibold">{item.reporte.revisor}</span> ·{" "}
-            {new Date(item.reporte.en).toLocaleDateString("es-MX", { day: "numeric", month: "short" })}
-          </p>
-          <p className="mt-1 text-system-600">Motivo: {item.reporte.motivo}</p>
-          <p className="mt-2 text-[11.5px] text-system-500">
-            Banear o bloquear a quien lo envió es decisión tuya: usa el botón de abajo si corresponde.
-          </p>
-        </section>
-      )}
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
         {item.archivoBorrado ? (

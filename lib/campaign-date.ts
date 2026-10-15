@@ -9,43 +9,10 @@
 
 import { pool } from "@/lib/db";
 import { notificar } from "@/lib/notificaciones/notificaciones";
+import { ahoraEnZona } from "@/lib/fecha-de-tepic";
 
-/** Zona de las fechas y horas de campaña (Tepic, Nayarit; la misma del resto de la app). */
-export const ZONA_DE_CAMPANAS = "America/Mazatlan";
-
-const PARTES_DE_AHORA = new Intl.DateTimeFormat("en-CA", {
-  timeZone: ZONA_DE_CAMPANAS,
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  second: "2-digit",
-  hourCycle: "h23",
-});
-
-/** Fecha y hora de pared de Tepic en este momento. */
-export function ahoraEnZona(): { year: number; month: number; day: number; hour: number; minute: number; second: number } {
-  const partes = Object.fromEntries(
-    PARTES_DE_AHORA.formatToParts(new Date())
-      .filter((p) => p.type !== "literal")
-      .map((p) => [p.type, Number(p.value)])
-  );
-  return {
-    year: partes.year,
-    month: partes.month,
-    day: partes.day,
-    hour: partes.hour,
-    minute: partes.minute,
-    second: partes.second,
-  };
-}
-
-/** "Hoy" en Tepic como "YYYY-MM-DD" (comparable como texto con las columnas DATE normalizadas). */
-export function hoyEnTepic(): string {
-  const a = ahoraEnZona();
-  return `${a.year}-${String(a.month).padStart(2, "0")}-${String(a.day).padStart(2, "0")}`;
-}
+// Viven en lib/fecha-de-tepic.ts para que el navegador también las use.
+export { ZONA_DE_CAMPANAS, ahoraEnZona, hoyEnTepic, errorDeInicioPasado, errorDeFinAntesDeInicio } from "@/lib/fecha-de-tepic";
 
 /** Milisegundos de "ahora" como hora de pared de Tepic, comparables con campaignMoment(). */
 function ahoraDePared(): number {

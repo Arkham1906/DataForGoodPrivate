@@ -5,6 +5,7 @@
 import { NextResponse } from "next/server";
 import { especialDesdeFila } from "@/lib/campanas/especial";
 import { avisarCampanaEspecial } from "@/lib/notificaciones/campanas-por-interes";
+import { avisarCampanaPorRevisar } from "@/lib/notificaciones/avisos-a-supervisores";
 import {
   ESTADOS_CON_EDICION_COMPLETA,
   MAX_CAMPANAS_ACTIVAS as MAX_ACTIVE_CAMPAIGNS,
@@ -15,7 +16,8 @@ import { getSessionUser } from "@/lib/session";
 import { ACCIONES_DE_SUPERVISION, registrarDecisionDeCampana, tomarCampanaParaSupervisar, type AccionDeSupervision } from "@/lib/supervision/decision";
 import { normalizarSecciones, seccionesDesdeFila } from "@/lib/campanas/checklist";
 import { asegurarEnlaceVigente } from "@/lib/campanas/enlaces";
-import { activateScheduledCampaigns, calculateCampaignDaysRemaining, finalizeExpiredCampaigns, hasCampaignEnded, normalizeCampaignDate, normalizeCampaignTime } from "@/lib/campaign-date";
+import { errorDeOrganizacion } from "@/lib/campanas/organizacion";
+import { activateScheduledCampaigns, calculateCampaignDaysRemaining, errorDeFinAntesDeInicio, errorDeInicioPasado, finalizeExpiredCampaigns, hasCampaignEnded, normalizeCampaignDate, normalizeCampaignTime } from "@/lib/campaign-date";
 
 function normalizeDataTypes(input: unknown): string[] {
   if (!Array.isArray(input)) {
@@ -350,6 +352,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       ? ""
       : "locationColonia" in body || "location_colonia" in body ? String(body.locationColonia ?? body.location_colonia ?? "").trim() : null;
     const organizer = "organizer" in body ? String(body.organizer ?? "").trim() : null;
+    const errorOrganizacion = errorDeOrganizacion(organizer);
+    if (errorOrganizacion) return NextResponse.json({ error: errorOrganizacion }, { status: 400 });
     // El XP y "revisor asignado" no los cambia el creador (lib/campanas/estado-del-creador.ts):
     // has_reviewer_assigned lo pone aceptar la invitación de revisor.
     const xpPerContribution = null;
@@ -360,6 +364,28 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     // campo importante que sí llegó en el body debe ser válido. No revisamos
     // los campos que no llegaron: ya deberían ser válidos desde que se creó.
     const effectiveStatus = status ?? currentStatus;
+    // La fecha de inicio no puede quedar antes de hoy (día de Tepic): ni la que llega,
+    // ni la que ya tenía si se envía a revisión. Solo donde se edita todo: activa,
+    // pausada y aceptada ya no cambian el inicio.
+    if (ESTADOS_CON_EDICION_COMPLETA.has(currentStatus)) {
+      const inicioQueQueda =
+        startDate !== undefined ? startDate : effectiveStatus !== "borrador" ? normalizeCampaignDate(existing.rows[0].start_date) : null;
+      const errorDeInicio = errorDeInicioPasado(inicioQueQueda);
+      if (errorDeInicio) {
+        return NextResponse.json({ error: errorDeInicio }, { status: 400 });
+      }
+    }
+    // En cualquier estado y también en borrador, la campaña no termina antes de empezar.
+    // Si solo llega una de las fechas, se compara con la que ya tenía guardada. Sin fechas
+    // no se revisa: pausar o finalizar una campaña vieja con datos raros no debe fallar.
+    const traeFechas = startDate !== undefined || endDate !== undefined;
+    const errorDeVigencia = traeFechas && errorDeFinAntesDeInicio(
+      startDate !== undefined ? startDate : normalizeCampaignDate(existing.rows[0].start_date),
+      endDate !== undefined ? endDate : normalizeCampaignDate(existing.rows[0].end_date)
+    );
+    if (errorDeVigencia) {
+      return NextResponse.json({ error: errorDeVigencia }, { status: 400 });
+    }
     if (effectiveStatus !== "borrador") {
       if (dataTypes !== null && dataTypes.length === 0) {
         return NextResponse.json({ error: "Selecciona al menos un tipo de dato" }, { status: 400 });
@@ -375,9 +401,6 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       }
       if (endDate !== undefined && !endDate) {
         return NextResponse.json({ error: "La fecha de finalización es obligatoria" }, { status: 400 });
-      }
-      if (startDate && endDate && endDate < startDate) {
-        return NextResponse.json({ error: "La fecha de finalización no puede ser anterior a la de inicio" }, { status: 400 });
       }
       if (locationState !== null && !locationState) {
         return NextResponse.json({ error: "Selecciona un estado" }, { status: 400 });
@@ -440,6 +463,10 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       await asegurarEnlaceVigente(Number(id));
       // Se reanudó con incentivos que no se avisaron mientras estaba pausada.
       if (result.rows[0].is_special) avisarCampanaEspecial(Number(id));
+    }
+    // Entró a revisión (desde borrador o rechazada): avisa a los supervisores.
+    if (result.rows[0].status === "en_revision" && currentStatus !== "en_revision") {
+      avisarCampanaPorRevisar({ id: Number(id), creadorId: Number(user.id), otraVez: currentStatus === "rechazada" });
     }
 
     return NextResponse.json({ message: "Campaña actualizada", data: mapCampaign(result.rows[0]) });
@@ -513,9 +540,16 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     // Sin municipio la campaña abarca todo el estado, y la colonia no aplica.
     const locationColonia = locationCity ? String(body.locationColonia ?? body.location_colonia ?? "").trim() : "";
     const organizer = String(body.organizer ?? "").trim();
+    const errorOrganizacion = errorDeOrganizacion(organizer);
+    if (errorOrganizacion) return NextResponse.json({ error: errorOrganizacion }, { status: 400 });
     // El XP y "revisor asignado" se conservan: no los decide el creador.
     const xpPerContribution = null;
     const hasReviewerAssigned = null;
+
+    const errorDeInicio = errorDeInicioPasado(startDate) ?? errorDeFinAntesDeInicio(startDate, endDate);
+    if (errorDeInicio) {
+      return NextResponse.json({ error: errorDeInicio }, { status: 400 });
+    }
 
     // Un borrador puede quedar incompleto a propósito; para cualquier otro
     // estado sí se exigen los campos importantes, igual que en POST /api/campanas.
@@ -534,9 +568,6 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
       }
       if (!endDate) {
         return NextResponse.json({ error: "La fecha de finalización es obligatoria" }, { status: 400 });
-      }
-      if (endDate < startDate) {
-        return NextResponse.json({ error: "La fecha de finalización no puede ser anterior a la de inicio" }, { status: 400 });
       }
       if (!locationState) {
         return NextResponse.json({ error: "Selecciona un estado" }, { status: 400 });
@@ -596,6 +627,9 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
 
     if (result.rows[0].status === "activa" && estadoAnterior !== "activa") {
       await asegurarEnlaceVigente(Number(id));
+    }
+    if (result.rows[0].status === "en_revision" && estadoAnterior !== "en_revision") {
+      avisarCampanaPorRevisar({ id: Number(id), creadorId: Number(user.id), otraVez: estadoAnterior === "rechazada" });
     }
 
     return NextResponse.json({ message: "Campaña actualizada", data: mapCampaign(result.rows[0]) });

@@ -3,6 +3,8 @@
 // Pantalla /campanas/[id]: detalle de una campaña.
 // Componente cliente. Datos: GET /api/campanas?id= (incluye viewer: creador, baneado, aportes propios).
 // Acción: guardar/quitar de favoritos con POST/DELETE /api/campanas/[id]/guardar.
+// Para aportar hay que inscribirse una vez (viewer.inscrito): las casillas de los acuerdos van aquí
+// (ui/AcuerdosDeAporte, POST /api/campanas/[id]/inscripcion); ya inscrito, sale "Realizar un aporte".
 // "Compartir" abre el cuadro de compartir.tsx (enlace público /c/[token] y QR).
 // "Reportar campaña" (reportar.tsx) para quien no la creó: va a la bandeja del SuperUsuario.
 
@@ -19,6 +21,7 @@ import { fechaCorta } from "@/lib/campanas/especial-reglas";
 import CompartirCampana from "./compartir";
 import ReportarCampana from "./reportar";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
+import { InscripcionACampana } from "@/components/ui/AcuerdosDeAporte";
 
 export default function CampaignDetailPage() {
   const params = useParams<{ id: string }>();
@@ -27,6 +30,7 @@ export default function CampaignDetailPage() {
   const [baneado, setBaneado] = useState(false);
   const [motivoDeBaneo, setMotivoDeBaneo] = useState<string | null>(null);
   const [yaReportada, setYaReportada] = useState(false);
+  const [inscrito, setInscrito] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [guardando, setGuardando] = useState(false);
@@ -42,6 +46,7 @@ export default function CampaignDetailPage() {
         setBaneado(Boolean(payload.viewer?.baneado));
         setMotivoDeBaneo(payload.viewer?.motivoDeBaneo ?? null);
         setYaReportada(Boolean(payload.viewer?.yaReportada));
+        setInscrito(Boolean(payload.viewer?.inscrito));
         setSaved(Boolean((payload.data as Campaign)?.isSaved));
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : "No se pudo cargar la campaña");
@@ -199,6 +204,8 @@ export default function CampaignDetailPage() {
               Quien creó esta campaña te retiró la posibilidad de aportar en ella.
               {motivoDeBaneo && <span className="mt-1 block font-semibold">Motivo: {motivoDeBaneo}</span>}
             </p>
+          ) : campaign.status === "activa" && !inscrito ? (
+            <InscripcionACampana campanaId={campaign.id} onInscrito={() => setInscrito(true)} />
           ) : campaign.status === "activa" ? (
             <Link href={`/campanas/${campaign.id}/aportar`}>
               <Button variant="primary" className="w-full">Realizar un aporte</Button>
@@ -218,7 +225,7 @@ export default function CampaignDetailPage() {
           <dl className="flex flex-col gap-2.5 text-[13px]">
             <div className="flex justify-between">
               <dt className="text-system-600">Organiza</dt>
-              <dd className="font-medium text-system-900">{campaign.organizer ?? "—"}</dd>
+              <dd className="font-medium text-system-900">{campaign.organizer || "Sin especificar"}</dd>
             </div>
             <div className="flex justify-between">
               <dt className="text-system-600">Tipo de dato</dt>

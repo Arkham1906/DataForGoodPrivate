@@ -23,6 +23,8 @@ export type AccionAuditada =
   | "supervision.tomar"
   | "supervision.dictaminar"
   | "campana.banear"
+  // Aceptó los acuerdos al inscribirse para aportar (lib/campanas/inscripciones.ts).
+  | "campana.inscribirse"
   // Reportes de campañas y de participantes (lib/reportes/reportes.ts y lib/moderacion/acciones.ts).
   | "campana.reportar"
   | "aporte.reportar_participante"
@@ -46,7 +48,7 @@ export type AccionAuditada =
   // Aportes sin cuenta y sus sanciones (lib/aportes/sanciones-anonimas.ts).
   | "aporte.anonimo_enviar"
   | "aporte.inapropiado"
-  // "Reportar al creador" del revisor (lib/aportes/reporte.ts).
+  // "Reportar a supervisión" del revisor (lib/aportes/reporte.ts).
   | "aporte.reportar"
   | "aporte.archivo_borrar"
   | "campana.anonimos_cambiar"

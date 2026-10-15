@@ -57,12 +57,12 @@
 | Archivo | Qué hace | Lo usa |
 | --- | --- | --- |
 | `archivo.ts` 🟢 | Formatos y tamaño por tipo (`FORMATOS`: foto 10 MB, video 50 MB, audio y documento 20 MB, texto 1 MB), `tiposAceptados(dataTypes)`, `archivoEsOpcional()` (con texto), `errorDeArchivo(file, tipos)`, `acceptDeArchivo()`, largo de la descripción, `formatearTamano()` (KB/MB), `TIPO_DE_DATO` (cómo se describe cada tipo a quien aporta) y el aviso de metadatos de video y audio | Endpoints de aportes, `components/ui/SelectorDeArchivo`, pantallas de aportes y `/campanas/[id]` |
-| `consentimiento.ts` 🟢 | Textos de los avisos de "Antes de enviar" (uso del aporte y contenido acorde), nombres de los campos (`aceptaUso`, `confirmaContenido`) y `errorDeConsentimiento()` | `components/ui/AvisosDeAporte`, `POST /api/aportes`, `POST /api/c/[token]/aportes` |
+| `consentimiento.ts` 🟢 | Textos de los acuerdos para aportar (confirmación y uso del aporte), textos cortos de las casillas, nombres de los campos (`aceptaUso`, `confirmaContenido`) y `errorDeConsentimiento()` (FormData o JSON) | `components/ui/AcuerdosDeAporte`, `lib/campanas/inscripciones.ts`, `POST /api/c/[token]/aportes` |
 | `comun.ts` | `guardarArchivoDelAporte()` (valida por contenido, limpia y sube a MinIO; sin archivo si la campaña acepta texto), `cuerpoDemasiadoGrande()` (413 antes de leer el formulario), `insertarAporteConCuota()` (cuenta e inserta con candado: sin carrera de cuota), `recalcularContadores()` (contadores de la campaña desde `aportes`, con la campaña bloqueada) y reexporta `archivo.ts` | `POST /api/aportes`, `aportes-anonimos.ts` |
 | `limpiar-archivo.ts` | `limpiarArchivo(file, tipos)`: el tipo lo decide la firma del contenido y debe coincidir con la extensión. Fotos con `imagen.ts`; PDF sin Info ni XMP (`pdf-lib`; rechaza cifrados); .docx sin propiedades ni autores (`jszip`; rechaza macros); .txt a UTF-8; video y audio tal cual | `comun.ts` |
 | `imagen.ts` | `limpiarImagen()`: comprueba la firma JPG/PNG y vuelve a codificar con `sharp`, quitando EXIF (GPS), ICC y XMP | `limpiar-archivo.ts` |
 | `anonimato.ts` | Cookie `anonimo_id` y `hashDeDispositivo()` | Aporte anónimo, `/c/[token]`, sanciones |
-| `reporte.ts` | "Reportar al creador": el revisor avisa al creador (guarda el motivo en el aporte, notifica y registra en bitácora). No banea | `POST /api/aportes/[id]/reportar` |
+| `reporte.ts` | "Reportar a supervisión" (`reportarASupervision`): el revisor reporta a quien envió el aporte; guarda el motivo en el aporte, lo agrega a la bandeja de Reportes y avisa solo a los supervisores. No banea | `POST /api/aportes/[id]/reportar` |
 | `decision.ts` | Sin `pg`: `tieneDecision()` y `ESTADOS_SIN_DECISION`, la regla de que una decisión no se cambia | API de aportes, `sanciones-anonimas.ts`, pantallas |
 | `motivos-de-rechazo.ts` | Sin `pg`: listas de motivos para rechazar y para reportar | Pantallas del creador y del revisor |
 | `sanciones-anonimas.ts` | Sanciones a personas sin cuenta: marcar inapropiado, bloqueo por campaña, bloqueo global automático (3 inapropiados en 30 días → 30 días), borrar archivo, listar y quitar bloqueos | API de aportes y de baneos, `/usuarios/sanciones` |
@@ -118,7 +118,7 @@
 
 | Archivo | Qué hace | Lo usa |
 | --- | --- | --- |
-| `reportes.ts` | Reportes: `reportarCampana` (contra el creador), `reportarParticipante` (contra quien aportó; creador o revisor), `yaReporto`, `listarReportes` (agrupados por caso), `contarReportesPendientes`, `reportesPendientesContra`, `sqlDeClave` | `POST /api/campanas/[id]/reportar`, `POST /api/aportes/[id]/reportar-participante`, GET de campaña y de aporte, `.../reportes` y `.../sanciones/[usuarioId]` de `/supervisar` y `/supervision`, layouts del panel y de `(dashboard)` (contador), `aplicarSancion`. `listarReportes` y `contarReportesPendientes` reciben la cuenta del supervisor para no mostrarle reportes contra él |
+| `reportes.ts` | Reportes: `reportarCampana` (contra el creador), `reportarParticipante` (contra quien aportó; creador o revisor), `yaReporto`, `listarReportes` (agrupados por caso), `contarReportesPendientes`, `reportesPendientesContra`, `sqlDeClave` | `POST /api/campanas/[id]/reportar`, `POST /api/aportes/[id]/reportar-participante`, GET de campaña y de aporte, `.../reportes` y `.../sanciones/[usuarioId]` de `/supervisar` y `/supervision`, layout del panel (contador de "Modo supervisor"), `aplicarSancion`. `listarReportes` y `contarReportesPendientes` reciben la cuenta del supervisor para no mostrarle reportes contra él |
 | `motivos.ts` 🟢 | Motivos para reportar una campaña o un aporte, largo máximo, estados y la clave del caso (`campana-116`, `aporte-55`) | `/campanas/[id]`, detalle del aporte, bandejas de reportes |
 
 ### `moderacion/` (2026-10-13)

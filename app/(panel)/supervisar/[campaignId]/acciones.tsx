@@ -2,6 +2,8 @@
 
 // Botones de /supervisar/[campaignId]. Llaman a las server actions tomarComoSuperUsuario y
 // decidirComoSuperUsuario (lib/supervision/acciones-root.ts), que usan las reglas de lib/supervision/decision.ts.
+// Una campaña ya aceptada (aceptada, activa o pausada) se puede reportar aunque la haya aceptado
+// otro supervisor (2026-10-15); en revisión, solo la que tomó el SuperUsuario.
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition, type FormEvent, type ReactNode } from "react";
@@ -80,7 +82,7 @@ export default function AccionesDeSupervision({
           >
             {accionEnCurso === "tomar" ? "Tomando…" : "Supervisar esta campaña"}
           </button>
-        ) : supervision !== "mia" ? (
+        ) : supervision !== "mia" && (status === "en_revision" || status === "finalizada" || status === "rechazada") ? (
           <Tag>{supervision === "otro" ? "La supervisa otro supervisor" : "Sin supervisor"}</Tag>
         ) : (
         <div className="flex flex-wrap gap-2">
@@ -97,7 +99,7 @@ export default function AccionesDeSupervision({
               Rechazar
             </button>
           )}
-          {status !== "finalizada" && (
+          {status !== "finalizada" && status !== "rechazada" && (
             <button
               type="button"
               onClick={() => decidir("reportada")}

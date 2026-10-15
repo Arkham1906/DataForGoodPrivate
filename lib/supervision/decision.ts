@@ -111,8 +111,19 @@ export async function registrarDecisionDeCampana(
   if (autor.tipo === "usuario" && Number(campana.creator_id) === autor.usuarioId) {
     return { ok: false, status: 403, error: "No puedes supervisar una campaña que creaste" };
   }
-  // Solo el supervisor que la tomó dictamina o reporta.
-  if (!esSuSupervisor(campana, autor)) {
+  const estado = String(campana.status);
+  // Aceptar o rechazar solo en revisión; reportar, también ya aceptada (antes no se comprobaba:
+  // por la API se podía "rechazar" una campaña activa).
+  if ((accion === "aceptada" || accion === "rechazada") && estado !== "en_revision") {
+    return { ok: false, status: 400, error: "Solo se aceptan o rechazan campañas en revisión" };
+  }
+  if (accion === "reportada" && !["en_revision", "aceptada", "activa", "pausada"].includes(estado)) {
+    return { ok: false, status: 400, error: "Esta campaña ya no se puede reportar" };
+  }
+  // Solo el supervisor que la tomó dictamina o reporta. El SuperUsuario, además, supervisa las
+  // campañas que ya aceptó cualquier supervisor (2026-10-15): puede reportarlas.
+  const rootSobreAceptada = autor.tipo === "root" && accion === "reportada" && estado !== "en_revision";
+  if (!esSuSupervisor(campana, autor) && !rootSobreAceptada) {
     return {
       ok: false,
       status: 403,
@@ -141,7 +152,9 @@ export async function registrarDecisionDeCampana(
   await pool.query(`UPDATE campanas SET status = $2, updated_at = NOW() WHERE id = $1`, [campanaId, nextStatus]);
   // Aceptada y ya empezó: queda activa con su enlace público listo para compartir.
   // Si queda "aceptada" (inicio futuro), el enlace se crea al activarse (lib/campaign-date.ts).
-  if (nextStatus === "activa") {
+  // Solo al aceptar: reportar una campaña ya activa la deja "activa" y antes volvía a mandar
+  // campana_nueva (2026-10-15).
+  if (accion === "aceptada" && nextStatus === "activa") {
     await asegurarEnlaceVigente(Number(campanaId));
     // A quien tiene su temática y vive donde se hace (en segundo plano).
     avisarCampanaNueva(Number(campanaId));
@@ -160,7 +173,8 @@ export async function registrarDecisionDeCampana(
     detalle: { accion, motivo, estadoAnterior: String(campana.status), estadoNuevo: nextStatus },
   });
 
-  await notificar({
+  // "Reportada" no avisa al creador (2026-10-15, a pedido del usuario): un reporte solo lo ven los supervisores.
+  if (accion !== "reportada") await notificar({
     usuarioId: campana.creator_id,
     campanaId,
     metadata: motivo ? { motivo } : {},
@@ -173,19 +187,12 @@ export async function registrarDecisionDeCampana(
             : `Tu campaña "${campana.name}" fue aceptada. Se activará en su fecha de inicio.`,
           enlace: nextStatus === "activa" ? `/mis-campanas/${campanaId}/panel` : "/mis-campanas",
         }
-      : accion === "rechazada"
-        ? {
-            tipo: "campana_rechazada" as const,
-            titulo: "Campaña rechazada",
-            mensaje: `Tu campaña "${campana.name}" fue rechazada. Motivo: ${motivo}`,
-            enlace: "/mis-campanas",
-          }
-        : {
-            tipo: "campana_reportada" as const,
-            titulo: "Campaña reportada",
-            mensaje: `La supervisión reportó tu campaña "${campana.name}".${motivo ? ` Motivo: ${motivo}` : ""}`,
-            enlace: "/mis-campanas",
-          }),
+      : {
+          tipo: "campana_rechazada" as const,
+          titulo: "Campaña rechazada",
+          mensaje: `Tu campaña "${campana.name}" fue rechazada. Motivo: ${motivo}`,
+          enlace: "/mis-campanas",
+        }),
   });
 
   const mensaje = accion === "aceptada"

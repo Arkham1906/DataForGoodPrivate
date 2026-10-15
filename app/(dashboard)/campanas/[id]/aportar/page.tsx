@@ -3,9 +3,9 @@
 // Pantalla /campanas/[id]/aportar: formulario para enviar un aporte (archivo, descripción, checklists).
 // Componente cliente. Datos: GET /api/campanas?id= y GET /api/aportes?campaignId=&mine=true (cuota usada).
 // El archivo sigue los tipos de la campaña (components/ui/SelectorDeArchivo); con "texto" es opcional.
-// Acción: POST /api/aportes (multipart/form-data). El servidor valida cuota, baneo, tipo, tamaño
-// y las dos casillas de la ventana "Antes de enviar" (components/ui/AvisosDeAporte), que se abre
-// al dar "Enviar aporte" y es la que envía.
+// Acción: POST /api/aportes (multipart/form-data). El servidor valida cuota, baneo, tipo, tamaño y que
+// la persona esté inscrita (aceptó los acuerdos una vez; antes salía una ventana en cada aporte). Si llega
+// sin inscribirse (p. ej. desde /c/[token]), arriba del formulario van las casillas (ui/AcuerdosDeAporte).
 // Con ?enlace=<token> (viene de /c/[token]) lo reenvía para atribuir el aporte a ese enlace.
 
 import { useEffect, useState } from "react";
@@ -17,7 +17,7 @@ import { BASE_PATH } from "@/lib/base-path";
 import { etiquetaDeRespuesta } from "@/lib/campanas/checklist";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import IndicadorDeCarga from "@/components/ui/IndicadorDeCarga";
-import AvisosDeAporte, { agregarAvisos, type Avisos } from "@/components/ui/AvisosDeAporte";
+import { InscripcionACampana } from "@/components/ui/AcuerdosDeAporte";
 import SelectorDeArchivo from "@/components/ui/SelectorDeArchivo";
 import { archivoEsOpcional, tiposAceptados } from "@/lib/aportes/archivo";
 
@@ -36,8 +36,7 @@ export default function AportarPage() {
   const [fileError, setFileError] = useState<string | null>(null);
   const [description, setDescription] = useState("");
   const [caracteristicas, setCaracteristicas] = useState<string[]>([]);
-  // "Enviar aporte" abre la ventana de avisos; el envío sale de ahí.
-  const [confirmando, setConfirmando] = useState(false);
+  const [inscrito, setInscrito] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -55,6 +54,7 @@ export default function AportarPage() {
         setIsCreator(Boolean(campaignPayload.viewer?.isCreator));
         setBaneado(Boolean(campaignPayload.viewer?.baneado));
         setMotivoDeBaneo(campaignPayload.viewer?.motivoDeBaneo ?? null);
+        setInscrito(Boolean(campaignPayload.viewer?.inscrito));
 
         const aportesPayload = await aportesRes.json().catch(() => ({}));
         if (aportesRes.ok) setSubmittedCount(Array.isArray(aportesPayload.data) ? aportesPayload.data.length : 0);
@@ -91,13 +91,9 @@ export default function AportarPage() {
     );
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (canSubmit) setConfirmando(true);
-  }
-
-  async function enviar(avisos: Avisos) {
-    if (!campaign) return;
+    if (!campaign || !canSubmit) return;
 
     setSubmitting(true);
     setSubmitError(null);
@@ -109,7 +105,6 @@ export default function AportarPage() {
       if (file) formData.set("file", file);
       caracteristicas.forEach((item) => formData.append("caracteristicas", item));
       if (enlace) formData.set("enlace", enlace);
-      agregarAvisos(formData, avisos);
 
       const response = await fetch(`${BASE_PATH}/api/aportes`, { method: "POST", body: formData });
       const payload = await response.json().catch(() => ({}));
@@ -119,11 +114,10 @@ export default function AportarPage() {
     } catch (cause) {
       setSubmitError(cause instanceof Error ? cause.message : "No se pudo enviar el aporte");
       setSubmitting(false);
-      setConfirmando(false);
     }
   }
 
-  const canSubmit = !quotaReached && (Boolean(file) || archivoEsOpcional(tipos)) && description.trim().length > 0 && description.length <= 1000 && !submitting;
+  const canSubmit = inscrito && !quotaReached && (Boolean(file) || archivoEsOpcional(tipos)) && description.trim().length > 0 && description.length <= 1000 && !submitting;
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -135,7 +129,13 @@ export default function AportarPage() {
 
       {quotaReached && <p className="mb-5 rounded-lg border border-success-700 bg-success-50 p-3 text-[13px] text-success-700">Alcanzaste tu cuota en esta campaña. La campaña sigue abierta para otras personas, pero ya no puedes enviar más aportes.</p>}
 
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+      {!inscrito && !quotaReached && (
+        <div className="mb-6 rounded-lg border border-brand-200 bg-white p-4">
+          <InscripcionACampana campanaId={campaign.id} onInscrito={() => setInscrito(true)} />
+        </div>
+      )}
+
+      <form onSubmit={(e) => void handleSubmit(e)} className="grid grid-cols-1 gap-6 sm:grid-cols-2">
         <SelectorDeArchivo
           tipos={tipos}
           archivo={file}
@@ -198,13 +198,6 @@ export default function AportarPage() {
           </p>
         </div>
       </form>
-
-      <AvisosDeAporte
-        abierto={confirmando}
-        enviando={submitting}
-        onCancelar={() => setConfirmando(false)}
-        onConfirmar={(avisos) => void enviar(avisos)}
-      />
     </div>
   );
 }

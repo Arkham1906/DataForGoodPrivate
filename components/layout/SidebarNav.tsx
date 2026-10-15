@@ -19,14 +19,9 @@ const NAV_ITEMS: Opcion[] = [
   { href: "/mis-campanas", label: "Mis campañas" },
 ];
 
-export default function SidebarNav({
-  usuario,
-  reportesPendientes = 0,
-}: {
-  usuario: SessionUser;
-  /** Lo cuenta el layout de (dashboard), solo para supervisores. */
-  reportesPendientes?: number;
-}) {
+// Sin contador de reportes junto a "Supervisión" (2026-10-15, a pedido del usuario): cada reporte llega
+// como notificación a la campana (lib/notificaciones/avisos-a-supervisores.ts).
+export default function SidebarNav({ usuario }: { usuario: SessionUser }) {
   const pathname = usePathname();
   const roles = Array.isArray(usuario.role) ? usuario.role : [];
 
@@ -60,12 +55,6 @@ export default function SidebarNav({
               }`}
             >
               {item.label}
-              {item.href === "/supervision" && reportesPendientes > 0 ? (
-                <span className="ml-2 rounded-pill bg-error-700 px-2 py-0.5 font-mono text-[10.5px] font-bold text-white">
-                  {reportesPendientes > 99 ? "99+" : reportesPendientes}
-                  <span className="sr-only"> reportes pendientes</span>
-                </span>
-              ) : null}
             </Link>
           );
         })}

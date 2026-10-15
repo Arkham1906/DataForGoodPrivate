@@ -109,7 +109,7 @@ export interface Contribution {
   firstPassByUserId?: string;
   inapropiado?: boolean; // aporte anónimo marcado como "Contenido inapropiado"
   archivoBorrado?: boolean; // el creador borró el archivo de MinIO
-  // Reporte del revisor al creador ("Reportar al creador"). Lo ven el creador y el revisor.
+  // Reporte del revisor a supervisión ("Reportar a supervisión"). Solo lo ven los revisores.
   reporte?: { motivo: string; revisor: string; en: string } | null;
   /** Solo para el creador y los revisores: ya reportaste a quien aportó a la plataforma (2026-10-12). */
   participanteReportado?: boolean;

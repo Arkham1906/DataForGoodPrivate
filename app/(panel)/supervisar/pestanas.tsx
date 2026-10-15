@@ -78,12 +78,12 @@ export default function PestanasDeSupervision({
   const renderSupervisedList = () => (
     <div className="overflow-hidden rounded-lg border border-system-200 bg-white shadow-sm">
       <div className="flex items-center justify-between border-b border-system-200 bg-system-100 px-4 py-3">
-        <p className="text-[13px] font-semibold text-system-900">Campañas que estás supervisando</p>
+        <p className="text-[13px] font-semibold text-system-900">Campañas supervisadas (tuyas y de los supervisores)</p>
         <Tag tone="ok">{todasSupervisadas.length}</Tag>
       </div>
 
       {supervisadas.length === 0 ? (
-        <div className="p-5 text-[13px] text-system-600">{avisoSinResultados(todasSupervisadas.length, "Todavía no tienes campañas aceptadas bajo supervisión.")}</div>
+        <div className="p-5 text-[13px] text-system-600">{avisoSinResultados(todasSupervisadas.length, "Todavía no hay campañas aceptadas.")}</div>
       ) : (
         <div className="divide-y divide-system-200">
           {supervisadas.map((campaign) => (
@@ -91,9 +91,13 @@ export default function PestanasDeSupervision({
               <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h2 className="text-[15px] font-extrabold text-system-900">{campaign.name}</h2>
-                  <p className="text-[12.5px] text-system-500">{campaign.tag || "Sin temática"}</p>
+                  <p className="text-[12.5px] text-system-500">
+                    {campaign.tag || "Sin temática"} · supervisa {campaign.supervisadaPor ?? "nadie"}
+                  </p>
                 </div>
-                <Tag tone={campaign.status === "activa" ? "ok" : "warn"}>{campaign.status === "activa" ? "Activa" : "Aceptada"}</Tag>
+                <Tag tone={campaign.status === "activa" ? "ok" : campaign.status === "pausada" ? "default" : "warn"}>
+                  {campaign.status === "activa" ? "Activa" : campaign.status === "pausada" ? "Pausada" : "Aceptada"}
+                </Tag>
               </div>
 
               <div className="flex items-center justify-between gap-4 text-[12px] text-system-600">
@@ -124,7 +128,7 @@ export default function PestanasDeSupervision({
       </div>
 
       {conIncidencia.length === 0 ? (
-        <div className="p-5 text-[13px] text-system-600">{avisoSinResultados(todasConIncidencia.length, "No tienes campañas reportadas o rechazadas.")}</div>
+        <div className="p-5 text-[13px] text-system-600">{avisoSinResultados(todasConIncidencia.length, "No hay campañas reportadas o rechazadas.")}</div>
       ) : (
         <div className="divide-y divide-system-200">
           {conIncidencia.map((campaign) => {
@@ -134,7 +138,7 @@ export default function PestanasDeSupervision({
                 <div>
                   <h2 className="text-[15px] font-extrabold text-system-900">{campaign.name}</h2>
                   <p className="text-[12.5px] text-system-500">
-                    {campaign.creatorName || "Usuario"} · {campaign.tag || "Sin temática"}
+                    {campaign.creatorName || "Usuario"} · {campaign.tag || "Sin temática"} · supervisa {campaign.supervisadaPor ?? "nadie"}
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -157,7 +161,7 @@ export default function PestanasDeSupervision({
       </div>
 
       {finalizadas.length === 0 ? (
-        <div className="p-5 text-[13px] text-system-600">{avisoSinResultados(todasFinalizadas.length, "Todavía no tienes campañas finalizadas.")}</div>
+        <div className="p-5 text-[13px] text-system-600">{avisoSinResultados(todasFinalizadas.length, "Todavía no hay campañas finalizadas.")}</div>
       ) : (
         <div className="divide-y divide-system-200">
           {finalizadas.map((campaign) => (
@@ -165,7 +169,7 @@ export default function PestanasDeSupervision({
               <div>
                 <h2 className="text-[15px] font-extrabold text-system-900">{campaign.name}</h2>
                 <p className="text-[12.5px] text-system-500">
-                  {campaign.creatorName || "Usuario"} · {campaign.tag || "Sin temática"}
+                  {campaign.creatorName || "Usuario"} · {campaign.tag || "Sin temática"} · supervisa {campaign.supervisadaPor ?? "nadie"}
                 </p>
               </div>
               <div className="flex items-center gap-3">

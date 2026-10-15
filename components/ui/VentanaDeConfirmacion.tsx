@@ -1,6 +1,6 @@
 "use client";
 
-// Ventana para confirmar una acción (<dialog> nativo, como ui/AvisosDeAporte), en lugar de
+// Ventana para confirmar una acción (<dialog> nativo, como ui/AcuerdosDeAporte), en lugar de
 // window.confirm: título, contenido libre y botones "Cancelar" y el de la acción. Mientras
 // `ocupado` es true no se cierra (ni con Esc ni con clic afuera) y el botón muestra `textoOcupado`.
 // La usa "Pausar campaña" en /mis-campanas.

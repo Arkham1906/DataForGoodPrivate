@@ -867,6 +867,35 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /api/campanas/{id}/inscripcion:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    post:
+      tags: [Campañas]
+      summary: Inscribirse a la campaña para aportar
+      description: |
+        Acepta una sola vez el acuerdo de confirmación (el aporte corresponde a la campaña y no
+        tiene contenido inadecuado) y el de uso del aporte (se usa para la campaña y, si se
+        aprueba, se publica como dato abierto CC BY 4.0 sin nombre ni correo). POST /api/aportes
+        lo exige. Campaña activa o pausada; no su creador ni alguien baneado. Repetirla no cambia
+        nada. Bitácora `campana.inscribirse`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirmaContenido, aceptaUso]
+              properties:
+                confirmaContenido: { type: string, enum: [si] }
+                aceptaUso: { type: string, enum: [si] }
+      responses:
+        "200": { $ref: "#/components/responses/Message" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /api/campanas/{id}/guardar:
     parameters:
       - $ref: "#/components/parameters/Id"
@@ -1193,25 +1222,17 @@ paths:
         .mp3/.m4a/.wav/.ogg (20 MB), documento .pdf/.docx (20 MB) y texto .txt (1 MB). Fotos y
         documentos se guardan sin metadatos (EXIF con GPS, autor...); video y audio, tal cual. Si
         la campaña acepta texto, `file` es opcional. 413 si el cuerpo pasa de 51 MB. La persona debe
-        aceptar el uso de su aporte y confirmar que corresponde a la campaña (`aceptaUso` y
-        `confirmaContenido` con valor `si`); sin ellos responde 400.
+        estar inscrita a la campaña (aceptó los acuerdos con POST /api/campanas/{id}/inscripcion);
+        si no, 403. La hora de la inscripción se guarda en el aporte.
       requestBody:
         required: true
         content:
           multipart/form-data:
             schema:
               type: object
-              required: [campaignId, description, aceptaUso, confirmaContenido]
+              required: [campaignId, description]
               properties:
                 campaignId: { type: string }
-                aceptaUso:
-                  type: string
-                  enum: [si]
-                  description: Acepta que el aporte se use para la campaña y se publique como dato abierto (CC BY 4.0) sin nombre ni correo
-                confirmaContenido:
-                  type: string
-                  enum: [si]
-                  description: Confirma que el aporte corresponde a la temática y descripción de la campaña y no tiene contenido inadecuado o sensible
                 description: { type: string, maxLength: 1000 }
                 caracteristicas:
                   type: array
@@ -1437,12 +1458,13 @@ paths:
       - $ref: "#/components/parameters/Id"
     post:
       tags: [Aportes]
-      summary: Reportar un aporte al creador (revisor aceptado)
+      summary: Reportar un aporte a supervisión (revisor aceptado)
       description: |
-        El revisor avisa al creador de la campaña que el aporte o quien lo envió merece una sanción.
-        No banea ni cambia el estado: banear o bloquear es decisión del creador, que recibe una
-        notificación `aporte_reportado` con enlace al aporte. Uno por aporte; se puede antes o
-        después de decidirlo. No se puede reportar un aporte propio. Bitácora `aporte.reportar`.
+        El revisor reporta a quien envió el aporte. Entra a la bandeja de Reportes de la supervisión
+        y avisa solo a los supervisores (`reporte_nuevo`); el creador de la campaña no recibe aviso
+        (desde el 2026-10-15). No banea ni cambia el estado. Solo aportes con cuenta (anónimo: 400).
+        Uno por aporte; se puede antes o después de decidirlo. No se puede reportar un aporte propio.
+        Bitácora `aporte.reportar`.
       requestBody:
         required: true
         content:
@@ -1459,7 +1481,7 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
-          description: Este aporte ya se reportó al creador
+          description: Este aporte ya se reportó a supervisión
           content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
 
   /api/aportes/{id}/reportar-participante:
@@ -1472,7 +1494,7 @@ paths:
         Va a la bandeja del SuperUsuario (/reportes), que lo descarta o lo confirma con un aviso
         (escala: mensaje, 2 días, 7 días, baneo y lista negra). Quien aportó no se entera. Solo aportes
         con cuenta (anónimo: 400). Uno por persona y aporte. Bitácora `aporte.reportar_participante`.
-        Distinto de /reportar ("Reportar al creador" del revisor).
+        Distinto de /reportar ("Reportar a supervisión" del revisor, que también entra a la bandeja).
       requestBody:
         required: true
         content:

@@ -19,6 +19,8 @@ import { TEMAS_DE_INTERES } from "@/lib/intereses";
 import { BASE_PATH } from "@/lib/base-path";
 import { MAX_LARGO_TEXTO } from "@/lib/campanas/checklist";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
+import { errorDeFinAntesDeInicio, errorDeInicioPasado, hoyEnTepic } from "@/lib/fecha-de-tepic";
+import { LARGO_MAXIMO_ORGANIZACION } from "@/lib/campanas/organizacion";
 
 /** Un checklist en edición; `clave` solo sirve como key de React. */
 type ChecklistEditable = { clave: number; titulo: string; opciones: string[]; nuevaOpcion: string };
@@ -130,6 +132,7 @@ function CampanaFormulario({
 
   const [name, setName] = useState(editingCampaign?.name ?? "");
   const [description, setDescription] = useState(editingCampaign?.description ?? "");
+  const [organizer, setOrganizer] = useState(editingCampaign?.organizer ?? "");
   const [theme, setTheme] = useState(editingCampaign?.tag || THEMES[0]);
   const [catalogoDeTemas, setCatalogoDeTemas] = useState<string[]>(THEMES);
   useEffect(() => {
@@ -338,11 +341,15 @@ function CampanaFormulario({
     if (edicionLimitada) {
       if (!Number(goal) || Number(goal) <= 0) return "La meta de aportes debe ser mayor a 0";
       if (!endDate) return "Falta la fecha de finalización";
-      return null;
+      return errorDeFinAntesDeInicio(startDate, endDate);
     }
 
     const errorDeChecklist = validarChecklists();
     if (errorDeChecklist) return errorDeChecklist;
+
+    // También en borrador: el servidor rechaza un inicio antes de hoy o un fin antes del inicio.
+    const errorDeInicio = errorDeInicioPasado(startDate) ?? errorDeFinAntesDeInicio(startDate, endDate);
+    if (errorDeInicio) return errorDeInicio;
 
     if (asDraft) return null;
 
@@ -353,7 +360,6 @@ function CampanaFormulario({
     if (!quota || Number(quota) <= 0) return "La cuota por persona debe ser mayor a 0";
     if (!startDate) return "Falta la fecha de inicio";
     if (!endDate) return "Falta la fecha de finalización";
-    if (endDate < startDate) return "La fecha de finalización no puede ser anterior a la de inicio";
     if (!locationState) return "Selecciona un estado";
     if (!locationCity) return "Selecciona un municipio o \"Todo el estado\"";
 
@@ -385,6 +391,7 @@ function CampanaFormulario({
           description,
           tematica: theme,
           tag: theme,
+          organizer: organizer.trim(),
           status: asDraft ? "borrador" : "en_revision",
           dataTypes,
           checklistSecciones: checklists.map((c) => ({ titulo: c.titulo.trim(), opciones: c.opciones })),
@@ -419,7 +426,6 @@ function CampanaFormulario({
               pendingContributions: 0,
               rejectedContributions: 0,
               participants: 0,
-              organizer: "Ayuntamiento de Tepic",
               xpPerContribution: 50,
               isSpecial: false,
               daysRemaining: null,
@@ -531,9 +537,21 @@ function CampanaFormulario({
                 className="disabled:cursor-not-allowed disabled:opacity-50"
               />
             </Field>
-            <p className="-mt-3 text-right font-mono text-[11px] text-system-500">
+            <p className="-mt-3 mb-3 text-right font-mono text-[11px] text-system-500">
               {description.length} / 500
             </p>
+
+            {/* Opcional (2026-10-15, a pedido del usuario): antes se mandaba siempre "Ayuntamiento de Tepic". */}
+            <Field label="Organización (opcional)" hint="La organización a la que perteneces o que impulsa la campaña. Se muestra como quien la organiza.">
+              <Input
+                value={organizer}
+                onChange={(e) => setOrganizer(e.target.value)}
+                maxLength={LARGO_MAXIMO_ORGANIZACION}
+                placeholder="Ej. Colectivo Ambiental de Tepic"
+                disabled={edicionLimitada}
+                className="disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </Field>
           </div>
         </div>
 
@@ -690,6 +708,7 @@ function CampanaFormulario({
                 <Input
                   type="date"
                   value={startDate}
+                  min={edicionLimitada ? undefined : hoyEnTepic()}
                   aria-label="Fecha de inicio"
                   onChange={(e) => setStartDate(e.target.value)}
                   required
@@ -709,6 +728,7 @@ function CampanaFormulario({
                 <Input
                   type="date"
                   value={endDate}
+                  min={startDate || (edicionLimitada ? undefined : hoyEnTepic())}
                   aria-label="Fecha de finalización"
                   onChange={(e) => setEndDate(e.target.value)}
                   required

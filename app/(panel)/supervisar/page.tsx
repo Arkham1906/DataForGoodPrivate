@@ -1,5 +1,6 @@
 // Pantalla /supervisar: el SuperUsuario como supervisor (equivalente de /supervision con sesión raíz).
 // Server Component. Datos: listarCampanasParaRoot() de lib/supervision/root.ts (exige sesión raíz).
+// "Supervisadas", "Finalizadas" e incidencias muestran las de todos los supervisores, no solo las suyas (2026-10-15).
 // Arriba, las pestañas Campañas / Reportes / Sanciones (components/moderacion/PestanasDeModeracion).
 
 import type { Metadata } from "next";
@@ -17,7 +18,7 @@ export default async function SupervisarPage() {
     <PestanasDeModeracion zona="supervisar" />
     <PestanasDeSupervision
       pendientes={pendientes}
-      supervisadas={supervisadas.filter((c) => c.status === "activa" || c.status === "aceptada")}
+      supervisadas={supervisadas.filter((c) => c.status === "activa" || c.status === "aceptada" || c.status === "pausada")}
       finalizadas={supervisadas.filter((c) => c.status === "finalizada")}
       conIncidencia={supervisadas.filter(
         (c) => c.latestSupervisionAction === "reportada" || c.status === "rechazada",
