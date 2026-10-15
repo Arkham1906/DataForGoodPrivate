@@ -16,9 +16,16 @@ export const CATEGORIAS_DE_CLASIFICACION: { valor: CategoriaDeClasificacion; eti
   { valor: "tematica", etiqueta: "Por temática" },
 ];
 
-/** Personas por categoría: las 3 primeras van en el podio y el resto en la lista. */
+/** Personas por categoría en la landing: las 3 primeras van en el podio y el resto en la lista. */
 export const LIDERES_POR_CATEGORIA = 6;
 export const LUGARES_DEL_PODIO = 3;
+/** Personas por página en /lideres (la tabla completa). */
+export const LIDERES_POR_PAGINA = 25;
+
+/** Valida el `?categoria=` de /lideres: cualquier otro valor cae en "aportes". */
+export function categoriaValida(valor: string | undefined): CategoriaDeClasificacion {
+  return CATEGORIAS_DE_CLASIFICACION.some((c) => c.valor === valor) ? (valor as CategoriaDeClasificacion) : "aportes";
+}
 
 export type Lider = {
   usuarioId: number;
