@@ -140,7 +140,7 @@ Hay dos cosas distintas con nombres parecidos:
 | Tipo | Efecto |
 | --- | --- |
 | `STRIKE` (aviso) | Escala según cuántos lleve la cuenta (los strikes de antes cuentan; no caducan): 1.º solo un mensaje ("Tu cuenta lleva un reporte" con el motivo), 2.º suspensión de 2 días, 3.º de 7 días, 4.º o más baneo y el correo a la lista negra. La consecuencia se guarda como su propia sanción con `aplicada_por = 'Automático'` |
-| `SUSPENSION_TEMPORAL` | La pone la escala (2.º y 3.º aviso). Bloquea la cuenta `dias` días desde `aplicada_en`. Se levanta sola al vencer |
+| `SUSPENSION_TEMPORAL` | La pone la escala (2.º y 3.º aviso) o, desde el 2026-10-16, quien modera como suspensión directa de 2 o 7 días (también al rechazar una campaña con sanción). Bloquea la cuenta `dias` días desde `aplicada_en`. Se levanta sola al vencer |
 | `BANEO_DE_CAMPANA` | Baneo: bloquea la cuenta hasta que se restaure y pone su correo en `lista_negra_correos`, que impide registrarse o entrar con Google como cuenta nueva |
 
 - La lógica de "¿está bloqueado?" vive en `lib/sanciones.ts` (`obtenerBloqueo`, `SQL_SANCION_BLOQUEANTE`).

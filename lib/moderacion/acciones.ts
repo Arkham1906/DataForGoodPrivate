@@ -1,6 +1,6 @@
 "use server";
 
-// Server actions de la moderación (2026-10-13): aplicarSancion (aviso o baneo), restaurarAcceso,
+// Server actions de la moderación (2026-10-13): aplicarSancion (aviso, suspensión o baneo), restaurarAcceso,
 // descartarReportes y quitarBloqueoDeDispositivo. Las usa quien modera desde dos zonas con las mismas
 // pantallas (components/moderacion): el SuperUsuario en modo supervisor (/supervisar) y un usuario con
 // rol de supervisor (/supervision). Antes eran del panel del SuperUsuario (/usuarios/sanciones, /reportes).
@@ -13,15 +13,15 @@ import { redirect } from "next/navigation";
 import { pool } from "@/lib/db";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { notificar } from "@/lib/notificaciones/notificaciones";
-import { TIPOS_DE_SANCION } from "@/lib/sanciones";
 import type { TipoDeSancion } from "@/lib/usuarios/directorio";
+import { quitarDeListaNegra } from "@/lib/usuarios/lista-negra";
 import {
-  AVISOS_PARA_BANEO,
-  consecuenciaDelAviso,
-  describirConsecuencia,
-  type ConsecuenciaDeAviso,
-} from "@/lib/usuarios/escala-de-avisos";
-import { agregarAListaNegra, quitarDeListaNegra } from "@/lib/usuarios/lista-negra";
+  avisarSancion,
+  detalleDeAuditoria,
+  errorDeSancionPedida,
+  sancionarEnTransaccion,
+  type SancionAplicada,
+} from "@/lib/moderacion/sancionar";
 import { leerClaveDeReportes } from "@/lib/reportes/motivos";
 import { sqlDeClave } from "@/lib/reportes/reportes";
 import { restaurarBloqueoGlobal } from "@/lib/aportes/sanciones-anonimas";
@@ -44,11 +44,10 @@ function revalidarModeracion() {
 }
 
 /**
- * Aviso o baneo inmediato (2026-10-12). Un AVISO se guarda como STRIKE y sigue la escala de
- * lib/usuarios/escala-de-avisos.ts según cuántos lleve la cuenta (los strikes de antes cuentan):
- * mensaje, suspensión de 2 días, de 7 días y, al cuarto, baneo + lista negra. BANEO es el baneo
- * inmediato para casos graves, también con lista negra. Con `reportes` (desde la bandeja de reportes)
- * resuelve en la misma transacción los reportes pendientes de esa clave contra la persona.
+ * Aviso, suspensión directa (2026-10-16) o baneo inmediato. Las reglas están en
+ * lib/moderacion/sancionar.ts (la escala de avisos, los días de la suspensión, la lista negra). Con
+ * `reportes` (desde la bandeja de reportes) resuelve en la misma transacción los reportes pendientes de
+ * esa clave contra la persona.
  */
 export async function aplicarSancion(
   zona: ZonaDeModeracion,
@@ -56,6 +55,8 @@ export async function aplicarSancion(
   datos: {
     tipo: TipoDeSancion;
     detalle: string;
+    /** Solo con SUSPENSION_TEMPORAL: 2 o 7. */
+    dias?: number;
     /** Clave de los reportes que se confirman ("campana-116" o "aporte-55"). */
     reportes?: string;
   },
@@ -70,93 +71,34 @@ export async function aplicarSancion(
   if (cuentaDelModerador(moderador) === numericId) return A_SI_MISMO;
 
   // Una server action se puede invocar con cualquier dato: no basta con que
-  // el formulario solo ofrezca estas opciones.
-  if (!TIPOS_DE_SANCION.has(datos.tipo)) {
-    return { ok: false, error: "Tipo de sanción inválido." };
-  }
+  // el formulario solo ofrezca estas opciones (sancionarEnTransaccion vuelve a validar).
   const detalle = typeof datos.detalle === "string" ? datos.detalle.trim() : "";
-  if (detalle.length < 20) {
-    return { ok: false, error: "El detalle debe tener al menos 20 caracteres." };
-  }
+  const pedida = { tipo: datos.tipo, dias: datos.dias };
+  const errorDePedida = errorDeSancionPedida(pedida, detalle);
+  if (errorDePedida) return { ok: false, error: errorDePedida };
   const clave = datos.reportes === undefined ? null : leerClaveDeReportes(datos.reportes);
   if (datos.reportes !== undefined && !clave) {
     return { ok: false, error: "Reportes inválidos." };
   }
 
-  const firma = firmaDeModerador(moderador);
   let reportesResueltos: number[] = [];
-  let aviso: { id: number; numero: number } | null = null;
-  // La sanción que bloquea (suspensión o baneo), si la hubo.
-  let bloqueo: { id: number; tipo: "SUSPENSION_TEMPORAL" | "BANEO_DE_CAMPANA"; dias: number | null; nueva: boolean } | null = null;
-  let consecuencia: ConsecuenciaDeAviso | null = null;
+  let sancion: SancionAplicada;
   const client = await pool.connect();
 
   try {
     await client.query("BEGIN");
 
-    // FOR UPDATE: dos avisos a la vez se forman en fila, así que cada uno cuenta bien su número.
-    const usuario = await client.query(`SELECT id FROM usuarios WHERE id = $1 FOR UPDATE`, [numericId]);
-    if (usuario.rowCount === 0) {
+    const r = await sancionarEnTransaccion(client, {
+      usuarioId: numericId,
+      pedida,
+      detalle,
+      firma: firmaDeModerador(moderador),
+    });
+    if (!r.ok) {
       await client.query("ROLLBACK");
-      return { ok: false, error: "El usuario no existe." };
+      return { ok: false, error: r.error };
     }
-
-    const { rows: previos } = await client.query<{ avisos: number; baneo_id: number | null }>(
-      `SELECT COUNT(*) FILTER (WHERE tipo = 'STRIKE')::int AS avisos,
-              MAX(id) FILTER (WHERE activa AND tipo = 'BANEO_DE_CAMPANA') AS baneo_id
-       FROM sanciones WHERE usuario_id = $1`,
-      [numericId],
-    );
-    const baneoVigente = previos[0].baneo_id;
-
-    let sancionId: number;
-    if (datos.tipo === "STRIKE") {
-      const numero = previos[0].avisos + 1;
-      consecuencia = consecuenciaDelAviso(numero);
-      const insertado = await client.query<{ id: number }>(
-        `INSERT INTO sanciones (usuario_id, tipo, detalle, aplicada_por) VALUES ($1, 'STRIKE', $2, $3) RETURNING id`,
-        [numericId, detalle, firma],
-      );
-      aviso = { id: insertado.rows[0].id, numero };
-      sancionId = aviso.id;
-
-      // La consecuencia es su propia sanción (la que bloquea y se puede restaurar); su detalle es lo
-      // que la persona ve en /cuenta-bloqueada.
-      const motivoDelBloqueo = `Aviso ${numero} de ${AVISOS_PARA_BANEO}. ${detalle}`;
-      if (consecuencia.tipo === "suspension") {
-        const s = await client.query<{ id: number }>(
-          `INSERT INTO sanciones (usuario_id, tipo, detalle, dias, aplicada_por)
-           VALUES ($1, 'SUSPENSION_TEMPORAL', $2, $3, 'Automático') RETURNING id`,
-          [numericId, motivoDelBloqueo, consecuencia.dias],
-        );
-        bloqueo = { id: s.rows[0].id, tipo: "SUSPENSION_TEMPORAL", dias: consecuencia.dias, nueva: true };
-      } else if (consecuencia.tipo === "baneo") {
-        if (baneoVigente) {
-          bloqueo = { id: baneoVigente, tipo: "BANEO_DE_CAMPANA", dias: null, nueva: false };
-        } else {
-          const b = await client.query<{ id: number }>(
-            `INSERT INTO sanciones (usuario_id, tipo, detalle, aplicada_por)
-             VALUES ($1, 'BANEO_DE_CAMPANA', $2, 'Automático') RETURNING id`,
-            [numericId, motivoDelBloqueo],
-          );
-          bloqueo = { id: b.rows[0].id, tipo: "BANEO_DE_CAMPANA", dias: null, nueva: true };
-        }
-        await agregarAListaNegra(client, { usuarioId: numericId, sancionId: bloqueo.id, motivo: motivoDelBloqueo });
-      }
-    } else {
-      // Baneo inmediato: si ya está baneada no se duplica, pero su correo sí entra a la lista negra.
-      if (baneoVigente) {
-        await client.query("ROLLBACK");
-        return { ok: false, error: "La cuenta ya está baneada." };
-      }
-      const b = await client.query<{ id: number }>(
-        `INSERT INTO sanciones (usuario_id, tipo, detalle, aplicada_por) VALUES ($1, 'BANEO_DE_CAMPANA', $2, $3) RETURNING id`,
-        [numericId, detalle, firma],
-      );
-      sancionId = b.rows[0].id;
-      bloqueo = { id: sancionId, tipo: "BANEO_DE_CAMPANA", dias: null, nueva: true };
-      await agregarAListaNegra(client, { usuarioId: numericId, sancionId, motivo: detalle });
-    }
+    sancion = r.sancion;
 
     // Confirmar reportes: los pendientes de esa clave contra esta persona quedan resueltos con esta
     // sanción. Si otro moderador ya los resolvió, no se sanciona dos veces por lo mismo.
@@ -166,18 +108,14 @@ export async function aplicarSancion(
          SET estado = 'sancionado', sancion_id = $3, nota_de_resolucion = $4, resuelto_en = NOW()
          WHERE ${sqlDeClave(clave)} AND reportado_id = $2 AND estado = 'pendiente'
          RETURNING id`,
-        [clave.id, numericId, sancionId, detalle],
+        [clave.id, numericId, sancion.sancionId, detalle],
       );
       if (resueltos.rowCount === 0) {
         await client.query("ROLLBACK");
         return { ok: false, error: "Esos reportes ya se resolvieron." };
       }
-      reportesResueltos = resueltos.rows.map((r) => r.id);
+      reportesResueltos = resueltos.rows.map((row) => row.id);
     }
-
-    // Suspensión y baneo no cierran sus sesiones: el bloqueo aplica ya porque
-    // getSessionUser deja de aceptarlas, y así la persona ve en la app la
-    // pantalla de cuenta bloqueada con el motivo en vez de salir a /entrar.
 
     await client.query("COMMIT");
   } catch (error) {
@@ -193,45 +131,13 @@ export async function aplicarSancion(
     accion: "sancion.aplicar",
     objetivo: { tipo: "usuario", id: numericId },
     detalle: {
-      tipo: aviso ? "AVISO" : "BANEO",
+      ...detalleDeAuditoria(sancion, detalle),
       zona,
-      ...(aviso ? { avisoId: aviso.id, aviso: aviso.numero } : {}),
-      ...(bloqueo ? { bloqueo: { sancionId: bloqueo.id, tipo: bloqueo.tipo, dias: bloqueo.dias } } : {}),
-      listaNegra: bloqueo?.tipo === "BANEO_DE_CAMPANA",
-      motivo: detalle,
       ...(clave ? { reportes: reportesResueltos, clave: datos.reportes } : {}),
     },
   });
 
-  // Con suspensión o baneo la persona no puede entrar: la verá al recuperar el acceso.
-  // Mientras, /cuenta-bloqueada ya le muestra el motivo.
-  const restantes = aviso ? AVISOS_PARA_BANEO - aviso.numero : 0;
-  await notificar({
-    usuarioId: numericId,
-    tipo: "sancion_aplicada",
-    titulo: !aviso
-      ? "Tu cuenta fue baneada"
-      : consecuencia?.tipo === "suspension"
-        ? `Tu cuenta se suspendió ${consecuencia.dias} días`
-        : consecuencia?.tipo === "baneo"
-          ? "Tu cuenta fue baneada"
-          : "Tu cuenta lleva un reporte",
-    mensaje: `Motivo: ${detalle}${
-      aviso
-        ? ` Es tu aviso ${aviso.numero} de ${AVISOS_PARA_BANEO}.${
-            restantes > 0
-              ? ` El siguiente: ${describirConsecuencia(consecuenciaDelAviso(aviso.numero + 1))}.`
-              : ""
-          }`
-        : ""
-    }`,
-    metadata: {
-      sancionId: aviso?.id ?? bloqueo?.id,
-      tipo: aviso ? "AVISO" : "BANEO_DE_CAMPANA",
-      ...(aviso ? { aviso: aviso.numero } : {}),
-      ...(bloqueo?.dias ? { dias: bloqueo.dias } : {}),
-    },
-  });
+  await avisarSancion(numericId, sancion, detalle);
 
   revalidarModeracion();
   redirect(rutasDeModeracion(zona).sanciones);

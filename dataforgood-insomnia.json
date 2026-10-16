@@ -423,7 +423,7 @@
         "mimeType": "application/json",
         "text": "{\n  \"action\": \"rechazada\",\n  \"motivo\": \"Motivo de la decisión\"\n}"
       },
-      "description": "action: aceptada, rechazada o reportada.",
+      "description": "action: aceptada o rechazada. Al rechazar: motivoDeLista y/o motivo, y sancion opcional (STRIKE, SUSPENSION_TEMPORAL con dias 2 o 7, BANEO_DE_CAMPANA).",
       "metaSortKey": 16
     },
     {

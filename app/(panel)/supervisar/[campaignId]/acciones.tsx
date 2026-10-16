@@ -2,16 +2,16 @@
 
 // Botones de /supervisar/[campaignId]. Llaman a las server actions tomarComoSuperUsuario y
 // decidirComoSuperUsuario (lib/supervision/acciones-root.ts), que usan las reglas de lib/supervision/decision.ts.
-// Una campaña ya aceptada (aceptada, activa o pausada) se puede reportar aunque la haya aceptado
-// otro supervisor (2026-10-15); en revisión, solo la que tomó el SuperUsuario.
+// En revisión y tomada por el SuperUsuario: Aceptar o Rechazar (con motivo y sanción opcional al creador,
+// components/supervision/FormularioDeRechazo). "Reportar" se quitó el 2026-10-16: quien supervisa ya sanciona.
 // EstadoComoSuperUsuario: pausar, reanudar y finalizar (cambiarEstadoComoSuperUsuario).
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition, type FormEvent, type ReactNode } from "react";
-import { Textarea } from "@/components/ui/Input";
+import { useState, useTransition, type ReactNode } from "react";
 import { cambiarEstadoComoSuperUsuario, decidirComoSuperUsuario, tomarComoSuperUsuario } from "@/lib/supervision/acciones-root";
 import Tag from "@/components/ui/Tag";
 import EstadoDeCampanaSupervisada from "@/components/supervision/EstadoDeCampanaSupervisada";
+import FormularioDeRechazo, { type RechazoPedido } from "@/components/supervision/FormularioDeRechazo";
 import type { AccionDeSupervision } from "@/lib/supervision/decision";
 import type { PausaDeCampana } from "@/lib/campanas/pausa";
 
@@ -56,13 +56,16 @@ export default function AccionesDeSupervision({
   const [accionEnCurso, setAccionEnCurso] = useState<AccionDeSupervision | "tomar" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showRejectForm, setShowRejectForm] = useState(false);
-  const [rejectionReason, setRejectionReason] = useState("");
 
-  function decidir(accion: AccionDeSupervision, motivo = "") {
+  function decidir(accion: AccionDeSupervision, rechazo?: RechazoPedido) {
     setError(null);
     setAccionEnCurso(accion);
     iniciar(async () => {
-      const resultado = await decidirComoSuperUsuario(campaignId, accion, motivo);
+      const resultado = await decidirComoSuperUsuario(
+        campaignId,
+        accion,
+        rechazo ? { motivoDeLista: rechazo.motivoDeLista, motivo: rechazo.motivo, sancion: rechazo.sancion } : {},
+      );
       setAccionEnCurso(null);
       if (!resultado.ok) {
         setError(resultado.error);
@@ -86,15 +89,8 @@ export default function AccionesDeSupervision({
     });
   }
 
-  function confirmRejection(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const motivo = rejectionReason.trim();
-    if (!motivo) {
-      setError("Debes explicar el motivo del rechazo");
-      return;
-    }
-    decidir("rechazada", motivo);
-  }
+  // Aceptar o rechazar: solo en revisión y si la supervisa el SuperUsuario.
+  const puedeDictaminar = supervision === "mia" && status === "en_revision";
 
   return (
     <>
@@ -112,9 +108,8 @@ export default function AccionesDeSupervision({
           </button>
         ) : supervision !== "mia" && (status === "en_revision" || status === "finalizada" || status === "rechazada") ? (
           <Tag>{supervision === "otro" ? "La supervisa otro supervisor" : "Sin supervisor"}</Tag>
-        ) : (
-        <div className="flex flex-wrap gap-2">
-          {status === "en_revision" && (
+        ) : puedeDictaminar ? (
+          <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => {
@@ -126,18 +121,6 @@ export default function AccionesDeSupervision({
             >
               Rechazar
             </button>
-          )}
-          {status !== "finalizada" && status !== "rechazada" && (
-            <button
-              type="button"
-              onClick={() => decidir("reportada")}
-              disabled={pendiente}
-              className="rounded-pill border border-system-300 bg-white px-3.5 py-2 text-[12.5px] font-bold text-system-600 disabled:opacity-60"
-            >
-              {accionEnCurso === "reportada" ? "Reportando…" : "Reportar"}
-            </button>
-          )}
-          {status === "en_revision" && (
             <button
               type="button"
               onClick={() => decidir("aceptada")}
@@ -146,46 +129,20 @@ export default function AccionesDeSupervision({
             >
               {accionEnCurso === "aceptada" ? "Aceptando…" : "Aceptar campaña"}
             </button>
-          )}
-        </div>
-        )}
+          </div>
+        ) : null}
       </div>
 
       {error && (
         <div className="mb-5 rounded-lg border border-error-700/30 bg-error-50 p-4 text-sm text-error-700">{error}</div>
       )}
 
-      {showRejectForm && supervision === "mia" && status === "en_revision" && (
-        <form onSubmit={confirmRejection} className="mb-5 rounded-lg border border-error-700/40 bg-error-50 p-4">
-          <label htmlFor="campaign-rejection-reason" className="mb-2 block text-[13px] font-semibold text-system-900">
-            Motivo del rechazo <span className="text-error-700">*</span>
-          </label>
-          <Textarea
-            id="campaign-rejection-reason"
-            rows={4}
-            value={rejectionReason}
-            onChange={(event) => setRejectionReason(event.target.value)}
-            placeholder="Explica al creador por qué se rechaza la campaña"
-            required
-          />
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setShowRejectForm(false)}
-              disabled={pendiente}
-              className="rounded-pill border border-system-300 bg-white px-3.5 py-2 text-[12.5px] font-bold text-system-600 disabled:opacity-60"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={pendiente || !rejectionReason.trim()}
-              className="rounded-pill bg-error-700 px-3.5 py-2 text-[12.5px] font-bold text-white disabled:opacity-60"
-            >
-              {accionEnCurso === "rechazada" ? "Rechazando…" : "Confirmar rechazo"}
-            </button>
-          </div>
-        </form>
+      {showRejectForm && puedeDictaminar && (
+        <FormularioDeRechazo
+          ocupado={pendiente}
+          onCancelar={() => setShowRejectForm(false)}
+          onConfirmar={(rechazo) => decidir("rechazada", rechazo)}
+        />
       )}
     </>
   );

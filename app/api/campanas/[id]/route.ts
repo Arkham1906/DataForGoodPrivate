@@ -1,6 +1,7 @@
 // /api/campanas/[id] — detalle, edición y supervisión de una campaña.
 // El PATCH tiene cuatro usos según el body: { action: "tomar" }, dictamen del supervisor
-// ({ action: "aceptada" | "rechazada" | "reportada", motivo }), cambio de estado del supervisor
+// ({ action: "aceptada" | "rechazada", motivoDeLista, motivo, sancion }; "reportada" ya no, desde el
+// 2026-10-16), cambio de estado del supervisor
 // ({ action: "pausar" | "reanudar" | "finalizar", motivo }) o edición del creador.
 
 import { NextResponse } from "next/server";
@@ -155,16 +156,27 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       return NextResponse.json({ message: "Ahora supervisas esta campaña", data: mapCampaign(updated.rows[0]) });
     }
 
+    // "Reportar" se quitó de la supervisión (2026-10-16): sin esto caería en la edición del creador (403 confuso).
+    if (accion === "reportada") {
+      return NextResponse.json(
+        { error: "Reportar ya no existe en la supervisión: al rechazar puedes sancionar al creador" },
+        { status: 400 },
+      );
+    }
+
     if (ACCIONES_DE_SUPERVISION.has(accion)) {
       const roles = Array.isArray(user.role) ? user.role : typeof user.role === "string" ? [user.role] : [];
       if (!roles.includes("supervisor")) {
         return NextResponse.json({ error: "Solo un supervisor puede decidir esta campaña" }, { status: 403 });
       }
 
-      const resultado = await registrarDecisionDeCampana(id, accion as AccionDeSupervision, body.motivo ?? body.reason, {
-        tipo: "usuario",
-        usuarioId: Number(user.id),
-      });
+      // Al rechazar: motivoDeLista y/o motivo (explicación), y sancion opcional al creador (2026-10-16).
+      const resultado = await registrarDecisionDeCampana(
+        id,
+        accion as AccionDeSupervision,
+        { motivoDeLista: body.motivoDeLista, motivo: body.motivo ?? body.reason, sancion: body.sancion },
+        { tipo: "usuario", usuarioId: Number(user.id) },
+      );
       if (!resultado.ok) {
         return NextResponse.json({ error: resultado.error }, { status: resultado.status });
       }

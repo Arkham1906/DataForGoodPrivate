@@ -12,6 +12,7 @@ import {
   registrarDecisionDeCampana,
   tomarCampanaParaSupervisar,
   type AccionDeSupervision,
+  type EntradaDeDecision,
 } from "@/lib/supervision/decision";
 import {
   CAMBIOS_DE_ESTADO_POR_SUPERVISION,
@@ -23,20 +24,20 @@ export type ResultadoDeSupervision = { ok: true; mensaje: string } | { ok: false
 
 /**
  * Dictamen del SuperUsuario desde /supervisar. Mismas reglas que un
- * supervisor (motivo obligatorio al rechazar, aceptada con inicio futuro,
- * notificación al creador), pero la autoría queda como SuperUsuario.
+ * supervisor (motivo obligatorio al rechazar, sanción opcional al creador, aceptada con
+ * inicio futuro, notificación al creador), pero la autoría queda como SuperUsuario.
  */
 export async function decidirComoSuperUsuario(
   campanaId: string,
   accion: AccionDeSupervision,
-  motivo: string,
+  entrada: EntradaDeDecision = {},
 ): Promise<ResultadoDeSupervision> {
   if (!(await hasRootSession())) throw new Error("No autorizado");
   if (!/^\d+$/.test(campanaId) || !ACCIONES_DE_SUPERVISION.has(accion)) {
     return { ok: false, error: "Petición inválida." };
   }
 
-  const resultado = await registrarDecisionDeCampana(campanaId, accion, motivo, { tipo: "root" });
+  const resultado = await registrarDecisionDeCampana(campanaId, accion, entrada, { tipo: "root" });
   if (!resultado.ok) return { ok: false, error: resultado.error };
 
   revalidatePath("/supervisar", "layout");

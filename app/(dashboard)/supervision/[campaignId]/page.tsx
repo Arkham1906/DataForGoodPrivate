@@ -3,7 +3,9 @@
 // Pantalla /supervision/[campaignId]: revisar una campaña en_revision y dictaminar.
 // Componente cliente. Datos: GET /api/campanas?id=.
 // Acciones: tomar con PATCH /api/campanas/[id] { action: "tomar" }; dictaminar con
-// PATCH { action: "aceptada" | "rechazada" | "reportada", motivo }. Reglas en lib/supervision/decision.ts.
+// PATCH { action: "aceptada" | "rechazada", motivoDeLista, motivo, sancion }. Al rechazar se puede sancionar
+// al creador (components/supervision/FormularioDeRechazo); "Reportar" se quitó el 2026-10-16.
+// Reglas en lib/supervision/decision.ts.
 // Activa o pausada: PATCH { action: "pausar" | "reanudar" | "finalizar", motivo } con
 // components/supervision/EstadoDeCampanaSupervisada (lib/supervision/estado-por-supervision.ts).
 
@@ -11,7 +13,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Tag from "@/components/ui/Tag";
-import { Textarea } from "@/components/ui/Input";
+import FormularioDeRechazo, { type RechazoPedido } from "@/components/supervision/FormularioDeRechazo";
 import { BackLink } from "../_ui";
 import { BASE_PATH } from "@/lib/base-path";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
@@ -51,7 +53,7 @@ export default function CampaignDetailPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showRejectForm, setShowRejectForm] = useState(false);
-  const [rejectionReason, setRejectionReason] = useState("");
+  const [errorDeDecision, setErrorDeDecision] = useState<string | null>(null);
   const [isCreator, setIsCreator] = useState(false);
   const [isMySupervision, setIsMySupervision] = useState(false);
 
@@ -79,15 +81,16 @@ export default function CampaignDetailPage() {
     }
   }, [campaignId]);
 
-  async function handleDecision(action: "aceptada" | "rechazada" | "reportada", motivo = "") {
+  async function handleDecision(action: "aceptada" | "rechazada", rechazo?: RechazoPedido) {
     if (!campaignId) return;
 
     try {
       setActionLoading(action);
+      setErrorDeDecision(null);
       const response = await fetch(`${BASE_PATH}/api/campanas/${campaignId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, motivo }),
+        body: JSON.stringify({ action, ...(rechazo ?? {}) }),
       });
 
       const payload = await response.json().catch(() => ({}));
@@ -102,7 +105,8 @@ export default function CampaignDetailPage() {
 
       router.push("/supervision");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "No se pudo registrar la decisión");
+      // Junto a los botones, no en lugar de la página (como `error`): así se puede corregir y reintentar.
+      setErrorDeDecision(cause instanceof Error ? cause.message : "No se pudo registrar la decisión");
     } finally {
       setActionLoading(null);
     }
@@ -150,16 +154,6 @@ export default function CampaignDetailPage() {
     } finally {
       setActionLoading(null);
     }
-  }
-
-  function confirmRejection(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const motivo = rejectionReason.trim();
-    if (!motivo) {
-      setError("Debes explicar el motivo del rechazo");
-      return;
-    }
-    void handleDecision("rechazada", motivo);
   }
 
   if (loading) {
@@ -234,23 +228,13 @@ export default function CampaignDetailPage() {
             <button
               type="button"
               onClick={() => {
-                setError(null);
+                setErrorDeDecision(null);
                 setShowRejectForm(true);
               }}
               disabled={actionLoading !== null}
               className="rounded-pill border border-error-700/40 bg-error-50 px-3.5 py-2 text-[12.5px] font-bold text-error-700 disabled:opacity-60"
             >
               Rechazar
-            </button>
-          )}
-          {campaign.status !== "finalizada" && (
-            <button
-              type="button"
-              onClick={() => handleDecision("reportada")}
-              disabled={actionLoading !== null}
-              className="rounded-pill border border-system-300 bg-white px-3.5 py-2 text-[12.5px] font-bold text-system-600 disabled:opacity-60"
-            >
-              {actionLoading === "reportada" ? "Reportando…" : "Reportar"}
             </button>
           )}
           {campaign.status === "en_revision" && (
@@ -267,37 +251,16 @@ export default function CampaignDetailPage() {
         )}
       </div>
 
+      {errorDeDecision && (
+        <div role="alert" className="mb-5 rounded-lg border border-error-700/30 bg-error-50 p-4 text-sm text-error-700">{errorDeDecision}</div>
+      )}
+
       {showRejectForm && isMySupervision && campaign.status === "en_revision" && (
-        <form onSubmit={confirmRejection} className="mb-5 rounded-lg border border-error-700/40 bg-error-50 p-4">
-          <label htmlFor="campaign-rejection-reason" className="mb-2 block text-[13px] font-semibold text-system-900">
-            Motivo del rechazo <span className="text-error-700">*</span>
-          </label>
-          <Textarea
-            id="campaign-rejection-reason"
-            rows={4}
-            value={rejectionReason}
-            onChange={(event) => setRejectionReason(event.target.value)}
-            placeholder="Explica al creador por qué se rechaza la campaña"
-            required
-          />
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setShowRejectForm(false)}
-              disabled={actionLoading !== null}
-              className="rounded-pill border border-system-300 bg-white px-3.5 py-2 text-[12.5px] font-bold text-system-600 disabled:opacity-60"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={actionLoading !== null || !rejectionReason.trim()}
-              className="rounded-pill bg-error-700 px-3.5 py-2 text-[12.5px] font-bold text-white disabled:opacity-60"
-            >
-              {actionLoading === "rechazada" ? "Rechazando…" : "Confirmar rechazo"}
-            </button>
-          </div>
-        </form>
+        <FormularioDeRechazo
+          ocupado={actionLoading !== null}
+          onCancelar={() => setShowRejectForm(false)}
+          onConfirmar={(rechazo) => void handleDecision("rechazada", rechazo)}
+        />
       )}
 
       <div className="mb-5 rounded-lg border border-system-200 bg-system-100 p-4 text-[13px] text-system-600">
