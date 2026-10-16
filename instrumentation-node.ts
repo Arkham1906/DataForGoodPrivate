@@ -4,8 +4,29 @@
 import { ensureCoreSchema } from "@/lib/db-schema";
 import { ejecutarBajasVencidas } from "@/lib/usuarios/baja";
 import { enviarAvisosPeriodicos } from "@/lib/notificaciones/periodicas";
+import { activateScheduledCampaigns, finalizeExpiredCampaigns } from "@/lib/campaign-date";
 
 const UNA_HORA_MS = 60 * 60 * 1000;
+const UN_MINUTO_MS = 60 * 1000;
+
+/**
+ * Activa las campañas programadas (aceptada → activa) y finaliza las vencidas (activa → finalizada)
+ * a su hora, sin esperar a que alguien abra una pantalla que lea /api/campanas. Antes solo
+ * cambiaban en esas lecturas: una programada seguía "aceptada" pasada su hora de inicio y no
+ * salía en /explorar ni en la landing (2026-10-16). Las lecturas siguen haciéndolo también.
+ */
+function programarEstadosDeCampanas(): void {
+  const marca = globalThis as typeof globalThis & { __estadosDeCampanasProgramados?: boolean };
+  if (marca.__estadosDeCampanasProgramados) return;
+  marca.__estadosDeCampanasProgramados = true;
+
+  const correr = () =>
+    activateScheduledCampaigns()
+      .then(() => finalizeExpiredCampaigns())
+      .catch((error) => console.error("Error al actualizar el estado de las campañas por fecha", error));
+  void correr();
+  setInterval(correr, UN_MINUTO_MS).unref();
+}
 
 /**
  * Borrado definitivo de las cuentas cuyo plazo de baja venció (lib/usuarios/baja.ts).
@@ -44,6 +65,7 @@ export async function crearEsquemaAlArrancar(): Promise<void> {
     try {
       await ensureCoreSchema();
       programarBajasVencidas();
+      programarEstadosDeCampanas();
       return;
     } catch (error) {
       if (intento >= INTENTOS) {

@@ -3,7 +3,7 @@
 // Ventana para confirmar una acción (<dialog> nativo, como ui/AcuerdosDeAporte), en lugar de
 // window.confirm: título, contenido libre y botones "Cancelar" y el de la acción. Mientras
 // `ocupado` es true no se cierra (ni con Esc ni con clic afuera) y el botón muestra `textoOcupado`.
-// La usa "Pausar campaña" en /mis-campanas.
+// La usan "Pausar campaña" y "Finalizar campaña" en /mis-campanas y "Reportar campaña" en /campanas/[id] (ui/ReportarAPlataforma).
 
 import { useEffect, useRef, type ReactNode } from "react";
 import Button from "@/components/ui/Button";
@@ -17,6 +17,7 @@ export default function VentanaDeConfirmacion({
   textoOcupado,
   ocupado = false,
   peligro = false,
+  confirmarDeshabilitado = false,
   onCancelar,
   onConfirmar,
 }: {
@@ -28,6 +29,8 @@ export default function VentanaDeConfirmacion({
   ocupado?: boolean;
   /** Botón rojo para acciones que no se deshacen. */
   peligro?: boolean;
+  /** Deshabilita el botón de la acción (p. ej. falta llenar un campo del contenido). */
+  confirmarDeshabilitado?: boolean;
   onCancelar: () => void;
   onConfirmar: () => void;
 }) {
@@ -73,7 +76,7 @@ export default function VentanaDeConfirmacion({
           <Button type="button" variant="ghost" size="sm" onClick={cancelar} disabled={ocupado}>
             Cancelar
           </Button>
-          <Button type="button" variant={peligro ? "danger" : "primary"} size="sm" onClick={onConfirmar} disabled={ocupado}>
+          <Button type="button" variant={peligro ? "danger" : "primary"} size="sm" onClick={onConfirmar} disabled={ocupado || confirmarDeshabilitado}>
             {ocupado ? (
               <span className="inline-flex items-center gap-2">
                 <IndicadorDeCarga />

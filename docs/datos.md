@@ -82,7 +82,7 @@ borrador ──► en_revision ──(supervisor acepta)──► aceptada ─�
 | `finalizada` | Cerrada; aparece en `/datos` como dato abierto | El creador (botón "Finalizar") o automático al vencer `end_date` |
 | `rechazada` | El supervisor la rechazó con un motivo | El supervisor |
 
-- **Transiciones automáticas sin cron.** `activateScheduledCampaigns()` (`aceptada` → `activa`) y `finalizeExpiredCampaigns()` (`activa` → `finalizada`) de `lib/campaign-date.ts` se ejecutan **cada vez que se lee `GET /api/campanas`**. Una `pausada` no se finaliza sola.
+- **Transiciones automáticas sin cron.** `activateScheduledCampaigns()` (`aceptada` → `activa`) y `finalizeExpiredCampaigns()` (`activa` → `finalizada`) de `lib/campaign-date.ts` se ejecutan **cada minuto** en la tarea de `instrumentation-node.ts` y además cada vez que se lee `GET /api/campanas`, `/explorar`, la landing o la portada de `/sistema`. Una `pausada` no se finaliza sola.
 - **Enlace público automático.** Cada vez que una campaña **pasa a `activa`** (el supervisor la acepta y ya empezó, llega su fecha de inicio o se reactiva) se le genera un enlace `/c/[token]` de 24 h si no tiene uno vigente (`asegurarEnlaceVigente` de `lib/campanas/enlaces.ts`). Si la acepta con inicio futuro, el enlace se crea el día que arranca, no antes, para que no venza sin usarse. Después solo el creador lo regenera.
 - **"Reportada"** no cambia el estado: queda registrada en `campana_supervisores`.
 - **Tomar una campaña:** un supervisor la reserva con un `UPDATE ... WHERE supervisor_id IS NULL AND NOT supervisado_por_root`. Si dos la toman a la vez, solo uno gana; el otro recibe 409.

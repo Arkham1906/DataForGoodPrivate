@@ -12,6 +12,8 @@ import ProgressBar from "@/components/ui/ProgressBar";
 import Tag from "@/components/ui/Tag";
 import { retraso } from "@/lib/animaciones";
 import { pool } from "@/lib/db";
+import { activateScheduledCampaigns, finalizeExpiredCampaigns } from "@/lib/campaign-date";
+import { ZONA_DE_CAMPANAS } from "@/lib/fecha-de-tepic";
 import TablaDeLideres from "@/components/gamificacion/TablaDeLideres";
 import { mostrarTablaDeLideres, obtenerTablaDeLideres } from "@/lib/gamificacion/clasificacion";
 import { DATA_TYPE_LABELS, buscarConjuntosAbiertos, contarConjuntosPublicados } from "@/lib/open-data";
@@ -100,6 +102,9 @@ interface CampanaDestacada {
 /** Campañas activas con más participación, para la vitrina de la landing. */
 async function obtenerCampanasDestacadas(): Promise<CampanaDestacada[]> {
   try {
+    // Una programada cuya hora de inicio ya llegó entra sin esperar a la tarea de cada minuto.
+    await activateScheduledCampaigns();
+    await finalizeExpiredCampaigns();
     const result = await pool.query(
       `SELECT id, name, COALESCE(NULLIF(tag, ''), tematica) AS tag, current_contributions, goal_contributions, participants
        FROM campanas
@@ -148,7 +153,10 @@ function comoHashtag(texto: string): string {
 async function obtenerAportesRecientes(): Promise<AporteReciente[]> {
   try {
     const result = await pool.query(
-      `SELECT a.id, COALESCE(NULLIF(c.tag, ''), c.tematica) AS tag, a.description, a.submitted_at
+      // submitted_at es TIMESTAMP en UTC: sale como ISO con "Z" para no depender de la zona
+      // del proceso (UTC en Docker, la de la máquina en `next dev`).
+      `SELECT a.id, COALESCE(NULLIF(c.tag, ''), c.tematica) AS tag, a.description,
+              to_char(a.submitted_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS submitted_at
        FROM aportes a
        JOIN campanas c ON c.id = a.campaign_id
        WHERE a.status = 'aceptado' AND c.status IN ('activa', 'pausada', 'finalizada')
@@ -159,7 +167,7 @@ async function obtenerAportesRecientes(): Promise<AporteReciente[]> {
       id: String(row.id),
       tag: String(row.tag ?? ""),
       description: String(row.description ?? ""),
-      submittedAt: row.submitted_at ? new Date(String(row.submitted_at)).toISOString() : new Date().toISOString(),
+      submittedAt: row.submitted_at ? String(row.submitted_at) : new Date().toISOString(),
     }));
   } catch {
     return [];
@@ -220,7 +228,7 @@ export default async function LandingPage() {
                   <div>
                     <p className="text-[12px] font-medium text-brand-600">{comoHashtag(post.tag)}</p>
                     <p className="font-mono text-[11px] text-system-500">
-                      {new Date(post.submittedAt).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}
+                      {new Date(post.submittedAt).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", timeZone: ZONA_DE_CAMPANAS })}
                     </p>
                   </div>
                   <Tag tone="ok">Aprobado</Tag>

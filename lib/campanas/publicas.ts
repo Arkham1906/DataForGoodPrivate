@@ -1,5 +1,5 @@
 import { pool } from "@/lib/db";
-import { calculateCampaignDaysRemaining } from "@/lib/campaign-date";
+import { activateScheduledCampaigns, calculateCampaignDaysRemaining, finalizeExpiredCampaigns } from "@/lib/campaign-date";
 
 /**
  * Campañas activas para la vitrina pública /explorar. Solo expone lo que ya
@@ -56,6 +56,9 @@ function mapCampana(row: Record<string, unknown>): CampanaPublica {
 // se devuelve vacío en vez de tumbar la página.
 export async function buscarCampanasActivas(filtros: FiltrosDeCampanas): Promise<CampanaPublica[]> {
   try {
+    // Una programada cuya hora de inicio ya llegó sale sin esperar a la tarea de cada minuto.
+    await activateScheduledCampaigns();
+    await finalizeExpiredCampaigns();
     const condiciones = ["status = 'activa'"];
     const valores: unknown[] = [];
 

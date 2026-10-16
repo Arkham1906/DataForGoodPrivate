@@ -141,7 +141,7 @@ Patrón: página de servidor que lee de `lib/` + componente cliente hermano que 
 | `/usuarios/supervisores/[id]` | `usuarios/supervisores/[id]/page.tsx` | `obtenerActividad` | — |
 | `/usuarios/supervisores/[id]/revertir/[accionId]` | `.../revertir/[accionId]/page.tsx` + `formulario.tsx` | `obtenerAccion` | `revertirAccion` |
 | `/supervisar` | `supervisar/page.tsx` + `pestanas.tsx` | `lib/supervision/root.ts` (`listarCampanasParaRoot`); filtros con `components/campanas/BarraDeFiltros.tsx` en el navegador | — |
-| `/supervisar/campanas` | `supervisar/campanas/page.tsx` | `listarCampanasParaRoot` | — |
+| `/supervisar/campanas` | `supervisar/campanas/page.tsx` | `listarCampanasParaRoot` (dos tablas: las del SuperUsuario y las de otros supervisores) | — |
 | `/supervisar/[campaignId]` | `supervisar/[campaignId]/page.tsx` + `acciones.tsx` | `obtenerCampanaParaRoot` | `tomarComoSuperUsuario`, `decidirComoSuperUsuario`, `cambiarEstadoComoSuperUsuario` (pausar, reanudar, finalizar) |
 | `/supervisar/[campaignId]/panel` | `supervisar/[campaignId]/panel/page.tsx` | `obtenerCampanaSupervisadaPorRoot`, `lib/campanas/panel.ts` | — |
 | `/supervisar/[campaignId]/usuarios` y subrutas | `supervisar/[campaignId]/usuarios/**/page.tsx` | SQL directo con `pool` | — |

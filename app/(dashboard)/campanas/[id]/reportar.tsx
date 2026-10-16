@@ -2,7 +2,8 @@
 
 // "Reportar campaña" de /campanas/[id] (2026-10-12), con ui/ReportarAPlataforma y
 // POST /api/campanas/[id]/reportar. El reporte llega a la bandeja del SuperUsuario (/reportes); quien
-// creó la campaña no se entera ni sabe quién la reportó. Uno por persona y campaña.
+// creó la campaña no se entera ni sabe quién la reportó. Uno por persona y campaña. El formulario se abre
+// en una ventana emergente (2026-10-16).
 
 import ReportarAPlataforma from "@/components/ui/ReportarAPlataforma";
 import { MOTIVOS_DE_REPORTE_DE_CAMPANA } from "@/lib/reportes/motivos";
@@ -17,6 +18,7 @@ export default function ReportarCampana({ campanaId, yaReportada }: { campanaId:
       placeholder="Qué tiene de inapropiado o engañoso la campaña"
       yaReportado={yaReportada}
       textoYaReportado="Ya reportaste esta campaña. El equipo de DataForGood lo está revisando."
+      enVentana
     />
   );
 }

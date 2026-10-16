@@ -2,6 +2,7 @@
 
 // Pestañas de /supervisar (por revisar / supervisadas) con la barra de filtros de
 // components/campanas/BarraDeFiltros.tsx, aplicada en el navegador (lib/campanas/filtro-local.ts).
+// Supervisadas, reportadas/rechazadas y finalizadas van en dos bloques: las del SuperUsuario y las de los otros supervisores.
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -75,24 +76,48 @@ export default function PestanasDeSupervision({
     </div>
   );
 
+  // Supervisadas en dos bloques (2026-10-16): las que supervisa el SuperUsuario y las de los supervisores.
   const renderSupervisedList = () => (
+    <div className="space-y-4">
+      {renderBloqueDeSupervisadas(
+        "Supervisadas por ti",
+        todasSupervisadas.filter((c) => c.supervision === "mia"),
+        supervisadas.filter((c) => c.supervision === "mia"),
+        "Todavía no supervisas ninguna campaña aceptada.",
+      )}
+      {renderBloqueDeSupervisadas(
+        "Supervisadas por otros supervisores",
+        todasSupervisadas.filter((c) => c.supervision !== "mia"),
+        supervisadas.filter((c) => c.supervision !== "mia"),
+        "Ningún supervisor tiene campañas aceptadas todavía.",
+      )}
+    </div>
+  );
+
+  const renderBloqueDeSupervisadas = (
+    titulo: string,
+    todas: CampanaSupervisable[],
+    filtradas: CampanaSupervisable[],
+    vacio: string,
+  ) => (
     <div className="overflow-hidden rounded-lg border border-system-200 bg-white shadow-sm">
       <div className="flex items-center justify-between border-b border-system-200 bg-system-100 px-4 py-3">
-        <p className="text-[13px] font-semibold text-system-900">Campañas supervisadas (tuyas y de los supervisores)</p>
-        <Tag tone="ok">{todasSupervisadas.length}</Tag>
+        <h2 className="text-[13px] font-semibold text-system-900">{titulo}</h2>
+        <Tag tone="ok">{todas.length}</Tag>
       </div>
 
-      {supervisadas.length === 0 ? (
-        <div className="p-5 text-[13px] text-system-600">{avisoSinResultados(todasSupervisadas.length, "Todavía no hay campañas aceptadas.")}</div>
+      {filtradas.length === 0 ? (
+        <div className="p-5 text-[13px] text-system-600">{avisoSinResultados(todas.length, vacio)}</div>
       ) : (
         <div className="divide-y divide-system-200">
-          {supervisadas.map((campaign) => (
+          {filtradas.map((campaign) => (
             <div key={campaign.id} className="p-4">
               <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <h2 className="text-[15px] font-extrabold text-system-900">{campaign.name}</h2>
+                  <h3 className="text-[15px] font-extrabold text-system-900">{campaign.name}</h3>
                   <p className="text-[12.5px] text-system-500">
-                    {campaign.tag || "Sin temática"} · supervisa {campaign.supervisadaPor ?? "nadie"}
+                    {campaign.tag || "Sin temática"}
+                    {campaign.supervision !== "mia" && ` · supervisa ${campaign.supervisadaPor ?? "nadie"}`}
                   </p>
                 </div>
                 <Tag tone={campaign.status === "activa" ? "ok" : campaign.status === "pausada" ? "default" : "warn"}>
@@ -120,65 +145,87 @@ export default function PestanasDeSupervision({
     </div>
   );
 
-  const renderFlaggedList = () => (
+  // Reportadas/rechazadas y finalizadas también en dos bloques (2026-10-16), con renglones iguales:
+  // nombre, creador, temática, quién supervisa (solo en las de otros), etiqueta y "Ver detalle".
+  const renderBloqueSencillo = (
+    titulo: string,
+    todas: CampanaSupervisable[],
+    filtradas: CampanaSupervisable[],
+    vacio: string,
+    etiqueta: (campaign: CampanaSupervisable) => React.ReactNode,
+    tonoDelContador: "danger" | "default",
+  ) => (
     <div className="overflow-hidden rounded-lg border border-system-200 bg-white shadow-sm">
       <div className="flex items-center justify-between border-b border-system-200 bg-system-100 px-4 py-3">
-        <p className="text-[13px] font-semibold text-system-900">Campañas reportadas o rechazadas</p>
-        <Tag tone="danger">{todasConIncidencia.length}</Tag>
+        <h2 className="text-[13px] font-semibold text-system-900">{titulo}</h2>
+        <Tag tone={tonoDelContador}>{todas.length}</Tag>
       </div>
 
-      {conIncidencia.length === 0 ? (
-        <div className="p-5 text-[13px] text-system-600">{avisoSinResultados(todasConIncidencia.length, "No hay campañas reportadas o rechazadas.")}</div>
+      {filtradas.length === 0 ? (
+        <div className="p-5 text-[13px] text-system-600">{avisoSinResultados(todas.length, vacio)}</div>
       ) : (
         <div className="divide-y divide-system-200">
-          {conIncidencia.map((campaign) => {
-            const isReported = campaign.latestSupervisionAction === "reportada";
-            return (
-              <div key={campaign.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
-                <div>
-                  <h2 className="text-[15px] font-extrabold text-system-900">{campaign.name}</h2>
-                  <p className="text-[12.5px] text-system-500">
-                    {campaign.creatorName || "Usuario"} · {campaign.tag || "Sin temática"} · supervisa {campaign.supervisadaPor ?? "nadie"}
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Tag tone={isReported ? "warn" : "danger"}>{isReported ? "Reportada" : "Rechazada"}</Tag>
-                  <Link href={`/supervisar/${campaign.id}`} className="font-bold text-brand-600">Ver detalle</Link>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-
-  const renderFinishedList = () => (
-    <div className="overflow-hidden rounded-lg border border-system-200 bg-white shadow-sm">
-      <div className="flex items-center justify-between border-b border-system-200 bg-system-100 px-4 py-3">
-        <p className="text-[13px] font-semibold text-system-900">Campañas finalizadas</p>
-        <Tag>{todasFinalizadas.length}</Tag>
-      </div>
-
-      {finalizadas.length === 0 ? (
-        <div className="p-5 text-[13px] text-system-600">{avisoSinResultados(todasFinalizadas.length, "Todavía no hay campañas finalizadas.")}</div>
-      ) : (
-        <div className="divide-y divide-system-200">
-          {finalizadas.map((campaign) => (
+          {filtradas.map((campaign) => (
             <div key={campaign.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
               <div>
-                <h2 className="text-[15px] font-extrabold text-system-900">{campaign.name}</h2>
+                <h3 className="text-[15px] font-extrabold text-system-900">{campaign.name}</h3>
                 <p className="text-[12.5px] text-system-500">
-                  {campaign.creatorName || "Usuario"} · {campaign.tag || "Sin temática"} · supervisa {campaign.supervisadaPor ?? "nadie"}
+                  {campaign.creatorName || "Usuario"} · {campaign.tag || "Sin temática"}
+                  {campaign.supervision !== "mia" && ` · supervisa ${campaign.supervisadaPor ?? "nadie"}`}
                 </p>
               </div>
               <div className="flex items-center gap-3">
-                <Tag>Finalizada</Tag>
+                {etiqueta(campaign)}
                 <Link href={`/supervisar/${campaign.id}`} className="font-bold text-brand-600">Ver detalle</Link>
               </div>
             </div>
           ))}
         </div>
+      )}
+    </div>
+  );
+
+  const etiquetaDeIncidencia = (campaign: CampanaSupervisable) =>
+    campaign.latestSupervisionAction === "reportada" ? <Tag tone="warn">Reportada</Tag> : <Tag tone="danger">Rechazada</Tag>;
+
+  const renderFlaggedList = () => (
+    <div className="space-y-4">
+      {renderBloqueSencillo(
+        "Supervisadas por ti",
+        todasConIncidencia.filter((c) => c.supervision === "mia"),
+        conIncidencia.filter((c) => c.supervision === "mia"),
+        "No hay campañas reportadas o rechazadas que supervises tú.",
+        etiquetaDeIncidencia,
+        "danger",
+      )}
+      {renderBloqueSencillo(
+        "Supervisadas por otros supervisores",
+        todasConIncidencia.filter((c) => c.supervision !== "mia"),
+        conIncidencia.filter((c) => c.supervision !== "mia"),
+        "No hay campañas reportadas o rechazadas de otros supervisores.",
+        etiquetaDeIncidencia,
+        "danger",
+      )}
+    </div>
+  );
+
+  const renderFinishedList = () => (
+    <div className="space-y-4">
+      {renderBloqueSencillo(
+        "Supervisadas por ti",
+        todasFinalizadas.filter((c) => c.supervision === "mia"),
+        finalizadas.filter((c) => c.supervision === "mia"),
+        "Todavía no hay campañas finalizadas que hayas supervisado tú.",
+        () => <Tag>Finalizada</Tag>,
+        "default",
+      )}
+      {renderBloqueSencillo(
+        "Supervisadas por otros supervisores",
+        todasFinalizadas.filter((c) => c.supervision !== "mia"),
+        finalizadas.filter((c) => c.supervision !== "mia"),
+        "Todavía no hay campañas finalizadas de otros supervisores.",
+        () => <Tag>Finalizada</Tag>,
+        "default",
       )}
     </div>
   );

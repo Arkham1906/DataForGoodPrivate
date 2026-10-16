@@ -59,7 +59,7 @@
 - **Estados:** `VARCHAR` con valores en español (`borrador`, `en_revision`, `aceptada`, `activa`, `finalizada`...; `pendiente`, `aceptado`, `rechazado`...). Revisa `types/index.ts` antes de agregar uno.
 - **Contadores desnormalizados** en `campanas`: si insertas, cambias de estado o borras un aporte, actualiza los contadores **en la misma transacción** (ver `app/api/aportes/[id]/route.ts`).
 - **Carreras:** resuélvelas con un `UPDATE ... WHERE <condición> RETURNING` y revisa `rowCount` (ejemplo: tomar una campaña en `lib/supervision/decision.ts`).
-- **Transición perezosa de estados:** `activateScheduledCampaigns()` y `finalizeExpiredCampaigns()` (`lib/campaign-date.ts`) pasan `aceptada → activa` y `activa → finalizada` al leer. No hay cron.
+- **Transición perezosa de estados:** `activateScheduledCampaigns()` y `finalizeExpiredCampaigns()` (`lib/campaign-date.ts`) pasan `aceptada → activa` y `activa → finalizada` cada minuto (tarea de `instrumentation-node.ts`, desde el 2026-10-16) y al leer `/api/campanas`, `/explorar`, la landing y la portada de `/sistema`. No hay cron.
 
 ## 5. JSONB
 
