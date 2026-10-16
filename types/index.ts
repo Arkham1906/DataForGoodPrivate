@@ -2,6 +2,7 @@
 // y se usan para consumir la API real de campañas y usuarios.
 
 import type { CampanaEspecial } from "@/lib/campanas/especial-reglas";
+import type { PausaDeCampana } from "@/lib/campanas/pausa";
 
 export type CampaignStatus =
   | "borrador"
@@ -75,6 +76,8 @@ export interface Campaign {
   isSpecial?: boolean;
   /** Incentivos de campaña especial (lib/campanas/especial.ts), o null si no es especial. */
   especial?: CampanaEspecial | null;
+  /** Quién la pausó y por qué (lib/campanas/pausa.ts), o null si no está pausada. */
+  pausa?: PausaDeCampana | null;
   daysRemaining: number | null;
   hasReviewerAssigned: boolean;
   shareToken?: string;

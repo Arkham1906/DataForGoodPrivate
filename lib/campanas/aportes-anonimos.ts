@@ -27,6 +27,7 @@ import { bloqueoDelDispositivo } from "@/lib/aportes/sanciones-anonimas";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { respuestasValidas } from "@/lib/campanas/checklist";
 import { buscarEnlacePorToken } from "@/lib/campanas/enlaces";
+import { avisoDePausa } from "@/lib/campanas/pausa";
 
 // TODO(dominio): valor elegido sin consulta. Aportes anónimos por IP en una hora, sumando
 // todas las campañas. Holgado para varias personas en la misma red (escuela, oficina).
@@ -147,7 +148,7 @@ export async function enviarAporteAnonimo(entrada: {
   if (resultado.tipo === "inexistente") return { ok: false, status: 404, error: "Enlace no válido" };
   if (resultado.tipo !== "valido") return { ok: false, status: 410, error: "Este enlace ya no permite aportar" };
   const { campana, enlace } = resultado;
-  if (campana.status === "pausada") return { ok: false, status: 409, error: "Quien organiza esta campaña la pausó; vuelve a intentarlo más tarde" };
+  if (campana.status === "pausada") return { ok: false, status: 409, error: avisoDePausa(campana.pausa, "Vuelve a intentarlo más tarde.") };
   if (campana.status !== "activa") return { ok: false, status: 409, error: "Esta campaña ya no está recibiendo aportes" };
   if (!campana.permiteAnonimos) {
     return { ok: false, status: 403, error: "Esta campaña solo recibe aportes con cuenta." };

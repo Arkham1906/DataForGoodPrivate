@@ -733,9 +733,13 @@ paths:
         - **Pausar y reanudar (solo el creador):** `{ "status": "pausada" }` sobre una `activa` y
           `{ "status": "activa" }` sobre una `pausada`, sin otros campos. Una pausada no recibe aportes
           ni aparece en las listas públicas. Reanudar da 400 si su fecha de cierre ya pasó o si el
-          creador ya tiene 5 campañas activas.
+          creador ya tiene 5 campañas activas. Si la pausó la supervisión, el creador no la reanuda (403).
         - **Supervisor:** `{ "action": "tomar" }` para tomarla, o
           `{ "action": "aceptada" | "rechazada" | "reportada", "motivo": "..." }` para decidir.
+        - **Supervisor que la supervisa (2026-10-15):** `{ "action": "pausar" | "finalizar", "motivo": "..." }`
+          (motivo obligatorio, hasta 500 caracteres) sobre una activa (pausar) o activa/pausada (finalizar), y
+          `{ "action": "reanudar" }` sobre una que pausó la supervisión. Avisa al creador con el motivo.
+          409 si la campaña cambió de estado mientras tanto.
       requestBody:
         required: true
         content:
@@ -747,20 +751,27 @@ paths:
                   title: Acción de supervisor
                   required: [action]
                   properties:
-                    action: { type: string, enum: [tomar, aceptada, rechazada, reportada] }
-                    motivo: { type: string }
+                    action: { type: string, enum: [tomar, aceptada, rechazada, reportada, pausar, reanudar, finalizar] }
+                    motivo: { type: string, maxLength: 500 }
             examples:
               finalizar: { value: { status: finalizada } }
               pausar: { value: { status: pausada } }
               reanudar: { value: { status: activa } }
               tomar: { value: { action: tomar } }
               rechazar: { value: { action: rechazada, motivo: La campaña no cumple los lineamientos } }
+              pausarComoSupervisor: { value: { action: pausar, motivo: Pide datos personales en la descripción } }
+              reanudarComoSupervisor: { value: { action: reanudar } }
       responses:
         "200": { $ref: "#/components/responses/CampaignResult" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: La campaña cambió de estado mientras tanto (pausar, reanudar o finalizar de la supervisión)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
 
   /api/campanas/{id}/reportar:
     parameters:

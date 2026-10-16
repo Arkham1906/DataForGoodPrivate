@@ -4,13 +4,41 @@
 // decidirComoSuperUsuario (lib/supervision/acciones-root.ts), que usan las reglas de lib/supervision/decision.ts.
 // Una campaña ya aceptada (aceptada, activa o pausada) se puede reportar aunque la haya aceptado
 // otro supervisor (2026-10-15); en revisión, solo la que tomó el SuperUsuario.
+// EstadoComoSuperUsuario: pausar, reanudar y finalizar (cambiarEstadoComoSuperUsuario).
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition, type FormEvent, type ReactNode } from "react";
 import { Textarea } from "@/components/ui/Input";
-import { decidirComoSuperUsuario, tomarComoSuperUsuario } from "@/lib/supervision/acciones-root";
+import { cambiarEstadoComoSuperUsuario, decidirComoSuperUsuario, tomarComoSuperUsuario } from "@/lib/supervision/acciones-root";
 import Tag from "@/components/ui/Tag";
+import EstadoDeCampanaSupervisada from "@/components/supervision/EstadoDeCampanaSupervisada";
 import type { AccionDeSupervision } from "@/lib/supervision/decision";
+import type { PausaDeCampana } from "@/lib/campanas/pausa";
+
+/** Pausar, reanudar o finalizar como SuperUsuario cualquier campaña activa o pausada (2026-10-15). */
+export function EstadoComoSuperUsuario({
+  campaignId,
+  status,
+  pausa,
+}: {
+  campaignId: string;
+  status: string;
+  pausa: PausaDeCampana | null;
+}) {
+  const router = useRouter();
+  return (
+    <EstadoDeCampanaSupervisada
+      status={status}
+      pausa={pausa}
+      onCambiar={async (cambio, motivo) => {
+        const resultado = await cambiarEstadoComoSuperUsuario(campaignId, cambio, motivo);
+        if (!resultado.ok) return resultado.error;
+        router.refresh();
+        return null;
+      }}
+    />
+  );
+}
 
 export default function AccionesDeSupervision({
   campaignId,

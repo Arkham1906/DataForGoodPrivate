@@ -1,6 +1,7 @@
 // /api/campanas/[id] — detalle, edición y supervisión de una campaña.
-// El PATCH tiene tres usos según el body: { action: "tomar" }, dictamen del supervisor
-// ({ action: "aceptada" | "rechazada" | "reportada", motivo }) o edición del creador.
+// El PATCH tiene cuatro usos según el body: { action: "tomar" }, dictamen del supervisor
+// ({ action: "aceptada" | "rechazada" | "reportada", motivo }), cambio de estado del supervisor
+// ({ action: "pausar" | "reanudar" | "finalizar", motivo }) o edición del creador.
 
 import { NextResponse } from "next/server";
 import { especialDesdeFila } from "@/lib/campanas/especial";
@@ -14,6 +15,8 @@ import {
 import { pool } from "@/lib/db";
 import { getSessionUser } from "@/lib/session";
 import { ACCIONES_DE_SUPERVISION, registrarDecisionDeCampana, tomarCampanaParaSupervisar, type AccionDeSupervision } from "@/lib/supervision/decision";
+import { CAMBIOS_DE_ESTADO_POR_SUPERVISION, cambiarEstadoPorSupervision, type CambioDeEstadoPorSupervision } from "@/lib/supervision/estado-por-supervision";
+import { pausaDesdeFila } from "@/lib/campanas/pausa";
 import { normalizarSecciones, seccionesDesdeFila } from "@/lib/campanas/checklist";
 import { asegurarEnlaceVigente } from "@/lib/campanas/enlaces";
 import { errorDeOrganizacion } from "@/lib/campanas/organizacion";
@@ -95,6 +98,7 @@ function mapCampaign(row: Record<string, unknown>) {
     xpPerContribution: Number(row.xp_per_contribution ?? 0),
     isSpecial: Boolean(row.is_special),
     especial: especialDesdeFila(row),
+    pausa: pausaDesdeFila(row),
     daysRemaining: calculateCampaignDaysRemaining(row.end_date ?? row.endDate),
     hasReviewerAssigned: Boolean(row.has_reviewer_assigned),
     shareToken: String(row.share_token ?? ""),
@@ -169,8 +173,27 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       return NextResponse.json({ message: resultado.mensaje, data: mapCampaign(updated.rows[0]) });
     }
 
+    // Pausar (con motivo), reanudar o finalizar (con motivo) desde /supervision: solo quien la supervisa.
+    if (CAMBIOS_DE_ESTADO_POR_SUPERVISION.has(accion)) {
+      const roles = Array.isArray(user.role) ? user.role : typeof user.role === "string" ? [user.role] : [];
+      if (!roles.includes("supervisor")) {
+        return NextResponse.json({ error: "Solo un supervisor puede cambiar el estado de esta campaña" }, { status: 403 });
+      }
+
+      const resultado = await cambiarEstadoPorSupervision(id, accion as CambioDeEstadoPorSupervision, body.motivo ?? body.reason, {
+        tipo: "usuario",
+        usuarioId: Number(user.id),
+      });
+      if (!resultado.ok) {
+        return NextResponse.json({ error: resultado.error }, { status: resultado.status });
+      }
+
+      const updated = await pool.query(`SELECT * FROM campanas WHERE id = $1 LIMIT 1`, [id]);
+      return NextResponse.json({ message: resultado.mensaje, data: mapCampaign(updated.rows[0]) });
+    }
+
     const existing = await pool.query(
-      `SELECT creator_id, status, start_date, end_date, end_time FROM campanas WHERE id = $1 LIMIT 1`,
+      `SELECT creator_id, status, start_date, end_date, end_time, pausa_por FROM campanas WHERE id = $1 LIMIT 1`,
       [id]
     );
     if (existing.rowCount === 0) {
@@ -256,6 +279,13 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         (currentStatus === "activa" && pedido === "pausada") ||
         (currentStatus === "pausada" && pedido === "activa");
       if (pedido === "activa" && cambiaEstado) {
+        // La que pausó la supervisión (2026-10-15) solo la reanuda la supervisión.
+        if (existing.rows[0].pausa_por === "supervision") {
+          return NextResponse.json(
+            { error: "La supervisión pausó esta campaña; solo la supervisión puede reanudarla" },
+            { status: 403 }
+          );
+        }
         // Reanudar: vuelve a contar para el tope de activas, y si su cierre ya
         // pasó mientras estaba pausada, finalizeExpiredCampaigns la cerraría
         // en la siguiente lectura.
@@ -430,6 +460,10 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         start_time = COALESCE($19, start_time),
         end_time = COALESCE($20, end_time),
         checklist_secciones = COALESCE($21::jsonb, checklist_secciones),
+        -- La pausó el creador (sin motivo). "status" a la derecha es el estado anterior.
+        pausa_por = CASE WHEN $5 = 'pausada' AND status <> 'pausada' THEN 'creador' ELSE pausa_por END,
+        pausa_motivo = CASE WHEN $5 = 'pausada' AND status <> 'pausada' THEN NULL ELSE pausa_motivo END,
+        pausada_en = CASE WHEN $5 = 'pausada' AND status <> 'pausada' THEN NOW() ELSE pausada_en END,
         updated_at = NOW()
       WHERE id = $1
       RETURNING *`,

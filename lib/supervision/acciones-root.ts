@@ -1,6 +1,7 @@
 "use server";
 
-// Server actions del SuperUsuario en /supervisar: tomar y dictaminar campañas.
+// Server actions del SuperUsuario en /supervisar: tomar y dictaminar campañas, y pausarlas,
+// reanudarlas o finalizarlas.
 // Cada una verifica la sesión raíz; la lógica está en ./decision.ts.
 
 import { revalidatePath } from "next/cache";
@@ -12,6 +13,11 @@ import {
   tomarCampanaParaSupervisar,
   type AccionDeSupervision,
 } from "@/lib/supervision/decision";
+import {
+  CAMBIOS_DE_ESTADO_POR_SUPERVISION,
+  cambiarEstadoPorSupervision,
+  type CambioDeEstadoPorSupervision,
+} from "@/lib/supervision/estado-por-supervision";
 
 export type ResultadoDeSupervision = { ok: true; mensaje: string } | { ok: false; error: string };
 
@@ -31,6 +37,27 @@ export async function decidirComoSuperUsuario(
   }
 
   const resultado = await registrarDecisionDeCampana(campanaId, accion, motivo, { tipo: "root" });
+  if (!resultado.ok) return { ok: false, error: resultado.error };
+
+  revalidatePath("/supervisar", "layout");
+  return { ok: true, mensaje: resultado.mensaje };
+}
+
+/**
+ * Pausar (con motivo), reanudar o finalizar (con motivo) una campaña aceptada, la supervise
+ * quien la supervise (2026-10-15). Reglas en ./estado-por-supervision.ts.
+ */
+export async function cambiarEstadoComoSuperUsuario(
+  campanaId: string,
+  cambio: CambioDeEstadoPorSupervision,
+  motivo: string,
+): Promise<ResultadoDeSupervision> {
+  if (!(await hasRootSession())) throw new Error("No autorizado");
+  if (!/^\d+$/.test(campanaId) || !CAMBIOS_DE_ESTADO_POR_SUPERVISION.has(cambio)) {
+    return { ok: false, error: "Petición inválida." };
+  }
+
+  const resultado = await cambiarEstadoPorSupervision(campanaId, cambio, motivo, { tipo: "root" });
   if (!resultado.ok) return { ok: false, error: resultado.error };
 
   revalidatePath("/supervisar", "layout");

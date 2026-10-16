@@ -4,6 +4,8 @@
 // Componente cliente. Datos: GET /api/campanas?id=.
 // Acciones: tomar con PATCH /api/campanas/[id] { action: "tomar" }; dictaminar con
 // PATCH { action: "aceptada" | "rechazada" | "reportada", motivo }. Reglas en lib/supervision/decision.ts.
+// Activa o pausada: PATCH { action: "pausar" | "reanudar" | "finalizar", motivo } con
+// components/supervision/EstadoDeCampanaSupervisada (lib/supervision/estado-por-supervision.ts).
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -13,6 +15,8 @@ import { Textarea } from "@/components/ui/Input";
 import { BackLink } from "../_ui";
 import { BASE_PATH } from "@/lib/base-path";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
+import EstadoDeCampanaSupervisada, { type CambioDeEstado } from "@/components/supervision/EstadoDeCampanaSupervisada";
+import type { PausaDeCampana } from "@/lib/campanas/pausa";
 
 type Campaign = {
   id: string;
@@ -35,6 +39,7 @@ type Campaign = {
   locationColonia?: string;
   startDate?: string | null;
   endDate?: string | null;
+  pausa?: PausaDeCampana | null;
 };
 
 export default function CampaignDetailPage() {
@@ -100,6 +105,23 @@ export default function CampaignDetailPage() {
       setError(cause instanceof Error ? cause.message : "No se pudo registrar la decisión");
     } finally {
       setActionLoading(null);
+    }
+  }
+
+  // Pausar, reanudar o finalizar la campaña que supervisa (2026-10-15). Devuelve el error o null.
+  async function handleCambioDeEstado(cambio: CambioDeEstado, motivo: string): Promise<string | null> {
+    try {
+      const response = await fetch(`${BASE_PATH}/api/campanas/${campaignId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: cambio, motivo }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) return payload?.error ?? "No se pudo cambiar el estado de la campaña";
+      if (payload?.data) setCampaign(payload.data);
+      return null;
+    } catch {
+      return "No se pudo cambiar el estado de la campaña";
     }
   }
 
@@ -282,6 +304,10 @@ export default function CampaignDetailPage() {
         La decisión queda registrada y vinculada al supervisor que la toma.
       </div>
 
+      {isMySupervision && !isCreator && (
+        <EstadoDeCampanaSupervisada status={String(campaign.status ?? "")} pausa={campaign.pausa} onCambiar={handleCambioDeEstado} />
+      )}
+
       <section className="rounded-lg border border-system-200 bg-white p-5 shadow-sm">
         <p className="text-[13.5px] leading-6 text-system-600">{campaign.description}</p>
 
@@ -334,7 +360,7 @@ export default function CampaignDetailPage() {
         </div>
 
         <div className="mt-5 flex flex-wrap gap-3">
-          {(campaign.status === "activa" || campaign.status === "finalizada") && (
+          {(campaign.status === "activa" || campaign.status === "pausada" || campaign.status === "finalizada") && (
             <Link href={`/supervision/${campaign.id}/usuarios`} className="rounded-pill bg-brand-600 px-5 py-3 text-[12.5px] font-bold text-white shadow-sm hover:bg-brand-800">
               Ver participantes
             </Link>

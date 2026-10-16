@@ -90,7 +90,8 @@
 | --- | --- | --- |
 | `decision.ts` | **Reglas del dictamen**, compartidas por supervisores y SuperUsuario: tomar una campaña (`tomarCampanaParaSupervisar`) y aceptarla, rechazarla o reportarla (`registrarDecisionDeCampana`). Notifica al creador y escribe en la bitácora | `PATCH /api/campanas/[id]`, `acciones-root.ts` |
 | `root.ts` | Guardia `exigirSesionRoot()` y consultas de `/supervisar` | Páginas de `(panel)` |
-| `acciones-root.ts` ⚡ | `tomarComoSuperUsuario`, `decidirComoSuperUsuario` | `/supervisar/[campaignId]` |
+| `estado-por-supervision.ts` | **Pausar (con motivo), reanudar o finalizar (con motivo)** una campaña desde la supervisión (`cambiarEstadoPorSupervision`): permisos, transiciones, bitácora y aviso al creador (2026-10-15) | `PATCH /api/campanas/[id]`, `acciones-root.ts` |
+| `acciones-root.ts` ⚡ | `tomarComoSuperUsuario`, `decidirComoSuperUsuario`, `cambiarEstadoComoSuperUsuario` | `/supervisar/[campaignId]` |
 
 ### `usuarios/`
 

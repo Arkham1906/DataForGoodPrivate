@@ -65,6 +65,7 @@ No hay una función central: cada route handler lo comprueba con SQL. Si agregas
 | Bloquear el dispositivo de un aporte anónimo en la campaña, borrar su archivo, apagar los aportes sin cuenta | Solo el creador |
 | Quitar un bloqueo global de dispositivo | Quien modera: supervisor o SuperUsuario en modo supervisor (`.../sanciones`) |
 | Ver y resolver reportes, dar avisos, banear, restaurar (2026-10-13) | Rol `supervisor` en `/supervision/{reportes,sanciones}` o el SuperUsuario en modo supervisor en `/supervisar/{reportes,sanciones}`. A cualquier usuario menos a sí mismo; un supervisor no ve los reportes contra él ni ve correos (salvo los de la lista negra) |
+| Pausar (con motivo), reanudar o finalizar (con motivo) una campaña activa o pausada (2026-10-15) | El supervisor que la supervisa (no si es suya) o el SuperUsuario sobre cualquiera aceptada (`lib/supervision/estado-por-supervision.ts`). Reanudar solo la que pausó la supervisión; la que pausó la supervisión el creador ya no la reanuda |
 | Tomar y dictaminar | Supervisor que no sea el creador y la campaña esté `en_revision` y libre; o el SuperUsuario. Solo quien la tomó dictamina (`lib/supervision/decision.ts`) |
 
 ## 5. Registro, verificación e inicio de sesión
@@ -99,7 +100,7 @@ No hay una función central: cada route handler lo comprueba con SQL. Si agregas
 `registrarAuditoria()` en `lib/auditoria.ts`, llamado después de que la acción se completó. Si el registro falla, solo se reporta en consola: no revierte la acción.
 
 - **Qué guarda:** actor (`usuario` + id, `superusuario` o `anonimo`), acción, objetivo (`usuario:5`, `campana:3`, `aporte:7`, `dispositivo:2`), detalle JSONB e IP (`lib/ip.ts`: último valor de `X-Forwarded-For`). Para el actor `anonimo` la IP **no** se guarda (`guardarIp: false`): la IP de una persona sin cuenta no se guarda en ningún lado.
-- **Acciones:** `rol.asignar`, `rol.revocar`, `sancion.aplicar`, `sancion.restaurar`, `supervision.tomar`, `supervision.dictaminar`, `campana.banear`, `campana.desbanear`, `campana.enlace_regenerar`, `revisor.invitar`, `revisor.aceptar`, `root.acceso`, `root.acceso_fallido` y `usuario.contrasena_cambiar` (no guarda ninguna contraseña). `root.acceso_fallido` no guarda el identificador tecleado, por si alguien escribió ahí la contraseña.
+- **Acciones:** `rol.asignar`, `rol.revocar`, `sancion.aplicar`, `sancion.restaurar`, `supervision.tomar`, `supervision.dictaminar`, `supervision.pausar`, `supervision.reanudar`, `supervision.finalizar`, `campana.banear`, `campana.desbanear`, `campana.enlace_regenerar`, `revisor.invitar`, `revisor.aceptar`, `root.acceso`, `root.acceso_fallido` y `usuario.contrasena_cambiar` (no guarda ninguna contraseña). `root.acceso_fallido` no guarda el identificador tecleado, por si alguien escribió ahí la contraseña.
 - **Sin pantalla:** todavía no hay vista en el panel para consultarla; se lee con SQL.
 
 ## 8. Huecos conocidos

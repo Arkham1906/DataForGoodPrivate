@@ -16,6 +16,7 @@ import {
   tiposAceptados,
 } from "@/lib/aportes/comun";
 import { inscripcionDe } from "@/lib/campanas/inscripciones";
+import { avisoDePausa, pausaDesdeFila } from "@/lib/campanas/pausa";
 
 function mapAporte(row: Record<string, unknown>) {
   return {
@@ -153,7 +154,7 @@ export async function POST(request: Request) {
     }
 
     if (String(campaign.status) !== "activa") {
-      const error = String(campaign.status) === "pausada" ? "Quien organiza esta campaña la pausó; podrás aportar cuando la reanude" : "Esta campaña no está activa";
+      const error = String(campaign.status) === "pausada" ? avisoDePausa(pausaDesdeFila(campaign), "Podrás aportar cuando se reanude.") : "Esta campaña no está activa";
       return NextResponse.json({ error }, { status: 400 });
     }
 

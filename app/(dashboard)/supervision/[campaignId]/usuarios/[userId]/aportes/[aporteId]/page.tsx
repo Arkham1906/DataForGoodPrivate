@@ -23,7 +23,7 @@ export default async function SupervisedContributionPage({ params }: { params: P
      FROM aportes a
      JOIN campanas c ON c.id = a.campaign_id
      WHERE a.id = $1 AND a.campaign_id = $2 AND a.user_id = $3
-      AND c.supervisor_id = $4 AND c.status IN ('activa', 'finalizada')
+      AND c.supervisor_id = $4 AND c.status IN ('activa', 'pausada', 'finalizada')
      LIMIT 1`,
     [aporteId, campaignId, userId, user.id]
   );

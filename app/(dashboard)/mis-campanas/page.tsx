@@ -3,7 +3,8 @@
 // Pantalla /mis-campanas: campañas que creaste, con filtros por estado.
 // Componente cliente. Datos: GET /api/campanas?mine=true.
 // Acciones en "Más", con PATCH /api/campanas/[id] { status }: "Pausar" (activa → pausada),
-// "Reanudar" (pausada → activa) y "Finalizar" (activa o pausada). Solo el creador las ve:
+// "Reanudar" (pausada → activa; no si la pausó la supervisión, que se muestra con su motivo)
+// y "Finalizar" (activa o pausada). Solo el creador las ve:
 // la lista viene de mine=true y el servidor revisa creator_id.
 
 import { useEffect, useState } from "react";
@@ -67,6 +68,7 @@ function mapCampaign(row: Record<string, unknown>): Campaign {
     daysRemaining: row.daysRemaining as number | null,
     hasReviewerAssigned: Boolean(row.hasReviewerAssigned),
     especial: (row.especial as Campaign["especial"]) ?? null,
+    pausa: (row.pausa as Campaign["pausa"]) ?? null,
   };
 }
 
@@ -230,7 +232,8 @@ export default function MisCampanasPage() {
                       ...(campaign.status === "activa"
                         ? [{ etiqueta: "Pausar campaña", alElegir: () => setPorPausar(campaign), deshabilitado: cambiando }]
                         : []),
-                      ...(campaign.status === "pausada"
+                      // La que pausó la supervisión solo la reanuda la supervisión (2026-10-15).
+                      ...(campaign.status === "pausada" && campaign.pausa?.por !== "supervision"
                         ? [{ etiqueta: "Reanudar campaña", alElegir: () => void cambiarEstado(campaign.id, "activa"), deshabilitado: cambiando }]
                         : []),
                       ...(puedeFinalizar
@@ -246,7 +249,13 @@ export default function MisCampanasPage() {
                     ]}
                   />
                 </div>
-                {campaign.status === "pausada" && (
+                {campaign.status === "pausada" && campaign.pausa?.por === "supervision" ? (
+                  <div className="mt-2 rounded-lg border border-warning-200 bg-warning-50 p-2.5 text-[11.5px] text-system-900">
+                    <p className="font-semibold">La supervisión pausó esta campaña</p>
+                    <p className="mt-0.5 whitespace-pre-line text-system-600">Motivo: {campaign.pausa.motivo || "sin motivo registrado"}</p>
+                    <p className="mt-0.5 text-system-600">No recibe aportes hasta que la supervisión la reanude.</p>
+                  </div>
+                ) : campaign.status === "pausada" && (
                   <p className="mt-2 text-[11.5px] text-system-600">Pausada: no recibe aportes ni aparece en Campañas hasta que la reanudes.</p>
                 )}
                 {cambioError[campaign.id] && (

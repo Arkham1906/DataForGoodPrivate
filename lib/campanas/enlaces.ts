@@ -13,6 +13,7 @@ import { absoluteUrl } from "@/lib/app-url";
 import { tiposAceptados, type TipoDeArchivo } from "@/lib/aportes/archivo";
 import { normalizeCampaignDate } from "@/lib/campaign-date";
 import { seccionesDesdeFila, type SeccionDeChecklist } from "@/lib/campanas/checklist";
+import { pausaDesdeFila, type PausaDeCampana } from "@/lib/campanas/pausa";
 import { pool } from "@/lib/db";
 
 /** Ventana durante la cual el enlace sirve; al vencer hay que regenerarlo. */
@@ -200,6 +201,8 @@ export type CampanaDelEnlace = {
   permiteAnonimos: boolean;
   /** Tipos de archivo que acepta (campanas.data_types; lib/aportes/archivo.ts). */
   tiposDeArchivo: TipoDeArchivo[];
+  /** Quién la pausó y por qué, o null si no está pausada. */
+  pausa: PausaDeCampana | null;
 };
 
 export type ResultadoDeToken =
@@ -213,7 +216,8 @@ export async function buscarEnlacePorToken(token: string): Promise<ResultadoDeTo
     `SELECT e.*, (SELECT COUNT(*) FROM aportes a WHERE a.enlace_id = e.id)::int AS aportes_recibidos,
             c.name, c.description, c.tematica, c.tag, c.organizer, c.creator_name, c.location_city, c.location_state,
             c.status, c.goal_contributions, c.current_contributions, c.quota_per_user, c.end_date,
-            c.checklist_secciones, c.checklist_opciones, c.collection_mode, c.permite_anonimos, c.data_types
+            c.checklist_secciones, c.checklist_opciones, c.collection_mode, c.permite_anonimos, c.data_types,
+            c.pausa_por, c.pausa_motivo, c.pausada_en
      FROM campana_enlaces e
      JOIN campanas c ON c.id = e.campana_id
      WHERE e.token = $1
@@ -240,6 +244,7 @@ export async function buscarEnlacePorToken(token: string): Promise<ResultadoDeTo
     secciones: seccionesDesdeFila(row),
     permiteAnonimos: row.permite_anonimos !== false,
     tiposDeArchivo: tiposAceptados(row.data_types),
+    pausa: pausaDesdeFila(row),
   };
 
   if (enlace.revocadoEn) return { tipo: "revocado", enlace, campana };

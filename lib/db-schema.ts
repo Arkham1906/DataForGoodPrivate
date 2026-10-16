@@ -163,6 +163,9 @@ export async function ensureCampanasTable(): Promise<void> {
       aportes JSONB NOT NULL DEFAULT '[]'::jsonb,
       downloads_count INTEGER NOT NULL DEFAULT 0,
       permite_anonimos BOOLEAN NOT NULL DEFAULT true,
+      pausa_por VARCHAR(20),
+      pausa_motivo TEXT,
+      pausada_en TIMESTAMPTZ,
       created_at TIMESTAMP NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMP NOT NULL DEFAULT NOW()
     );
@@ -215,6 +218,12 @@ export async function ensureCampanasTable(): Promise<void> {
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS especial_insignia VARCHAR(40);
     -- Interruptor del creador: si es false, /c/[token] no acepta aportes sin cuenta.
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS permite_anonimos BOOLEAN NOT NULL DEFAULT true;
+    -- Quién la pausó y por qué (2026-10-15, lib/campanas/pausa.ts): 'creador' (sin motivo) o
+    -- 'supervision' (supervisor o SuperUsuario, motivo obligatorio; solo la supervisión la reanuda).
+    -- Se escriben al pasar a pausada; con otro estado no se leen.
+    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS pausa_por VARCHAR(20);
+    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS pausa_motivo TEXT;
+    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS pausada_en TIMESTAMPTZ;
   `);
 }
 

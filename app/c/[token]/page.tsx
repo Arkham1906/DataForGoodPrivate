@@ -18,6 +18,7 @@ import Card from "@/components/ui/Card";
 import ProgressBar from "@/components/ui/ProgressBar";
 import Tag from "@/components/ui/Tag";
 import { buscarEnlacePorToken, registrarVisita, type CampanaDelEnlace } from "@/lib/campanas/enlaces";
+import { avisoDePausa } from "@/lib/campanas/pausa";
 import { COOKIE_ANONIMO, dispositivoValido } from "@/lib/aportes/anonimato";
 import {
   MENSAJE_BLOQUEADO,
@@ -70,7 +71,7 @@ export default async function EnlacePublicoPage({ params }: { params: Promise<{ 
         titulo={resultado.campana.nombre}
         texto={
           resultado.campana.status === "pausada"
-            ? "Quien organiza esta campaña la pausó. Vuelve a abrir este enlace más tarde."
+            ? avisoDePausa(resultado.campana.pausa, "Vuelve a abrir este enlace más tarde.")
             : "Esta campaña ya no está recibiendo aportes."
         }
         explorar
