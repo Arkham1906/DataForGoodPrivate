@@ -17,6 +17,7 @@ const NAV_ITEMS: Opcion[] = [
   { href: "/campanas", label: "Explorar" },
   { href: "/mis-aportes", label: "Mis aportes" },
   { href: "/mis-campanas", label: "Mis campañas" },
+  { href: "/leaderboard", label: "Lideres"}
 ];
 
 // Sin contador de reportes junto a "Supervisión" (2026-10-15, a pedido del usuario): cada reporte llega

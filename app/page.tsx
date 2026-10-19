@@ -107,10 +107,10 @@ async function obtenerCampanasDestacadas(): Promise<CampanaDestacada[]> {
     await finalizeExpiredCampaigns();
     const result = await pool.query(
       `SELECT id, name, COALESCE(NULLIF(tag, ''), tematica) AS tag, current_contributions, goal_contributions, participants
-       FROM campanas
-       WHERE status = 'activa'
-       ORDER BY participants DESC, current_contributions DESC
-       LIMIT 3`
+        FROM campanas
+        WHERE status = 'activa'
+        ORDER BY participants DESC, current_contributions DESC
+        LIMIT 3`
     );
     return result.rows.map((row) => ({
       id: String(row.id),
@@ -157,17 +157,17 @@ async function obtenerAportesRecientes(): Promise<AporteReciente[]> {
       // del proceso (UTC en Docker, la de la máquina en `next dev`).
       `SELECT a.id, COALESCE(NULLIF(c.tag, ''), c.tematica) AS tag, a.description,
               to_char(a.submitted_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS submitted_at
-       FROM aportes a
-       JOIN campanas c ON c.id = a.campaign_id
-       WHERE a.status = 'aceptado' AND c.status IN ('activa', 'pausada', 'finalizada')
-       ORDER BY a.submitted_at DESC
-       LIMIT 4`
+        FROM aportes a
+        JOIN campanas c ON c.id = a.campaign_id
+        WHERE a.status = 'aceptado' AND c.status IN ('activa', 'pausada', 'finalizada')
+        ORDER BY a.submitted_at DESC
+        LIMIT 4`
     );
     return result.rows.map((row) => ({
       id: String(row.id),
       tag: String(row.tag ?? ""),
       description: String(row.description ?? ""),
-      submittedAt: row.submitted_at ? String(row.submitted_at) : new Date().toISOString(),
+      submittedAt: row.submitted_at ? new Date(String(row.submitted_at)).toISOString() : new Date().toISOString(),
     }));
   } catch {
     return [];
@@ -229,7 +229,7 @@ export default async function LandingPage() {
                   <div>
                     <p className="text-[12px] font-medium text-brand-600">{comoHashtag(post.tag)}</p>
                     <p className="font-mono text-[11px] text-system-500">
-                      {new Date(post.submittedAt).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", timeZone: ZONA_DE_CAMPANAS })}
+                      {new Date(post.submittedAt).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}
                     </p>
                   </div>
                   <Tag tone="ok">Aprobado</Tag>
@@ -326,7 +326,7 @@ export default async function LandingPage() {
                 Quienes más aportan a la comunidad. Solo cuentan los aportes aprobados.
               </p>
             </div>
-            <ButtonLink href="/lideres" variant="secondary" size="sm">
+            <ButtonLink href="/leaderboard" variant="secondary" size="sm">
               Ver tabla completa →
             </ButtonLink>
           </div>
