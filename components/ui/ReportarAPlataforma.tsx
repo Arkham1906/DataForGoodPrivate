@@ -3,11 +3,13 @@
 // Formulario de reporte a la plataforma (2026-10-12): motivo de la lista y/o descripción, con POST a
 // `url`. Lo usan "Reportar campaña" (/campanas/[id]) y "Reportar a quien aportó" (detalle de un aporte
 // del creador y del revisor). El reporte llega a la bandeja del SuperUsuario (/reportes). Uno por persona:
-// con `yaReportado` solo muestra el aviso.
+// con `yaReportado` solo muestra el aviso. Con `enVentana` (2026-10-16, "Reportar campaña") el formulario
+// se abre en una ventana emergente (ui/VentanaDeConfirmacion) en vez de desplegarse en la página.
 
 import { useState } from "react";
 import Button from "@/components/ui/Button";
 import { Field, Textarea } from "@/components/ui/Input";
+import VentanaDeConfirmacion from "@/components/ui/VentanaDeConfirmacion";
 import { BASE_PATH } from "@/lib/base-path";
 import { MAXIMO_DESCRIPCION_DE_REPORTE } from "@/lib/reportes/motivos";
 
@@ -19,6 +21,7 @@ export default function ReportarAPlataforma({
   placeholder,
   yaReportado,
   textoYaReportado,
+  enVentana = false,
   className = "",
 }: {
   /** Ruta de la API sin basePath, p. ej. `/api/campanas/116/reportar`. */
@@ -29,6 +32,8 @@ export default function ReportarAPlataforma({
   placeholder: string;
   yaReportado: boolean;
   textoYaReportado: string;
+  /** Abre el formulario en una ventana emergente en vez de desplegarlo en la página. */
+  enVentana?: boolean;
   className?: string;
 }) {
   const [reportado, setReportado] = useState(yaReportado);
@@ -41,8 +46,7 @@ export default function ReportarAPlataforma({
 
   const puedeEnviar = (Boolean(motivo) || descripcion.trim().length > 0) && !enviando;
 
-  async function enviar(e: React.FormEvent) {
-    e.preventDefault();
+  async function enviar() {
     setEnviando(true);
     setError(null);
     try {
@@ -64,6 +68,11 @@ export default function ReportarAPlataforma({
     }
   }
 
+  function cerrar() {
+    setAbierto(false);
+    setError(null);
+  }
+
   if (reportado) {
     return (
       <p role="status" className={`rounded-lg bg-system-100 p-3 text-center text-[12.5px] text-system-600 ${className}`}>
@@ -72,22 +81,18 @@ export default function ReportarAPlataforma({
     );
   }
 
-  if (!abierto) {
-    return (
-      <button
-        type="button"
-        onClick={() => setAbierto(true)}
-        className={`self-center text-[12.5px] font-semibold text-system-600 underline-offset-2 hover:text-error-700 hover:underline ${className}`}
-      >
-        {titulo}
-      </button>
-    );
-  }
+  const botonParaAbrir = (
+    <button
+      type="button"
+      onClick={() => setAbierto(true)}
+      className={`self-center text-[12.5px] font-semibold text-system-600 underline-offset-2 hover:text-error-700 hover:underline ${className}`}
+    >
+      {titulo}
+    </button>
+  );
 
-  return (
-    <form onSubmit={(e) => void enviar(e)} className={`rounded-lg border border-warning-500 bg-white p-5 ${className}`}>
-      <h3 className="text-[15px] font-bold text-system-900">{titulo}</h3>
-      <p className="mb-3 mt-1 text-[12px] text-system-500">{explicacion}</p>
+  const campos = (
+    <>
       <label htmlFor="motivo-de-reporte" className="mb-1.5 block text-[13px] font-medium text-system-900">
         ¿Por qué lo reportas? <span className="text-error-700">*</span>
       </label>
@@ -118,8 +123,46 @@ export default function ReportarAPlataforma({
           {error}
         </p>
       )}
+    </>
+  );
+
+  if (enVentana) {
+    return (
+      <>
+        {botonParaAbrir}
+        <VentanaDeConfirmacion
+          abierto={abierto}
+          titulo={titulo}
+          textoConfirmar="Enviar reporte"
+          textoOcupado="Enviando…"
+          ocupado={enviando}
+          peligro
+          confirmarDeshabilitado={!puedeEnviar}
+          onCancelar={cerrar}
+          onConfirmar={() => void enviar()}
+        >
+          <p className="mb-4">{explicacion}</p>
+          {campos}
+        </VentanaDeConfirmacion>
+      </>
+    );
+  }
+
+  if (!abierto) return botonParaAbrir;
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        void enviar();
+      }}
+      className={`rounded-lg border border-warning-500 bg-white p-5 ${className}`}
+    >
+      <h3 className="text-[15px] font-bold text-system-900">{titulo}</h3>
+      <p className="mb-3 mt-1 text-[12px] text-system-500">{explicacion}</p>
+      {campos}
       <div className="flex flex-wrap justify-end gap-2">
-        <Button type="button" variant="ghost" size="sm" onClick={() => setAbierto(false)} disabled={enviando}>
+        <Button type="button" variant="ghost" size="sm" onClick={cerrar} disabled={enviando}>
           Cancelar
         </Button>
         <Button type="submit" variant="danger" size="sm" disabled={!puedeEnviar}>

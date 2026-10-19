@@ -1,13 +1,14 @@
 // Pantalla /supervisar/[campaignId]: revisar una campaña y dictaminar como SuperUsuario.
 // Server Component. Datos: obtenerCampanaParaRoot(). Botones en acciones.tsx.
 // Participantes y panel de cualquier campaña que ya recolecta, la haya aceptado él u otro supervisor.
+// Activa o pausada: pausar (con motivo), reanudar y finalizar (con motivo), en EstadoComoSuperUsuario.
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import Tag from "@/components/ui/Tag";
 import { obtenerCampanaParaRoot } from "@/lib/supervision/root";
 import { BackLink } from "../_ui";
-import AccionesDeSupervision from "./acciones";
+import AccionesDeSupervision, { EstadoComoSuperUsuario } from "./acciones";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Supervisar campaña" };
@@ -79,6 +80,9 @@ export default async function SupervisarCampanaPage({ params }: { params: Promis
       <div className="mb-5 rounded-lg border border-system-200 bg-system-100 p-4 text-[13px] text-system-600">
         La decisión queda registrada como tomada por el SuperUsuario.
       </div>
+
+      {/* Activa o pausada, la supervise quien la supervise (2026-10-15). */}
+      <EstadoComoSuperUsuario campaignId={campaign.id} status={campaign.status} pausa={campaign.pausa} />
 
       <section className="rounded-lg border border-system-200 bg-white p-5 shadow-sm">
         <p className="text-[13.5px] leading-6 text-system-600">{campaign.description}</p>

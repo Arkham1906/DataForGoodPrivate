@@ -163,6 +163,9 @@ export async function ensureCampanasTable(): Promise<void> {
       aportes JSONB NOT NULL DEFAULT '[]'::jsonb,
       downloads_count INTEGER NOT NULL DEFAULT 0,
       permite_anonimos BOOLEAN NOT NULL DEFAULT true,
+      pausa_por VARCHAR(20),
+      pausa_motivo TEXT,
+      pausada_en TIMESTAMPTZ,
       created_at TIMESTAMP NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMP NOT NULL DEFAULT NOW()
     );
@@ -215,6 +218,12 @@ export async function ensureCampanasTable(): Promise<void> {
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS especial_insignia VARCHAR(40);
     -- Interruptor del creador: si es false, /c/[token] no acepta aportes sin cuenta.
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS permite_anonimos BOOLEAN NOT NULL DEFAULT true;
+    -- Quién la pausó y por qué (2026-10-15, lib/campanas/pausa.ts): 'creador' (sin motivo) o
+    -- 'supervision' (supervisor o SuperUsuario, motivo obligatorio; solo la supervisión la reanuda).
+    -- Se escriben al pasar a pausada; con otro estado no se leen.
+    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS pausa_por VARCHAR(20);
+    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS pausa_motivo TEXT;
+    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS pausada_en TIMESTAMPTZ;
   `);
 }
 
@@ -491,6 +500,8 @@ export async function ensureSancionesTable(): Promise<void> {
  * es la cuenta reportada, copiada al reportar. Llegan a la bandeja del SuperUsuario (/reportes), que los
  * descarta o aplica un aviso (o banea); la sanción queda en `sanciones` y aquí en `sancion_id`.
  * Uno por persona y campaña, o por persona y aporte. Se crea después de `sanciones` y `aportes`.
+ * Desde el 2026-10-16 también los deja la supervisión al rechazar una campaña con sanción
+ * (`origen = 'rechazo'`, ya resueltos como `sancionado`; ver lib/supervision/decision.ts).
  */
 export async function ensureReportesTable(): Promise<void> {
   await pool.query(`
@@ -511,9 +522,15 @@ export async function ensureReportesTable(): Promise<void> {
       sancion_id INTEGER REFERENCES sanciones(id) ON DELETE SET NULL,
       resuelto_en TIMESTAMPTZ,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      -- Lo levantó el SuperUsuario (no tiene fila en usuarios: reportado_por queda NULL).
+      por_superusuario BOOLEAN NOT NULL DEFAULT false,
+      -- usuario: lo hizo alguien con "Reportar"; rechazo: lo dejó la supervisión al rechazar la campaña con sanción (2026-10-16).
+      origen VARCHAR(20) NOT NULL DEFAULT 'usuario',
       CHECK (motivo IS NOT NULL OR descripcion IS NOT NULL),
       CHECK (tipo = 'aporte' OR aporte_id IS NULL)
     );
+    ALTER TABLE reportes ADD COLUMN IF NOT EXISTS por_superusuario BOOLEAN NOT NULL DEFAULT false;
+    ALTER TABLE reportes ADD COLUMN IF NOT EXISTS origen VARCHAR(20) NOT NULL DEFAULT 'usuario';
     CREATE UNIQUE INDEX IF NOT EXISTS reportes_campana_una_por_persona
       ON reportes (campana_id, reportado_por) WHERE tipo = 'campana';
     CREATE UNIQUE INDEX IF NOT EXISTS reportes_aporte_uno_por_persona

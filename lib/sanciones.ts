@@ -14,10 +14,11 @@ import { pool } from "@/lib/db";
  */
 
 /**
- * Lo que el SuperUsuario aplica a mano (aplicarSancion): un aviso (STRIKE) o un baneo inmediato.
- * Las suspensiones ya no se eligen: las pone la escala de avisos (2026-10-12).
+ * Lo que quien modera aplica a mano (lib/moderacion/sancionar.ts): un aviso (STRIKE), que sigue la escala
+ * de avisos, una suspensión directa de 2 o 7 días (2026-10-16, a pedido del usuario; DIAS_DE_SUSPENSION)
+ * o un baneo inmediato.
  */
-export const TIPOS_DE_SANCION: ReadonlySet<string> = new Set(["STRIKE", "BANEO_DE_CAMPANA"]);
+export const TIPOS_DE_SANCION: ReadonlySet<string> = new Set(["STRIKE", "SUSPENSION_TEMPORAL", "BANEO_DE_CAMPANA"]);
 
 /**
  * Condición SQL: hay una sanción vigente que bloquea a `usuarios u`. Es la

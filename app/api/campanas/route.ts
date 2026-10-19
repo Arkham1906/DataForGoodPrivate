@@ -13,6 +13,7 @@ import { inscripcionDe } from "@/lib/campanas/inscripciones";
 import { errorDeOrganizacion } from "@/lib/campanas/organizacion";
 import { normalizarSecciones, seccionesDesdeFila } from "@/lib/campanas/checklist";
 import { XP_POR_APORTE, errorDeEstadoPedido } from "@/lib/campanas/estado-del-creador";
+import { pausaDesdeFila } from "@/lib/campanas/pausa";
 import { activateScheduledCampaigns, calculateCampaignDaysRemaining, errorDeFinAntesDeInicio, errorDeInicioPasado, finalizeExpiredCampaigns, normalizeCampaignDate, normalizeCampaignTime } from "@/lib/campaign-date";
 
 async function obtenerIdsGuardados(usuarioId: number): Promise<Set<number>> {
@@ -108,6 +109,8 @@ function mapCampaign(row: Record<string, unknown>) {
     xpPerContribution: Number(row.xp_per_contribution ?? 0),
     isSpecial: Boolean(row.is_special),
     especial: especialDesdeFila(row),
+    // Quién la pausó y por qué (null si no está pausada).
+    pausa: pausaDesdeFila(row),
     daysRemaining: calculateCampaignDaysRemaining(row.end_date ?? row.endDate),
     hasReviewerAssigned: Boolean(row.has_reviewer_assigned),
     shareToken: String(row.share_token ?? ""),

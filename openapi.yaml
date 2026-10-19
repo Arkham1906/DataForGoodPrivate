@@ -733,9 +733,17 @@ paths:
         - **Pausar y reanudar (solo el creador):** `{ "status": "pausada" }` sobre una `activa` y
           `{ "status": "activa" }` sobre una `pausada`, sin otros campos. Una pausada no recibe aportes
           ni aparece en las listas públicas. Reanudar da 400 si su fecha de cierre ya pasó o si el
-          creador ya tiene 5 campañas activas.
-        - **Supervisor:** `{ "action": "tomar" }` para tomarla, o
-          `{ "action": "aceptada" | "rechazada" | "reportada", "motivo": "..." }` para decidir.
+          creador ya tiene 5 campañas activas. Si la pausó la supervisión, el creador no la reanuda (403).
+        - **Supervisor:** `{ "action": "tomar" }` para tomarla, o `{ "action": "aceptada" }` /
+          `{ "action": "rechazada", "motivoDeLista": "...", "motivo": "...", "sancion": { "tipo": "...", "dias": 2 } }`
+          para decidir. Al rechazar: `motivoDeLista` (uno de los motivos de reportar campaña u "Otro") y/o `motivo`
+          (explicación, hasta 500; obligatoria con "Otro"). `sancion` es opcional: `STRIKE` (aviso, sigue la escala),
+          `SUSPENSION_TEMPORAL` con `dias` 2 o 7, o `BANEO_DE_CAMPANA`; deja un reporte ya resuelto en la
+          bandeja de la supervisión. `reportada` ya no se acepta (2026-10-16).
+        - **Supervisor que la supervisa (2026-10-15):** `{ "action": "pausar" | "finalizar", "motivo": "..." }`
+          (motivo obligatorio, hasta 500 caracteres) sobre una activa (pausar) o activa/pausada (finalizar), y
+          `{ "action": "reanudar" }` sobre una que pausó la supervisión. Avisa al creador con el motivo.
+          409 si la campaña cambió de estado mientras tanto.
       requestBody:
         required: true
         content:
@@ -747,20 +755,36 @@ paths:
                   title: Acción de supervisor
                   required: [action]
                   properties:
-                    action: { type: string, enum: [tomar, aceptada, rechazada, reportada] }
-                    motivo: { type: string }
+                    action: { type: string, enum: [tomar, aceptada, rechazada, pausar, reanudar, finalizar] }
+                    motivo: { type: string, maxLength: 500 }
+                    motivoDeLista: { type: string, description: "Solo al rechazar: motivo de la lista." }
+                    sancion:
+                      type: object
+                      description: Solo al rechazar. Sanción al creador.
+                      required: [tipo]
+                      properties:
+                        tipo: { type: string, enum: [STRIKE, SUSPENSION_TEMPORAL, BANEO_DE_CAMPANA] }
+                        dias: { type: integer, enum: [2, 7], description: Solo con SUSPENSION_TEMPORAL. }
             examples:
               finalizar: { value: { status: finalizada } }
               pausar: { value: { status: pausada } }
               reanudar: { value: { status: activa } }
               tomar: { value: { action: tomar } }
-              rechazar: { value: { action: rechazada, motivo: La campaña no cumple los lineamientos } }
+              rechazar: { value: { action: rechazada, motivoDeLista: Pide datos personales o sensibles, motivo: Pide la CURP de cada participante } }
+              rechazarConSancion: { value: { action: rechazada, motivoDeLista: Engaño o fraude, pide datos para otro fin, sancion: { tipo: SUSPENSION_TEMPORAL, dias: 2 } } }
+              pausarComoSupervisor: { value: { action: pausar, motivo: Pide datos personales en la descripción } }
+              reanudarComoSupervisor: { value: { action: reanudar } }
       responses:
         "200": { $ref: "#/components/responses/CampaignResult" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: La campaña cambió de estado mientras tanto (pausar, reanudar o finalizar de la supervisión)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
 
   /api/campanas/{id}/reportar:
     parameters:

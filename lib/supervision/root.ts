@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { pool } from "@/lib/db";
 import { activateScheduledCampaigns, finalizeExpiredCampaigns, normalizeCampaignDate } from "@/lib/campaign-date";
 import { hasRootSession } from "@/lib/rootSession";
+import { pausaDesdeFila, type PausaDeCampana } from "@/lib/campanas/pausa";
 
 /*
  * Datos del modo supervisor del SuperUsuario (/supervisar, dentro de
@@ -46,6 +47,8 @@ export type CampanaSupervisable = {
   locationState: string;
   startDate: string | null;
   endDate: string | null;
+  /** Quién la pausó y por qué, o null si no está pausada. */
+  pausa: PausaDeCampana | null;
 };
 
 function mapear(row: Record<string, unknown>): CampanaSupervisable {
@@ -74,6 +77,7 @@ function mapear(row: Record<string, unknown>): CampanaSupervisable {
     locationState: String(row.location_state ?? ""),
     startDate: normalizeCampaignDate(row.start_date),
     endDate: normalizeCampaignDate(row.end_date),
+    pausa: pausaDesdeFila(row),
   };
 }
 

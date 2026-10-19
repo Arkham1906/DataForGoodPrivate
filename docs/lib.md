@@ -35,7 +35,7 @@
 | `google.ts` | OAuth de Google | `getGoogleAuthUrl`, `exchangeCodeForProfile` |
 | `redireccion.ts` 🟢 | Valida el parámetro `?next=` para que solo apunte a rutas internas | `destinoSeguro`, `conDestino`, `DESTINO_POR_DEFECTO` |
 | `roles.ts` | Códigos de rol válidos | `VALID_ROLES`, `normalizeRoles` |
-| `sanciones.ts` | ¿La cuenta está bloqueada? Tipos que aplica el SuperUsuario (aviso o baneo) | `obtenerBloqueo`, `contarSanciones`, `TIPOS_DE_SANCION`, `SQL_SANCION_BLOQUEANTE` |
+| `sanciones.ts` | ¿La cuenta está bloqueada? Tipos que aplica quien modera (aviso, suspensión directa o baneo) | `obtenerBloqueo`, `contarSanciones`, `TIPOS_DE_SANCION`, `SQL_SANCION_BLOQUEANTE` |
 | `auditoria.ts` | Escribe en `audit_log` | `registrarAuditoria`, `AccionAuditada` |
 | `validation.ts` 🟢 | Validaciones sueltas | `isValidEmail` |
 
@@ -46,7 +46,7 @@
 | `intereses.ts` 🟢 | `TEMAS_DE_INTERES`: las 23 temáticas base, con las que se siembra la tabla `tematicas` al arrancar. El catálogo real (que crece) está en `tematicas/` |
 | `mexico-geo.ts` 🟢 | Estados y municipios de México (`ESTADOS_DE_MEXICO`, `municipiosDe`) |
 | `perfil-opciones.ts` 🟢 | Especialidades del perfil |
-| `campaign-date.ts` | Fechas de campaña y las transiciones automáticas (`activateScheduledCampaigns`, `finalizeExpiredCampaigns`, `hasCampaignStarted`, `hasCampaignEnded`). Al activar o finalizar por fecha, avisa al creador |
+| `campaign-date.ts` | Fechas de campaña y las transiciones automáticas (`activateScheduledCampaigns`, `finalizeExpiredCampaigns`, `hasCampaignStarted`, `hasCampaignEnded`). Al activar o finalizar por fecha, avisa al creador. Corren cada minuto desde `instrumentation-node.ts` y al leer las listas de campañas |
 | `open-data.ts` | Catálogo de datos abiertos (`/datos`): búsqueda, facetas, formatos, licencia |
 | `open-data-csv.ts` | `tablaDeAportesCsv(filas)`: la tabla `aportes.csv` del ZIP de descarga (seudónimos "Participante N" / "Anónimo", UTF-8 con BOM, celdas a salvo de fórmulas) y `ubicacionDeCampana()` |
 
@@ -90,7 +90,8 @@
 | --- | --- | --- |
 | `decision.ts` | **Reglas del dictamen**, compartidas por supervisores y SuperUsuario: tomar una campaña (`tomarCampanaParaSupervisar`) y aceptarla, rechazarla o reportarla (`registrarDecisionDeCampana`). Notifica al creador y escribe en la bitácora | `PATCH /api/campanas/[id]`, `acciones-root.ts` |
 | `root.ts` | Guardia `exigirSesionRoot()` y consultas de `/supervisar` | Páginas de `(panel)` |
-| `acciones-root.ts` ⚡ | `tomarComoSuperUsuario`, `decidirComoSuperUsuario` | `/supervisar/[campaignId]` |
+| `estado-por-supervision.ts` | **Pausar (con motivo), reanudar o finalizar (con motivo)** una campaña desde la supervisión (`cambiarEstadoPorSupervision`): permisos, transiciones, bitácora y aviso al creador (2026-10-15) | `PATCH /api/campanas/[id]`, `acciones-root.ts` |
+| `acciones-root.ts` ⚡ | `tomarComoSuperUsuario`, `decidirComoSuperUsuario`, `cambiarEstadoComoSuperUsuario` | `/supervisar/[campaignId]` |
 
 ### `usuarios/`
 
@@ -130,6 +131,7 @@ Reportes y sanciones, que antes eran del panel del SuperUsuario. Las mismas pant
 | `rutas.ts` 🟢 | `ZonaDeModeracion` (`supervisar` o `supervision`), `rutasDeModeracion(zona)` (reportes, sanciones, sancionar, ficha de campaña) y `pestanasDeModeracion` (Campañas / Reportes / Sanciones) | Pantallas y componentes de `components/moderacion` |
 | `moderador.ts` | `moderadorDe(zona)` (para server actions: raíz o usuario con rol `supervisor`, según la zona), `exigirModerador(zona)` (para páginas: redirige a `/root` o `/campanas`), `actorDeModerador`, `firmaDeModerador` (`aplicada_por`), `cuentaDelModerador` | Páginas de las dos zonas, `acciones.ts` |
 | `acciones.ts` ⚡ | `aplicarSancion`, `restaurarAcceso`, `descartarReportes`, `quitarBloqueoDeDispositivo`; reciben la zona y comprueban su sesión. Un supervisor no se modera a sí mismo | `components/moderacion/*` |
+| `sancionar.ts` (2026-10-16) | Aplicar una sanción en un solo lugar: `sancionarEnTransaccion` (aviso con su escala, suspensión directa de 2 o 7 días o baneo, dentro de la transacción de quien llama), `avisarSancion`, `detalleDeAuditoria`, `errorDeSancionPedida` | `aplicarSancion` y el rechazo de una campaña con sanción (`lib/supervision/decision.ts`) |
 
 ### `gamificacion/` (2026-10-13)
 

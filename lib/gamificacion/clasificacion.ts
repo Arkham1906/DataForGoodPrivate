@@ -234,5 +234,5 @@ export async function obtenerTablaDeLideres(): Promise<TablaDeLideres> {
 
 /** ¿Hay algo que mostrar en la landing? Sin datos, la sección no se pinta. */
 export function tablaTieneDatos(tabla: TablaDeLideres): boolean {
-  return tabla.aportes.length > 0 || tabla.nivel.length > 0 || tabla.tematicas.length > 0;
+  return tabla.aportes.length > 2 || tabla.nivel.length > 2 || tabla.tematicas.length > 2;
 }

@@ -6,6 +6,9 @@
 //   4.º o más → baneo y el correo a la lista negra (no puede volver a registrarse).
 // Sin imports de servidor: lo usan aplicarSancion (lib/usuarios/acciones-usuarios.ts) y las pantallas.
 
+/** Días que puede durar una suspensión directa (2026-10-16): los mismos plazos de la escala. */
+export const DIAS_DE_SUSPENSION = [2, 7] as const;
+
 /** Con este aviso la cuenta se banea y su correo entra a la lista negra. */
 export const AVISOS_PARA_BANEO = 4;
 

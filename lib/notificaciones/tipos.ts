@@ -14,6 +14,9 @@ export type TipoDeNotificacion =
   | "campana_reportada"
   | "campana_iniciada"
   | "campana_finalizada"
+  // La supervisión la pausó o la reanudó (lib/supervision/estado-por-supervision.ts).
+  | "campana_pausada"
+  | "campana_reanudada"
   // El SuperUsuario revirtió la aceptación o el rechazo (lib/usuarios/acciones-supervisor.ts).
   | "campana_en_revision"
   | "revisor_acepto"
@@ -67,6 +70,7 @@ export function tonoDeNotificacion(tipo: string): "ok" | "warn" | "danger" | "de
     case "aporte_aceptado":
     case "campana_aceptada":
     case "campana_iniciada":
+    case "campana_reanudada":
     case "campana_nueva":
     case "revisor_acepto":
     case "rol_asignado":
@@ -75,6 +79,7 @@ export function tonoDeNotificacion(tipo: string): "ok" | "warn" | "danger" | "de
       return "ok";
     case "campana_especial":
     case "campana_reportada":
+    case "campana_pausada":
     case "aporte_reportado":
     case "rol_revocado":
     case "campana_en_revision":

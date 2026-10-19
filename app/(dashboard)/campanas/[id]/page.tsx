@@ -18,6 +18,7 @@ import type { Campaign } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
 import { TIPO_DE_DATO } from "@/lib/aportes/archivo";
 import { fechaCorta } from "@/lib/campanas/especial-reglas";
+import { avisoDePausa } from "@/lib/campanas/pausa";
 import CompartirCampana from "./compartir";
 import ReportarCampana from "./reportar";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
@@ -211,7 +212,7 @@ export default function CampaignDetailPage() {
               <Button variant="primary" className="w-full">Realizar un aporte</Button>
             </Link>
           ) : campaign.status === "pausada" ? (
-            <p className="rounded-lg bg-system-100 p-3 text-center text-[12.5px] text-system-600">Quien organiza esta campaña la pausó. Podrás aportar cuando la reanude.</p>
+            <p className="rounded-lg bg-system-100 p-3 text-center text-[12.5px] text-system-600">{avisoDePausa(campaign.pausa, "Podrás aportar cuando se reanude.")}</p>
           ) : (
             <p className="rounded-lg bg-system-100 p-3 text-center text-[12.5px] text-system-600">Esta campaña no está recibiendo aportes.</p>
           )}

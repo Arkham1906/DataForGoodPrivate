@@ -3,7 +3,9 @@
 // Pantalla /mis-campanas: campañas que creaste, con filtros por estado.
 // Componente cliente. Datos: GET /api/campanas?mine=true.
 // Acciones en "Más", con PATCH /api/campanas/[id] { status }: "Pausar" (activa → pausada),
-// "Reanudar" (pausada → activa) y "Finalizar" (activa o pausada). Solo el creador las ve:
+// "Reanudar" (pausada → activa; no si la pausó la supervisión, que se muestra con su motivo)
+// y "Finalizar" (activa o pausada). Pausar y Finalizar se confirman en una ventana emergente
+// (ui/VentanaDeConfirmacion). Solo el creador las ve:
 // la lista viene de mine=true y el servidor revisa creator_id.
 
 import { useEffect, useState } from "react";
@@ -67,6 +69,7 @@ function mapCampaign(row: Record<string, unknown>): Campaign {
     daysRemaining: row.daysRemaining as number | null,
     hasReviewerAssigned: Boolean(row.hasReviewerAssigned),
     especial: (row.especial as Campaign["especial"]) ?? null,
+    pausa: (row.pausa as Campaign["pausa"]) ?? null,
   };
 }
 
@@ -77,6 +80,8 @@ export default function MisCampanasPage() {
   const [cambioError, setCambioError] = useState<Record<string, string>>({});
   // Campaña cuya ventana de "Pausar" está abierta.
   const [porPausar, setPorPausar] = useState<Campaign | null>(null);
+  // Campaña cuya ventana de "Finalizar" está abierta (2026-10-16; antes window.confirm).
+  const [porFinalizar, setPorFinalizar] = useState<Campaign | null>(null);
   const [cargando, setCargando] = useState(true);
   const [filtro, setFiltro] = useState<Filtro>("todas");
 
@@ -103,8 +108,7 @@ export default function MisCampanasPage() {
   // Solo el creador ve esta pantalla (viene de mine=true): no hace falta
   // revisar rol ni dueño aparte, ya está filtrado por sesión.
   async function cambiarEstado(id: string, nuevo: "pausada" | "activa" | "finalizada") {
-    if (nuevo === "finalizada" && !window.confirm("¿Finalizar esta campaña? Dejará de aceptar aportes nuevos.")) return;
-    // "Pausar" ya se confirmó en la ventana emergente (VentanaDeConfirmacion).
+    // "Pausar" y "Finalizar" ya se confirmaron en su ventana emergente (VentanaDeConfirmacion).
 
     const fallo = {
       finalizada: "No se pudo finalizar la campaña",
@@ -230,14 +234,15 @@ export default function MisCampanasPage() {
                       ...(campaign.status === "activa"
                         ? [{ etiqueta: "Pausar campaña", alElegir: () => setPorPausar(campaign), deshabilitado: cambiando }]
                         : []),
-                      ...(campaign.status === "pausada"
+                      // La que pausó la supervisión solo la reanuda la supervisión (2026-10-15).
+                      ...(campaign.status === "pausada" && campaign.pausa?.por !== "supervision"
                         ? [{ etiqueta: "Reanudar campaña", alElegir: () => void cambiarEstado(campaign.id, "activa"), deshabilitado: cambiando }]
                         : []),
                       ...(puedeFinalizar
                         ? [
                             {
                               etiqueta: "Finalizar campaña",
-                              alElegir: () => void cambiarEstado(campaign.id, "finalizada"),
+                              alElegir: () => setPorFinalizar(campaign),
                               peligro: true,
                               deshabilitado: cambiando,
                             },
@@ -246,7 +251,13 @@ export default function MisCampanasPage() {
                     ]}
                   />
                 </div>
-                {campaign.status === "pausada" && (
+                {campaign.status === "pausada" && campaign.pausa?.por === "supervision" ? (
+                  <div className="mt-2 rounded-lg border border-warning-200 bg-warning-50 p-2.5 text-[11.5px] text-system-900">
+                    <p className="font-semibold">La supervisión pausó esta campaña</p>
+                    <p className="mt-0.5 whitespace-pre-line text-system-600">Motivo: {campaign.pausa.motivo || "sin motivo registrado"}</p>
+                    <p className="mt-0.5 text-system-600">No recibe aportes hasta que la supervisión la reanude.</p>
+                  </div>
+                ) : campaign.status === "pausada" && (
                   <p className="mt-2 text-[11.5px] text-system-600">Pausada: no recibe aportes ni aparece en Campañas hasta que la reanudes.</p>
                 )}
                 {cambioError[campaign.id] && (
@@ -278,6 +289,28 @@ export default function MisCampanasPage() {
           <li>No se finaliza sola: si su fecha de cierre pasa mientras está pausada, tendrás que poner una nueva para reanudarla.</li>
         </ul>
         <p className="mt-3">Puedes reanudarla cuando quieras desde el menú «Más».</p>
+      </VentanaDeConfirmacion>
+
+      <VentanaDeConfirmacion
+        abierto={porFinalizar !== null}
+        titulo="¿Finalizar esta campaña?"
+        textoConfirmar="Finalizar campaña"
+        textoOcupado="Finalizando…"
+        peligro
+        ocupado={porFinalizar !== null && cambiandoId === porFinalizar.id}
+        onCancelar={() => setPorFinalizar(null)}
+        onConfirmar={() => {
+          if (!porFinalizar) return;
+          void cambiarEstado(porFinalizar.id, "finalizada").finally(() => setPorFinalizar(null));
+        }}
+      >
+        {porFinalizar && <p className="mb-3 font-semibold text-system-900">{porFinalizar.name}</p>}
+        <ul className="flex list-disc flex-col gap-1.5 pl-5">
+          <li>Dejará de recibir aportes nuevos, ni de personas con cuenta ni por su enlace público.</li>
+          <li>Dejará de aparecer en Campañas y en Explorar.</li>
+          <li>Sus aportes aprobados se publicarán en Datos abiertos.</li>
+        </ul>
+        <p className="mt-3">Para volver a abrirla tendrás que editarla y ponerle una fecha de cierre nueva.</p>
       </VentanaDeConfirmacion>
     </div>
   );

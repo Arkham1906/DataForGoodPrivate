@@ -11,6 +11,25 @@ export const MOTIVOS_DE_REPORTE_DE_CAMPANA = [
   "Pone en riesgo a quien participa",
 ];
 
+/** "Otro" de la lista de motivos de rechazo: obliga a escribir la explicación. */
+export const OTRO_MOTIVO = "Otro";
+
+/**
+ * Por qué la supervisión rechaza una campaña (2026-10-16): los de reportar una campaña y "Otro".
+ * Se elige uno y/o se explica con palabras propias; con "Otro", la explicación es obligatoria.
+ */
+export const MOTIVOS_DE_RECHAZO_DE_CAMPANA = [...MOTIVOS_DE_REPORTE_DE_CAMPANA, OTRO_MOTIVO];
+
+/** Largo máximo de la explicación del rechazo. */
+export const MAXIMO_EXPLICACION_DE_RECHAZO = 500;
+
+/** El motivo del rechazo como lo lee el creador: "Motivo de la lista. Explicación", o solo uno de los dos. */
+export function textoDelMotivoDeRechazo(motivoDeLista: string | null, explicacion: string | null): string {
+  const lista = motivoDeLista && motivoDeLista !== OTRO_MOTIVO ? motivoDeLista : null;
+  if (lista && explicacion) return `${lista}. ${explicacion}`;
+  return lista ?? explicacion ?? "";
+}
+
 /** Por qué el creador o un revisor reporta a quien envió un aporte. */
 export const MOTIVOS_DE_REPORTE_DE_APORTE = [
   "Contenido ofensivo o inapropiado",

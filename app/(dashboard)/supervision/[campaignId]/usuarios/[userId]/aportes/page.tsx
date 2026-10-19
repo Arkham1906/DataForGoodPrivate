@@ -18,7 +18,7 @@ export default async function UserContributionsPage({ params }: { params: Promis
   if (!user.role.includes("supervisor")) redirect("/campanas");
 
   const campaignResult = await pool.query(
-    `SELECT id, name FROM campanas WHERE id = $1 AND supervisor_id = $2 AND status IN ('activa', 'finalizada') LIMIT 1`,
+    `SELECT id, name FROM campanas WHERE id = $1 AND supervisor_id = $2 AND status IN ('activa', 'pausada', 'finalizada') LIMIT 1`,
     [campaignId, user.id]
   );
   if (campaignResult.rowCount === 0) notFound();

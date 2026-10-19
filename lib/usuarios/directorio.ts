@@ -62,8 +62,8 @@ export type ReporteDeSancion = {
   };
 };
 
-/** Lo que aplica el SuperUsuario: un aviso (STRIKE) o un baneo inmediato. */
-export type TipoDeSancion = "STRIKE" | "BANEO_DE_CAMPANA";
+/** Lo que aplica quien modera: un aviso (STRIKE), una suspensión directa (2026-10-16) o un baneo inmediato. */
+export type TipoDeSancion = "STRIKE" | "SUSPENSION_TEMPORAL" | "BANEO_DE_CAMPANA";
 
 /** Una sanción de la lista de sanciones (/supervisar/sanciones y /supervision/sanciones), de la cuenta o de una campaña (ver listarSanciones). */
 export type RegistroDeSancion = {

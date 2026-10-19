@@ -1,5 +1,5 @@
 // Pantalla /supervision/[campaignId]/usuarios: participantes de una campaña que supervisas.
-// Server Component con SQL directo; solo campañas activas o finalizadas con supervisor_id = tú.
+// Server Component con SQL directo; solo campañas activas, pausadas o finalizadas con supervisor_id = tú.
 
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -18,7 +18,7 @@ async function getSupervisedCampaign(campaignId: string): Promise<CampaignAccess
 
   const result = await pool.query<CampaignAccess>(
     `SELECT id, name, status FROM campanas
-    WHERE id = $1 AND supervisor_id = $2 AND status IN ('activa', 'finalizada')
+    WHERE id = $1 AND supervisor_id = $2 AND status IN ('activa', 'pausada', 'finalizada')
      LIMIT 1`,
     [campaignId, user.id]
   );

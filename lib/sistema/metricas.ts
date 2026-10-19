@@ -1,4 +1,5 @@
 import { pool } from "@/lib/db";
+import { activateScheduledCampaigns, finalizeExpiredCampaigns } from "@/lib/campaign-date";
 
 /**
  * Métricas del Panel del sistema (SCR-WEB-28). Los totales son de solo
@@ -37,6 +38,13 @@ async function haySupervisoresActivos(): Promise<boolean> {
 }
 
 export async function obtenerMetricasDelSistema(): Promise<MetricasDelSistema> {
+  // Activas y finalizadas al día aunque nadie haya leído /api/campanas desde que cambió su fecha.
+  try {
+    await activateScheduledCampaigns();
+    await finalizeExpiredCampaigns();
+  } catch (error) {
+    console.error("Error al actualizar el estado de las campañas por fecha", error);
+  }
   const [
     usuariosRegistrados,
     campanasActivas,

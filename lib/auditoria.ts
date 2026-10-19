@@ -22,6 +22,10 @@ export type AccionAuditada =
   | "supervision.revertir"
   | "supervision.tomar"
   | "supervision.dictaminar"
+  // Pausar, reanudar o finalizar una campaña desde la supervisión (lib/supervision/estado-por-supervision.ts).
+  | "supervision.pausar"
+  | "supervision.reanudar"
+  | "supervision.finalizar"
   | "campana.banear"
   // Aceptó los acuerdos al inscribirse para aportar (lib/campanas/inscripciones.ts).
   | "campana.inscribirse"

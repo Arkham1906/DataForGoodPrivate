@@ -162,7 +162,8 @@ export async function yaReporto(clave: ClaveDeReportes, usuarioId: number): Prom
 
 export type ReporteParaBandeja = {
   id: string;
-  /** Quién reportó; "Cuenta eliminada" si ya no existe. Solo lo ve quien modera, nunca la persona reportada. */
+  /** Quién reportó ("SuperUsuario" si fue él; "… · al rechazar la campaña" si lo dejó un rechazo con sanción);
+   * "Cuenta eliminada" si ya no existe. Solo lo ve quien modera, nunca la persona reportada. */
   quien: string;
   motivo: string | null;
   descripcion: string | null;
@@ -210,10 +211,13 @@ export async function listarReportes(filtro: FiltroDeReportes, sinContraCuenta: 
       resuelto_en: Date | null;
       nota_de_resolucion: string | null;
       sancion_tipo: string | null;
+      origen: string;
     }>(
       `SELECT r.id, r.tipo, c.id AS campana_id, c.name AS campana, r.aporte_id,
               r.reportado_id, NULLIF(TRIM(ru.nombre || ' ' || ru.apellidos), '') AS reportado,
-              NULLIF(TRIM(q.nombre || ' ' || q.apellidos), '') AS quien,
+              CASE WHEN r.por_superusuario THEN 'SuperUsuario'
+                   ELSE NULLIF(TRIM(q.nombre || ' ' || q.apellidos), '') END AS quien,
+              r.origen,
               r.motivo, r.descripcion, r.created_at, r.estado, r.resuelto_en, r.nota_de_resolucion,
               s.tipo AS sancion_tipo
        FROM reportes r
@@ -246,7 +250,8 @@ export async function listarReportes(filtro: FiltroDeReportes, sinContraCuenta: 
       };
       grupo.reportes.push({
         id: String(f.id),
-        quien: f.quien ?? "Cuenta eliminada",
+        // El que deja la supervisión al rechazar la campaña con sanción (2026-10-16) lo dice.
+        quien: `${f.quien ?? "Cuenta eliminada"}${f.origen === "rechazo" ? " · al rechazar la campaña" : ""}`,
         motivo: f.motivo,
         descripcion: f.descripcion,
         fecha: f.created_at,

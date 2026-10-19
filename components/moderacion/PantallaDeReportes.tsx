@@ -19,6 +19,7 @@ import PestanasDeModeracion from "./PestanasDeModeracion";
 
 const NOMBRE_DE_SANCION: Record<string, string> = {
   STRIKE: "Aviso",
+  SUSPENSION_TEMPORAL: "Suspensión",
   BANEO_DE_CAMPANA: "Baneo",
 };
 
