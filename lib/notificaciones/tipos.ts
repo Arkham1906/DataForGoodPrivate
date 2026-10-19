@@ -21,6 +21,8 @@ export type TipoDeNotificacion =
   | "campana_en_revision"
   | "revisor_acepto"
   | "aporte_reportado"
+  // Al creador, cada 10 aportes recibidos; reemplaza al anterior de la campaña (./hitos-de-aportes.ts).
+  | "aportes_recibidos"
   // Supervisión y revisión
   | "invitacion_revisor"
   | "rol_asignado"
@@ -59,6 +61,8 @@ export type Notificacion = {
 export type PaginaDeNotificaciones = {
   data: Notificacion[];
   noLeidas: number;
+  /** Cuántas borraría "Limpiar" (limpiarNotificaciones): leídas o más viejas que DIAS_PARA_NOTIFICACION_VIEJA. */
+  limpiables: number;
   total: number;
   pagina: number;
   porPagina: number;
@@ -76,6 +80,7 @@ export function tonoDeNotificacion(tipo: string): "ok" | "warn" | "danger" | "de
     case "rol_asignado":
     case "sancion_restaurada":
     case "campana_desbaneo":
+    case "aportes_recibidos":
       return "ok";
     case "campana_especial":
     case "campana_reportada":
@@ -122,4 +127,25 @@ export function haceCuanto(iso: string, ahora: number = Date.now()): string {
 }
 
 /** Evento que avisa a la campana que algo cambió en otra parte de la página (p. ej. /notificaciones). */
+/**
+ * "Limpiar" de /notificaciones (2026-10-19) borra las leídas y, aunque no se hayan leído, las que
+ * tienen más de estos días. TODO(dominio): 30 días es provisional.
+ */
+export const DIAS_PARA_NOTIFICACION_VIEJA = 30;
+
+/**
+ * Avisos que cambian lo que la persona puede ver o hacer: al llegar en vivo (GET /api/eventos),
+ * la campana refresca la página para que el menú y los permisos se pongan al día sin recargar
+ * (p. ej. aparece "Supervisión" al recibir el rol; una suspensión lleva a /cuenta-bloqueada).
+ */
+export const AVISOS_QUE_REFRESCAN: ReadonlySet<string> = new Set([
+  "rol_asignado",
+  "rol_revocado",
+  "sancion_aplicada",
+  "sancion_restaurada",
+  "campana_baneo",
+  "campana_desbaneo",
+  "revisor_acepto",
+]);
+
 export const EVENTO_NOTIFICACIONES = "dataforgood:notificaciones";

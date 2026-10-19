@@ -1,5 +1,6 @@
 import { ZipArchive } from "archiver";
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { pool } from "@/lib/db";
 import { extensionForMime } from "@/lib/open-data";
 import { tablaDeAportesCsv, ubicacionDeCampana, type FilaDeAporteAbierto } from "@/lib/open-data-csv";
@@ -90,6 +91,11 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     await finished;
 
     await pool.query(`UPDATE campanas SET downloads_count = downloads_count + 1 WHERE id = $1`, [id]);
+    // Las páginas que muestran las descargas se guardan en caché 5 minutos: que la siguiente
+    // visita ya traiga el número nuevo.
+    revalidatePath(`/datos/${id}`);
+    revalidatePath("/datos");
+    revalidatePath("/");
 
     const zipBuffer = Buffer.concat(chunks);
     const nombreArchivo = `${c.name}`.replace(/[^a-z0-9-]+/gi, "-").toLowerCase();

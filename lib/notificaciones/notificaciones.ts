@@ -1,14 +1,30 @@
 // Notificaciones de los usuarios: crearlas (notificar) y leerlas o marcarlas (bandeja).
 // Las crean los eventos de aportes, campañas, roles y sanciones; las leen GET /api/notificaciones,
 // la campana (components/layout/NotificationsBell) y la página /notificaciones. Cada una se manda
-// también como push a los teléfonos o navegadores donde la persona activó los avisos (push.ts).
+// también como push a los teléfonos o navegadores donde la persona activó los avisos (push.ts)
+// y en vivo a sus pestañas abiertas (lib/en-vivo.ts → GET /api/eventos).
 
 import { pool } from "@/lib/db";
-import type { Notificacion, PaginaDeNotificaciones, TipoDeNotificacion } from "./tipos";
+import { DIAS_PARA_NOTIFICACION_VIEJA, type Notificacion, type PaginaDeNotificaciones, type TipoDeNotificacion } from "./tipos";
 import { enviarPush } from "./push";
+import { publicarAviso } from "@/lib/en-vivo";
 
 /** Avisos que se apagan con la preferencia "Aportes" (usuarios.avisos_aportes). */
 const TIPOS_DE_APORTES: ReadonlySet<TipoDeNotificacion> = new Set(["aporte_aceptado", "aporte_rechazado"]);
+
+/**
+ * Las que llegan aunque la persona apague "Notificaciones" (usuarios.notificaciones_activas, 2026-10-19):
+ * cambian lo que puede hacer en su cuenta, y la invitación de revisor solo se acepta desde la notificación.
+ */
+export const NOTIFICACIONES_ESENCIALES: ReadonlySet<TipoDeNotificacion> = new Set([
+  "rol_asignado",
+  "rol_revocado",
+  "sancion_aplicada",
+  "sancion_restaurada",
+  "campana_baneo",
+  "campana_desbaneo",
+  "invitacion_revisor",
+]);
 
 export type NuevaNotificacion = {
   usuarioId: number | string;
@@ -28,10 +44,15 @@ export type NuevaNotificacion = {
  */
 export async function notificar(n: NuevaNotificacion): Promise<void> {
   try {
-    // Preferencia "Aportes" de /cuenta: apagada, no se avisa del estado de sus aportes.
-    if (TIPOS_DE_APORTES.has(n.tipo)) {
-      const { rows } = await pool.query<{ si: boolean }>(`SELECT avisos_aportes AS si FROM usuarios WHERE id = $1`, [n.usuarioId]);
-      if (rows[0] && !rows[0].si) return;
+    // Preferencias de /cuenta: "Notificaciones" apagado no deja pasar nada salvo las esenciales;
+    // "Aportes" apagado, no se avisa del estado de sus aportes.
+    if (!NOTIFICACIONES_ESENCIALES.has(n.tipo)) {
+      const { rows } = await pool.query<{ todas: boolean; aportes: boolean }>(
+        `SELECT notificaciones_activas AS todas, avisos_aportes AS aportes FROM usuarios WHERE id = $1`,
+        [n.usuarioId],
+      );
+      if (rows[0] && !rows[0].todas) return;
+      if (rows[0] && TIPOS_DE_APORTES.has(n.tipo) && !rows[0].aportes) return;
     }
     const { rows } = await pool.query<{ id: number }>(
       `INSERT INTO notificaciones (usuario_id, tipo, titulo, mensaje, campana_id, metadata)
@@ -46,6 +67,7 @@ export async function notificar(n: NuevaNotificacion): Promise<void> {
         JSON.stringify({ ...(n.metadata ?? {}), ...(n.enlace ? { enlace: n.enlace } : {}) }),
       ],
     );
+    publicarAviso(n.usuarioId, { tipo: n.tipo });
     void enviarPush(n.usuarioId, { id: String(rows[0].id), titulo: n.titulo, mensaje: n.mensaje, enlace: n.enlace });
   } catch (error) {
     console.error(`Error creando la notificación ${n.tipo} para el usuario ${n.usuarioId}`, error);
@@ -53,6 +75,18 @@ export async function notificar(n: NuevaNotificacion): Promise<void> {
 }
 
 export type FiltroDeNotificaciones = "todas" | "no-leidas";
+
+/**
+ * Las que borra "Limpiar" (alias `n`; `dias` es el parámetro con DIAS_PARA_NOTIFICACION_VIEJA):
+ * leídas o más viejas que esos días, salvo una invitación de revisor sin aceptar (es el único
+ * lugar desde donde se acepta, como en borrarNotificacion).
+ */
+function condicionLimpiable(dias: string): string {
+  return `(n.leida_en IS NOT NULL OR n.created_at < NOW() - make_interval(days => ${dias}::int))
+    AND NOT (n.tipo = 'invitacion_revisor' AND EXISTS (
+      SELECT 1 FROM campana_revisores cr
+      WHERE cr.campana_id = n.campana_id AND cr.usuario_id = n.usuario_id AND cr.estado = 'invitado'))`;
+}
 
 /** Página de notificaciones de un usuario, de la más nueva a la más vieja. */
 export async function listarNotificaciones(
@@ -73,17 +107,19 @@ export async function listarNotificaciones(
        LIMIT $3 OFFSET $4`,
       [usuarioId, soloNoLeidas, porPagina, (pagina - 1) * porPagina],
     ),
-    pool.query<{ total: number; no_leidas: number }>(
-      `SELECT COUNT(*) FILTER (WHERE $2::boolean IS FALSE OR leida_en IS NULL)::int AS total,
-              COUNT(*) FILTER (WHERE leida_en IS NULL)::int AS no_leidas
-       FROM notificaciones WHERE usuario_id = $1`,
-      [usuarioId, soloNoLeidas],
+    pool.query<{ total: number; no_leidas: number; limpiables: number }>(
+      `SELECT COUNT(*) FILTER (WHERE $2::boolean IS FALSE OR n.leida_en IS NULL)::int AS total,
+              COUNT(*) FILTER (WHERE n.leida_en IS NULL)::int AS no_leidas,
+              COUNT(*) FILTER (WHERE ${condicionLimpiable("$3")})::int AS limpiables
+       FROM notificaciones n WHERE n.usuario_id = $1`,
+      [usuarioId, soloNoLeidas, DIAS_PARA_NOTIFICACION_VIEJA],
     ),
   ]);
 
   return {
     data: filas.rows.map(mapearNotificacion),
     noLeidas: conteo.rows[0].no_leidas,
+    limpiables: conteo.rows[0].limpiables,
     total: conteo.rows[0].total,
     pagina,
     porPagina,
@@ -144,4 +180,13 @@ export async function borrarNotificacion(
   if ((result.rowCount ?? 0) > 0) return "borrada";
   const existe = await pool.query(`SELECT 1 FROM notificaciones WHERE id = $1 AND usuario_id = $2`, [id, usuarioId]);
   return existe.rowCount ? "invitacion-pendiente" : "no-existe";
+}
+
+/** "Limpiar" de /notificaciones: borra las leídas y las viejas de la persona (condicionLimpiable). Devuelve cuántas borró. */
+export async function limpiarNotificaciones(usuarioId: number | string): Promise<number> {
+  const result = await pool.query(
+    `DELETE FROM notificaciones n WHERE n.usuario_id = $1 AND ${condicionLimpiable("$2")}`,
+    [usuarioId, DIAS_PARA_NOTIFICACION_VIEJA],
+  );
+  return result.rowCount ?? 0;
 }

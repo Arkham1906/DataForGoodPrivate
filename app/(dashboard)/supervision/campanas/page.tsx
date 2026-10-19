@@ -9,6 +9,7 @@ import Tag from "@/components/ui/Tag";
 import { BackLink } from "../_ui";
 import { BASE_PATH } from "@/lib/base-path";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
+import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 
 type CampaignRow = {
   id: string;
@@ -26,6 +27,8 @@ export default function SupervisedCampaignsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Vuelve a leer cuando algo cambia en la base (actualización en vivo).
+  const recarga = useRecargaEnVivo();
   useEffect(() => {
     async function load() {
       try {
@@ -48,7 +51,7 @@ export default function SupervisedCampaignsPage() {
     }
 
     void load();
-  }, []);
+  }, [recarga]);
 
   if (loading) {
     return <PantallaEsqueleto tipo="tabla" etiqueta="Cargando campañas supervisadas…" className="mx-auto max-w-5xl" />;

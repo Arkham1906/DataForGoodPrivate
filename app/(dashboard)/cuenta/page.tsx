@@ -147,6 +147,7 @@ export default async function CuentaPage() {
                 avisosAportes: currentUser.avisos_aportes,
                 recordatorioSemanal: currentUser.recordatorio_semanal,
                 resumenMensual: currentUser.resumen_mensual,
+                notificaciones: currentUser.notificaciones_activas,
               }}
             />
           </div>

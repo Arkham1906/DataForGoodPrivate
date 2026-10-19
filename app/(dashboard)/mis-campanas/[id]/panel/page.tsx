@@ -13,6 +13,7 @@ import ProgressBar from "@/components/ui/ProgressBar";
 import type { Campaign } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
+import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 
 type DiaDeRecoleccion = { fecha: string; etiqueta: string; valor: number };
 type TipoDeAporte = { tipo: string; etiqueta: string; valor: number; porcentaje: number };
@@ -23,6 +24,8 @@ export default function PanelCampanaPage() {
   const [recoleccionDiaria, setRecoleccionDiaria] = useState<DiaDeRecoleccion[]>([]);
   const [porTipo, setPorTipo] = useState<TipoDeAporte[]>([]);
 
+  // Vuelve a leer cuando algo cambia en la base (actualización en vivo).
+  const recarga = useRecargaEnVivo();
   useEffect(() => {
     let activo = true;
 
@@ -45,16 +48,14 @@ export default function PanelCampanaPage() {
     }
 
     if (!params.id) return;
-    loadCampaign();
+    void loadCampaign();
 
-    // El badge dice "en vivo": mientras la campaña siga activa, se refresca
-    // sola cada 3 s en vez de solo cargar una vez al entrar.
-    const intervalo = setInterval(loadCampaign, 3000);
+    // El badge dice "en vivo": ya no consulta cada 3 s; vuelve a leer en cuanto llega un aporte
+    // o cambia algo de la campaña (useRecargaEnVivo, 2026-10-19).
     return () => {
       activo = false;
-      clearInterval(intervalo);
     };
-  }, [params.id]);
+  }, [params.id, recarga]);
 
   if (!campaign) {
     return <PantallaEsqueleto tipo="tablero" etiqueta="Cargando el panel de la campaña…" />;

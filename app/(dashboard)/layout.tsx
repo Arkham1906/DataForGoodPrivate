@@ -1,10 +1,11 @@
-// Layout de la zona de usuario (dashboard): TopBar + SidebarNav + VigilanteDeSesion.
+// Layout de la zona de usuario (dashboard): TopBar + SidebarNav + VigilanteDeSesion + ActualizacionEnVivo.
 // Guardia: exigirUsuario() → sin sesión a /entrar, cuenta sancionada a /cuenta-bloqueada.
 // No basta por sí solo: cada página y cada endpoint vuelven a verificar (ver docs/permisos.md).
 
 import TopBar from "@/components/layout/TopBar";
 import SidebarNav from "@/components/layout/SidebarNav";
 import VigilanteDeSesion from "@/components/layout/VigilanteDeSesion";
+import ActualizacionEnVivo from "@/components/layout/ActualizacionEnVivo";
 import { exigirUsuario } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +21,7 @@ export default async function DashboardLayout({
   return (
     <div className="min-h-screen bg-system-50">
       <VigilanteDeSesion />
+      <ActualizacionEnVivo />
       <TopBar usuario={usuario} />
       <div className="dashboard-shell flex">
         <SidebarNav usuario={usuario} />

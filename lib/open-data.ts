@@ -18,6 +18,10 @@ export interface OpenDataset {
   tematica: string;
   dataTypes: DataType[];
   approvedContributions: number;
+  /** Rechazados de la campaña: con los aprobados dan la calidad (no van en la descarga). */
+  rejectedContributions: number;
+  /** Aprobados con archivo que sigue en MinIO: los que suman al tamaño y salen en el ZIP. */
+  filesCount: number;
   locationCity: string;
   locationState: string;
   closedAt: string | null; // ISO date (end_date)
@@ -102,10 +106,12 @@ const SELECT = `
          c.location_city, c.location_state, c.organizer, c.creator_name,
          c.end_date, c.supervisor_id, c.supervisado_por_root, c.downloads_count,
          COALESCE(f.size_bytes, 0) AS size_bytes,
+         COALESCE(f.archivos, 0) AS archivos,
          COALESCE(f.formats, ARRAY[]::text[]) AS formats
   FROM campanas c
   LEFT JOIN LATERAL (
     SELECT SUM(a.file_size_bytes)::bigint AS size_bytes,
+           COUNT(*)::int AS archivos,
            array_agg(DISTINCT a.file_mime_type) FILTER (WHERE a.file_mime_type IS NOT NULL) AS formats
     FROM aportes a
     -- Solo archivos que siguen en MinIO: uno borrado por moderación no entra al ZIP.
@@ -129,6 +135,8 @@ function mapDataset(row: Record<string, unknown>): OpenDataset {
     tematica: String(row.tematica ?? row.tag ?? ""),
     dataTypes: Array.isArray(row.data_types) ? (row.data_types as DataType[]) : [],
     approvedContributions: approved,
+    rejectedContributions: rejected,
+    filesCount: Number(row.archivos ?? 0),
     locationCity: String(row.location_city ?? ""),
     locationState: String(row.location_state ?? ""),
     closedAt: row.end_date ? new Date(String(row.end_date)).toISOString().slice(0, 10) : null,

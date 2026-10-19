@@ -7,6 +7,7 @@
 // Aporte anónimo (sin cuenta): "Contenido inapropiado" al rechazar, bloquear su dispositivo
 // en la campaña (misma API de baneos) y borrar el archivo (DELETE /api/aportes/[id]/archivo).
 // Si un revisor lo reportó a supervisión, el creador no lo ve (2026-10-15): solo los supervisores.
+// "Reportar a quien aportó" (2026-10-19) rechaza el aporte y avisa a los supervisores (lib/reportes/reportes.ts).
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -21,6 +22,7 @@ import { MOTIVOS_DE_RECHAZO } from "@/lib/aportes/motivos-de-rechazo";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import ReportarAPlataforma from "@/components/ui/ReportarAPlataforma";
 import { MOTIVOS_DE_REPORTE_DE_APORTE } from "@/lib/reportes/motivos";
+import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 
 
 /**
@@ -51,6 +53,8 @@ export default function RevisionAportePage() {
   // Si el autor ya está baneado de la campaña se ofrece quitar el baneo en vez de banearlo otra vez.
   const [autorBaneado, setAutorBaneado] = useState(false);
 
+  // Vuelve a leer cuando algo cambia en la base (actualización en vivo).
+  const recarga = useRecargaEnVivo();
   useEffect(() => {
     async function load() {
       try {
@@ -73,7 +77,7 @@ export default function RevisionAportePage() {
       }
     }
     void load();
-  }, [params.aporteId, params.id]);
+  }, [params.aporteId, params.id, recarga]);
 
   if (loadError) return <p className="text-sm text-error-700">{loadError}</p>;
   if (!item) return <PantallaEsqueleto tipo="detalle" etiqueta="Cargando aporte…" />;
@@ -452,10 +456,10 @@ export default function RevisionAportePage() {
             url={`/api/aportes/${item.id}/reportar-participante`}
             motivos={MOTIVOS_DE_REPORTE_DE_APORTE}
             titulo="Reportar a quien aportó"
-            explicacion="Para faltas que van más allá de tu campaña (acoso, contenido ilegal, abuso repetido). Lo revisa el equipo de DataForGood, que decide si da un aviso a la cuenta. Esa persona no sabrá quién la reportó. Para tu campaña basta con banearla."
+            explicacion="Para contenido inapropiado o faltas de quien lo envió (acoso, contenido ilegal, abuso repetido). Al reportarlo, el aporte se rechaza (aunque ya estuviera aceptado) y la supervisión decide si da un aviso a la cuenta. Esa persona no sabrá quién la reportó. Para sacarla solo de tu campaña, banéala."
             placeholder="Qué hizo quien envió el aporte"
             yaReportado={Boolean(item.participanteReportado)}
-            textoYaReportado="Ya reportaste a quien envió este aporte. El equipo de DataForGood lo está revisando."
+            textoYaReportado="Ya reportaste a quien envió este aporte. La supervisión lo está revisando."
           />
         </div>
       )}

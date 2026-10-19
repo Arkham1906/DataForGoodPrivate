@@ -1109,6 +1109,19 @@
       "metaSortKey": 36.3
     },
     {
+      "_id": "req_41_limpiar",
+      "_type": "request",
+      "parentId": "fld_otros",
+      "name": "Limpiar notificaciones leídas y viejas",
+      "method": "DELETE",
+      "url": "{{ _.base }}/api/notificaciones",
+      "headers": [],
+      "parameters": [],
+      "body": {},
+      "description": "Borra las leídas y las de más de 30 días; conserva una invitación de revisor sin aceptar. Responde { borradas }.",
+      "metaSortKey": 36.31
+    },
+    {
       "_id": "req_tematicas",
       "_type": "request",
       "parentId": "fld_otros",
@@ -1120,6 +1133,19 @@
       "body": {},
       "description": "Las 23 base y las que salieron de los textos de intereses, sin las ocultas.",
       "metaSortKey": 36.35
+    },
+    {
+      "_id": "req_eventos",
+      "_type": "request",
+      "parentId": "fld_otros",
+      "name": "Actualización en vivo (long polling)",
+      "method": "GET",
+      "url": "{{ _.base }}/api/eventos",
+      "headers": [],
+      "parameters": [],
+      "body": {},
+      "description": "Sin parámetros: último id y versión. Con ?desde=<id>&version=<n>: espera hasta 25 s a una notificación nueva o a un cambio de contenido y responde { tipos, ultimoId, version }.",
+      "metaSortKey": 36.4
     },
     {
       "_id": "req_push_llave",

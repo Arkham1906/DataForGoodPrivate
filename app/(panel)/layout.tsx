@@ -1,10 +1,12 @@
 // Layout del panel del SuperUsuario: Topbar + Sidebar de components/sistema.
+// ActualizacionEnVivo vuelve a leer las pantallas cuando cambia algo en la base (lib/en-vivo.ts).
 // Guardia: hasRootSession() (cookie root_session_token); sin sesión raíz → /root.
 // Ojo: /sistema y /usuarios/** dependen solo de este layout (docs/README.md § 8).
 
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
+import ActualizacionEnVivo from "@/components/layout/ActualizacionEnVivo";
 import Sidebar from "@/components/sistema/Sidebar";
 import Topbar from "@/components/sistema/Topbar";
 import { hasRootSession } from "@/lib/rootSession";
@@ -28,6 +30,7 @@ export default async function PanelLayout({ children }: { children: ReactNode })
 
   return (
     <div className="min-h-screen bg-system-50">
+      <ActualizacionEnVivo />
       <Topbar identificador={process.env.ROOT_USER_ID ?? "raíz"} />
       <div className="dashboard-shell flex">
         <Sidebar reportesPendientes={reportes} />

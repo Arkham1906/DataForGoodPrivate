@@ -12,6 +12,7 @@ import BarraDeFiltros, { type ValoresDeFiltros } from "@/components/campanas/Bar
 import { BASE_PATH } from "@/lib/base-path";
 import { FILTROS_VACIOS, avisoSinResultados, filtrarCampanas, opcionesDeTematica, type FiltrosLocales } from "@/lib/campanas/filtro-local";
 import { EsqueletoDeFilas } from "@/components/ui/Esqueletos";
+import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 
 type ReviewCampaign = {
   id: string;
@@ -36,6 +37,8 @@ export default function CampaignList({ completed = false }: { completed?: boolea
   const [error, setError] = useState<string | null>(null);
   const [filtros, setFiltros] = useState<FiltrosLocales>(FILTROS_VACIOS);
 
+  // Vuelve a leer cuando algo cambia en la base (actualización en vivo).
+  const recarga = useRecargaEnVivo();
   useEffect(() => {
     async function load() {
       try {
@@ -51,7 +54,7 @@ export default function CampaignList({ completed = false }: { completed?: boolea
       }
     }
     void load();
-  }, [completed]);
+  }, [completed, recarga]);
 
   const activeTab = completed ? "finalizadas" : "curso";
   const title = completed ? "Campañas finalizadas" : "Campañas en curso";

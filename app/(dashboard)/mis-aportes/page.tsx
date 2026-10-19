@@ -13,6 +13,7 @@ import Tag from "@/components/ui/Tag";
 import { EsqueletoDeTarjetas } from "@/components/ui/Esqueletos";
 import type { Campaign } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
+import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 
 export default function MisAportesPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -20,6 +21,8 @@ export default function MisAportesPage() {
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(true);
 
+  // Vuelve a leer cuando algo cambia en la base (actualización en vivo).
+  const recarga = useRecargaEnVivo();
   useEffect(() => {
     async function loadCampaigns() {
       try {
@@ -34,7 +37,7 @@ export default function MisAportesPage() {
       }
     }
     void loadCampaigns();
-  }, []);
+  }, [recarga]);
 
   const cuotaCompleta = (campaign: Campaign) =>
     campaign.quotaPerUser > 0 && (campaign.myContributionsCount ?? 0) >= campaign.quotaPerUser;

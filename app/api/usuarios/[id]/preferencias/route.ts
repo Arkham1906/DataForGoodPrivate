@@ -1,11 +1,11 @@
 // PATCH /api/usuarios/[id]/preferencias — Preferencias de "Comunicación y notificaciones" de /cuenta
 // (solo la cuenta propia). Body con una o varias de: avisosCampanasNuevas, avisosAportes,
-// recordatorioSemanal, resumenMensual (booleanos). Lista y columnas en lib/usuarios/preferencias-opciones.ts.
+// recordatorioSemanal, resumenMensual y notificaciones (el interruptor general, 2026-10-19) (booleanos). Lista y columnas en lib/usuarios/preferencias-opciones.ts.
 
 import { NextResponse } from "next/server";
 import { pool } from "@/lib/db";
 import { getSessionUser } from "@/lib/session";
-import { OPCIONES_DE_PREFERENCIAS } from "@/lib/usuarios/preferencias-opciones";
+import { TODAS_LAS_PREFERENCIAS } from "@/lib/usuarios/preferencias-opciones";
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
@@ -17,11 +17,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     }
 
     const body = await request.json().catch(() => ({}));
-    const cambios = OPCIONES_DE_PREFERENCIAS.filter((o) => body && o.clave in body);
-    const desconocidas = Object.keys(body ?? {}).filter((k) => !OPCIONES_DE_PREFERENCIAS.some((o) => o.clave === k));
+    const cambios = TODAS_LAS_PREFERENCIAS.filter((o) => body && o.clave in body);
+    const desconocidas = Object.keys(body ?? {}).filter((k) => !TODAS_LAS_PREFERENCIAS.some((o) => o.clave === k));
     if (cambios.length === 0 || desconocidas.length > 0 || cambios.some((o) => typeof body[o.clave] !== "boolean")) {
       return NextResponse.json(
-        { error: `Manda true o false en: ${OPCIONES_DE_PREFERENCIAS.map((o) => o.clave).join(", ")}` },
+        { error: `Manda true o false en: ${TODAS_LAS_PREFERENCIAS.map((o) => o.clave).join(", ")}` },
         { status: 400 },
       );
     }

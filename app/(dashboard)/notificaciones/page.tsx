@@ -1,7 +1,8 @@
 // Pantalla /notificaciones: historial de notificaciones del usuario. Server Component.
 // Acceso: sesión de usuario (exigirUsuario). Datos: listarNotificaciones() de lib/notificaciones/notificaciones.ts,
 // 20 por página (?pagina=), todas o solo sin leer (?filtro=no-leidas).
-// Acciones (ListaDeNotificaciones.tsx): abrir, marcar leída/no leída, borrar, marcar todas y aceptar invitaciones.
+// Acciones (ListaDeNotificaciones.tsx): abrir, marcar leída/no leída, borrar, marcar todas, limpiar las leídas
+// y viejas, y aceptar invitaciones.
 // Arriba, AvisosEnEsteDispositivo activa o desactiva las notificaciones push en este navegador o teléfono.
 
 import Link from "next/link";
@@ -73,6 +74,7 @@ export default async function NotificacionesPage({
       <ListaDeNotificaciones
         items={resultado.data}
         noLeidas={resultado.noLeidas}
+        limpiables={resultado.limpiables}
         vacio={filtro === "no-leidas" ? "No tienes notificaciones sin leer." : "Todavía no tienes notificaciones."}
       />
 

@@ -10,6 +10,7 @@ import Tag from "@/components/ui/Tag";
 import type { Campaign, Contribution } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
+import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 
 export default function ReviewerCampaignPage() {
   const { campaignId } = useParams<{ campaignId: string }>();
@@ -17,6 +18,8 @@ export default function ReviewerCampaignPage() {
   const [contributions, setContributions] = useState<Contribution[]>([]);
   const [error, setError] = useState<string | null>(null);
 
+  // Vuelve a leer cuando algo cambia en la base (actualización en vivo).
+  const recarga = useRecargaEnVivo();
   useEffect(() => {
     async function load() {
       try {
@@ -35,7 +38,7 @@ export default function ReviewerCampaignPage() {
       }
     }
     if (campaignId) void load();
-  }, [campaignId]);
+  }, [campaignId, recarga]);
 
   if (error) return <p className="mx-auto max-w-4xl text-sm text-error-700">{error}</p>;
   if (!campaign) return <PantallaEsqueleto tipo="tabla" etiqueta="Cargando campaña…" className="mx-auto max-w-4xl" />;

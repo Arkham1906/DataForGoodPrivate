@@ -23,6 +23,7 @@ import CompartirCampana from "./compartir";
 import ReportarCampana from "./reportar";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import { InscripcionACampana } from "@/components/ui/AcuerdosDeAporte";
+import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 
 export default function CampaignDetailPage() {
   const params = useParams<{ id: string }>();
@@ -36,6 +37,8 @@ export default function CampaignDetailPage() {
   const [saved, setSaved] = useState(false);
   const [guardando, setGuardando] = useState(false);
 
+  // Vuelve a leer cuando algo cambia en la base (actualización en vivo).
+  const recarga = useRecargaEnVivo();
   useEffect(() => {
     async function loadCampaign() {
       try {
@@ -54,7 +57,7 @@ export default function CampaignDetailPage() {
       }
     }
     void loadCampaign();
-  }, [params.id]);
+  }, [params.id, recarga]);
 
   async function alternarGuardado() {
     if (guardando) return;
@@ -103,7 +106,7 @@ export default function CampaignDetailPage() {
 
         <div className="mb-2 flex items-center justify-between">
           <Tag tone="ok">{campaign.tag}</Tag>
-          <CompartirCampana campanaId={campaign.id} nombre={campaign.name} />
+          <CompartirCampana campanaId={campaign.id} nombre={campaign.name} tematica={campaign.tematica || campaign.tag} />
         </div>
 
         <h1 className="mb-2 text-[26px] font-extrabold text-system-900">{campaign.name}</h1>

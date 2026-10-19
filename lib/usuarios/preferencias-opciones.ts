@@ -2,7 +2,7 @@
 // la usan la ventana de Preferencias (cliente), PATCH /api/usuarios/[id]/preferencias y la sesión.
 // Todas llegan como notificación de la app (campana, /notificaciones y push), nunca por correo.
 
-export type ClaveDePreferencia = "avisosCampanasNuevas" | "avisosAportes" | "recordatorioSemanal" | "resumenMensual";
+export type ClaveDePreferencia = "avisosCampanasNuevas" | "avisosAportes" | "recordatorioSemanal" | "resumenMensual" | "notificaciones";
 
 export type Preferencias = Record<ClaveDePreferencia, boolean>;
 
@@ -43,3 +43,20 @@ export const OPCIONES_DE_PREFERENCIAS: {
     apagada: "No recibes el resumen mensual.",
   },
 ];
+
+/**
+ * Interruptor general "Notificaciones" (2026-10-19, en lugar del de "Privacidad", que no hacía nada).
+ * Apagado, no llega ninguna notificación (ni a la campana ni como push), salvo las de la cuenta:
+ * rol, sanciones e invitaciones de revisor (NOTIFICACIONES_ESENCIALES en lib/notificaciones/notificaciones.ts).
+ * Las cuatro de arriba conservan su valor y vuelven a valer al encenderlo.
+ */
+export const PREFERENCIA_GENERAL = {
+  clave: "notificaciones" as const,
+  columna: "notificaciones_activas",
+  titulo: "Notificaciones",
+  encendida: "Recibes notificaciones según las opciones de arriba.",
+  apagada: "No recibes notificaciones, salvo las de tu cuenta (roles, sanciones e invitaciones de revisor).",
+};
+
+/** Todas las que guarda PATCH /api/usuarios/[id]/preferencias. */
+export const TODAS_LAS_PREFERENCIAS = [...OPCIONES_DE_PREFERENCIAS, PREFERENCIA_GENERAL];

@@ -19,6 +19,7 @@ import { BASE_PATH } from "@/lib/base-path";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import EstadoDeCampanaSupervisada, { type CambioDeEstado } from "@/components/supervision/EstadoDeCampanaSupervisada";
 import type { PausaDeCampana } from "@/lib/campanas/pausa";
+import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 
 type Campaign = {
   id: string;
@@ -57,6 +58,8 @@ export default function CampaignDetailPage() {
   const [isCreator, setIsCreator] = useState(false);
   const [isMySupervision, setIsMySupervision] = useState(false);
 
+  // Vuelve a leer cuando algo cambia en la base (actualización en vivo).
+  const recarga = useRecargaEnVivo();
   useEffect(() => {
     async function loadCampaign() {
       try {
@@ -79,7 +82,7 @@ export default function CampaignDetailPage() {
     if (campaignId) {
       void loadCampaign();
     }
-  }, [campaignId]);
+  }, [campaignId, recarga]);
 
   async function handleDecision(action: "aceptada" | "rechazada", rechazo?: RechazoPedido) {
     if (!campaignId) return;

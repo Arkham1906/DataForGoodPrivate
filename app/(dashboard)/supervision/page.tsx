@@ -14,6 +14,7 @@ import { BASE_PATH } from "@/lib/base-path";
 import { FILTROS_VACIOS, avisoSinResultados, filtrarCampanas, opcionesDeTematica, type FiltrosLocales } from "@/lib/campanas/filtro-local";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import PestanasDeModeracion from "@/components/moderacion/PestanasDeModeracion";
+import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 
 type CampaignApiItem = {
   id: string;
@@ -47,6 +48,8 @@ export default function SupervisionPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Vuelve a leer cuando algo cambia en la base (actualización en vivo).
+  const recarga = useRecargaEnVivo();
   useEffect(() => {
     async function load() {
       try {
@@ -99,7 +102,7 @@ export default function SupervisionPage() {
     }
 
     void load();
-  }, []);
+  }, [recarga]);
 
   const pendingCount = useMemo(() => pendingCampaigns.length, [pendingCampaigns]);
   const supervisedCount = useMemo(() => supervisedCampaigns.length, [supervisedCampaigns]);

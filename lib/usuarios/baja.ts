@@ -1,7 +1,7 @@
 // Baja voluntaria de cuenta (SCR-WEB-31, /cuenta/eliminar). Tres momentos:
 //
 // 1. solicitarBaja(): con la confirmación ya validada. Guarda el destino de los aportes y
-//    la fecha efectiva (DIAS_DE_GRACIA), cierra todas las sesiones, finaliza las campañas
+//    la fecha efectiva (MINUTOS_DE_GRACIA), cierra todas las sesiones, finaliza las campañas
 //    propias activas o pausadas y borra las que no tienen ningún aporte (borradores,
 //    en revisión, aceptadas). Las finalizadas no se tocan.
 // 2. cancelarBajaSiPendiente(): iniciar sesión dentro del plazo cancela la baja (lo llaman
@@ -19,7 +19,7 @@ import { borrarArchivo } from "@/lib/minio";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { recalcularContadores } from "@/lib/aportes/comun";
 import { retirarComoRevisorDeTodasLasCampanas } from "@/lib/usuarios/revisor";
-import { DIAS_DE_GRACIA, type DestinoDeAportes } from "@/lib/usuarios/baja-opciones";
+import { MINUTOS_DE_GRACIA, type DestinoDeAportes } from "@/lib/usuarios/baja-opciones";
 
 /** Nombre con el que quedan los aportes anonimizados. */
 const NOMBRE_ANONIMO = "Anónimo";
@@ -110,12 +110,12 @@ export async function solicitarBaja(usuarioId: number, destino: DestinoDeAportes
     const usuario = await client.query<{ baja_efectiva_en: Date }>(
       `UPDATE usuarios
        SET baja_solicitada_en = NOW(),
-           baja_efectiva_en = NOW() + make_interval(days => $2),
+           baja_efectiva_en = NOW() + make_interval(mins => $2),
            baja_destino_aportes = $3,
            updated_at = NOW()
        WHERE id = $1 AND eliminada_en IS NULL
        RETURNING baja_efectiva_en`,
-      [usuarioId, DIAS_DE_GRACIA, destino]
+      [usuarioId, MINUTOS_DE_GRACIA, destino]
     );
     if (usuario.rowCount === 0) throw new Error(`La cuenta ${usuarioId} no existe o ya fue eliminada`);
 

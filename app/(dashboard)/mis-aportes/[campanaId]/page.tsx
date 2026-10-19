@@ -15,6 +15,7 @@ import Tag from "@/components/ui/Tag";
 import type { Campaign, Contribution } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
+import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 
 export default function CampaignContributionsPage() {
   const params = useParams<{ campanaId: string }>();
@@ -25,6 +26,8 @@ export default function CampaignContributionsPage() {
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  // Vuelve a leer cuando algo cambia en la base (actualización en vivo).
+  const recarga = useRecargaEnVivo();
   useEffect(() => {
     async function load() {
       try {
@@ -51,7 +54,7 @@ export default function CampaignContributionsPage() {
       }
     }
     void load();
-  }, [params.campanaId]);
+  }, [params.campanaId, recarga]);
 
   if (error) return <p className="text-sm text-error-700">{error}</p>;
   if (!campaign) return <PantallaEsqueleto tipo="tabla" etiqueta="Cargando tus aportes…" />;

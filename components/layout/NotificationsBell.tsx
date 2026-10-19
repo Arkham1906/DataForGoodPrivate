@@ -7,6 +7,8 @@
 // POST /api/notificaciones/[id]/aceptar. El historial completo está en /notificaciones.
 // Si este navegador tiene los avisos push activos, al cargar reafirma la suscripción a nombre de esta
 // sesión (sincronizarPush) y se actualiza en cuanto llega un push (mensaje de public/sw.js).
+// Las notificaciones nuevas llegan al instante: ActualizacionEnVivo (GET /api/eventos) lanza
+// EVENTO_NOTIFICACIONES y la campana vuelve a leer.
 
 import { startTransition, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";

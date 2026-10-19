@@ -7,7 +7,7 @@ import Link from "next/link";
 import Tag from "@/components/ui/Tag";
 import { exigirUsuario } from "@/lib/session";
 import { obtenerResumenDeBaja } from "@/lib/usuarios/baja";
-import { DIAS_DE_GRACIA } from "@/lib/usuarios/baja-opciones";
+import { PLAZO_DE_GRACIA } from "@/lib/usuarios/baja-opciones";
 import EliminarCuentaForm from "./EliminarCuentaForm";
 import type { Metadata } from "next";
 
@@ -36,7 +36,7 @@ export default async function EliminarCuentaPage() {
           .join(" ");
 
   const efectos = [
-    { titulo: "Periodo de gracia", texto: `${DIAS_DE_GRACIA} días antes del borrado definitivo.` },
+    { titulo: "Periodo de gracia", texto: `${PLAZO_DE_GRACIA} antes del borrado definitivo.` },
     { titulo: "Cancelación", texto: "Basta con volver a iniciar sesión dentro de ese plazo." },
     { titulo: "Acceso", texto: "Se cierran todas tus sesiones en cuanto confirmes." },
     { titulo: "Campañas propias", texto: campanasTexto },

@@ -9,6 +9,7 @@ import Button from "@/components/ui/Button";
 import { BASE_PATH } from "@/lib/base-path";
 import type { BaneadoDeCampana } from "@/lib/campanas/baneos";
 import type { DispositivoBloqueado } from "@/lib/aportes/sanciones-anonimas";
+import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 
 /**
  * Participantes que el creador baneó de esta campaña, con la opción de
@@ -20,6 +21,8 @@ export default function BaneadosDeCampana({ campaignId }: { campaignId: string }
   const [quitandoId, setQuitandoId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Vuelve a leer cuando algo cambia en la base (actualización en vivo).
+  const recarga = useRecargaEnVivo();
   useEffect(() => {
     void fetch(`${BASE_PATH}/api/campanas/${campaignId}/baneos`, { cache: "no-store" })
       .then(async (response) => {
@@ -30,7 +33,7 @@ export default function BaneadosDeCampana({ campaignId }: { campaignId: string }
       .catch(() => {
         // Sin la lista, la bandeja sigue funcionando; solo no se muestra esta sección.
       });
-  }, [campaignId]);
+  }, [campaignId, recarga]);
 
   async function quitarBaneo(usuarioId: string) {
     setQuitandoId(usuarioId);

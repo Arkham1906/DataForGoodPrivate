@@ -197,7 +197,7 @@ export async function PATCH(
 // DELETE: pide la baja de la propia cuenta (SCR-WEB-31). Body:
 // { destino: "eliminar" | "anonimizar" | "autoria", confirmacion: "ELIMINAR", contrasena }.
 // `contrasena` solo se exige si la cuenta tiene una (las de Google no); un error cuenta
-// para el bloqueo del login. La cuenta entra en un plazo de gracia de 30 días: se cierran
+// para el bloqueo del login. La cuenta entra en un plazo de gracia (MINUTOS_DE_GRACIA, 3 min desde el 2026-10-19): se cierran
 // todas sus sesiones y volver a iniciar sesión cancela la baja (lib/usuarios/baja.ts).
 export async function DELETE(
   request: Request,

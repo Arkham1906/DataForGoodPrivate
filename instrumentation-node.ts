@@ -5,6 +5,7 @@ import { ensureCoreSchema } from "@/lib/db-schema";
 import { ejecutarBajasVencidas } from "@/lib/usuarios/baja";
 import { enviarAvisosPeriodicos } from "@/lib/notificaciones/periodicas";
 import { activateScheduledCampaigns, finalizeExpiredCampaigns } from "@/lib/campaign-date";
+import { escucharCambiosDeLaBase } from "@/lib/en-vivo-postgres";
 
 const UNA_HORA_MS = 60 * 60 * 1000;
 const UN_MINUTO_MS = 60 * 1000;
@@ -29,8 +30,10 @@ function programarEstadosDeCampanas(): void {
 }
 
 /**
- * Borrado definitivo de las cuentas cuyo plazo de baja venció (lib/usuarios/baja.ts).
- * No hay cron en el servidor: corre al arrancar y luego cada hora en este mismo proceso.
+ * Borrado definitivo de las cuentas cuyo plazo de baja venció (lib/usuarios/baja.ts) y avisos
+ * periódicos de Preferencias (lib/notificaciones/periodicas.ts). No hay cron en el servidor: corren
+ * al arrancar y luego en este mismo proceso. Las bajas, cada minuto (desde el 2026-10-19 el plazo
+ * es de 3 minutos: cada hora tardaría hasta una hora en borrarse); los avisos, cada hora.
  * La marca en globalThis evita dos temporizadores si Next recarga el módulo en desarrollo.
  */
 function programarBajasVencidas(): void {
@@ -38,13 +41,12 @@ function programarBajasVencidas(): void {
   if (marca.__bajasProgramadas) return;
   marca.__bajasProgramadas = true;
 
-  // En la misma vuelta: recordatorio semanal y resumen mensual de Preferencias (lib/notificaciones/periodicas.ts).
-  const correr = () =>
-    ejecutarBajasVencidas()
-      .catch((error) => console.error("Error al ejecutar las bajas de cuenta vencidas", error))
-      .then(() => enviarAvisosPeriodicos());
-  void correr();
-  setInterval(correr, UNA_HORA_MS).unref();
+  const bajas = () =>
+    ejecutarBajasVencidas().catch((error) => console.error("Error al ejecutar las bajas de cuenta vencidas", error));
+  const avisos = () => enviarAvisosPeriodicos();
+  void bajas().then(avisos);
+  setInterval(bajas, UN_MINUTO_MS).unref();
+  setInterval(avisos, UNA_HORA_MS).unref();
 }
 
 export async function crearEsquemaAlArrancar(): Promise<void> {
@@ -66,6 +68,7 @@ export async function crearEsquemaAlArrancar(): Promise<void> {
       await ensureCoreSchema();
       programarBajasVencidas();
       programarEstadosDeCampanas();
+      escucharCambiosDeLaBase();
       return;
     } catch (error) {
       if (intento >= INTENTOS) {

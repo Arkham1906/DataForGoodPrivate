@@ -3,7 +3,7 @@
 
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/session";
-import { listarNotificaciones, marcarTodasComoLeidas } from "@/lib/notificaciones/notificaciones";
+import { limpiarNotificaciones, listarNotificaciones, marcarTodasComoLeidas } from "@/lib/notificaciones/notificaciones";
 
 // GET ?pagina=1&porPagina=20&filtro=todas|no-leidas — una página de notificaciones y el total sin leer.
 export async function GET(request: Request) {
@@ -48,5 +48,20 @@ export async function PATCH(request: Request) {
   } catch (error) {
     console.error("Error marcando notificaciones", error);
     return NextResponse.json({ error: "No se pudieron marcar las notificaciones" }, { status: 500 });
+  }
+}
+
+// DELETE — "Limpiar": borra las leídas y las de más de DIAS_PARA_NOTIFICACION_VIEJA días
+// (lib/notificaciones/tipos.ts), menos una invitación de revisor sin aceptar.
+export async function DELETE() {
+  try {
+    const user = await getSessionUser();
+    if (!user) return NextResponse.json({ error: "Debes iniciar sesion" }, { status: 401 });
+
+    const borradas = await limpiarNotificaciones(user.id);
+    return NextResponse.json({ message: "Notificaciones limpiadas", borradas });
+  } catch (error) {
+    console.error("Error limpiando notificaciones", error);
+    return NextResponse.json({ error: "No se pudieron limpiar las notificaciones" }, { status: 500 });
   }
 }

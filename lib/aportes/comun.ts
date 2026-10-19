@@ -8,6 +8,7 @@ import { pool } from "@/lib/db";
 import { borrarArchivo, guardarArchivo, type SavedUpload } from "@/lib/minio";
 import { limpiarArchivo } from "@/lib/aportes/limpiar-archivo";
 import { TAMANO_MAXIMO as TAMANO_MAXIMO_DE_ARCHIVO, archivoEsOpcional, type TipoDeArchivo } from "@/lib/aportes/archivo";
+import { avisarAportesRecibidos } from "@/lib/notificaciones/hitos-de-aportes";
 
 export { LARGO_MAXIMO_DESCRIPCION, TAMANO_MAXIMO, errorDeArchivo, tiposAceptados } from "@/lib/aportes/archivo";
 
@@ -97,8 +98,14 @@ export async function insertarAporteConCuota<T>(entrada: {
     }
     const fila = await entrada.insertar(client);
     await recalcularContadores(entrada.campaignId, client);
+    // Total con la campaña bloqueada (recalcularContadores la bloqueó): para el aviso de cada 10 aportes.
+    const { rows } = await client.query<{ total: number }>(
+      `SELECT current_contributions AS total FROM campanas WHERE id = $1`,
+      [entrada.campaignId],
+    );
     await client.query("COMMIT");
     insertado = true;
+    void avisarAportesRecibidos(entrada.campaignId, Number(rows[0]?.total ?? 0));
     return { ok: true, fila, yaEnviados };
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});
