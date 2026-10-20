@@ -415,9 +415,8 @@ paths:
       summary: Editar el propio perfil
       description: |
         Las llaves que no se mandan no se tocan. `intereses` son temáticas del catálogo
-        (`GET /api/tematicas`); una que no existe se da de alta en el catálogo si es válida (letras,
-        de 4 a 40, hasta tres palabras, sin groserías) o responde 400. Máximo 20. Una temática oculta
-        solo se conserva si ya estaba en el perfil. `interesesTexto` es lo que la persona escribió
+        (`GET /api/tematicas`); una que no existe responde 400 (desde el 2026-10-20 ya no se da de
+        alta). Máximo 20. Una temática oculta o pendiente solo se conserva si ya estaba en el perfil. `interesesTexto` es lo que la persona escribió
         sobre sus gustos (máx. 500; "" lo borra): de ahí la app saca los intereses.
       requestBody:
         required: true
@@ -433,7 +432,7 @@ paths:
                 specialty: { type: string }
                 intereses: { type: array, items: { type: string }, maxItems: 20 }
                 interesesTexto: { type: string, maxLength: 500 }
-            example: { interesesTexto: "Me gusta andar en bici y la fotografía", intereses: [Movilidad, Fotografía] }
+            example: { interesesTexto: "Me gusta andar en bici y la fotografía", intereses: [Movilidad, Cultura] }
       responses:
         "200": { description: Perfil actualizado (con `intereses` ya con el nombre del catálogo) }
         "400": { $ref: "#/components/responses/BadRequest" }
@@ -653,7 +652,7 @@ paths:
     get:
       tags: [Campañas]
       summary: Listar campañas
-      description: Usa uno de los filtros a la vez. Sin filtros lista las campañas visibles.
+      description: "Usa uno de los filtros a la vez. Sin filtros (y con `id`) solo devuelve lo que quien consulta puede ver (`lib/campanas/visibilidad.ts`, 2026-10-20): cualquiera ve las activas, pausadas y finalizadas; el creador, las suyas; un supervisor, además las que están en revisión y las que supervisa; el revisor aceptado, esa campaña; la sesión raíz, todas. Con `id` de una que no puede ver responde 404."
       security: []
       parameters:
         - { name: id, in: query, schema: { type: integer }, description: "Una sola campaña. La respuesta trae además `viewer: { isCreator, isMySupervision, baneado, motivoDeBaneo, yaReportada }` (`baneado`: el creador te baneó de esta campaña; `yaReportada`: ya la reportaste)" }
@@ -695,6 +694,7 @@ paths:
     get:
       tags: [Campañas]
       summary: Detalle de campaña
+      description: "Pública solo si está activa, pausada o finalizada; en otro estado, solo para el creador, los supervisores (en revisión o la que supervisa), su revisor aceptado o la sesión raíz. Al resto le responde 404 (lib/campanas/visibilidad.ts, 2026-10-20)."
       security: []
       responses:
         "200":
@@ -1690,8 +1690,8 @@ paths:
       summary: Catálogo de temáticas
       description: |
         Las temáticas que se ofrecen como intereses y como temática de campaña: las 23 base en su
-        orden y después las que salieron de los textos de los usuarios, en orden alfabético. Sin las
-        que ocultó el SuperUsuario.
+        orden y después las que salieron de los textos de los usuarios (hasta el 2026-10-20) ya
+        aprobadas, en orden alfabético. Sin las que ocultó el SuperUsuario.
       responses:
         "200":
           description: Catálogo

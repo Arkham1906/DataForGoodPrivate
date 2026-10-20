@@ -170,9 +170,9 @@ export default async function ListadoDeCampanasPage({ searchParams }: { searchPa
                       </dd>
                     </div>
                     <div>
-                      <dt className="text-[11px] text-system-600">Aportes / meta</dt>
+                      <dt className="text-[11px] text-system-600">Aprobados / meta</dt>
                       <dd className="mt-0.5 font-mono text-[14px] font-semibold tabular-nums text-system-900">
-                        {formatearNumero(c.aportes)}/{formatearNumero(c.meta)}
+                        {formatearNumero(c.aprobados)}/{formatearNumero(c.meta)}
                       </dd>
                     </div>
                     <div className="col-span-2">
@@ -207,7 +207,7 @@ export default async function ListadoDeCampanasPage({ searchParams }: { searchPa
                   <th className="pb-3 font-medium">Tipo de dato</th>
                   <th className="pb-3 font-medium">Estado</th>
                   <th className="pb-3 text-right font-medium">Participan</th>
-                  <th className="pb-3 text-right font-medium">Aportes</th>
+                  <th className="pb-3 text-right font-medium">Aprobados</th>
                   <th className="pb-3 pl-4 font-medium">Vence</th>
                   <th className="pb-3 text-right font-medium">Detalle</th>
                 </tr>
@@ -232,7 +232,7 @@ export default async function ListadoDeCampanasPage({ searchParams }: { searchPa
                       </td>
                       <td className="text-right font-mono tabular-nums">{formatearNumero(c.participantes)}</td>
                       <td className="text-right font-mono tabular-nums">
-                        {formatearNumero(c.aportes)}
+                        {formatearNumero(c.aprobados)}
                         <span className="text-system-500">/{formatearNumero(c.meta)}</span>
                       </td>
                       <td className="pl-4 font-mono text-[12px] text-system-600">

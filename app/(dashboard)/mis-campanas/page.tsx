@@ -20,6 +20,7 @@ import { EsqueletoDeTarjetas } from "@/components/ui/Esqueletos";
 import VentanaDeConfirmacion from "@/components/ui/VentanaDeConfirmacion";
 import CompartirCampana from "@/app/(dashboard)/campanas/[id]/compartir";
 import { resumenDeIncentivos, textoDelPeriodo } from "@/lib/campanas/especial-reglas";
+import { porcentajeDeMeta } from "@/lib/campanas/meta";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 
 const labels: Record<CampaignStatus, string> = {
@@ -194,9 +195,7 @@ export default function MisCampanasPage() {
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {visibles.map((campaign) => {
-            const pct = campaign.goalContributions
-              ? Math.min(100, Math.round((campaign.currentContributions / campaign.goalContributions) * 100))
-              : 0;
+            const pct = porcentajeDeMeta(campaign.approvedContributions, campaign.goalContributions);
             const puedeFinalizar = campaign.status === "activa" || campaign.status === "pausada";
             const cambiando = cambiandoId === campaign.id;
 
@@ -212,12 +211,9 @@ export default function MisCampanasPage() {
                 <p className="mb-2.5 font-mono text-[11.5px] text-system-600 max-md:text-[10.5px]">
                   {campaign.startDate ?? "Sin fecha"} - {campaign.endDate ?? "Sin fecha"}
                 </p>
-                <ProgressBar
-                  pct={campaign.status === "finalizada" ? 100 : pct}
-                  tone={campaign.status === "finalizada" ? "ok" : "accent"}
-                />
+                <ProgressBar pct={pct} tone={campaign.status === "finalizada" ? "ok" : "accent"} />
                 <p className="my-2.5 font-mono text-[12px] text-system-600 max-md:text-[11px]">
-                  {campaign.currentContributions} / {campaign.goalContributions} - {campaign.pendingContributions} aportes pendientes
+                  {campaign.approvedContributions} / {campaign.goalContributions} aprobados - {campaign.pendingContributions} aportes pendientes
                   {campaign.especial && <> · {textoDelPeriodo(campaign.especial)}</>}
                 </p>
                 {campaign.especial && (

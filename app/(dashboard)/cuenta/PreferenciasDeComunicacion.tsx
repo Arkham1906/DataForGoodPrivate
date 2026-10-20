@@ -4,8 +4,9 @@
 // (<dialog> nativo, como ui/SelectorDeTemas) con las cuatro opciones de comunicación y
 // notificaciones (lib/usuarios/preferencias-opciones.ts). Cada interruptor se guarda al tocarlo
 // con PATCH /api/usuarios/[id]/preferencias; si falla, vuelve a como estaba (2026-10-14).
-// Abajo, el interruptor general "Notificaciones" (2026-10-19; antes ahí estaba "Privacidad", sin función):
-// apagado, no llega ninguna notificación salvo las de la cuenta, y las cuatro de arriba se ven atenuadas.
+// Arriba de todo (desde el 2026-10-20, a pedido del usuario; antes iba al final), el interruptor
+// general "Notificaciones" (2026-10-19; antes ahí estaba "Privacidad", sin función): apagado, no
+// llega ninguna notificación salvo las de la cuenta, y las cuatro de abajo se ven atenuadas.
 
 import { useRef, useState } from "react";
 import Button from "@/components/ui/Button";
@@ -81,7 +82,37 @@ export default function PreferenciasDeComunicacion({ usuarioId, iniciales }: { u
           </div>
 
           <div className="flex-1 overflow-y-auto p-5">
-            <div className={`grid gap-3 sm:grid-cols-2 transition-opacity ${generalActiva ? "" : "opacity-50"}`}>
+            <div className="rounded border border-system-300 bg-white p-4">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p id="pref-notificaciones" className="text-sm font-bold text-system-900">
+                    {PREFERENCIA_GENERAL.titulo}
+                  </p>
+                  <p id="pref-notificaciones-detalle" className="text-[12.5px] text-system-600">
+                    {generalActiva ? PREFERENCIA_GENERAL.encendida : PREFERENCIA_GENERAL.apagada}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={generalActiva}
+                  aria-labelledby="pref-notificaciones"
+                  aria-describedby="pref-notificaciones-detalle"
+                  disabled={guardando === "notificaciones"}
+                  onClick={() => void alternar("notificaciones")}
+                  className={`relative h-6 w-11 shrink-0 rounded-pill transition-colors disabled:opacity-60 ${generalActiva ? "bg-brand-600" : "bg-system-300"}`}
+                >
+                  <span className={`absolute top-1 h-4 w-4 rounded-full bg-white transition-all ${generalActiva ? "left-6" : "left-1"}`} />
+                </button>
+              </div>
+              {error?.clave === "notificaciones" && (
+                <p role="alert" className="mt-1 text-[11.5px] text-error-700">
+                  {error.texto}
+                </p>
+              )}
+            </div>
+
+            <div className={`mt-3 grid gap-3 sm:grid-cols-2 transition-opacity ${generalActiva ? "" : "opacity-50"}`}>
               {OPCIONES_DE_PREFERENCIAS.map((opcion) => {
                 const activa = valores[opcion.clave];
                 const etiqueta = `pref-${opcion.clave}`;
@@ -115,36 +146,6 @@ export default function PreferenciasDeComunicacion({ usuarioId, iniciales }: { u
                   </div>
                 );
               })}
-            </div>
-
-            <div className="mt-3 rounded border border-system-300 bg-white p-4">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p id="pref-notificaciones" className="text-sm font-bold text-system-900">
-                    {PREFERENCIA_GENERAL.titulo}
-                  </p>
-                  <p id="pref-notificaciones-detalle" className="text-[12.5px] text-system-600">
-                    {generalActiva ? PREFERENCIA_GENERAL.encendida : PREFERENCIA_GENERAL.apagada}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={generalActiva}
-                  aria-labelledby="pref-notificaciones"
-                  aria-describedby="pref-notificaciones-detalle"
-                  disabled={guardando === "notificaciones"}
-                  onClick={() => void alternar("notificaciones")}
-                  className={`relative h-6 w-11 shrink-0 rounded-pill transition-colors disabled:opacity-60 ${generalActiva ? "bg-brand-600" : "bg-system-300"}`}
-                >
-                  <span className={`absolute top-1 h-4 w-4 rounded-full bg-white transition-all ${generalActiva ? "left-6" : "left-1"}`} />
-                </button>
-              </div>
-              {error?.clave === "notificaciones" && (
-                <p role="alert" className="mt-1 text-[11.5px] text-error-700">
-                  {error.texto}
-                </p>
-              )}
             </div>
           </div>
 

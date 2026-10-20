@@ -140,11 +140,11 @@ export async function PATCH(
         { status: 400 }
       );
     }
-    // Intereses del catálogo de temáticas; las palabras nuevas se dan de alta ahí
-    // (lib/tematicas/catalogo.ts). Una temática oculta solo se conserva si ya la tenía.
+    // Intereses del catálogo de temáticas (lib/tematicas/catalogo.ts): desde el 2026-10-20 solo
+    // las que existen (400 si no). Una oculta o pendiente solo se conserva si ya la tenía.
     let intereses: string | null = null;
     if (Array.isArray(body.intereses)) {
-      const resueltos = await resolverIntereses(body.intereses, sessionUser.id, sessionUser.intereses ?? []);
+      const resueltos = await resolverIntereses(body.intereses, sessionUser.intereses ?? []);
       if (!resueltos.ok) return NextResponse.json({ error: resueltos.error }, { status: 400 });
       intereses = JSON.stringify(resueltos.intereses);
     }

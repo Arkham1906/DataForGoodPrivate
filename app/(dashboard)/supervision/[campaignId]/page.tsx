@@ -32,7 +32,7 @@ type Campaign = {
   supervisedByRoot?: boolean;
   organizer?: string;
   goalContributions?: number;
-  currentContributions?: number;
+  approvedContributions?: number;
   participants?: number;
   quotaPerUser?: number;
   description?: string;
@@ -312,7 +312,7 @@ export default function CampaignDetailPage() {
             </div>
             <div className="flex justify-between border-b border-system-200 pb-3 text-[13px]">
               <span className="text-system-600">Progreso</span>
-              <span className="font-mono">{Number(campaign.currentContributions ?? 0)} / {Number(campaign.goalContributions ?? 0)} aportes</span>
+              <span className="font-mono">{Number(campaign.approvedContributions ?? 0)} / {Number(campaign.goalContributions ?? 0)} aprobados</span>
             </div>
             <div className="flex justify-between border-b border-system-200 pb-3 text-[13px]">
               <span className="text-system-600">Participantes</span>

@@ -36,6 +36,8 @@ export type CampanaSupervisable = {
   /** Quién la supervisa: "SuperUsuario", el nombre del supervisor, o null si nadie. */
   supervisadaPor: string | null;
   currentContributions: number;
+  /** Los que cuentan para la meta (lib/campanas/meta.ts). */
+  approvedContributions: number;
   goalContributions: number;
   participants: number;
   quotaPerUser: number;
@@ -66,6 +68,7 @@ function mapear(row: Record<string, unknown>): CampanaSupervisable {
         ? String(row.supervisor_nombre ?? "").trim() || "Un supervisor"
         : null,
     currentContributions: Number(row.current_contributions ?? 0),
+    approvedContributions: Number(row.approved_contributions ?? 0),
     goalContributions: Number(row.goal_contributions ?? 0),
     participants: Number(row.participants ?? 0),
     quotaPerUser: Number(row.quota_per_user ?? 0),

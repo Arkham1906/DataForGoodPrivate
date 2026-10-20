@@ -1,15 +1,16 @@
 // Catálogo de temáticas en la base de datos (tabla `tematicas`, lib/db-schema.ts). Desde el
 // 2026-10-07 los intereses de los perfiles y la temática de las campañas salen de aquí, no de una
-// lista fija: empieza con las 23 de lib/intereses.ts y crece con las palabras clave que salen del
-// texto de cada persona (lib/tematicas/analizar.ts).
+// lista fija: empieza con las 23 de lib/intereses.ts. Del 2026-10-07 al 2026-10-20 crecía con las
+// palabras que salían del texto de cada persona; desde el 2026-10-20 (decisión del usuario) el
+// texto solo da temáticas que ya existen y ya no se crean desde un perfil. Las de usuario que
+// quedaron se siguen revisando en el panel.
 //   - tematicasVisibles(): lo que se ofrece en /bienvenida, /cuenta y el formulario de campaña.
-//   - resolverIntereses(): valida los intereses de un perfil y da de alta las temáticas nuevas,
-//     como pendientes (2026-10-19): solo las tiene quien las escribió hasta que se aprueban.
+//   - resolverIntereses(): valida los intereses de un perfil; solo acepta temáticas que existen.
 //   - listarTematicasDelPanel() / cambiarVisibilidad() / aprobar() / rechazar() /
 //     contarTematicasPendientes(): /sistema/tematicas del SuperUsuario y el número del menú.
 
 import { pool } from "@/lib/db";
-import { claveDeTematica, conMayuscula, esTematicaNuevaValida, MAXIMO_DE_INTERESES } from "@/lib/tematicas/analizar";
+import { claveDeTematica, esTematicaNuevaValida, MAXIMO_DE_INTERESES } from "@/lib/tematicas/analizar";
 
 /**
  * Temáticas que se ofrecen: las 23 base en su orden de siempre y después las de los usuarios,
@@ -39,18 +40,16 @@ export type ResultadoDeIntereses = { ok: true; intereses: string[] } | { ok: fal
 /**
  * Intereses que se van a guardar en un perfil, ya validados:
  *   - Sin repetir (por clave: "ciclismo" y "Ciclismo" son la misma) y hasta MAXIMO_DE_INTERESES.
- *   - Si la temática existe, se guarda con su nombre del catálogo. Una oculta solo se conserva si
- *     la persona ya la tenía (`actuales`); no se puede agregar de nuevo. Una bloqueada por el
- *     filtro (bloqueadaPorElFiltro) se quita siempre.
- *   - Si no existe y hay `usuarioId`, se da de alta (origen 'usuario') si pasa
- *     esTematicaNuevaValida; si no pasa, error. Sin `usuarioId` (registro) se descarta.
- * El alta no va en la misma transacción que el UPDATE del perfil: si este falla, la temática
- * queda en el catálogo sin nadie que la tenga, lo cual es inofensivo.
+ *   - Si la temática existe, se guarda con su nombre del catálogo. Una oculta o pendiente de
+ *     aprobar solo se conserva si la persona ya la tenía (`actuales`); no se puede agregar de
+ *     nuevo. Una bloqueada por el filtro (bloqueadaPorElFiltro) se quita siempre.
+ *   - Si no existe, error (2026-10-20: ya no se dan de alta temáticas desde un perfil), o se
+ *     descarta con `descartarDesconocidas` (el registro, como siempre).
  */
 export async function resolverIntereses(
   entrada: unknown[],
-  usuarioId: number | null,
   actuales: string[] = [],
+  { descartarDesconocidas = false }: { descartarDesconocidas?: boolean } = {},
 ): Promise<ResultadoDeIntereses> {
   const pedidos = new Map<string, string>();
   for (const valor of entrada) {
@@ -64,32 +63,15 @@ export async function resolverIntereses(
   if (pedidos.size === 0) return { ok: true, intereses: [] };
 
   const claves = [...pedidos.keys()];
-  const existentes = await pool.query<{ nombre: string; clave: string; oculta: boolean; origen: "base" | "usuario" }>(
-    `SELECT nombre, clave, oculta, origen FROM tematicas WHERE clave = ANY($1::text[])`,
+  const existentes = await pool.query<{ nombre: string; clave: string; oculta: boolean; aprobada: boolean; origen: "base" | "usuario" }>(
+    `SELECT nombre, clave, oculta, aprobada, origen FROM tematicas WHERE clave = ANY($1::text[])`,
     [claves],
   );
   const porClave = new Map(existentes.rows.map((r) => [r.clave, r]));
 
-  const nuevas = claves.filter((clave) => !porClave.has(clave));
-  if (nuevas.length > 0 && usuarioId !== null) {
-    const invalida = nuevas.find((clave) => !esTematicaNuevaValida(pedidos.get(clave)!));
-    if (invalida) return { ok: false, error: `"${pedidos.get(invalida)}" no se puede usar como interés` };
-
-    // Entran pendientes (aprobada = false): quedan en este perfil, pero no se ofrecen a nadie más
-    // hasta que el SuperUsuario las apruebe. ON CONFLICT: si otra persona la acaba de crear, se
-    // queda la suya (pendiente o no) y aquí se relee.
-    await pool.query(
-      `INSERT INTO tematicas (nombre, clave, origen, creada_por, aprobada)
-       SELECT nombre, clave, 'usuario', $3, false FROM unnest($1::text[], $2::text[]) AS t(nombre, clave)
-       ON CONFLICT (clave) DO NOTHING`,
-      // Con mayúscula inicial, como las propone el análisis ("fotografía" → "Fotografía").
-      [nuevas.map((clave) => conMayuscula(pedidos.get(clave)!)), nuevas, usuarioId],
-    );
-    const creadas = await pool.query<{ nombre: string; clave: string; oculta: boolean; origen: "base" | "usuario" }>(
-      `SELECT nombre, clave, oculta, origen FROM tematicas WHERE clave = ANY($1::text[])`,
-      [nuevas],
-    );
-    for (const fila of creadas.rows) porClave.set(fila.clave, fila);
+  const desconocida = claves.find((clave) => !porClave.has(clave));
+  if (desconocida && !descartarDesconocidas) {
+    return { ok: false, error: `"${pedidos.get(desconocida)}" no es una temática del catálogo` };
   }
 
   const yaLasTenia = new Set(actuales.map(claveDeTematica));
@@ -97,7 +79,7 @@ export async function resolverIntereses(
   for (const clave of claves) {
     const fila = porClave.get(clave);
     if (!fila || bloqueadaPorElFiltro(fila)) continue;
-    if (fila.oculta && !yaLasTenia.has(clave)) continue;
+    if ((fila.oculta || !fila.aprobada) && !yaLasTenia.has(clave)) continue;
     intereses.push(fila.nombre);
   }
   return { ok: true, intereses };

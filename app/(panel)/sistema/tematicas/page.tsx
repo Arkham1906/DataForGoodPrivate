@@ -2,7 +2,8 @@
 // que escriben los usuarios sobre sus gustos (lib/tematicas/analizar.ts). El SuperUsuario oculta las
 // que no deben ofrecerse (groserías que pasaron el filtro, palabras sin sentido) o las vuelve a mostrar.
 // Desde el 2026-10-19 las nuevas de usuarios entran pendientes (arriba de todo): Aprobar o Rechazar
-// en BotonesDeRevision (revisarTematica). El menú lleva el número de pendientes.
+// en BotonesDeRevision (revisarTematica). El menú lleva el número de pendientes. Desde el
+// 2026-10-20 el texto ya no crea temáticas: solo quedan por revisar las que se crearon antes.
 // Server Component. Acceso: sesión raíz. Datos: lib/tematicas/catalogo.ts. Búsqueda con ?q=.
 // Acción: cambiarVisibilidadDeTematica (lib/tematicas/acciones-tematicas.ts), en BotonDeVisibilidad.
 

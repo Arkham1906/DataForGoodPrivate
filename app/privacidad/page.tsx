@@ -168,7 +168,7 @@ const SECCIONES: SeccionLegal[] = [
           revocar tu consentimiento. Mucho de esto lo haces tú mismo:
         </p>
         <ul>
-          <li>Ver y corregir tus datos en Mi cuenta → Editar perfil.</li>
+          <li>Ver y corregir tus datos en Mi cuenta.</li>
           <li>Apagar los avisos opcionales en Mi cuenta → Preferencias.</li>
           <li>Borrar tus notificaciones, y los aportes que te rechazaron, desde sus pantallas.</li>
           <li>Eliminar tu cuenta en Mi cuenta → Eliminar cuenta.</li>

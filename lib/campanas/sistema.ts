@@ -44,11 +44,13 @@ const CAMPANAS_CON_CONTEOS = `
   SELECT c.id, c.name, COALESCE(NULLIF(c.tematica, ''), c.tag, '') AS tematica, c.creator_name,
          c.data_types, c.status, c.goal_contributions, c.start_date, c.end_date, c.created_at,
          COALESCE(a.aportes, 0)::int AS aportes,
+         COALESCE(a.aprobados, 0)::int AS aprobados,
          COALESCE(a.participantes, 0)::int AS participantes
   FROM campanas c
   LEFT JOIN (
     SELECT campaign_id,
            COUNT(*) AS aportes,
+           COUNT(*) FILTER (WHERE status = 'aceptado') AS aprobados,
            COUNT(DISTINCT COALESCE(user_id::text, participant_email, anonimo_id)) AS participantes
     FROM aportes
     GROUP BY campaign_id
@@ -65,6 +67,7 @@ function mapearFila(row: Record<string, unknown>): FilaDeCampana {
     estado: esEstado(String(row.status)) ?? "borrador",
     participantes: Number(row.participantes ?? 0),
     aportes: Number(row.aportes ?? 0),
+    aprobados: Number(row.aprobados ?? 0),
     meta: Number(row.goal_contributions ?? 0),
     venceEn: normalizeCampaignDate(row.end_date),
   };
@@ -83,7 +86,7 @@ export type FiltrosDeCampanas = {
 const ORDEN_SQL: Record<string, string> = {
   participantes: "participantes DESC, id DESC",
   aportes: "aportes DESC, id DESC",
-  avance: "CASE WHEN goal_contributions > 0 THEN aportes::float / goal_contributions ELSE 0 END DESC, id DESC",
+  avance: "CASE WHEN goal_contributions > 0 THEN aprobados::float / goal_contributions ELSE 0 END DESC, id DESC",
   vence: "end_date ASC NULLS LAST, id DESC",
 };
 
@@ -202,7 +205,7 @@ export async function obtenerDashboardDeCampanas(): Promise<DashboardDeCampanas>
   // entre metas totales, que dominaría la campaña más grande).
   const conMeta = activas.filter((c) => c.meta > 0);
   const avanceMedio = conMeta.length > 0
-    ? Math.round(conMeta.reduce((s, c) => s + porcentajeDeMeta(c.aportes, c.meta), 0) / conMeta.length)
+    ? Math.round(conMeta.reduce((s, c) => s + porcentajeDeMeta(c.aprobados, c.meta), 0) / conMeta.length)
     : 0;
 
   const diasEntre = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 86_400_000);

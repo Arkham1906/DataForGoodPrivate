@@ -3,9 +3,9 @@
 // Intereses a partir de un texto (2026-10-07). La persona escribe qué le gusta; al dar Enter (o
 // "Analizar") se sacan las temáticas con lib/tematicas/analizar.ts, en el navegador, y se suman a
 // las que ya tenía. Debajo, las elegidas con × y "Agregar temáticas" (ui/SelectorDeTemas) para
-// corregir. Las palabras que no existían se vuelven temáticas nuevas al guardar (PATCH
-// /api/usuarios/[id]), pendientes de que el SuperUsuario las apruebe (2026-10-19). Lo usan
-// /bienvenida (paso 4) y /cuenta (Mis intereses).
+// corregir. Desde el 2026-10-20 el texto solo da temáticas que ya existen (palabras clave): lo que
+// no reconoce se ignora y no se crean temáticas nuevas. Lo usan /bienvenida (paso 4) y /cuenta
+// (Mis intereses).
 // Catálogo: GET /api/tematicas; si falla, las 23 base.
 
 import { useEffect, useId, useState } from "react";
@@ -58,18 +58,17 @@ export default function InteresesDesdeTexto({
       setAviso("Escribe primero qué te gusta hacer.");
       return;
     }
-    const { tematicas: encontradas, descartadas, nuevasOmitidas } = analizarIntereses(texto, catalogo);
-    // Las partes con palabras inapropiadas (lib/tematicas/filtro.ts) se descartan completas y,
-    // si hubo alguna, no se crean temáticas nuevas; se avisa sin repetir las palabras.
+    const { tematicas: encontradas, descartadas } = analizarIntereses(texto, catalogo);
+    // Las partes con palabras inapropiadas (lib/tematicas/filtro.ts) se descartan completas; se
+    // avisa sin repetir las palabras.
     const avisoDeDescartadas =
-      (descartadas === 0
+      descartadas === 0
         ? ""
         : descartadas === 1
           ? " Quitamos una parte de tu texto con palabras que no se permiten."
-          : ` Quitamos ${descartadas} partes de tu texto con palabras que no se permiten.`) +
-      (nuevasOmitidas > 0 ? " Por eso tampoco creamos temáticas nuevas con este texto." : "");
+          : ` Quitamos ${descartadas} partes de tu texto con palabras que no se permiten.`;
     if (encontradas.length === 0) {
-      setAviso(`No encontramos temas en tu texto.${avisoDeDescartadas} Prueba con otras palabras o elige de la lista.`);
+      setAviso(`No reconocimos temas en tu texto.${avisoDeDescartadas} Prueba con otras palabras o elige de la lista en "Agregar temáticas".`);
       return;
     }
     const yaEstaban = new Set(seleccionados.map(claveDeTematica));
@@ -85,20 +84,12 @@ export default function InteresesDesdeTexto({
     }
     onCambiar([...seleccionados, ...caben]);
 
-    const enCatalogo = new Set(catalogo.map(claveDeTematica));
-    const creadas = caben.filter((tema) => !enCatalogo.has(claveDeTematica(tema)));
-    const avisoDeNuevas =
-      creadas.length === 0
-        ? ""
-        : creadas.length === 1
-          ? ` «${creadas[0]}» es una temática nueva: estará en tu perfil al guardar y la revisaremos antes de ofrecerla a otras personas.`
-          : ` ${enLista(creadas.map((t) => `«${t}»`))} son temáticas nuevas: estarán en tu perfil al guardar y las revisaremos antes de ofrecerlas a otras personas.`;
     const avisoDeTope = caben.length < nuevas.length ? ` Las demás no caben: el máximo es ${MAXIMO_DE_INTERESES}.` : "";
-    setAviso(`Agregamos ${enLista(caben)}.${avisoDeNuevas}${avisoDeTope}${avisoDeDescartadas}`);
+    setAviso(`Agregamos ${enLista(caben)}.${avisoDeTope}${avisoDeDescartadas}`);
   }
 
-  // Las elegidas que aún no están en el catálogo (nuevas) también son opciones: el selector
-  // descarta lo que no esté en `opciones`.
+  // Las que la persona ya tenía y no se ofrecen (pendientes de antes del 2026-10-20, u ocultas)
+  // también son opciones: el selector descarta lo que no esté en `opciones`.
   const enCatalogo = new Set(catalogo.map(claveDeTematica));
   const opciones = [...catalogo, ...seleccionados.filter((tema) => !enCatalogo.has(claveDeTematica(tema)))];
 

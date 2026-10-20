@@ -52,7 +52,7 @@ export default async function SupervisarCampanaPage({ params }: { params: Promis
     [
       ["Ubicación", location],
       ["Periodo", <span key="p" className="font-mono">{formatDate(campaign.startDate)} - {formatDate(campaign.endDate)}</span>],
-      ["Progreso", <span key="g" className="font-mono">{campaign.currentContributions} / {campaign.goalContributions} aportes</span>],
+      ["Progreso", <span key="g" className="font-mono">{campaign.approvedContributions} / {campaign.goalContributions} aprobados</span>],
       ["Participantes", <span key="n" className="font-mono">{campaign.participants}</span>],
       ["Cuota por usuario", <span key="q" className="font-mono">{campaign.quotaPerUser}</span>],
     ],

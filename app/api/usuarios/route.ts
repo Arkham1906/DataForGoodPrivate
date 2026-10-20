@@ -57,7 +57,7 @@ export async function POST(request: Request) {
     }
 
     // En el registro aún no hay cuenta: solo se aceptan temáticas que ya existen (no se crean).
-    const resueltos = await resolverIntereses(Array.isArray(body.intereses) ? body.intereses : [], null);
+    const resueltos = await resolverIntereses(Array.isArray(body.intereses) ? body.intereses : [], [], { descartarDesconocidas: true });
     const intereses = resueltos.ok ? resueltos.intereses : [];
 
     // Correo de una cuenta baneada (lista negra, 2026-10-12): no puede volver a registrarse.

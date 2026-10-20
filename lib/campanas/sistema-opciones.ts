@@ -93,6 +93,8 @@ export type FilaDeCampana = {
   estado: EstadoDeCampana;
   participantes: number;
   aportes: number;
+  /** Los que cuentan para la meta (./meta.ts). */
+  aprobados: number;
   meta: number;
   /** "YYYY-MM-DD"; null si la campaña no tiene fecha de cierre. */
   venceEn: string | null;
@@ -121,10 +123,8 @@ export type DashboardDeCampanas = {
 
 /* ── formato ────────────────────────────────────────────────────────────── */
 
-export function porcentajeDeMeta(aportes: number, meta: number): number {
-  if (meta <= 0) return 0;
-  return Math.min(100, Math.round((aportes / meta) * 100));
-}
+// La regla de la meta (solo aprobados) vive en ./meta.ts.
+export { porcentajeDeMeta } from "./meta";
 
 /** "YYYY-MM-DD" de hoy en la hora local del servidor, igual que lib/campaign-date. */
 export function hoyLocal(): string {

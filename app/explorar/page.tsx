@@ -4,6 +4,7 @@
 import Link from "next/link";
 import { BASE_PATH } from "@/lib/base-path";
 import { entradaDeTarjeta, retraso } from "@/lib/animaciones";
+import { porcentajeDeMeta } from "@/lib/campanas/meta";
 import type { Metadata } from "next";
 import PublicHeader from "@/components/layout/PublicHeader";
 import PublicFooter from "@/components/layout/PublicFooter";
@@ -211,9 +212,7 @@ export default async function ExplorarCampanasPage({
             ) : (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {campanas.map((c, i) => {
-                  const pct = c.goalContributions
-                    ? Math.min(100, Math.round((c.currentContributions / c.goalContributions) * 100))
-                    : 0;
+                  const pct = porcentajeDeMeta(c.approvedContributions, c.goalContributions);
                   const lugar = [c.locationCity, c.locationState].filter(Boolean).join(", ");
                   return (
                     // Ver el detalle y aportar requiere sesión: sin ella, proxy.ts manda a /entrar.

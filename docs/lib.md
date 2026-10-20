@@ -82,6 +82,8 @@
 | `estado-del-creador.ts` | Qué estado puede pedir el creador (`borrador`/`en_revision`), límite de 5 activas, XP fijo | `POST /api/campanas`, `PATCH`/`PUT /api/campanas/[id]` |
 | `checklist.ts` 🟢 | Checklists con título: normalizar, validar respuestas, límites (`MAX_SECCIONES`...) | Formulario de campaña, aportar, API |
 | `sistema.ts` | Consultas del panel del SuperUsuario (listado, conteos, dashboard). Exigen sesión raíz | `/sistema/campanas/**` |
+| `meta.ts` 🟢 | **La meta cuenta solo los aprobados** (2026-10-20): `porcentajeDeMeta(aprobados, meta)` y `pronosticoDeMeta()` (¿se llega al ritmo actual?) | Todas las pantallas que muestran el avance de una campaña, `sistema.ts`, `filtro-local.ts` |
+| `visibilidad.ts` | Qué campañas lee cada quien en `GET /api/campanas` y `GET /api/campanas/[id]` (`condicionDeVisibilidad`): públicas activa, pausada y finalizada; además el creador las suyas, el supervisor las en revisión y las que supervisa, el revisor aceptado la suya y la sesión raíz todas (2026-10-20) | `app/api/campanas/route.ts`, `app/api/campanas/[id]/route.ts` |
 | `sistema-opciones.ts` 🟢 | Constantes y tipos de esas pantallas (pestañas, etiquetas, órdenes) | `/sistema/campanas/filtros.tsx`, `components/campanas/BarraDeFiltros.tsx` |
 | `filtro-local.ts` 🟢 | Filtra y ordena en el navegador listas ya cargadas, con los mismos criterios que `buscarCampanas()`; aviso de lista vacía (`avisoSinResultados`) | `/supervision`, `/supervisar`, `/revisiones` |
 

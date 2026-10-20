@@ -18,6 +18,7 @@ import Card from "@/components/ui/Card";
 import ProgressBar from "@/components/ui/ProgressBar";
 import Tag from "@/components/ui/Tag";
 import { buscarEnlacePorToken, registrarVisita, type CampanaDelEnlace } from "@/lib/campanas/enlaces";
+import { porcentajeDeMeta } from "@/lib/campanas/meta";
 import { avisoDePausa } from "@/lib/campanas/pausa";
 import { COOKIE_ANONIMO, dispositivoValido } from "@/lib/aportes/anonimato";
 import {
@@ -143,7 +144,7 @@ function Invitacion({
   espera: number;
   sinFormulario: string | null;
 }) {
-  const pct = campana.meta ? Math.min(100, Math.round((campana.aportesActuales / campana.meta) * 100)) : 0;
+  const pct = porcentajeDeMeta(campana.aportesAprobados, campana.meta);
   const lugar = [campana.ciudad, campana.estado].filter(Boolean).join(", ");
   const aportar = `/campanas/${campana.id}/aportar?enlace=${token}`;
 
@@ -168,7 +169,7 @@ function Invitacion({
         <div className="mt-4">
           <ProgressBar pct={pct} tone="ok" />
           <p className="mt-2 font-mono text-[11px] text-system-500">
-            {numero.format(campana.aportesActuales)} de {numero.format(campana.meta)} aportes · hasta{" "}
+            {numero.format(campana.aportesAprobados)} de {numero.format(campana.meta)} aportes aprobados · hasta{" "}
             {numero.format(campana.cuotaPorPersona)} por persona
             {campana.fechaFin ? ` · cierra el ${fecha.format(new Date(`${campana.fechaFin}T00:00:00Z`))}` : ""}
           </p>

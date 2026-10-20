@@ -5,6 +5,7 @@ import Card from "@/components/ui/Card";
 import Tag from "@/components/ui/Tag";
 import ProgressBar from "@/components/ui/ProgressBar";
 import Button from "@/components/ui/Button";
+import { porcentajeDeMeta } from "@/lib/campanas/meta";
 import type { Campaign } from "@/types";
 
 function parseDateOnly(value: string | null | undefined) {
@@ -24,7 +25,7 @@ function formatDateRange(start: string | null, end: string | null) {
 
 export default function CampaignCard({ campaign }: { campaign: Campaign }) {
   const remainingDays = Number.isFinite(campaign.daysRemaining) ? Math.max(0, Number(campaign.daysRemaining)) : 0;
-  const pct = Math.round((campaign.currentContributions / campaign.goalContributions) * 100);
+  const pct = porcentajeDeMeta(campaign.approvedContributions, campaign.goalContributions);
   const isActive = campaign.status === "activa";
   const closeDate = campaign.endDate ? parseDateOnly(campaign.endDate)?.toLocaleDateString("es-MX", {
     day: "numeric",
@@ -62,9 +63,9 @@ export default function CampaignCard({ campaign }: { campaign: Campaign }) {
       <div className="flex gap-6 max-md:gap-5">
         <div>
           <p className="font-mono text-[15px] font-bold text-system-900 max-md:text-[14px]">
-            {campaign.currentContributions}/{campaign.goalContributions}
+            {campaign.approvedContributions}/{campaign.goalContributions}
           </p>
-          <p className="text-[11px] text-system-500 max-md:text-[10px]">aportes</p>
+          <p className="text-[11px] text-system-500 max-md:text-[10px]">aprobados</p>
         </div>
         <div>
           <p className="font-mono text-[15px] font-bold text-system-900 max-md:text-[14px]">

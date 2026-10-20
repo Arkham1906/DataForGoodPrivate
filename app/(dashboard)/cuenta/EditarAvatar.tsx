@@ -1,6 +1,8 @@
 "use client";
 
-// "Cambiar ícono" del encabezado de /cuenta (2026-10-13): abre una ventana (<dialog> nativo, como
+// Lápiz sobre la foto del encabezado de /cuenta (2026-10-13 como texto "Cambiar ícono"; desde el
+// 2026-10-20, a pedido del usuario, un botón redondo con un lápiz siempre visible en la esquina
+// del avatar; page.tsx lo coloca). Abre una ventana (<dialog> nativo, como
 // PreferenciasDeComunicacion) para elegir las iniciales, un ícono predefinido (masculino, femenino,
 // otro) o subir una foto propia (JPG o PNG de hasta 5 MB, con vista previa). Guarda con
 // PUT /api/usuarios/[id]/avatar y refresca la página, así cambian también la barra superior y el encabezado.
@@ -97,8 +99,18 @@ export default function EditarAvatar({ actual }: { actual: DatosDeAvatar }) {
 
   return (
     <>
-      <button type="button" onClick={abrir} className="text-[12.5px] font-semibold text-brand-600 hover:underline">
-        Cambiar ícono
+      <button
+        type="button"
+        onClick={abrir}
+        aria-label="Cambiar foto o ícono del perfil"
+        title="Cambiar foto o ícono"
+        className="flex h-7 w-7 items-center justify-center rounded-full border border-system-300 bg-white text-system-600 shadow-sm transition-colors hover:border-brand-600 hover:text-brand-600"
+      >
+        {/* Lápiz */}
+        <svg viewBox="0 0 24 24" aria-hidden="true" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4 20h4L18.5 9.5a2.1 2.1 0 0 0-4-4L4 16z" />
+          <path d="M13.5 6.5l4 4" />
+        </svg>
       </button>
 
       <dialog

@@ -1,22 +1,26 @@
 // Analizador de intereses (2026-10-07): convierte lo que la persona escribe sobre sus gustos
 // ("me gusta andar en bici y cuidar perritos") en temáticas ("Movilidad", "Protección animal").
-// Todo es local: un diccionario de palabras por temática, una lista de palabras vacías y el filtro
-// de palabras inapropiadas (lib/tematicas/filtro.ts). Nada sale a un servicio externo.
+// Todo es local: un diccionario de palabras clave por temática y el filtro de palabras
+// inapropiadas (lib/tematicas/filtro.ts). Nada sale a un servicio externo.
+//
+// Desde el 2026-10-20 (decisión del usuario) solo reconoce palabras clave: el texto da temáticas
+// que ya existen (las 23 base o las del catálogo ya aprobadas) y nunca crea temáticas nuevas; lo
+// que no es palabra clave se ignora ("me gusta jugar en linea" ya no da "Linea"). Antes cada
+// palabra desconocida se volvía una temática nueva.
 //
 // Primero el texto se parte en partes (por comas, puntos y conectores como "y"). Una parte con una
 // palabra inapropiada (grosería, sexual, violencia, drogas, odio; también disfrazada: "p3nd3jo",
-// "p u t o") se descarta completa, y si hubo alguna, el análisis no crea temáticas nuevas
-// (2026-10-19). Una palabra con números o símbolos ("4x4", "c++") tampoco se vuelve temática.
+// "p u t o") se descarta completa (2026-10-19).
 //
-// Después, para cada palabra de las partes que quedan, en este orden:
-//   1. Si está en el diccionario, da la temática base (una de las 23 de lib/intereses.ts).
-//   2. Si ya existe en el catálogo (una temática que escribió otra persona), da esa.
-//   3. Si es palabra vacía ("gusta", "hacer", "mucho") o muy corta, se ignora.
-//   4. Si no, se vuelve una temática nueva con la palabra en singular ("Ajedrez", "Fotografía"). Al
-//      guardar entra pendiente: solo la tiene quien la escribió hasta que el SuperUsuario la aprueba.
+// Después, en cada parte que queda se buscan:
+//   - frases de dos o tres palabras ("futbol americano", "juegos de mesa", "medio ambiente");
+//   - palabras clave del diccionario (también en plural: "videojuegos", "perritos");
+//   - temáticas del catálogo por su nombre ("ajedrez" si el catálogo tiene "Ajedrez").
+// Las palabras ambiguas (DEBILES: "rescatar", "jugar", "limpiar"...) solo cuentan si en esa parte
+// no hubo ninguna clara: "rescatar perritos" da "Protección animal" y no "Protección civil".
 //
 // Sin dependencias de servidor: lo usan el navegador (/bienvenida y /cuenta, al dar Enter) y el
-// servidor (lib/tematicas/catalogo.ts valida con esTematicaNuevaValida antes de guardar).
+// servidor (lib/tematicas/catalogo.ts usa esTematicaNuevaValida para bloquear las que ya existían).
 
 import { esInapropiada } from "@/lib/tematicas/filtro";
 
@@ -40,33 +44,124 @@ export function claveDeTematica(nombre: string): string {
     .trim();
 }
 
-// Palabras del diccionario, ya sin acentos. Con "*" al final cuenta como prefijo ("bici*" atrapa
-// "bicicleta" y "bicis"); sin "*", la palabra o su singular tiene que ser exacta (así "agua" no
-// atrapa "aguacate").
+// Palabras clave del diccionario, ya sin acentos ni mayúsculas. Con "*" al final cuenta como
+// prefijo ("bici*" atrapa "bicicleta" y "bicis"); sin "*", la palabra o su singular tiene que ser
+// exacta (así "agua" no atrapa "aguacate"). Con espacios es una frase: las palabras seguidas, la
+// última también en plural ("juegos de mesa"). Al agregar: un prefijo no debe atrapar palabras de
+// otra temática ("tren" exacto por "entrenar", "foto" exacto por "fotocopia" no importa).
 const DICCIONARIO: Record<string, string[]> = {
-  "Medio ambiente": ["ambient*", "ecolog*", "naturaleza", "planeta", "clima*", "sustentab*", "sostenib*", "contaminacion", "contaminar", "ecosistema*", "playa*"],
-  "Salud urbana": ["salud", "medic*", "enfermer*", "hospital*", "clinica*", "doctor*", "nutricion*", "vacuna*", "enfermedad*", "psicolog*", "bienestar"],
-  "Educación": ["educ*", "escuela*", "ensen*", "maestr*", "profesor*", "estudi*", "aprend*", "alfabetiz*", "tutor*", "universidad*", "docente*"],
-  "Infraestructura": ["infraestructura*", "bache*", "pavimen*", "calle", "construc*", "puente*", "alumbrado*"],
-  "Protección animal": ["animal*", "perro*", "perrit*", "gato*", "gatit*", "mascota*", "veterinar*", "callejer*", "adopt*"],
-  "Movilidad": ["movilidad", "bici*", "ciclis*", "ciclov*", "transporte*", "camion*", "autobus*", "trafico", "vialidad*", "peaton*", "metro", "coche*", "carro", "auto", "motocicleta*"],
-  "Cultura": ["cultur*", "arte", "artist*", "artesan*", "music*", "cancion*", "teatro*", "cine", "danza*", "bail*", "museo*", "leer", "lectura*", "libro*", "literatura*", "historia*", "pintar", "pintura*", "poesia*", "escribir", "escritura*", "tradicion*", "fotograf*", "dibuj*", "muerto"],
-  "Agua y saneamiento": ["agua", "drenaje*", "saneamiento", "rio", "laguna*", "lago", "potable"],
-  "Calidad del aire": ["aire", "smog", "humo", "emision*", "quema*"],
-  "Residuos y reciclaje": ["recicl*", "residuo*", "basura*", "desecho*", "composta*", "plastico*", "limpi*", "reutiliz*"],
-  "Biodiversidad": ["biodiversidad", "flora", "fauna", "planta*", "arbol*", "bosque*", "selva*", "especie*", "ave", "pajaro*", "insecto*", "abeja*", "mariposa*", "jardin*", "reforest*", "tortuga*", "mar"],
-  "Espacios públicos": ["parque*", "plaza*", "espacio*", "banqueta*"],
-  "Seguridad ciudadana": ["seguridad", "delincuencia*", "robo*", "violencia*", "crimen*", "policia*", "vigilancia*"],
-  "Protección civil": ["civil", "sismo*", "terremoto*", "huracan*", "inundacion*", "incendio*", "emergencia*", "desastre*", "rescat*", "bombero*", "auxilio*"],
-  "Accesibilidad": ["accesib*", "discapacidad*", "rampa*", "inclusion*", "inclusiv*", "sordo*", "ciego*", "braille"],
-  "Igualdad de género": ["genero", "igualdad", "mujer*", "feminis*", "equidad", "lgbt*"],
-  "Derechos humanos": ["derecho*", "migrante*", "indigena*", "justicia*", "discrimin*", "dignidad"],
-  "Transparencia y gobierno": ["transparencia*", "gobierno*", "politic*", "corrupcion*", "eleccion*", "presupuesto*", "rendicion"],
-  "Vivienda": ["vivienda*", "habitacional*", "inmobiliari*"],
-  "Alimentación y agricultura": ["aliment*", "agricult*", "cultivo*", "cultivar", "siembra*", "sembrar", "huerto*", "huerta*", "cocin*", "comida*", "ganader*", "cosecha*", "receta*", "fruta*", "verdura*", "hortaliza*"],
-  "Empleo y economía local": ["emple*", "trabajo", "economia*", "negocio*", "emprend*", "comercio*", "mercado*", "tianguis", "finanza*", "ahorro*", "cooperativa*"],
-  "Tecnología y conectividad": ["tecnolog*", "internet", "computa*", "programa*", "software", "robot*", "conectividad", "digital*", "celular*", "videojuego*", "codigo", "electronica*", "artificial"],
-  "Deporte y recreación": ["deport*", "futbol*", "basquet*", "beisbol*", "voleibol*", "voley*", "nadar", "natacion", "correr", "ejercicio*", "gimnasio*", "gym", "yoga", "caminar", "caminata*", "senderismo", "excursion*", "recreacion*", "juego*", "jugar", "boxeo", "tenis", "atletismo", "entrenar", "patinar", "acampar", "pasear", "paseo*", "pesca*"],
+  "Medio ambiente": [
+    "medio ambiente", "cambio climatico", "calentamiento global", "energia renovable", "energia solar",
+    "ambient*", "ecolog*", "naturaleza", "planeta", "clima*", "sustentab*", "sostenib*", "contaminacion", "contaminar",
+    "ecosistema*", "playa*", "renovable*", "montana*", "cerro*", "volcan*",
+  ],
+  "Salud urbana": [
+    "salud mental", "salud", "medic*", "enfermer*", "hospital*", "clinica*", "doctor*", "nutricion*", "nutriolog*",
+    "vacuna*", "enfermedad*", "psicolog*", "psiquiatr*", "bienestar", "terapia*", "dental", "dentista*", "farmacia*",
+    "meditacion", "meditar",
+  ],
+  "Educación": [
+    "educ*", "escuela*", "ensen*", "maestr*", "profesor*", "estudi*", "aprend*", "alfabetiz*", "tutor*", "universidad*",
+    "docente*", "ciencia*", "cientific*", "matematica*", "fisica", "quimica", "astronom*", "investigacion*", "idioma*",
+    "ingles", "frances", "aleman", "japones", "conocimiento*",
+  ],
+  "Infraestructura": [
+    "infraestructura*", "bache*", "pavimen*", "construc*", "puente*", "alumbrado*", "carretera*", "arquitect*",
+    "urbanismo", "ingenier*",
+  ],
+  "Protección animal": [
+    "animal*", "perro*", "perrit*", "lomit*", "cachorr*", "gato*", "gatit*", "michi*", "felino*", "canino*", "mascota*",
+    "veterinar*", "callejer*", "caballo", "caballos", "conejo*", "hamster*", "perico*", "loro*", "refugio*", "albergue*",
+    "esteriliz*", "maltrato*", "rescatista*",
+  ],
+  "Movilidad": [
+    "transporte publico", "movilidad", "bici*", "ciclis*", "ciclov*", "transporte*", "camion*", "autobus*", "trafico",
+    "vialidad*", "peaton*", "metro", "coche*", "carro", "carros", "auto", "autos", "motocicleta*", "moto", "motos",
+    "tren", "trenes", "taxi*", "scooter*", "manejar", "conducir",
+  ],
+  "Cultura": [
+    "cultur*", "arte", "artes", "artist*", "artesan*", "music*", "cancion*", "cantar", "canto", "coro", "coros", "concierto*",
+    "banda*", "rock", "jazz", "rap", "guitarra*", "piano*", "violin*", "teatro*", "actuacion", "actuar", "cine",
+    "pelicula*", "serie*", "anime", "manga*", "comic*", "danza*", "bail*", "ballet", "museo*", "leer", "lectura*",
+    "libro*", "biblioteca*", "literatura*", "novela*", "historia*", "pintar", "pintura*", "poesia*", "poema*",
+    "escribir", "escritura*", "tradicion*", "fotograf*", "foto", "fotos", "dibuj*", "escultura*", "ceramica*",
+    "festival*", "patrimonio*", "arqueolog*", "diseno*", "moda", "muerto",
+  ],
+  "Agua y saneamiento": [
+    "agua", "drenaje*", "saneamiento", "rio", "rios", "laguna*", "lago", "lagos", "potable", "lluvia*", "pozo", "pozos",
+    "acuifero*", "oceano*",
+  ],
+  "Calidad del aire": ["calidad del aire", "smog", "humo", "emision*", "quema*", "ozono"],
+  "Residuos y reciclaje": [
+    "recicl*", "residuo*", "basura*", "desecho*", "composta*", "plastico*", "reutiliz*", "carton*", "vidrio*", "unicel",
+  ],
+  "Biodiversidad": [
+    "biodiversidad", "flora", "fauna", "planta*", "arbol*", "bosque*", "selva*", "especie*", "ave", "aves", "pajaro*",
+    "ornitolog*", "insecto*", "abeja*", "mariposa*", "jardin*", "reforest*", "tortuga*", "mar", "biolog*", "botanic*",
+    "cactus", "hongo*", "reptil*", "anfibio*", "ballena*", "delfin*", "coral*", "manglar*", "naturalista*",
+  ],
+  "Espacios públicos": ["espacio publico", "espacios publicos", "parque*", "plaza*", "banqueta*", "malecon*", "andador*", "glorieta*"],
+  "Seguridad ciudadana": [
+    "seguridad ciudadana", "seguridad", "delincuencia*", "robo*", "violencia*", "crimen*", "policia*", "vigilancia*",
+    "asalto*",
+  ],
+  "Protección civil": [
+    "proteccion civil", "primeros auxilios", "sismo*", "terremoto*", "huracan*", "inundacion*", "incendio*",
+    "emergencia*", "desastre*", "bombero*", "auxilio*", "paramedic*", "brigada*", "simulacro*",
+  ],
+  "Accesibilidad": [
+    "lengua de senas", "silla de ruedas", "accesib*", "discapacidad*", "rampa*", "inclusion*", "inclusiv*", "sordo*",
+    "ciego*", "braille", "autismo", "autista*", "neurodivers*",
+  ],
+  "Igualdad de género": ["igualdad de genero", "diversidad sexual", "genero", "igualdad", "mujer*", "feminis*", "equidad", "lgbt*"],
+  "Derechos humanos": [
+    "derechos humanos", "migrante*", "indigena*", "justicia*", "discrimin*", "dignidad", "refugiad*", "activismo",
+    "activista*", "pobreza", "desigualdad", "infancia", "ninez", "adultos mayores",
+  ],
+  "Transparencia y gobierno": [
+    "transparencia*", "gobierno*", "politic*", "corrupcion*", "eleccion*", "presupuesto*", "rendicion", "democracia*",
+    "voto", "votos", "votar",
+  ],
+  "Vivienda": ["vivienda*", "habitacional*", "inmobiliari*", "renta*", "hipoteca*"],
+  "Alimentación y agricultura": [
+    "aliment*", "agricult*", "cultivo*", "cultivar", "siembra*", "sembrar", "huerto*", "huerta*", "cocin*", "comida*",
+    "ganader*", "cosecha*", "receta*", "fruta*", "verdura*", "hortaliza*", "pastel*", "reposter*", "hornear",
+    "panader*", "gastronom*", "chef", "vegan*", "vegetarian*", "agroecolog*", "maiz", "frijol*", "milpa*", "cafe",
+  ],
+  "Empleo y economía local": [
+    "economia local", "emple*", "economia*", "negocio*", "emprend*", "comercio*", "tianguis", "finanza*", "ahorro*",
+    "cooperativa*", "marketing", "ventas", "contabilidad", "inversion*", "oficio*",
+  ],
+  "Tecnología y conectividad": [
+    "inteligencia artificial", "redes sociales", "tecnolog*", "internet", "computa*", "programacion", "programar",
+    "programador*", "software", "robot*", "conectividad", "digital*", "celular*", "videojuego*", "consola*", "gamer*",
+    "gaming", "esports", "nintendo", "playstation", "xbox", "codigo", "electronica*", "ciberseguridad", "streaming",
+    "aplicacion*",
+  ],
+  "Deporte y recreación": [
+    "juegos de mesa", "artes marciales", "futbol americano", "deport*", "futbol*", "basquet*", "beisbol*", "voleibol*",
+    "voley*", "nadar", "natacion", "correr", "ejercicio*", "gimnasio*", "gym", "yoga", "pilates", "crossfit",
+    "caminar", "caminata*", "senderismo", "excursion*", "recreacion*", "boxeo", "tenis", "atletismo", "entrenar",
+    "patinar", "patineta*", "skate*", "surf*", "escalada", "escalar", "alpinismo", "maraton*", "karate", "judo",
+    "taekwondo", "equitacion", "acampar", "pasear", "paseo*", "pesca*", "pescar", "ajedrez", "cancha*",
+  ],
+};
+
+// Palabras ambiguas: solo cuentan si en esa parte del texto no hubo una palabra clave clara.
+// "rescatar perritos" → solo Protección animal; "jugar videojuegos" → solo Tecnología; pero
+// "me gusta rescatar" sola sí da Protección civil.
+const DEBILES: Record<string, string[]> = {
+  "Protección civil": ["rescat*", "civil"],
+  "Deporte y recreación": ["juego*", "jugar"],
+  "Residuos y reciclaje": ["limpi*"],
+  "Espacios públicos": ["espacio*"],
+  "Infraestructura": ["calle", "calles", "obra*"],
+  "Protección animal": ["adopt*"],
+  "Empleo y economía local": ["trabajo", "mercado*"],
+  "Calidad del aire": ["aire"],
+  "Derechos humanos": ["derecho*", "voluntariado"],
+  "Tecnología y conectividad": ["programa*", "artificial"],
+  "Cultura": ["tocar"],
 };
 
 // Palabras que nunca son un interés por sí solas: conectores, pronombres y los verbos con que la
@@ -112,24 +207,42 @@ export function singular(palabra: string): string {
   return p;
 }
 
-function temaDelDiccionario(clave: string): string | null {
+/** Temática de una palabra suelta según `diccionario` (sin las frases), o null. */
+function temaDeLaPalabra(clave: string, diccionario: Record<string, string[]>): string | null {
   const enSingular = singular(clave);
-  for (const [tema, palabras] of Object.entries(DICCIONARIO)) {
-    if (coincide(clave, palabras) || coincide(enSingular, palabras)) return tema;
+  for (const [tema, palabras] of Object.entries(diccionario)) {
+    const sueltas = palabras.filter((p) => !p.includes(" "));
+    if (coincide(clave, sueltas) || coincide(enSingular, sueltas)) return tema;
   }
   return null;
 }
 
-/** "fotografía" → "Fotografía". También la usa el servidor al dar de alta una temática nueva. */
-export function conMayuscula(palabra: string): string {
-  return palabra.charAt(0).toLocaleUpperCase("es") + palabra.slice(1);
+/** Frases del diccionario, de la más larga a la más corta, con sus palabras ya en singular. */
+const FRASES = Object.entries(DICCIONARIO)
+  .flatMap(([tema, palabras]) =>
+    palabras.filter((p) => p.includes(" ")).map((frase) => ({ tema, palabras: frase.split(" ").map(singular) })),
+  )
+  .sort((a, b) => b.palabras.length - a.palabras.length);
+
+/**
+ * ¿Empieza en `claves[i]` una frase? Compara palabra por palabra en singular ("juego de mesa" y
+ * "juegos de mesa" son la misma). Devuelve el tema y cuántas palabras ocupa.
+ */
+function fraseEn(claves: string[], i: number, frases: { tema: string; palabras: string[] }[]) {
+  for (const frase of frases) {
+    const tramo = claves.slice(i, i + frase.palabras.length).map(singular);
+    if (tramo.length === frase.palabras.length && tramo.every((p, k) => p === frase.palabras[k])) {
+      return { tema: frase.tema, largo: frase.palabras.length };
+    }
+  }
+  return null;
 }
 
 /**
- * ¿Se puede crear esta temática nueva? Letras, espacios o guiones; de 4 a 40 letras; hasta tres
- * palabras; sin palabras inapropiadas (lib/tematicas/filtro.ts) y que no sea solo palabras
- * vacías. La usa el servidor antes de agregarla al catálogo y para dejar de ofrecer las que ya
- * existían y no pasan el filtro, con las mismas reglas que el análisis.
+ * ¿Es un nombre aceptable para una temática? Letras, espacios o guiones; de 4 a 40 letras; hasta
+ * tres palabras; sin palabras inapropiadas (lib/tematicas/filtro.ts) y que no sea solo palabras
+ * vacías. Desde el 2026-10-20 el texto ya no crea temáticas; el servidor la usa para dejar de
+ * ofrecer las de usuario que ya existían y no pasan el filtro (catalogo.ts, bloqueadaPorElFiltro).
  */
 export function esTematicaNuevaValida(nombre: string): boolean {
   const limpio = nombre.trim();
@@ -147,8 +260,6 @@ export type AnalisisDeIntereses = {
   tematicas: string[];
   /** Partes del texto que se descartaron por tener palabras inapropiadas, para avisarle a la persona. */
   descartadas: number;
-  /** Palabras que se habrían vuelto temáticas nuevas y no se crearon porque el texto traía palabras inapropiadas. */
-  nuevasOmitidas: number;
 };
 
 /** Palabras que unen dos gustos: ahí empieza otra parte del texto ("bici y asesinar enanos"). */
@@ -222,19 +333,68 @@ function partesDelTexto(fichas: Ficha[]): Ficha[][] {
 }
 
 /**
- * Temáticas que salen de un texto. `catalogo` son las temáticas que ya se ofrecen (GET
- * /api/tematicas): si una palabra coincide con una, se usa ese nombre en lugar de crear otra.
+ * Palabras de una parte del texto, ya como clave (sin acentos ni mayúsculas). Una palabra con
+ * números o símbolos ("4x4", "c++") no cuenta y corta una frase (`null`); con punto o guion se
+ * toma cada pedazo ("auto-cuidado").
+ */
+function clavesDeLaParte(parte: Ficha[]): (string | null)[] {
+  return parte.flatMap((ficha) =>
+    /[^\p{L}.\-]/u.test(ficha.texto) ? [null] : ficha.texto.split(/[.\-]+/).map(claveDeTematica).filter(Boolean),
+  );
+}
+
+/**
+ * Temáticas de una parte del texto: las claras (frases, palabras clave, nombres del catálogo) y,
+ * solo si no hubo ninguna, las ambiguas (DEBILES).
+ */
+function temasDeLaParte(
+  claves: (string | null)[],
+  frasesDelCatalogo: { tema: string; palabras: string[] }[],
+): string[] {
+  const claras: string[] = [];
+  const ambiguas: string[] = [];
+  for (let i = 0; i < claves.length; ) {
+    const clave = claves[i];
+    if (clave === null) {
+      i++;
+      continue;
+    }
+    const tramo = claves.slice(i, claves.indexOf(null, i) === -1 ? undefined : claves.indexOf(null, i)) as string[];
+    const frase = fraseEn(tramo, 0, FRASES) ?? fraseEn(tramo, 0, frasesDelCatalogo);
+    if (frase) {
+      claras.push(frase.tema);
+      i += frase.largo;
+      continue;
+    }
+    i++;
+    if (clave.length < 3 || PALABRAS_VACIAS.has(clave)) continue;
+    const clara = temaDeLaPalabra(clave, DICCIONARIO);
+    if (clara) {
+      claras.push(clara);
+      continue;
+    }
+    const ambigua = temaDeLaPalabra(clave, DEBILES);
+    if (ambigua) ambiguas.push(ambigua);
+  }
+  return claras.length > 0 ? claras : ambiguas;
+}
+
+/**
+ * Temáticas que salen de un texto, solo de palabras clave (2026-10-20): nunca crea temáticas
+ * nuevas. `catalogo` son las temáticas que ya se ofrecen (GET /api/tematicas, ya aprobadas): si
+ * una palabra o frase coincide con el nombre de una ("ajedrez" → "Ajedrez"), se usa esa.
  *
  * El texto se parte en partes (por comas, puntos y conectores como "y" o "pero"). Si una parte
  * tiene una palabra inapropiada se descarta completa: en "follar putas y asesinar enanos" se van
- * también "enanos" (2026-10-19). Y si el texto trae alguna, de ese análisis no sale ninguna
- * temática nueva: solo las del diccionario y las que ya existen.
+ * también "enanos" (2026-10-19).
  */
 export function analizarIntereses(texto: string, catalogo: string[]): AnalisisDeIntereses {
-  const porClave = new Map(catalogo.map((nombre) => [claveDeTematica(nombre), nombre]));
+  const frasesDelCatalogo = catalogo
+    .map((nombre) => ({ tema: nombre, palabras: claveDeTematica(nombre).split(" ").map(singular) }))
+    .filter((f) => f.palabras.join("").length > 0)
+    .sort((a, b) => b.palabras.length - a.palabras.length);
   const resultado: string[] = [];
   const vistas = new Set<string>();
-  let nuevasOmitidas = 0;
 
   function agregar(nombre: string) {
     const clave = claveDeTematica(nombre);
@@ -253,36 +413,11 @@ export function analizarIntereses(texto: string, catalogo: string[]): AnalisisDe
   const buenas = partes.filter((parte) => !parte.some((f) => f.mala));
   const descartadas = partes.length - buenas.length;
 
-  for (const ficha of buenas.flat()) {
-    if (resultado.length >= MAXIMO_POR_ANALISIS) break;
-    // Con números o símbolos ("4x4", "c++") no se vuelve temática; con punto o guion, cada parte.
-    if (/[^\p{L}.\-]/u.test(ficha.texto)) continue;
-
-    for (const original of ficha.texto.split(/[.\-]+/)) {
+  for (const parte of buenas) {
+    for (const tema of temasDeLaParte(clavesDeLaParte(parte), frasesDelCatalogo)) {
       if (resultado.length >= MAXIMO_POR_ANALISIS) break;
-      const clave = claveDeTematica(original);
-      if (clave.length < 3) continue;
-
-      const delDiccionario = temaDelDiccionario(clave);
-      if (delDiccionario) {
-        agregar(delDiccionario);
-        continue;
-      }
-      const enSingular = singular(original);
-      const existente = porClave.get(claveDeTematica(enSingular)) ?? porClave.get(clave);
-      if (existente) {
-        agregar(existente);
-        continue;
-      }
-      if (PALABRAS_VACIAS.has(clave) || PALABRAS_VACIAS.has(claveDeTematica(enSingular))) continue;
-      const nueva = conMayuscula(enSingular);
-      if (!esTematicaNuevaValida(nueva)) continue;
-      if (descartadas > 0) {
-        nuevasOmitidas++;
-        continue;
-      }
-      agregar(nueva);
+      agregar(tema);
     }
   }
-  return { tematicas: resultado, descartadas, nuevasOmitidas };
+  return { tematicas: resultado, descartadas };
 }
