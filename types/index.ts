@@ -87,6 +87,8 @@ export interface Campaign {
   isSaved?: boolean;
   /** El creador baneó de esta campaña a quien consulta (GET /api/campanas). */
   isBanned?: boolean;
+  /** La creó quien consulta (GET /api/campanas). En /mis-aportes solo llega si la guardó. */
+  isMine?: boolean;
   /** Aportes del usuario en sesión a esta campaña. Solo viene en /api/campanas?misAportes=true. */
   myContributionsCount?: number;
 }

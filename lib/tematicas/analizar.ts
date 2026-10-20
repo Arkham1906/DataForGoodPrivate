@@ -1,16 +1,24 @@
 // Analizador de intereses (2026-10-07): convierte lo que la persona escribe sobre sus gustos
 // ("me gusta andar en bici y cuidar perritos") en temáticas ("Movilidad", "Protección animal").
-// Todo es local: un diccionario de palabras por temática, una lista de palabras vacías y otra de
-// groserías. Nada sale a un servicio externo.
+// Todo es local: un diccionario de palabras por temática, una lista de palabras vacías y el filtro
+// de palabras inapropiadas (lib/tematicas/filtro.ts). Nada sale a un servicio externo.
 //
-// Para cada palabra del texto, en este orden:
+// Primero el texto se parte en partes (por comas, puntos y conectores como "y"). Una parte con una
+// palabra inapropiada (grosería, sexual, violencia, drogas, odio; también disfrazada: "p3nd3jo",
+// "p u t o") se descarta completa, y si hubo alguna, el análisis no crea temáticas nuevas
+// (2026-10-19). Una palabra con números o símbolos ("4x4", "c++") tampoco se vuelve temática.
+//
+// Después, para cada palabra de las partes que quedan, en este orden:
 //   1. Si está en el diccionario, da la temática base (una de las 23 de lib/intereses.ts).
 //   2. Si ya existe en el catálogo (una temática que escribió otra persona), da esa.
-//   3. Si es palabra vacía ("gusta", "hacer", "mucho"), grosería o muy corta, se ignora.
-//   4. Si no, se vuelve una temática nueva con la palabra en singular ("Ajedrez", "Fotografía").
+//   3. Si es palabra vacía ("gusta", "hacer", "mucho") o muy corta, se ignora.
+//   4. Si no, se vuelve una temática nueva con la palabra en singular ("Ajedrez", "Fotografía"). Al
+//      guardar entra pendiente: solo la tiene quien la escribió hasta que el SuperUsuario la aprueba.
 //
 // Sin dependencias de servidor: lo usan el navegador (/bienvenida y /cuenta, al dar Enter) y el
 // servidor (lib/tematicas/catalogo.ts valida con esTematicaNuevaValida antes de guardar).
+
+import { esInapropiada } from "@/lib/tematicas/filtro";
 
 /** Máximo de intereses en un perfil. */
 export const MAXIMO_DE_INTERESES = 20;
@@ -42,7 +50,7 @@ const DICCIONARIO: Record<string, string[]> = {
   "Infraestructura": ["infraestructura*", "bache*", "pavimen*", "calle", "construc*", "puente*", "alumbrado*"],
   "Protección animal": ["animal*", "perro*", "perrit*", "gato*", "gatit*", "mascota*", "veterinar*", "callejer*", "adopt*"],
   "Movilidad": ["movilidad", "bici*", "ciclis*", "ciclov*", "transporte*", "camion*", "autobus*", "trafico", "vialidad*", "peaton*", "metro", "coche*", "carro", "auto", "motocicleta*"],
-  "Cultura": ["cultur*", "arte", "artist*", "artesan*", "music*", "cancion*", "teatro*", "cine", "danza*", "bail*", "museo*", "leer", "lectura*", "libro*", "literatura*", "historia*", "pintar", "pintura*", "poesia*", "escribir", "escritura*", "tradicion*", "fotograf*", "dibuj*"],
+  "Cultura": ["cultur*", "arte", "artist*", "artesan*", "music*", "cancion*", "teatro*", "cine", "danza*", "bail*", "museo*", "leer", "lectura*", "libro*", "literatura*", "historia*", "pintar", "pintura*", "poesia*", "escribir", "escritura*", "tradicion*", "fotograf*", "dibuj*", "muerto"],
   "Agua y saneamiento": ["agua", "drenaje*", "saneamiento", "rio", "laguna*", "lago", "potable"],
   "Calidad del aire": ["aire", "smog", "humo", "emision*", "quema*"],
   "Residuos y reciclaje": ["recicl*", "residuo*", "basura*", "desecho*", "composta*", "plastico*", "limpi*", "reutiliz*"],
@@ -82,14 +90,6 @@ const PALABRAS_VACIAS = new Set(
   mucho bueno buenas buenos cerca lejos casa hogar familia amigos amigas`.split(/\s+/),
 );
 
-// Groserías y términos ofensivos (sin acentos). Con "*", prefijo; sin él, palabra exacta.
-const GROSERIAS = [
-  "pendej*", "chingad*", "chingar", "chinga", "chingon*", "verga", "vergas", "puta", "putas", "puto", "putos",
-  "mierd*", "cabron*", "culer*", "culo", "culos", "joto", "jotos", "maricon*", "marica*", "pinche*", "mamon",
-  "mamona", "mamada", "mamadas", "cogid*", "coger", "nalga*", "teta", "tetas", "pene", "penes", "huevon*",
-  "idiota*", "estupid*", "imbecil*", "zorra", "zorras", "nazi*", "hitler", "porno*", "sexo",
-];
-
 function coincide(palabra: string, lista: string[]): boolean {
   return lista.some((p) => (p.endsWith("*") ? palabra.startsWith(p.slice(0, -1)) : palabra === p));
 }
@@ -105,13 +105,11 @@ export function singular(palabra: string): string {
   if (p.endsWith("ces")) return `${p.slice(0, -3)}z`;
   // "canciones" → "canción", "leones" → "león": el singular recupera el acento.
   if (p.endsWith("ones")) return `${p.slice(0, -4)}ón`;
+  // "paisajes" → "paisaje", "viajes" → "viaje" (más comunes que "relojes" → "reloj").
+  if (p.endsWith("ajes")) return p.slice(0, -1);
   if (/[lrndj]es$/.test(p)) return p.slice(0, -2);
   if (/[aeo]s$/.test(p)) return p.slice(0, -1);
   return p;
-}
-
-function esGroseria(clave: string): boolean {
-  return clave.split(" ").some((palabra) => coincide(palabra, GROSERIAS) || coincide(singular(palabra), GROSERIAS));
 }
 
 function temaDelDiccionario(clave: string): string | null {
@@ -129,8 +127,9 @@ export function conMayuscula(palabra: string): string {
 
 /**
  * ¿Se puede crear esta temática nueva? Letras, espacios o guiones; de 4 a 40 letras; hasta tres
- * palabras; sin groserías y que no sea solo palabras vacías. La usa el servidor antes de
- * agregarla al catálogo, con las mismas reglas que el análisis.
+ * palabras; sin palabras inapropiadas (lib/tematicas/filtro.ts) y que no sea solo palabras
+ * vacías. La usa el servidor antes de agregarla al catálogo y para dejar de ofrecer las que ya
+ * existían y no pasan el filtro, con las mismas reglas que el análisis.
  */
 export function esTematicaNuevaValida(nombre: string): boolean {
   const limpio = nombre.trim();
@@ -139,19 +138,103 @@ export function esTematicaNuevaValida(nombre: string): boolean {
   if (clave.replace(/ /g, "").length < LARGO_MINIMO_NUEVA || limpio.length > LARGO_MAXIMO_NUEVA) return false;
   const palabras = clave.split(" ");
   if (palabras.length > 3) return false;
-  if (esGroseria(clave)) return false;
+  if (esInapropiada(limpio)) return false;
   return palabras.some((p) => !PALABRAS_VACIAS.has(p));
 }
 
+export type AnalisisDeIntereses = {
+  /** Temáticas en el orden en que aparecen, sin repetir (máximo 10). */
+  tematicas: string[];
+  /** Partes del texto que se descartaron por tener palabras inapropiadas, para avisarle a la persona. */
+  descartadas: number;
+  /** Palabras que se habrían vuelto temáticas nuevas y no se crearon porque el texto traía palabras inapropiadas. */
+  nuevasOmitidas: number;
+};
+
+/** Palabras que unen dos gustos: ahí empieza otra parte del texto ("bici y asesinar enanos"). */
+const CONECTORES = new Set(["y", "e", "pero", "ni", "ademas", "tambien", "aunque", "mientras"]);
+
+type Ficha = { texto: string; cortaDespues: boolean; mala: boolean };
+
 /**
- * Temáticas que salen de un texto, en el orden en que aparecen y sin repetir (máximo 10).
- * `catalogo` son las temáticas que ya existen (GET /api/tematicas): si una palabra coincide con
- * una, se usa ese nombre en lugar de crear otra.
+ * Separa el texto en fichas (palabras) y marca dónde termina cada parte. Se separa por espacios y
+ * signos de puntuación, pero no por números ni símbolos, para que el filtro vea completas
+ * "p3nd3jo" o "p.u.t.o". Un punto o "!" al final de una palabra cierra la parte.
  */
-export function analizarIntereses(texto: string, catalogo: string[]): string[] {
+function fichasDelTexto(texto: string): Ficha[] {
+  const fichas: Ficha[] = [];
+  for (const pedazo of texto.slice(0, LARGO_MAXIMO_DEL_TEXTO).split(/[,;:¿?¡()"«»/\[\]{}\n]+/u)) {
+    const palabras = pedazo.split(/\s+/).filter(Boolean);
+    palabras.forEach((cruda, i) => {
+      // Sin signos a los lados ("puto!", "...bici"); "@" y "$" se quedan porque imitan letras.
+      const limpia = cruda.replace(/^[^\p{L}\p{N}@$]+|[^\p{L}\p{N}@$]+$/gu, "");
+      const cierra = /[.!]$/.test(cruda) || i === palabras.length - 1;
+      if (limpia) fichas.push({ texto: limpia, cortaDespues: cierra, mala: false });
+      else if (cierra && fichas.length > 0) fichas[fichas.length - 1].cortaDespues = true;
+    });
+  }
+  return fichas;
+}
+
+/**
+ * Marca como malas las letras sueltas seguidas que juntas forman algo inapropiado ("p u t o"). Se
+ * prueba cada tramo de 3 o más, porque a los lados puede haber otras sueltas ("p u t o y la").
+ */
+function marcarLetrasSueltas(fichas: Ficha[]) {
+  for (let i = 0; i < fichas.length; ) {
+    let j = i;
+    while (j < fichas.length && fichas[j].texto.length === 1) j++;
+    for (let a = i; a + 3 <= j; a++) {
+      for (let b = a + 3; b <= j; b++) {
+        if (esInapropiada(fichas.slice(a, b).map((f) => f.texto).join(""))) {
+          for (let k = a; k < b; k++) fichas[k].mala = true;
+        }
+      }
+    }
+    i = Math.max(j, i + 1);
+  }
+}
+
+/**
+ * Agrupa las fichas en partes: termina una en cada signo de puntuación y en cada conector. Una "y"
+ * o "e" entre letras sueltas puede ser parte del disfraz ("p u y t o") y no corta, salvo que lo de
+ * antes ya sea malo ("p u t o y la bici": la bici se queda).
+ */
+function partesDelTexto(fichas: Ficha[]): Ficha[][] {
+  const partes: Ficha[][] = [];
+  let actual: Ficha[] = [];
+  const cerrar = () => {
+    if (actual.length > 0) partes.push(actual);
+    actual = [];
+  };
+  fichas.forEach((ficha, i) => {
+    const palabra = claveDeTematica(ficha.texto);
+    const entreSueltas = palabra.length === 1 && (fichas[i - 1]?.texto.length === 1 || fichas[i + 1]?.texto.length === 1);
+    if (CONECTORES.has(palabra) && !ficha.mala && (!entreSueltas || fichas[i - 1]?.mala)) {
+      cerrar();
+    } else {
+      actual.push(ficha);
+    }
+    if (ficha.cortaDespues) cerrar();
+  });
+  cerrar();
+  return partes;
+}
+
+/**
+ * Temáticas que salen de un texto. `catalogo` son las temáticas que ya se ofrecen (GET
+ * /api/tematicas): si una palabra coincide con una, se usa ese nombre en lugar de crear otra.
+ *
+ * El texto se parte en partes (por comas, puntos y conectores como "y" o "pero"). Si una parte
+ * tiene una palabra inapropiada se descarta completa: en "follar putas y asesinar enanos" se van
+ * también "enanos" (2026-10-19). Y si el texto trae alguna, de ese análisis no sale ninguna
+ * temática nueva: solo las del diccionario y las que ya existen.
+ */
+export function analizarIntereses(texto: string, catalogo: string[]): AnalisisDeIntereses {
   const porClave = new Map(catalogo.map((nombre) => [claveDeTematica(nombre), nombre]));
   const resultado: string[] = [];
   const vistas = new Set<string>();
+  let nuevasOmitidas = 0;
 
   function agregar(nombre: string) {
     const clave = claveDeTematica(nombre);
@@ -160,25 +243,46 @@ export function analizarIntereses(texto: string, catalogo: string[]): string[] {
     resultado.push(nombre);
   }
 
-  for (const original of texto.slice(0, LARGO_MAXIMO_DEL_TEXTO).split(/[^\p{L}]+/u)) {
-    if (resultado.length >= MAXIMO_POR_ANALISIS) break;
-    const clave = claveDeTematica(original);
-    if (clave.length < 3 || esGroseria(clave)) continue;
-
-    const delDiccionario = temaDelDiccionario(clave);
-    if (delDiccionario) {
-      agregar(delDiccionario);
-      continue;
-    }
-    const enSingular = singular(original);
-    const existente = porClave.get(claveDeTematica(enSingular)) ?? porClave.get(clave);
-    if (existente) {
-      agregar(existente);
-      continue;
-    }
-    if (PALABRAS_VACIAS.has(clave) || PALABRAS_VACIAS.has(claveDeTematica(enSingular))) continue;
-    const nueva = conMayuscula(enSingular);
-    if (esTematicaNuevaValida(nueva)) agregar(nueva);
+  const fichas = fichasDelTexto(texto);
+  marcarLetrasSueltas(fichas);
+  for (const ficha of fichas) {
+    // Cada palabra completa y, si tiene punto o guion, cada parte ("auto-cuidado").
+    if (!ficha.mala) ficha.mala = esInapropiada(ficha.texto) || ficha.texto.split(/[.\-]+/).some(esInapropiada);
   }
-  return resultado;
+  const partes = partesDelTexto(fichas);
+  const buenas = partes.filter((parte) => !parte.some((f) => f.mala));
+  const descartadas = partes.length - buenas.length;
+
+  for (const ficha of buenas.flat()) {
+    if (resultado.length >= MAXIMO_POR_ANALISIS) break;
+    // Con números o símbolos ("4x4", "c++") no se vuelve temática; con punto o guion, cada parte.
+    if (/[^\p{L}.\-]/u.test(ficha.texto)) continue;
+
+    for (const original of ficha.texto.split(/[.\-]+/)) {
+      if (resultado.length >= MAXIMO_POR_ANALISIS) break;
+      const clave = claveDeTematica(original);
+      if (clave.length < 3) continue;
+
+      const delDiccionario = temaDelDiccionario(clave);
+      if (delDiccionario) {
+        agregar(delDiccionario);
+        continue;
+      }
+      const enSingular = singular(original);
+      const existente = porClave.get(claveDeTematica(enSingular)) ?? porClave.get(clave);
+      if (existente) {
+        agregar(existente);
+        continue;
+      }
+      if (PALABRAS_VACIAS.has(clave) || PALABRAS_VACIAS.has(claveDeTematica(enSingular))) continue;
+      const nueva = conMayuscula(enSingular);
+      if (!esTematicaNuevaValida(nueva)) continue;
+      if (descartadas > 0) {
+        nuevasOmitidas++;
+        continue;
+      }
+      agregar(nueva);
+    }
+  }
+  return { tematicas: resultado, descartadas, nuevasOmitidas };
 }

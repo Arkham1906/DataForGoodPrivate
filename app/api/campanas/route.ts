@@ -150,6 +150,7 @@ export async function GET(request: Request) {
       isSaved: savedIds.has(Number(row.id)),
       // Su creador lo baneó: las listas la marcan y no la ofrecen para aportar.
       isBanned: bannedIds.has(Number(row.id)),
+      isMine: user ? Number(row.creator_id) === Number(user.id) : false,
     });
 
     if (supervised) {
@@ -208,11 +209,10 @@ export async function GET(request: Request) {
               `SELECT campanas.*,
                       (SELECT COUNT(*)::int FROM aportes a2 WHERE a2.campaign_id = campanas.id AND a2.user_id = $1) AS mis_aportes_count
                FROM campanas
-               WHERE creator_id <> $1
-                 AND (
-                   EXISTS (SELECT 1 FROM aportes a WHERE a.campaign_id = campanas.id AND a.user_id = $1)
-                   OR EXISTS (SELECT 1 FROM campanas_guardadas g WHERE g.campana_id = campanas.id AND g.usuario_id = $1)
-                 )
+               -- Las propias solo si las guardó (2026-10-19: el creador guardaba la suya y no la
+               -- veía en ningún lado); en las propias no se aporta.
+               WHERE (creator_id <> $1 AND EXISTS (SELECT 1 FROM aportes a WHERE a.campaign_id = campanas.id AND a.user_id = $1))
+                  OR EXISTS (SELECT 1 FROM campanas_guardadas g WHERE g.campana_id = campanas.id AND g.usuario_id = $1)
                ORDER BY created_at DESC`,
               [user!.id],
             )

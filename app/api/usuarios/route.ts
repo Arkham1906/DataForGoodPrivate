@@ -119,8 +119,8 @@ export async function POST(request: Request) {
   }
 }
 
-const MINIMO_BUSQUEDA = 3;
-const MAXIMO_RESULTADOS = 10;
+/** Candidatos a revisor por página (2026-10-19: la lista completa, de a poco). */
+const CANDIDATOS_POR_PAGINA = 30;
 
 /** "ana.lopez@gmail.com" -> "an***@gmail.com": identifica sin exponer el correo. */
 function ocultarCorreo(email: string): string {
@@ -167,10 +167,12 @@ async function listarTodos(url: URL) {
 /**
  * GET /api/usuarios
  * - SuperUsuario: lista todos los usuarios (ver `listarTodos`).
- * - Usuario con `?campanaId=…&q=…`: buscador de "agregar revisor". Solo lo usa
- *   el creador de esa campaña, con al menos 3 letras del nombre o un correo
- *   completo, y devuelve pocas coincidencias con el correo oculto: así no sirve
- *   para descargar la lista de usuarios.
+ * - Usuario con `?campanaId=…&q=…&pagina=…`: lista de "agregar revisor". Solo la usa
+ *   el creador de esa campaña. Desde el 2026-10-19 (a pedido del usuario) sin `q`
+ *   devuelve a todos los usuarios verificados, de 30 en 30, y `q` filtra por
+ *   nombre y apellidos desde la primera letra, sin importar acentos. Por correo
+ *   solo con el correo completo y exacto, y el correo siempre va oculto
+ *   (an***@gmail.com): así no se pueden adivinar correos letra por letra.
  */
 export async function GET(request: Request) {
   try {
@@ -198,27 +200,52 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Solo el creador de la campaña puede buscar revisores" }, { status: 403 });
     }
 
+    const pagina = Number(url.searchParams.get("pagina") ?? "1");
+    if (!Number.isInteger(pagina) || pagina < 1) {
+      return NextResponse.json({ error: "pagina debe ser un entero positivo" }, { status: 400 });
+    }
+    // Con "@" solo cuenta el correo completo: mientras no lo sea, no hay resultados.
     const porCorreo = q.includes("@");
-    if (porCorreo ? !isValidEmail(q) : q.length < MINIMO_BUSQUEDA) {
-      return NextResponse.json({ data: [] });
+    if (porCorreo && !isValidEmail(q)) {
+      return NextResponse.json({ data: [], total: 0, pagina, hayMas: false });
     }
 
-    // Por correo: coincidencia exacta. Por nombre: contiene el texto (con %
-    // y _ escapados para que se busquen literalmente).
+    // Por correo: coincidencia exacta. Por nombre: contiene el texto, sin importar
+    // acentos (con % y _ escapados para que se busquen literalmente). Sin texto: todos.
     const patron = `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
-    const result = await pool.query<{ id: number; nombre: string; apellidos: string; email: string; role: string[] }>(
-      `SELECT id, nombre, apellidos, email, role
+    const sinAcentos = (sql: string) => `translate(LOWER(${sql}), 'áéíóúüñ', 'aeiouun')`;
+    // $1 = quien busca, $2 = desde qué fila, $3 = el texto (solo si hay).
+    const filtro = porCorreo
+      ? "AND LOWER(email) = LOWER($3)"
+      : q
+        ? `AND ${sinAcentos("nombre || ' ' || apellidos")} LIKE ${sinAcentos("$3")}`
+        : "";
+    const valores: unknown[] = [user.id, (pagina - 1) * CANDIDATOS_POR_PAGINA];
+    if (porCorreo || q) valores.push(porCorreo ? q : patron);
+    const result = await pool.query<{
+      id: number;
+      nombre: string;
+      apellidos: string;
+      email: string;
+      role: string[];
+      total: string;
+    }>(
+      `SELECT id, nombre, apellidos, email, role, COUNT(*) OVER () AS total
        FROM usuarios
        WHERE email_verificado
          AND baja_solicitada_en IS NULL
          AND id <> $1
-         AND ${porCorreo ? "LOWER(email) = LOWER($2)" : "(nombre || ' ' || apellidos) ILIKE $2"}
-       ORDER BY nombre, apellidos
-       LIMIT ${MAXIMO_RESULTADOS}`,
-      [user.id, porCorreo ? q : patron]
+         ${filtro}
+       ORDER BY LOWER(nombre), LOWER(apellidos), id
+       LIMIT ${CANDIDATOS_POR_PAGINA} OFFSET $2`,
+      valores
     );
+    const total = Number(result.rows[0]?.total ?? 0);
 
     return NextResponse.json({
+      total,
+      pagina,
+      hayMas: pagina * CANDIDATOS_POR_PAGINA < total,
       data: result.rows.map((fila) => ({
         id: fila.id,
         nombre: fila.nombre,

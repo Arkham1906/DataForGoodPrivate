@@ -594,6 +594,9 @@ export async function ensureAuditLogTable(): Promise<void> {
  * `clave` es el nombre sin acentos ni mayúsculas: evita "Ciclismo" y "ciclismo" duplicadas.
  * El SuperUsuario puede ocultar una (`oculta`): deja de ofrecerse, pero no se quita de los perfiles
  * ni de las campañas que ya la tienen.
+ * `aprobada` (2026-10-19): las que crean los usuarios entran en false y solo están en el perfil de
+ * quien las escribió hasta que el SuperUsuario las aprueba en /sistema/tematicas. Las base y las que
+ * ya existían quedan en true por el DEFAULT.
  */
 export async function ensureTematicasTable(): Promise<void> {
   await pool.query(`
@@ -606,6 +609,7 @@ export async function ensureTematicasTable(): Promise<void> {
       oculta BOOLEAN NOT NULL DEFAULT false,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+    ALTER TABLE tematicas ADD COLUMN IF NOT EXISTS aprobada BOOLEAN NOT NULL DEFAULT true;
   `);
   // Las 23 de siempre, en su orden (id). ON CONFLICT: repetirlo en cada arranque es inofensivo.
   await pool.query(

@@ -81,7 +81,7 @@ Cualquier usuario puede crear campañas. Todas estas rutas comprueban en el serv
 | `/mis-campanas/nueva` (`?edit=<id>` para editar) | `mis-campanas/nueva/page.tsx` + `NuevaCampanaForm.tsx` | S + C | Crear: `POST /api/campanas`. Editar: `GET /api/campanas/[id]` y `PATCH /api/campanas/[id]`. Lo que se puede editar depende del estado (ver [datos.md](datos.md) § 3) |
 | `/mis-campanas/[id]/aportes` | `mis-campanas/[id]/aportes/page.tsx` | C | Bandeja de aportes: `GET /api/campanas/[id]`, `GET /api/aportes?campaignId=` (todos, solo el creador), con filtros por estado en el cliente. La sección de baneados (`baneados.tsx`) usa `GET`/`DELETE /api/campanas/[id]/baneos` |
 | `/mis-campanas/[id]/aportes/[aporteId]` | `.../aportes/[aporteId]/page.tsx` | C | `GET /api/aportes/[id]`; aceptar o rechazar: `PATCH /api/aportes/[id]` con `{ status, rejectionReason, inapropiado? }`. Banear al participante: `POST`/`DELETE /api/campanas/[id]/baneos`; en un aporte anónimo, el mismo `POST` bloquea su dispositivo en la campaña y `DELETE { bloqueoId }` lo desbloquea. Borrar el archivo de un aporte anónimo: `DELETE /api/aportes/[id]/archivo`. Banear o bloquear se puede antes o después de decidir; marcar inapropiado y borrar el archivo, solo antes. Con el aporte decidido ya no se ofrecen Aceptar ni Rechazar. El archivo se muestra con `components/ui/ArchivoDelAporte` (imagen, reproductor de video o audio, o enlace de descarga) desde `GET /api/aportes/[id]/archivo` |
-| `/mis-campanas/[id]/aportes/agregar-revisor` | `.../agregar-revisor/page.tsx` | C | Buscar personas: `GET /api/usuarios?campanaId=&q=`. Listar e invitar revisores: `GET`/`POST /api/campanas/[id]/revisores` |
+| `/mis-campanas/[id]/aportes/agregar-revisor` | `.../agregar-revisor/page.tsx` | C | Lista completa que se filtra al escribir: `GET /api/usuarios?campanaId=&q=&pagina=`. Listar e invitar revisores: `GET`/`POST /api/campanas/[id]/revisores` |
 | `/mis-campanas/[id]/panel` | `mis-campanas/[id]/panel/page.tsx` | C | `GET /api/campanas?id=`, `GET /api/campanas/[id]/recoleccion-diaria` (gráficas) |
 | `/mis-campanas/[id]/especial` | `mis-campanas/[id]/especial/page.tsx` | C | `GET /api/campanas/[id]` (solo el creador; a otros, 404). Periodo, multiplicador ×1–×3, bono fijo e insignia opcional: `PUT`/`DELETE /api/campanas/[id]/especial`. Guarda la configuración; el XP lo otorga la gamificación |
 
@@ -180,7 +180,7 @@ Todos los archivos están en `app/api/<ruta>/route.ts`. Respuesta: `{ data }` o 
 | --- | --- | --- | --- |
 | `POST /api/usuarios` | Libre | Registro. Crea la cuenta sin verificar, siempre con el rol `usuario`, y envía el código | `/registro` |
 | `GET /api/usuarios?q=&rol=&estado=&pagina=` | Sesión raíz (cookie o Bearer) | Todos los usuarios del sistema, 20 por página (`buscarUsuarios()` del directorio) | Swagger |
-| `GET /api/usuarios?campanaId=&q=` | Sesión + creador de esa campaña | Busca personas para invitar como revisor (máx. 10, correo oculto) | `agregar-revisor` |
+| `GET /api/usuarios?campanaId=&q=&pagina=` | Sesión + creador de esa campaña | Lista a todos los usuarios verificados para invitar como revisor, 30 por página; `q` filtra por nombre y apellidos (o correo completo); correo oculto | `agregar-revisor` |
 | `GET /api/usuarios/[id]` | Sesión + la cuenta propia, o sesión raíz (cualquier id) | Perfil | Swagger |
 | `PATCH /api/usuarios/[id]` | Sesión, solo tu propio id | Actualiza perfil (estado, ciudad, especialidad, intereses, `interesesTexto`...). Los intereses que no existen se dan de alta en el catálogo de temáticas | `/bienvenida`, `/cuenta` |
 | `GET /api/tematicas` | Sesión | Catálogo de temáticas visibles (las 23 base y las de los usuarios) | `/bienvenida`, `/cuenta`, formulario de campaña |
@@ -199,7 +199,7 @@ Todos los archivos están en `app/api/<ruta>/route.ts`. Respuesta: `{ data }` o 
 | `GET /api/campanas` | Libre (sin filtros) | Campañas activas. Antes de responder activa las `aceptada` cuya fecha llegó y finaliza las vencidas (`lib/campaign-date.ts`) | `/campanas`, `/supervision` |
 | `GET /api/campanas?id=<id>` | Libre | Una campaña + bloque `viewer` si hay sesión | Muchas pantallas de detalle |
 | `GET /api/campanas?mine=true` | Sesión | Tus campañas creadas | `/mis-campanas`, formulario |
-| `GET /api/campanas?misAportes=true` | Sesión | Campañas donde aportaste o que guardaste | `/mis-aportes` |
+| `GET /api/campanas?misAportes=true` | Sesión | Campañas donde aportaste o que guardaste (las propias solo si las guardaste; `isMine` las marca) | `/mis-aportes` |
 | `GET /api/campanas?available=true` | Sesión | Activas a las que todavía puedes aportar | — |
 | `GET /api/campanas?supervised=true` | Sesión | Campañas que supervisas | `/supervision` |
 | `POST /api/campanas` | Sesión | Crea una campaña de quien tiene la sesión: solo `borrador` (por defecto) o `en_revision`; con 5 activas, solo borrador. Contadores, XP (50) y "especial" los fija el servidor (`lib/campanas/estado-del-creador.ts`) | Formulario |

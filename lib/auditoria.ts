@@ -62,7 +62,9 @@ export type AccionAuditada =
   | "sancion.dispositivo_restaurar"
   // Catálogo de temáticas (lib/tematicas/acciones-tematicas.ts).
   | "tematica.ocultar"
-  | "tematica.mostrar";
+  | "tematica.mostrar"
+  | "tematica.aprobar"
+  | "tematica.rechazar";
 
 export async function registrarAuditoria(entrada: {
   actor: ActorDeAuditoria;

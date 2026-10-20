@@ -4,7 +4,8 @@
 // "Analizar") se sacan las temáticas con lib/tematicas/analizar.ts, en el navegador, y se suman a
 // las que ya tenía. Debajo, las elegidas con × y "Agregar temáticas" (ui/SelectorDeTemas) para
 // corregir. Las palabras que no existían se vuelven temáticas nuevas al guardar (PATCH
-// /api/usuarios/[id]). Lo usan /bienvenida (paso 4) y /cuenta (Mis intereses).
+// /api/usuarios/[id]), pendientes de que el SuperUsuario las apruebe (2026-10-19). Lo usan
+// /bienvenida (paso 4) y /cuenta (Mis intereses).
 // Catálogo: GET /api/tematicas; si falla, las 23 base.
 
 import { useEffect, useId, useState } from "react";
@@ -57,15 +58,24 @@ export default function InteresesDesdeTexto({
       setAviso("Escribe primero qué te gusta hacer.");
       return;
     }
-    const encontradas = analizarIntereses(texto, catalogo);
+    const { tematicas: encontradas, descartadas, nuevasOmitidas } = analizarIntereses(texto, catalogo);
+    // Las partes con palabras inapropiadas (lib/tematicas/filtro.ts) se descartan completas y,
+    // si hubo alguna, no se crean temáticas nuevas; se avisa sin repetir las palabras.
+    const avisoDeDescartadas =
+      (descartadas === 0
+        ? ""
+        : descartadas === 1
+          ? " Quitamos una parte de tu texto con palabras que no se permiten."
+          : ` Quitamos ${descartadas} partes de tu texto con palabras que no se permiten.`) +
+      (nuevasOmitidas > 0 ? " Por eso tampoco creamos temáticas nuevas con este texto." : "");
     if (encontradas.length === 0) {
-      setAviso("No encontramos temas en tu texto. Prueba con otras palabras o elige de la lista.");
+      setAviso(`No encontramos temas en tu texto.${avisoDeDescartadas} Prueba con otras palabras o elige de la lista.`);
       return;
     }
     const yaEstaban = new Set(seleccionados.map(claveDeTematica));
     const nuevas = encontradas.filter((tema) => !yaEstaban.has(claveDeTematica(tema)));
     if (nuevas.length === 0) {
-      setAviso("Esas temáticas ya estaban en tu lista.");
+      setAviso(`Esas temáticas ya estaban en tu lista.${avisoDeDescartadas}`);
       return;
     }
     const caben = nuevas.slice(0, Math.max(0, MAXIMO_DE_INTERESES - seleccionados.length));
@@ -81,10 +91,10 @@ export default function InteresesDesdeTexto({
       creadas.length === 0
         ? ""
         : creadas.length === 1
-          ? ` «${creadas[0]}» es una temática nueva: se creará al guardar.`
-          : ` ${enLista(creadas.map((t) => `«${t}»`))} son temáticas nuevas: se crearán al guardar.`;
+          ? ` «${creadas[0]}» es una temática nueva: estará en tu perfil al guardar y la revisaremos antes de ofrecerla a otras personas.`
+          : ` ${enLista(creadas.map((t) => `«${t}»`))} son temáticas nuevas: estarán en tu perfil al guardar y las revisaremos antes de ofrecerlas a otras personas.`;
     const avisoDeTope = caben.length < nuevas.length ? ` Las demás no caben: el máximo es ${MAXIMO_DE_INTERESES}.` : "";
-    setAviso(`Agregamos ${enLista(caben)}.${avisoDeNuevas}${avisoDeTope}`);
+    setAviso(`Agregamos ${enLista(caben)}.${avisoDeNuevas}${avisoDeTope}${avisoDeDescartadas}`);
   }
 
   // Las elegidas que aún no están en el catálogo (nuevas) también son opciones: el selector

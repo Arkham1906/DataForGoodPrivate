@@ -325,17 +325,18 @@ paths:
       description: |
         - **SuperUsuario** (token `rootBearer` o cookie de /root): todos los usuarios del sistema,
           20 por página, del más reciente al más antiguo. Filtros opcionales: `q`, `rol`, `estado`, `pagina`.
-        - **Usuario** (`session_token`): buscador de "agregar revisor". Exige `campanaId` (y ser su
-          creador); busca por nombre (3+ letras) o correo exacto, entre cuentas verificadas, hasta 10
-          resultados con el correo oculto.
+        - **Usuario** (`session_token`): lista de "agregar revisor". Exige `campanaId` (y ser su
+          creador). Sin `q`, todas las cuentas verificadas (menos la suya), 30 por página por nombre;
+          `q` filtra por nombre y apellidos desde la primera letra (sin importar acentos), o por correo
+          solo si es completo y exacto. El correo siempre va oculto.
       security:
         - rootBearer: []
         - sessionCookie: []
       parameters:
-        - { name: q, in: query, required: false, schema: { type: string }, description: "SuperUsuario: nombre, apellidos, correo o id. Usuario: nombre o correo" }
+        - { name: q, in: query, required: false, schema: { type: string }, description: "SuperUsuario: nombre, apellidos, correo o id. Usuario: parte del nombre y apellidos, o el correo completo" }
         - { name: rol, in: query, required: false, schema: { type: string, enum: [usuario, supervisor, revisor] }, description: Solo SuperUsuario }
         - { name: estado, in: query, required: false, schema: { type: string, enum: [ACTIVA, CON_STRIKES, SUSPENDIDA, BANEADA] }, description: Solo SuperUsuario }
-        - { name: pagina, in: query, required: false, schema: { type: integer, minimum: 1, default: 1 }, description: Solo SuperUsuario }
+        - { name: pagina, in: query, required: false, schema: { type: integer, minimum: 1, default: 1 }, description: "SuperUsuario: 20 por página. Usuario: 30 por página" }
         - { name: campanaId, in: query, required: false, schema: { type: integer }, description: Solo usuario (obligatorio para él) }
       responses:
         "200":
@@ -376,6 +377,9 @@ paths:
                             apellidos: { type: string }
                             emailOculto: { type: string, example: "an***@correo.com" }
                             role: { type: array, items: { type: string } }
+                      total: { type: integer, description: Cuántos coinciden en total }
+                      pagina: { type: integer }
+                      hayMas: { type: boolean }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }

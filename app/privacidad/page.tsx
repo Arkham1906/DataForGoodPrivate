@@ -102,6 +102,11 @@ const SECCIONES: SeccionLegal[] = [
           envías a esa campaña y tu nombre, para poder revisarlos.
         </li>
         <li>
+          <strong className="text-system-900">Quien crea una campaña</strong>, al buscar revisores para ella, ve tu
+          nombre y apellidos y tu correo oculto (por ejemplo, «an***@gmail.com»). Tu correo completo no se muestra;
+          solo te encuentra por correo quien ya lo conoce y lo escribe completo.
+        </li>
+        <li>
           <strong className="text-system-900">Supervisores y la administración de la plataforma</strong> ven lo
           necesario para revisar campañas, atender reportes y aplicar sanciones.
         </li>
