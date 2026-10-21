@@ -6,6 +6,7 @@
 
 import { DATA_TYPE_LABELS } from "@/lib/open-data";
 import type { DataType } from "@/types";
+import { TEXTO_TODO_EL_PAIS } from "@/lib/campanas/ubicacion";
 
 export type FilaDeAporteAbierto = {
   /** Número del aporte dentro del conjunto (1, 2, 3...), el mismo del nombre de su archivo. */
@@ -26,8 +27,9 @@ export type FilaDeAporteAbierto = {
 
 const ENCABEZADOS = ["aporte", "archivo", "usuario", "campaña", "ubicación", "descripción", "tipo de aporte"];
 
-/** "Centro, Tepic, Nayarit"; sin municipio, "Todo el estado, Nayarit" (dominio.md § 3). */
-export function ubicacionDeCampana(estado: string | null, municipio: string | null, colonia: string | null): string {
+/** "Centro, Tepic, Nayarit"; sin municipio, "Todo el estado, Nayarit"; o "Todo el país" (dominio.md § 3). */
+export function ubicacionDeCampana(estado: string | null, municipio: string | null, colonia: string | null, todoElPais = false): string {
+  if (todoElPais) return TEXTO_TODO_EL_PAIS;
   const partes = [colonia?.trim(), municipio?.trim() || (estado?.trim() ? "Todo el estado" : ""), estado?.trim()];
   return partes.filter(Boolean).join(", ");
 }

@@ -3,10 +3,12 @@
 // Participantes y panel de cualquier campaña que ya recolecta, la haya aceptado él u otro supervisor.
 // Activa o pausada: pausar (con motivo), reanudar y finalizar (con motivo), en EstadoComoSuperUsuario.
 
+import { textoDeUbicacion } from "@/lib/campanas/ubicacion";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import Tag from "@/components/ui/Tag";
 import { obtenerCampanaParaRoot } from "@/lib/supervision/root";
+import { describirReparto } from "@/lib/campanas/cuota-por-tipo";
 import { BackLink } from "../_ui";
 import AccionesDeSupervision, { EstadoComoSuperUsuario } from "./acciones";
 import type { Metadata } from "next";
@@ -38,7 +40,7 @@ export default async function SupervisarCampanaPage({ params }: { params: Promis
   const currentStatus = statusMap[campaign.status as keyof typeof statusMap] ?? { label: "En revisión", tone: "warn" };
   const dataTypes = campaign.dataTypes.length > 0 ? campaign.dataTypes : ["texto"];
   const yaRecolecta = campaign.status === "activa" || campaign.status === "pausada" || campaign.status === "finalizada";
-  const location = [campaign.locationColonia, campaign.locationCity, campaign.locationState].filter(Boolean).join(", ") || "Sin ubicación";
+  const location = textoDeUbicacion({ todoElPais: campaign.todoElPais, colonia: campaign.locationColonia, municipio: campaign.locationCity, estado: campaign.locationState }, "Sin ubicación");
 
   const filas: [string, React.ReactNode][][] = [
     [
@@ -54,7 +56,13 @@ export default async function SupervisarCampanaPage({ params }: { params: Promis
       ["Periodo", <span key="p" className="font-mono">{formatDate(campaign.startDate)} - {formatDate(campaign.endDate)}</span>],
       ["Progreso", <span key="g" className="font-mono">{campaign.approvedContributions} / {campaign.goalContributions} aprobados</span>],
       ["Participantes", <span key="n" className="font-mono">{campaign.participants}</span>],
-      ["Cuota por usuario", <span key="q" className="font-mono">{campaign.quotaPerUser}</span>],
+      [
+        "Cuota por usuario",
+        <span key="q" className="font-mono">
+          {campaign.quotaPerUser}
+          {campaign.cuotaPorTipo ? ` (${describirReparto(campaign.cuotaPorTipo)})` : ""}
+        </span>,
+      ],
     ],
   ];
 

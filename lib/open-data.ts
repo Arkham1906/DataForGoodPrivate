@@ -24,6 +24,8 @@ export interface OpenDataset {
   filesCount: number;
   locationCity: string;
   locationState: string;
+  /** Para todo el país (lib/campanas/ubicacion.ts). */
+  todoElPais: boolean;
   closedAt: string | null; // ISO date (end_date)
   /** Tipos MIME reales de los archivos aceptados, mapeados a una etiqueta corta (JPG, PNG...). */
   formats: string[];
@@ -103,7 +105,7 @@ export interface OpenDataFilters {
 const SELECT = `
   SELECT c.id, c.name, c.description, c.tematica, c.tag, c.data_types,
          c.approved_contributions, c.rejected_contributions,
-         c.location_city, c.location_state, c.organizer, c.creator_name,
+         c.location_city, c.location_state, c.todo_el_pais, c.organizer, c.creator_name,
          c.end_date, c.supervisor_id, c.supervisado_por_root, c.downloads_count,
          COALESCE(f.size_bytes, 0) AS size_bytes,
          COALESCE(f.archivos, 0) AS archivos,
@@ -139,6 +141,7 @@ function mapDataset(row: Record<string, unknown>): OpenDataset {
     filesCount: Number(row.archivos ?? 0),
     locationCity: String(row.location_city ?? ""),
     locationState: String(row.location_state ?? ""),
+    todoElPais: row.todo_el_pais === true,
     closedAt: row.end_date ? new Date(String(row.end_date)).toISOString().slice(0, 10) : null,
     formats,
     sizeBytes,
@@ -180,7 +183,8 @@ export async function buscarConjuntosAbiertos(
     }
     if (filtros.locationState) {
       valores.push(filtros.locationState);
-      condiciones.push(`c.location_state = $${valores.length}`);
+      // Una campaña para todo el país también vale en ese estado.
+      condiciones.push(`(c.location_state = $${valores.length} OR c.todo_el_pais)`);
     }
 
     const orderBy = ORDER_SQL[filtros.orden ?? "recientes"];

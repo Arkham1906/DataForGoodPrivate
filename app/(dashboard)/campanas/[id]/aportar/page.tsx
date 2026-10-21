@@ -21,6 +21,7 @@ import IndicadorDeCarga from "@/components/ui/IndicadorDeCarga";
 import { InscripcionACampana } from "@/components/ui/AcuerdosDeAporte";
 import SelectorDeArchivo from "@/components/ui/SelectorDeArchivo";
 import { archivoEsOpcional, tiposAceptados } from "@/lib/aportes/archivo";
+import { describirReparto, type CuotaPorTipo } from "@/lib/campanas/cuota-por-tipo";
 
 export default function AportarPage() {
   const params = useParams<{ id: string }>();
@@ -32,6 +33,8 @@ export default function AportarPage() {
   const [baneado, setBaneado] = useState(false);
   const [motivoDeBaneo, setMotivoDeBaneo] = useState<string | null>(null);
   const [submittedCount, setSubmittedCount] = useState(0);
+  // Tipo de cada aporte ya enviado, para lo que queda de cada tipo (cuota por tipo).
+  const [tiposEnviados, setTiposEnviados] = useState<string[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   // 404: no existe o no la puede ver (lib/campanas/visibilidad.ts).
   const [noEncontrada, setNoEncontrada] = useState(false);
@@ -64,7 +67,11 @@ export default function AportarPage() {
         setInscrito(Boolean(campaignPayload.viewer?.inscrito));
 
         const aportesPayload = await aportesRes.json().catch(() => ({}));
-        if (aportesRes.ok) setSubmittedCount(Array.isArray(aportesPayload.data) ? aportesPayload.data.length : 0);
+        if (aportesRes.ok) {
+          const enviados: { fileType?: string }[] = Array.isArray(aportesPayload.data) ? aportesPayload.data : [];
+          setSubmittedCount(enviados.length);
+          setTiposEnviados(enviados.map((a) => String(a.fileType ?? "")));
+        }
       } catch (cause) {
         setLoadError(cause instanceof Error ? cause.message : "No se pudo cargar la campaña");
       }
@@ -87,11 +94,26 @@ export default function AportarPage() {
   }
 
   const quotaReached = submittedCount >= campaign.quotaPerUser;
+  // Con cuota por tipo: cuántos le quedan de cada uno. El servidor también lo exige (POST /api/aportes).
+  const quedanPorTipo: CuotaPorTipo | null = campaign.cuotaPorTipo
+    ? Object.fromEntries(
+        Object.entries(campaign.cuotaPorTipo).map(([tipo, limite]) => [
+          tipo,
+          Math.max(Number(limite) - tiposEnviados.filter((t) => t === tipo).length, 0),
+        ])
+      )
+    : null;
   // La API ya convierte las campañas viejas (lista plana) en un checklist sin título.
   const checklists = campaign.checklistSecciones ?? [];
 
   // Tipos que acepta la campaña; con "texto", el archivo es opcional.
-  const tipos = tiposAceptados(campaign.dataTypes);
+  // Sin los tipos que ya agotó (cuota por tipo): si ya no le quedan textos, el archivo deja de ser opcional.
+  const todosLosTipos = tiposAceptados(campaign.dataTypes);
+  const disponibles = todosLosTipos.filter((t) => !quedanPorTipo || quedanPorTipo[t] !== 0);
+  const tipos = disponibles.length > 0 ? disponibles : todosLosTipos;
+  const quedanConAlgo: CuotaPorTipo | null = quedanPorTipo
+    ? Object.fromEntries(Object.entries(quedanPorTipo).filter(([, n]) => Number(n) > 0))
+    : null;
 
   function toggleCaracteristica(value: string) {
     setCaracteristicas((current) =>
@@ -134,6 +156,11 @@ export default function AportarPage() {
         {campaign.name} · aporte {Math.min(submittedCount + 1, campaign.quotaPerUser)}{" "}
         de tu cuota de {campaign.quotaPerUser}
       </p>
+      {quedanConAlgo && !quotaReached && (
+        <p className="-mt-4 mb-6 text-[12.5px] text-system-600">
+          Por tipo te quedan: <span className="font-semibold text-system-900">{describirReparto(quedanConAlgo)}</span>
+        </p>
+      )}
 
       {quotaReached && <p className="mb-5 rounded-lg border border-success-700 bg-success-50 p-3 text-[13px] text-success-700">Alcanzaste tu cuota en esta campaña. La campaña sigue abierta para otras personas, pero ya no puedes enviar más aportes.</p>}
 

@@ -61,6 +61,10 @@ export async function guardarArchivoDelAporte(
  * `comprobar` (opcional) corre dentro del mismo candado, antes de contar: si devuelve un
  * motivo, no se inserta (lo usa la espera entre aportes anónimos).
  *
+ * `cuotaDelTipo` (opcional): si la campaña reparte la cuota por tipo de dato
+ * (lib/campanas/cuota-por-tipo.ts), el límite del tipo de este aporte; también se cuenta
+ * dentro del candado.
+ *
  * Si no se inserta, borra de MinIO el archivo que se acababa de subir.
  */
 export async function insertarAporteConCuota<T>(entrada: {
@@ -72,11 +76,13 @@ export async function insertarAporteConCuota<T>(entrada: {
   contar: (client: PoolClient) => Promise<number>;
   insertar: (client: PoolClient) => Promise<T>;
   comprobar?: (client: PoolClient) => Promise<{ error: string; esperaSegundos: number } | null>;
+  cuotaDelTipo?: { limite: number; contar: (client: PoolClient) => Promise<number> };
   /** Clave en MinIO del archivo ya subido, para borrarlo si no se inserta (null: aporte sin archivo). */
   archivoSubido: string | null;
 }): Promise<
   | { ok: true; fila: T; yaEnviados: number }
   | { ok: false; motivo: "cuota" }
+  | { ok: false; motivo: "cuota_tipo"; limite: number }
   | { ok: false; motivo: "espera"; error: string; esperaSegundos: number }
 > {
   const client = await pool.connect();
@@ -95,6 +101,10 @@ export async function insertarAporteConCuota<T>(entrada: {
     if (yaEnviados >= entrada.cuota) {
       await client.query("ROLLBACK");
       return { ok: false, motivo: "cuota" };
+    }
+    if (entrada.cuotaDelTipo && (await entrada.cuotaDelTipo.contar(client)) >= entrada.cuotaDelTipo.limite) {
+      await client.query("ROLLBACK");
+      return { ok: false, motivo: "cuota_tipo", limite: entrada.cuotaDelTipo.limite };
     }
     const fila = await entrada.insertar(client);
     await recalcularContadores(entrada.campaignId, client);

@@ -28,6 +28,7 @@ import { registrarAuditoria } from "@/lib/auditoria";
 import { respuestasValidas } from "@/lib/campanas/checklist";
 import { buscarEnlacePorToken } from "@/lib/campanas/enlaces";
 import { avisoDePausa } from "@/lib/campanas/pausa";
+import { limiteDelTipo, mensajeDeCuotaDelTipo } from "@/lib/campanas/cuota-por-tipo";
 
 // TODO(dominio): valor elegido sin consulta. Aportes anónimos por IP en una hora, sumando
 // todas las campañas. Holgado para varias personas en la misma red (escuela, oficina).
@@ -194,12 +195,26 @@ export async function enviarAporteAnonimo(entrada: {
   const subida = await guardarArchivoDelAporte(entrada.archivo, campana.id, campana.tiposDeArchivo);
   if (!subida.ok) return { ok: false, status: 400, error: subida.error };
   const { tipo, guardado } = subida.archivo;
+  const limiteDeTipo = limiteDelTipo(campana.cuotaPorTipo, tipo);
 
   const insertado = await insertarAporteConCuota({
     campaignId: campana.id,
     persona: `dispositivo:${anonimoId}`,
     cuota: campana.cuotaPorPersona,
     archivoSubido: guardado?.relativePath ?? null,
+    cuotaDelTipo:
+      limiteDeTipo === null
+        ? undefined
+        : {
+            limite: limiteDeTipo,
+            contar: async (client) => {
+              const { rows } = await client.query(
+                `SELECT COUNT(*)::int AS n FROM aportes WHERE campaign_id = $1 AND anonimo_id = $2 AND file_type = $3`,
+                [campana.id, anonimoId, tipo]
+              );
+              return Number(rows[0]?.n ?? 0);
+            },
+          },
     comprobar: async (client) => {
       // Candado por dispositivo (el de la cuota es por campaña): dos envíos simultáneos a
       // campañas distintas tampoco se saltan la espera.
@@ -240,9 +255,14 @@ export async function enviarAporteAnonimo(entrada: {
     },
   });
   if (!insertado.ok) {
-    return insertado.motivo === "espera"
-      ? { ok: false, status: 429, error: insertado.error, esperaSegundos: insertado.esperaSegundos }
-      : { ok: false, status: 400, error: MENSAJE_CUOTA };
+    if (insertado.motivo === "espera") {
+      return { ok: false, status: 429, error: insertado.error, esperaSegundos: insertado.esperaSegundos };
+    }
+    return {
+      ok: false,
+      status: 400,
+      error: insertado.motivo === "cuota_tipo" ? mensajeDeCuotaDelTipo(tipo, insertado.limite) : MENSAJE_CUOTA,
+    };
   }
   contarEnvio(entrada.ip);
 

@@ -1,6 +1,7 @@
 // Pantalla /datos (pública): catálogo de datos abiertos (campañas finalizadas).
 // Datos: lib/open-data.ts (búsqueda, temática, estado y orden en searchParams, resueltos en SQL).
 
+import { textoDeUbicacion } from "@/lib/campanas/ubicacion";
 import Link from "next/link";
 import { BASE_PATH } from "@/lib/base-path";
 import { entradaDeTarjeta, retraso } from "@/lib/animaciones";
@@ -226,8 +227,8 @@ export default async function CatalogoDeDatosPage({
                       <p className="mt-2.5 font-mono text-[11px] text-system-500">
                         {c.sizeLabel} · {nf.format(c.downloads)} descargas
                         {c.quality != null ? ` · calidad ${c.quality.toFixed(1)}` : ""}
-                        {(c.locationCity || c.locationState) &&
-                          ` · ${[c.locationCity, c.locationState].filter(Boolean).join(", ")}`}
+                        {(c.locationCity || c.locationState || c.todoElPais) &&
+                          ` · ${textoDeUbicacion({ todoElPais: c.todoElPais, municipio: c.locationCity, estado: c.locationState })}`}
                       </p>
                     </Card>
                   </Link>

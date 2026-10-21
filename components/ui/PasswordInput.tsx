@@ -1,5 +1,7 @@
 // Campo de contraseña de la zona de usuario: el Input de siempre con un botón de ojo
-// que alterna entre ocultar y mostrar lo escrito.
+// que alterna entre ocultar y mostrar lo escrito. El botón no le quita el foco al campo (en el
+// teléfono se cerraba el teclado) y se bloquea junto con él. El ojo propio de Edge se oculta en
+// app/globals.css.
 "use client";
 
 import { InputHTMLAttributes, useState } from "react";
@@ -16,11 +18,13 @@ function PasswordInput({ className, ...props }: PasswordInputProps) {
       <Input {...props} type={visible ? "text" : "password"} className={`pr-11 ${className ?? ""}`} />
       <button
         type="button"
+        onMouseDown={(e) => e.preventDefault()}
         onClick={() => setVisible((v) => !v)}
+        disabled={props.disabled}
         aria-label={visible ? "Ocultar contraseña" : "Mostrar contraseña"}
         aria-pressed={visible}
         title={visible ? "Ocultar contraseña" : "Mostrar contraseña"}
-        className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-system-500 transition-colors hover:text-system-900"
+        className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-system-500 transition-colors hover:text-system-900 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {visible ? <IconoOjoTachado /> : <IconoOjo />}
       </button>

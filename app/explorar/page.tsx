@@ -1,6 +1,7 @@
 // Pantalla /explorar (pública): vitrina de campañas activas con filtros en searchParams.
 // Datos: lib/campanas/publicas.ts. Al abrir una campaña va a /campanas/[id], que sí pide sesión.
 
+import { textoDeUbicacion } from "@/lib/campanas/ubicacion";
 import Link from "next/link";
 import { BASE_PATH } from "@/lib/base-path";
 import { entradaDeTarjeta, retraso } from "@/lib/animaciones";
@@ -213,7 +214,7 @@ export default async function ExplorarCampanasPage({
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {campanas.map((c, i) => {
                   const pct = porcentajeDeMeta(c.approvedContributions, c.goalContributions);
-                  const lugar = [c.locationCity, c.locationState].filter(Boolean).join(", ");
+                  const lugar = textoDeUbicacion({ todoElPais: c.todoElPais, municipio: c.locationCity, estado: c.locationState });
                   return (
                     // Ver el detalle y aportar requiere sesión: sin ella, proxy.ts manda a /entrar.
                     <Link key={c.id} href={`/campanas/${c.id}`} {...entradaDeTarjeta(i)}>

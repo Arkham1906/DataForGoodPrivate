@@ -9,6 +9,7 @@
 //     dispositivo está bloqueado (lib/aportes/sanciones-anonimas.ts).
 // Es TODO lo que ve una persona anónima: la campaña compartida y su formulario.
 
+import { textoDeUbicacion } from "@/lib/campanas/ubicacion";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import PublicFooter from "@/components/layout/PublicFooter";
@@ -19,6 +20,7 @@ import ProgressBar from "@/components/ui/ProgressBar";
 import Tag from "@/components/ui/Tag";
 import { buscarEnlacePorToken, registrarVisita, type CampanaDelEnlace } from "@/lib/campanas/enlaces";
 import { porcentajeDeMeta } from "@/lib/campanas/meta";
+import { describirReparto } from "@/lib/campanas/cuota-por-tipo";
 import { avisoDePausa } from "@/lib/campanas/pausa";
 import { COOKIE_ANONIMO, dispositivoValido } from "@/lib/aportes/anonimato";
 import {
@@ -145,7 +147,7 @@ function Invitacion({
   sinFormulario: string | null;
 }) {
   const pct = porcentajeDeMeta(campana.aportesAprobados, campana.meta);
-  const lugar = [campana.ciudad, campana.estado].filter(Boolean).join(", ");
+  const lugar = textoDeUbicacion({ todoElPais: campana.todoElPais, municipio: campana.ciudad, estado: campana.estado });
   const aportar = `/campanas/${campana.id}/aportar?enlace=${token}`;
 
   return (
@@ -171,6 +173,7 @@ function Invitacion({
           <p className="mt-2 font-mono text-[11px] text-system-500">
             {numero.format(campana.aportesAprobados)} de {numero.format(campana.meta)} aportes aprobados · hasta{" "}
             {numero.format(campana.cuotaPorPersona)} por persona
+            {campana.cuotaPorTipo ? ` (${describirReparto(campana.cuotaPorTipo)})` : ""}
             {campana.fechaFin ? ` · cierra el ${fecha.format(new Date(`${campana.fechaFin}T00:00:00Z`))}` : ""}
           </p>
         </div>

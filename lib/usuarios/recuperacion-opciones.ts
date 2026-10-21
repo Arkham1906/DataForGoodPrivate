@@ -5,5 +5,5 @@
 export const MINUTOS_DE_VIGENCIA = 15;
 /** Intentos por código; al agotarlos hay que pedir otro. */
 export const INTENTOS_POR_CODIGO = 3;
-/** Segundos mínimos entre dos correos a la misma cuenta. */
-export const SEGUNDOS_ENTRE_ENVIOS = 60;
+/** Segundos mínimos entre dos correos a la misma cuenta (60 hasta el 2026-10-21, a pedido del usuario). */
+export const SEGUNDOS_ENTRE_ENVIOS = 30;

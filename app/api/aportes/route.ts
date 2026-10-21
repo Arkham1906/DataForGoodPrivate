@@ -17,6 +17,7 @@ import {
 } from "@/lib/aportes/comun";
 import { inscripcionDe } from "@/lib/campanas/inscripciones";
 import { avisoDePausa, pausaDesdeFila } from "@/lib/campanas/pausa";
+import { limiteDelTipo, mensajeDeCuotaDelTipo, normalizarCuotaPorTipo } from "@/lib/campanas/cuota-por-tipo";
 
 function mapAporte(row: Record<string, unknown>) {
   return {
@@ -191,6 +192,10 @@ export async function POST(request: Request) {
     const subida = await guardarArchivoDelAporte(file, campaignId, tipos);
     if (!subida.ok) return NextResponse.json({ error: subida.error }, { status: 400 });
     const { tipo, guardado: saved } = subida.archivo;
+    const limiteDeTipo = limiteDelTipo(
+      normalizarCuotaPorTipo(campaign.cuota_por_tipo, Array.isArray(campaign.data_types) ? campaign.data_types : []),
+      tipo
+    );
 
     // Cuenta e inserta con candado: dos envíos simultáneos no pasan la cuota.
     const insertado = await insertarAporteConCuota({
@@ -198,6 +203,19 @@ export async function POST(request: Request) {
       persona: `usuario:${user.id}`,
       cuota: Number(campaign.quota_per_user),
       archivoSubido: saved?.relativePath ?? null,
+      cuotaDelTipo:
+        limiteDeTipo === null
+          ? undefined
+          : {
+              limite: limiteDeTipo,
+              contar: async (client) => {
+                const { rows } = await client.query(
+                  `SELECT COUNT(*)::int AS count FROM aportes WHERE campaign_id = $1 AND user_id = $2 AND file_type = $3`,
+                  [campaignId, user.id, tipo]
+                );
+                return Number(rows[0]?.count ?? 0);
+              },
+            },
       contar: async (client) => {
         const { rows } = await client.query(
           `SELECT COUNT(*)::int AS count FROM aportes WHERE campaign_id = $1 AND user_id = $2`,
@@ -235,7 +253,8 @@ export async function POST(request: Request) {
       },
     });
     if (!insertado.ok) {
-      return NextResponse.json({ error: "Ya alcanzaste tu cuota en esta campaña" }, { status: 400 });
+      const error = insertado.motivo === "cuota_tipo" ? mensajeDeCuotaDelTipo(tipo, insertado.limite) : "Ya alcanzaste tu cuota en esta campaña";
+      return NextResponse.json({ error }, { status: 400 });
     }
 
     return NextResponse.json({ message: "Aporte enviado", data: mapAporte(insertado.fila) }, { status: 201 });

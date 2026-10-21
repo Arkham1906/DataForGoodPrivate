@@ -13,6 +13,8 @@ export type CampanaPublica = {
   organizer: string;
   locationCity: string;
   locationState: string;
+  /** Para todo el país (lib/campanas/ubicacion.ts). */
+  todoElPais: boolean;
   dataTypes: string[];
   /** Los que cuentan para la meta (lib/campanas/meta.ts). */
   approvedContributions: number;
@@ -45,6 +47,7 @@ function mapCampana(row: Record<string, unknown>): CampanaPublica {
     organizer: String(row.organizer ?? ""),
     locationCity: String(row.location_city ?? ""),
     locationState: String(row.location_state ?? ""),
+    todoElPais: row.todo_el_pais === true,
     dataTypes: Array.isArray(row.data_types) ? row.data_types.map(String) : [],
     approvedContributions: Number(row.approved_contributions ?? 0),
     goalContributions: Number(row.goal_contributions ?? 0),
@@ -75,11 +78,12 @@ export async function buscarCampanasActivas(filtros: FiltrosDeCampanas): Promise
     }
     if (filtros.locationState) {
       valores.push(filtros.locationState);
-      condiciones.push(`location_state = $${valores.length}`);
+      // Una campaña para todo el país también vale en ese estado.
+      condiciones.push(`(location_state = $${valores.length} OR todo_el_pais)`);
     }
 
     const result = await pool.query(
-      `SELECT id, name, description, tematica, organizer, location_city, location_state, data_types,
+      `SELECT id, name, description, tematica, organizer, location_city, location_state, todo_el_pais, data_types,
               approved_contributions, goal_contributions, participants, end_date
        FROM campanas
        WHERE ${condiciones.join(" AND ")}

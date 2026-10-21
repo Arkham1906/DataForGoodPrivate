@@ -8,6 +8,7 @@
 // "Compartir" abre el cuadro de compartir.tsx (enlace público /c/[token] y QR).
 // "Reportar campaña" (reportar.tsx) para quien no la creó: va a la bandeja del SuperUsuario.
 
+import { textoDeUbicacion } from "@/lib/campanas/ubicacion";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
@@ -26,6 +27,7 @@ import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import { AvisoNoEncontrado } from "@/components/ui/AvisoNoEncontrado";
 import { InscripcionACampana } from "@/components/ui/AcuerdosDeAporte";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
+import { describirReparto } from "@/lib/campanas/cuota-por-tipo";
 
 export default function CampaignDetailPage() {
   const params = useParams<{ id: string }>();
@@ -120,7 +122,7 @@ export default function CampaignDetailPage() {
 
         <div className="mb-6 flex flex-wrap gap-5 text-[13px] text-system-600">
           <span>
-            {[campaign.locationCity, campaign.locationState].filter(Boolean).join(", ")}
+            {textoDeUbicacion({ todoElPais: campaign.todoElPais, municipio: campaign.locationCity, estado: campaign.locationState })}
           </span>
           <span>
             {campaign.startDate && parseDateOnly(campaign.startDate)?.toLocaleDateString("es-MX", {
@@ -206,6 +208,7 @@ export default function CampaignDetailPage() {
           <p className="mt-2 mb-4 font-mono text-[12.5px] text-system-600">
             {campaign.approvedContributions} de {campaign.goalContributions} aportes aprobados · tu
             cuota: {campaign.quotaPerUser}
+            {campaign.cuotaPorTipo ? ` (${describirReparto(campaign.cuotaPorTipo)})` : ""}
           </p>
 
           {isCreator ? (

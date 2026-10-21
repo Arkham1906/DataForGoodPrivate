@@ -127,8 +127,8 @@ async function enviarResumenes(): Promise<void> {
 
   // Lo de toda la plataforma se lee una vez. Las fechas de campaña son días de Tepic.
   const [campanas, datos] = await Promise.all([
-    pool.query<{ creator_id: number; tematica: string; location_state: string; location_city: string }>(
-      `SELECT creator_id, tematica, location_state, location_city FROM campanas
+    pool.query<{ creator_id: number; tematica: string; location_state: string; location_city: string; todo_el_pais: boolean }>(
+      `SELECT creator_id, tematica, location_state, location_city, todo_el_pais FROM campanas
         WHERE status IN ('activa', 'pausada', 'finalizada') AND start_date >= $1::date AND start_date < $2::date`,
       [mes.inicio, mes.periodo],
     ),

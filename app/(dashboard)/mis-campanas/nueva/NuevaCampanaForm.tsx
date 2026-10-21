@@ -19,8 +19,16 @@ import { TEMAS_DE_INTERES } from "@/lib/intereses";
 import { BASE_PATH } from "@/lib/base-path";
 import { MAX_LARGO_TEXTO } from "@/lib/campanas/checklist";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
+import CampoDeFecha from "@/components/ui/CampoDeFecha";
 import { errorDeFinAntesDeInicio, errorDeInicioPasado, hoyEnTepic } from "@/lib/fecha-de-tepic";
 import { LARGO_MAXIMO_ORGANIZACION } from "@/lib/campanas/organizacion";
+import { GuiaDePasos, TarjetaDePaso, type Paso } from "./PasosDeCampana";
+import {
+  ORDEN_DE_TIPOS,
+  errorDeCuotaPorTipo,
+  repartirCuota,
+  type CuotaPorTipo,
+} from "@/lib/campanas/cuota-por-tipo";
 
 /** Un checklist en edición; `clave` solo sirve como key de React. */
 type ChecklistEditable = { clave: number; titulo: string; opciones: string[]; nuevaOpcion: string };
@@ -133,7 +141,9 @@ function CampanaFormulario({
   const [name, setName] = useState(editingCampaign?.name ?? "");
   const [description, setDescription] = useState(editingCampaign?.description ?? "");
   const [organizer, setOrganizer] = useState(editingCampaign?.organizer ?? "");
-  const [theme, setTheme] = useState(editingCampaign?.tag || THEMES[0]);
+  // Una campaña nueva empieza sin temática, sin tipos de dato y con meta y cuota vacías
+  // (2026-10-21, a pedido del usuario; antes venían "Medio ambiente", Foto, 500 y 10).
+  const [theme, setTheme] = useState(editingCampaign?.tag ?? "");
   const [catalogoDeTemas, setCatalogoDeTemas] = useState<string[]>(THEMES);
   useEffect(() => {
     let vigente = true;
@@ -147,14 +157,40 @@ function CampanaFormulario({
       vigente = false;
     };
   }, []);
-  const [dataTypes, setDataTypes] = useState<DataType[]>(editingCampaign?.dataTypes ?? ["foto"]);
+  const [dataTypes, setDataTypes] = useState<DataType[]>(editingCampaign?.dataTypes ?? []);
   // Sin ejemplos: una campaña nueva empieza sin checklists. Los de campañas
   // viejas (lista plana, sin título) se titulan "Checklist" para poder guardarlos.
   const [checklists, setChecklists] = useState<ChecklistEditable[]>(() =>
     (editingCampaign?.checklistSecciones ?? []).map((s) => nuevoChecklist(s.titulo || "Checklist", s.opciones))
   );
-  const [goal, setGoal] = useState(String(editingCampaign?.goalContributions ?? 500));
-  const [quota, setQuota] = useState(String(editingCampaign?.quotaPerUser ?? 10));
+  // Un borrador guardado sin meta o sin cuota trae 0: se muestra vacío, no "0".
+  const [goal, setGoal] = useState(editingCampaign?.goalContributions ? String(editingCampaign.goalContributions) : "");
+  const [quota, setQuota] = useState(editingCampaign?.quotaPerUser ? String(editingCampaign.quotaPerUser) : "");
+  // Reparto de la cuota por tipo (lib/campanas/cuota-por-tipo.ts), como texto de cada campo.
+  // Se sugiere de nuevo al cambiar la cuota o los tipos; el creador ajusta cada número. Una
+  // campaña de antes sin reparto (y con dos tipos o más) abre con la sugerencia.
+  const [repartoTexto, setRepartoTexto] = useState<Record<string, string>>(() => {
+    const guardado =
+      editingCampaign?.cuotaPorTipo ??
+      repartirCuota(editingCampaign?.quotaPerUser ?? 0, editingCampaign?.dataTypes ?? []);
+    return Object.fromEntries(Object.entries(guardado).map(([t, n]) => [t, String(n)]));
+  });
+  const tiposConReparto = ORDEN_DE_TIPOS.filter((t) => dataTypes.includes(t));
+  const hayReparto = tiposConReparto.length >= 2;
+  const reparto: CuotaPorTipo | null = hayReparto
+    ? Object.fromEntries(tiposConReparto.map((t) => [t, Number(repartoTexto[t] || 0)]))
+    : null;
+  const sumaDelReparto = tiposConReparto.reduce((total, t) => total + Number(repartoTexto[t] || 0), 0);
+
+  function sugerirReparto(cuota: string, tipos: DataType[]) {
+    const sugerido = repartirCuota(Number(cuota), tipos);
+    setRepartoTexto(Object.fromEntries(Object.entries(sugerido).map(([t, n]) => [t, String(n)])));
+  }
+
+  function cambiarCuota(valor: string) {
+    setQuota(valor);
+    sugerirReparto(valor, dataTypes);
+  }
   const [startDate, setStartDate] = useState(editingCampaign?.startDate ?? "");
   const [startTime, setStartTime] = useState(editingCampaign?.startTime ?? "");
   const [endDate, setEndDate] = useState(editingCampaign?.endDate ?? "");
@@ -166,6 +202,8 @@ function CampanaFormulario({
   );
   const municipioReal = locationCity === TODO_EL_ESTADO ? "" : locationCity;
   const [locationColonia, setLocationColonia] = useState(editingCampaign?.locationColonia ?? "");
+  // Para todo el país (2026-10-21, a pedido del usuario): sin estado, municipio ni colonia.
+  const [todoElPais, setTodoElPais] = useState(editingCampaign?.todoElPais ?? false);
   const [reactivando, setReactivando] = useState(false);
   const [reactivarError, setReactivarError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -226,9 +264,9 @@ function CampanaFormulario({
   }
 
   function toggleDataType(type: DataType) {
-    setDataTypes((prev) =>
-      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
-    );
+    const nuevos = dataTypes.includes(type) ? dataTypes.filter((t) => t !== type) : [...dataTypes, type];
+    setDataTypes(nuevos);
+    sugerirReparto(quota, nuevos);
   }
 
   function cambiarChecklist(clave: number, cambios: Partial<ChecklistEditable>) {
@@ -297,14 +335,12 @@ function CampanaFormulario({
             hint="Debe ser posterior a este momento; si no, la campaña volvería a finalizar de inmediato."
           >
             <div className="flex gap-2">
-              <Input
-                type="date"
+              <CampoDeFecha
                 value={endDate}
                 aria-label="Nueva fecha de finalización"
-                onChange={(e) => setEndDate(e.target.value)}
+                onChange={setEndDate}
                 disabled={limiteActivasAlcanzado}
                 required
-                className="font-mono disabled:cursor-not-allowed disabled:opacity-50"
               />
               <Input
                 type="time"
@@ -312,7 +348,7 @@ function CampanaFormulario({
                 aria-label="Nueva hora de finalización (opcional)"
                 onChange={(e) => setEndTime(e.target.value)}
                 disabled={limiteActivasAlcanzado}
-                className="font-mono disabled:cursor-not-allowed disabled:opacity-50"
+                className="max-w-[7.5rem] shrink-0 font-mono disabled:cursor-not-allowed disabled:opacity-50"
               />
             </div>
           </Field>
@@ -344,6 +380,11 @@ function CampanaFormulario({
       return errorDeFinAntesDeInicio(startDate, endDate);
     }
 
+    // Nombre, descripción y temática los exige el servidor incluso en borrador.
+    if (!name.trim()) return "Falta el nombre de la campaña";
+    if (!description.trim()) return "Falta la descripción";
+    if (!theme) return "Elige una temática";
+
     const errorDeChecklist = validarChecklists();
     if (errorDeChecklist) return errorDeChecklist;
 
@@ -353,15 +394,15 @@ function CampanaFormulario({
 
     if (asDraft) return null;
 
-    if (!name.trim()) return "Falta el nombre de la campaña";
-    if (!description.trim()) return "Falta la descripción";
     if (dataTypes.length === 0) return "Selecciona al menos un tipo de dato";
     if (!goal || Number(goal) <= 0) return "La meta de aportes debe ser mayor a 0";
     if (!quota || Number(quota) <= 0) return "La cuota por persona debe ser mayor a 0";
+    const errorDeReparto = errorDeCuotaPorTipo(Number(quota), dataTypes, reparto);
+    if (errorDeReparto) return errorDeReparto;
     if (!startDate) return "Falta la fecha de inicio";
     if (!endDate) return "Falta la fecha de finalización";
-    if (!locationState) return "Selecciona un estado";
-    if (!locationCity) return "Selecciona un municipio o \"Todo el estado\"";
+    if (!todoElPais && !locationState) return "Selecciona un estado o marca que la campaña es para todo el país";
+    if (!todoElPais && !locationCity) return "Selecciona un municipio o \"Todo el estado\"";
 
     return null;
   }
@@ -397,13 +438,15 @@ function CampanaFormulario({
           checklistSecciones: checklists.map((c) => ({ titulo: c.titulo.trim(), opciones: c.opciones })),
           goalContributions: Number(goal),
           quotaPerUser: Number(quota),
+          cuotaPorTipo: reparto,
           startDate,
           startTime: startTime || null,
           endDate,
           endTime: endTime || null,
-          locationCity: municipioReal,
-          locationState,
-          locationColonia,
+          todoElPais,
+          locationCity: todoElPais ? "" : municipioReal,
+          locationState: todoElPais ? "" : locationState,
+          locationColonia: todoElPais ? "" : locationColonia,
         };
 
     try {
@@ -450,10 +493,30 @@ function CampanaFormulario({
 
   const canPublish = edicionLimitada
     ? Boolean(goal) && Boolean(endDate)
-    : !limitReached && Boolean(name) && Boolean(description) && dataTypes.length > 0;
+    : !limitReached && Boolean(name) && Boolean(description) && Boolean(theme) && dataTypes.length > 0;
+
+  // Cuándo está completo cada paso (solo informa: lo que se exige al enviar es validar()).
+  const errorDeFechas = edicionLimitada
+    ? errorDeFinAntesDeInicio(startDate, endDate)
+    : (errorDeInicioPasado(startDate) ?? errorDeFinAntesDeInicio(startDate, endDate));
+  const pasos: Paso[] = [
+    { id: "paso-datos", titulo: "Datos básicos", completo: Boolean(name.trim() && description.trim() && theme) },
+    { id: "paso-recoleccion", titulo: "Qué se recolecta", completo: dataTypes.length > 0 && !validarChecklists() },
+    {
+      id: "paso-meta",
+      titulo: "Meta y cuota",
+      completo: Number(goal) > 0 && Number(quota) > 0 && !errorDeCuotaPorTipo(Number(quota), dataTypes, reparto),
+    },
+    {
+      id: "paso-vigencia",
+      titulo: "Vigencia y lugar",
+      completo: Boolean(startDate && endDate && !errorDeFechas && (todoElPais || (locationState && locationCity))),
+    },
+  ];
+  const noEditable = edicionLimitada ? "No se puede cambiar" : undefined;
 
   return (
-    <div className="mx-auto max-w-4xl">
+    <div className="mx-auto max-w-5xl">
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-extrabold text-system-900">
@@ -464,7 +527,7 @@ function CampanaFormulario({
               ? status === "aceptada"
                 ? "La campaña ya fue aceptada y espera su fecha de inicio: solo puedes ajustar la meta de aportes y la fecha/hora de finalización."
                 : "La campaña ya está en curso: solo puedes ajustar la meta de aportes y la fecha/hora de finalización."
-              : "Completa los tres bloques y envíala a revisión"}
+              : "Completa los cuatro pasos y envíala a revisión. Puedes guardarla como borrador en cualquier momento."}
           </p>
         </div>
         <Tag tone={limitReached ? "danger" : "default"}>
@@ -485,348 +548,445 @@ function CampanaFormulario({
         </div>
       )}
 
-      <form onSubmit={(e) => handleSubmit(e, false)}>
-        <p className="mb-3 font-mono text-[12px] uppercase tracking-wide text-system-500">
-          1 · Datos básicos
-        </p>
-        <div className="mb-8 grid grid-cols-1 gap-6 sm:grid-cols-2">
-          <div>
-            <Field label="Nombre de la campaña" required>
-              <Input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                maxLength={80}
-                required
-                disabled={edicionLimitada}
-                className="disabled:cursor-not-allowed disabled:opacity-50"
-              />
-            </Field>
-            <p className="mb-3 -mt-3 text-right font-mono text-[11px] text-system-500">
-              {name.length} / 80
-            </p>
+      <div className="lg:grid lg:grid-cols-[210px_minmax(0,1fr)] lg:gap-8">
+        <aside>
+          <GuiaDePasos pasos={pasos} />
+        </aside>
 
-            <p className="mb-1.5 text-[13px] font-medium text-system-900">
-              Temática <span className="text-error-700">*</span>
-            </p>
-            <div className="mb-1">
-              {/* El mismo selector de /cuenta, con una sola temática. opcionesCon conserva
-                  la temática de una campaña vieja aunque ya no esté en la lista. */}
-              <SelectorDeTemas
-                unica
-                opciones={opcionesCon(theme, catalogoDeTemas)}
-                seleccionados={theme ? [theme] : []}
-                onAceptar={(temas) => setTheme(temas[0] ?? theme)}
-                deshabilitado={edicionLimitada}
-                descripcion="Marca una; define en qué categoría aparece la campaña en el catálogo público."
-              />
+        <form onSubmit={(e) => handleSubmit(e, false)}>
+          <TarjetaDePaso
+            id="paso-datos"
+            numero={1}
+            titulo="Datos básicos"
+            descripcion="Cómo se llama la campaña, de qué trata y quién la impulsa."
+            completo={pasos[0].completo}
+            aviso={noEditable}
+          >
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              <div>
+                <Field label="Nombre de la campaña" required>
+                  <Input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    maxLength={80}
+                    required
+                    disabled={edicionLimitada}
+                    className="disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                </Field>
+                <p className="mb-3 -mt-3 text-right font-mono text-[11px] text-system-500">
+                  {name.length} / 80
+                </p>
+
+                <p className="mb-1.5 text-[13px] font-medium text-system-900">
+                  Temática <span className="text-error-700">*</span>
+                </p>
+                <div className="mb-1">
+                  {/* El mismo selector de /cuenta, con una sola temática. opcionesCon conserva
+                      la temática de una campaña vieja aunque ya no esté en la lista. */}
+                  <SelectorDeTemas
+                    unica
+                    opciones={opcionesCon(theme, catalogoDeTemas)}
+                    seleccionados={theme ? [theme] : []}
+                    onAceptar={(temas) => setTheme(temas[0] ?? theme)}
+                    deshabilitado={edicionLimitada}
+                    descripcion="Marca una; define en qué categoría aparece la campaña en el catálogo público."
+                  />
+                </div>
+                <p className="text-[11.5px] text-system-500">
+                  Define en qué categoría aparece la campaña en el catálogo público.
+                </p>
+              </div>
+
+              <div>
+                <Field label="Descripción" required>
+                  <Textarea
+                    rows={5}
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    maxLength={500}
+                    required
+                    disabled={edicionLimitada}
+                    className="disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                </Field>
+                <p className="-mt-3 mb-3 text-right font-mono text-[11px] text-system-500">
+                  {description.length} / 500
+                </p>
+
+                {/* Opcional (2026-10-15, a pedido del usuario): antes se mandaba siempre "Ayuntamiento de Tepic". */}
+                <Field label="Organización (opcional)" hint="La organización a la que perteneces o que impulsa la campaña. Se muestra como quien la organiza.">
+                  <Input
+                    value={organizer}
+                    onChange={(e) => setOrganizer(e.target.value)}
+                    maxLength={LARGO_MAXIMO_ORGANIZACION}
+                    placeholder="Ej. Colectivo Ambiental de Tepic"
+                    disabled={edicionLimitada}
+                    className="disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                </Field>
+              </div>
             </div>
-            <p className="text-[11.5px] text-system-500">
-              Define en qué categoría aparece la campaña en el catálogo público.
-            </p>
-          </div>
+          </TarjetaDePaso>
 
-          <div>
-            <Field label="Descripción" required>
-              <Textarea
-                rows={5}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                maxLength={500}
-                required
-                disabled={edicionLimitada}
-                className="disabled:cursor-not-allowed disabled:opacity-50"
-              />
-            </Field>
-            <p className="-mt-3 mb-3 text-right font-mono text-[11px] text-system-500">
-              {description.length} / 500
-            </p>
+          <TarjetaDePaso
+            id="paso-recoleccion"
+            numero={2}
+            titulo="Qué se recolecta"
+            descripcion="Qué tipo de aporte se pide y cómo lo describe quien participa."
+            completo={pasos[1].completo}
+            aviso={noEditable}
+          >
+            <div className="mb-6">
+              <p className="mb-1.5 text-[13px] font-medium text-system-900">
+                Tipo de dato solicitado <span className="text-error-700">*</span>
+              </p>
+              <p className="mb-2.5 text-[12px] text-system-500">Marca uno o varios.</p>
+              <div className="flex flex-wrap gap-2">
+                {DATA_TYPES.map((dt) => (
+                  <button
+                    key={dt.value}
+                    type="button"
+                    disabled={edicionLimitada}
+                    onClick={() => toggleDataType(dt.value)}
+                    aria-pressed={dataTypes.includes(dt.value)}
+                    className={`rounded-pill border px-3 py-1.5 text-[12.5px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                      dataTypes.includes(dt.value)
+                        ? "border-brand-600 bg-brand-600 text-white"
+                        : "border-system-300 bg-white text-system-600 hover:border-brand-600"
+                    }`}
+                  >
+                    {dt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-            {/* Opcional (2026-10-15, a pedido del usuario): antes se mandaba siempre "Ayuntamiento de Tepic". */}
-            <Field label="Organización (opcional)" hint="La organización a la que perteneces o que impulsa la campaña. Se muestra como quien la organiza.">
-              <Input
-                value={organizer}
-                onChange={(e) => setOrganizer(e.target.value)}
-                maxLength={LARGO_MAXIMO_ORGANIZACION}
-                placeholder="Ej. Colectivo Ambiental de Tepic"
-                disabled={edicionLimitada}
-                className="disabled:cursor-not-allowed disabled:opacity-50"
-              />
-            </Field>
-          </div>
-        </div>
+            <div>
+              <p className="mb-1 text-[13px] font-medium text-system-900">
+                Cómo describe su aporte el participante
+              </p>
+              <p className="mb-2.5 text-[12px] text-system-500">
+                Siempre escribe una descripción con sus palabras. Además puedes agregar
+                checklists con título para que marque lo que aplique: los que necesites, o ninguno.
+              </p>
 
-        <p className="mb-3 font-mono text-[12px] uppercase tracking-wide text-system-500">
-          2 · Qué se recolecta
-        </p>
-        <div className="mb-8 grid grid-cols-1 gap-6 sm:grid-cols-2">
-          <div>
-            <p className="mb-1.5 text-[13px] font-medium text-system-900">
-              Tipo de dato solicitado <span className="text-error-700">*</span>
-            </p>
-            <div className="mb-4 flex flex-wrap gap-2">
-              {DATA_TYPES.map((dt) => (
-                <button
-                  key={dt.value}
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                {checklists.map((c, i) => (
+                  <div key={c.clave} className="rounded-lg border border-system-200 bg-system-50 p-3.5">
+                    <div className="mb-2.5 flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={c.titulo}
+                        onChange={(e) => cambiarChecklist(c.clave, { titulo: e.target.value })}
+                        maxLength={MAX_LARGO_TEXTO}
+                        placeholder="Título del checklist, p. ej. Estado del árbol"
+                        aria-label={`Título del checklist ${i + 1}`}
+                        disabled={edicionLimitada}
+                        className="w-full rounded border border-system-300 bg-white px-3 py-2 text-[13px] font-semibold text-system-900 outline-none focus:border-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
+                      />
+                      <button
+                        type="button"
+                        disabled={edicionLimitada}
+                        onClick={() => setChecklists((prev) => prev.filter((x) => x.clave !== c.clave))}
+                        className="whitespace-nowrap text-[11.5px] font-medium text-error-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Quitar checklist
+                      </button>
+                    </div>
+
+                    {c.opciones.length === 0 && (
+                      <p className="mb-2 text-[12px] text-system-500">Aún no agregas opciones a este checklist.</p>
+                    )}
+                    {c.opciones.map((opcion) => (
+                      <div key={opcion} className="mb-2 flex items-center justify-between gap-2 text-[12.5px] text-system-600">
+                        <span className="flex items-center gap-2">
+                          <span className="inline-block h-3.5 w-3.5 rounded-sm border border-system-300 bg-white" aria-hidden />
+                          {opcion}
+                        </span>
+                        <button
+                          type="button"
+                          disabled={edicionLimitada}
+                          onClick={() => quitarOpcion(c.clave, opcion)}
+                          className="text-[11.5px] font-medium text-error-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Quitar
+                        </button>
+                      </div>
+                    ))}
+
+                    <div className="mt-2 flex gap-2">
+                      <input
+                        type="text"
+                        value={c.nuevaOpcion}
+                        onChange={(e) => cambiarChecklist(c.clave, { nuevaOpcion: e.target.value })}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            agregarOpcion(c.clave);
+                          }
+                        }}
+                        maxLength={MAX_LARGO_TEXTO}
+                        placeholder="Nueva opción"
+                        aria-label={`Nueva opción del checklist ${c.titulo || i + 1}`}
+                        disabled={edicionLimitada}
+                        className="w-full rounded border border-system-300 bg-white px-3 py-2 text-[12.5px] text-system-900 outline-none focus:border-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => agregarOpcion(c.clave)}
+                        disabled={!c.nuevaOpcion.trim() || edicionLimitada}
+                        className="whitespace-nowrap text-[12.5px] font-medium text-brand-600 disabled:opacity-40"
+                      >
+                        + Agregar opción
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className={checklists.length > 0 ? "mt-3" : ""}>
+                <Button
                   type="button"
+                  size="sm"
                   disabled={edicionLimitada}
-                  onClick={() => toggleDataType(dt.value)}
-                  className={`rounded-pill border px-3 py-1.5 text-[12.5px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                    dataTypes.includes(dt.value)
-                      ? "border-brand-600 bg-brand-600 text-white"
-                      : "border-system-300 bg-white text-system-600 hover:border-brand-600"
-                  }`}
+                  onClick={() => setChecklists((prev) => [...prev, nuevoChecklist()])}
                 >
-                  {dt.label}
-                </button>
-              ))}
+                  + Agregar checklist
+                </Button>
+              </div>
             </div>
+          </TarjetaDePaso>
 
-            <div className="flex gap-3">
-              <Field label="Meta total" required>
+          <TarjetaDePaso
+            id="paso-meta"
+            numero={3}
+            titulo="Meta y cuota"
+            descripcion="Cuántos aportes aprobados busca la campaña y cuántos puede enviar cada persona."
+            completo={pasos[2].completo}
+            aviso={edicionLimitada ? "Solo la meta se puede cambiar" : undefined}
+          >
+            <div className="grid max-w-xl grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field label="Meta total" required hint="Solo cuentan los aportes aprobados.">
                 <Input
                   type="number"
                   min={1}
                   value={goal}
                   onChange={(e) => setGoal(e.target.value)}
+                  placeholder="Ej. 500"
                   required
                   className="font-mono"
                 />
               </Field>
-              <Field label="Cuota por persona" required>
+              <Field label="Cuota por persona" required hint="Máximo de aportes por participante.">
                 <Input
                   type="number"
                   min={1}
                   value={quota}
-                  onChange={(e) => setQuota(e.target.value)}
+                  onChange={(e) => cambiarCuota(e.target.value)}
+                  placeholder="Ej. 10"
                   required={!edicionLimitada}
                   disabled={edicionLimitada}
                   className="font-mono disabled:cursor-not-allowed disabled:opacity-50"
                 />
               </Field>
             </div>
-          </div>
 
-          <div>
-            <p className="mb-1 text-[13px] font-medium text-system-900">
-              Cómo describe su aporte el participante
-            </p>
-            <p className="mb-2.5 text-[12px] text-system-500">
-              Siempre escribe una descripción con sus palabras. Además puedes agregar
-              checklists con título para que marque lo que aplique: los que necesites, o ninguno.
-            </p>
-
-            {checklists.map((c, i) => (
-              <div key={c.clave} className="mb-3 rounded-lg border border-system-200 bg-white p-3.5">
-                <div className="mb-2.5 flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={c.titulo}
-                    onChange={(e) => cambiarChecklist(c.clave, { titulo: e.target.value })}
-                    maxLength={MAX_LARGO_TEXTO}
-                    placeholder="Título del checklist, p. ej. Estado del árbol"
-                    aria-label={`Título del checklist ${i + 1}`}
-                    disabled={edicionLimitada}
-                    className="w-full rounded border border-system-300 bg-white px-3 py-2 text-[13px] font-semibold text-system-900 outline-none focus:border-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
-                  />
-                  <button
-                    type="button"
-                    disabled={edicionLimitada}
-                    onClick={() => setChecklists((prev) => prev.filter((x) => x.clave !== c.clave))}
-                    className="whitespace-nowrap text-[11.5px] font-medium text-error-700 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Quitar checklist
-                  </button>
+            {hayReparto && (
+              <div className="mt-1 max-w-xl rounded-lg border border-system-200 bg-system-50 p-4">
+                <p className="text-[13px] font-medium text-system-900">
+                  Cuota por tipo de dato <span className="text-error-700">*</span>
+                </p>
+                <p className="mb-3 mt-0.5 text-[12px] text-system-500">
+                  Cuántos de cada tipo puede enviar cada persona. Se sugiere en partes iguales; ajústalo si
+                  quieres más de un tipo que de otro. La suma debe dar la cuota por persona.
+                </p>
+                <div className="grid grid-cols-2 gap-x-3 sm:grid-cols-3">
+                  {tiposConReparto.map((tipo) => (
+                    <Field key={tipo} label={DATA_TYPES.find((d) => d.value === tipo)?.label ?? tipo}>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={repartoTexto[tipo] ?? ""}
+                        onChange={(e) => setRepartoTexto((prev) => ({ ...prev, [tipo]: e.target.value }))}
+                        disabled={edicionLimitada}
+                        className="font-mono disabled:cursor-not-allowed disabled:opacity-50"
+                      />
+                    </Field>
+                  ))}
                 </div>
-
-                {c.opciones.length === 0 && (
-                  <p className="mb-2 text-[12px] text-system-500">Aún no agregas opciones a este checklist.</p>
-                )}
-                {c.opciones.map((opcion) => (
-                  <div key={opcion} className="mb-2 flex items-center justify-between gap-2 text-[12.5px] text-system-600">
-                    <span className="flex items-center gap-2">
-                      <span className="inline-block h-3.5 w-3.5 rounded-sm border border-system-300" aria-hidden />
-                      {opcion}
-                    </span>
-                    <button
-                      type="button"
-                      disabled={edicionLimitada}
-                      onClick={() => quitarOpcion(c.clave, opcion)}
-                      className="text-[11.5px] font-medium text-error-700 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      Quitar
-                    </button>
-                  </div>
-                ))}
-
-                <div className="mt-2 flex gap-2">
-                  <input
-                    type="text"
-                    value={c.nuevaOpcion}
-                    onChange={(e) => cambiarChecklist(c.clave, { nuevaOpcion: e.target.value })}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        agregarOpcion(c.clave);
-                      }
-                    }}
-                    maxLength={MAX_LARGO_TEXTO}
-                    placeholder="Nueva opción"
-                    aria-label={`Nueva opción del checklist ${c.titulo || i + 1}`}
-                    disabled={edicionLimitada}
-                    className="w-full rounded border border-system-300 bg-white px-3 py-2 text-[12.5px] text-system-900 outline-none focus:border-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => agregarOpcion(c.clave)}
-                    disabled={!c.nuevaOpcion.trim() || edicionLimitada}
-                    className="whitespace-nowrap text-[12.5px] font-medium text-brand-600 disabled:opacity-40"
-                  >
-                    + Agregar opción
-                  </button>
-                </div>
+                <p
+                  className={`text-[12px] font-medium ${
+                    Number(quota) > 0 && sumaDelReparto === Number(quota) ? "text-success-700" : "text-error-700"
+                  }`}
+                  aria-live="polite"
+                >
+                  {Number(quota) > 0
+                    ? `Suma ${sumaDelReparto} de ${Number(quota)}`
+                    : "Escribe primero la cuota por persona"}
+                </p>
               </div>
-            ))}
-
-            <Button
-              type="button"
-              size="sm"
-              disabled={edicionLimitada}
-              onClick={() => setChecklists((prev) => [...prev, nuevoChecklist()])}
-            >
-              + Agregar checklist
-            </Button>
-          </div>
-        </div>
-
-        <p className="mb-3 font-mono text-[12px] uppercase tracking-wide text-system-500">
-          3 · Vigencia
-        </p>
-        <div className="mb-2 max-w-md">
-          <Field label="Vigencia" required hint="La hora es opcional: sin hora, la campaña activa o finaliza desde el inicio de ese día.">
-            <div className="flex flex-wrap gap-3">
-              <div className="flex gap-2">
-                <Input
-                  type="date"
-                  value={startDate}
-                  min={edicionLimitada ? undefined : hoyEnTepic()}
-                  aria-label="Fecha de inicio"
-                  onChange={(e) => setStartDate(e.target.value)}
-                  required
-                  disabled={edicionLimitada}
-                  className="font-mono disabled:cursor-not-allowed disabled:opacity-50"
-                />
-                <Input
-                  type="time"
-                  value={startTime}
-                  aria-label="Hora de inicio (opcional)"
-                  onChange={(e) => setStartTime(e.target.value)}
-                  disabled={edicionLimitada}
-                  className="font-mono disabled:cursor-not-allowed disabled:opacity-50"
-                />
-              </div>
-              <div className="flex gap-2">
-                <Input
-                  type="date"
-                  value={endDate}
-                  min={startDate || (edicionLimitada ? undefined : hoyEnTepic())}
-                  aria-label="Fecha de finalización"
-                  onChange={(e) => setEndDate(e.target.value)}
-                  required
-                  className="font-mono"
-                />
-                <Input
-                  type="time"
-                  value={endTime}
-                  aria-label="Hora de finalización (opcional)"
-                  onChange={(e) => setEndTime(e.target.value)}
-                  className="font-mono"
-                />
-              </div>
-            </div>
-          </Field>
-        </div>
-        <p className="mb-3 font-mono text-[12px] uppercase tracking-wide text-system-500">
-          Ubicación
-        </p>
-        <div className="mb-6 grid max-w-3xl grid-cols-1 gap-4 sm:grid-cols-3">
-          <Field label="Estado" required>
-            <select
-              value={locationState}
-              onChange={(e) => cambiarEstado(e.target.value)}
-              required={!edicionLimitada}
-              disabled={edicionLimitada}
-              className="w-full rounded border border-system-300 bg-white px-3.5 py-3 text-sm text-system-900 outline-none transition-colors focus:border-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <option value="">Selecciona un estado</option>
-              {opcionesCon(locationState, NOMBRES_DE_ESTADOS).map((opcion) => (
-                <option key={opcion}>{opcion}</option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Municipio" required>
-            <select
-              value={locationCity}
-              onChange={(e) => cambiarMunicipio(e.target.value)}
-              required={!edicionLimitada}
-              disabled={!locationState || edicionLimitada}
-              className="w-full rounded border border-system-300 bg-white px-3.5 py-3 text-sm text-system-900 outline-none transition-colors focus:border-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <option value="">
-                {locationState ? "Selecciona un municipio" : "Primero selecciona un estado"}
-              </option>
-              {locationState && <option value={TODO_EL_ESTADO}>Todo el estado</option>}
-              {opcionesCon(municipioReal, municipiosDe(locationState)).map((opcion) => (
-                <option key={opcion}>{opcion}</option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Colonia (opcional)" hint="Para segmentar la campaña dentro del municipio.">
-            <Input
-              value={locationColonia}
-              onChange={(e) => setLocationColonia(e.target.value)}
-              maxLength={150}
-              placeholder={municipioReal ? "p. ej. Centro" : "Primero selecciona un municipio"}
-              disabled={!municipioReal || edicionLimitada}
-              className="disabled:cursor-not-allowed disabled:opacity-50"
-            />
-          </Field>
-        </div>
-
-        {edicionCompleta && (
-          <div className="mb-6 max-w-lg rounded-lg bg-warning-50 p-4 text-[12.5px] text-warning-800">
-            {status === "en_revision" || status === "rechazada"
-              ? "Puedes editar la campaña y volver a enviarla a revisión mientras el supervisor no responda."
-              : "Al enviar, la campaña pasa a “En revisión”; podrás seguir editándola mientras el supervisor no responda."}
-          </div>
-        )}
-        {edicionLimitada && (
-          <div className="mb-6 max-w-lg rounded-lg bg-system-100 p-4 text-[12.5px] text-system-600">
-            La campaña está {status === "pausada" ? "pausada" : status === "aceptada" ? "aceptada" : "activa"}: los cambios se
-            guardan y mantiene su estado actual.
-          </div>
-        )}
-        {formError && (
-          <div className="mb-6 max-w-lg rounded-lg border border-error-700 bg-error-50 p-4 text-[12.5px] text-error-700">
-            {formError}
-          </div>
-        )}
-
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-system-200 pt-4">
-          <p className="font-mono text-[12.5px] text-system-600">
-            {activeCampaigns} de {MAX_ACTIVE_CAMPAIGNS} campañas activas usadas
-          </p>
-          <div className="flex gap-2.5">
-            {!edicionLimitada && (
-              <Button type="submit" onClick={(e) => handleSubmit(e, true)}>
-                Guardar borrador
-              </Button>
             )}
-            <Button variant="primary" type="submit" disabled={!canPublish}>
-              {edicionLimitada ? "Guardar cambios" : "Enviar a revisión"}
-            </Button>
+          </TarjetaDePaso>
+
+          <TarjetaDePaso
+            id="paso-vigencia"
+            numero={4}
+            titulo="Vigencia y lugar"
+            descripcion="Cuándo recibe aportes y en qué parte del país."
+            completo={pasos[3].completo}
+            aviso={edicionLimitada ? "Solo la finalización se puede cambiar" : undefined}
+          >
+            <p className="mb-3 text-[12px] text-system-500">
+              La hora es opcional: sin hora, la campaña activa o finaliza desde el inicio de ese día.
+            </p>
+            <div className="mb-2 grid max-w-xl grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field label="Inicio" required>
+                <div className="flex gap-2">
+                  <CampoDeFecha
+                    value={startDate}
+                    min={edicionLimitada ? undefined : hoyEnTepic()}
+                    aria-label="Fecha de inicio"
+                    onChange={setStartDate}
+                    required
+                    disabled={edicionLimitada}
+                  />
+                  <Input
+                    type="time"
+                    value={startTime}
+                    aria-label="Hora de inicio (opcional)"
+                    onChange={(e) => setStartTime(e.target.value)}
+                    disabled={edicionLimitada}
+                    className="max-w-[7.5rem] shrink-0 font-mono disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                </div>
+              </Field>
+              <Field label="Finalización" required>
+                <div className="flex gap-2">
+                  <CampoDeFecha
+                    value={endDate}
+                    min={startDate || (edicionLimitada ? undefined : hoyEnTepic())}
+                    aria-label="Fecha de finalización"
+                    onChange={setEndDate}
+                    required
+                  />
+                  <Input
+                    type="time"
+                    value={endTime}
+                    aria-label="Hora de finalización (opcional)"
+                    onChange={(e) => setEndTime(e.target.value)}
+                    className="max-w-[7.5rem] shrink-0 font-mono"
+                  />
+                </div>
+              </Field>
+            </div>
+            {errorDeFechas && (startDate || endDate) && (
+              <p className="-mt-2 mb-4 text-[12px] text-error-700">{errorDeFechas}</p>
+            )}
+
+            <p className="mb-2 text-[13px] font-medium text-system-900">¿Dónde aplica la campaña?</p>
+            <label className="mb-4 flex cursor-pointer items-start gap-2.5 rounded-lg border border-system-200 bg-system-50 p-3.5 has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50">
+              <input
+                type="checkbox"
+                checked={todoElPais}
+                onChange={(e) => setTodoElPais(e.target.checked)}
+                disabled={edicionLimitada}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-brand-600"
+              />
+              <span>
+                <span className="block text-[13px] font-semibold text-system-900">
+                  Para todo el país (sin limitar por ubicación)
+                </span>
+                <span className="mt-0.5 block text-[12px] text-system-600">
+                  La campaña aparece en toda la República y se avisa a quien tenga su temática, viva donde viva.
+                  Déjala sin marcar para limitarla a un estado o municipio.
+                </span>
+              </span>
+            </label>
+
+            {!todoElPais && (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <Field label="Estado" required>
+                  <select
+                    value={locationState}
+                    onChange={(e) => cambiarEstado(e.target.value)}
+                    required={!edicionLimitada}
+                    disabled={edicionLimitada}
+                    className="w-full rounded border border-system-300 bg-white px-3.5 py-3 text-sm text-system-900 outline-none transition-colors focus:border-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <option value="">Selecciona un estado</option>
+                    {opcionesCon(locationState, NOMBRES_DE_ESTADOS).map((opcion) => (
+                      <option key={opcion}>{opcion}</option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Municipio" required>
+                  <select
+                    value={locationCity}
+                    onChange={(e) => cambiarMunicipio(e.target.value)}
+                    required={!edicionLimitada}
+                    disabled={!locationState || edicionLimitada}
+                    className="w-full rounded border border-system-300 bg-white px-3.5 py-3 text-sm text-system-900 outline-none transition-colors focus:border-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <option value="">
+                      {locationState ? "Selecciona un municipio" : "Primero selecciona un estado"}
+                    </option>
+                    {locationState && <option value={TODO_EL_ESTADO}>Todo el estado</option>}
+                    {opcionesCon(municipioReal, municipiosDe(locationState)).map((opcion) => (
+                      <option key={opcion}>{opcion}</option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Colonia (opcional)" hint="Para segmentar la campaña dentro del municipio.">
+                  <Input
+                    value={locationColonia}
+                    onChange={(e) => setLocationColonia(e.target.value)}
+                    maxLength={150}
+                    placeholder={municipioReal ? "p. ej. Centro" : "Primero selecciona un municipio"}
+                    disabled={!municipioReal || edicionLimitada}
+                    className="disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                </Field>
+              </div>
+            )}
+          </TarjetaDePaso>
+
+          {edicionCompleta && (
+            <div className="mb-6 max-w-lg rounded-lg bg-warning-50 p-4 text-[12.5px] text-warning-800">
+              {status === "en_revision" || status === "rechazada"
+                ? "Puedes editar la campaña y volver a enviarla a revisión mientras el supervisor no responda."
+                : "Al enviar, la campaña pasa a “En revisión”; podrás seguir editándola mientras el supervisor no responda."}
+            </div>
+          )}
+          {edicionLimitada && (
+            <div className="mb-6 max-w-lg rounded-lg bg-system-100 p-4 text-[12.5px] text-system-600">
+              La campaña está {status === "pausada" ? "pausada" : status === "aceptada" ? "aceptada" : "activa"}: los cambios se
+              guardan y mantiene su estado actual.
+            </div>
+          )}
+          {formError && (
+            <div className="mb-6 max-w-lg rounded-lg border border-error-700 bg-error-50 p-4 text-[12.5px] text-error-700">
+              {formError}
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-system-200 pt-4">
+            <p className="font-mono text-[12.5px] text-system-600">
+              {activeCampaigns} de {MAX_ACTIVE_CAMPAIGNS} campañas activas usadas
+            </p>
+            <div className="flex gap-2.5">
+              {!edicionLimitada && (
+                <Button type="submit" onClick={(e) => handleSubmit(e, true)}>
+                  Guardar borrador
+                </Button>
+              )}
+              <Button variant="primary" type="submit" disabled={!canPublish}>
+                {edicionLimitada ? "Guardar cambios" : "Enviar a revisión"}
+              </Button>
+            </div>
           </div>
-        </div>
-      </form>
+        </form>
+      </div>
     </div>
   );
 }

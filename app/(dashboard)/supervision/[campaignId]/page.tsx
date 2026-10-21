@@ -9,6 +9,7 @@
 // Activa o pausada: PATCH { action: "pausar" | "reanudar" | "finalizar", motivo } con
 // components/supervision/EstadoDeCampanaSupervisada (lib/supervision/estado-por-supervision.ts).
 
+import { textoDeUbicacion } from "@/lib/campanas/ubicacion";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -20,6 +21,7 @@ import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import EstadoDeCampanaSupervisada, { type CambioDeEstado } from "@/components/supervision/EstadoDeCampanaSupervisada";
 import type { PausaDeCampana } from "@/lib/campanas/pausa";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
+import { describirReparto, type CuotaPorTipo } from "@/lib/campanas/cuota-por-tipo";
 
 type Campaign = {
   id: string;
@@ -35,6 +37,8 @@ type Campaign = {
   approvedContributions?: number;
   participants?: number;
   quotaPerUser?: number;
+  cuotaPorTipo?: CuotaPorTipo | null;
+  todoElPais?: boolean;
   description?: string;
   dataTypes?: string[];
   locationCity?: string;
@@ -196,7 +200,7 @@ export default function CampaignDetailPage() {
     return parsed ? parsed.toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" }) : "sin fecha";
   };
   const dataTypes = Array.isArray(campaign.dataTypes) && campaign.dataTypes.length > 0 ? campaign.dataTypes : ["texto"];
-  const location = [campaign.locationColonia, campaign.locationCity, campaign.locationState].filter(Boolean).join(", ") || "Sin ubicación";
+  const location = textoDeUbicacion({ todoElPais: campaign.todoElPais, colonia: campaign.locationColonia, municipio: campaign.locationCity, estado: campaign.locationState }, "Sin ubicación");
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -320,7 +324,10 @@ export default function CampaignDetailPage() {
             </div>
             <div className="flex justify-between border-b border-system-200 pb-3 text-[13px]">
               <span className="text-system-600">Cuota por usuario</span>
-              <span className="font-mono">{Number(campaign.quotaPerUser ?? 0)}</span>
+              <span className="text-right font-mono">
+                {Number(campaign.quotaPerUser ?? 0)}
+                {campaign.cuotaPorTipo ? ` (${describirReparto(campaign.cuotaPorTipo)})` : ""}
+              </span>
             </div>
           </div>
         </div>

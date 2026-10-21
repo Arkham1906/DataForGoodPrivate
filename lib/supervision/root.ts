@@ -4,6 +4,7 @@ import { pool } from "@/lib/db";
 import { activateScheduledCampaigns, finalizeExpiredCampaigns, normalizeCampaignDate } from "@/lib/campaign-date";
 import { hasRootSession } from "@/lib/rootSession";
 import { pausaDesdeFila, type PausaDeCampana } from "@/lib/campanas/pausa";
+import { normalizarCuotaPorTipo, type CuotaPorTipo } from "@/lib/campanas/cuota-por-tipo";
 
 /*
  * Datos del modo supervisor del SuperUsuario (/supervisar, dentro de
@@ -41,10 +42,14 @@ export type CampanaSupervisable = {
   goalContributions: number;
   participants: number;
   quotaPerUser: number;
+  /** Reparto de la cuota por tipo de dato; null = solo la cuota general. */
+  cuotaPorTipo: CuotaPorTipo | null;
   description: string;
   organizer: string;
   dataTypes: string[];
   locationColonia: string;
+  /** Para todo el país (lib/campanas/ubicacion.ts). */
+  todoElPais: boolean;
   locationCity: string;
   locationState: string;
   startDate: string | null;
@@ -72,10 +77,12 @@ function mapear(row: Record<string, unknown>): CampanaSupervisable {
     goalContributions: Number(row.goal_contributions ?? 0),
     participants: Number(row.participants ?? 0),
     quotaPerUser: Number(row.quota_per_user ?? 0),
+    cuotaPorTipo: normalizarCuotaPorTipo(row.cuota_por_tipo, Array.isArray(row.data_types) ? row.data_types.map(String) : []),
     description: String(row.description ?? ""),
     organizer: String(row.organizer ?? ""),
     dataTypes: Array.isArray(row.data_types) ? row.data_types.map(String) : [],
     locationColonia: String(row.location_colonia ?? ""),
+    todoElPais: row.todo_el_pais === true,
     locationCity: String(row.location_city ?? ""),
     locationState: String(row.location_state ?? ""),
     startDate: normalizeCampaignDate(row.start_date),
