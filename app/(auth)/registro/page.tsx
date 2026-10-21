@@ -60,6 +60,7 @@ function RegistroForm() {
 
   const allRulesPass = REGLAS_DE_CONTRASENA.every((r) => r.test(password));
   const passwordsMatch = password.length > 0 && password === confirmPassword;
+  const confirmationMismatch = confirmPassword.length > 0 && password !== confirmPassword;
   const canSubmit = nombre && apellidos && email && allRulesPass && passwordsMatch && acceptedTerms;
 
   async function handleSubmit(e: React.FormEvent) {
@@ -176,10 +177,19 @@ function RegistroForm() {
             onChange={(e) => setConfirmPassword(e.target.value)}
             placeholder="••••••••"
             required
-            className={
-              confirmPassword.length > 0 && !passwordsMatch ? "border-error-700" : ""
-            }
+            aria-describedby={confirmationMismatch ? "registro-error-confirmacion" : undefined}
+            aria-invalid={confirmationMismatch}
+            className={confirmationMismatch ? "border-error-700" : ""}
           />
+          {confirmationMismatch && (
+            <p
+              id="registro-error-confirmacion"
+              className="mt-1.5 text-[12px] text-error-700"
+              aria-live="polite"
+            >
+              Las contraseñas no coinciden.
+            </p>
+          )}
         </Field>
 
         <ul className="mb-4 flex flex-col gap-1.5">
