@@ -1,20 +1,22 @@
 "use client";
 
 // Botón "Compartir" de /campanas/[id] y su cuadro (<dialog> nativo) con el enlace
-// público (/c/[token]) y el código QR de la campaña. Cualquiera con sesión puede
-// copiar el enlace y descargar el QR; solo el creador lo regenera y ve sus visitas
-// y aportes. El enlace se genera solo cuando la campaña queda activa.
+// público (/c/[token]), "Compartir en redes" (redes-sociales.tsx: WhatsApp, Facebook, X...)
+// y el código QR de la campaña. Cualquiera con sesión puede copiar el enlace, compartirlo y
+// descargar el QR; solo el creador lo regenera y ve sus visitas y aportes. El enlace se genera
+// solo cuando la campaña queda activa. /mis-campanas lo abre en modo controlado (abierto/onCerrar).
 // Datos: GET /api/campanas/[id]/enlace al abrir. QR: GET /api/campanas/[id]/qr.
 // Regenerar: regenerar.tsx (POST /api/campanas/[id]/enlace). Aportes sin cuenta:
 // permitir-anonimos.tsx (PATCH /api/campanas/[id]/enlace), solo el creador.
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Button, { buttonClasses } from "@/components/ui/Button";
 import Tag from "@/components/ui/Tag";
 import { BASE_PATH } from "@/lib/base-path";
 import EnlacePublico from "./enlace-publico";
 import BotonRegenerar from "./regenerar";
 import PermitirAnonimos from "./permitir-anonimos";
+import RedesSociales from "./redes-sociales";
 
 type Enlace = {
   url: string;
@@ -38,23 +40,46 @@ const fechaConHora = new Intl.DateTimeFormat("es-MX", {
   timeZone: "America/Mazatlan",
 });
 
-export default function CompartirCampana({ campanaId, nombre }: { campanaId: string; nombre: string }) {
+/** GET /api/campanas/[id]/enlace, ya convertido a Datos. Lanza con el mensaje del servidor. */
+async function pedirEnlace(campanaId: string): Promise<Datos> {
+  const response = await fetch(`${BASE_PATH}/api/campanas/${campanaId}/enlace`, { cache: "no-store" });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error ?? "No se pudo cargar el enlace");
+  return {
+    enlace: payload.data ?? null,
+    status: payload.campana?.status ?? "",
+    esCreador: Boolean(payload.viewer?.esCreador),
+    permiteAnonimos: payload.campana?.permiteAnonimos !== false,
+  };
+}
+
+export default function CompartirCampana({
+  campanaId,
+  nombre,
+  tematica,
+  abierto,
+  onCerrar,
+}: {
+  campanaId: string;
+  nombre: string;
+  /** Para el mensaje que se propone al compartir en redes. */
+  tematica?: string | null;
+  /**
+   * Modo controlado (p. ej. "Compartir" del menú Más de /mis-campanas): sin botón propio, el cuadro se
+   * abre cuando `abierto` pasa a true y avisa con onCerrar al cerrarse.
+   */
+  abierto?: boolean;
+  onCerrar?: () => void;
+}) {
   const dialogo = useRef<HTMLDialogElement>(null);
   const [datos, setDatos] = useState<Datos | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const controlado = abierto !== undefined;
 
   const cargar = useCallback(async () => {
     setError(null);
     try {
-      const response = await fetch(`${BASE_PATH}/api/campanas/${campanaId}/enlace`, { cache: "no-store" });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error ?? "No se pudo cargar el enlace");
-      setDatos({
-        enlace: payload.data ?? null,
-        status: payload.campana?.status ?? "",
-        esCreador: Boolean(payload.viewer?.esCreador),
-        permiteAnonimos: payload.campana?.permiteAnonimos !== false,
-      });
+      setDatos(await pedirEnlace(campanaId));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se pudo cargar el enlace");
     }
@@ -70,18 +95,36 @@ export default function CompartirCampana({ campanaId, nombre }: { campanaId: str
     dialogo.current?.close();
   }
 
+  // Modo controlado: quien lo usa lo monta de nuevo cada vez (sin datos previos), así que solo
+  // hay que mostrar el cuadro y pedir el enlace.
+  useEffect(() => {
+    if (!abierto) return;
+    if (!dialogo.current?.open) dialogo.current?.showModal();
+    let vigente = true;
+    pedirEnlace(campanaId)
+      .then((d) => vigente && setDatos(d))
+      .catch((cause) => vigente && setError(cause instanceof Error ? cause.message : "No se pudo cargar el enlace"));
+    return () => {
+      vigente = false;
+    };
+  }, [abierto, campanaId]);
+
   const enlace = datos?.enlace ?? null;
   const caducado = enlace !== null && !enlace.vigente;
 
   return (
     <>
-      <Button variant="secondary" size="sm" onClick={abrir}>
-        Compartir
-      </Button>
+      {!controlado && (
+        <Button variant="secondary" size="sm" onClick={abrir}>
+          Compartir
+        </Button>
+      )}
 
       <dialog
         ref={dialogo}
         aria-labelledby="compartir-titulo"
+        // Con Esc, la ×, el fondo o al cambiar de pantalla: quien lo abrió se entera.
+        onClose={() => onCerrar?.()}
         // Clic en el fondo (fuera de la caja): se cierra.
         onClick={(e) => {
           if (e.target === dialogo.current) cerrar();
@@ -138,6 +181,8 @@ export default function CompartirCampana({ campanaId, nombre }: { campanaId: str
               <div className="grid grid-cols-1 items-start gap-6 sm:grid-cols-2">
                 <div>
                   <EnlacePublico url={enlace.url} expiraEnIso={enlace.expiraEn} onVencer={cargar} />
+
+                  {!caducado && <RedesSociales url={enlace.url} nombre={nombre} tematica={tematica} />}
 
                   {!caducado ? (
                     <p className="mb-4 rounded-lg bg-system-100 p-3.5 text-[12.5px] text-system-600">

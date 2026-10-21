@@ -325,17 +325,18 @@ paths:
       description: |
         - **SuperUsuario** (token `rootBearer` o cookie de /root): todos los usuarios del sistema,
           20 por página, del más reciente al más antiguo. Filtros opcionales: `q`, `rol`, `estado`, `pagina`.
-        - **Usuario** (`session_token`): buscador de "agregar revisor". Exige `campanaId` (y ser su
-          creador); busca por nombre (3+ letras) o correo exacto, entre cuentas verificadas, hasta 10
-          resultados con el correo oculto.
+        - **Usuario** (`session_token`): lista de "agregar revisor". Exige `campanaId` (y ser su
+          creador). Sin `q`, todas las cuentas verificadas (menos la suya), 30 por página por nombre;
+          `q` filtra por nombre y apellidos desde la primera letra (sin importar acentos), o por correo
+          solo si es completo y exacto. El correo siempre va oculto.
       security:
         - rootBearer: []
         - sessionCookie: []
       parameters:
-        - { name: q, in: query, required: false, schema: { type: string }, description: "SuperUsuario: nombre, apellidos, correo o id. Usuario: nombre o correo" }
+        - { name: q, in: query, required: false, schema: { type: string }, description: "SuperUsuario: nombre, apellidos, correo o id. Usuario: parte del nombre y apellidos, o el correo completo" }
         - { name: rol, in: query, required: false, schema: { type: string, enum: [usuario, supervisor, revisor] }, description: Solo SuperUsuario }
         - { name: estado, in: query, required: false, schema: { type: string, enum: [ACTIVA, CON_STRIKES, SUSPENDIDA, BANEADA] }, description: Solo SuperUsuario }
-        - { name: pagina, in: query, required: false, schema: { type: integer, minimum: 1, default: 1 }, description: Solo SuperUsuario }
+        - { name: pagina, in: query, required: false, schema: { type: integer, minimum: 1, default: 1 }, description: "SuperUsuario: 20 por página. Usuario: 30 por página" }
         - { name: campanaId, in: query, required: false, schema: { type: integer }, description: Solo usuario (obligatorio para él) }
       responses:
         "200":
@@ -376,6 +377,9 @@ paths:
                             apellidos: { type: string }
                             emailOculto: { type: string, example: "an***@correo.com" }
                             role: { type: array, items: { type: string } }
+                      total: { type: integer, description: Cuántos coinciden en total }
+                      pagina: { type: integer }
+                      hayMas: { type: boolean }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
@@ -411,9 +415,8 @@ paths:
       summary: Editar el propio perfil
       description: |
         Las llaves que no se mandan no se tocan. `intereses` son temáticas del catálogo
-        (`GET /api/tematicas`); una que no existe se da de alta en el catálogo si es válida (letras,
-        de 4 a 40, hasta tres palabras, sin groserías) o responde 400. Máximo 20. Una temática oculta
-        solo se conserva si ya estaba en el perfil. `interesesTexto` es lo que la persona escribió
+        (`GET /api/tematicas`); una que no existe responde 400 (desde el 2026-10-20 ya no se da de
+        alta). Máximo 20. Una temática oculta o pendiente solo se conserva si ya estaba en el perfil. `interesesTexto` es lo que la persona escribió
         sobre sus gustos (máx. 500; "" lo borra): de ahí la app saca los intereses.
       requestBody:
         required: true
@@ -429,7 +432,7 @@ paths:
                 specialty: { type: string }
                 intereses: { type: array, items: { type: string }, maxItems: 20 }
                 interesesTexto: { type: string, maxLength: 500 }
-            example: { interesesTexto: "Me gusta andar en bici y la fotografía", intereses: [Movilidad, Fotografía] }
+            example: { interesesTexto: "Me gusta andar en bici y la fotografía", intereses: [Movilidad, Cultura] }
       responses:
         "200": { description: Perfil actualizado (con `intereses` ya con el nombre del catálogo) }
         "400": { $ref: "#/components/responses/BadRequest" }
@@ -649,7 +652,7 @@ paths:
     get:
       tags: [Campañas]
       summary: Listar campañas
-      description: Usa uno de los filtros a la vez. Sin filtros lista las campañas visibles.
+      description: "Usa uno de los filtros a la vez. Sin filtros (y con `id`) solo devuelve lo que quien consulta puede ver (`lib/campanas/visibilidad.ts`, 2026-10-20): cualquiera ve las activas, pausadas y finalizadas; el creador, las suyas; un supervisor, además las que están en revisión y las que supervisa; el revisor aceptado, esa campaña; la sesión raíz, todas. Con `id` de una que no puede ver responde 404."
       security: []
       parameters:
         - { name: id, in: query, schema: { type: integer }, description: "Una sola campaña. La respuesta trae además `viewer: { isCreator, isMySupervision, baneado, motivoDeBaneo, yaReportada }` (`baneado`: el creador te baneó de esta campaña; `yaReportada`: ya la reportaste)" }
@@ -691,6 +694,7 @@ paths:
     get:
       tags: [Campañas]
       summary: Detalle de campaña
+      description: "Pública solo si está activa, pausada o finalizada; en otro estado, solo para el creador, los supervisores (en revisión o la que supervisa), su revisor aceptado o la sesión raíz. Al resto le responde 404 (lib/campanas/visibilidad.ts, 2026-10-20)."
       security: []
       responses:
         "200":
@@ -831,8 +835,8 @@ paths:
       tags: [Usuarios]
       summary: Preferencias de notificaciones (cuenta propia)
       description: |
-        Una o varias de las cuatro opciones de "Comunicación y notificaciones" (booleanos). Cualquier
-        otra llave o un valor que no sea booleano da 400.
+        Una o varias de las opciones de "Comunicación y notificaciones" (booleanos), incluido el interruptor
+        general `notificaciones` (2026-10-19). Cualquier otra llave o un valor que no sea booleano da 400.
       requestBody:
         required: true
         content:
@@ -846,6 +850,7 @@ paths:
                 avisosAportes: { type: boolean, description: Aporte aceptado o rechazado }
                 recordatorioSemanal: { type: boolean, description: "Lunes 9:00: cuota pendiente" }
                 resumenMensual: { type: boolean, description: "Día 1, 9:00: resumen del mes" }
+                notificaciones: { type: boolean, description: "Interruptor general: false = ninguna notificación salvo rol, sanciones e invitación de revisor" }
       responses:
         "200": { description: Guardado }
         "400": { $ref: "#/components/responses/BadRequest" }
@@ -1482,11 +1487,12 @@ paths:
       - $ref: "#/components/parameters/Id"
     post:
       tags: [Aportes]
-      summary: Reportar un aporte a supervisión (revisor aceptado)
+      summary: Reportar un aporte a supervisión (revisor aceptado o creador)
       description: |
-        El revisor reporta a quien envió el aporte. Entra a la bandeja de Reportes de la supervisión
-        y avisa solo a los supervisores (`reporte_nuevo`); el creador de la campaña no recibe aviso
-        (desde el 2026-10-15). No banea ni cambia el estado. Solo aportes con cuenta (anónimo: 400).
+        El revisor o el creador (desde el 2026-10-19) reportan a quien envió el aporte. Entra a la bandeja
+        de Reportes de la supervisión y avisa solo a los supervisores (`reporte_nuevo`); el creador de la
+        campaña no recibe aviso (desde el 2026-10-15). Desde el 2026-10-19 **rechaza el aporte** (aunque
+        estuviera aceptado; no en una campaña finalizada) y avisa a quien aportó. No banea. Solo aportes con cuenta (anónimo: 400).
         Uno por aporte; se puede antes o después de decidirlo. No se puede reportar un aporte propio.
         Bitácora `aporte.reportar`.
       requestBody:
@@ -1515,8 +1521,9 @@ paths:
       tags: [Aportes]
       summary: Reportar a la plataforma a quien envió el aporte (creador o revisor aceptado)
       description: |
-        Va a la bandeja del SuperUsuario (/reportes), que lo descarta o lo confirma con un aviso
-        (escala: mensaje, 2 días, 7 días, baneo y lista negra). Quien aportó no se entera. Solo aportes
+        Va a Reportes de la supervisión, que lo descarta o lo confirma con un aviso (escala: mensaje,
+        2 días, 7 días, baneo y lista negra). Quien aportó no se entera del reporte, pero desde el
+        2026-10-19 **el aporte se rechaza** (aunque estuviera aceptado; no en una campaña finalizada). Solo aportes
         con cuenta (anónimo: 400). Uno por persona y aporte. Bitácora `aporte.reportar_participante`.
         Distinto de /reportar ("Reportar a supervisión" del revisor, que también entra a la bandeja).
       requestBody:
@@ -1628,6 +1635,7 @@ paths:
                 properties:
                   data: { type: array, items: { $ref: "#/components/schemas/Notification" } }
                   noLeidas: { type: integer, description: Total sin leer (sin importar el filtro ni la página) }
+                  limpiables: { type: integer, description: Cuántas borraría DELETE /api/notificaciones (leídas o de más de 30 días) }
                   total: { type: integer, description: Total que cumple el filtro }
                   pagina: { type: integer }
                   porPagina: { type: integer }
@@ -1657,6 +1665,24 @@ paths:
                   marcadas: { type: integer, description: Cuántas estaban sin leer }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+    delete:
+      tags: [Revisiones y notificaciones]
+      summary: Limpiar las leídas y las viejas
+      description: |
+        "Limpiar leídas y viejas" de /notificaciones. Borra las notificaciones ya leídas y, aunque no se
+        hayan leído, las de más de 30 días (DIAS_PARA_NOTIFICACION_VIEJA en lib/notificaciones/tipos.ts).
+        Una invitación de revisor sin aceptar se conserva. No se puede deshacer.
+      responses:
+        "200":
+          description: Limpiadas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+                  borradas: { type: integer, description: Cuántas se borraron }
+        "401": { $ref: "#/components/responses/Unauthorized" }
 
   /api/tematicas:
     get:
@@ -1664,8 +1690,8 @@ paths:
       summary: Catálogo de temáticas
       description: |
         Las temáticas que se ofrecen como intereses y como temática de campaña: las 23 base en su
-        orden y después las que salieron de los textos de los usuarios, en orden alfabético. Sin las
-        que ocultó el SuperUsuario.
+        orden y después las que salieron de los textos de los usuarios (hasta el 2026-10-20) ya
+        aprobadas, en orden alfabético. Sin las que ocultó el SuperUsuario.
       responses:
         "200":
           description: Catálogo
@@ -1680,6 +1706,35 @@ paths:
         "500":
           description: No se pudo leer el catálogo
           content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+
+  /api/eventos:
+    get:
+      tags: [Revisiones y notificaciones]
+      summary: Actualización en vivo (long polling)
+      description: |
+        Acepta sesión de usuario o raíz. Sin parámetros, responde al momento con el id de la última
+        notificación y la versión de contenido. Con `desde` y `version`, responde en cuanto haya
+        notificaciones con id mayor que `desde` o la versión sea otra (cualquier escritura en las tablas
+        con trigger `dfg_avisar_cambio`); si no pasa nada, a los 25 s sin novedades. La llama
+        components/layout/ActualizacionEnVivo en bucle: con notificaciones actualiza la campana (y
+        refresca con un cambio de rol o sanción); con otra versión, las pantallas vuelven a leer.
+      parameters:
+        - { name: desde, in: query, schema: { type: integer, minimum: 0 } }
+        - { name: version, in: query, schema: { type: integer, minimum: 0 } }
+      responses:
+        "200":
+          description: Novedades (o ninguna, al vencer la espera)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tipos: { type: array, items: { type: string }, description: TipoDeNotificacion de cada una nueva (vacío con sesión raíz) }
+                  ultimoId: { type: integer }
+                  version: { type: integer, description: Versión de contenido; si cambió, hay que volver a leer }
+        "204": { description: El cliente cerró la petición antes de que hubiera novedades }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
 
   /api/push:
     get:

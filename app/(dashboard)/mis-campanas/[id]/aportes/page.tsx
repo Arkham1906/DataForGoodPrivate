@@ -14,6 +14,7 @@ import type { Campaign, Contribution } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
 import BaneadosDeCampana from "./baneados";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
+import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 
 const STAGE_LABEL: Record<string, string> = {
   pendiente: "Sin revisar",
@@ -38,6 +39,8 @@ export default function BandejaAportesPage() {
   const [error, setError] = useState<string | null>(null);
   const [filtro, setFiltro] = useState<Filtro>("todos");
 
+  // Vuelve a leer cuando algo cambia en la base (actualización en vivo).
+  const recarga = useRecargaEnVivo();
   useEffect(() => {
     async function load() {
       try {
@@ -58,7 +61,7 @@ export default function BandejaAportesPage() {
       }
     }
     void load();
-  }, [params.id]);
+  }, [params.id, recarga]);
 
   if (error) return <p className="text-sm text-error-700">{error}</p>;
   if (!campaign) return <PantallaEsqueleto tipo="tabla" etiqueta="Cargando aportes…" />;

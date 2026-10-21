@@ -5,7 +5,8 @@
 // Acciones en "Más", con PATCH /api/campanas/[id] { status }: "Pausar" (activa → pausada),
 // "Reanudar" (pausada → activa; no si la pausó la supervisión, que se muestra con su motivo)
 // y "Finalizar" (activa o pausada). Pausar y Finalizar se confirman en una ventana emergente
-// (ui/VentanaDeConfirmacion). Solo el creador las ve:
+// (ui/VentanaDeConfirmacion). "Compartir" (activa, 2026-10-19) abre el mismo cuadro de
+// /campanas/[id] (enlace, redes sociales y QR; campanas/[id]/compartir.tsx). Solo el creador las ve:
 // la lista viene de mine=true y el servidor revisa creator_id.
 
 import { useEffect, useState } from "react";
@@ -17,7 +18,10 @@ import type { Campaign, CampaignStatus } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
 import { EsqueletoDeTarjetas } from "@/components/ui/Esqueletos";
 import VentanaDeConfirmacion from "@/components/ui/VentanaDeConfirmacion";
+import CompartirCampana from "@/app/(dashboard)/campanas/[id]/compartir";
 import { resumenDeIncentivos, textoDelPeriodo } from "@/lib/campanas/especial-reglas";
+import { porcentajeDeMeta } from "@/lib/campanas/meta";
+import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 
 const labels: Record<CampaignStatus, string> = {
   borrador: "Borrador",
@@ -80,11 +84,14 @@ export default function MisCampanasPage() {
   const [cambioError, setCambioError] = useState<Record<string, string>>({});
   // Campaña cuya ventana de "Pausar" está abierta.
   const [porPausar, setPorPausar] = useState<Campaign | null>(null);
+  const [porCompartir, setPorCompartir] = useState<Campaign | null>(null);
   // Campaña cuya ventana de "Finalizar" está abierta (2026-10-16; antes window.confirm).
   const [porFinalizar, setPorFinalizar] = useState<Campaign | null>(null);
   const [cargando, setCargando] = useState(true);
   const [filtro, setFiltro] = useState<Filtro>("todas");
 
+  // Vuelve a leer cuando algo cambia en la base (actualización en vivo).
+  const recarga = useRecargaEnVivo();
   useEffect(() => {
     void fetch(`${BASE_PATH}/api/campanas?mine=true`, { cache: "no-store" })
       .then(async (response) => {
@@ -98,7 +105,7 @@ export default function MisCampanasPage() {
       })
       .catch((cause) => setError(cause instanceof Error ? cause.message : "No se pudieron cargar las campañas"))
       .finally(() => setCargando(false));
-  }, []);
+  }, [recarga]);
 
   const count = (status: CampaignStatus) => campaigns.filter((campaign) => campaign.status === status).length;
   // Los estados fijos siempre se ven; el resto solo si hay alguna campaña en él.
@@ -188,9 +195,7 @@ export default function MisCampanasPage() {
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {visibles.map((campaign) => {
-            const pct = campaign.goalContributions
-              ? Math.min(100, Math.round((campaign.currentContributions / campaign.goalContributions) * 100))
-              : 0;
+            const pct = porcentajeDeMeta(campaign.approvedContributions, campaign.goalContributions);
             const puedeFinalizar = campaign.status === "activa" || campaign.status === "pausada";
             const cambiando = cambiandoId === campaign.id;
 
@@ -206,12 +211,9 @@ export default function MisCampanasPage() {
                 <p className="mb-2.5 font-mono text-[11.5px] text-system-600 max-md:text-[10.5px]">
                   {campaign.startDate ?? "Sin fecha"} - {campaign.endDate ?? "Sin fecha"}
                 </p>
-                <ProgressBar
-                  pct={campaign.status === "finalizada" ? 100 : pct}
-                  tone={campaign.status === "finalizada" ? "ok" : "accent"}
-                />
+                <ProgressBar pct={pct} tone={campaign.status === "finalizada" ? "ok" : "accent"} />
                 <p className="my-2.5 font-mono text-[12px] text-system-600 max-md:text-[11px]">
-                  {campaign.currentContributions} / {campaign.goalContributions} - {campaign.pendingContributions} aportes pendientes
+                  {campaign.approvedContributions} / {campaign.goalContributions} aprobados - {campaign.pendingContributions} aportes pendientes
                   {campaign.especial && <> · {textoDelPeriodo(campaign.especial)}</>}
                 </p>
                 {campaign.especial && (
@@ -227,6 +229,9 @@ export default function MisCampanasPage() {
                   <MenuDeAcciones
                     etiqueta={`Más acciones de ${campaign.name}`}
                     opciones={[
+                      ...(campaign.status === "activa"
+                        ? [{ etiqueta: "Compartir", alElegir: () => setPorCompartir(campaign) }]
+                        : []),
                       { etiqueta: "Editar", href: `/mis-campanas/nueva?edit=${campaign.id}` },
                       ...(puedeFinalizar
                         ? [{ etiqueta: campaign.especial ? "Editar incentivos" : "Hacer especial", href: `/mis-campanas/${campaign.id}/especial` }]
@@ -267,6 +272,17 @@ export default function MisCampanasPage() {
             );
           })}
         </div>
+      )}
+
+      {porCompartir && (
+        <CompartirCampana
+          key={porCompartir.id}
+          campanaId={porCompartir.id}
+          nombre={porCompartir.name}
+          tematica={porCompartir.tematica || porCompartir.tag}
+          abierto
+          onCerrar={() => setPorCompartir(null)}
+        />
       )}
 
       <VentanaDeConfirmacion

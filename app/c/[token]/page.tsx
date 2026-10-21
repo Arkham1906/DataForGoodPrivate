@@ -18,6 +18,7 @@ import Card from "@/components/ui/Card";
 import ProgressBar from "@/components/ui/ProgressBar";
 import Tag from "@/components/ui/Tag";
 import { buscarEnlacePorToken, registrarVisita, type CampanaDelEnlace } from "@/lib/campanas/enlaces";
+import { porcentajeDeMeta } from "@/lib/campanas/meta";
 import { avisoDePausa } from "@/lib/campanas/pausa";
 import { COOKIE_ANONIMO, dispositivoValido } from "@/lib/aportes/anonimato";
 import {
@@ -32,11 +33,27 @@ import { getSessionUser } from "@/lib/session";
 import { cookies, headers } from "next/headers";
 import AporteAnonimo from "./aporte-anonimo";
 
-export const metadata: Metadata = {
-  title: "Participa en una campaña",
+/**
+ * Título y vista previa del enlace (2026-10-19): WhatsApp, Facebook, X y las demás redes muestran el
+ * nombre y la descripción de la campaña al pegar el enlace (Open Graph). Solo lee: no cuenta visita.
+ */
+export async function generateMetadata({ params }: { params: Promise<{ token: string }> }): Promise<Metadata> {
   // El token es un acceso temporal: que no lo indexen los buscadores.
-  robots: { index: false, follow: false },
-};
+  const base: Metadata = { title: "Participa en una campaña", robots: { index: false, follow: false } };
+  const { token } = await params;
+  const resultado = await buscarEnlacePorToken(token.toLowerCase()).catch(() => null);
+  if (!resultado || resultado.tipo !== "valido") return base;
+  const titulo = `Participa en «${resultado.campana.nombre}»`;
+  const descripcion =
+    resultado.campana.descripcion.trim().slice(0, 200) || "Una campaña de DataForGood para reunir datos de la comunidad.";
+  return {
+    ...base,
+    title: titulo,
+    description: descripcion,
+    openGraph: { title: titulo, description: descripcion, siteName: "DataForGood", type: "website", locale: "es_MX" },
+    twitter: { card: "summary", title: titulo, description: descripcion },
+  };
+}
 
 const numero = new Intl.NumberFormat("es-MX");
 // fechaFin viene como "AAAA-MM-DD" (DATE sin hora): se formatea en UTC para no correr el día.
@@ -127,7 +144,7 @@ function Invitacion({
   espera: number;
   sinFormulario: string | null;
 }) {
-  const pct = campana.meta ? Math.min(100, Math.round((campana.aportesActuales / campana.meta) * 100)) : 0;
+  const pct = porcentajeDeMeta(campana.aportesAprobados, campana.meta);
   const lugar = [campana.ciudad, campana.estado].filter(Boolean).join(", ");
   const aportar = `/campanas/${campana.id}/aportar?enlace=${token}`;
 
@@ -152,7 +169,7 @@ function Invitacion({
         <div className="mt-4">
           <ProgressBar pct={pct} tone="ok" />
           <p className="mt-2 font-mono text-[11px] text-system-500">
-            {numero.format(campana.aportesActuales)} de {numero.format(campana.meta)} aportes · hasta{" "}
+            {numero.format(campana.aportesAprobados)} de {numero.format(campana.meta)} aportes aprobados · hasta{" "}
             {numero.format(campana.cuotaPorPersona)} por persona
             {campana.fechaFin ? ` · cierra el ${fecha.format(new Date(`${campana.fechaFin}T00:00:00Z`))}` : ""}
           </p>

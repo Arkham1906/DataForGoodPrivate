@@ -1,8 +1,15 @@
 // Constantes de la baja voluntaria de cuenta (SCR-WEB-31). Sin imports de servidor:
 // las usan la pantalla /cuenta/eliminar, DELETE /api/usuarios/[id] y lib/usuarios/baja.ts.
 
-/** Días entre pedir la baja y el borrado definitivo. Iniciar sesión antes los cancela. */
-export const DIAS_DE_GRACIA = 30;
+/**
+ * Minutos entre pedir la baja y el borrado definitivo. Iniciar sesión antes la cancela.
+ * Eran 30 días; el 2026-10-19 el usuario lo bajó a 3 minutos "por practicidad" (para probar el flujo).
+ * TODO(dominio): decidir el plazo para producción.
+ */
+export const MINUTOS_DE_GRACIA: number = 3;
+
+/** "3 minutos", para los textos (eliminar cuenta, términos y aviso de privacidad). */
+export const PLAZO_DE_GRACIA = MINUTOS_DE_GRACIA === 1 ? "1 minuto" : `${MINUTOS_DE_GRACIA} minutos`;
 
 /** Palabra que hay que escribir para confirmar. */
 export const PALABRA_DE_CONFIRMACION = "ELIMINAR";
@@ -31,7 +38,7 @@ export function esDestinoDeAportes(valor: unknown): valor is DestinoDeAportes {
   return DESTINOS_DE_APORTES.some((d) => d.valor === valor);
 }
 
-/** "13 de septiembre de 2026", en la hora de Tepic (como el resto de la app). */
+/** "19 de octubre de 2026, 13:05", en la hora de Tepic (como el resto de la app). Con hora: el plazo es de minutos. */
 export function formatearFechaDeBaja(fecha: Date): string {
-  return fecha.toLocaleDateString("es-MX", { dateStyle: "long", timeZone: "America/Mazatlan" });
+  return fecha.toLocaleString("es-MX", { dateStyle: "long", timeStyle: "short", hourCycle: "h23", timeZone: "America/Mazatlan" });
 }

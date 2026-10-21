@@ -17,9 +17,14 @@ const DESTINO_DE_APORTES: Record<DestinoDeAportes, string> = {
   autoria: "Se conservan con tu nombre",
 };
 
-/** Días completos que faltan para la fecha (la página es dinámica: se calcula en cada visita). */
-function diasHasta(fecha: Date): number {
-  return Math.max(0, Math.ceil((fecha.getTime() - Date.now()) / 86_400_000));
+/** "2 minutos", "5 días"... lo que falta para la fecha (la página es dinámica: se calcula en cada visita). */
+function tiempoHasta(fecha: Date): string {
+  const minutos = Math.max(0, Math.ceil((fecha.getTime() - Date.now()) / 60_000));
+  if (minutos < 60) return minutos === 1 ? "1 minuto" : `${minutos} minutos`;
+  const horas = Math.ceil(minutos / 60);
+  if (horas < 48) return horas === 1 ? "1 hora" : `${horas} horas`;
+  const dias = Math.ceil(horas / 24);
+  return `${dias} días`;
 }
 
 function entero(valor: string | string[] | undefined): number {
@@ -36,7 +41,7 @@ export default async function BajaSolicitadaPage({
   const hasta = new Date(String(params.hasta ?? ""));
   if (Number.isNaN(hasta.getTime())) redirect("/");
 
-  const diasRestantes = diasHasta(hasta);
+  const restante = tiempoHasta(hasta);
   const fecha = formatearFechaDeBaja(hasta);
   const finalizadas = entero(params.finalizadas);
   const aportes = entero(params.aportes);
@@ -66,7 +71,7 @@ export default async function BajaSolicitadaPage({
           <p className="mb-2 font-mono text-[10.5px] uppercase tracking-widest text-error-700">Baja solicitada</p>
           <h1 className="text-xl font-extrabold text-system-900">Tu cuenta se eliminará el {fecha}</h1>
           <p className="mt-1 text-[13px] text-system-600">
-            Quedan {diasRestantes === 1 ? "1 día" : `${diasRestantes} días`}.
+            Quedan {restante}.
           </p>
 
           <div className="mt-5 rounded-lg border-l-4 border-brand-600 bg-brand-50 p-4">

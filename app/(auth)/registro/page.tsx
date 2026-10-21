@@ -203,14 +203,17 @@ function RegistroForm() {
             onChange={(e) => setAcceptedTerms(e.target.checked)}
             className="mt-0.5"
           />
-          Acepto los{" "}
-          <Link href="#" className="text-brand-600 hover:underline">
-            términos de uso
-          </Link>{" "}
-          y el{" "}
-          <Link href="#" className="text-brand-600 hover:underline">
-            aviso de privacidad
-          </Link>
+          {/* En otra pestaña: así no se pierde lo que ya se escribió en el formulario. */}
+          <span>
+            Acepto los{" "}
+            <Link href="/terminos" target="_blank" rel="noopener" className="text-brand-600 hover:underline">
+              términos de uso
+            </Link>{" "}
+            y el{" "}
+            <Link href="/privacidad" target="_blank" rel="noopener" className="text-brand-600 hover:underline">
+              aviso de privacidad
+            </Link>
+          </span>
         </label>
 
         <Button variant="primary" type="submit" className="w-full" disabled={!canSubmit || submitting}>
@@ -221,6 +224,8 @@ function RegistroForm() {
           variant="secondary"
           type="button"
           className="mt-3 w-full"
+          // Con Google también se crea la cuenta: primero hay que aceptar los términos.
+          disabled={!acceptedTerms}
           onClick={() => {
             window.location.href = `${BASE_PATH}${conDestino("/api/auth/google", next)}`;
           }}

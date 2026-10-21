@@ -6,7 +6,7 @@
 // La decisión del revisor es final, igual que la del creador (dominio.md § 5).
 // Aporte anónimo sin decisión: "Contenido inapropiado" al rechazar o "Marcar como inapropiado" sin decidir
 // (POST /api/aportes/[id]/inapropiado). Banear, bloquear o borrar archivos es solo del creador.
-// "Reportar a supervisión" (POST /api/aportes/[id]/reportar, con motivo; antes "Reportar al creador"): entra a
+// "Reportar a supervisión" (POST /api/aportes/[id]/reportar, con motivo; desde el 2026-10-19 rechaza el aporte): entra a
 // la bandeja de Reportes y avisa solo a los supervisores (2026-10-15). Solo aportes con cuenta. Uno por
 // aporte, antes o después de decidirlo.
 
@@ -24,6 +24,7 @@ import ReportarAPlataforma from "@/components/ui/ReportarAPlataforma";
 import { MOTIVOS_DE_REPORTE_DE_APORTE } from "@/lib/reportes/motivos";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import ArchivoDelAporte from "@/components/ui/ArchivoDelAporte";
+import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 
 const STATUS_LABELS: Record<string, string> = {
   pendiente: "Sin revisar",
@@ -47,6 +48,8 @@ export default function RevisionAportePage() {
   const [aviso, setAviso] = useState<string | null>(null);
   const [inapropiado, setInapropiado] = useState(false);
 
+  // Vuelve a leer cuando algo cambia en la base (actualización en vivo).
+  const recarga = useRecargaEnVivo();
   useEffect(() => {
     async function load() {
       try {
@@ -60,7 +63,7 @@ export default function RevisionAportePage() {
     }
 
     void load();
-  }, [aporteId]);
+  }, [aporteId, recarga]);
 
   async function decidir(status: "aceptado" | "rechazado", rejectionReason?: string) {
     setSubmitting(true);
@@ -289,7 +292,8 @@ export default function RevisionAportePage() {
           </p>
           <p className="mb-3 mt-1 text-[11.5px] text-system-500">
             Si el contenido es inapropiado o quien lo envió abusa de la campaña, avisa a los supervisores: lo
-            revisan y deciden si le dan un aviso. Quien creó la campaña no recibe este reporte.
+            revisan y deciden si le dan un aviso. <strong className="text-system-900">Al reportarlo, el aporte se rechaza</strong>{" "}
+            (aunque ya estuviera aceptado). Quien creó la campaña no recibe este reporte.
           </p>
           <select
             value={motivoDeReporte}
@@ -363,10 +367,10 @@ export default function RevisionAportePage() {
             url={`/api/aportes/${item.id}/reportar-participante`}
             motivos={MOTIVOS_DE_REPORTE_DE_APORTE}
             titulo="Reportar a quien aportó"
-            explicacion="Para faltas graves de la cuenta (acoso, contenido ilegal, abuso repetido). Lo revisa el equipo de DataForGood, que decide si le da un aviso. Esa persona no sabrá quién la reportó. Para contenido inapropiado en la campaña, usa «Reportar a supervisión»."
+            explicacion="Para faltas graves de la cuenta (acoso, contenido ilegal, abuso repetido). Lo revisa la supervisión, que decide si le da un aviso. Al reportarlo, este aporte se rechaza. Esa persona no sabrá quién la reportó."
             placeholder="Qué hizo quien envió el aporte"
             yaReportado={Boolean(item.participanteReportado)}
-            textoYaReportado="Ya reportaste a quien envió este aporte. El equipo de DataForGood lo está revisando."
+            textoYaReportado="Ya reportaste a quien envió este aporte. La supervisión lo está revisando."
           />
         </div>
       )}

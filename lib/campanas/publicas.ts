@@ -14,7 +14,8 @@ export type CampanaPublica = {
   locationCity: string;
   locationState: string;
   dataTypes: string[];
-  currentContributions: number;
+  /** Los que cuentan para la meta (lib/campanas/meta.ts). */
+  approvedContributions: number;
   goalContributions: number;
   participants: number;
   daysRemaining: number | null;
@@ -45,7 +46,7 @@ function mapCampana(row: Record<string, unknown>): CampanaPublica {
     locationCity: String(row.location_city ?? ""),
     locationState: String(row.location_state ?? ""),
     dataTypes: Array.isArray(row.data_types) ? row.data_types.map(String) : [],
-    currentContributions: Number(row.current_contributions ?? 0),
+    approvedContributions: Number(row.approved_contributions ?? 0),
     goalContributions: Number(row.goal_contributions ?? 0),
     participants: Number(row.participants ?? 0),
     daysRemaining: calculateCampaignDaysRemaining(row.end_date),
@@ -79,7 +80,7 @@ export async function buscarCampanasActivas(filtros: FiltrosDeCampanas): Promise
 
     const result = await pool.query(
       `SELECT id, name, description, tematica, organizer, location_city, location_state, data_types,
-              current_contributions, goal_contributions, participants, end_date
+              approved_contributions, goal_contributions, participants, end_date
        FROM campanas
        WHERE ${condiciones.join(" AND ")}
        ORDER BY ${ORDER_SQL[filtros.orden ?? "participacion"]}`,

@@ -19,6 +19,7 @@ import { BASE_PATH } from "@/lib/base-path";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import EstadoDeCampanaSupervisada, { type CambioDeEstado } from "@/components/supervision/EstadoDeCampanaSupervisada";
 import type { PausaDeCampana } from "@/lib/campanas/pausa";
+import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 
 type Campaign = {
   id: string;
@@ -31,7 +32,7 @@ type Campaign = {
   supervisedByRoot?: boolean;
   organizer?: string;
   goalContributions?: number;
-  currentContributions?: number;
+  approvedContributions?: number;
   participants?: number;
   quotaPerUser?: number;
   description?: string;
@@ -57,6 +58,8 @@ export default function CampaignDetailPage() {
   const [isCreator, setIsCreator] = useState(false);
   const [isMySupervision, setIsMySupervision] = useState(false);
 
+  // Vuelve a leer cuando algo cambia en la base (actualización en vivo).
+  const recarga = useRecargaEnVivo();
   useEffect(() => {
     async function loadCampaign() {
       try {
@@ -79,7 +82,7 @@ export default function CampaignDetailPage() {
     if (campaignId) {
       void loadCampaign();
     }
-  }, [campaignId]);
+  }, [campaignId, recarga]);
 
   async function handleDecision(action: "aceptada" | "rechazada", rechazo?: RechazoPedido) {
     if (!campaignId) return;
@@ -309,7 +312,7 @@ export default function CampaignDetailPage() {
             </div>
             <div className="flex justify-between border-b border-system-200 pb-3 text-[13px]">
               <span className="text-system-600">Progreso</span>
-              <span className="font-mono">{Number(campaign.currentContributions ?? 0)} / {Number(campaign.goalContributions ?? 0)} aportes</span>
+              <span className="font-mono">{Number(campaign.approvedContributions ?? 0)} / {Number(campaign.goalContributions ?? 0)} aprobados</span>
             </div>
             <div className="flex justify-between border-b border-system-200 pb-3 text-[13px]">
               <span className="text-system-600">Participantes</span>

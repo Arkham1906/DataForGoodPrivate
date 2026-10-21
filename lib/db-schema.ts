@@ -1,6 +1,7 @@
 import { pool } from "@/lib/db";
 import { TEMAS_DE_INTERES } from "@/lib/intereses";
 import { claveDeTematica } from "@/lib/tematicas/analizar";
+import { ensureAvisosDeCambios } from "@/lib/en-vivo-postgres";
 
 /**
  * Único lugar donde se define el DDL de cada tabla. Antes estaba duplicado
@@ -77,6 +78,9 @@ export async function ensureUsuariosTable(): Promise<void> {
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS avisos_aportes BOOLEAN NOT NULL DEFAULT true;
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS recordatorio_semanal BOOLEAN NOT NULL DEFAULT false;
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS resumen_mensual BOOLEAN NOT NULL DEFAULT true;
+    -- Interruptor general "Notificaciones" de Preferencias (2026-10-19): apagado, notificar() no crea ninguna
+    -- salvo las de la cuenta (rol, sanciones, invitación de revisor; NOTIFICACIONES_ESENCIALES).
+    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS notificaciones_activas BOOLEAN NOT NULL DEFAULT true;
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS ultimo_recordatorio DATE;
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS ultimo_resumen DATE;
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS email_verificado BOOLEAN NOT NULL DEFAULT false;
@@ -590,6 +594,9 @@ export async function ensureAuditLogTable(): Promise<void> {
  * `clave` es el nombre sin acentos ni mayúsculas: evita "Ciclismo" y "ciclismo" duplicadas.
  * El SuperUsuario puede ocultar una (`oculta`): deja de ofrecerse, pero no se quita de los perfiles
  * ni de las campañas que ya la tienen.
+ * `aprobada` (2026-10-19): las que crean los usuarios entran en false y solo están en el perfil de
+ * quien las escribió hasta que el SuperUsuario las aprueba en /sistema/tematicas. Las base y las que
+ * ya existían quedan en true por el DEFAULT.
  */
 export async function ensureTematicasTable(): Promise<void> {
   await pool.query(`
@@ -602,6 +609,7 @@ export async function ensureTematicasTable(): Promise<void> {
       oculta BOOLEAN NOT NULL DEFAULT false,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+    ALTER TABLE tematicas ADD COLUMN IF NOT EXISTS aprobada BOOLEAN NOT NULL DEFAULT true;
   `);
   // Las 23 de siempre, en su orden (id). ON CONFLICT: repetirlo en cada arranque es inofensivo.
   await pool.query(
@@ -666,4 +674,5 @@ export async function ensureCoreSchema(): Promise<void> {
   await ensureAuditLogTable();
   await ensureTematicasTable(); // después de usuarios: creada_por la referencia
   await ensureMedallasTables(); // después de usuarios: medallas_usuario.usuario_id la referencia
+  await ensureAvisosDeCambios(); // al final: pone triggers en las tablas de arriba
 }

@@ -192,7 +192,8 @@ export type CampanaDelEnlace = {
   estado: string;
   status: string;
   meta: number;
-  aportesActuales: number;
+  /** Los que cuentan para la meta (./meta.ts). */
+  aportesAprobados: number;
   cuotaPorPersona: number;
   fechaFin: string | null;
   /** Checklists que el participante puede marcar (el formulario anónimo los muestra). */
@@ -215,7 +216,7 @@ export async function buscarEnlacePorToken(token: string): Promise<ResultadoDeTo
   const { rows } = await pool.query(
     `SELECT e.*, (SELECT COUNT(*) FROM aportes a WHERE a.enlace_id = e.id)::int AS aportes_recibidos,
             c.name, c.description, c.tematica, c.tag, c.organizer, c.creator_name, c.location_city, c.location_state,
-            c.status, c.goal_contributions, c.current_contributions, c.quota_per_user, c.end_date,
+            c.status, c.goal_contributions, c.approved_contributions, c.quota_per_user, c.end_date,
             c.checklist_secciones, c.checklist_opciones, c.collection_mode, c.permite_anonimos, c.data_types,
             c.pausa_por, c.pausa_motivo, c.pausada_en
      FROM campana_enlaces e
@@ -238,7 +239,7 @@ export async function buscarEnlacePorToken(token: string): Promise<ResultadoDeTo
     estado: String(row.location_state ?? ""),
     status: String(row.status ?? ""),
     meta: Number(row.goal_contributions ?? 0),
-    aportesActuales: Number(row.current_contributions ?? 0),
+    aportesAprobados: Number(row.approved_contributions ?? 0),
     cuotaPorPersona: Number(row.quota_per_user ?? 0),
     fechaFin: normalizeCampaignDate(row.end_date),
     secciones: seccionesDesdeFila(row),

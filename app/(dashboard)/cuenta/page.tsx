@@ -1,11 +1,11 @@
 // Pantalla /cuenta: perfil del usuario. Server Component.
-// Datos: exigirUsuario(). PerfilForm.tsx pinta la tarjeta superior ("Editar perfil",
-// "Cerrar sesión"), los datos personales y los intereses, y guarda con PATCH /api/usuarios/[id].
+// Datos: exigirUsuario(). PerfilForm.tsx pinta la tarjeta superior ("Cerrar sesión"), los datos
+// personales y los intereses, que se editan directamente (2026-10-20), y guarda con PATCH /api/usuarios/[id].
 // La contraseña se cambia (o, en una cuenta de Google, se crea) en CambiarContrasena.tsx con un
 // código enviado al correo de la cuenta; no se pide la actual.
 // "Eliminar cuenta" (hasta abajo) lleva a /cuenta/eliminar (baja voluntaria, SCR-WEB-31).
-// "Cambiar ícono" (EditarAvatar.tsx, 2026-10-13; solo con "Editar perfil"): iniciales, ícono predefinido o foto propia
-// (PUT /api/usuarios/[id]/avatar); el ícono se pinta con components/ui/Avatar.
+// El lápiz sobre el avatar (EditarAvatar.tsx, 2026-10-13; siempre visible desde el 2026-10-20): iniciales,
+// ícono predefinido o foto propia (PUT /api/usuarios/[id]/avatar); el ícono se pinta con components/ui/Avatar.
 // Experimental (2026-10-07): al llegar con "Ver perfil" de la barra superior, el avatar y el
 // nombre vuelan a su lugar y la pantalla se despliega (View Transitions; ver EnlaceAlPerfil.tsx).
 // Sin loading.tsx a propósito: si la pantalla mostrara un esqueleto antes, el avatar y el nombre
@@ -65,13 +65,17 @@ export default async function CuentaPage() {
           intereses: currentUser.intereses,
           interesesTexto: currentUser.intereses_texto,
         }}
-        editarAvatar={<EditarAvatar actual={avatar} />}
         encabezado={
           <div className="flex items-center gap-4">
-            {/* Mismo name que el avatar y el nombre de la barra superior (EnlaceAlPerfil): vuelan hasta aquí. */}
-            <ViewTransition name="perfil-avatar" share="perfil-viaje" default="none">
-              <Avatar datos={avatar} tamano="lg" />
-            </ViewTransition>
+            <div className="relative shrink-0">
+              {/* Mismo name que el avatar y el nombre de la barra superior (EnlaceAlPerfil): vuelan hasta aquí. */}
+              <ViewTransition name="perfil-avatar" share="perfil-viaje" default="none">
+                <Avatar datos={avatar} tamano="lg" />
+              </ViewTransition>
+              <div className="absolute -bottom-1 -right-1">
+                <EditarAvatar actual={avatar} />
+              </div>
+            </div>
             <div>
               <ViewTransition name="perfil-nombre" share="perfil-viaje" default="none">
                 <p className="w-fit text-lg font-extrabold text-system-900">{`${currentUser.nombre ?? ""} ${currentUser.apellidos ?? ""}`.trim()}</p>
@@ -147,6 +151,7 @@ export default async function CuentaPage() {
                 avisosAportes: currentUser.avisos_aportes,
                 recordatorioSemanal: currentUser.recordatorio_semanal,
                 resumenMensual: currentUser.resumen_mensual,
+                notificaciones: currentUser.notificaciones_activas,
               }}
             />
           </div>

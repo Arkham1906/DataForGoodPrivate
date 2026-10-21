@@ -6,6 +6,7 @@
 import Link from "next/link";
 import Tag from "@/components/ui/Tag";
 import { listarCampanasParaRoot, type CampanaSupervisable } from "@/lib/supervision/root";
+import { porcentajeDeMeta } from "@/lib/campanas/meta";
 import { BackLink } from "../_ui";
 import type { Metadata } from "next";
 
@@ -66,9 +67,7 @@ function TablaDeSupervisadas({
             <thead className="border-b border-system-200 font-mono text-[10px] uppercase tracking-[0.1em] text-system-500"><tr><th className="pb-3 font-medium">Campaña</th>{conSupervisor && <th className="pb-3 font-medium">Supervisa</th>}<th className="pb-3 font-medium">Estado</th><th className="pb-3 font-medium">Progreso</th><th className="pb-3 font-medium">Participantes</th><th className="pb-3"><span className="sr-only">Acciones</span></th></tr></thead>
             <tbody>
               {campaigns.map((campaign) => {
-                const percent = campaign.goalContributions > 0
-                  ? `${Math.min(100, Math.round((campaign.currentContributions / campaign.goalContributions) * 100))}%`
-                  : "0%";
+                const percent = `${porcentajeDeMeta(campaign.approvedContributions, campaign.goalContributions)}%`;
 
                 return (
                   <tr key={campaign.id} className="border-b border-system-200 last:border-0">

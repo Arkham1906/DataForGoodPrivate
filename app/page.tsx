@@ -13,6 +13,7 @@ import Tag from "@/components/ui/Tag";
 import { retraso } from "@/lib/animaciones";
 import { pool } from "@/lib/db";
 import { activateScheduledCampaigns, finalizeExpiredCampaigns } from "@/lib/campaign-date";
+import { porcentajeDeMeta } from "@/lib/campanas/meta";
 import { ZONA_DE_CAMPANAS } from "@/lib/fecha-de-tepic";
 import TablaDeLideres from "@/components/gamificacion/TablaDeLideres";
 import { obtenerTablaDeLideres, tablaTieneDatos } from "@/lib/gamificacion/clasificacion";
@@ -94,7 +95,7 @@ interface CampanaDestacada {
   id: string;
   name: string;
   tag: string;
-  currentContributions: number;
+  approvedContributions: number;
   goalContributions: number;
   participants: number;
 }
@@ -106,17 +107,17 @@ async function obtenerCampanasDestacadas(): Promise<CampanaDestacada[]> {
     await activateScheduledCampaigns();
     await finalizeExpiredCampaigns();
     const result = await pool.query(
-      `SELECT id, name, COALESCE(NULLIF(tag, ''), tematica) AS tag, current_contributions, goal_contributions, participants
-        FROM campanas
-        WHERE status = 'activa'
-        ORDER BY participants DESC, current_contributions DESC
-        LIMIT 3`
+      `SELECT id, name, COALESCE(NULLIF(tag, ''), tematica) AS tag, approved_contributions current_contributions, goal_contributions, participants
+       FROM campanas
+       WHERE status = 'activa'
+       ORDER BY participants DESC, current_contributions DESC
+       LIMIT 3`
     );
     return result.rows.map((row) => ({
       id: String(row.id),
       name: String(row.name ?? ""),
       tag: String(row.tag ?? ""),
-      currentContributions: Number(row.current_contributions ?? 0),
+      approvedContributions: Number(row.approved_contributions ?? 0),
       goalContributions: Number(row.goal_contributions ?? 0),
       participants: Number(row.participants ?? 0),
     }));
@@ -294,9 +295,7 @@ export default async function LandingPage() {
           </div>
           <div className="grid grid-cols-1 gap-3 text-left sm:grid-cols-3">
             {campanasDestacadas.map((c, i) => {
-              const pct = c.goalContributions
-                ? Math.min(100, Math.round((c.currentContributions / c.goalContributions) * 100))
-                : 0;
+              const pct = porcentajeDeMeta(c.approvedContributions, c.goalContributions);
               return (
                 <Link key={c.id} href={`/campanas/${c.id}`} className="landing-revelar block rounded-lg">
                   <Card className="landing-tarjeta h-full hover:border-brand-600">

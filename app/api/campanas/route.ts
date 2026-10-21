@@ -1,6 +1,7 @@
 // /api/campanas — listado y creación de campañas. Lo usa casi toda la zona de usuario.
 // Antes de leer, activa las campañas aceptadas cuya fecha llegó y finaliza las vencidas (lib/campaign-date.ts).
 // El POST exige sesión y solo crea borradores o campañas en revisión (lib/campanas/estado-del-creador.ts).
+// El listado general y ?id= solo devuelven lo que quien consulta puede ver (lib/campanas/visibilidad.ts).
 
 import { NextResponse } from "next/server";
 import { especialDesdeFila } from "@/lib/campanas/especial";
@@ -14,6 +15,7 @@ import { errorDeOrganizacion } from "@/lib/campanas/organizacion";
 import { normalizarSecciones, seccionesDesdeFila } from "@/lib/campanas/checklist";
 import { XP_POR_APORTE, errorDeEstadoPedido } from "@/lib/campanas/estado-del-creador";
 import { pausaDesdeFila } from "@/lib/campanas/pausa";
+import { condicionDeVisibilidad } from "@/lib/campanas/visibilidad";
 import { activateScheduledCampaigns, calculateCampaignDaysRemaining, errorDeFinAntesDeInicio, errorDeInicioPasado, finalizeExpiredCampaigns, normalizeCampaignDate, normalizeCampaignTime } from "@/lib/campaign-date";
 
 async function obtenerIdsGuardados(usuarioId: number): Promise<Set<number>> {
@@ -150,6 +152,7 @@ export async function GET(request: Request) {
       isSaved: savedIds.has(Number(row.id)),
       // Su creador lo baneó: las listas la marcan y no la ofrecen para aportar.
       isBanned: bannedIds.has(Number(row.id)),
+      isMine: user ? Number(row.creator_id) === Number(user.id) : false,
     });
 
     if (supervised) {
@@ -173,8 +176,9 @@ export async function GET(request: Request) {
     }
 
     if (campaignId) {
-      const result = await pool.query(`SELECT * FROM campanas WHERE id = $1 LIMIT 1`, [campaignId]);
-      if (result.rowCount === 0) return NextResponse.json({ error: "Campana no encontrada" }, { status: 404 });
+      const visible = await condicionDeVisibilidad(user, "campanas", 2);
+      const result = await pool.query(`SELECT * FROM campanas WHERE id = $1 AND ${visible.sql} LIMIT 1`, [campaignId, ...visible.params]);
+      if (result.rowCount === 0) return NextResponse.json({ error: "Campaña no encontrada" }, { status: 404 });
       const campaign = conIsSaved(result.rows[0]);
       return NextResponse.json({
         data: campaign,
@@ -208,15 +212,16 @@ export async function GET(request: Request) {
               `SELECT campanas.*,
                       (SELECT COUNT(*)::int FROM aportes a2 WHERE a2.campaign_id = campanas.id AND a2.user_id = $1) AS mis_aportes_count
                FROM campanas
-               WHERE creator_id <> $1
-                 AND (
-                   EXISTS (SELECT 1 FROM aportes a WHERE a.campaign_id = campanas.id AND a.user_id = $1)
-                   OR EXISTS (SELECT 1 FROM campanas_guardadas g WHERE g.campana_id = campanas.id AND g.usuario_id = $1)
-                 )
+               -- Las propias solo si las guardó (2026-10-19: el creador guardaba la suya y no la
+               -- veía en ningún lado); en las propias no se aporta.
+               WHERE (creator_id <> $1 AND EXISTS (SELECT 1 FROM aportes a WHERE a.campaign_id = campanas.id AND a.user_id = $1))
+                  OR EXISTS (SELECT 1 FROM campanas_guardadas g WHERE g.campana_id = campanas.id AND g.usuario_id = $1)
                ORDER BY created_at DESC`,
               [user!.id],
             )
-          : await pool.query(`SELECT * FROM campanas ORDER BY created_at DESC`);
+          : await condicionDeVisibilidad(user).then((visible) =>
+              pool.query(`SELECT * FROM campanas WHERE ${visible.sql} ORDER BY created_at DESC`, visible.params),
+            );
 
     return NextResponse.json({ data: result.rows.map(conIsSaved) });
   } catch (error) {

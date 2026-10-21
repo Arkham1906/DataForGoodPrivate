@@ -1,11 +1,12 @@
 "use client";
 
-// Perfil de /cuenta: tarjeta superior con "Editar perfil" y "Cerrar sesión", datos
-// personales e intereses. Los campos están deshabilitados; "Editar perfil" los habilita y
-// muestra "Guardar cambios", que guarda con PATCH /api/usuarios/[id] (solo la propia
-// cuenta) y avisa con un mensaje al centro de la pantalla.
-// Intereses: texto libre del que salen las temáticas (ui/InteresesDesdeTexto), editable en edición.
-// "Cambiar ícono" (editarAvatar, 2026-10-13) también aparece solo en edición, debajo del encabezado.
+// Perfil de /cuenta: tarjeta superior con "Cerrar sesión", datos personales e intereses.
+// Desde el 2026-10-20 (a pedido del usuario) los campos se editan directamente, sin "Editar
+// perfil": al cambiar algo aparecen "Descartar cambios" y "Guardar cambios", que guarda con
+// PATCH /api/usuarios/[id] (solo la propia cuenta) y avisa con un mensaje al centro de la pantalla.
+// El correo no se puede cambiar.
+// Intereses: texto libre del que salen las temáticas (ui/InteresesDesdeTexto).
+// La foto o ícono se cambia con el lápiz sobre el avatar (EditarAvatar, en page.tsx).
 // Catálogos: lib/mexico-geo.ts, lib/perfil-opciones.ts; temáticas en GET /api/tematicas.
 
 import { useRouter } from "next/navigation";
@@ -13,7 +14,6 @@ import { type ReactNode, useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Input";
 import InteresesDesdeTexto from "@/components/ui/InteresesDesdeTexto";
-import Tag from "@/components/ui/Tag";
 import LogoutButton from "@/components/auth/LogoutButton";
 import { ESPECIALIDADES, OTRA_ESPECIALIDAD, opcionesCon } from "@/lib/perfil-opciones";
 import { municipiosDe, NOMBRES_DE_ESTADOS } from "@/lib/mexico-geo";
@@ -34,27 +34,24 @@ type Usuario = {
 // Tiempo que se queda en pantalla el aviso de "Cambios guardados".
 const DURACION_DEL_AVISO_MS = 2500;
 
+// Un select deshabilitado (municipio sin estado) se ve tenue.
 const CLASE_SELECT =
-  "w-full rounded border border-system-300 bg-white px-3.5 py-3 text-sm text-system-900 outline-none transition-colors focus:border-brand-600";
-// Campo deshabilitado (fuera de la edición, o el correo): fondo hundido y sin cursor de texto.
+  "w-full rounded border border-system-300 bg-white px-3.5 py-3 text-sm text-system-900 outline-none transition-colors focus:border-brand-600 disabled:cursor-default disabled:opacity-50";
+// El correo, que no se edita: fondo hundido y sin cursor de texto.
 const CLASE_BLOQUEADO = "disabled:cursor-default disabled:bg-system-100";
 
 export default function PerfilForm({
   usuario,
   encabezado,
-  editarAvatar,
   children,
 }: {
   usuario: Usuario;
-  /** Avatar, nombre y rol: la parte izquierda de la tarjeta superior. */
+  /** Avatar (con el lápiz para cambiarlo), nombre y rol: la parte izquierda de la tarjeta superior. */
   encabezado: ReactNode;
-  /** "Cambiar ícono" (EditarAvatar): solo se muestra con "Editar perfil". */
-  editarAvatar?: ReactNode;
   /** Tarjeta de seguridad, que va junto a los datos personales. */
   children?: ReactNode;
 }) {
   const router = useRouter();
-  const [editando, setEditando] = useState(false);
   const [nombre, setNombre] = useState(usuario.nombre);
   const [apellidos, setApellidos] = useState(usuario.apellidos);
   const [state, setState] = useState(usuario.state ?? "");
@@ -68,10 +65,8 @@ export default function PerfilForm({
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState("");
   const [avisoVisible, setAvisoVisible] = useState(false);
-  // En edición, un select deshabilitado (municipio sin estado) se ve tenue; fuera de ella, solo bloqueado.
-  const claseSelect = `${CLASE_SELECT} ${CLASE_BLOQUEADO} ${editando ? "disabled:opacity-50" : ""}`;
 
-  // Los valores guardados: a ellos vuelve "Cancelar".
+  // Los valores guardados: a ellos vuelve "Descartar cambios".
   const [guardado, setGuardado] = useState({
     nombre: usuario.nombre,
     apellidos: usuario.apellidos,
@@ -81,6 +76,17 @@ export default function PerfilForm({
     intereses: usuario.intereses,
     interesesTexto: usuario.interesesTexto ?? "",
   });
+
+  // Hay algo distinto de lo guardado: se muestran los botones de guardar y descartar.
+  const hayCambios =
+    nombre !== guardado.nombre ||
+    apellidos !== guardado.apellidos ||
+    state !== guardado.state ||
+    city !== guardado.city ||
+    specialty !== guardado.specialty ||
+    interesesTexto !== guardado.interesesTexto ||
+    intereses.length !== guardado.intereses.length ||
+    intereses.some((tema, i) => tema !== guardado.intereses[i]);
 
   useEffect(() => {
     if (!avisoVisible) return;
@@ -114,7 +120,6 @@ export default function PerfilForm({
     setIntereses(guardado.intereses);
     setInteresesTexto(guardado.interesesTexto);
     setError("");
-    setEditando(false);
   }
 
   async function guardar() {
@@ -143,8 +148,8 @@ export default function PerfilForm({
 
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body.error ?? "No se pudo guardar el perfil");
-      // El servidor devuelve los intereses con el nombre del catálogo (p. ej. una temática nueva
-      // que otra persona creó con otra mayúscula): se muestran esos.
+      // El servidor devuelve los intereses con el nombre del catálogo (p. ej. con otra mayúscula
+      // o acento): se muestran esos.
       const guardados = Array.isArray(body.data?.intereses) ? (body.data.intereses as string[]) : intereses;
 
       setNombre(cambios.nombre);
@@ -153,7 +158,6 @@ export default function PerfilForm({
       setIntereses(guardados);
       setInteresesTexto(cambios.interesesTexto);
       setGuardado({ ...cambios, intereses: guardados });
-      setEditando(false);
       setAvisoVisible(true);
       router.refresh();
     } catch (e) {
@@ -169,18 +173,9 @@ export default function PerfilForm({
         <div className="flex flex-wrap items-center justify-between gap-4">
           {encabezado}
           <div className="flex gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={editando ? cancelar : () => setEditando(true)}
-              disabled={guardando}
-            >
-              {editando ? "Cancelar edición" : "Editar perfil"}
-            </Button>
             <LogoutButton />
           </div>
         </div>
-        {editando && editarAvatar ? <div className="mt-3">{editarAvatar}</div> : null}
       </section>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -192,30 +187,25 @@ export default function PerfilForm({
             <h2 className="mt-1 text-lg font-extrabold text-system-900">Datos personales</h2>
           </div>
 
-          {/* Los mismos campos en los dos modos; fuera de la edición quedan deshabilitados. */}
           <div className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Nombre" required={editando}>
+              <Field label="Nombre" required>
                 <Input
                   value={nombre}
                   onChange={(e) => setNombre(e.target.value)}
                   maxLength={120}
-                  disabled={!editando}
-                  className={CLASE_BLOQUEADO}
                 />
               </Field>
-              <Field label="Apellidos" required={editando}>
+              <Field label="Apellidos" required>
                 <Input
                   value={apellidos}
                   onChange={(e) => setApellidos(e.target.value)}
                   maxLength={120}
-                  disabled={!editando}
-                  className={CLASE_BLOQUEADO}
                 />
               </Field>
             </div>
 
-            <Field label="Correo electrónico" hint={editando ? "El correo no se puede cambiar." : undefined}>
+            <Field label="Correo electrónico" hint="El correo no se puede cambiar.">
               <Input disabled value={usuario.email} className={CLASE_BLOQUEADO} />
             </Field>
 
@@ -224,10 +214,9 @@ export default function PerfilForm({
                 <select
                   value={state}
                   onChange={(e) => cambiarEstado(e.target.value)}
-                  disabled={!editando}
-                  className={claseSelect}
+                  className={CLASE_SELECT}
                 >
-                  <option value="">{editando ? "Selecciona un estado" : "Sin especificar"}</option>
+                  <option value="">Selecciona un estado</option>
                   {opcionesCon(state, NOMBRES_DE_ESTADOS).map((opcion) => (
                     <option key={opcion}>{opcion}</option>
                   ))}
@@ -237,11 +226,11 @@ export default function PerfilForm({
                 <select
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
-                  disabled={!editando || !state}
-                  className={claseSelect}
+                  disabled={!state}
+                  className={CLASE_SELECT}
                 >
                   <option value="">
-                    {!editando ? "Sin especificar" : state ? "Selecciona un municipio" : "Primero selecciona un estado"}
+                    {state ? "Selecciona un municipio" : "Primero selecciona un estado"}
                   </option>
                   {opcionesCon(city, municipiosDe(state)).map((opcion) => (
                     <option key={opcion}>{opcion}</option>
@@ -254,10 +243,9 @@ export default function PerfilForm({
               <select
                 value={especialidadPersonalizada ? OTRA_ESPECIALIDAD : specialty}
                 onChange={(e) => elegirEspecialidad(e.target.value)}
-                disabled={!editando}
-                className={claseSelect}
+                className={CLASE_SELECT}
               >
-                <option value="">{editando ? "Selecciona una especialidad" : "Sin especificar"}</option>
+                <option value="">Selecciona una especialidad</option>
                 {ESPECIALIDADES.map((opcion) => (
                   <option key={opcion}>{opcion}</option>
                 ))}
@@ -268,10 +256,9 @@ export default function PerfilForm({
                   value={specialty}
                   onChange={(e) => setSpecialty(e.target.value)}
                   placeholder="Escribe tu especialidad"
-                aria-label="Tu especialidad"
+                  aria-label="Tu especialidad"
                   maxLength={150}
-                  disabled={!editando}
-                  className={`mt-2 ${CLASE_BLOQUEADO}`}
+                  className="mt-2"
                 />
               )}
             </Field>
@@ -288,48 +275,28 @@ export default function PerfilForm({
             <h2 className="mt-1 text-lg font-extrabold text-system-900">Temáticas que guían tus aportes</h2>
           </div>
 
-          {editando ? (
-            <InteresesDesdeTexto
-              texto={interesesTexto}
-              onTexto={setInteresesTexto}
-              seleccionados={intereses}
-              onCambiar={setIntereses}
-            />
-          ) : (
-            <>
-              {interesesTexto && (
-                <p className="mb-3 whitespace-pre-line text-[13px] text-system-600">«{interesesTexto}»</p>
-              )}
-              {intereses.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {intereses.map((tema) => (
-                    <Tag key={tema}>{tema}</Tag>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-[13px] text-system-500">
-                  Aún no tienes temáticas. Da “Editar perfil” y cuéntanos qué te gusta hacer.
-                </p>
-              )}
-            </>
-          )}
+          <InteresesDesdeTexto
+            texto={interesesTexto}
+            onTexto={setInteresesTexto}
+            seleccionados={intereses}
+            onCambiar={setIntereses}
+          />
           <p className="mt-3 text-[12.5px] text-system-600">
-            Determinan qué campañas aparecen en “Sugeridas para ti”.
-            {editando && " Los cambios se aplican al dar “Guardar cambios”."}
+            Determinan qué campañas aparecen en “Sugeridas para ti”. Los cambios se aplican al dar “Guardar cambios”.
           </p>
         </section>
 
-        {editando && (
+        {(hayCambios || error) && (
           <div className="flex flex-wrap items-center justify-end gap-3 md:col-span-2">
             {error && (
               <p role="alert" className="text-[12.5px] text-error-700">
                 {error}
               </p>
             )}
-            <Button variant="secondary" size="sm" onClick={cancelar} disabled={guardando}>
-              Cancelar
+            <Button variant="secondary" size="sm" onClick={cancelar} disabled={guardando || !hayCambios}>
+              Descartar cambios
             </Button>
-            <Button variant="primary" size="sm" onClick={guardar} disabled={guardando}>
+            <Button variant="primary" size="sm" onClick={guardar} disabled={guardando || !hayCambios}>
               {guardando ? "Guardando..." : "Guardar cambios"}
             </Button>
           </div>

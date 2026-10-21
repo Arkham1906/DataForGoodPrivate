@@ -140,11 +140,11 @@ export async function PATCH(
         { status: 400 }
       );
     }
-    // Intereses del catálogo de temáticas; las palabras nuevas se dan de alta ahí
-    // (lib/tematicas/catalogo.ts). Una temática oculta solo se conserva si ya la tenía.
+    // Intereses del catálogo de temáticas (lib/tematicas/catalogo.ts): desde el 2026-10-20 solo
+    // las que existen (400 si no). Una oculta o pendiente solo se conserva si ya la tenía.
     let intereses: string | null = null;
     if (Array.isArray(body.intereses)) {
-      const resueltos = await resolverIntereses(body.intereses, sessionUser.id, sessionUser.intereses ?? []);
+      const resueltos = await resolverIntereses(body.intereses, sessionUser.intereses ?? []);
       if (!resueltos.ok) return NextResponse.json({ error: resueltos.error }, { status: 400 });
       intereses = JSON.stringify(resueltos.intereses);
     }
@@ -197,7 +197,7 @@ export async function PATCH(
 // DELETE: pide la baja de la propia cuenta (SCR-WEB-31). Body:
 // { destino: "eliminar" | "anonimizar" | "autoria", confirmacion: "ELIMINAR", contrasena }.
 // `contrasena` solo se exige si la cuenta tiene una (las de Google no); un error cuenta
-// para el bloqueo del login. La cuenta entra en un plazo de gracia de 30 días: se cierran
+// para el bloqueo del login. La cuenta entra en un plazo de gracia (MINUTOS_DE_GRACIA, 3 min desde el 2026-10-19): se cierran
 // todas sus sesiones y volver a iniciar sesión cancela la baja (lib/usuarios/baja.ts).
 export async function DELETE(
   request: Request,

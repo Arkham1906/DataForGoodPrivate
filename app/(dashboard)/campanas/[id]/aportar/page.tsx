@@ -16,6 +16,7 @@ import type { Campaign } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
 import { etiquetaDeRespuesta } from "@/lib/campanas/checklist";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
+import { AvisoNoEncontrado } from "@/components/ui/AvisoNoEncontrado";
 import IndicadorDeCarga from "@/components/ui/IndicadorDeCarga";
 import { InscripcionACampana } from "@/components/ui/AcuerdosDeAporte";
 import SelectorDeArchivo from "@/components/ui/SelectorDeArchivo";
@@ -32,6 +33,8 @@ export default function AportarPage() {
   const [motivoDeBaneo, setMotivoDeBaneo] = useState<string | null>(null);
   const [submittedCount, setSubmittedCount] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // 404: no existe o no la puede ver (lib/campanas/visibilidad.ts).
+  const [noEncontrada, setNoEncontrada] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [description, setDescription] = useState("");
@@ -49,6 +52,10 @@ export default function AportarPage() {
         ]);
 
         const campaignPayload = await campaignRes.json().catch(() => ({}));
+        if (campaignRes.status === 404) {
+          setNoEncontrada(true);
+          return;
+        }
         if (!campaignRes.ok) throw new Error(campaignPayload.error ?? "No se pudo cargar la campaña");
         setCampaign(campaignPayload.data as Campaign);
         setIsCreator(Boolean(campaignPayload.viewer?.isCreator));
@@ -65,6 +72,7 @@ export default function AportarPage() {
     void loadCampaign();
   }, [params.id]);
 
+  if (noEncontrada) return <AvisoNoEncontrado volverA="/campanas" textoVolver="Volver a campañas" />;
   if (loadError) return <p className="text-sm text-error-700">{loadError}</p>;
   if (!campaign) return <PantallaEsqueleto tipo="formulario" etiqueta="Cargando campaña…" />;
   if (isCreator) return <p className="rounded-lg bg-system-100 p-4 text-sm text-system-600">No puedes aportar en una campaña que creaste.</p>;

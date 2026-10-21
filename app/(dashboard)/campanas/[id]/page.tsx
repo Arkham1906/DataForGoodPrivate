@@ -18,11 +18,14 @@ import type { Campaign } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
 import { TIPO_DE_DATO } from "@/lib/aportes/archivo";
 import { fechaCorta } from "@/lib/campanas/especial-reglas";
+import { porcentajeDeMeta } from "@/lib/campanas/meta";
 import { avisoDePausa } from "@/lib/campanas/pausa";
 import CompartirCampana from "./compartir";
 import ReportarCampana from "./reportar";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
+import { AvisoNoEncontrado } from "@/components/ui/AvisoNoEncontrado";
 import { InscripcionACampana } from "@/components/ui/AcuerdosDeAporte";
+import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 
 export default function CampaignDetailPage() {
   const params = useParams<{ id: string }>();
@@ -33,14 +36,22 @@ export default function CampaignDetailPage() {
   const [yaReportada, setYaReportada] = useState(false);
   const [inscrito, setInscrito] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 404: no existe o no la puede ver (lib/campanas/visibilidad.ts).
+  const [noEncontrada, setNoEncontrada] = useState(false);
   const [saved, setSaved] = useState(false);
   const [guardando, setGuardando] = useState(false);
 
+  // Vuelve a leer cuando algo cambia en la base (actualización en vivo).
+  const recarga = useRecargaEnVivo();
   useEffect(() => {
     async function loadCampaign() {
       try {
         const response = await fetch(`${BASE_PATH}/api/campanas?id=${encodeURIComponent(params.id)}`, { cache: "no-store" });
         const payload = await response.json().catch(() => ({}));
+        if (response.status === 404) {
+          setNoEncontrada(true);
+          return;
+        }
         if (!response.ok) throw new Error(payload.error ?? "No se pudo cargar la campaña");
         setCampaign(payload.data as Campaign);
         setIsCreator(Boolean(payload.viewer?.isCreator));
@@ -54,7 +65,7 @@ export default function CampaignDetailPage() {
       }
     }
     void loadCampaign();
-  }, [params.id]);
+  }, [params.id, recarga]);
 
   async function alternarGuardado() {
     if (guardando) return;
@@ -74,6 +85,7 @@ export default function CampaignDetailPage() {
     }
   }
 
+  if (noEncontrada) return <AvisoNoEncontrado volverA="/campanas" textoVolver="Volver a campañas" />;
   if (error) return <p className="text-sm text-error-700">{error}</p>;
   if (!campaign) return <PantallaEsqueleto tipo="detalle" etiqueta="Cargando campaña…" />;
 
@@ -84,9 +96,7 @@ export default function CampaignDetailPage() {
     return new Date(year, month - 1, day);
   };
 
-  const pct = Math.round(
-    (campaign.currentContributions / campaign.goalContributions) * 100
-  );
+  const pct = porcentajeDeMeta(campaign.approvedContributions, campaign.goalContributions);
   const closeDate = campaign.endDate ? parseDateOnly(campaign.endDate)?.toLocaleDateString("es-MX", {
     day: "numeric",
     month: "short",
@@ -103,7 +113,7 @@ export default function CampaignDetailPage() {
 
         <div className="mb-2 flex items-center justify-between">
           <Tag tone="ok">{campaign.tag}</Tag>
-          <CompartirCampana campanaId={campaign.id} nombre={campaign.name} />
+          <CompartirCampana campanaId={campaign.id} nombre={campaign.name} tematica={campaign.tematica || campaign.tag} />
         </div>
 
         <h1 className="mb-2 text-[26px] font-extrabold text-system-900">{campaign.name}</h1>
@@ -194,7 +204,7 @@ export default function CampaignDetailPage() {
 
           <ProgressBar pct={pct} />
           <p className="mt-2 mb-4 font-mono text-[12.5px] text-system-600">
-            {campaign.currentContributions} de {campaign.goalContributions} aportes · tu
+            {campaign.approvedContributions} de {campaign.goalContributions} aportes aprobados · tu
             cuota: {campaign.quotaPerUser}
           </p>
 

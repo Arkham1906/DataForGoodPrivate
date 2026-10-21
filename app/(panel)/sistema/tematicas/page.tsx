@@ -1,6 +1,9 @@
 // Pantalla /sistema/tematicas: catálogo de temáticas (2026-10-07). Las 23 base y las que salen de lo
 // que escriben los usuarios sobre sus gustos (lib/tematicas/analizar.ts). El SuperUsuario oculta las
 // que no deben ofrecerse (groserías que pasaron el filtro, palabras sin sentido) o las vuelve a mostrar.
+// Desde el 2026-10-19 las nuevas de usuarios entran pendientes (arriba de todo): Aprobar o Rechazar
+// en BotonesDeRevision (revisarTematica). El menú lleva el número de pendientes. Desde el
+// 2026-10-20 el texto ya no crea temáticas: solo quedan por revisar las que se crearon antes.
 // Server Component. Acceso: sesión raíz. Datos: lib/tematicas/catalogo.ts. Búsqueda con ?q=.
 // Acción: cambiarVisibilidadDeTematica (lib/tematicas/acciones-tematicas.ts), en BotonDeVisibilidad.
 
@@ -12,6 +15,7 @@ import { exigirSesionRoot } from "@/lib/supervision/root";
 import { listarTematicasDelPanel } from "@/lib/tematicas/catalogo";
 import { ZONA_DE_CAMPANAS } from "@/lib/campaign-date";
 import BotonDeVisibilidad from "./BotonDeVisibilidad";
+import BotonesDeRevision from "./BotonesDeRevision";
 
 export const metadata: Metadata = { title: "Temáticas" };
 export const dynamic = "force-dynamic";
@@ -24,12 +28,13 @@ export default async function TematicasPage({ searchParams }: { searchParams: Pr
   const tematicas = await listarTematicasDelPanel(q);
   const deUsuarios = tematicas.filter((t) => t.origen === "usuario").length;
   const ocultas = tematicas.filter((t) => t.oculta).length;
+  const pendientes = tematicas.filter((t) => !t.aprobada && !t.oculta).length;
 
   return (
     <div>
       <Encabezado
         titulo="Temáticas"
-        subtitulo="Intereses de los perfiles y temáticas de las campañas. Las nuevas salen de lo que escriben los usuarios sobre sus gustos; una oculta deja de ofrecerse, pero no se quita de los perfiles ni de las campañas que ya la tienen."
+        subtitulo="Intereses de los perfiles y temáticas de las campañas. Las nuevas salen de lo que escriben los usuarios sobre sus gustos y quedan pendientes: solo las tiene quien las escribió hasta que las apruebas; si la rechazas, se quita de su perfil. Una oculta deja de ofrecerse, pero no se quita de los perfiles ni de las campañas que ya la tienen."
       />
 
       <form method="get" className="mb-4 flex flex-wrap items-center gap-2" role="search">
@@ -42,7 +47,8 @@ export default async function TematicasPage({ searchParams }: { searchParams: Pr
           className="w-full max-w-xs rounded border border-system-300 bg-white px-3 py-2 text-[13px] text-system-900 outline-none focus:border-brand-600"
         />
         <p className="font-mono text-[12px] text-system-500">
-          {formatearNumero(tematicas.length)} {q ? "encontradas" : "en total"} · {formatearNumero(deUsuarios)} de usuarios ·{" "}
+          {formatearNumero(tematicas.length)} {q ? "encontradas" : "en total"} · {formatearNumero(pendientes)} por revisar ·{" "}
+          {formatearNumero(deUsuarios)} de usuarios ·{" "}
           {formatearNumero(ocultas)} ocultas
         </p>
       </form>
@@ -62,8 +68,18 @@ export default async function TematicasPage({ searchParams }: { searchParams: Pr
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                {t.oculta ? <Tag tone="warn">Oculta</Tag> : null}
-                <BotonDeVisibilidad id={t.id} nombre={t.nombre} oculta={t.oculta} />
+                {t.bloqueada ? <Tag tone="warn">Bloqueada por el filtro</Tag> : null}
+                {t.aprobada ? (
+                  <>
+                    {t.oculta ? <Tag tone="warn">Oculta</Tag> : null}
+                    <BotonDeVisibilidad id={t.id} nombre={t.nombre} oculta={t.oculta} />
+                  </>
+                ) : (
+                  <>
+                    {t.oculta ? <Tag tone="danger">Rechazada</Tag> : <Tag tone="on">Pendiente</Tag>}
+                    <BotonesDeRevision id={t.id} nombre={t.nombre} rechazada={t.oculta} />
+                  </>
+                )}
               </div>
             </li>
           ))}

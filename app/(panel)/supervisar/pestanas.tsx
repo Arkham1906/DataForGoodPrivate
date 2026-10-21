@@ -10,15 +10,14 @@ import Tag from "@/components/ui/Tag";
 import BarraDeFiltros, { type ValoresDeFiltros } from "@/components/campanas/BarraDeFiltros";
 import { FILTROS_VACIOS, avisoSinResultados, filtrarCampanas, opcionesDeTematica, type FiltrosLocales } from "@/lib/campanas/filtro-local";
 import type { CampanaSupervisable } from "@/lib/supervision/root";
+import { porcentajeDeMeta } from "@/lib/campanas/meta";
 
 type TabKey = "pending" | "supervised" | "finished" | "flagged";
 
 const tematicaDe = (campaign: CampanaSupervisable) => campaign.tag;
 
 function porcentaje(campaign: CampanaSupervisable) {
-  return campaign.goalContributions > 0
-    ? `${Math.min(100, Math.round((campaign.currentContributions / campaign.goalContributions) * 100))}%`
-    : "0%";
+  return `${porcentajeDeMeta(campaign.approvedContributions, campaign.goalContributions)}%`;
 }
 
 export default function PestanasDeSupervision({
@@ -127,7 +126,7 @@ export default function PestanasDeSupervision({
 
               <div className="flex items-center justify-between gap-4 text-[12px] text-system-600">
                 <span>Progreso</span>
-                <span className="font-mono">{campaign.currentContributions} / {campaign.goalContributions}</span>
+                <span className="font-mono">{campaign.approvedContributions} / {campaign.goalContributions}</span>
               </div>
 
               <div className="mt-2 h-2 overflow-hidden rounded-pill bg-system-100">

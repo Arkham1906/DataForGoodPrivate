@@ -18,6 +18,7 @@ import { getSessionUser } from "@/lib/session";
 import { ACCIONES_DE_SUPERVISION, registrarDecisionDeCampana, tomarCampanaParaSupervisar, type AccionDeSupervision } from "@/lib/supervision/decision";
 import { CAMBIOS_DE_ESTADO_POR_SUPERVISION, cambiarEstadoPorSupervision, type CambioDeEstadoPorSupervision } from "@/lib/supervision/estado-por-supervision";
 import { pausaDesdeFila } from "@/lib/campanas/pausa";
+import { condicionDeVisibilidad } from "@/lib/campanas/visibilidad";
 import { normalizarSecciones, seccionesDesdeFila } from "@/lib/campanas/checklist";
 import { asegurarEnlaceVigente } from "@/lib/campanas/enlaces";
 import { errorDeOrganizacion } from "@/lib/campanas/organizacion";
@@ -108,7 +109,8 @@ function mapCampaign(row: Record<string, unknown>) {
   };
 }
 
-// GET: detalle de una campaña (público) + viewer.isCreator.
+// GET: detalle de una campaña + viewer.isCreator. Pública solo si está activa, pausada o
+// finalizada; en otro estado, solo para quien puede verla (lib/campanas/visibilidad.ts) y 404 al resto.
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
@@ -117,7 +119,8 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     await activateScheduledCampaigns();
     await finalizeExpiredCampaigns();
 
-    const result = await pool.query(`SELECT * FROM campanas WHERE id = $1 LIMIT 1`, [id]);
+    const visible = await condicionDeVisibilidad(user, "campanas", 2);
+    const result = await pool.query(`SELECT * FROM campanas WHERE id = $1 AND ${visible.sql} LIMIT 1`, [id, ...visible.params]);
     if (result.rowCount === 0) {
       return NextResponse.json({ error: "Campaña no encontrada" }, { status: 404 });
     }

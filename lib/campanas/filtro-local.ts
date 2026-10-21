@@ -15,13 +15,15 @@ type CampanaFiltrable = {
   dataTypes?: string[];
   participants?: number;
   currentContributions?: number;
+  approvedContributions?: number;
   goalContributions?: number;
   endDate?: string | null;
 };
 
+// La meta cuenta solo los aprobados (./meta.ts).
 function avance(c: CampanaFiltrable) {
   const meta = Number(c.goalContributions ?? 0);
-  return meta > 0 ? Number(c.currentContributions ?? 0) / meta : 0;
+  return meta > 0 ? Number(c.approvedContributions ?? 0) / meta : 0;
 }
 
 // Mismos órdenes que ORDEN_SQL de ./sistema.ts; el desempate es el id más alto.

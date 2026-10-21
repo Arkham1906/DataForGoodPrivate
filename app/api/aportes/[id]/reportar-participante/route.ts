@@ -1,7 +1,7 @@
 // /api/aportes/[id]/reportar-participante — el creador de la campaña o un revisor reporta a la plataforma
 // a quien envió el aporte (2026-10-12). Va a la bandeja del SuperUsuario (/reportes), que lo descarta o
-// lo confirma con un aviso. Quien aportó no se entera del reporte. No confundir con /reportar ("Reportar
-// al creador" del revisor). Lo usan /mis-campanas/[id]/aportes/[aporteId] y /revisiones/[aporteId].
+// lo confirma con un aviso. Quien aportó no se entera del reporte, pero desde el 2026-10-19 el aporte se
+// rechaza (le llega el rechazo). No confundir con /reportar ("Reportar a supervisión"). Lo usan /mis-campanas/[id]/aportes/[aporteId] y /revisiones/[aporteId].
 // Reglas en lib/reportes/reportes.ts.
 
 import { NextResponse } from "next/server";
@@ -20,12 +20,20 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const resultado = await reportarParticipante({
       aporteId: Number(id),
       usuarioId: Number(user.id),
+      nombre: `${user.nombre ?? ""} ${user.apellidos ?? ""}`.trim() || "Un revisor",
       motivo: body.motivo,
       descripcion: body.descripcion,
     });
     if (!resultado.ok) return NextResponse.json({ error: resultado.error }, { status: resultado.status });
 
-    return NextResponse.json({ message: "Reporte enviado. El equipo de DataForGood lo revisará." }, { status: 201 });
+    return NextResponse.json(
+      {
+        message: resultado.rechazado
+          ? "Reporte enviado a supervisión. El aporte quedó rechazado."
+          : "Reporte enviado a supervisión.",
+      },
+      { status: 201 },
+    );
   } catch (error) {
     console.error("Error reportando participante", error);
     return NextResponse.json({ error: "No se pudo enviar el reporte" }, { status: 500 });

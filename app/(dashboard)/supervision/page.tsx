@@ -11,9 +11,11 @@ import { useEffect, useMemo, useState } from "react";
 import Tag from "@/components/ui/Tag";
 import BarraDeFiltros, { type ValoresDeFiltros } from "@/components/campanas/BarraDeFiltros";
 import { BASE_PATH } from "@/lib/base-path";
+import { porcentajeDeMeta } from "@/lib/campanas/meta";
 import { FILTROS_VACIOS, avisoSinResultados, filtrarCampanas, opcionesDeTematica, type FiltrosLocales } from "@/lib/campanas/filtro-local";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import PestanasDeModeracion from "@/components/moderacion/PestanasDeModeracion";
+import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 
 type CampaignApiItem = {
   id: string;
@@ -26,7 +28,7 @@ type CampaignApiItem = {
   tematica?: string;
   status: string;
   latestSupervisionAction?: "aceptada" | "rechazada" | "reportada" | "reasignada" | null;
-  currentContributions?: number;
+  approvedContributions?: number;
   goalContributions?: number;
   participants?: number;
   dataTypes?: string[];
@@ -47,6 +49,8 @@ export default function SupervisionPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Vuelve a leer cuando algo cambia en la base (actualización en vivo).
+  const recarga = useRecargaEnVivo();
   useEffect(() => {
     async function load() {
       try {
@@ -99,7 +103,7 @@ export default function SupervisionPage() {
     }
 
     void load();
-  }, []);
+  }, [recarga]);
 
   const pendingCount = useMemo(() => pendingCampaigns.length, [pendingCampaigns]);
   const supervisedCount = useMemo(() => supervisedCampaigns.length, [supervisedCampaigns]);
@@ -204,11 +208,9 @@ export default function SupervisionPage() {
         <div className="divide-y divide-system-200">
           {filteredSupervisedCampaigns.map((campaign) => {
             const progress = Number(campaign.goalContributions ?? 0) > 0
-              ? `${Number(campaign.currentContributions ?? 0)} / ${Number(campaign.goalContributions ?? 0)}`
+              ? `${Number(campaign.approvedContributions ?? 0)} / ${Number(campaign.goalContributions ?? 0)}`
               : "0 / 0";
-            const percent = Number(campaign.goalContributions ?? 0) > 0
-              ? `${Math.min(100, Math.round((Number(campaign.currentContributions ?? 0) / Number(campaign.goalContributions ?? 1)) * 100))}%`
-              : "0%";
+            const percent = `${porcentajeDeMeta(Number(campaign.approvedContributions ?? 0), Number(campaign.goalContributions ?? 0))}%`;
 
             return (
               <div key={campaign.id} className="p-4">

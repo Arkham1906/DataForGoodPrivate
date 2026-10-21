@@ -2,15 +2,18 @@
 
 // Lista de /notificaciones con sus acciones. Abrir una notificación la marca como leída y lleva a su enlace;
 // cada una se puede marcar como leída o no leída (PATCH /api/notificaciones/[id]) o borrar (DELETE).
-// "Marcar todas como leídas": PATCH /api/notificaciones. Invitación de revisor: POST /api/notificaciones/[id]/aceptar.
+// "Marcar todas como leídas": PATCH /api/notificaciones. "Limpiar leídas y viejas" (con confirmación): DELETE /api/notificaciones.
+// Invitación de revisor: POST /api/notificaciones/[id]/aceptar.
 // Tras cada cambio refresca la página y avisa a la campana (EVENTO_NOTIFICACIONES) para que actualice su contador.
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 import MenuDeAcciones from "@/components/ui/MenuDeAcciones";
+import VentanaDeConfirmacion from "@/components/ui/VentanaDeConfirmacion";
 import { BASE_PATH } from "@/lib/base-path";
 import {
+  DIAS_PARA_NOTIFICACION_VIEJA,
   EVENTO_NOTIFICACIONES,
   fechaDeNotificacion,
   tonoDeNotificacion,
@@ -22,15 +25,19 @@ const COLOR_DEL_PUNTO = { ok: "bg-success-700", warn: "bg-warning-500", danger: 
 export default function ListaDeNotificaciones({
   items,
   noLeidas,
+  limpiables,
   vacio,
 }: {
   items: Notificacion[];
   noLeidas: number;
+  /** Cuántas borraría "Limpiar" (de todas las páginas, no solo de esta). */
+  limpiables: number;
   vacio: string;
 }) {
   const router = useRouter();
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [confirmandoLimpieza, setConfirmandoLimpieza] = useState(false);
 
   async function enviar(clave: string, url: string, init: RequestInit, mensajeDeError: string): Promise<boolean> {
     setOcupado(clave);
@@ -78,6 +85,16 @@ export default function ListaDeNotificaciones({
     }
   }
 
+  async function limpiar() {
+    const ok = await enviar("limpiar", "/api/notificaciones", { method: "DELETE" }, "No se pudieron limpiar las notificaciones");
+    setConfirmandoLimpieza(false);
+    // Puede que la página actual quede vacía: se regresa a la primera.
+    if (ok) {
+      router.push("/notificaciones");
+      router.refresh();
+    }
+  }
+
   async function aceptar(item: Notificacion) {
     if (await enviar(item.id, `/api/notificaciones/${item.id}/aceptar`, { method: "POST" }, "No se pudo aceptar la invitación")) {
       router.refresh();
@@ -86,13 +103,37 @@ export default function ListaDeNotificaciones({
 
   return (
     <div className="space-y-3">
-      {noLeidas > 0 && (
-        <div className="flex justify-end">
-          <Button size="sm" variant="ghost" onClick={() => void marcarTodas()} disabled={ocupado === "todas"}>
-            Marcar todas como leídas
-          </Button>
+      {(noLeidas > 0 || limpiables > 0) && (
+        <div className="flex flex-wrap justify-end gap-2">
+          {noLeidas > 0 && (
+            <Button size="sm" variant="ghost" onClick={() => void marcarTodas()} disabled={ocupado === "todas"}>
+              Marcar todas como leídas
+            </Button>
+          )}
+          {limpiables > 0 && (
+            <Button size="sm" variant="ghost" onClick={() => setConfirmandoLimpieza(true)} disabled={ocupado === "limpiar"}>
+              Limpiar leídas y viejas ({limpiables})
+            </Button>
+          )}
         </div>
       )}
+
+      <VentanaDeConfirmacion
+        abierto={confirmandoLimpieza}
+        titulo="Limpiar notificaciones"
+        textoConfirmar={`Borrar ${limpiables}`}
+        textoOcupado="Borrando…"
+        ocupado={ocupado === "limpiar"}
+        peligro
+        onCancelar={() => setConfirmandoLimpieza(false)}
+        onConfirmar={() => void limpiar()}
+      >
+        <p>
+          Se borrarán {limpiables === 1 ? "1 notificación" : `${limpiables} notificaciones`}: las que ya leíste y las
+          que tienen más de {DIAS_PARA_NOTIFICACION_VIEJA} días, aunque no las hayas leído. Una invitación de revisor sin
+          aceptar se conserva. No se puede deshacer.
+        </p>
+      </VentanaDeConfirmacion>
 
       {error && (
         <p role="alert" className="rounded-lg border border-error-700 bg-error-50 px-4 py-2.5 text-[13px] text-error-700">

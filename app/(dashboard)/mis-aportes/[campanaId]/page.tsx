@@ -15,6 +15,8 @@ import Tag from "@/components/ui/Tag";
 import type { Campaign, Contribution } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
+import { AvisoNoEncontrado } from "@/components/ui/AvisoNoEncontrado";
+import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 
 export default function CampaignContributionsPage() {
   const params = useParams<{ campanaId: string }>();
@@ -23,8 +25,12 @@ export default function CampaignContributionsPage() {
   const [removedIds, setRemovedIds] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState("todos");
   const [error, setError] = useState<string | null>(null);
+  // 404: no existe o no la puede ver (lib/campanas/visibilidad.ts).
+  const [noEncontrada, setNoEncontrada] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  // Vuelve a leer cuando algo cambia en la base (actualización en vivo).
+  const recarga = useRecargaEnVivo();
   useEffect(() => {
     async function load() {
       try {
@@ -34,6 +40,10 @@ export default function CampaignContributionsPage() {
         ]);
 
         const campaignPayload = await campaignRes.json().catch(() => ({}));
+        if (campaignRes.status === 404) {
+          setNoEncontrada(true);
+          return;
+        }
         if (!campaignRes.ok) throw new Error(campaignPayload.error ?? "No se pudo cargar la campaña");
         setCampaign(campaignPayload.data as Campaign);
 
@@ -51,8 +61,9 @@ export default function CampaignContributionsPage() {
       }
     }
     void load();
-  }, [params.campanaId]);
+  }, [params.campanaId, recarga]);
 
+  if (noEncontrada) return <AvisoNoEncontrado volverA="/mis-aportes" textoVolver="Volver a Mis aportes" />;
   if (error) return <p className="text-sm text-error-700">{error}</p>;
   if (!campaign) return <PantallaEsqueleto tipo="tabla" etiqueta="Cargando tus aportes…" />;
 

@@ -20,6 +20,7 @@ import type { Campaign } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
 import { FILTROS_VACIOS, filtrarCampanas, type FiltrosLocales } from "@/lib/campanas/filtro-local";
 import { claveDeTematica } from "@/lib/tematicas/analizar";
+import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 
 const TU_LOCALIDAD = "Tu localidad";
 // Después de estos van las temáticas que tienen las campañas activas (ver temasConCampanas).
@@ -54,6 +55,8 @@ export default function CampanasPage() {
   const [misIntereses, setMisIntereses] = useState<Set<string>>(new Set());
   const [busqueda, setBusqueda] = useState<FiltrosLocales>(FILTROS_VACIOS);
 
+  // Vuelve a leer cuando algo cambia en la base (actualización en vivo).
+  const recarga = useRecargaEnVivo();
   useEffect(() => {
     async function cargarCampanas() {
       try {
@@ -79,7 +82,7 @@ export default function CampanasPage() {
       }
     }
     void cargarCampanas();
-  }, []);
+  }, [recarga]);
 
   const enMiEstado = miEstado
     ? campaigns.filter((c) => normalizarEstado(c.locationState) === normalizarEstado(miEstado))

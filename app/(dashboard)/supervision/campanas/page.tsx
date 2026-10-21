@@ -8,7 +8,9 @@ import { useEffect, useState } from "react";
 import Tag from "@/components/ui/Tag";
 import { BackLink } from "../_ui";
 import { BASE_PATH } from "@/lib/base-path";
+import { porcentajeDeMeta } from "@/lib/campanas/meta";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
+import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 
 type CampaignRow = {
   id: string;
@@ -16,7 +18,7 @@ type CampaignRow = {
   tag?: string;
   tematica?: string;
   status: string;
-  currentContributions?: number;
+  approvedContributions?: number;
   goalContributions?: number;
   participants?: number;
 };
@@ -26,6 +28,8 @@ export default function SupervisedCampaignsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Vuelve a leer cuando algo cambia en la base (actualización en vivo).
+  const recarga = useRecargaEnVivo();
   useEffect(() => {
     async function load() {
       try {
@@ -48,7 +52,7 @@ export default function SupervisedCampaignsPage() {
     }
 
     void load();
-  }, []);
+  }, [recarga]);
 
   if (loading) {
     return <PantallaEsqueleto tipo="tabla" etiqueta="Cargando campañas supervisadas…" className="mx-auto max-w-5xl" />;
@@ -71,11 +75,9 @@ export default function SupervisedCampaignsPage() {
           <tbody>
             {campaigns.map((campaign) => {
               const progress = Number(campaign.goalContributions ?? 0) > 0
-                ? `${Number(campaign.currentContributions ?? 0)} / ${Number(campaign.goalContributions ?? 0)}`
+                ? `${Number(campaign.approvedContributions ?? 0)} / ${Number(campaign.goalContributions ?? 0)}`
                 : "0 / 0";
-              const percent = Number(campaign.goalContributions ?? 0) > 0
-                ? `${Math.min(100, Math.round((Number(campaign.currentContributions ?? 0) / Number(campaign.goalContributions ?? 1)) * 100))}%`
-                : "0%";
+              const percent = `${porcentajeDeMeta(Number(campaign.approvedContributions ?? 0), Number(campaign.goalContributions ?? 0))}%`;
 
               return (
                 <tr key={campaign.id} className="border-b border-system-200 last:border-0">

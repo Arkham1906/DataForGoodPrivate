@@ -119,7 +119,7 @@ export default async function DashboardDeCampanasPage() {
         <>
           <div className="space-y-3 md:hidden">
             {d.masParticipacion.map((c) => {
-              const pct = porcentajeDeMeta(c.aportes, c.meta);
+              const pct = porcentajeDeMeta(c.aprobados, c.meta);
               return (
                 <article key={c.id} className="rounded-lg border border-system-200 bg-white p-4 shadow-sm">
                   <div className="min-w-0">
@@ -152,7 +152,7 @@ export default async function DashboardDeCampanasPage() {
                     <div className="mb-1 flex items-center justify-between gap-3 text-[11px] text-system-600">
                       <span>Avance de meta</span>
                       <span className="font-mono tabular-nums">
-                        {formatearNumero(c.aportes)}/{formatearNumero(c.meta)}
+                        {formatearNumero(c.aprobados)}/{formatearNumero(c.meta)}
                       </span>
                     </div>
                     <ProgressBar pct={pct} tone="ok" />
@@ -182,7 +182,7 @@ export default async function DashboardDeCampanasPage() {
             </thead>
             <tbody>
               {d.masParticipacion.map((c) => {
-                const pct = porcentajeDeMeta(c.aportes, c.meta);
+                const pct = porcentajeDeMeta(c.aprobados, c.meta);
                 return (
                   <tr key={c.id} className="border-b border-system-200 last:border-0">
                     <td className="py-4 pr-3">
@@ -195,7 +195,7 @@ export default async function DashboardDeCampanasPage() {
                     <td className="w-44 pl-4">
                       <ProgressBar pct={pct} tone="ok" />
                       <span className="font-mono text-[11px] text-system-500">
-                        {formatearNumero(c.aportes)}/{formatearNumero(c.meta)}
+                        {formatearNumero(c.aprobados)}/{formatearNumero(c.meta)}
                       </span>
                     </td>
                     <td className="text-right">

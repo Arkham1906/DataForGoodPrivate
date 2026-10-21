@@ -1,10 +1,13 @@
 "use client";
 
 // Pantalla /mis-campanas/[id]/aportes/agregar-revisor: invitar revisores a la campaña.
-// Componente cliente. Busca con GET /api/usuarios?campanaId=&q=; lista e invita con GET/POST /api/campanas/[id]/revisores.
-// La persona invitada acepta desde sus notificaciones.
+// Componente cliente. Desde el 2026-10-19 muestra a todos los usuarios verificados (GET
+// /api/usuarios?campanaId=&q=&pagina=, de 30 en 30 con "Mostrar más") y filtra mientras se
+// escribe por nombre y apellidos; por correo, solo con el correo completo (el correo va oculto).
+// Lista e invita con GET/POST /api/campanas/[id]/revisores. La persona invitada acepta desde sus
+// notificaciones.
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Input } from "@/components/ui/Input";
@@ -24,15 +27,24 @@ type UserCandidate = {
 
 type CampaignInfo = { id: string; name: string; creatorId: string };
 
-// Igual que en GET /api/usuarios: con menos no se busca.
-const MINIMO_BUSQUEDA = 3;
+type PaginaDeCandidatos = { data?: UserCandidate[]; total?: number; hayMas?: boolean; error?: string };
+
+/** ¿Escribió un correo a medias? Con "@" el servidor solo busca el correo completo. */
+function esCorreoIncompleto(texto: string): boolean {
+  return texto.includes("@") && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(texto);
+}
 
 export default function AgregarRevisorPage() {
   const params = useParams<{ id: string }>();
+  const idDelBuscador = useId();
   const [campaign, setCampaign] = useState<CampaignInfo | null>(null);
   const [users, setUsers] = useState<UserCandidate[]>([]);
+  const [total, setTotal] = useState(0);
+  const [pagina, setPagina] = useState(1);
+  const [hayMas, setHayMas] = useState(false);
   const [query, setQuery] = useState("");
-  const [buscando, setBuscando] = useState(false);
+  const [buscando, setBuscando] = useState(true);
+  const [cargandoMas, setCargandoMas] = useState(false);
   const [invitedId, setInvitedId] = useState<number | null>(null);
   const [invitedName, setInvitedName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -61,51 +73,83 @@ export default function AgregarRevisorPage() {
     if (params.id) loadData();
   }, [params.id]);
 
-  // La búsqueda la hace el servidor (GET /api/usuarios), con una pausa de
-  // 300 ms tras la última tecla para no pedir una vez por letra. Excluye al
-  // creador de la campaña.
+  function pedirCandidatos(texto: string, numero: number, signal?: AbortSignal): Promise<PaginaDeCandidatos> {
+    const consulta = new URLSearchParams({ campanaId: params.id, q: texto, pagina: String(numero) });
+    return fetch(`${BASE_PATH}/api/usuarios?${consulta}`, { signal }).then(async (response) => {
+      const body: PaginaDeCandidatos = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error ?? "No se pudo cargar la lista de usuarios");
+      return body;
+    });
+  }
+
+  // La lista la filtra el servidor (GET /api/usuarios) mientras se escribe, con una pausa de
+  // 250 ms tras la última tecla para no pedir una vez por letra; sin texto, salen todos. Excluye
+  // al creador de la campaña. Cada búsqueda vuelve a la primera página.
   useEffect(() => {
     const texto = query.trim();
-    const suficiente = texto.includes("@") || texto.length >= MINIMO_BUSQUEDA;
     const controlador = new AbortController();
 
-    const temporizador = setTimeout(async () => {
-      if (!params.id || !suficiente) {
-        setUsers([]);
-        return;
-      }
-      setBuscando(true);
-      try {
-        const response = await fetch(
-          `${BASE_PATH}/api/usuarios?campanaId=${encodeURIComponent(params.id)}&q=${encodeURIComponent(texto)}`,
-          { signal: controlador.signal }
-        );
-        const body = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          setError(body.error ?? "No se pudo buscar");
+    const temporizador = setTimeout(
+      async () => {
+        if (!params.id) return;
+        if (esCorreoIncompleto(texto)) {
           setUsers([]);
+          setTotal(0);
+          setHayMas(false);
+          setBuscando(false);
           return;
         }
-        setUsers(Array.isArray(body.data) ? body.data : []);
-      } catch {
-        // Búsqueda cancelada por otra más reciente.
-      } finally {
-        if (!controlador.signal.aborted) setBuscando(false);
-      }
-    }, 300);
+        setBuscando(true);
+        try {
+          const body = await pedirCandidatos(texto, 1, controlador.signal);
+          setUsers(Array.isArray(body.data) ? body.data : []);
+          setTotal(body.total ?? 0);
+          setHayMas(Boolean(body.hayMas));
+          setPagina(1);
+        } catch (e) {
+          if (controlador.signal.aborted) return; // Cancelada por otra más reciente.
+          setError(e instanceof Error ? e.message : "No se pudo cargar la lista de usuarios");
+          setUsers([]);
+          setTotal(0);
+          setHayMas(false);
+        } finally {
+          if (!controlador.signal.aborted) setBuscando(false);
+        }
+      },
+      // La primera carga (sin texto) va de inmediato.
+      texto ? 250 : 0,
+    );
 
     return () => {
       clearTimeout(temporizador);
       controlador.abort();
     };
+    // pedirCandidatos solo depende de params.id.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, params.id]);
+
+  async function mostrarMas() {
+    setCargandoMas(true);
+    try {
+      const body = await pedirCandidatos(query.trim(), pagina + 1);
+      const vistos = new Set(users.map((u) => u.id));
+      setUsers([...users, ...(body.data ?? []).filter((u) => !vistos.has(u.id))]);
+      setTotal(body.total ?? total);
+      setHayMas(Boolean(body.hayMas));
+      setPagina(pagina + 1);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo cargar la lista de usuarios");
+    } finally {
+      setCargandoMas(false);
+    }
+  }
 
   if (!campaign) {
     return <PantallaEsqueleto tipo="formulario" etiqueta="Cargando campaña…" />;
   }
 
   const textoBuscado = query.trim();
-  const busquedaSuficiente = textoBuscado.includes("@") || textoBuscado.length >= MINIMO_BUSQUEDA;
+  const correoIncompleto = esCorreoIncompleto(textoBuscado);
 
   async function invite(candidate: UserCandidate) {
     setError(null);
@@ -133,20 +177,36 @@ export default function AgregarRevisorPage() {
         ← Volver a aportes
       </Link>
 
-      <div className="mb-5 flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-extrabold text-system-900">Agregar revisor</h1>
-          <p className="mt-1 text-[13px] text-system-600">{campaign.name}</p>
-        </div>
+      <div className="mb-4">
+        <h1 className="text-xl font-extrabold text-system-900">Agregar revisor</h1>
+        <p className="mt-1 text-[13px] text-system-600">{campaign.name}</p>
+      </div>
+
+      <div className="mb-4">
+        <label htmlFor={idDelBuscador} className="mb-1.5 block text-[13px] font-medium text-system-900">
+          Buscar usuario
+        </label>
         <Input
-          placeholder="Nombre o correo completo"
+          id={idDelBuscador}
+          type="search"
+          placeholder="Nombre, apellidos o correo completo"
           value={query}
           onChange={(e) => {
             setError(null);
             setQuery(e.target.value);
           }}
-          className="w-56"
+          autoComplete="off"
+          className="w-full"
         />
+        <p aria-live="polite" className="mt-1.5 text-[12px] text-system-500">
+          {buscando
+            ? "Buscando…"
+            : correoIncompleto
+              ? "Para buscar por correo, escríbelo completo."
+              : textoBuscado
+                ? `${total} ${total === 1 ? "coincidencia" : "coincidencias"}`
+                : `${total} ${total === 1 ? "usuario disponible" : "usuarios disponibles"}`}
+        </p>
       </div>
 
       {invitedName && (
@@ -157,17 +217,15 @@ export default function AgregarRevisorPage() {
 
       {error && <p className="mb-4 rounded border border-error-700 bg-error-50 p-3 text-[12.5px] text-error-700">{error}</p>}
 
-      {!busquedaSuficiente ? (
-        <p className="mb-4 rounded-lg bg-system-100 p-3.5 text-[12.5px] text-system-600">
-          Escribe al menos {MINIMO_BUSQUEDA} letras del nombre, o el correo completo de la persona que quieres invitar.
-        </p>
-      ) : !buscando && users.length === 0 ? (
+      {!buscando && !correoIncompleto && users.length === 0 ? (
         <p className="mb-4 rounded-lg border border-dashed border-system-300 bg-white p-6 text-center text-[12.5px] text-system-600">
-          No encontramos usuarios verificados con “{textoBuscado}”.
+          {textoBuscado
+            ? `No encontramos usuarios verificados con “${textoBuscado}”.`
+            : "Todavía no hay otros usuarios verificados para invitar."}
         </p>
       ) : null}
 
-      <div className="overflow-hidden rounded-lg border border-system-200">
+      <div className={`overflow-hidden rounded-lg border border-system-200 ${users.length === 0 ? "hidden" : ""}`}>
         <table className="w-full text-left text-[13px]">
           <thead className="bg-system-100 text-[11px] uppercase tracking-wide text-system-500">
             <tr>
@@ -219,6 +277,14 @@ export default function AgregarRevisorPage() {
           </tbody>
         </table>
       </div>
+
+      {hayMas && !buscando ? (
+        <div className="mt-3 text-center">
+          <Button variant="secondary" size="sm" disabled={cargandoMas} onClick={() => void mostrarMas()}>
+            {cargandoMas ? "Cargando…" : `Mostrar más (${users.length} de ${total})`}
+          </Button>
+        </div>
+      ) : null}
 
       <p className="mt-4 text-[12.5px] text-system-600">
         La persona invitada recibe una notificación; el rol de Revisor de aportes se

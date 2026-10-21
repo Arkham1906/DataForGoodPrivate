@@ -1,8 +1,10 @@
 "use client";
 
 // Pantalla /mis-campanas/[id]/panel: métricas de una campaña propia.
-// Componente cliente. Datos: GET /api/campanas?id= y GET /api/campanas/[id]/recoleccion-diaria.
-// Ojo: ni la página ni esos endpoints comprueban que seas el creador (docs/README.md § 8).
+// Componente cliente. Datos: GET /api/campanas?id= (viewer.isCreator) y GET /api/campanas/[id]/recoleccion-diaria.
+// Solo el creador: a cualquier otra persona le sale el aviso de página no encontrada (2026-10-20;
+// antes veía las métricas). La recolección diaria ya respondía 403 a quien no la creó.
+// La meta cuenta solo los aprobados (lib/campanas/meta.ts).
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -13,6 +15,16 @@ import ProgressBar from "@/components/ui/ProgressBar";
 import type { Campaign } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
+import { AvisoNoEncontrado } from "@/components/ui/AvisoNoEncontrado";
+import { porcentajeDeMeta, pronosticoDeMeta } from "@/lib/campanas/meta";
+import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
+
+const TEXTO_DEL_PRONOSTICO = {
+  alcanzada: "La campaña ya alcanzó su meta de aportes aprobados.",
+  a_tiempo: "Al ritmo actual de aportes aprobados, la meta se alcanza antes de la fecha de cierre.",
+  no_alcanza: "Al ritmo actual de aportes aprobados, la meta no se alcanza antes de la fecha de cierre.",
+  sin_datos: "Todavía no hay datos suficientes para estimar si se alcanza la meta.",
+} as const;
 
 type DiaDeRecoleccion = { fecha: string; etiqueta: string; valor: number };
 type TipoDeAporte = { tipo: string; etiqueta: string; valor: number; porcentaje: number };
@@ -22,7 +34,10 @@ export default function PanelCampanaPage() {
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [recoleccionDiaria, setRecoleccionDiaria] = useState<DiaDeRecoleccion[]>([]);
   const [porTipo, setPorTipo] = useState<TipoDeAporte[]>([]);
+  const [noEncontrada, setNoEncontrada] = useState(false);
 
+  // Vuelve a leer cuando algo cambia en la base (actualización en vivo).
+  const recarga = useRecargaEnVivo();
   useEffect(() => {
     let activo = true;
 
@@ -33,10 +48,13 @@ export default function PanelCampanaPage() {
       ]);
       if (!activo) return;
 
-      if (campaignResponse.ok) {
-        const body = await campaignResponse.json();
-        setCampaign(body.data ?? null);
+      const body = campaignResponse.ok ? await campaignResponse.json() : null;
+      if (!activo) return;
+      if (!body?.data || !body.viewer?.isCreator) {
+        setNoEncontrada(true);
+        return;
       }
+      setCampaign(body.data);
       if (recoleccionResponse.ok) {
         const body = await recoleccionResponse.json();
         setRecoleccionDiaria(Array.isArray(body.data) ? body.data : []);
@@ -45,17 +63,16 @@ export default function PanelCampanaPage() {
     }
 
     if (!params.id) return;
-    loadCampaign();
+    void loadCampaign();
 
-    // El badge dice "en vivo": mientras la campaña siga activa, se refresca
-    // sola cada 3 s en vez de solo cargar una vez al entrar.
-    const intervalo = setInterval(loadCampaign, 3000);
+    // El badge dice "en vivo": ya no consulta cada 3 s; vuelve a leer en cuanto llega un aporte
+    // o cambia algo de la campaña (useRecargaEnVivo, 2026-10-19).
     return () => {
       activo = false;
-      clearInterval(intervalo);
     };
-  }, [params.id]);
+  }, [params.id, recarga]);
 
+  if (noEncontrada) return <AvisoNoEncontrado volverA="/mis-campanas" textoVolver="Volver a Mis campañas" />;
   if (!campaign) {
     return <PantallaEsqueleto tipo="tablero" etiqueta="Cargando el panel de la campaña…" />;
   }
@@ -68,7 +85,18 @@ export default function PanelCampanaPage() {
   };
 
   const isFinished = campaign.status === "finalizada";
-  const pct = campaign.goalContributions > 0 ? Math.round((campaign.currentContributions / campaign.goalContributions) * 100) : 0;
+  const pct = porcentajeDeMeta(campaign.approvedContributions, campaign.goalContributions);
+  const inicio = parseDateOnly(campaign.startDate);
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  // Días completos desde el inicio, contando el de hoy (el primer día ya hay ritmo).
+  const diasTranscurridos = inicio ? Math.floor((hoy.getTime() - inicio.getTime()) / 86_400_000) + 1 : 0;
+  const pronostico = pronosticoDeMeta({
+    aprobados: campaign.approvedContributions,
+    meta: campaign.goalContributions,
+    diasTranscurridos,
+    diasRestantes: campaign.daysRemaining ?? 0,
+  });
   const maxDaily = Math.max(...recoleccionDiaria.map((d) => d.valor), 1);
 
   return (
@@ -98,19 +126,15 @@ export default function PanelCampanaPage() {
           </p>
         </div>
         <Tag tone={isFinished ? "default" : "ok"}>
-          {isFinished ? "Solo lectura" : "En vivo · actualiza cada 3 s"}
+          {isFinished ? "Solo lectura" : "En vivo"}
         </Tag>
       </div>
 
       <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <MetricCard label="Aportes aprobados" value={campaign.approvedContributions} />
         <MetricCard label="Participantes" value={campaign.participants} />
-        {isFinished ? (
-          <MetricCard label="Meta alcanzada" value="100%" />
-        ) : (
-          <MetricCard label="Pendientes" value={campaign.pendingContributions} />
-        )}
-        <MetricCard label="Meta" value={`${pct}%`} />
+        <MetricCard label="Pendientes" value={campaign.pendingContributions} />
+        <MetricCard label={isFinished ? "Meta alcanzada" : "Meta"} value={`${pct}%`} />
       </div>
 
       {!isFinished && (
@@ -194,12 +218,12 @@ export default function PanelCampanaPage() {
               <ProgressBar pct={pct} tone="ok" />
               <div className="my-3 flex justify-between font-mono text-[12.5px] text-system-600">
                 <span>
-                  {campaign.currentContributions} de {campaign.goalContributions} aportes
+                  {campaign.approvedContributions} de {campaign.goalContributions} aprobados
                 </span>
                 <span>{campaign.daysRemaining ?? 0} días restantes</span>
               </div>
               <div className="rounded-lg bg-system-100 p-3.5 text-[12px] leading-relaxed text-system-600">
-                Al ritmo actual, la meta se alcanza antes de la fecha de cierre.
+                {TEXTO_DEL_PRONOSTICO[pronostico]}
               </div>
             </>
           )}

@@ -10,6 +10,9 @@ export default function PublicFooter() {
         <Link href="/sobre-nosotros" className="hover:text-system-900">
           Sobre nosotros
         </Link>
+        <Link href="/terminos" className="hover:text-system-900">
+          Términos de uso
+        </Link>
         <Link href="/privacidad" className="hover:text-system-900">
           Privacidad
         </Link>

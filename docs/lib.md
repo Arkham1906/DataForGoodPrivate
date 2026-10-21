@@ -46,6 +46,7 @@
 | `intereses.ts` 🟢 | `TEMAS_DE_INTERES`: las 23 temáticas base, con las que se siembra la tabla `tematicas` al arrancar. El catálogo real (que crece) está en `tematicas/` |
 | `mexico-geo.ts` 🟢 | Estados y municipios de México (`ESTADOS_DE_MEXICO`, `municipiosDe`) |
 | `perfil-opciones.ts` 🟢 | Especialidades del perfil |
+| `legal.ts` 🟢 | `RESPONSABLE` (nombre, domicilio y correo; `null` = pendiente) y `FECHA_DE_ACTUALIZACION` de `/terminos` y `/privacidad` (2026-10-19) |
 | `campaign-date.ts` | Fechas de campaña y las transiciones automáticas (`activateScheduledCampaigns`, `finalizeExpiredCampaigns`, `hasCampaignStarted`, `hasCampaignEnded`). Al activar o finalizar por fecha, avisa al creador. Corren cada minuto desde `instrumentation-node.ts` y al leer las listas de campañas |
 | `open-data.ts` | Catálogo de datos abiertos (`/datos`): búsqueda, facetas, formatos, licencia |
 | `open-data-csv.ts` | `tablaDeAportesCsv(filas)`: la tabla `aportes.csv` del ZIP de descarga (seudónimos "Participante N" / "Anónimo", UTF-8 con BOM, celdas a salvo de fórmulas) y `ubicacionDeCampana()` |
@@ -81,6 +82,8 @@
 | `estado-del-creador.ts` | Qué estado puede pedir el creador (`borrador`/`en_revision`), límite de 5 activas, XP fijo | `POST /api/campanas`, `PATCH`/`PUT /api/campanas/[id]` |
 | `checklist.ts` 🟢 | Checklists con título: normalizar, validar respuestas, límites (`MAX_SECCIONES`...) | Formulario de campaña, aportar, API |
 | `sistema.ts` | Consultas del panel del SuperUsuario (listado, conteos, dashboard). Exigen sesión raíz | `/sistema/campanas/**` |
+| `meta.ts` 🟢 | **La meta cuenta solo los aprobados** (2026-10-20): `porcentajeDeMeta(aprobados, meta)` y `pronosticoDeMeta()` (¿se llega al ritmo actual?) | Todas las pantallas que muestran el avance de una campaña, `sistema.ts`, `filtro-local.ts` |
+| `visibilidad.ts` | Qué campañas lee cada quien en `GET /api/campanas` y `GET /api/campanas/[id]` (`condicionDeVisibilidad`): públicas activa, pausada y finalizada; además el creador las suyas, el supervisor las en revisión y las que supervisa, el revisor aceptado la suya y la sesión raíz todas (2026-10-20) | `app/api/campanas/route.ts`, `app/api/campanas/[id]/route.ts` |
 | `sistema-opciones.ts` 🟢 | Constantes y tipos de esas pantallas (pestañas, etiquetas, órdenes) | `/sistema/campanas/filtros.tsx`, `components/campanas/BarraDeFiltros.tsx` |
 | `filtro-local.ts` 🟢 | Filtra y ordena en el navegador listas ya cargadas, con los mismos criterios que `buscarCampanas()`; aviso de lista vacía (`avisoSinResultados`) | `/supervision`, `/supervisar`, `/revisiones` |
 
@@ -104,7 +107,7 @@
 | `baja.ts` | Baja voluntaria: resumen, pedirla, cancelarla al iniciar sesión y borrado definitivo al vencer el plazo | `/cuenta/eliminar`, `DELETE /api/usuarios/[id]`, login y Google, `instrumentation-node.ts` (cada hora) |
 | `avatar-opciones.ts` 🟢 | Ícono del perfil: opciones (iniciales, masculino, femenino, otro, foto), límites de la foto (JPG/PNG, 5 MB, 256 px), `errorDeFotoDePerfil`, `inicialesDe`, `datosDeAvatar` | `components/ui/Avatar`, `/cuenta` (`EditarAvatar`), `TopBar`, `/api/usuarios/[id]/avatar` |
 | `avatar.ts` | `cambiarAvatar` (procesa la foto con sharp a 256 px sin metadatos, la guarda en MinIO y borra la anterior) y `leerFotoDePerfil` | `/api/usuarios/[id]/avatar` |
-| `baja-opciones.ts` 🟢 | Constantes de la baja: 30 días, ELIMINAR, destinos de los aportes, formato de fecha | `/cuenta/eliminar`, `/baja-solicitada`, `baja.ts` |
+| `baja-opciones.ts` 🟢 | Constantes de la baja: plazo de gracia (`MINUTOS_DE_GRACIA` = 3 desde el 2026-10-19; eran 30 días), ELIMINAR, destinos de los aportes, formato de fecha | `/cuenta/eliminar`, `/baja-solicitada`, `baja.ts` |
 | `recuperacion.ts` | Códigos por correo para poner contraseña: recuperarla sin sesión (sin revelar si la cuenta existe; cierra todas las sesiones) y crearla desde `/cuenta` en una cuenta de Google (conserva las sesiones) | `POST /api/auth/recuperar{, /restablecer}`, `POST /api/usuarios/[id]/contrasena{, /codigo}` |
 | `recuperacion-opciones.ts` 🟢 | Números de la recuperación: 15 min, 3 intentos, 60 s entre correos | `/recuperar`, `recuperacion.ts` |
 | `contrasena-actual.ts` | Comprueba la contraseña actual; un error suma al bloqueo del login | Cambio de contraseña, baja de cuenta |
@@ -159,8 +162,10 @@ Catálogo de temáticas (intereses del perfil y temática de campaña), desde el
 
 | Archivo | Qué hace | Lo usa |
 | --- | --- | --- |
-| `notificaciones.ts` | `notificar()` crea una notificación (nunca lanza: si falla, solo lo registra en el log; llámala después del `COMMIT`). `listarNotificaciones()` (paginada, todas o sin leer, con el total sin leer), `marcarNotificacion()`, `marcarTodasComoLeidas()` y `borrarNotificacion()` (no borra una invitación de revisor sin aceptar) | `/api/notificaciones/**`, `/notificaciones` y los eventos: `PATCH /api/aportes/[id]`, `/api/campanas/[id]/{baneos,revisores}`, `decision.ts`, `campaign-date.ts`, `acciones-usuarios.ts` |
+| `notificaciones.ts` | `notificar()` crea una notificación (nunca lanza: si falla, solo lo registra en el log; llámala después del `COMMIT`). `listarNotificaciones()` (paginada, todas o sin leer, con el total sin leer), `marcarNotificacion()`, `marcarTodasComoLeidas()`, `borrarNotificacion()` (no borra una invitación de revisor sin aceptar) y `limpiarNotificaciones()` (borra las leídas y las de más de `DIAS_PARA_NOTIFICACION_VIEJA` días, con la misma excepción; `listarNotificaciones()` cuenta cuántas serían en `limpiables`) | `/api/notificaciones/**`, `/notificaciones` y los eventos: `PATCH /api/aportes/[id]`, `/api/campanas/[id]/{baneos,revisores}`, `decision.ts`, `campaign-date.ts`, `acciones-usuarios.ts` |
+| `hitos-de-aportes.ts` | `avisarAportesRecibidos(campanaId, total)` (2026-10-19): cada 10 aportes recibidos avisa al creador (`aportes_recibidos`) con el total, borrando el aviso anterior de esa campaña. Lo llama `insertarAporteConCuota` | `aportes/comun.ts` |
 | `push.ts` | Notificaciones push (Web Push con `web-push` y llaves VAPID): guardar o borrar la suscripción de un navegador (solo servicios de push conocidos) y `enviarPush()`, que `notificar()` llama en segundo plano. Sin llaves en el entorno queda apagado | `/api/push`, `notificaciones.ts` |
+| `../en-vivo.ts`, `../en-vivo-postgres.ts`, `../en-vivo-cliente.ts` | Actualización en vivo (2026-10-19): `notificar()` llama `publicarAviso()`; triggers `dfg_avisar_cambio` (creados por `ensureAvisosDeCambios()`) mandan `NOTIFY dfg_cambios` y una conexión con LISTEN (`escucharCambiosDeLaBase()`, desde `instrumentation-node.ts`) sube `versionDeCambios()`. `GET /api/eventos` espera ambos. En el navegador, `useRecargaEnVivo()` hace que las pantallas cliente vuelvan a leer. EventEmitter en `globalThis`: los avisos personales solo sirven con un proceso | `notificaciones.ts`, `/api/eventos`, `ActualizacionEnVivo`, pantallas de datos de `(dashboard)` |
 | `registro-push.ts` | Lado del navegador, sin `pg`: registra `public/sw.js`, pide permiso, suscribe, desactiva y resincroniza; `estadoDePush()` distingue sin soporte, iPhone sin instalar, bloqueado, inactivo y activo | `AvisosEnEsteDispositivo`, `NotificationsBell`, `LogoutButton` |
 | `tipos.ts` | Sin `pg`: `TipoDeNotificacion` (los 16 eventos), el tipo `Notificacion` que entrega la API, el tono de cada tipo y el formato de fecha (`fechaDeNotificacion`, `haceCuanto`) | `NotificationsBell`, `ListaDeNotificaciones` |
 

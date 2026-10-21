@@ -1,16 +1,17 @@
 // Pantalla /datos/[id] (pública): ficha de un conjunto de datos abierto.
 // Datos: obtenerConjuntoAbierto() de lib/open-data.ts. Descarga: GET /api/datos/[id]/descarga (ZIP con los
-// archivos y la tabla aportes.csv).
+// archivos y la tabla aportes.csv). Métricas: tamaño (archivos que salen en el ZIP), descargas (sube en el momento
+// con descargas.tsx), calidad (aprobados / revisados) y formatos (tipos de archivo del ZIP).
 
 import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import PublicHeader from "@/components/layout/PublicHeader";
 import PublicFooter from "@/components/layout/PublicFooter";
-import ButtonLink from "@/components/ui/ButtonLink";
 import Card from "@/components/ui/Card";
 import Tag from "@/components/ui/Tag";
 import { DATA_TYPE_LABELS, obtenerConjuntoAbierto } from "@/lib/open-data";
+import { BotonDeDescarga, ContadorDeDescargas } from "./descargas";
 
 export const revalidate = 300;
 
@@ -78,24 +79,47 @@ export default async function ConjuntoAbiertoPage({
           )}
         </div>
 
+        {/* Las 4 métricas salen de obtenerConjuntoAbierto(); cada una dice de dónde sale su número. */}
         <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Card>
             <p className="text-[11px] text-system-600">Tamaño</p>
-            <p className="font-mono text-[15px] font-bold text-system-900">{conjunto.sizeLabel}</p>
+            <p className="font-mono text-[15px] font-bold text-system-900">
+              {conjunto.filesCount > 0 ? conjunto.sizeLabel : "Solo texto"}
+            </p>
+            <p className="mt-0.5 text-[11px] text-system-500">
+              {conjunto.filesCount > 0
+                ? `${nf.format(conjunto.filesCount)} ${conjunto.filesCount === 1 ? "archivo" : "archivos"}, más aportes.csv`
+                : "Sin archivos: solo aportes.csv"}
+            </p>
           </Card>
           <Card>
             <p className="text-[11px] text-system-600">Descargas</p>
-            <p className="font-mono text-[15px] font-bold text-system-900">{nf.format(conjunto.downloads)}</p>
+            <p className="font-mono text-[15px] font-bold text-system-900">
+              <ContadorDeDescargas conjuntoId={conjunto.id} inicial={conjunto.downloads} />
+            </p>
+            <p className="mt-0.5 text-[11px] text-system-500">Veces que se bajó el ZIP</p>
           </Card>
           <Card>
             <p className="text-[11px] text-system-600">Calidad</p>
             <p className="font-mono text-[15px] font-bold text-system-900">
               {conjunto.quality != null ? `${conjunto.quality.toFixed(1)}/10` : "—"}
             </p>
+            <p className="mt-0.5 text-[11px] text-system-500">
+              {conjunto.quality != null
+                ? `${nf.format(conjunto.approvedContributions)} aprobados de ${nf.format(conjunto.approvedContributions + conjunto.rejectedContributions)} revisados`
+                : "Sin aportes revisados"}
+            </p>
           </Card>
           <Card>
             <p className="text-[11px] text-system-600">Formatos</p>
-            <p className="font-mono text-[15px] font-bold text-system-900">{conjunto.formats.length || "—"}</p>
+            <p className="font-mono text-[15px] font-bold text-system-900">
+              {conjunto.formats.length > 0 ? conjunto.formats.join(" · ") : "CSV"}
+            </p>
+            <p className="mt-0.5 text-[11px] text-system-500">
+              {conjunto.formats.length > 0
+                ? `${conjunto.formats.length === 1 ? "Tipo de archivo" : `${conjunto.formats.length} tipos de archivo`} y la tabla CSV`
+                : "Solo la tabla aportes.csv"}
+            </p>
           </Card>
         </div>
 
@@ -122,13 +146,10 @@ export default async function ConjuntoAbiertoPage({
                   ? ` y los archivos de los aportes (${conjunto.formats.join(", ")}), ${conjunto.sizeLabel} en total.`
                   : ". Esta campaña no tiene archivos que descargar: sus aportes son de texto o sus archivos se eliminaron por moderación."}
               </p>
-              <ButtonLink
-                href={`/api/datos/${conjunto.id}/descarga`}
-                variant="primary"
-                className="mt-3 inline-flex"
-              >
-                {conjunto.sizeBytes > 0 ? `Descargar ZIP (${conjunto.sizeLabel})` : "Descargar ZIP"}
-              </ButtonLink>
+              <BotonDeDescarga
+                conjuntoId={conjunto.id}
+                texto={conjunto.sizeBytes > 0 ? `Descargar ZIP (${conjunto.sizeLabel})` : "Descargar ZIP"}
+              />
             </>
           ) : (
             <p className="mt-1.5 text-[12.5px] leading-relaxed text-system-600">
