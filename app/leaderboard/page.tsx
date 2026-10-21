@@ -4,14 +4,13 @@
 // ?tematica=, ?pagina=).
 // Datos: lib/gamificacion/clasificacion.ts (obtenerClasificacion, obtenerTematicasConLideres). Reglas
 // de quién cuenta y de privacidad (nombre "Carlos P.", nunca la foto) en ese archivo y en dominio.md § 7.
-// Si hay sesión, la persona se ve marcada con "Tú" en la tabla; sin sesión la pantalla es igual.
+// Si hay sesión, la persona se ve marcada con "Tú" en la tabla y el marco (TopBar + sidebar) lo pone
+// app/leaderboard/layout.tsx; sin sesión, el marco es el público (PublicHeader + PublicFooter).
 // Acciones: ninguna (solo consulta). La landing enlaza aquí con "Ver tabla completa".
 
 import type { Metadata } from "next";
 import { BASE_PATH } from "@/lib/base-path";
 import { retraso } from "@/lib/animaciones";
-import PublicHeader from "@/components/layout/PublicHeader";
-import PublicFooter from "@/components/layout/PublicFooter";
 import ButtonLink from "@/components/ui/ButtonLink";
 import Button from "@/components/ui/Button";
 import ListaDeLideres from "@/components/gamificacion/ListaDeLideres";
@@ -72,10 +71,7 @@ export default async function LideresPage({ searchParams }: { searchParams: Prom
     const resaltarId = sesion?.id;
 
     return (
-        <div className="min-h-screen bg-system-50">
-        <PublicHeader />
-
-        <main id="contenido" className="mx-auto max-w-4xl px-6 pb-24 pt-14">
+        <div className="mx-auto max-w-4xl">
             <p className="landing-entrada mb-2 font-mono text-[10.5px] uppercase tracking-widest text-brand-600">
             Comunidad
             </p>
@@ -172,9 +168,6 @@ export default async function LideresPage({ searchParams }: { searchParams: Prom
                 )}
             </nav>
             )}
-        </main>
-
-        <PublicFooter />
         </div>
     );
 }
