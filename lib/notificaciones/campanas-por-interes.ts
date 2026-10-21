@@ -1,6 +1,7 @@
 // Avisos para participar (2026-10-14, decisiones del usuario en references/dominio.md § 11):
 //   - campana_nueva: al activarse una campaña, a quien tiene su temática en sus intereses y vive en
-//     su estado (y en su municipio, si la campaña tiene uno). Máximo 3 al día por persona.
+//     su estado (y en su municipio, si la campaña tiene uno). Si es para todo el país (2026-10-21),
+//     a quien tiene la temática, viva donde viva. Máximo 3 al día por persona.
 //   - campana_especial: al publicarse los incentivos de una campaña activa (o al reanudarla), a
 //     quien ya participa (aportó o la guardó) y a quien cumple lo mismo que en campana_nueva.
 // Quien apaga "Campañas nuevas" en Preferencias (usuarios.avisos_campanas_nuevas) no recibe los
@@ -28,6 +29,7 @@ type Campana = Record<string, unknown> & {
   tematica: string | null;
   location_state: string | null;
   location_city: string | null;
+  todo_el_pais: boolean;
   creator_id: number;
   status: string;
 };
@@ -86,15 +88,17 @@ function leInteresa(campana: Campana, persona: Candidato): boolean {
 
 /**
  * La temática de la campaña está en los intereses de la persona y vive en su estado (y en su
- * municipio, si la campaña tiene uno). También la usa el resumen mensual (./periodicas.ts).
+ * municipio, si la campaña tiene uno); si es para todo el país, basta la temática. También la usa
+ * el resumen mensual (./periodicas.ts).
  */
 export function coincideConPersona(
-  campana: { tematica?: unknown; location_state?: unknown; location_city?: unknown },
+  campana: { tematica?: unknown; location_state?: unknown; location_city?: unknown; todo_el_pais?: unknown },
   persona: { intereses: unknown; state: string | null; city: string | null },
 ): boolean {
   const tematica = claveDeTematica(String(campana.tematica ?? ""));
   const intereses = Array.isArray(persona.intereses) ? persona.intereses.map((t) => claveDeTematica(String(t))) : [];
   if (!tematica || !intereses.includes(tematica)) return false;
+  if (campana.todo_el_pais === true) return true;
   const estado = claveDeTematica(String(campana.location_state ?? ""));
   if (!estado || claveDeTematica(String(persona.state ?? "")) !== estado) return false;
   // Sin municipio, la campaña abarca todo el estado (dominio.md § 3).
@@ -103,6 +107,7 @@ export function coincideConPersona(
 }
 
 function lugar(campana: Campana): string {
+  if (campana.todo_el_pais) return "todo el país";
   return [campana.location_city, campana.location_state].filter((v) => v && String(v).trim()).join(", ");
 }
 

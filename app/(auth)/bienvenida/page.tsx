@@ -144,10 +144,10 @@ function BienvenidaForm() {
   }
 
   return (
-    <div className="rounded-lg border border-system-200 bg-white p-8">
+    <div className="rounded-lg border border-system-200 bg-white p-8 lg:relative lg:left-1/2 lg:w-[min(92vw,1280px)] lg:max-w-none lg:-translate-x-1/2 lg:p-10">
       <div className="mb-1 flex items-start justify-between">
         <div>
-          <h1 className="text-xl font-extrabold text-system-900">Cuéntanos de ti</h1>
+          <h1 className="text-xl font-extrabold text-system-900 lg:text-2xl">Cuéntanos de ti</h1>
           <p className="mt-1 font-mono text-[10.5px] uppercase tracking-wider text-brand-600">
             {paso === 3 ? "Paso 3 de 4 · Tu ubicación" : "Paso 4 de 4 · Tus intereses"}
           </p>
@@ -169,32 +169,34 @@ function BienvenidaForm() {
 
       {paso === 3 ? (
         <>
-          <Field label="Estado">
-            <select
-              value={state}
-              onChange={(e) => cambiarEstado(e.target.value)}
-              className="w-full rounded border border-system-300 bg-white px-3.5 py-3 text-sm text-system-900 outline-none focus:border-brand-600"
-            >
-              <option value="">Selecciona un estado</option>
-              {opcionesCon(state, NOMBRES_DE_ESTADOS).map((opcion) => (
-                <option key={opcion}>{opcion}</option>
-              ))}
-            </select>
-          </Field>
+          <div className="lg:grid lg:grid-cols-2 lg:gap-x-8">
+            <Field label="Estado">
+              <select
+                value={state}
+                onChange={(e) => cambiarEstado(e.target.value)}
+                className="w-full rounded border border-system-300 bg-white px-3.5 py-3 text-sm text-system-900 outline-none focus:border-brand-600"
+              >
+                <option value="">Selecciona un estado</option>
+                {opcionesCon(state, NOMBRES_DE_ESTADOS).map((opcion) => (
+                  <option key={opcion}>{opcion}</option>
+                ))}
+              </select>
+            </Field>
 
-          <Field label="Municipio">
-            <select
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              disabled={!state}
-              className="w-full rounded border border-system-300 bg-white px-3.5 py-3 text-sm text-system-900 outline-none focus:border-brand-600 disabled:opacity-50"
-            >
-              <option value="">{state ? "Selecciona un municipio" : "Primero selecciona un estado"}</option>
-              {opcionesCon(city, municipiosDe(state)).map((opcion) => (
-                <option key={opcion}>{opcion}</option>
-              ))}
-            </select>
-          </Field>
+            <Field label="Municipio">
+              <select
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                disabled={!state}
+                className="w-full rounded border border-system-300 bg-white px-3.5 py-3 text-sm text-system-900 outline-none focus:border-brand-600 disabled:opacity-50"
+              >
+                <option value="">{state ? "Selecciona un municipio" : "Primero selecciona un estado"}</option>
+                {opcionesCon(city, municipiosDe(state)).map((opcion) => (
+                  <option key={opcion}>{opcion}</option>
+                ))}
+              </select>
+            </Field>
+          </div>
 
           <div className="flex justify-end gap-2.5">
             <Button variant="secondary" onClick={finish}>
@@ -207,40 +209,42 @@ function BienvenidaForm() {
         </>
       ) : (
         <>
-          <Field
-            label="Especialidad (opcional)"
-            hint="Si más adelante te asignan el rol de supervisor, se usará para repartirte campañas de tu área."
-          >
-            <select
-              value={especialidadPersonalizada ? OTRA_ESPECIALIDAD : specialty}
-              onChange={(e) => elegirEspecialidad(e.target.value)}
-              className="w-full rounded border border-system-300 bg-white px-3.5 py-3 text-sm text-system-900 outline-none focus:border-brand-600"
+          <div className="lg:grid lg:grid-cols-2 lg:gap-x-8 lg:items-start">
+            <Field
+              label="Especialidad (opcional)"
+              hint="Si más adelante te asignan el rol de supervisor, se usará para repartirte campañas de tu área."
             >
-              <option value="">Selecciona una especialidad</option>
-              {ESPECIALIDADES.map((opcion) => (
-                <option key={opcion}>{opcion}</option>
-              ))}
-              <option value={OTRA_ESPECIALIDAD}>Otra (especifica)</option>
-            </select>
-            {especialidadPersonalizada && (
-              <Input
-                value={specialty}
-                onChange={(e) => setSpecialty(e.target.value)}
-                placeholder="Escribe tu especialidad"
-                aria-label="Tu especialidad"
-                maxLength={150}
-                className="mt-2"
-              />
-            )}
-          </Field>
+              <select
+                value={especialidadPersonalizada ? OTRA_ESPECIALIDAD : specialty}
+                onChange={(e) => elegirEspecialidad(e.target.value)}
+                className="w-full rounded border border-system-300 bg-white px-3.5 py-3 text-sm text-system-900 outline-none focus:border-brand-600"
+              >
+                <option value="">Selecciona una especialidad</option>
+                {ESPECIALIDADES.map((opcion) => (
+                  <option key={opcion}>{opcion}</option>
+                ))}
+                <option value={OTRA_ESPECIALIDAD}>Otra (especifica)</option>
+              </select>
+              {especialidadPersonalizada && (
+                <Input
+                  value={specialty}
+                  onChange={(e) => setSpecialty(e.target.value)}
+                  placeholder="Escribe tu especialidad"
+                  aria-label="Tu especialidad"
+                  maxLength={150}
+                  className="mt-2"
+                />
+              )}
+            </Field>
 
-          <div className="mb-3">
-            <InteresesDesdeTexto
-              texto={textoDeIntereses}
-              onTexto={setTextoDeIntereses}
-              seleccionados={selected}
-              onCambiar={setSelected}
-            />
+            <div className="mb-3">
+              <InteresesDesdeTexto
+                texto={textoDeIntereses}
+                onTexto={setTextoDeIntereses}
+                seleccionados={selected}
+                onCambiar={setSelected}
+              />
+            </div>
           </div>
           <p className="mb-5 text-[11.5px] text-system-500">
             Podrás cambiar tu texto y tus temáticas en cualquier momento desde tu perfil.
@@ -251,16 +255,25 @@ function BienvenidaForm() {
             campañas más populares de tu zona.
           </div>
 
-          <div className="flex flex-wrap justify-between gap-2.5">
+          <div className="flex flex-wrap justify-between gap-2.5 lg:flex-nowrap">
             <Button variant="ghost" onClick={() => setPaso(3)}>
               ← Atrás
             </Button>
-            <div className="flex gap-2.5">
-              <Button variant="secondary" onClick={finish}>
+            <div className="grid w-full grid-cols-2 gap-2.5 lg:w-[560px] lg:max-w-full">
+              <Button
+                variant="secondary"
+                className="w-full whitespace-nowrap px-1.5 text-[11px] lg:px-5 lg:text-sm"
+                onClick={finish}
+              >
                 Omitir por ahora
               </Button>
-              <Button variant="primary" onClick={finish}>
-                Finalizar y explorar campañas
+              <Button
+                variant="primary"
+                className="w-full whitespace-nowrap px-1.5 text-[11px] lg:px-5 lg:text-sm"
+                onClick={finish}
+              >
+                <span className="lg:hidden">Finalizar</span>
+                <span className="hidden lg:inline">Finalizar y explorar campañas</span>
               </Button>
             </div>
           </div>

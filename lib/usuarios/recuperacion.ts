@@ -23,6 +23,8 @@
 //
 // En los dos, el código vence en MINUTOS_DE_VIGENCIA, admite INTENTOS_POR_CODIGO y hay
 // SEGUNDOS_ENTRE_ENVIOS entre correos a la misma cuenta; todo fallo da el mismo mensaje.
+// Usar el código reinicia esa espera (2026-10-21): antes, pedir otro justo después de cambiar
+// la contraseña (o de /cuenta a /recuperar) se ignoraba en silencio y parecía que no llegaba.
 
 import { createHash, randomInt } from "crypto";
 import { pool } from "@/lib/db";
@@ -150,6 +152,7 @@ async function usarCodigo(
            email_verificado = true,
            verification_code_hash = NULL, verification_code_expires_at = NULL, verification_attempts = 0,
            recuperacion_codigo_hash = NULL, recuperacion_vence_en = NULL, recuperacion_intentos = 0,
+           recuperacion_enviada_en = NULL,
            updated_at = NOW()
        WHERE id = $1`,
       [usuarioId, nuevoHash]

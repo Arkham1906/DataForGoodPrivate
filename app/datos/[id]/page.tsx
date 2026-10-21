@@ -3,6 +3,7 @@
 // archivos y la tabla aportes.csv). Métricas: tamaño (archivos que salen en el ZIP), descargas (sube en el momento
 // con descargas.tsx), calidad (aprobados / revisados) y formatos (tipos de archivo del ZIP).
 
+import { textoDeUbicacion } from "@/lib/campanas/ubicacion";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -74,8 +75,8 @@ export default async function ConjuntoAbiertoPage({
         <div className="mt-6 flex flex-wrap gap-1.5">
           <Tag>{conjunto.tematica || "Sin temática"}</Tag>
           <Tag>{conjunto.license}</Tag>
-          {(conjunto.locationCity || conjunto.locationState) && (
-            <Tag>{[conjunto.locationCity, conjunto.locationState].filter(Boolean).join(", ")}</Tag>
+          {(conjunto.locationCity || conjunto.locationState || conjunto.todoElPais) && (
+            <Tag>{textoDeUbicacion({ todoElPais: conjunto.todoElPais, municipio: conjunto.locationCity, estado: conjunto.locationState })}</Tag>
           )}
         </div>
 

@@ -155,7 +155,7 @@ paths:
       description: |
         Sin sesión. Responde lo mismo exista o no la cuenta; si existe, genera un código de 6 dígitos
         (vence en 15 minutos, 3 intentos) y lo envía por correo después de responder. A una misma cuenta
-        se le envía como máximo un código cada 60 segundos (los pedidos de antes se ignoran en silencio).
+        se le envía como máximo un código cada 30 segundos (los pedidos de antes se ignoran en silencio; usar el código reinicia la espera).
         Una cuenta solo de Google también lo recibe y con él crea su contraseña.
       requestBody:
         required: true
@@ -495,7 +495,7 @@ paths:
         Solo la cuenta propia (403 con otro id). Es lo que usa /cuenta para cambiar la contraseña sin
         pedir la actual, o para crearla en una cuenta de Google. Manda al correo
         de la cuenta un código de 6 dígitos (vence en 15 minutos, 3 intentos). Como máximo uno cada
-        60 segundos (429 con `Retry-After`; el código anterior sigue sirviendo).
+        30 segundos (429 con `Retry-After`; el código anterior sigue sirviendo).
       responses:
         "200":
           description: Código enviado
@@ -507,7 +507,7 @@ paths:
                   data: { type: object, properties: { email: { type: string } } }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
-        "429": { description: Ya se envió un código hace menos de 60 segundos, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+        "429": { description: Ya se envió un código hace menos de 30 segundos, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
 
   /api/usuarios/{id}/contrasena:
     parameters:
@@ -641,8 +641,8 @@ paths:
                     properties:
                       usuarioId: { type: integer }
                       nombre: { type: string }
-                      avatar: { type: string, nullable: true, enum: [masculino, femenino, otro, foto, null] }
-                      version: { type: string, nullable: true, description: Va en la URL de la foto }
+                      avatar: { type: [string, "null"], enum: [masculino, femenino, otro, foto, null] }
+                      version: { type: [string, "null"], description: Va en la URL de la foto }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
@@ -711,7 +711,7 @@ paths:
                       isCreator: { type: boolean }
                       isMySupervision: { type: boolean }
                       baneado: { type: boolean }
-                      motivoDeBaneo: { type: string, nullable: true }
+                      motivoDeBaneo: { type: [string, "null"] }
                       yaReportada: { type: boolean, description: "Ya reportaste esta campaña (POST /api/campanas/{id}/reportar)" }
         "404": { $ref: "#/components/responses/NotFound" }
     put:
@@ -882,7 +882,7 @@ paths:
                 insignia: { type: string, maxLength: 40 }
             example: { inicio: "2026-10-15", fin: "2026-10-22", multiplicador: 2, insignia: Guardián verde }
       responses:
-        "200": { description: Campaña especial publicada, content: { application/json: { schema: { $ref: "#/components/schemas/Message" } } } }
+        "200": { description: Campaña especial publicada, content: { application/json: { schema: { type: object, properties: { message: { type: string } } } } } }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
@@ -891,7 +891,7 @@ paths:
       tags: [Campañas]
       summary: Quitar los incentivos
       responses:
-        "200": { description: Se quitaron los incentivos, content: { application/json: { schema: { $ref: "#/components/schemas/Message" } } } }
+        "200": { description: Se quitaron los incentivos, content: { application/json: { schema: { type: object, properties: { message: { type: string } } } } } }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -1245,7 +1245,8 @@ paths:
       description: |
         El archivo se sube a MinIO. Reglas: la campaña debe estar activa, no puedes
         ser su creador ni estar baneado, y no debes haber alcanzado tu cuota (se cuenta con
-        candado: dos envíos simultáneos no la pasan). El archivo debe ser de un tipo que acepta
+        candado: dos envíos simultáneos no la pasan). Si la campaña reparte la cuota por tipo
+        (`cuotaPorTipo`), tampoco la de ese tipo (400 "Ya llegaste al máximo de N fotos..."). El archivo debe ser de un tipo que acepta
         la campaña (`dataTypes`) y su contenido debe coincidir con la extensión (se revisa la
         firma): foto .jpg/.jpeg/.png (10 MB), video .mp4/.mov/.webm (50 MB), audio
         .mp3/.m4a/.wav/.ogg (20 MB), documento .pdf/.docx (20 MB) y texto .txt (1 MB). Fotos y
@@ -1731,7 +1732,7 @@ paths:
                 properties:
                   tipos: { type: array, items: { type: string }, description: TipoDeNotificacion de cada una nueva (vacío con sesión raíz) }
                   ultimoId: { type: integer }
-                  version: { type: integer, description: Versión de contenido; si cambió, hay que volver a leer }
+                  version: { type: integer, description: "Versión de contenido; si cambió, hay que volver a leer" }
         "204": { description: El cliente cerró la petición antes de que hubiera novedades }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
@@ -2018,6 +2019,16 @@ components:
           items: { $ref: "#/components/schemas/ChecklistSeccion" }
         goalContributions: { type: integer, minimum: 1 }
         quotaPerUser: { type: integer, minimum: 1 }
+        cuotaPorTipo:
+          type: [object, "null"]
+          description: |
+            Reparto de quotaPerUser por tipo de dato, con dos tipos o más (p. ej. foto y audio con cuota 10 →
+            `{ "foto": 5, "audio": 5 }`). Fuera de borrador es obligatorio con dos tipos o más: cada tipo de
+            `dataTypes` con al menos 1 y la suma igual a quotaPerUser (400 si no). Con un tipo se ignora (null).
+            En el PATCH se revisa si llega este campo, la cuota o los tipos; las campañas activas, pausadas o
+            aceptadas no lo cambian.
+          additionalProperties: { type: integer, minimum: 1 }
+          example: { foto: 5, audio: 5 }
         startDate: { type: string, format: date }
         startTime: { type: string, example: "08:00" }
         endDate: { type: string, format: date }
@@ -2025,6 +2036,12 @@ components:
         locationState: { type: string }
         locationCity: { type: string, description: "Municipio. Opcional: vacío, la campaña abarca todo el estado" }
         locationColonia: { type: string, description: "Solo con municipio; sin él se guarda vacía" }
+        todoElPais:
+          type: boolean
+          description: |
+            Para todo el país (2026-10-21): se guardan vacíos estado, municipio y colonia aunque lleguen, y fuera
+            de borrador ya no se exige el estado. Sale en el filtro por estado de /explorar y /datos, y el aviso de
+            campaña nueva llega a quien tenga la temática, viva donde viva.
         organizer: { type: string }
       example:
         name: Baches en Tepic
@@ -2065,6 +2082,10 @@ components:
         checklistSecciones: { type: array, items: { $ref: "#/components/schemas/ChecklistSeccion" } }
         goalContributions: { type: integer }
         quotaPerUser: { type: integer }
+        cuotaPorTipo:
+          type: [object, "null"]
+          description: Reparto de quotaPerUser por tipo de dato; null = solo la cuota general (campañas de antes o con un tipo).
+          additionalProperties: { type: integer }
         currentContributions: { type: integer }
         approvedContributions: { type: integer }
         pendingContributions: { type: integer }
@@ -2077,6 +2098,7 @@ components:
         locationCity: { type: string }
         locationState: { type: string }
         locationColonia: { type: string }
+        todoElPais: { type: boolean, description: "Para todo el país; estado, municipio y colonia vacíos" }
         organizer: { type: string }
         xpPerContribution: { type: integer }
         isSpecial: { type: boolean }

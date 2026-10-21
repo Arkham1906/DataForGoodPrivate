@@ -239,7 +239,7 @@ export default function PerfilForm({
               </Field>
             </div>
 
-            <Field label="Especialidad">
+            <Field label="¿En qué área eres experto?">
               <select
                 value={especialidadPersonalizada ? OTRA_ESPECIALIDAD : specialty}
                 onChange={(e) => elegirEspecialidad(e.target.value)}

@@ -15,6 +15,7 @@ import { errorDeOrganizacion } from "@/lib/campanas/organizacion";
 import { normalizarSecciones, seccionesDesdeFila } from "@/lib/campanas/checklist";
 import { XP_POR_APORTE, errorDeEstadoPedido } from "@/lib/campanas/estado-del-creador";
 import { pausaDesdeFila } from "@/lib/campanas/pausa";
+import { errorDeCuotaPorTipo, normalizarCuotaPorTipo } from "@/lib/campanas/cuota-por-tipo";
 import { condicionDeVisibilidad } from "@/lib/campanas/visibilidad";
 import { activateScheduledCampaigns, calculateCampaignDaysRemaining, errorDeFinAntesDeInicio, errorDeInicioPasado, finalizeExpiredCampaigns, normalizeCampaignDate, normalizeCampaignTime } from "@/lib/campaign-date";
 
@@ -95,6 +96,7 @@ function mapCampaign(row: Record<string, unknown>) {
     checklistSecciones: seccionesDesdeFila(row),
     goalContributions: Number(row.goal_contributions ?? 0),
     quotaPerUser: Number(row.quota_per_user ?? 0),
+    cuotaPorTipo: normalizarCuotaPorTipo(row.cuota_por_tipo, Array.isArray(dataTypes) ? dataTypes.map(String) : []),
     currentContributions: Number(row.current_contributions ?? 0),
     approvedContributions: Number(row.approved_contributions ?? 0),
     pendingContributions: Number(row.pending_contributions ?? 0),
@@ -107,6 +109,7 @@ function mapCampaign(row: Record<string, unknown>) {
     locationCity: String(row.location_city ?? ""),
     locationState: String(row.location_state ?? ""),
     locationColonia: String(row.location_colonia ?? ""),
+    todoElPais: row.todo_el_pais === true,
     organizer: String(row.organizer ?? ""),
     xpPerContribution: Number(row.xp_per_contribution ?? 0),
     isSpecial: Boolean(row.is_special),
@@ -282,6 +285,7 @@ export async function POST(request: Request) {
 
     const goalContributions = Number(body.goalContributions ?? body.goal_contributions ?? 0);
     const quotaPerUser = Number(body.quotaPerUser ?? body.quota_per_user ?? 1);
+    const cuotaPorTipo = normalizarCuotaPorTipo(body.cuotaPorTipo, dataTypes);
     // Contadores, XP, "especial" y "revisor asignado" los decide el sistema, no el body:
     // una campaña nueva empieza en cero y sin revisor.
     const currentContributions = 0;
@@ -298,8 +302,10 @@ export async function POST(request: Request) {
     const startTime = normalizeCampaignTime(body.startTime ?? body.start_time);
     const endDate = normalizeCampaignDate(body.endDate ?? body.end_date);
     const endTime = normalizeCampaignTime(body.endTime ?? body.end_time);
-    const locationCity = String(body.locationCity ?? body.location_city ?? "").trim();
-    const locationState = String(body.locationState ?? body.location_state ?? "").trim();
+    // Para todo el país: sin estado, municipio ni colonia (lib/campanas/ubicacion.ts).
+    const todoElPais = body.todoElPais === true;
+    const locationCity = todoElPais ? "" : String(body.locationCity ?? body.location_city ?? "").trim();
+    const locationState = todoElPais ? "" : String(body.locationState ?? body.location_state ?? "").trim();
     // Sin municipio la campaña abarca todo el estado, y la colonia no aplica.
     const locationColonia = locationCity ? String(body.locationColonia ?? body.location_colonia ?? "").trim() : "";
     const organizer = String(body.organizer ?? "").trim();
@@ -329,13 +335,17 @@ export async function POST(request: Request) {
       if (!quotaPerUser || quotaPerUser <= 0) {
         return NextResponse.json({ error: "La cuota por persona debe ser mayor a 0" }, { status: 400 });
       }
+      const errorDeReparto = errorDeCuotaPorTipo(quotaPerUser, dataTypes, cuotaPorTipo);
+      if (errorDeReparto) {
+        return NextResponse.json({ error: errorDeReparto }, { status: 400 });
+      }
       if (!startDate) {
         return NextResponse.json({ error: "La fecha de inicio es obligatoria" }, { status: 400 });
       }
       if (!endDate) {
         return NextResponse.json({ error: "La fecha de finalización es obligatoria" }, { status: 400 });
       }
-      if (!locationState) {
+      if (!locationState && !todoElPais) {
         return NextResponse.json({ error: "Selecciona un estado" }, { status: 400 });
       }
     }
@@ -376,10 +386,12 @@ export async function POST(request: Request) {
         aportes,
         start_time,
         end_time,
-        checklist_secciones
+        checklist_secciones,
+        cuota_por_tipo,
+        todo_el_pais
       ) VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10::jsonb, $11, $12, $13, $14, $15,
-        $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30::jsonb, $31, $32, $33::jsonb
+        $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30::jsonb, $31, $32, $33::jsonb, $34::jsonb, $35
       ) RETURNING *`,
       [
         creatorId,
@@ -415,6 +427,8 @@ export async function POST(request: Request) {
         startTime,
         endTime,
         JSON.stringify(checklistSecciones),
+        cuotaPorTipo ? JSON.stringify(cuotaPorTipo) : null,
+        todoElPais,
       ]
     );
 

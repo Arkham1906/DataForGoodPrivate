@@ -22,6 +22,7 @@ import { condicionDeVisibilidad } from "@/lib/campanas/visibilidad";
 import { normalizarSecciones, seccionesDesdeFila } from "@/lib/campanas/checklist";
 import { asegurarEnlaceVigente } from "@/lib/campanas/enlaces";
 import { errorDeOrganizacion } from "@/lib/campanas/organizacion";
+import { errorDeCuotaPorTipo, normalizarCuotaPorTipo } from "@/lib/campanas/cuota-por-tipo";
 import { activateScheduledCampaigns, calculateCampaignDaysRemaining, errorDeFinAntesDeInicio, errorDeInicioPasado, finalizeExpiredCampaigns, hasCampaignEnded, normalizeCampaignDate, normalizeCampaignTime } from "@/lib/campaign-date";
 
 function normalizeDataTypes(input: unknown): string[] {
@@ -84,6 +85,7 @@ function mapCampaign(row: Record<string, unknown>) {
     checklistSecciones: seccionesDesdeFila(row),
     goalContributions: Number(row.goal_contributions ?? 0),
     quotaPerUser: Number(row.quota_per_user ?? 0),
+    cuotaPorTipo: normalizarCuotaPorTipo(row.cuota_por_tipo, dataTypes),
     currentContributions: Number(row.current_contributions ?? 0),
     approvedContributions: Number(row.approved_contributions ?? 0),
     pendingContributions: Number(row.pending_contributions ?? 0),
@@ -96,6 +98,7 @@ function mapCampaign(row: Record<string, unknown>) {
     locationCity: String(row.location_city ?? ""),
     locationState: String(row.location_state ?? ""),
     locationColonia: String(row.location_colonia ?? ""),
+    todoElPais: row.todo_el_pais === true,
     organizer: String(row.organizer ?? ""),
     xpPerContribution: Number(row.xp_per_contribution ?? 0),
     isSpecial: Boolean(row.is_special),
@@ -208,7 +211,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     }
 
     const existing = await pool.query(
-      `SELECT creator_id, status, start_date, end_date, end_time, pausa_por FROM campanas WHERE id = $1 LIMIT 1`,
+      `SELECT creator_id, status, start_date, end_date, end_time, pausa_por, data_types, quota_per_user, cuota_por_tipo FROM campanas WHERE id = $1 LIMIT 1`,
       [id]
     );
     if (existing.rowCount === 0) {
@@ -386,12 +389,28 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const checklistOpciones = seccionesNuevas ? [] : null;
     const goalContributions = "goalContributions" in body || "goal_contributions" in body ? Number(body.goalContributions ?? body.goal_contributions) : null;
     const quotaPerUser = "quotaPerUser" in body || "quota_per_user" in body ? Number(body.quotaPerUser ?? body.quota_per_user) : null;
+    // Reparto de la cuota por tipo (lib/campanas/cuota-por-tipo.ts): se recalcula si cambia el
+    // reparto, la cuota o los tipos, contra lo que quede de los otros dos. Las de edición
+    // limitada no llegan aquí con estos campos (solo meta y fin).
+    const tocaReparto = "cuotaPorTipo" in body || quotaPerUser !== null || dataTypes !== null;
+    const tiposQueQuedan: string[] = dataTypes ?? (Array.isArray(existing.rows[0].data_types) ? existing.rows[0].data_types : []);
+    const cuotaQueQueda = quotaPerUser ?? Number(existing.rows[0].quota_per_user ?? 0);
+    const cuotaPorTipo = normalizarCuotaPorTipo(
+      "cuotaPorTipo" in body ? body.cuotaPorTipo : existing.rows[0].cuota_por_tipo,
+      tiposQueQuedan
+    );
     const startDate = "startDate" in body || "start_date" in body ? normalizeCampaignDate(body.startDate ?? body.start_date) : undefined;
     const startTime = "startTime" in body || "start_time" in body ? normalizeCampaignTime(body.startTime ?? body.start_time) : undefined;
     const endDate = "endDate" in body || "end_date" in body ? normalizeCampaignDate(body.endDate ?? body.end_date) : undefined;
     const endTime = "endTime" in body || "end_time" in body ? normalizeCampaignTime(body.endTime ?? body.end_time) : undefined;
-    const locationCity = "locationCity" in body || "location_city" in body ? String(body.locationCity ?? body.location_city ?? "").trim() : null;
-    const locationState = "locationState" in body || "location_state" in body ? String(body.locationState ?? body.location_state ?? "").trim() : null;
+    // Para todo el país: vacía estado, municipio y colonia (lib/campanas/ubicacion.ts).
+    const todoElPais = "todoElPais" in body ? body.todoElPais === true : null;
+    const locationCity = todoElPais
+      ? ""
+      : "locationCity" in body || "location_city" in body ? String(body.locationCity ?? body.location_city ?? "").trim() : null;
+    const locationState = todoElPais
+      ? ""
+      : "locationState" in body || "location_state" in body ? String(body.locationState ?? body.location_state ?? "").trim() : null;
     // Sin municipio la campaña abarca todo el estado, y la colonia no aplica.
     const locationColonia = locationCity === ""
       ? ""
@@ -441,13 +460,17 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       if (quotaPerUser !== null && (!quotaPerUser || quotaPerUser <= 0)) {
         return NextResponse.json({ error: "La cuota por persona debe ser mayor a 0" }, { status: 400 });
       }
+      const errorDeReparto = tocaReparto && errorDeCuotaPorTipo(cuotaQueQueda, tiposQueQuedan, cuotaPorTipo);
+      if (errorDeReparto) {
+        return NextResponse.json({ error: errorDeReparto }, { status: 400 });
+      }
       if (startDate !== undefined && !startDate) {
         return NextResponse.json({ error: "La fecha de inicio es obligatoria" }, { status: 400 });
       }
       if (endDate !== undefined && !endDate) {
         return NextResponse.json({ error: "La fecha de finalización es obligatoria" }, { status: 400 });
       }
-      if (locationState !== null && !locationState) {
+      if (locationState !== null && !locationState && !todoElPais) {
         return NextResponse.json({ error: "Selecciona un estado" }, { status: 400 });
       }
     }
@@ -475,6 +498,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         start_time = COALESCE($19, start_time),
         end_time = COALESCE($20, end_time),
         checklist_secciones = COALESCE($21::jsonb, checklist_secciones),
+        cuota_por_tipo = CASE WHEN $22::boolean THEN $23::jsonb ELSE cuota_por_tipo END,
+        todo_el_pais = COALESCE($24::boolean, todo_el_pais),
         -- La pausó el creador (sin motivo). "status" a la derecha es el estado anterior.
         pausa_por = CASE WHEN $5 = 'pausada' AND status <> 'pausada' THEN 'creador' ELSE pausa_por END,
         pausa_motivo = CASE WHEN $5 = 'pausada' AND status <> 'pausada' THEN NULL ELSE pausa_motivo END,
@@ -504,6 +529,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         startTime === undefined ? null : startTime,
         endTime === undefined ? null : endTime,
         seccionesNuevas ? JSON.stringify(seccionesNuevas) : null,
+        tocaReparto,
+        cuotaPorTipo ? JSON.stringify(cuotaPorTipo) : null,
+        todoElPais,
       ]
     );
 
@@ -580,12 +608,14 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     const checklistOpciones: string[] = [];
     const goalContributions = Number(body.goalContributions ?? body.goal_contributions ?? 0);
     const quotaPerUser = Number(body.quotaPerUser ?? body.quota_per_user ?? 1);
+    const cuotaPorTipo = normalizarCuotaPorTipo(body.cuotaPorTipo, dataTypes);
     const startDate = normalizeCampaignDate(body.startDate ?? body.start_date);
     const startTime = normalizeCampaignTime(body.startTime ?? body.start_time);
     const endDate = normalizeCampaignDate(body.endDate ?? body.end_date);
     const endTime = normalizeCampaignTime(body.endTime ?? body.end_time);
-    const locationCity = String(body.locationCity ?? body.location_city ?? "").trim();
-    const locationState = String(body.locationState ?? body.location_state ?? "").trim();
+    const todoElPais = body.todoElPais === true;
+    const locationCity = todoElPais ? "" : String(body.locationCity ?? body.location_city ?? "").trim();
+    const locationState = todoElPais ? "" : String(body.locationState ?? body.location_state ?? "").trim();
     // Sin municipio la campaña abarca todo el estado, y la colonia no aplica.
     const locationColonia = locationCity ? String(body.locationColonia ?? body.location_colonia ?? "").trim() : "";
     const organizer = String(body.organizer ?? "").trim();
@@ -612,13 +642,17 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
       if (!quotaPerUser || quotaPerUser <= 0) {
         return NextResponse.json({ error: "La cuota por persona debe ser mayor a 0" }, { status: 400 });
       }
+      const errorDeReparto = errorDeCuotaPorTipo(quotaPerUser, dataTypes, cuotaPorTipo);
+      if (errorDeReparto) {
+        return NextResponse.json({ error: errorDeReparto }, { status: 400 });
+      }
       if (!startDate) {
         return NextResponse.json({ error: "La fecha de inicio es obligatoria" }, { status: 400 });
       }
       if (!endDate) {
         return NextResponse.json({ error: "La fecha de finalización es obligatoria" }, { status: 400 });
       }
-      if (!locationState) {
+      if (!locationState && !todoElPais) {
         return NextResponse.json({ error: "Selecciona un estado" }, { status: 400 });
       }
     }
@@ -646,6 +680,8 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
         start_time = $19,
         end_time = $20,
         checklist_secciones = $21::jsonb,
+        cuota_por_tipo = $22::jsonb,
+        todo_el_pais = $23,
         updated_at = NOW()
       WHERE id = $1
       RETURNING *`,
@@ -671,6 +707,8 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
         startTime,
         endTime,
         JSON.stringify(checklistSecciones),
+        cuotaPorTipo ? JSON.stringify(cuotaPorTipo) : null,
+        todoElPais,
       ]
     );
 

@@ -9,6 +9,7 @@ Documentación del código de DataForGood para quien llega nuevo al proyecto. El
 | [datos.md](datos.md) | Tablas de PostgreSQL, estados de campañas y aportes, archivos en MinIO |
 | [permisos.md](permisos.md) | Sesiones, roles, guardias, sanciones y bitácora |
 | [lib.md](lib.md) | Mapa de los módulos de `lib/`: qué hace cada archivo y qué exporta |
+| [flujo-pruebas-integral.md](flujo-pruebas-integral.md) | Recorrido manual completo del sistema, de la preparación al cierre de QA |
 
 Otras referencias del repo:
 

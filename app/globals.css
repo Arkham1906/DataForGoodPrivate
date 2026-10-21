@@ -395,3 +395,11 @@ body {
     transform: translateY(0);
   }
 }
+
+/* ── Ojo de la contraseña (2026-10-21) ────────────────────────────────────
+ * Edge dibuja su propio botón para mostrar la contraseña (y uno para borrar) dentro de los
+ * campos de contraseña; junto al de components/ui/PasswordInput salían dos ojos. */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}

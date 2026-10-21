@@ -145,6 +145,8 @@ export async function ensureCampanasTable(): Promise<void> {
       checklist_secciones JSONB NOT NULL DEFAULT '[]'::jsonb,
       goal_contributions INTEGER NOT NULL DEFAULT 0,
       quota_per_user INTEGER NOT NULL DEFAULT 1,
+      -- Reparto de la cuota por tipo de dato ({"foto": 5, "audio": 5}); NULL = solo la cuota general (lib/campanas/cuota-por-tipo.ts).
+      cuota_por_tipo JSONB,
       current_contributions INTEGER NOT NULL DEFAULT 0,
       approved_contributions INTEGER NOT NULL DEFAULT 0,
       pending_contributions INTEGER NOT NULL DEFAULT 0,
@@ -157,6 +159,8 @@ export async function ensureCampanasTable(): Promise<void> {
       location_city VARCHAR(120),
       location_state VARCHAR(120),
       location_colonia VARCHAR(150),
+      -- Para todo el país (lib/campanas/ubicacion.ts): estado, municipio y colonia vacíos.
+      todo_el_pais BOOLEAN NOT NULL DEFAULT false,
       organizer VARCHAR(160),
       xp_per_contribution INTEGER NOT NULL DEFAULT 0,
       is_special BOOLEAN NOT NULL DEFAULT false,
@@ -190,6 +194,7 @@ export async function ensureCampanasTable(): Promise<void> {
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS checklist_secciones JSONB NOT NULL DEFAULT '[]'::jsonb;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS goal_contributions INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS quota_per_user INTEGER NOT NULL DEFAULT 1;
+    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS cuota_por_tipo JSONB;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS current_contributions INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS approved_contributions INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS pending_contributions INTEGER NOT NULL DEFAULT 0;
@@ -202,6 +207,7 @@ export async function ensureCampanasTable(): Promise<void> {
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS location_city VARCHAR(120);
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS location_state VARCHAR(120);
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS location_colonia VARCHAR(150);
+    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS todo_el_pais BOOLEAN NOT NULL DEFAULT false;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS organizer VARCHAR(160);
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS xp_per_contribution INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS is_special BOOLEAN NOT NULL DEFAULT false;

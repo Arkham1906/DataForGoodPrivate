@@ -20,7 +20,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     const { id } = await context.params;
 
     const campana = await pool.query(
-      `SELECT id, name, location_state, location_city, location_colonia
+      `SELECT id, name, location_state, location_city, location_colonia, todo_el_pais
        FROM campanas WHERE id = $1 AND status = 'finalizada' LIMIT 1`,
       [id]
     );
@@ -54,7 +54,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       archive.on("error", reject);
     });
 
-    const ubicacion = ubicacionDeCampana(c.location_state, c.location_city, c.location_colonia);
+    const ubicacion = ubicacionDeCampana(c.location_state, c.location_city, c.location_colonia, c.todo_el_pais === true);
     const filas: FilaDeAporteAbierto[] = [];
     let numero = 0;
     for (const row of aportes.rows) {

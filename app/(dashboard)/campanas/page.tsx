@@ -85,7 +85,7 @@ export default function CampanasPage() {
   }, [recarga]);
 
   const enMiEstado = miEstado
-    ? campaigns.filter((c) => normalizarEstado(c.locationState) === normalizarEstado(miEstado))
+    ? campaigns.filter((c) => c.todoElPais || normalizarEstado(c.locationState) === normalizarEstado(miEstado))
     : [];
 
   const esDeMisIntereses = (tema: string) => misIntereses.has(claveDeTematica(tema));

@@ -59,6 +59,8 @@ export interface Campaign {
   checklistSecciones?: { titulo: string; opciones: string[] }[];
   goalContributions: number;
   quotaPerUser: number;
+  /** Reparto de quotaPerUser por tipo de dato (lib/campanas/cuota-por-tipo.ts); null = solo la cuota general. */
+  cuotaPorTipo?: Partial<Record<DataType, number>> | null;
   currentContributions: number;
   approvedContributions: number;
   pendingContributions: number;
@@ -71,6 +73,8 @@ export interface Campaign {
   locationCity: string;
   locationState: string;
   locationColonia?: string;
+  /** Para todo el país: sin estado, municipio ni colonia (lib/campanas/ubicacion.ts). */
+  todoElPais?: boolean;
   organizer?: string;
   xpPerContribution: number;
   isSpecial?: boolean;
