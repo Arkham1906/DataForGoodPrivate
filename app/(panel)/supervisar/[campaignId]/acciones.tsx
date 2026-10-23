@@ -1,14 +1,15 @@
 "use client";
 
-// Botones de /supervisar/[campaignId]. Llaman a las server actions tomarComoSuperUsuario y
-// decidirComoSuperUsuario (lib/supervision/acciones-root.ts), que usan las reglas de lib/supervision/decision.ts.
-// En revisión y tomada por el SuperUsuario: Aceptar o Rechazar (con motivo y sanción opcional al creador,
-// components/supervision/FormularioDeRechazo). "Reportar" se quitó el 2026-10-16: quien supervisa ya sanciona.
+// Botones de /supervisar/[campaignId]. Llaman a la server action decidirComoSuperUsuario
+// (lib/supervision/acciones-root.ts), que usa las reglas de lib/supervision/decision.ts.
+// En revisión, si no la supervisa otro: Aceptar o Rechazar (con motivo y sanción opcional al creador,
+// components/supervision/FormularioDeRechazo). Sin "Supervisar esta campaña" desde el 2026-10-22: decidir
+// la toma en el mismo paso. "Reportar" se quitó el 2026-10-16: quien supervisa ya sanciona.
 // EstadoComoSuperUsuario: pausar, reanudar y finalizar (cambiarEstadoComoSuperUsuario).
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition, type ReactNode } from "react";
-import { cambiarEstadoComoSuperUsuario, decidirComoSuperUsuario, tomarComoSuperUsuario } from "@/lib/supervision/acciones-root";
+import { cambiarEstadoComoSuperUsuario, decidirComoSuperUsuario } from "@/lib/supervision/acciones-root";
 import Tag from "@/components/ui/Tag";
 import EstadoDeCampanaSupervisada from "@/components/supervision/EstadoDeCampanaSupervisada";
 import FormularioDeRechazo, { type RechazoPedido } from "@/components/supervision/FormularioDeRechazo";
@@ -53,7 +54,7 @@ export default function AccionesDeSupervision({
 }) {
   const router = useRouter();
   const [pendiente, iniciar] = useTransition();
-  const [accionEnCurso, setAccionEnCurso] = useState<AccionDeSupervision | "tomar" | null>(null);
+  const [accionEnCurso, setAccionEnCurso] = useState<AccionDeSupervision | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showRejectForm, setShowRejectForm] = useState(false);
 
@@ -75,38 +76,17 @@ export default function AccionesDeSupervision({
     });
   }
 
-  function tomar() {
-    setError(null);
-    setAccionEnCurso("tomar");
-    iniciar(async () => {
-      const resultado = await tomarComoSuperUsuario(campaignId);
-      setAccionEnCurso(null);
-      if (!resultado.ok) {
-        setError(resultado.error);
-        return;
-      }
-      router.refresh();
-    });
-  }
-
-  // Aceptar o rechazar: solo en revisión y si la supervisa el SuperUsuario.
-  const puedeDictaminar = supervision === "mia" && status === "en_revision";
+  // Aceptar o rechazar: en revisión, si la supervisa el SuperUsuario o nadie (decidir la toma).
+  const puedeDictaminar = supervision !== "otro" && status === "en_revision";
 
   return (
     <>
       <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
         {encabezado}
 
-        {supervision === "libre" && status === "en_revision" ? (
-          <button
-            type="button"
-            onClick={tomar}
-            disabled={pendiente}
-            className="rounded-pill bg-brand-600 px-4 py-2 text-[12.5px] font-bold text-white shadow-sm hover:bg-brand-800 disabled:opacity-60"
-          >
-            {accionEnCurso === "tomar" ? "Tomando…" : "Supervisar esta campaña"}
-          </button>
-        ) : supervision !== "mia" && (status === "en_revision" || status === "finalizada" || status === "rechazada") ? (
+        {supervision === "otro" && status === "en_revision" ? (
+          <Tag>La supervisa otro supervisor</Tag>
+        ) : supervision !== "mia" && (status === "finalizada" || status === "rechazada") ? (
           <Tag>{supervision === "otro" ? "La supervisa otro supervisor" : "Sin supervisor"}</Tag>
         ) : puedeDictaminar ? (
           <div className="flex flex-wrap gap-2">

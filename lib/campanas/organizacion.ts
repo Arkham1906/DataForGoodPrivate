@@ -12,3 +12,12 @@ export function errorDeOrganizacion(organizacion: string | null): string | null 
   }
   return null;
 }
+
+/**
+ * Quién organiza la campaña, como se muestra (2026-10-22, a pedido del usuario): la organización
+ * que puso el creador o, si no puso ninguna, su nombre (campanas.creator_name, que se mantiene al
+ * día al cambiar el nombre en /cuenta y queda genérico si la cuenta se da de baja).
+ */
+export function quienOrganiza(campana: { organizer?: string | null; creatorName?: string | null }): string {
+  return campana.organizer?.trim() || campana.creatorName?.trim() || "Sin especificar";
+}

@@ -99,10 +99,22 @@ export default function BandejaAportesPage() {
         ))}
       </div>
 
+      {/* Sin límite de revisores (2026-10-22): "Agregar revisor" ya no desaparece con el primero,
+          y la lista completa está en /mis-campanas/[id]/aportes/revisores. */}
       {campaign.hasReviewerAssigned ? (
-        <div className="mb-5 rounded-lg border-l-4 border-brand-600 bg-system-100 p-3.5 text-[12.5px] text-system-600">
-          Esta campaña tiene revisor asignado: puede aceptar o rechazar aportes igual que tú, y su
-          decisión es final.
+        <div className="mb-5 flex flex-wrap items-start justify-between gap-3 rounded-lg border-l-4 border-brand-600 bg-system-100 p-3.5 text-[12.5px] text-system-600">
+          <span>
+            Esta campaña tiene revisores: cada uno puede aceptar o rechazar aportes igual que tú, y su
+            decisión es final. Puedes agregar los que necesites.
+          </span>
+          <div className="flex flex-wrap gap-2">
+            <ButtonLink href={`/mis-campanas/${campaign.id}/aportes/revisores`} size="sm">
+              Ver revisores
+            </ButtonLink>
+            <ButtonLink href={`/mis-campanas/${campaign.id}/aportes/agregar-revisor`} size="sm">
+              Agregar revisor
+            </ButtonLink>
+          </div>
         </div>
       ) : (
         <div className="mb-5 flex flex-wrap items-start justify-between gap-3 rounded-lg bg-warning-50 p-4 text-[12.5px] text-warning-800">
@@ -110,9 +122,15 @@ export default function BandejaAportesPage() {
             Esta campaña no tiene revisor de aportes asignado. Todos los envíos llegan
             sin filtro previo y tú decides en una sola instancia.
           </span>
-          <ButtonLink href={`/mis-campanas/${campaign.id}/aportes/agregar-revisor`} size="sm">
-            Agregar revisor
-          </ButtonLink>
+          <div className="flex flex-wrap gap-2">
+            {/* Con invitaciones pendientes también hay a quién ver. */}
+            <ButtonLink href={`/mis-campanas/${campaign.id}/aportes/revisores`} size="sm">
+              Ver revisores
+            </ButtonLink>
+            <ButtonLink href={`/mis-campanas/${campaign.id}/aportes/agregar-revisor`} size="sm">
+              Agregar revisor
+            </ButtonLink>
+          </div>
         </div>
       )}
 

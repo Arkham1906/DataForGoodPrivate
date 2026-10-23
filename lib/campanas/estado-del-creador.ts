@@ -15,6 +15,62 @@ export const ESTADOS_QUE_ELIGE_EL_CREADOR = new Set(["borrador", "en_revision"])
 /** Estados en los que el creador edita todo (y puede volver a enviar a revisión). */
 export const ESTADOS_CON_EDICION_COMPLETA = new Set(["borrador", "en_revision", "rechazada"]);
 
+/** Activa y aceptada: solo meta y fecha/hora de fin. */
+export const CAMPOS_DE_EDICION_LIMITADA = new Set(["goalContributions", "goal_contributions", "endDate", "end_date", "endTime", "end_time"]);
+
+/**
+ * Pausada (2026-10-22, a pedido del usuario): además nombre, descripción, temática, tipos de dato
+ * (con la cuota y su reparto, que dependen de ellos), checklists (texto y orden), inicio y ubicación.
+ * Sigue pausada y se avisa a quien la supervisa. La organización no cambia.
+ */
+export const CAMPOS_EDITABLES_EN_PAUSA = new Set([
+  ...CAMPOS_DE_EDICION_LIMITADA,
+  "name",
+  "description",
+  "tematica",
+  "tag",
+  "dataTypes",
+  "data_types",
+  "checklistSecciones",
+  "checklist_secciones",
+  "checklistOpciones",
+  "checklist_opciones",
+  "quotaPerUser",
+  "quota_per_user",
+  "cuotaPorTipo",
+  "startDate",
+  "start_date",
+  "startTime",
+  "start_time",
+  "todoElPais",
+  "locationState",
+  "location_state",
+  "locationCity",
+  "location_city",
+  "locationColonia",
+  "location_colonia",
+]);
+
+/** Columnas que, si cambian al editar una pausada, se avisan a la supervisión. */
+export const COLUMNAS_AVISADAS_EN_PAUSA = [
+  "name",
+  "description",
+  "tematica",
+  "data_types",
+  "checklist_secciones",
+  "goal_contributions",
+  "quota_per_user",
+  "cuota_por_tipo",
+  "start_date",
+  "start_time",
+  "end_date",
+  "end_time",
+  "location_state",
+  "location_city",
+  "location_colonia",
+  "todo_el_pais",
+] as const;
+
 // TODO(dominio): punto abierto 4 (cálculo de XP). Hasta decidirlo, todas las campañas
 // usan el valor que siempre mandó el formulario; el creador no lo elige.
 export const XP_POR_APORTE = 50;

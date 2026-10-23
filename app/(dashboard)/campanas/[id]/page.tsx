@@ -28,6 +28,7 @@ import { AvisoNoEncontrado } from "@/components/ui/AvisoNoEncontrado";
 import { InscripcionACampana } from "@/components/ui/AcuerdosDeAporte";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 import { describirReparto } from "@/lib/campanas/cuota-por-tipo";
+import { quienOrganiza } from "@/lib/campanas/organizacion";
 
 export default function CampaignDetailPage() {
   const params = useParams<{ id: string }>();
@@ -239,7 +240,10 @@ export default function CampaignDetailPage() {
           <dl className="flex flex-col gap-2.5 text-[13px]">
             <div className="flex justify-between">
               <dt className="text-system-600">Organiza</dt>
-              <dd className="font-medium text-system-900">{campaign.organizer || "Sin especificar"}</dd>
+              {/* La organización que puso; si no puso ninguna, el nombre de quien la creó (2026-10-22). */}
+              <dd className="min-w-0 break-words text-right font-medium text-system-900">
+                {quienOrganiza(campaign)}
+              </dd>
             </div>
             <div className="flex justify-between">
               <dt className="text-system-600">Tipo de dato</dt>

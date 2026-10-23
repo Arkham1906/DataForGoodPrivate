@@ -25,6 +25,8 @@ export type TipoDeNotificacion =
   | "aportes_recibidos"
   // Supervisión y revisión
   | "invitacion_revisor"
+  // El creador lo quitó como revisor de su campaña (lib/campanas/revisores.ts, 2026-10-22).
+  | "revisor_quitado"
   | "rol_asignado"
   | "rol_revocado"
   // Al supervisor: el SuperUsuario revirtió una de sus decisiones.
@@ -32,6 +34,8 @@ export type TipoDeNotificacion =
   // A los supervisores (./avisos-a-supervisores.ts): llegó un reporte o una campaña entró a revisión.
   | "reporte_nuevo"
   | "campana_por_revisar"
+  // Al supervisor de la campaña: el creador la editó mientras estaba pausada.
+  | "campana_editada"
   // Campañas para participar (lib/notificaciones/campanas-por-interes.ts)
   | "campana_nueva"
   | "campana_especial"
@@ -87,9 +91,11 @@ export function tonoDeNotificacion(tipo: string): "ok" | "warn" | "danger" | "de
     case "campana_pausada":
     case "aporte_reportado":
     case "rol_revocado":
+    case "revisor_quitado":
     case "campana_en_revision":
     case "supervision_revertida":
     case "reporte_nuevo":
+    case "campana_editada":
       return "warn";
     case "aporte_rechazado":
     case "campana_rechazada":

@@ -21,6 +21,10 @@ import VentanaDeConfirmacion from "@/components/ui/VentanaDeConfirmacion";
 import CompartirCampana from "@/app/(dashboard)/campanas/[id]/compartir";
 import { resumenDeIncentivos, textoDelPeriodo } from "@/lib/campanas/especial-reglas";
 import { porcentajeDeMeta } from "@/lib/campanas/meta";
+import { fechaDDMMAAAA, ZONA_DE_CAMPANAS } from "@/lib/fecha-de-tepic";
+import { ETIQUETA_DE_CAMPANA } from "@/lib/campanas/sistema-opciones";
+
+const fechaDeRechazo = new Intl.DateTimeFormat("es-MX", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: ZONA_DE_CAMPANAS });
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 
 const labels: Record<CampaignStatus, string> = {
@@ -74,6 +78,7 @@ function mapCampaign(row: Record<string, unknown>): Campaign {
     hasReviewerAssigned: Boolean(row.hasReviewerAssigned),
     especial: (row.especial as Campaign["especial"]) ?? null,
     pausa: (row.pausa as Campaign["pausa"]) ?? null,
+    rechazo: (row.rechazo as Campaign["rechazo"]) ?? null,
   };
 }
 
@@ -200,31 +205,80 @@ export default function MisCampanasPage() {
             const cambiando = cambiandoId === campaign.id;
 
             return (
-              <div key={campaign.id} className="rounded-lg border border-system-200 bg-white p-4 max-md:p-3.5">
+              // Tarjeta en columna (2026-10-22): los botones van al fondo, así quedan a la misma altura
+              // en las dos tarjetas de una fila, y el aviso de pausa va antes que ellos.
+              <div key={campaign.id} className="flex min-w-0 flex-col rounded-lg border border-system-200 bg-white p-4 max-md:p-3.5">
                 <div className="mb-1 flex items-start justify-between gap-2">
-                  <p className="text-[13.5px] font-medium text-system-900 max-md:text-[13px]">{campaign.name}</p>
+                  <p className="line-clamp-2 min-w-0 break-words text-[13.5px] font-medium text-system-900 max-md:text-[13px]" title={campaign.name}>
+                    {campaign.name}
+                  </p>
                   <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
                     {campaign.especial && campaign.especial.etapa !== "terminada" && <Tag tone="warn">Especial ×{campaign.especial.multiplicador}</Tag>}
-                    <Tag tone={campaign.status === "activa" ? "ok" : campaign.status === "aceptada" || campaign.status === "pausada" ? "warn" : "default"}>{labels[campaign.status]}</Tag>
+                    {/* Mismos colores que el panel (ETIQUETA_DE_CAMPANA, 2026-10-22): aceptada y activa en verde, rechazada en rojo, borrador en gris. */}
+                    <Tag tone={ETIQUETA_DE_CAMPANA[campaign.status]?.tono ?? "default"}>{labels[campaign.status]}</Tag>
                   </div>
                 </div>
-                <p className="mb-2.5 font-mono text-[11.5px] text-system-600 max-md:text-[10.5px]">
-                  {campaign.startDate ?? "Sin fecha"} - {campaign.endDate ?? "Sin fecha"}
-                </p>
-                <ProgressBar pct={pct} tone={campaign.status === "finalizada" ? "ok" : "accent"} />
-                <p className="my-2.5 font-mono text-[12px] text-system-600 max-md:text-[11px]">
-                  {campaign.approvedContributions} / {campaign.goalContributions} aprobados - {campaign.pendingContributions} aportes pendientes
-                  {campaign.especial && <> · {textoDelPeriodo(campaign.especial)}</>}
-                </p>
-                {campaign.especial && (
-                  <p className="-mt-1 mb-2.5 text-[12px] text-system-600 max-md:text-[11px]">{resumenDeIncentivos(campaign.especial)}</p>
+                {campaign.status === "rechazada" ? (
+                  // Por qué se rechazó (2026-10-22, a pedido del usuario; antes solo en la notificación).
+                  // Ocupa el lugar de fechas, barra y números con la misma altura (65 px + margen = los
+                  // 75 px de ese bloque), así la tarjeta no crece ni mueve a la de al lado: una línea con
+                  // quién, cuándo y la sanción, y el motivo en 2 (completo en el title y arriba del
+                  // formulario al corregirla).
+                  <div
+                    className="mb-2.5 h-[65px] overflow-hidden rounded-lg border border-error-200 bg-error-50 px-2.5 py-2 text-[11px] leading-[15px] text-system-900"
+                    title={campaign.rechazo?.motivo}
+                  >
+                    <p className="truncate font-semibold text-error-700">
+                      {campaign.rechazo?.porSuperUsuario ? "La supervisión" : "Un supervisor"} la rechazó
+                      {campaign.rechazo && (
+                        <span className="font-normal text-system-600">
+                          {" "}el {fechaDeRechazo.format(new Date(campaign.rechazo.fecha))}
+                          {campaign.rechazo.sancion && <> · se aplicó {campaign.rechazo.sancion}</>}
+                        </span>
+                      )}
+                    </p>
+                    <p className="mt-0.5 line-clamp-2 break-words text-system-600">
+                      Motivo: {campaign.rechazo?.motivo ?? "sin motivo registrado"}
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <p className="mb-2.5 font-mono text-[11.5px] text-system-600 max-md:text-[10.5px]">
+                      {campaign.startDate ? fechaDDMMAAAA(campaign.startDate) : "Sin fecha"} al{" "}
+                      {campaign.endDate ? fechaDDMMAAAA(campaign.endDate) : "Sin fecha"}
+                    </p>
+                    <ProgressBar pct={pct} tone={campaign.status === "finalizada" ? "ok" : "accent"} />
+                    <p className="my-2.5 font-mono text-[12px] text-system-600 max-md:text-[11px]">
+                      {campaign.approvedContributions} / {campaign.goalContributions} aprobados · {campaign.pendingContributions} aportes pendientes
+                      {campaign.especial && <> · {textoDelPeriodo(campaign.especial)}</>}
+                    </p>
+                    {campaign.especial && (
+                      <p className="-mt-1 mb-2.5 text-[12px] text-system-600 max-md:text-[11px]">{resumenDeIncentivos(campaign.especial)}</p>
+                    )}
+                  </>
                 )}
-                {/* Una acción principal y "Panel" a la vista; lo demás en "Más" (Ley de Hick, 2026-10-07). */}
-                <div className="flex flex-wrap items-center gap-1.5 max-md:gap-1">
-                  <ButtonLink href={`/mis-campanas/${campaign.id}/aportes`} variant="primary" size="sm" className="max-md:px-2 max-md:py-1.5 max-md:text-[11px]">
-                    Revisar aportes
-                    {campaign.pendingContributions > 0 && <span className="font-mono">({campaign.pendingContributions})</span>}
-                  </ButtonLink>
+                {campaign.status === "pausada" && campaign.pausa?.por === "supervision" ? (
+                  <div className="mb-2.5 rounded-lg border border-warning-200 bg-warning-50 p-2.5 text-[11.5px] text-system-900">
+                    <p className="font-semibold">La supervisión pausó esta campaña</p>
+                    <p className="mt-0.5 whitespace-pre-line break-words text-system-600">Motivo: {campaign.pausa.motivo || "sin motivo registrado"}</p>
+                    <p className="mt-0.5 text-system-600">No recibe aportes hasta que la supervisión la reanude.</p>
+                  </div>
+                ) : campaign.status === "pausada" && (
+                  <p className="mb-2.5 text-[11.5px] text-system-600">Pausada: no recibe aportes ni aparece en Campañas hasta que la reanudes.</p>
+                )}
+                {/* Una acción principal y "Panel" a la vista; lo demás en "Más" (Ley de Hick, 2026-10-07).
+                    Rechazada: la principal es corregirla (no tiene aportes que revisar). */}
+                <div className="mt-auto flex flex-wrap items-center gap-1.5 max-md:gap-1">
+                  {campaign.status === "rechazada" ? (
+                    <ButtonLink href={`/mis-campanas/nueva?edit=${campaign.id}`} variant="primary" size="sm" className="max-md:px-2 max-md:py-1.5 max-md:text-[11px]">
+                      Corregir y reenviar
+                    </ButtonLink>
+                  ) : (
+                    <ButtonLink href={`/mis-campanas/${campaign.id}/aportes`} variant="primary" size="sm" className="max-md:px-2 max-md:py-1.5 max-md:text-[11px]">
+                      Revisar aportes
+                      {campaign.pendingContributions > 0 && <span className="font-mono">({campaign.pendingContributions})</span>}
+                    </ButtonLink>
+                  )}
                   <ButtonLink href={`/mis-campanas/${campaign.id}/panel`} size="sm" className="max-md:px-2 max-md:py-1.5 max-md:text-[11px]">Panel</ButtonLink>
                   <MenuDeAcciones
                     etiqueta={`Más acciones de ${campaign.name}`}
@@ -256,15 +310,6 @@ export default function MisCampanasPage() {
                     ]}
                   />
                 </div>
-                {campaign.status === "pausada" && campaign.pausa?.por === "supervision" ? (
-                  <div className="mt-2 rounded-lg border border-warning-200 bg-warning-50 p-2.5 text-[11.5px] text-system-900">
-                    <p className="font-semibold">La supervisión pausó esta campaña</p>
-                    <p className="mt-0.5 whitespace-pre-line text-system-600">Motivo: {campaign.pausa.motivo || "sin motivo registrado"}</p>
-                    <p className="mt-0.5 text-system-600">No recibe aportes hasta que la supervisión la reanude.</p>
-                  </div>
-                ) : campaign.status === "pausada" && (
-                  <p className="mt-2 text-[11.5px] text-system-600">Pausada: no recibe aportes ni aparece en Campañas hasta que la reanudes.</p>
-                )}
                 {cambioError[campaign.id] && (
                   <p role="alert" className="mt-2 text-[11.5px] text-error-700">{cambioError[campaign.id]}</p>
                 )}

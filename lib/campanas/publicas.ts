@@ -11,6 +11,8 @@ export type CampanaPublica = {
   description: string;
   tematica: string;
   organizer: string;
+  /** Nombre de quien la creó: se muestra si no puso organización (quienOrganiza). */
+  creatorName: string;
   locationCity: string;
   locationState: string;
   /** Para todo el país (lib/campanas/ubicacion.ts). */
@@ -45,6 +47,7 @@ function mapCampana(row: Record<string, unknown>): CampanaPublica {
     description: String(row.description ?? ""),
     tematica: String(row.tematica ?? ""),
     organizer: String(row.organizer ?? ""),
+    creatorName: String(row.creator_name ?? ""),
     locationCity: String(row.location_city ?? ""),
     locationState: String(row.location_state ?? ""),
     todoElPais: row.todo_el_pais === true,
@@ -70,7 +73,8 @@ export async function buscarCampanasActivas(filtros: FiltrosDeCampanas): Promise
     if (q) {
       valores.push(`%${q}%`);
       const p = `$${valores.length}`;
-      condiciones.push(`(name ILIKE ${p} OR description ILIKE ${p} OR organizer ILIKE ${p} OR location_city ILIKE ${p})`);
+      // "Organización" es la que se muestra: la que puso o, sin ella, el nombre de quien la creó.
+      condiciones.push(`(name ILIKE ${p} OR description ILIKE ${p} OR COALESCE(NULLIF(organizer, ''), creator_name) ILIKE ${p} OR location_city ILIKE ${p})`);
     }
     if (filtros.tematica) {
       valores.push(filtros.tematica);
@@ -83,7 +87,7 @@ export async function buscarCampanasActivas(filtros: FiltrosDeCampanas): Promise
     }
 
     const result = await pool.query(
-      `SELECT id, name, description, tematica, organizer, location_city, location_state, todo_el_pais, data_types,
+      `SELECT id, name, description, tematica, organizer, creator_name, location_city, location_state, todo_el_pais, data_types,
               approved_contributions, goal_contributions, participants, end_date
        FROM campanas
        WHERE ${condiciones.join(" AND ")}

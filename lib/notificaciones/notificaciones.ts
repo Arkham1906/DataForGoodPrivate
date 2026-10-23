@@ -24,6 +24,7 @@ export const NOTIFICACIONES_ESENCIALES: ReadonlySet<TipoDeNotificacion> = new Se
   "campana_baneo",
   "campana_desbaneo",
   "invitacion_revisor",
+  "revisor_quitado",
 ]);
 
 export type NuevaNotificacion = {

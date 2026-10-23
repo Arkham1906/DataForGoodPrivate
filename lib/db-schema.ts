@@ -616,6 +616,10 @@ export async function ensureTematicasTable(): Promise<void> {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     ALTER TABLE tematicas ADD COLUMN IF NOT EXISTS aprobada BOOLEAN NOT NULL DEFAULT true;
+    -- Desde el 2026-10-22 rechazar borra la temática (lib/tematicas/catalogo.ts, rechazar); las que
+    -- se rechazaron antes quedaban ocultas sin aprobar. Ya se quitaron de los perfiles al rechazarlas.
+    -- Después de la primera vez no borra nada.
+    DELETE FROM tematicas WHERE NOT aprobada AND oculta;
   `);
   // Las 23 de siempre, en su orden (id). ON CONFLICT: repetirlo en cada arranque es inofensivo.
   await pool.query(

@@ -22,6 +22,7 @@ import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import CampoDeFecha from "@/components/ui/CampoDeFecha";
 import { errorDeFinAntesDeInicio, errorDeInicioPasado, hoyEnTepic } from "@/lib/fecha-de-tepic";
 import { LARGO_MAXIMO_ORGANIZACION } from "@/lib/campanas/organizacion";
+import { ETIQUETA_DE_CAMPANA } from "@/lib/campanas/sistema-opciones";
 import { GuiaDePasos, TarjetaDePaso, type Paso } from "./PasosDeCampana";
 import {
   ORDEN_DE_TIPOS,
@@ -30,11 +31,49 @@ import {
   type CuotaPorTipo,
 } from "@/lib/campanas/cuota-por-tipo";
 
-/** Un checklist en edición; `clave` solo sirve como key de React. */
-type ChecklistEditable = { clave: number; titulo: string; opciones: string[]; nuevaOpcion: string };
+/** Un checklist en edición; las `clave` solo sirven como key de React (el texto de una opción se edita). */
+type OpcionEditable = { clave: number; texto: string };
+type ChecklistEditable = { clave: number; titulo: string; opciones: OpcionEditable[]; nuevaOpcion: string };
 let siguienteClave = 0;
 function nuevoChecklist(titulo = "", opciones: string[] = []): ChecklistEditable {
-  return { clave: siguienteClave++, titulo, opciones, nuevaOpcion: "" };
+  return { clave: siguienteClave++, titulo, opciones: opciones.map((texto) => ({ clave: siguienteClave++, texto })), nuevaOpcion: "" };
+}
+
+/** Copia de `lista` con el elemento `i` movido una posición arriba (-1) o abajo (+1). */
+function mover<T>(lista: T[], i: number, paso: -1 | 1): T[] {
+  const j = i + paso;
+  if (j < 0 || j >= lista.length) return lista;
+  const copia = [...lista];
+  [copia[i], copia[j]] = [copia[j], copia[i]];
+  return copia;
+}
+
+/** ↑ y ↓ para cambiar el orden en que aparece algo (2026-10-22): sin arrastrar, sirve con teclado y en el teléfono. */
+function BotonesDeOrden({
+  que,
+  i,
+  total,
+  onMover,
+  deshabilitado,
+}: {
+  que: string;
+  i: number;
+  total: number;
+  onMover: (paso: -1 | 1) => void;
+  deshabilitado: boolean;
+}) {
+  const clase =
+    "flex h-7 w-7 shrink-0 items-center justify-center rounded border border-system-300 bg-white text-[12px] text-system-600 hover:border-brand-600 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-40";
+  return (
+    <span className="flex shrink-0 gap-1">
+      <button type="button" className={clase} disabled={deshabilitado || i === 0} onClick={() => onMover(-1)} aria-label={`Subir ${que}`} title="Subir">
+        ↑
+      </button>
+      <button type="button" className={clase} disabled={deshabilitado || i === total - 1} onClick={() => onMover(1)} aria-label={`Bajar ${que}`} title="Bajar">
+        ↓
+      </button>
+    </span>
+  );
 }
 
 // Las temáticas de campaña son las mismas que los intereses del perfil: el catálogo de
@@ -131,12 +170,16 @@ function CampanaFormulario({
   // Reglas de edición por estado (dominio.md): una campaña en revisión o
   // rechazada se puede editar por completo y reenviar; activa, pausada o
   // aceptada (aprobada, esperando su fecha de inicio) solo permiten ajustar
-  // meta y fecha de finalización, sin tocar su estado; finalizada queda en
-  // solo lectura.
+  // meta y fecha de finalización, sin tocar su estado; pausada además casi
+  // todo (2026-10-22: no la organización) y sigue pausada;
+  // finalizada queda en solo lectura.
   const status = editingCampaign?.status;
   const soloLectura = status === "finalizada";
   const edicionLimitada = status === "activa" || status === "pausada" || status === "aceptada";
   const edicionCompleta = !edicionLimitada && !soloLectura;
+  const editaEnPausa = status === "pausada";
+  // Lo que solo se edita por completo o en pausa (nombre, temática, tipos, cuota, inicio, ubicación).
+  const contenidoBloqueado = edicionLimitada && !editaEnPausa;
 
   const [name, setName] = useState(editingCampaign?.name ?? "");
   const [description, setDescription] = useState(editingCampaign?.description ?? "");
@@ -277,16 +320,14 @@ function CampanaFormulario({
     setChecklists((prev) =>
       prev.map((c) => {
         const valor = c.nuevaOpcion.trim();
-        if (c.clave !== clave || !valor || c.opciones.includes(valor)) return c;
-        return { ...c, opciones: [...c.opciones, valor], nuevaOpcion: "" };
+        if (c.clave !== clave || !valor || c.opciones.some((o) => o.texto.trim() === valor)) return c;
+        return { ...c, opciones: [...c.opciones, { clave: siguienteClave++, texto: valor }], nuevaOpcion: "" };
       })
     );
   }
 
-  function quitarOpcion(clave: number, opcion: string) {
-    setChecklists((prev) =>
-      prev.map((c) => (c.clave === clave ? { ...c, opciones: c.opciones.filter((o) => o !== opcion) } : c))
-    );
+  function cambiarOpciones(clave: number, cambiar: (opciones: OpcionEditable[]) => OpcionEditable[]) {
+    setChecklists((prev) => prev.map((c) => (c.clave === clave ? { ...c, opciones: cambiar(c.opciones) } : c)));
   }
 
   function validarChecklists(): string | null {
@@ -298,6 +339,14 @@ function CampanaFormulario({
       if (c.opciones.length === 0) return `El checklist ${nombre} no tiene opciones`;
       if (titulos.has(titulo.toLowerCase())) return `Hay dos checklists con el título ${nombre}`;
       titulos.add(titulo.toLowerCase());
+      // Las opciones ya se editan: ni vacías ni repetidas (el servidor las quitaría sin avisar).
+      const opciones = new Set<string>();
+      for (const o of c.opciones) {
+        const texto = o.texto.trim();
+        if (!texto) return `El checklist ${nombre} tiene una opción vacía: escríbela o quítala`;
+        if (opciones.has(texto.toLowerCase())) return `El checklist ${nombre} repite la opción "${texto}"`;
+        opciones.add(texto.toLowerCase());
+      }
     }
     return null;
   }
@@ -374,6 +423,24 @@ function CampanaFormulario({
   // aceptada/activa/pausada: un borrador puede quedar a medias a propósito
   // (es justo lo que permite seguir bajo el límite de 5 campañas activas).
   function validar(asDraft: boolean): string | null {
+    if (editaEnPausa) {
+      if (!name.trim()) return "Falta el nombre de la campaña";
+      if (!description.trim()) return "Falta la descripción";
+      if (!theme) return "Elige una temática";
+      if (dataTypes.length === 0) return "Selecciona al menos un tipo de dato";
+      const errorDeChecklist = validarChecklists();
+      if (errorDeChecklist) return errorDeChecklist;
+      if (!Number(goal) || Number(goal) <= 0) return "La meta de aportes debe ser mayor a 0";
+      if (!Number(quota) || Number(quota) <= 0) return "La cuota por persona debe ser mayor a 0";
+      const errorDeReparto = errorDeCuotaPorTipo(Number(quota), dataTypes, reparto);
+      if (errorDeReparto) return errorDeReparto;
+      if (!startDate) return "Falta la fecha de inicio";
+      if (!endDate) return "Falta la fecha de finalización";
+      if (errorDeFechas) return errorDeFechas;
+      if (!todoElPais && !locationState) return "Selecciona un estado o marca que la campaña es para todo el país";
+      if (!todoElPais && !locationCity) return "Selecciona un municipio o \"Todo el estado\"";
+      return null;
+    }
     if (edicionLimitada) {
       if (!Number(goal) || Number(goal) <= 0) return "La meta de aportes debe ser mayor a 0";
       if (!endDate) return "Falta la fecha de finalización";
@@ -418,10 +485,32 @@ function CampanaFormulario({
     }
     setFormError(null);
 
-    // Activa, pausada o aceptada: solo se guardan meta y fecha/hora de fin,
-    // y el estado no se manda, así la campaña se mantiene en el estado en el
-    // que estaba.
-    const camposEditables = edicionLimitada
+    // Activa o aceptada: solo se guardan meta y fecha/hora de fin. Pausada: también
+    // lo de CAMPOS_EDITABLES_EN_PAUSA. En los tres el estado no se manda, así la
+    // campaña se mantiene en el estado en el que estaba.
+    // En el orden en que se ven (↑/↓).
+    const checklistSecciones = checklists.map((c) => ({ titulo: c.titulo.trim(), opciones: c.opciones.map((o) => o.texto.trim()) }));
+    const camposEditables = editaEnPausa
+      ? {
+          name,
+          description,
+          tematica: theme,
+          tag: theme,
+          dataTypes,
+          checklistSecciones,
+          goalContributions: Number(goal),
+          quotaPerUser: Number(quota),
+          cuotaPorTipo: reparto,
+          startDate,
+          startTime: startTime || null,
+          endDate,
+          endTime: endTime || null,
+          todoElPais,
+          locationCity: todoElPais ? "" : municipioReal,
+          locationState: todoElPais ? "" : locationState,
+          locationColonia: todoElPais ? "" : locationColonia,
+        }
+      : edicionLimitada
       ? {
           goalContributions: Number(goal),
           endDate,
@@ -435,7 +524,7 @@ function CampanaFormulario({
           organizer: organizer.trim(),
           status: asDraft ? "borrador" : "en_revision",
           dataTypes,
-          checklistSecciones: checklists.map((c) => ({ titulo: c.titulo.trim(), opciones: c.opciones })),
+          checklistSecciones,
           goalContributions: Number(goal),
           quotaPerUser: Number(quota),
           cuotaPorTipo: reparto,
@@ -491,12 +580,16 @@ function CampanaFormulario({
     }
   }
 
-  const canPublish = edicionLimitada
+  const canPublish = editaEnPausa
+    ? Boolean(name) && Boolean(description) && Boolean(theme) && dataTypes.length > 0 && Boolean(goal) && Boolean(endDate)
+    : edicionLimitada
     ? Boolean(goal) && Boolean(endDate)
     : !limitReached && Boolean(name) && Boolean(description) && Boolean(theme) && dataTypes.length > 0;
 
   // Cuándo está completo cada paso (solo informa: lo que se exige al enviar es validar()).
-  const errorDeFechas = edicionLimitada
+  // En pausa el inicio que ya pasó se conserva; solo un inicio nuevo no puede ser antes de hoy.
+  const inicioMovido = editaEnPausa && startDate !== (editingCampaign?.startDate ?? "");
+  const errorDeFechas = edicionLimitada && !inicioMovido
     ? errorDeFinAntesDeInicio(startDate, endDate)
     : (errorDeInicioPasado(startDate) ?? errorDeFinAntesDeInicio(startDate, endDate));
   const pasos: Paso[] = [
@@ -513,7 +606,7 @@ function CampanaFormulario({
       completo: Boolean(startDate && endDate && !errorDeFechas && (todoElPais || (locationState && locationCity))),
     },
   ];
-  const noEditable = edicionLimitada ? "No se puede cambiar" : undefined;
+  const noEditable = contenidoBloqueado ? "No se puede cambiar" : undefined;
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -523,17 +616,35 @@ function CampanaFormulario({
             {editingCampaign ? "Editar campaña" : "Nueva campaña"}
           </h1>
           <p className="mt-1 text-[13px] text-system-600">
-            {edicionLimitada
+            {editaEnPausa
+              ? "La campaña está pausada: puedes cambiar todo menos la organización. Sigue pausada al guardar y se avisa a quien la supervisa."
+              : edicionLimitada
               ? status === "aceptada"
                 ? "La campaña ya fue aceptada y espera su fecha de inicio: solo puedes ajustar la meta de aportes y la fecha/hora de finalización."
-                : "La campaña ya está en curso: solo puedes ajustar la meta de aportes y la fecha/hora de finalización."
+                : "La campaña ya está en curso: solo puedes ajustar la meta de aportes y la fecha/hora de finalización. Para cambiar lo demás, páusala."
               : "Completa los cuatro pasos y envíala a revisión. Puedes guardarla como borrador en cualquier momento."}
           </p>
         </div>
-        <Tag tone={limitReached ? "danger" : "default"}>
+        <Tag tone={limitReached ? "danger" : (status && ETIQUETA_DE_CAMPANA[status]?.tono) || "default"}>
           {limitReached ? "Límite alcanzado" : editingCampaign ? labelEstado(status) : "Borrador"}
         </Tag>
       </div>
+
+      {/* Al corregir una rechazada, el motivo a la vista (2026-10-22, lib/campanas/rechazo.ts). */}
+      {status === "rechazada" && (
+        <div className="mb-6 rounded-lg border border-error-200 bg-error-50 p-4 text-[13px] text-system-900">
+          <p className="font-semibold text-error-700">
+            {editingCampaign?.rechazo?.porSuperUsuario ? "La supervisión de DataForGood" : "Un supervisor"} rechazó esta campaña
+          </p>
+          <p className="mt-1 whitespace-pre-line break-words text-system-600">
+            Motivo: {editingCampaign?.rechazo?.motivo ?? "sin motivo registrado"}
+          </p>
+          {editingCampaign?.rechazo?.sancion && (
+            <p className="mt-1 text-system-600">Además se aplicó {editingCampaign.rechazo.sancion} a tu cuenta.</p>
+          )}
+          <p className="mt-1 text-system-600">Corrige lo que se indica y vuelve a enviarla a revisión.</p>
+        </div>
+      )}
 
       {limitReached && (
         <div className="mb-6 flex flex-wrap items-start justify-between gap-3 rounded-lg bg-error-50 p-4 text-[13px] text-error-700">
@@ -560,7 +671,7 @@ function CampanaFormulario({
             titulo="Datos básicos"
             descripcion="Cómo se llama la campaña, de qué trata y quién la impulsa."
             completo={pasos[0].completo}
-            aviso={noEditable}
+            aviso={editaEnPausa ? "La organización no se puede cambiar" : noEditable}
           >
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <div>
@@ -570,7 +681,7 @@ function CampanaFormulario({
                     onChange={(e) => setName(e.target.value)}
                     maxLength={80}
                     required
-                    disabled={edicionLimitada}
+                    disabled={contenidoBloqueado}
                     className="disabled:cursor-not-allowed disabled:opacity-50"
                   />
                 </Field>
@@ -589,7 +700,7 @@ function CampanaFormulario({
                     opciones={opcionesCon(theme, catalogoDeTemas)}
                     seleccionados={theme ? [theme] : []}
                     onAceptar={(temas) => setTheme(temas[0] ?? theme)}
-                    deshabilitado={edicionLimitada}
+                    deshabilitado={contenidoBloqueado}
                     descripcion="Marca una; define en qué categoría aparece la campaña en el catálogo público."
                   />
                 </div>
@@ -606,7 +717,7 @@ function CampanaFormulario({
                     onChange={(e) => setDescription(e.target.value)}
                     maxLength={500}
                     required
-                    disabled={edicionLimitada}
+                    disabled={contenidoBloqueado}
                     className="disabled:cursor-not-allowed disabled:opacity-50"
                   />
                 </Field>
@@ -647,7 +758,7 @@ function CampanaFormulario({
                   <button
                     key={dt.value}
                     type="button"
-                    disabled={edicionLimitada}
+                    disabled={contenidoBloqueado}
                     onClick={() => toggleDataType(dt.value)}
                     aria-pressed={dataTypes.includes(dt.value)}
                     className={`rounded-pill border px-3 py-1.5 text-[12.5px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
@@ -669,7 +780,13 @@ function CampanaFormulario({
               <p className="mb-2.5 text-[12px] text-system-500">
                 Siempre escribe una descripción con sus palabras. Además puedes agregar
                 checklists con título para que marque lo que aplique: los que necesites, o ninguno.
+                Con ↑ y ↓ cambias el orden en que aparecen los checklists y sus opciones.
               </p>
+              {editaEnPausa && (
+                <p className="mb-2.5 text-[12px] text-system-500">
+                  Los aportes que ya llegaron conservan lo que marcaron, aunque cambies o quites una opción.
+                </p>
+              )}
 
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 {checklists.map((c, i) => (
@@ -682,12 +799,19 @@ function CampanaFormulario({
                         maxLength={MAX_LARGO_TEXTO}
                         placeholder="Título del checklist, p. ej. Estado del árbol"
                         aria-label={`Título del checklist ${i + 1}`}
-                        disabled={edicionLimitada}
+                        disabled={contenidoBloqueado}
                         className="w-full rounded border border-system-300 bg-white px-3 py-2 text-[13px] font-semibold text-system-900 outline-none focus:border-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
+                      />
+                      <BotonesDeOrden
+                        que={`el checklist ${c.titulo.trim() || i + 1}`}
+                        i={i}
+                        total={checklists.length}
+                        onMover={(paso) => setChecklists((prev) => mover(prev, i, paso))}
+                        deshabilitado={contenidoBloqueado}
                       />
                       <button
                         type="button"
-                        disabled={edicionLimitada}
+                        disabled={contenidoBloqueado}
                         onClick={() => setChecklists((prev) => prev.filter((x) => x.clave !== c.clave))}
                         className="whitespace-nowrap text-[11.5px] font-medium text-error-700 disabled:cursor-not-allowed disabled:opacity-50"
                       >
@@ -698,16 +822,31 @@ function CampanaFormulario({
                     {c.opciones.length === 0 && (
                       <p className="mb-2 text-[12px] text-system-500">Aún no agregas opciones a este checklist.</p>
                     )}
-                    {c.opciones.map((opcion) => (
-                      <div key={opcion} className="mb-2 flex items-center justify-between gap-2 text-[12.5px] text-system-600">
-                        <span className="flex items-center gap-2">
-                          <span className="inline-block h-3.5 w-3.5 rounded-sm border border-system-300 bg-white" aria-hidden />
-                          {opcion}
-                        </span>
+                    {c.opciones.map((opcion, j) => (
+                      <div key={opcion.clave} className="mb-2 flex items-center gap-2 text-[12.5px] text-system-600">
+                        <span className="inline-block h-3.5 w-3.5 shrink-0 rounded-sm border border-system-300 bg-white" aria-hidden />
+                        <input
+                          type="text"
+                          value={opcion.texto}
+                          onChange={(e) =>
+                            cambiarOpciones(c.clave, (ops) => ops.map((o) => (o.clave === opcion.clave ? { ...o, texto: e.target.value } : o)))
+                          }
+                          maxLength={MAX_LARGO_TEXTO}
+                          aria-label={`Opción ${j + 1} del checklist ${c.titulo || i + 1}`}
+                          disabled={contenidoBloqueado}
+                          className="min-w-0 flex-1 rounded border border-transparent bg-transparent px-1.5 py-1 text-[12.5px] text-system-900 outline-none hover:border-system-300 focus:border-brand-600 focus:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+                        />
+                        <BotonesDeOrden
+                          que={`la opción ${opcion.texto.trim() || j + 1}`}
+                          i={j}
+                          total={c.opciones.length}
+                          onMover={(paso) => cambiarOpciones(c.clave, (ops) => mover(ops, j, paso))}
+                          deshabilitado={contenidoBloqueado}
+                        />
                         <button
                           type="button"
-                          disabled={edicionLimitada}
-                          onClick={() => quitarOpcion(c.clave, opcion)}
+                          disabled={contenidoBloqueado}
+                          onClick={() => cambiarOpciones(c.clave, (ops) => ops.filter((o) => o.clave !== opcion.clave))}
                           className="text-[11.5px] font-medium text-error-700 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           Quitar
@@ -729,13 +868,13 @@ function CampanaFormulario({
                         maxLength={MAX_LARGO_TEXTO}
                         placeholder="Nueva opción"
                         aria-label={`Nueva opción del checklist ${c.titulo || i + 1}`}
-                        disabled={edicionLimitada}
+                        disabled={contenidoBloqueado}
                         className="w-full rounded border border-system-300 bg-white px-3 py-2 text-[12.5px] text-system-900 outline-none focus:border-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
                       />
                       <button
                         type="button"
                         onClick={() => agregarOpcion(c.clave)}
-                        disabled={!c.nuevaOpcion.trim() || edicionLimitada}
+                        disabled={!c.nuevaOpcion.trim() || contenidoBloqueado}
                         className="whitespace-nowrap text-[12.5px] font-medium text-brand-600 disabled:opacity-40"
                       >
                         + Agregar opción
@@ -749,7 +888,7 @@ function CampanaFormulario({
                 <Button
                   type="button"
                   size="sm"
-                  disabled={edicionLimitada}
+                  disabled={contenidoBloqueado}
                   onClick={() => setChecklists((prev) => [...prev, nuevoChecklist()])}
                 >
                   + Agregar checklist
@@ -764,7 +903,7 @@ function CampanaFormulario({
             titulo="Meta y cuota"
             descripcion="Cuántos aportes aprobados busca la campaña y cuántos puede enviar cada persona."
             completo={pasos[2].completo}
-            aviso={edicionLimitada ? "Solo la meta se puede cambiar" : undefined}
+            aviso={contenidoBloqueado ? "Solo la meta se puede cambiar" : undefined}
           >
             <div className="grid max-w-xl grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="Meta total" required hint="Solo cuentan los aportes aprobados.">
@@ -785,8 +924,8 @@ function CampanaFormulario({
                   value={quota}
                   onChange={(e) => cambiarCuota(e.target.value)}
                   placeholder="Ej. 10"
-                  required={!edicionLimitada}
-                  disabled={edicionLimitada}
+                  required={!contenidoBloqueado}
+                  disabled={contenidoBloqueado}
                   className="font-mono disabled:cursor-not-allowed disabled:opacity-50"
                 />
               </Field>
@@ -809,7 +948,7 @@ function CampanaFormulario({
                         min={1}
                         value={repartoTexto[tipo] ?? ""}
                         onChange={(e) => setRepartoTexto((prev) => ({ ...prev, [tipo]: e.target.value }))}
-                        disabled={edicionLimitada}
+                        disabled={contenidoBloqueado}
                         className="font-mono disabled:cursor-not-allowed disabled:opacity-50"
                       />
                     </Field>
@@ -835,7 +974,7 @@ function CampanaFormulario({
             titulo="Vigencia y lugar"
             descripcion="Cuándo recibe aportes y en qué parte del país."
             completo={pasos[3].completo}
-            aviso={edicionLimitada ? "Solo la finalización se puede cambiar" : undefined}
+            aviso={contenidoBloqueado ? "Solo la finalización se puede cambiar" : undefined}
           >
             <p className="mb-3 text-[12px] text-system-500">
               La hora es opcional: sin hora, la campaña activa o finaliza desde el inicio de ese día.
@@ -849,14 +988,14 @@ function CampanaFormulario({
                     aria-label="Fecha de inicio"
                     onChange={setStartDate}
                     required
-                    disabled={edicionLimitada}
+                    disabled={contenidoBloqueado}
                   />
                   <Input
                     type="time"
                     value={startTime}
                     aria-label="Hora de inicio (opcional)"
                     onChange={(e) => setStartTime(e.target.value)}
-                    disabled={edicionLimitada}
+                    disabled={contenidoBloqueado}
                     className="max-w-[7.5rem] shrink-0 font-mono disabled:cursor-not-allowed disabled:opacity-50"
                   />
                 </div>
@@ -890,7 +1029,7 @@ function CampanaFormulario({
                 type="checkbox"
                 checked={todoElPais}
                 onChange={(e) => setTodoElPais(e.target.checked)}
-                disabled={edicionLimitada}
+                disabled={contenidoBloqueado}
                 className="mt-0.5 h-4 w-4 shrink-0 accent-brand-600"
               />
               <span>
@@ -910,8 +1049,8 @@ function CampanaFormulario({
                   <select
                     value={locationState}
                     onChange={(e) => cambiarEstado(e.target.value)}
-                    required={!edicionLimitada}
-                    disabled={edicionLimitada}
+                    required={!contenidoBloqueado}
+                    disabled={contenidoBloqueado}
                     className="w-full rounded border border-system-300 bg-white px-3.5 py-3 text-sm text-system-900 outline-none transition-colors focus:border-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <option value="">Selecciona un estado</option>
@@ -924,8 +1063,8 @@ function CampanaFormulario({
                   <select
                     value={locationCity}
                     onChange={(e) => cambiarMunicipio(e.target.value)}
-                    required={!edicionLimitada}
-                    disabled={!locationState || edicionLimitada}
+                    required={!contenidoBloqueado}
+                    disabled={!locationState || contenidoBloqueado}
                     className="w-full rounded border border-system-300 bg-white px-3.5 py-3 text-sm text-system-900 outline-none transition-colors focus:border-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <option value="">
@@ -943,7 +1082,7 @@ function CampanaFormulario({
                     onChange={(e) => setLocationColonia(e.target.value)}
                     maxLength={150}
                     placeholder={municipioReal ? "p. ej. Centro" : "Primero selecciona un municipio"}
-                    disabled={!municipioReal || edicionLimitada}
+                    disabled={!municipioReal || contenidoBloqueado}
                     className="disabled:cursor-not-allowed disabled:opacity-50"
                   />
                 </Field>
@@ -962,6 +1101,8 @@ function CampanaFormulario({
             <div className="mb-6 max-w-lg rounded-lg bg-system-100 p-4 text-[12.5px] text-system-600">
               La campaña está {status === "pausada" ? "pausada" : status === "aceptada" ? "aceptada" : "activa"}: los cambios se
               guardan y mantiene su estado actual.
+              {editaEnPausa &&
+                " Los aportes que ya llegaron no cambian, aunque su tipo de dato ya no se pida. Quien la supervisa recibe un aviso de lo que cambiaste."}
             </div>
           )}
           {formError && (

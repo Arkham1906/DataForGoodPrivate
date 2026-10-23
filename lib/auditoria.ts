@@ -27,6 +27,8 @@ export type AccionAuditada =
   | "supervision.reanudar"
   | "supervision.finalizar"
   | "campana.banear"
+  // El creador editó su campaña pausada (PATCH /api/campanas/[id]); detalle.campos dice qué cambió.
+  | "campana.editar_pausada"
   // Aceptó los acuerdos al inscribirse para aportar (lib/campanas/inscripciones.ts).
   | "campana.inscribirse"
   // Reportes de campañas y de participantes (lib/reportes/reportes.ts y lib/moderacion/acciones.ts).
@@ -37,6 +39,9 @@ export type AccionAuditada =
   | "campana.enlace_regenerar"
   | "revisor.invitar"
   | "revisor.aceptar"
+  // El creador quita a un revisor o cancela su invitación (lib/campanas/revisores.ts, 2026-10-22).
+  | "revisor.quitar"
+  | "revisor.cancelar_invitacion"
   | "root.acceso"
   | "root.acceso_fallido"
   | "root.token_api"

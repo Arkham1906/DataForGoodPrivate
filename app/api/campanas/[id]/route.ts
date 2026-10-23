@@ -9,10 +9,15 @@ import { especialDesdeFila } from "@/lib/campanas/especial";
 import { avisarCampanaEspecial } from "@/lib/notificaciones/campanas-por-interes";
 import { avisarCampanaPorRevisar } from "@/lib/notificaciones/avisos-a-supervisores";
 import {
+  CAMPOS_DE_EDICION_LIMITADA,
+  CAMPOS_EDITABLES_EN_PAUSA,
+  COLUMNAS_AVISADAS_EN_PAUSA,
   ESTADOS_CON_EDICION_COMPLETA,
   MAX_CAMPANAS_ACTIVAS as MAX_ACTIVE_CAMPAIGNS,
   errorDeEstadoPedido,
 } from "@/lib/campanas/estado-del-creador";
+import { avisarEdicionEnPausa } from "@/lib/notificaciones/avisos-a-supervisores";
+import { registrarAuditoria } from "@/lib/auditoria";
 import { pool } from "@/lib/db";
 import { getSessionUser } from "@/lib/session";
 import { ACCIONES_DE_SUPERVISION, registrarDecisionDeCampana, tomarCampanaParaSupervisar, type AccionDeSupervision } from "@/lib/supervision/decision";
@@ -23,7 +28,7 @@ import { normalizarSecciones, seccionesDesdeFila } from "@/lib/campanas/checklis
 import { asegurarEnlaceVigente } from "@/lib/campanas/enlaces";
 import { errorDeOrganizacion } from "@/lib/campanas/organizacion";
 import { errorDeCuotaPorTipo, normalizarCuotaPorTipo } from "@/lib/campanas/cuota-por-tipo";
-import { activateScheduledCampaigns, calculateCampaignDaysRemaining, errorDeFinAntesDeInicio, errorDeInicioPasado, finalizeExpiredCampaigns, hasCampaignEnded, normalizeCampaignDate, normalizeCampaignTime } from "@/lib/campaign-date";
+import { activateScheduledCampaigns, calculateCampaignDaysRemaining, errorDeFinAntesDeInicio, errorDeInicioPasado, errorDeReanudarAntesDeInicio, finalizeExpiredCampaigns, hasCampaignEnded, normalizeCampaignDate, normalizeCampaignTime } from "@/lib/campaign-date";
 
 function normalizeDataTypes(input: unknown): string[] {
   if (!Array.isArray(input)) {
@@ -211,7 +216,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     }
 
     const existing = await pool.query(
-      `SELECT creator_id, status, start_date, end_date, end_time, pausa_por, data_types, quota_per_user, cuota_por_tipo FROM campanas WHERE id = $1 LIMIT 1`,
+      `SELECT * FROM campanas WHERE id = $1 LIMIT 1`,
       [id]
     );
     if (existing.rowCount === 0) {
@@ -225,9 +230,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
     // Reglas de edición por estado: una finalizada es de solo lectura salvo
     // para reactivarla (status: "activa", con cupo libre de campañas activas);
-    // activa, pausada y aceptada solo dejan tocar meta y fecha de fin (sin
-    // cambiar su estado); borrador, en_revision y rechazada se editan por
-    // completo.
+    // activa y aceptada solo dejan tocar meta y fecha de fin (sin cambiar su
+    // estado); pausada además casi todo (CAMPOS_EDITABLES_EN_PAUSA, sigue
+    // pausada); borrador, en_revision y rechazada se editan por completo.
     if (currentStatus === "finalizada") {
       const reactiva = normalizeCampaignStatus(body.status) === "activa";
       if (!reactiva) {
@@ -313,6 +318,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
             { status: 400 }
           );
         }
+        // Editándola en pausa pudo quedar con inicio futuro: no se activa antes de empezar.
+        const errorDeInicio = errorDeReanudarAntesDeInicio(existing.rows[0].start_date, existing.rows[0].start_time);
+        if (errorDeInicio) return NextResponse.json({ error: errorDeInicio }, { status: 400 });
         const activas = await pool.query(
           `SELECT COUNT(*)::int AS count FROM campanas WHERE creator_id = $1 AND status = 'activa'`,
           [user.id]
@@ -328,11 +336,16 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         if (pedido) {
           return NextResponse.json({ error: "Ese cambio de estado no está permitido para esta campaña" }, { status: 400 });
         }
-        const camposPermitidos = new Set(["goalContributions", "goal_contributions", "endDate", "end_date", "endTime", "end_time"]);
+        const camposPermitidos = currentStatus === "pausada" ? CAMPOS_EDITABLES_EN_PAUSA : CAMPOS_DE_EDICION_LIMITADA;
         const camposNoPermitidos = Object.keys(body).filter((key) => !camposPermitidos.has(key));
         if (camposNoPermitidos.length > 0) {
           return NextResponse.json(
-            { error: "Con la campaña activa o pausada solo puedes editar la meta de aportes y la fecha/hora de finalización" },
+            {
+              error:
+                currentStatus === "pausada"
+                  ? "Con la campaña pausada no se cambia la organización"
+                  : "Con la campaña activa solo puedes editar la meta de aportes y la fecha/hora de finalización. Páusala para editar lo demás",
+            },
             { status: 400 }
           );
         }
@@ -343,8 +356,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       // Ya la aprobó el supervisor pero todavía no empieza: igual que activa
       // o pausada, solo se ajusta la meta de aportes y la fecha/hora de fin.
       // No tiene el atajo de "finalizar" porque aún no arrancó a recolectar.
-      const camposPermitidos = new Set(["goalContributions", "goal_contributions", "endDate", "end_date", "endTime", "end_time"]);
-      const camposNoPermitidos = Object.keys(body).filter((key) => !camposPermitidos.has(key));
+      const camposNoPermitidos = Object.keys(body).filter((key) => !CAMPOS_DE_EDICION_LIMITADA.has(key));
       if (camposNoPermitidos.length > 0) {
         return NextResponse.json(
           { error: "Con la campaña aceptada solo puedes editar la meta de aportes y la fecha/hora de finalización" },
@@ -390,8 +402,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const goalContributions = "goalContributions" in body || "goal_contributions" in body ? Number(body.goalContributions ?? body.goal_contributions) : null;
     const quotaPerUser = "quotaPerUser" in body || "quota_per_user" in body ? Number(body.quotaPerUser ?? body.quota_per_user) : null;
     // Reparto de la cuota por tipo (lib/campanas/cuota-por-tipo.ts): se recalcula si cambia el
-    // reparto, la cuota o los tipos, contra lo que quede de los otros dos. Las de edición
-    // limitada no llegan aquí con estos campos (solo meta y fin).
+    // reparto, la cuota o los tipos, contra lo que quede de los otros dos. Activa y aceptada
+    // no llegan aquí con estos campos (solo meta y fin); una pausada sí.
     const tocaReparto = "cuotaPorTipo" in body || quotaPerUser !== null || dataTypes !== null;
     const tiposQueQuedan: string[] = dataTypes ?? (Array.isArray(existing.rows[0].data_types) ? existing.rows[0].data_types : []);
     const cuotaQueQueda = quotaPerUser ?? Number(existing.rows[0].quota_per_user ?? 0);
@@ -429,8 +441,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     // los campos que no llegaron: ya deberían ser válidos desde que se creó.
     const effectiveStatus = status ?? currentStatus;
     // La fecha de inicio no puede quedar antes de hoy (día de Tepic): ni la que llega,
-    // ni la que ya tenía si se envía a revisión. Solo donde se edita todo: activa,
-    // pausada y aceptada ya no cambian el inicio.
+    // ni la que ya tenía si se envía a revisión. Solo donde se edita todo: activa
+    // y aceptada no cambian el inicio.
     if (ESTADOS_CON_EDICION_COMPLETA.has(currentStatus)) {
       const inicioQueQueda =
         startDate !== undefined ? startDate : effectiveStatus !== "borrador" ? normalizeCampaignDate(existing.rows[0].start_date) : null;
@@ -438,6 +450,17 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       if (errorDeInicio) {
         return NextResponse.json({ error: errorDeInicio }, { status: 400 });
       }
+    }
+    // Pausada: casi siempre ya empezó, así que su inicio (en el pasado) se conserva; solo
+    // si se mueve, el nuevo no puede ser antes de hoy. Nombre, descripción y temática no se vacían.
+    if (currentStatus === "pausada" && status === null) {
+      if (startDate !== undefined && startDate !== normalizeCampaignDate(existing.rows[0].start_date)) {
+        const errorDeInicio = errorDeInicioPasado(startDate);
+        if (errorDeInicio) return NextResponse.json({ error: errorDeInicio }, { status: 400 });
+      }
+      if (name !== null && !name) return NextResponse.json({ error: "Falta el nombre de la campaña" }, { status: 400 });
+      if (description !== null && !description) return NextResponse.json({ error: "Falta la descripción" }, { status: 400 });
+      if (tematica !== null && !tematica) return NextResponse.json({ error: "Elige una temática" }, { status: 400 });
     }
     // En cualquier estado y también en borrador, la campaña no termina antes de empezar.
     // Si solo llega una de las fechas, se compara con la que ya tenía guardada. Sin fechas
@@ -544,6 +567,23 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     // Entró a revisión (desde borrador o rechazada): avisa a los supervisores.
     if (result.rows[0].status === "en_revision" && currentStatus !== "en_revision") {
       avisarCampanaPorRevisar({ id: Number(id), creadorId: Number(user.id), otraVez: currentStatus === "rechazada" });
+    }
+    // Se editó estando pausada: queda en la bitácora y se avisa a quien la supervisa.
+    if (currentStatus === "pausada" && result.rows[0].status === "pausada") {
+      const antes = existing.rows[0];
+      const despues = result.rows[0];
+      // NULL y "" valen lo mismo: una colonia NULL que el formulario manda vacía no es un cambio.
+      const valor = (v: unknown) => JSON.stringify(v === null || v === undefined ? "" : v);
+      const campos = COLUMNAS_AVISADAS_EN_PAUSA.filter((c) => valor(antes[c]) !== valor(despues[c]));
+      if (campos.length > 0) {
+        await registrarAuditoria({
+          actor: { tipo: "usuario", id: Number(user.id) },
+          accion: "campana.editar_pausada",
+          objetivo: { tipo: "campana", id: Number(id) },
+          detalle: { campos },
+        });
+        avisarEdicionEnPausa({ id: Number(id), creadorId: Number(user.id), supervisorId: despues.supervisor_id, campos });
+      }
     }
 
     return NextResponse.json({ message: "Campaña actualizada", data: mapCampaign(result.rows[0]) });

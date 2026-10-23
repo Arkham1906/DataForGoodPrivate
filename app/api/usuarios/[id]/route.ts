@@ -184,6 +184,16 @@ export async function PATCH(
       );
     }
 
+    // Sus campañas guardan una copia del nombre (creator_name, la de POST /api/campanas) que se
+    // muestra como quien organiza si no puso organización (2026-10-22): se mantiene al día.
+    if (nombre !== null || apellidos !== null) {
+      const fila = result.rows[0];
+      await pool.query(`UPDATE campanas SET creator_name = $2 WHERE creator_id = $1 AND creator_name IS DISTINCT FROM $2`, [
+        Number(rawId),
+        `${fila.nombre} ${fila.apellidos}`.trim(),
+      ]);
+    }
+
     return NextResponse.json({ data: result.rows[0] }, { status: 200 });
   } catch (error) {
     console.error(error);

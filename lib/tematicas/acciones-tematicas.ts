@@ -30,8 +30,8 @@ export async function cambiarVisibilidadDeTematica(id: number, oculta: boolean):
 }
 
 /**
- * Aprueba (se ofrece a todos) o rechaza (queda oculta y se quita de los perfiles de quienes la
- * escribieron) una temática pendiente.
+ * Aprueba (se ofrece a todos) o rechaza (se borra del catálogo y se quita de los perfiles de quienes
+ * la escribieron; desde el 2026-10-22) una temática pendiente.
  */
 export async function revisarTematica(id: number, aprobada: boolean): Promise<ResultadoDeAccion> {
   if (!(await hasRootSession())) throw new Error("No autorizado");

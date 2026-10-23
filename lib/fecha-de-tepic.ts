@@ -39,6 +39,12 @@ export function hoyEnTepic(): string {
   return `${a.year}-${String(a.month).padStart(2, "0")}-${String(a.day).padStart(2, "0")}`;
 }
 
+/** "YYYY-MM-DD" → "DD/MM/AAAA", como se escriben en el formulario (ui/CampoDeFecha). Otro texto queda igual. */
+export function fechaDDMMAAAA(fecha: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(fecha);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : fecha;
+}
+
 /** Mensaje si la fecha de fin queda antes de la de inicio ("YYYY-MM-DD"); el mismo día sí se permite. */
 export function errorDeFinAntesDeInicio(fechaDeInicio: string | null | undefined, fechaDeFin: string | null | undefined): string | null {
   if (!fechaDeInicio || !fechaDeFin || fechaDeFin >= fechaDeInicio) return null;

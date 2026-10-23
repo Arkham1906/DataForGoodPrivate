@@ -15,6 +15,7 @@ import { errorDeOrganizacion } from "@/lib/campanas/organizacion";
 import { normalizarSecciones, seccionesDesdeFila } from "@/lib/campanas/checklist";
 import { XP_POR_APORTE, errorDeEstadoPedido } from "@/lib/campanas/estado-del-creador";
 import { pausaDesdeFila } from "@/lib/campanas/pausa";
+import { rechazoDesdeFila } from "@/lib/campanas/rechazo";
 import { errorDeCuotaPorTipo, normalizarCuotaPorTipo } from "@/lib/campanas/cuota-por-tipo";
 import { condicionDeVisibilidad } from "@/lib/campanas/visibilidad";
 import { activateScheduledCampaigns, calculateCampaignDaysRemaining, errorDeFinAntesDeInicio, errorDeInicioPasado, finalizeExpiredCampaigns, normalizeCampaignDate, normalizeCampaignTime } from "@/lib/campaign-date";
@@ -116,6 +117,8 @@ function mapCampaign(row: Record<string, unknown>) {
     especial: especialDesdeFila(row),
     // Quién la pausó y por qué (null si no está pausada).
     pausa: pausaDesdeFila(row),
+    // Por qué se rechazó (solo en ?mine=true y mientras siga rechazada).
+    rechazo: rechazoDesdeFila(row),
     daysRemaining: calculateCampaignDaysRemaining(row.end_date ?? row.endDate),
     hasReviewerAssigned: Boolean(row.has_reviewer_assigned),
     shareToken: String(row.share_token ?? ""),
@@ -201,7 +204,30 @@ export async function GET(request: Request) {
     }
 
     const result = mine
-      ? await pool.query(`SELECT * FROM campanas WHERE creator_id = $1 ORDER BY created_at DESC`, [user!.id])
+      ? await pool.query(
+          // Si está rechazada, el motivo, la fecha y la sanción del último rechazo (lib/campanas/rechazo.ts).
+          // El reporte con sanción se escribe en la misma transacción que el rechazo: mismo NOW().
+          `SELECT c.*,
+                  r.motivo AS rechazo_motivo, r.created_at AS rechazo_en, r.por_superusuario AS rechazo_por_root,
+                  s.tipo AS rechazo_sancion_tipo, s.dias AS rechazo_sancion_dias
+           FROM campanas c
+           LEFT JOIN LATERAL (
+             SELECT cs.motivo, cs.created_at, cs.por_superusuario
+             FROM campana_supervisores cs
+             WHERE cs.campana_id = c.id AND cs.accion = 'rechazada' AND c.status = 'rechazada'
+             ORDER BY cs.created_at DESC, cs.id DESC
+             LIMIT 1
+           ) r ON true
+           LEFT JOIN LATERAL (
+             SELECT sa.tipo, sa.dias
+             FROM reportes rp JOIN sanciones sa ON sa.id = rp.sancion_id
+             WHERE rp.campana_id = c.id AND rp.origen = 'rechazo' AND rp.resuelto_en = r.created_at
+             LIMIT 1
+           ) s ON true
+           WHERE c.creator_id = $1
+           ORDER BY c.created_at DESC`,
+          [user!.id],
+        )
       : available
         ? await pool.query(
             `SELECT * FROM campanas

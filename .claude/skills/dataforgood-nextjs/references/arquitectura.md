@@ -60,7 +60,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
 ## 4. Server actions (panel del SuperUsuario)
 
-Archivos `"use server"` en `lib/`: `lib/usuarios/acciones-usuarios.ts` (`asignarRol`, `revocarRol`, `aplicarSancion`, `restaurarAcceso`), `lib/usuarios/acciones-supervisor.ts` (`revertirAccion`) y `lib/supervision/acciones-root.ts` (`decidirComoSuperUsuario`, `tomarComoSuperUsuario`).
+Archivos `"use server"` en `lib/`: `lib/usuarios/acciones-usuarios.ts` (`asignarRol`, `revocarRol`, `aplicarSancion`, `restaurarAcceso`), `lib/usuarios/acciones-supervisor.ts` (`revertirAccion`) y `lib/supervision/acciones-root.ts` (`decidirComoSuperUsuario`, que también toma la campaña).
 
 ```ts
 "use server";

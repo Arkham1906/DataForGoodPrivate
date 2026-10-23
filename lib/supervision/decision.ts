@@ -137,6 +137,12 @@ export async function registrarDecisionDeCampana(
   accion: AccionDeSupervision,
   entrada: EntradaDeDecision,
   autor: AutorDeDecision,
+  /**
+   * El SuperUsuario no tiene "Supervisar esta campaña" (2026-10-22): si nadie la supervisa, la toma
+   * al decidir. La toma va después de validar todo (2026-10-23): antes, un rechazo sin motivo la
+   * dejaba tomada por él y ningún supervisor podía tomarla.
+   */
+  opciones: { tomarSiEstaLibre?: boolean } = {},
 ): Promise<ResultadoDeDecision> {
   const existing = await pool.query(
     `SELECT id, status, creator_id, name, start_date, start_time, supervisor_id, supervisado_por_root
@@ -159,8 +165,10 @@ export async function registrarDecisionDeCampana(
   if (String(campana.status) !== "en_revision") {
     return { ok: false, status: 400, error: "Solo se aceptan o rechazan campañas en revisión" };
   }
-  // Solo el supervisor que la tomó dictamina.
-  if (!esSuSupervisor(campana, autor)) {
+  // Solo el supervisor que la tomó dictamina (o quien la toma al decidir, si está libre).
+  const tomarAlDecidir =
+    opciones.tomarSiEstaLibre === true && campana.supervisor_id == null && !campana.supervisado_por_root;
+  if (!esSuSupervisor(campana, autor) && !tomarAlDecidir) {
     return {
       ok: false,
       status: 403,
@@ -170,7 +178,12 @@ export async function registrarDecisionDeCampana(
     };
   }
 
-  if (accion === "rechazada") return rechazar(campana, entrada, autor);
+  if (accion === "rechazada") return rechazar(campana, entrada, autor, tomarAlDecidir);
+
+  if (tomarAlDecidir) {
+    const tomada = await tomarCampanaParaSupervisar(campanaId, autor);
+    if (!tomada.ok) return tomada;
+  }
 
   // Aceptada con fecha/hora de inicio futura: el estado de la campaña
   // queda "aceptada" (en_revision -> aceptada -> activa) y se activa sola
@@ -231,8 +244,9 @@ async function rechazar(
   campana: { id: number; creator_id: number; name: string },
   entrada: EntradaDeDecision,
   autor: AutorDeDecision,
+  tomarAlDecidir: boolean,
 ): Promise<ResultadoDeDecision> {
-  const lista = String(entrada.motivoDeLista ?? "").trim() || null;
+  const lista =String(entrada.motivoDeLista ?? "").trim() || null;
   const explicacion = String(entrada.motivo ?? "").trim() || null;
   if (lista && !MOTIVOS_DE_RECHAZO_DE_CAMPANA.includes(lista)) {
     return { ok: false, status: 400, error: "Motivo de rechazo inválido" };
@@ -253,6 +267,12 @@ async function rechazar(
   if (pedida) {
     const error = errorDeSancionPedida(pedida, detalleDeSancion);
     if (error) return { ok: false, status: 400, error };
+  }
+
+  // Ya validado todo: si se toma al decidir, ahora.
+  if (tomarAlDecidir) {
+    const tomada = await tomarCampanaParaSupervisar(campana.id, autor);
+    if (!tomada.ok) return tomada;
   }
 
   const supervisorId = autor.tipo === "usuario" ? autor.usuarioId : null;

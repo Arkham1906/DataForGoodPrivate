@@ -6,7 +6,7 @@
 // solo la reanuda la supervisión; el creador sí puede finalizarla.
 
 import { pool } from "@/lib/db";
-import { hasCampaignEnded, normalizeCampaignDate, normalizeCampaignTime } from "@/lib/campaign-date";
+import { errorDeReanudarAntesDeInicio, hasCampaignEnded, normalizeCampaignDate, normalizeCampaignTime } from "@/lib/campaign-date";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { asegurarEnlaceVigente } from "@/lib/campanas/enlaces";
 import { MAX_CAMPANAS_ACTIVAS, contarActivas } from "@/lib/campanas/estado-del-creador";
@@ -37,7 +37,7 @@ export async function cambiarEstadoPorSupervision(
   autor: AutorDeDecision,
 ): Promise<ResultadoDeCambioDeEstado> {
   const existente = await pool.query(
-    `SELECT id, status, creator_id, name, supervisor_id, supervisado_por_root, end_date, end_time, pausa_por, is_special
+    `SELECT id, status, creator_id, name, supervisor_id, supervisado_por_root, start_date, start_time, end_date, end_time, pausa_por, is_special
      FROM campanas WHERE id = $1 LIMIT 1`,
     [campanaId],
   );
@@ -87,6 +87,8 @@ export async function cambiarEstadoPorSupervision(
         error: "La fecha de cierre ya pasó: quien organiza la campaña debe poner una nueva, o finalízala",
       };
     }
+    const errorDeInicio = errorDeReanudarAntesDeInicio(campana.start_date, campana.start_time);
+    if (errorDeInicio) return { ok: false, status: 400, error: errorDeInicio };
     // Mismo tope que cuando la reanuda el creador: cuenta para sus campañas activas.
     if ((await contarActivas(campana.creator_id)) >= MAX_CAMPANAS_ACTIVAS) {
       return {

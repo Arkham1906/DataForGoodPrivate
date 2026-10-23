@@ -7,6 +7,8 @@
 //   - campana_por_revisar: una campaña entra a revisión (el creador la envía desde POST, PUT o PATCH de
 //     /api/campanas, o el SuperUsuario revierte una decisión y la regresa a la fila con revertirAccion).
 //     Lleva a /supervision/[id], donde se toma.
+//   - campana_editada (2026-10-22): el creador editó su campaña pausada. Solo al supervisor que la
+//     supervisa (si la supervisa el SuperUsuario, queda en la bitácora). Lleva a /supervision/[id].
 // A cada usuario con rol de supervisor, verificado, sin bloqueo ni baja pedida, menos las cuentas de
 // `excluir` (quien reportó y la persona reportada; el creador de la campaña). El SuperUsuario no tiene
 // cuenta de usuario: ve todo en /supervisar. Se envían en segundo plano, de 10 en 10.
@@ -99,4 +101,48 @@ export function avisarCampanaPorRevisar(campana: { id: number; creadorId: number
       enlace: `/supervision/${campana.id}`,
     };
   });
+}
+
+const NOMBRES_DE_CAMPOS: Record<string, string> = {
+  name: "nombre",
+  description: "descripción",
+  tematica: "temática",
+  data_types: "tipos de dato",
+  checklist_secciones: "checklists",
+  goal_contributions: "meta",
+  quota_per_user: "cuota",
+  cuota_por_tipo: "cuota",
+  start_date: "inicio",
+  start_time: "inicio",
+  end_date: "finalización",
+  end_time: "finalización",
+  location_state: "ubicación",
+  location_city: "ubicación",
+  location_colonia: "ubicación",
+  todo_el_pais: "ubicación",
+};
+
+/** El creador editó su campaña pausada: avisa solo a quien la supervisa (no al creador, si fuera él). */
+export function avisarEdicionEnPausa(campana: {
+  id: number;
+  creadorId: number;
+  supervisorId: number | string | null;
+  campos: readonly string[];
+}): void {
+  const supervisorId = Number(campana.supervisorId);
+  if (!campana.supervisorId || !Number.isFinite(supervisorId) || supervisorId === campana.creadorId) return;
+  void (async () => {
+    const nombre = (await nombreDeCampana(campana.id)) ?? "una campaña";
+    const cambios = [...new Set(campana.campos.map((c) => NOMBRES_DE_CAMPOS[c] ?? c))];
+    const lista = cambios.length > 1 ? `${cambios.slice(0, -1).join(", ")} y ${cambios.at(-1)}` : cambios[0];
+    await notificar({
+      usuarioId: supervisorId,
+      tipo: "campana_editada",
+      titulo: "Editaron una campaña pausada",
+      mensaje: `Quien organiza "${nombre}" cambió ${lista} mientras está pausada. Revisa que siga en regla.`,
+      campanaId: campana.id,
+      enlace: `/supervision/${campana.id}`,
+      metadata: { campos: cambios },
+    });
+  })().catch((error) => console.error("Error avisando la edición de una campaña pausada", error));
 }

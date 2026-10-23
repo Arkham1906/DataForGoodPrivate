@@ -148,7 +148,7 @@ export async function cambiarVisibilidad(id: number, oculta: boolean): Promise<s
   return result.rows[0]?.nombre ?? null;
 }
 
-/** Temáticas que esperan revisión (sin las ya rechazadas, que quedan ocultas). Para el menú del panel. */
+/** Temáticas que esperan revisión (las rechazadas ya no existen; NOT oculta excluye las de antes del 2026-10-22). Para el menú del panel. */
 export async function contarTematicasPendientes(): Promise<number> {
   const result = await pool.query<{ n: string }>(
     `SELECT COUNT(*) AS n FROM tematicas WHERE NOT aprobada AND NOT oculta`,
@@ -166,16 +166,18 @@ export async function aprobar(id: number): Promise<string | null> {
 }
 
 /**
- * Rechaza una temática pendiente: queda oculta (nadie la puede volver a agregar) y se quita de los
- * perfiles que la tenían, que solo pueden ser los de quienes la escribieron. Devuelve su nombre y
- * de cuántos perfiles se quitó, o null si no existe o ya estaba aprobada (esas se ocultan).
+ * Rechaza una temática pendiente: se borra del catálogo (desde el 2026-10-22, a pedido del usuario;
+ * antes quedaba oculta con "Aprobar" por si se rechazó por error) y se quita de los perfiles que la
+ * tenían, que solo pueden ser los de quienes la escribieron. No vuelve a aparecer: desde el
+ * 2026-10-20 el texto de un perfil ya no crea temáticas. Su nombre queda en audit_log. Devuelve su
+ * nombre y de cuántos perfiles se quitó, o null si no existe o ya estaba aprobada (esas se ocultan).
  */
 export async function rechazar(id: number): Promise<{ nombre: string; perfiles: number } | null> {
   const cliente = await pool.connect();
   try {
     await cliente.query("BEGIN");
     const fila = await cliente.query<{ nombre: string }>(
-      `UPDATE tematicas SET oculta = true WHERE id = $1 AND NOT aprobada RETURNING nombre`,
+      `DELETE FROM tematicas WHERE id = $1 AND NOT aprobada RETURNING nombre`,
       [id],
     );
     const nombre = fila.rows[0]?.nombre;

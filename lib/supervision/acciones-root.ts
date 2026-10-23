@@ -1,7 +1,7 @@
 "use server";
 
-// Server actions del SuperUsuario en /supervisar: tomar y dictaminar campañas, y pausarlas,
-// reanudarlas o finalizarlas.
+// Server actions del SuperUsuario en /supervisar: dictaminar campañas (las toma al hacerlo), y
+// pausarlas, reanudarlas o finalizarlas.
 // Cada una verifica la sesión raíz; la lógica está en ./decision.ts.
 
 import { revalidatePath } from "next/cache";
@@ -10,7 +10,6 @@ import { hasRootSession } from "@/lib/rootSession";
 import {
   ACCIONES_DE_SUPERVISION,
   registrarDecisionDeCampana,
-  tomarCampanaParaSupervisar,
   type AccionDeSupervision,
   type EntradaDeDecision,
 } from "@/lib/supervision/decision";
@@ -26,6 +25,9 @@ export type ResultadoDeSupervision = { ok: true; mensaje: string } | { ok: false
  * Dictamen del SuperUsuario desde /supervisar. Mismas reglas que un
  * supervisor (motivo obligatorio al rechazar, sanción opcional al creador, aceptada con
  * inicio futuro, notificación al creador), pero la autoría queda como SuperUsuario.
+ * Desde el 2026-10-22 (a pedido del usuario) no hay botón "Supervisar esta campaña" para el
+ * SuperUsuario: si nadie la supervisa, aceptar o rechazar la toma en el mismo paso (con su
+ * `supervision.tomar` en la bitácora). Si la tomó un supervisor con cuenta, se le respeta.
  */
 export async function decidirComoSuperUsuario(
   campanaId: string,
@@ -37,7 +39,8 @@ export async function decidirComoSuperUsuario(
     return { ok: false, error: "Petición inválida." };
   }
 
-  const resultado = await registrarDecisionDeCampana(campanaId, accion, entrada, { tipo: "root" });
+  // Ya la supervisa el SuperUsuario: sigue igual. Libre: la toma, después de validar. De otro supervisor: error.
+  const resultado = await registrarDecisionDeCampana(campanaId, accion, entrada, { tipo: "root" }, { tomarSiEstaLibre: true });
   if (!resultado.ok) return { ok: false, error: resultado.error };
 
   revalidatePath("/supervisar", "layout");
@@ -65,14 +68,3 @@ export async function cambiarEstadoComoSuperUsuario(
   return { ok: true, mensaje: resultado.mensaje };
 }
 
-/** "Supervisar esta campaña": el SuperUsuario la toma en exclusiva. */
-export async function tomarComoSuperUsuario(campanaId: string): Promise<ResultadoDeSupervision> {
-  if (!(await hasRootSession())) throw new Error("No autorizado");
-  if (!/^\d+$/.test(campanaId)) return { ok: false, error: "Petición inválida." };
-
-  const resultado = await tomarCampanaParaSupervisar(campanaId, { tipo: "root" });
-  if (!resultado.ok) return { ok: false, error: resultado.error };
-
-  revalidatePath("/supervisar", "layout");
-  return { ok: true, mensaje: "Ahora supervisas esta campaña" };
-}

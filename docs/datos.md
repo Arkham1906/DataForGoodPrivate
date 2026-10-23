@@ -88,7 +88,8 @@ borrador ──► en_revision ──(supervisor acepta)──► aceptada ─�
 - **Tomar una campaña:** un supervisor la reserva con un `UPDATE ... WHERE supervisor_id IS NULL AND NOT supervisado_por_root`. Si dos la toman a la vez, solo uno gana; el otro recibe 409.
 - **Qué se puede editar según el estado** (`PATCH /api/campanas/[id]`):
   - `borrador`, `en_revision`, `rechazada`: todo.
-  - `aceptada`, `activa`, `pausada`: solo la meta y la fecha de fin. Desde `activa` o `pausada` también se puede finalizar.
+  - `aceptada`, `activa`: solo la meta y la fecha de fin. Desde `activa` también se puede finalizar.
+  - `pausada` (2026-10-22): además nombre, descripción, temática, tipos de dato (con la cuota y su reparto), checklists (texto y orden), inicio (si se mueve, no antes de hoy) y ubicación; no la organización (`CAMPOS_EDITABLES_EN_PAUSA` de `lib/campanas/estado-del-creador.ts`). Sigue pausada, los aportes que ya llegaron no cambian, queda `campana.editar_pausada` en `audit_log` y su supervisor recibe `campana_editada`. También se puede finalizar.
   - `finalizada`: solo reactivar (`status: "activa"`) con una fecha de fin nueva, y si la persona tiene menos de 5 campañas activas.
 
 ## 4. Ciclo de vida de un aporte

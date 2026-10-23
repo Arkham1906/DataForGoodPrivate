@@ -2,6 +2,7 @@
 // Datos: lib/campanas/publicas.ts. Al abrir una campaña va a /campanas/[id], que sí pide sesión.
 
 import { textoDeUbicacion } from "@/lib/campanas/ubicacion";
+import { quienOrganiza } from "@/lib/campanas/organizacion";
 import Link from "next/link";
 import { BASE_PATH } from "@/lib/base-path";
 import { entradaDeTarjeta, retraso } from "@/lib/animaciones";
@@ -218,16 +219,23 @@ export default async function ExplorarCampanasPage({
                   return (
                     // Ver el detalle y aportar requiere sesión: sin ella, proxy.ts manda a /entrar.
                     <Link key={c.id} href={`/campanas/${c.id}`} {...entradaDeTarjeta(i)}>
-                      <Card className="landing-tarjeta flex h-full flex-col hover:border-brand-600">
+                      {/* Textos recortados (2026-10-22): un nombre largo o una palabra sin espacios
+                          estiraba la tarjeta o se salía de ella y empujaba "Activa" afuera. El
+                          texto completo queda en el title. */}
+                      <Card className="landing-tarjeta flex h-full min-w-0 flex-col hover:border-brand-600">
                         <div className="mb-1 flex items-start justify-between gap-2">
-                          <p className="text-[15px] font-bold text-system-900">{c.name}</p>
-                          <Tag tone="ok">Activa</Tag>
+                          <p className="line-clamp-2 min-w-0 break-words text-[15px] font-bold text-system-900" title={c.name}>
+                            {c.name}
+                          </p>
+                          <span className="shrink-0">
+                            <Tag tone="ok">Activa</Tag>
+                          </span>
                         </div>
-                        <p className="text-[12.5px] text-system-600">
-                          {c.organizer || "Sin organización"}
+                        <p className="truncate text-[12.5px] text-system-600" title={`${quienOrganiza(c)}${lugar ? ` · ${lugar}` : ""}`}>
+                          {quienOrganiza(c)}
                           {lugar ? ` · ${lugar}` : ""}
                         </p>
-                        <p className="mt-2 text-[13px] leading-snug text-system-600">
+                        <p className="mt-2 line-clamp-3 break-words text-[13px] leading-snug text-system-600">
                           {c.description.length > 140 ? `${c.description.slice(0, 140)}…` : c.description}
                         </p>
                         <div className="mt-2.5 flex flex-wrap gap-1.5">

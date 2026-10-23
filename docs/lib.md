@@ -86,6 +86,8 @@
 | `sistema.ts` | Consultas del panel del SuperUsuario (listado, conteos, dashboard). Exigen sesión raíz | `/sistema/campanas/**` |
 | `meta.ts` 🟢 | **La meta cuenta solo los aprobados** (2026-10-20): `porcentajeDeMeta(aprobados, meta)` y `pronosticoDeMeta()` (¿se llega al ritmo actual?) | Todas las pantallas que muestran el avance de una campaña, `sistema.ts`, `filtro-local.ts` |
 | `visibilidad.ts` | Qué campañas lee cada quien en `GET /api/campanas` y `GET /api/campanas/[id]` (`condicionDeVisibilidad`): públicas activa, pausada y finalizada; además el creador las suyas, el supervisor las en revisión y las que supervisa, el revisor aceptado la suya y la sesión raíz todas (2026-10-20) | `app/api/campanas/route.ts`, `app/api/campanas/[id]/route.ts` |
+| `rechazo.ts` 🟢 | Por qué se rechazó una campaña (`RechazoDeCampana`, `rechazoDesdeFila`): motivo, fecha, si fue el SuperUsuario y la sanción del último rechazo, para el creador (2026-10-22) | `GET /api/campanas?mine=true`, `/mis-campanas`, formulario de campaña |
+| `revisores.ts` | `quitarRevisor(campanaId, usuarioId)`: quita a un revisor o cancela su invitación en una transacción (rol "revisor", `has_reviewer_assigned`, notificación de invitación) (2026-10-22) | `DELETE /api/campanas/[id]/revisores` |
 | `sistema-opciones.ts` 🟢 | Constantes y tipos de esas pantallas (pestañas, etiquetas, órdenes) | `/sistema/campanas/filtros.tsx`, `components/campanas/BarraDeFiltros.tsx` |
 | `filtro-local.ts` 🟢 | Filtra y ordena en el navegador listas ya cargadas, con los mismos criterios que `buscarCampanas()`; aviso de lista vacía (`avisoSinResultados`) | `/supervision`, `/supervisar`, `/revisiones` |
 
@@ -96,7 +98,7 @@
 | `decision.ts` | **Reglas del dictamen**, compartidas por supervisores y SuperUsuario: tomar una campaña (`tomarCampanaParaSupervisar`) y aceptarla, rechazarla o reportarla (`registrarDecisionDeCampana`). Notifica al creador y escribe en la bitácora | `PATCH /api/campanas/[id]`, `acciones-root.ts` |
 | `root.ts` | Guardia `exigirSesionRoot()` y consultas de `/supervisar` | Páginas de `(panel)` |
 | `estado-por-supervision.ts` | **Pausar (con motivo), reanudar o finalizar (con motivo)** una campaña desde la supervisión (`cambiarEstadoPorSupervision`): permisos, transiciones, bitácora y aviso al creador (2026-10-15) | `PATCH /api/campanas/[id]`, `acciones-root.ts` |
-| `acciones-root.ts` ⚡ | `tomarComoSuperUsuario`, `decidirComoSuperUsuario`, `cambiarEstadoComoSuperUsuario` | `/supervisar/[campaignId]` |
+| `acciones-root.ts` ⚡ | `decidirComoSuperUsuario` (si nadie supervisa la campaña, la toma en el mismo paso; desde el 2026-10-22 ya no hay `tomarComoSuperUsuario`), `cambiarEstadoComoSuperUsuario` | `/supervisar/[campaignId]` |
 
 ### `usuarios/`
 
@@ -158,7 +160,7 @@ Catálogo de temáticas (intereses del perfil y temática de campaña), desde el
 | --- | --- | --- |
 | `analizar.ts` 🟢 | `analizarIntereses(texto, catalogo)`: temáticas que salen de un texto (diccionario local, palabras vacías, groserías, singular). `esTematicaNuevaValida`, `claveDeTematica`, `conMayuscula`, `MAXIMO_DE_INTERESES` (20), `LARGO_MAXIMO_DEL_TEXTO` (500) | `ui/InteresesDesdeTexto`, `catalogo.ts`, `db-schema.ts` |
 | `catalogo.ts` | `tematicasVisibles()`, `resolverIntereses()` (valida y da de alta las nuevas), `listarTematicasDelPanel(q)`, `cambiarVisibilidad()` | `GET /api/tematicas`, `POST`/`PATCH /api/usuarios`, `/sistema/tematicas` |
-| `acciones-tematicas.ts` | Server action `cambiarVisibilidadDeTematica(id, oculta)`: sesión raíz, bitácora `tematica.ocultar`/`tematica.mostrar` | `/sistema/tematicas` |
+| `acciones-tematicas.ts` | Server actions `cambiarVisibilidadDeTematica(id, oculta)` y `revisarTematica(id, aprobada)` (aprobar, o rechazar: la borra y la quita de los perfiles, desde el 2026-10-22): sesión raíz, bitácora `tematica.ocultar`/`mostrar`/`aprobar`/`rechazar` | `/sistema/tematicas` |
 
 ### `notificaciones/`
 

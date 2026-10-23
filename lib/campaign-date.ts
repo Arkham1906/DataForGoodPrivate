@@ -9,7 +9,7 @@
 
 import { pool } from "@/lib/db";
 import { notificar } from "@/lib/notificaciones/notificaciones";
-import { ahoraEnZona } from "@/lib/fecha-de-tepic";
+import { ahoraEnZona, fechaDDMMAAAA } from "@/lib/fecha-de-tepic";
 
 // Viven en lib/fecha-de-tepic.ts para que el navegador también las use.
 export { ZONA_DE_CAMPANAS, ahoraEnZona, hoyEnTepic, errorDeInicioPasado, errorDeFinAntesDeInicio } from "@/lib/fecha-de-tepic";
@@ -120,6 +120,18 @@ export function hasCampaignStarted(dateValue: unknown, timeValue?: unknown): boo
  */
 export function hasCampaignEnded(dateValue: unknown, timeValue?: unknown): boolean {
   return hasMomentPassed(dateValue, timeValue);
+}
+
+/**
+ * Mensaje si una campaña pausada todavía no llega a su inicio (2026-10-23): editándola en pausa
+ * se puede mover el inicio al futuro, y reanudarla la dejaría activa antes de empezar. Lo usan
+ * el creador (PATCH /api/campanas/[id]) y la supervisión (lib/supervision/estado-por-supervision.ts).
+ */
+export function errorDeReanudarAntesDeInicio(dateValue: unknown, timeValue?: unknown): string | null {
+  if (hasCampaignStarted(dateValue, timeValue)) return null;
+  const fecha = fechaDDMMAAAA(normalizeCampaignDate(dateValue) ?? "");
+  const hora = normalizeCampaignTime(timeValue);
+  return `La campaña empieza el ${fecha}${hora ? ` a las ${hora.slice(0, 5)}` : ""}: no se puede reanudar antes de su inicio. Quien la organiza puede adelantar el inicio a hoy`;
 }
 
 /** "YYYY-MM-DD HH:MM:SS" en hora de Tepic, para comparar contra columnas DATE+TIME en SQL sin usar NOW()/CURRENT_TIMESTAMP de Postgres. */

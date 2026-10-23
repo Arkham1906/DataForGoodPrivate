@@ -77,11 +77,12 @@ Cualquier usuario puede crear campañas. Todas estas rutas comprueban en el serv
 
 | URL | Archivo | Tipo | Datos y acciones |
 | --- | --- | --- | --- |
-| `/mis-campanas` | `mis-campanas/page.tsx` | C | `GET /api/campanas?mine=true`. Filtros por estado en botones; en móvil forman una fila desplazable horizontalmente. Menú "Más": "Pausar"/"Reanudar" y "Finalizar" (`PATCH /api/campanas/[id]` con `{ status }`), y "Hacer especial"/"Editar incentivos" (activa o pausada). "Compartir" en Más (campaña activa, 2026-10-19) abre el mismo cuadro que `/campanas/[id]` |
+| `/mis-campanas` | `mis-campanas/page.tsx` | C | `GET /api/campanas?mine=true`. Etiqueta de estado con los colores de `ETIQUETA_DE_CAMPANA`; una rechazada muestra el motivo y "Corregir y reenviar" (2026-10-22). Filtros por estado en botones; en móvil forman una fila desplazable horizontalmente. Menú "Más": "Pausar"/"Reanudar" y "Finalizar" (`PATCH /api/campanas/[id]` con `{ status }`), y "Hacer especial"/"Editar incentivos" (activa o pausada). "Compartir" en Más (campaña activa, 2026-10-19) abre el mismo cuadro que `/campanas/[id]` |
 | `/mis-campanas/nueva` (`?edit=<id>` para editar) | `mis-campanas/nueva/page.tsx` + `NuevaCampanaForm.tsx` | S + C | En cuatro pasos (tarjetas numeradas y guía lateral en `PasosDeCampana.tsx`). Crear: `POST /api/campanas`. Editar: `GET /api/campanas/[id]` y `PATCH /api/campanas/[id]`. Lo que se puede editar depende del estado (ver [datos.md](datos.md) § 3) |
 | `/mis-campanas/[id]/aportes` | `mis-campanas/[id]/aportes/page.tsx` | C | Bandeja de aportes: `GET /api/campanas/[id]`, `GET /api/aportes?campaignId=` (todos, solo el creador), con filtros por estado en el cliente. La sección de baneados (`baneados.tsx`) usa `GET`/`DELETE /api/campanas/[id]/baneos` |
 | `/mis-campanas/[id]/aportes/[aporteId]` | `.../aportes/[aporteId]/page.tsx` | C | `GET /api/aportes/[id]`; aceptar o rechazar: `PATCH /api/aportes/[id]` con `{ status, rejectionReason, inapropiado? }`. Banear al participante: `POST`/`DELETE /api/campanas/[id]/baneos`; en un aporte anónimo, el mismo `POST` bloquea su dispositivo en la campaña y `DELETE { bloqueoId }` lo desbloquea. Borrar el archivo de un aporte anónimo: `DELETE /api/aportes/[id]/archivo`. Banear o bloquear se puede antes o después de decidir; marcar inapropiado y borrar el archivo, solo antes. Con el aporte decidido ya no se ofrecen Aceptar ni Rechazar. El archivo se muestra con `components/ui/ArchivoDelAporte` (imagen, reproductor de video o audio, o enlace de descarga) desde `GET /api/aportes/[id]/archivo` |
 | `/mis-campanas/[id]/aportes/agregar-revisor` | `.../agregar-revisor/page.tsx` | C | Lista completa que se filtra al escribir: `GET /api/usuarios?campanaId=&q=&pagina=`. Listar e invitar revisores: `GET`/`POST /api/campanas/[id]/revisores` |
+| `/mis-campanas/[id]/aportes/revisores` | `.../aportes/revisores/page.tsx` | C | (2026-10-22) Lista de revisores de la campaña: nombre, estado de la invitación, fechas y aportes que decidió cada uno (`GET /api/campanas/[id]/revisores`). Botón "Agregar revisor". Se llega con "Ver revisores" desde la bandeja |
 | `/mis-campanas/[id]/panel` | `mis-campanas/[id]/panel/page.tsx` | C | Solo el creador (`viewer.isCreator`; a los demás, página no encontrada). `GET /api/campanas?id=`, `GET /api/campanas/[id]/recoleccion-diaria` (gráficas). Meta y pronóstico con los aprobados (`lib/campanas/meta.ts`) |
 | `/mis-campanas/[id]/especial` | `mis-campanas/[id]/especial/page.tsx` | C | `GET /api/campanas/[id]` (solo el creador; a otros, 404). Periodo, multiplicador ×1–×3, bono fijo e insignia opcional: `PUT`/`DELETE /api/campanas/[id]/especial`. Guarda la configuración; el XP lo otorga la gamificación |
 
@@ -143,7 +144,7 @@ Patrón: página de servidor que lee de `lib/` + componente cliente hermano que 
 | `/usuarios/supervisores/[id]/revertir/[accionId]` | `.../revertir/[accionId]/page.tsx` + `formulario.tsx` | `obtenerAccion` | `revertirAccion` |
 | `/supervisar` | `supervisar/page.tsx` + `pestanas.tsx` | `lib/supervision/root.ts` (`listarCampanasParaRoot`); filtros con `components/campanas/BarraDeFiltros.tsx` en el navegador | — |
 | `/supervisar/campanas` | `supervisar/campanas/page.tsx` | `listarCampanasParaRoot` (dos tablas: las del SuperUsuario y las de otros supervisores) | — |
-| `/supervisar/[campaignId]` | `supervisar/[campaignId]/page.tsx` + `acciones.tsx` | `obtenerCampanaParaRoot` | `tomarComoSuperUsuario`, `decidirComoSuperUsuario`, `cambiarEstadoComoSuperUsuario` (pausar, reanudar, finalizar) |
+| `/supervisar/[campaignId]` | `supervisar/[campaignId]/page.tsx` + `acciones.tsx` | `obtenerCampanaParaRoot` | `decidirComoSuperUsuario` (sin botón "Supervisar esta campaña" desde el 2026-10-22: aceptar o rechazar la toma), `cambiarEstadoComoSuperUsuario` (pausar, reanudar, finalizar) |
 | `/supervisar/[campaignId]/panel` | `supervisar/[campaignId]/panel/page.tsx` | `obtenerCampanaSupervisadaPorRoot`, `lib/campanas/panel.ts` | — |
 | `/supervisar/[campaignId]/usuarios` y subrutas | `supervisar/[campaignId]/usuarios/**/page.tsx` | SQL directo con `pool` | — |
 | `/supervisar/reportes` (2026-10-13; antes `/reportes`) | `supervisar/reportes/page.tsx` → `components/moderacion/PantallaDeReportes.tsx` + `ListaDeReportes.tsx` (agrupada por caso) + `BotonDescartar.tsx` | `lib/reportes/reportes.ts` (`listarReportes`, `contarReportesPendientes`; `?estado=resueltos`). `exigirModerador("supervisar")`. "Modo supervisor" del menú muestra los pendientes | "Dar aviso a <persona>" → `/supervisar/sanciones/[usuarioId]?reportes=<clave>`; `descartarReportes` |
@@ -198,7 +199,7 @@ Todos los archivos están en `app/api/<ruta>/route.ts`. Respuesta: `{ data }` o 
 | --- | --- | --- | --- |
 | `GET /api/campanas` | Libre (sin filtros) | Campañas activas. Antes de responder activa las `aceptada` cuya fecha llegó y finaliza las vencidas (`lib/campaign-date.ts`) | `/campanas`, `/supervision` |
 | `GET /api/campanas?id=<id>` | Libre | Una campaña + bloque `viewer` si hay sesión | Muchas pantallas de detalle |
-| `GET /api/campanas?mine=true` | Sesión | Tus campañas creadas | `/mis-campanas`, formulario |
+| `GET /api/campanas?mine=true` | Sesión | Tus campañas creadas; una rechazada trae `rechazo` (motivo, fecha, si fue el SuperUsuario y la sanción; `lib/campanas/rechazo.ts`, 2026-10-22) | `/mis-campanas`, formulario |
 | `GET /api/campanas?misAportes=true` | Sesión | Campañas donde aportaste o que guardaste (las propias solo si las guardaste; `isMine` las marca) | `/mis-aportes` |
 | `GET /api/campanas?available=true` | Sesión | Activas a las que todavía puedes aportar | — |
 | `GET /api/campanas?supervised=true` | Sesión | Campañas que supervisas | `/supervision` |
@@ -209,7 +210,8 @@ Todos los archivos están en `app/api/<ruta>/route.ts`. Respuesta: `{ data }` o 
 | `PUT /api/campanas/[id]` | Sesión + creador, campaña en `borrador`, `en_revision` o `rechazada` | Reemplazo completo de los campos editables (pensado para Insomnia). `status` solo `borrador` o `en_revision`; no cambia XP ni "revisor asignado" | — |
 | `POST`, `DELETE /api/campanas/[id]/guardar` | Sesión | Guardar o quitar de favoritos | `/campanas/[id]` |
 | `POST /api/campanas/[id]/inscripcion` | Sesión; campaña activa o pausada, sin ser su creador ni estar baneado | Inscribirse para aportar `{ confirmaContenido: "si", aceptaUso: "si" }` (400 si falta uno). Una vez; repetirla no cambia nada. Bitácora `campana.inscribirse` | `/campanas/[id]`, `/campanas/[id]/aportar` |
-| `GET`, `POST /api/campanas/[id]/revisores` | Sesión + creador | Listar revisores; invitar a uno (le llega una notificación) | `agregar-revisor` |
+| `GET`, `POST /api/campanas/[id]/revisores` | Sesión + creador | Listar revisores (nombre, estado, fechas y aportes revisados; sin correo) e invitar a uno (le llega una notificación). Sin límite por campaña (2026-10-22) | `agregar-revisor`, `aportes/revisores` |
+| `DELETE /api/campanas/[id]/revisores?usuarioId=` | Sesión + creador | Quita a un revisor aceptado (pierde el rol si era su última campaña; recibe `revisor_quitado`) o cancela su invitación pendiente (se borra su notificación). `lib/campanas/revisores.ts` (2026-10-22) | `aportes/revisores` |
 | `GET`, `POST`, `DELETE /api/campanas/[id]/baneos` | Sesión + creador | Listar (`data`: cuentas; `dispositivos`: anónimos bloqueados), banear o desbanear. `POST` desde cualquier aporte de la campaña, decidido o no. Con un aporte anónimo, `POST` bloquea su dispositivo en la campaña; `DELETE { bloqueoId }` lo desbloquea. Bitácora `campana.{bloquear,desbloquear}_dispositivo` | Detalle del aporte, `baneados.tsx` |
 | `GET /api/campanas/[id]/recoleccion-diaria` | Sesión + creador | Aportes por día y por tipo, para las gráficas | `/mis-campanas/[id]/panel` |
 | `GET /api/campanas/[id]/enlace` | Sesión | Enlace actual (vigente o caducado) o `null`, el estado de la campaña y `viewer.esCreador`. Visitas y aportes del enlace solo para el creador | Cuadro Compartir de `/campanas/[id]` |
@@ -266,8 +268,7 @@ Funciones `"use server"` que el panel llama como si fueran funciones locales. Ne
 | | `restaurarAcceso(zona, sancionId)` | Levanta una suspensión o un baneo (un aviso no se restaura). Restaurar un baneo saca el correo de la lista negra. Bitácora `sancion.restaurar` | `.../sanciones` |
 | | `descartarReportes(zona, clave, nota)` | Descarta los reportes pendientes de una campaña o de un aporte, con nota opcional. No cuenta como aviso. Bitácora `reporte.descartar` | `.../reportes` |
 | | `quitarBloqueoDeDispositivo(zona, id)` | Quita el bloqueo global de un dispositivo anónimo. Bitácora `sancion.dispositivo_restaurar` | `.../sanciones` |
-| `lib/supervision/acciones-root.ts` | `tomarComoSuperUsuario(id)` | El SuperUsuario toma una campaña `en_revision` | `/supervisar/[id]` |
-| | `decidirComoSuperUsuario(id, accion, motivo)` | Dictamen del SuperUsuario (usa la misma lógica que el `PATCH` de campañas) | `/supervisar/[id]` |
+| `lib/supervision/acciones-root.ts` | `decidirComoSuperUsuario(id, accion, motivo)` | Dictamen del SuperUsuario; si nadie supervisa la campaña, la toma en el mismo paso (2026-10-22) (usa la misma lógica que el `PATCH` de campañas) | `/supervisar/[id]` |
 
 ## 7. Qué protege cada capa
 

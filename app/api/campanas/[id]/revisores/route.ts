@@ -1,11 +1,14 @@
 // /api/campanas/[id]/revisores — revisores de una campaña (tabla campana_revisores). Solo el creador.
-// Lo usa /mis-campanas/[id]/aportes/agregar-revisor.
+// Lo usan /mis-campanas/[id]/aportes/agregar-revisor y /mis-campanas/[id]/aportes/revisores.
+// Sin límite de revisores por campaña (2026-10-22, a pedido del usuario: la bandeja dejaba de
+// ofrecer "Agregar revisor" con el primero).
 
 import { NextResponse } from "next/server";
 import { pool } from "@/lib/db";
 import { getSessionUser } from "@/lib/session";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { notificar } from "@/lib/notificaciones/notificaciones";
+import { quitarRevisor } from "@/lib/campanas/revisores";
 
 // La invitación a revisor es por campaña (campana_revisores), no por el rol
 // global en usuarios.role: esta lista es lo que debe usar la pantalla de
@@ -24,13 +27,36 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       return NextResponse.json({ error: "Solo el creador puede ver los revisores" }, { status: 403 });
     }
 
-    const result = await pool.query<{ usuario_id: number; estado: string }>(
-      `SELECT usuario_id, estado FROM campana_revisores WHERE campana_id = $1`,
+    // Desde el 2026-10-22 también nombre, fechas y cuántos aportes decidió cada uno
+    // (aportes.first_pass_by_user_id), para /mis-campanas/[id]/aportes/revisores. Sin correo.
+    const result = await pool.query<{
+      usuario_id: number;
+      estado: string;
+      nombre: string;
+      apellidos: string;
+      invitado_en: Date;
+      aceptado_en: Date | null;
+      revisados: number;
+    }>(
+      `SELECT r.usuario_id, r.estado, u.nombre, u.apellidos, r.invitado_en, r.aceptado_en,
+              (SELECT COUNT(*)::int FROM aportes a
+                WHERE a.campaign_id = r.campana_id AND a.first_pass_by_user_id = r.usuario_id
+                  AND a.status IN ('aceptado', 'rechazado')) AS revisados
+       FROM campana_revisores r JOIN usuarios u ON u.id = r.usuario_id
+       WHERE r.campana_id = $1
+       ORDER BY r.estado = 'aceptado' DESC, r.estado = 'invitado' DESC, r.invitado_en DESC`,
       [id]
     );
 
     return NextResponse.json({
-      data: result.rows.map((row) => ({ usuarioId: String(row.usuario_id), estado: row.estado })),
+      data: result.rows.map((row) => ({
+        usuarioId: String(row.usuario_id),
+        estado: row.estado,
+        nombre: `${row.nombre} ${row.apellidos}`.trim(),
+        invitadoEn: row.invitado_en.toISOString(),
+        aceptadoEn: row.aceptado_en ? row.aceptado_en.toISOString() : null,
+        revisados: row.revisados,
+      })),
     });
   } catch (error) {
     console.error("Error listando revisores de la campaña", error);
@@ -102,5 +128,51 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   } catch (error) {
     console.error("Error invitando revisor", error);
     return NextResponse.json({ error: "No se pudo enviar la invitación" }, { status: 500 });
+  }
+}
+
+// DELETE ?usuarioId=: quita a un revisor o cancela su invitación pendiente (2026-10-22). Solo el
+// creador. Reglas en lib/campanas/revisores.ts. Al revisor quitado le llega un aviso.
+export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await context.params;
+    const user = await getSessionUser();
+    if (!user) return NextResponse.json({ error: "Debes iniciar sesion" }, { status: 401 });
+
+    const usuarioId = Number(new URL(request.url).searchParams.get("usuarioId"));
+    if (!Number.isInteger(usuarioId) || usuarioId <= 0) {
+      return NextResponse.json({ error: "usuarioId es obligatorio" }, { status: 400 });
+    }
+
+    const campaign = await pool.query(`SELECT creator_id FROM campanas WHERE id = $1 LIMIT 1`, [id]);
+    if (campaign.rowCount === 0) return NextResponse.json({ error: "Campaña no encontrada" }, { status: 404 });
+    if (Number(campaign.rows[0].creator_id) !== Number(user.id)) {
+      return NextResponse.json({ error: "Solo el creador puede quitar revisores" }, { status: 403 });
+    }
+
+    const resultado = await quitarRevisor(Number(id), usuarioId);
+    if (!resultado.ok) return NextResponse.json({ error: resultado.error }, { status: resultado.status });
+
+    const quitado = resultado.estadoAnterior === "aceptado";
+    await registrarAuditoria({
+      actor: { tipo: "usuario", id: Number(user.id) },
+      accion: quitado ? "revisor.quitar" : "revisor.cancelar_invitacion",
+      objetivo: { tipo: "usuario", id: usuarioId },
+      detalle: { campanaId: Number(id) },
+    });
+    if (quitado) {
+      await notificar({
+        usuarioId,
+        tipo: "revisor_quitado",
+        titulo: "Ya no revisas aportes de una campaña",
+        mensaje: `Quien organiza "${resultado.nombreDeCampana}" te quitó como revisor de aportes. Los aportes que ya revisaste se conservan.`,
+        campanaId: id,
+      });
+    }
+
+    return NextResponse.json({ message: quitado ? "Revisor quitado" : "Invitación cancelada" });
+  } catch (error) {
+    console.error("Error quitando revisor", error);
+    return NextResponse.json({ error: "No se pudo quitar al revisor" }, { status: 500 });
   }
 }

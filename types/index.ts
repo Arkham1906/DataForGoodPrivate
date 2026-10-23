@@ -3,6 +3,7 @@
 
 import type { CampanaEspecial } from "@/lib/campanas/especial-reglas";
 import type { PausaDeCampana } from "@/lib/campanas/pausa";
+import type { RechazoDeCampana } from "@/lib/campanas/rechazo";
 
 export type CampaignStatus =
   | "borrador"
@@ -82,6 +83,8 @@ export interface Campaign {
   especial?: CampanaEspecial | null;
   /** Quién la pausó y por qué (lib/campanas/pausa.ts), o null si no está pausada. */
   pausa?: PausaDeCampana | null;
+  /** Por qué la rechazó la supervisión (lib/campanas/rechazo.ts); solo en ?mine=true y si sigue rechazada. */
+  rechazo?: RechazoDeCampana | null;
   daysRemaining: number | null;
   hasReviewerAssigned: boolean;
   shareToken?: string;

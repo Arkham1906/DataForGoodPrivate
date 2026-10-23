@@ -734,6 +734,9 @@ paths:
       description: |
         - **Creador:** manda solo los campos a cambiar (mismos nombres que `CampaignInput`).
           Los campos permitidos dependen del estado actual; una campaña `finalizada` es de solo lectura.
+          `aceptada` y `activa`: solo `goalContributions`, `endDate` y `endTime`. `pausada` (2026-10-22): además
+          `name`, `description`, `tematica`, `dataTypes`, `quotaPerUser`, `cuotaPorTipo`, `startDate`, `startTime`,
+          `checklistSecciones`, `todoElPais` y la ubicación (400 con `organizer`); sigue pausada y se avisa a su supervisor.
         - **Pausar y reanudar (solo el creador):** `{ "status": "pausada" }` sobre una `activa` y
           `{ "status": "activa" }` sobre una `pausada`, sin otros campos. Una pausada no recibe aportes
           ni aparece en las listas públicas. Reanudar da 400 si su fecha de cierre ya pasó o si el
@@ -949,7 +952,7 @@ paths:
       - $ref: "#/components/parameters/Id"
     get:
       tags: [Campañas]
-      summary: Revisores de la campaña (solo el creador)
+      summary: Revisores de la campaña (solo el creador; sin límite por campaña)
       responses:
         "200":
           description: Revisores
@@ -964,7 +967,11 @@ paths:
                       type: object
                       properties:
                         usuarioId: { type: string }
-                        estado: { type: string }
+                        estado: { type: string, enum: [invitado, aceptado, rechazado] }
+                        nombre: { type: string, description: "Nombre y apellidos (sin correo; 2026-10-22)" }
+                        invitadoEn: { type: string, format: date-time }
+                        aceptadoEn: { type: [string, "null"], format: date-time }
+                        revisados: { type: integer, description: "Aportes que decidió en esta campaña (aceptados o rechazados)" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -989,6 +996,22 @@ paths:
         "409":
           description: Ya es revisor de la campaña
           content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+
+    delete:
+      tags: [Campañas]
+      summary: Quitar a un revisor o cancelar su invitación (solo el creador; 2026-10-22)
+      description: |
+        Revisor aceptado: se quita de la campaña (pierde el rol "revisor" si era su última campaña, se
+        recalcula si la campaña tiene revisor y le llega `revisor_quitado`). Invitación pendiente: se cancela
+        y se borra su notificación. Los aportes que ya decidió no cambian (lib/campanas/revisores.ts).
+      parameters:
+        - { name: usuarioId, in: query, required: true, schema: { type: integer } }
+      responses:
+        "200": { description: "Revisor quitado o invitación cancelada" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /api/campanas/{id}/baneos:
     parameters:
@@ -2099,6 +2122,14 @@ components:
         locationState: { type: string }
         locationColonia: { type: string }
         todoElPais: { type: boolean, description: "Para todo el país; estado, municipio y colonia vacíos" }
+        rechazo:
+          type: [object, "null"]
+          description: "Solo en ?mine=true y mientras siga rechazada (2026-10-22, lib/campanas/rechazo.ts): por qué la rechazó la supervisión."
+          properties:
+            motivo: { type: string }
+            fecha: { type: string, format: date-time }
+            porSuperUsuario: { type: boolean }
+            sancion: { type: [string, "null"], description: "\"un aviso\", \"una suspensión de 7 días\"...; null sin sanción" }
         organizer: { type: string }
         xpPerContribution: { type: integer }
         isSpecial: { type: boolean }
