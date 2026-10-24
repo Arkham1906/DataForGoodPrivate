@@ -213,7 +213,7 @@ export default async function CatalogoDeDatosPage({
                         <Tag tone="ok">{nf.format(c.approvedContributions)} aportes</Tag>
                       </div>
                       <p className="mt-1 text-[12.5px] text-system-600">
-                        {c.organizer || "Sin organización"} ·{" "}
+                        {c.organizer} ·{" "}
                         {c.closedAt
                           ? `cerró el ${new Date(c.closedAt).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" })}`
                           : "sin fecha de cierre"}

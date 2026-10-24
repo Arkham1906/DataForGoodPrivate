@@ -10,6 +10,7 @@ import Tag from "@/components/ui/Tag";
 import { obtenerCampanaParaRoot } from "@/lib/supervision/root";
 import { describirReparto } from "@/lib/campanas/cuota-por-tipo";
 import { BackLink } from "../_ui";
+import { quienOrganiza } from "@/lib/campanas/organizacion";
 import AccionesDeSupervision, { EstadoComoSuperUsuario } from "./acciones";
 import type { Metadata } from "next";
 
@@ -45,7 +46,8 @@ export default async function SupervisarCampanaPage({ params }: { params: Promis
   const filas: [string, React.ReactNode][][] = [
     [
       ["Usuario de la campaña", <span key="c" className="font-semibold">{campaign.creatorName || "Usuario"}</span>],
-      ["Organizador", campaign.organizer || "Sin especificar"],
+      // La organización que puso; si no puso ninguna, el nombre de quien la creó (2026-10-23).
+      ["Organiza", quienOrganiza(campaign)],
       ["Supervisada por", campaign.supervisadaPor ?? "Nadie todavía"],
       ["Temática", campaign.tag || "Sin temática"],
       ["Estado", <Tag key="s" tone={currentStatus.tone}>{currentStatus.label}</Tag>],

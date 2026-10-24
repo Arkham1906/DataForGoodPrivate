@@ -350,7 +350,7 @@ export default async function LandingPage() {
                 <Card className="landing-tarjeta h-full hover:border-brand-600">
                   <p className="text-[14px] font-bold text-system-900">{c.name}</p>
                   <p className="mt-1 text-[12px] text-system-600">
-                    {c.organizer || "Sin organización"}
+                    {c.organizer}
                   </p>
                   <div className="mt-2.5 flex flex-wrap gap-1.5">
                     {(c.formats.length > 0 ? c.formats : c.dataTypes.map((dt) => DATA_TYPE_LABELS[dt] ?? dt))

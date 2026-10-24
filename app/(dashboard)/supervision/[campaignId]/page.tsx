@@ -22,6 +22,7 @@ import EstadoDeCampanaSupervisada, { type CambioDeEstado } from "@/components/su
 import type { PausaDeCampana } from "@/lib/campanas/pausa";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 import { describirReparto, type CuotaPorTipo } from "@/lib/campanas/cuota-por-tipo";
+import { quienOrganiza } from "@/lib/campanas/organizacion";
 
 type Campaign = {
   id: string;
@@ -288,8 +289,9 @@ export default function CampaignDetailPage() {
               <span className="text-right font-semibold">{campaign.creatorName || "Usuario"}</span>
             </div>
             <div className="flex justify-between gap-4 border-b border-system-200 pb-3 text-[13px]">
-              <span className="text-system-600">Organizador</span>
-              <span className="text-right">{campaign.organizer || "Sin especificar"}</span>
+              <span className="text-system-600">Organiza</span>
+              {/* La organización que puso; si no puso ninguna, el nombre de quien la creó (2026-10-23). */}
+              <span className="min-w-0 break-words text-right">{quienOrganiza(campaign)}</span>
             </div>
             <div className="flex justify-between gap-4 border-b border-system-200 pb-3 text-[13px]">
               <span className="text-system-600">Temática</span>

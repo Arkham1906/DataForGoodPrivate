@@ -16,6 +16,7 @@ import { seccionesDesdeFila, type SeccionDeChecklist } from "@/lib/campanas/chec
 import { pausaDesdeFila, type PausaDeCampana } from "@/lib/campanas/pausa";
 import { normalizarCuotaPorTipo, type CuotaPorTipo } from "@/lib/campanas/cuota-por-tipo";
 import { pool } from "@/lib/db";
+import { quienOrganiza } from "@/lib/campanas/organizacion";
 
 /** Ventana durante la cual el enlace sirve; al vencer hay que regenerarlo. */
 export const HORAS_DE_VIGENCIA = 24;
@@ -239,7 +240,7 @@ export async function buscarEnlacePorToken(token: string): Promise<ResultadoDeTo
     nombre: String(row.name ?? ""),
     descripcion: String(row.description ?? ""),
     tematica: String(row.tematica || row.tag || ""),
-    organizador: String(row.organizer || row.creator_name || ""),
+    organizador: quienOrganiza({ organizer: row.organizer as string | null, creatorName: row.creator_name as string | null }),
     ciudad: String(row.location_city ?? ""),
     estado: String(row.location_state ?? ""),
     todoElPais: row.todo_el_pais === true,

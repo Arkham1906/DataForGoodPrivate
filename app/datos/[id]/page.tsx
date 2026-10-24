@@ -60,7 +60,7 @@ export default async function ConjuntoAbiertoPage({
           <Tag tone="ok">{nf.format(conjunto.approvedContributions)} aportes aprobados</Tag>
         </div>
         <p className="mt-2 text-[13.5px] text-system-600">
-          {conjunto.organizer || "Sin organización"}
+          {conjunto.organizer}
           {conjunto.closedAt
             ? ` · cerró el ${new Date(conjunto.closedAt).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" })}`
             : ""}

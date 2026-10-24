@@ -1,5 +1,6 @@
 import { pool } from "@/lib/db";
 import type { DataType } from "@/types";
+import { quienOrganiza } from "@/lib/campanas/organizacion";
 
 /**
  * Un "conjunto de datos abierto" no tiene tabla propia todavía: por ahora es
@@ -14,6 +15,7 @@ export interface OpenDataset {
   id: string;
   name: string;
   description: string;
+  /** Quién organiza (quienOrganiza): la organización o, si no puso, el nombre del creador. */
   organizer: string;
   tematica: string;
   dataTypes: DataType[];
@@ -133,7 +135,7 @@ function mapDataset(row: Record<string, unknown>): OpenDataset {
     id: String(row.id ?? ""),
     name: String(row.name ?? ""),
     description: String(row.description ?? ""),
-    organizer: String(row.organizer || row.creator_name || ""),
+    organizer: quienOrganiza({ organizer: row.organizer as string | null, creatorName: row.creator_name as string | null }),
     tematica: String(row.tematica ?? row.tag ?? ""),
     dataTypes: Array.isArray(row.data_types) ? (row.data_types as DataType[]) : [],
     approvedContributions: approved,
