@@ -73,8 +73,13 @@ export default function CampanasPage() {
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(payload.error ?? "No se pudieron cargar las campañas");
         const todas = Array.isArray(payload.data) ? (payload.data as Campaign[]) : [];
-        // Solo campañas aprobadas por el supervisor (estado "activa") se muestran aquí.
-        setCampaigns(todas.filter((campaign) => campaign.status === "activa"));
+        // Activas y, después, las pausadas (2026-10-24, a pedido del usuario: antes solo activas). Una pausada
+        // sale con su etiqueta y no recibe aportes (lo vuelve a comprobar el servidor).
+        setCampaigns(
+          todas
+            .filter((campaign) => campaign.status === "activa" || campaign.status === "pausada")
+            .sort((a, b) => Number(a.status === "pausada") - Number(b.status === "pausada"))
+        );
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : "No se pudieron cargar las campañas");
       } finally {

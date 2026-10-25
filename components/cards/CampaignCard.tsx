@@ -6,6 +6,7 @@ import Tag from "@/components/ui/Tag";
 import ProgressBar from "@/components/ui/ProgressBar";
 import Button from "@/components/ui/Button";
 import { porcentajeDeMeta } from "@/lib/campanas/meta";
+import { ETIQUETA_DE_CAMPANA } from "@/lib/campanas/sistema-opciones";
 import type { Campaign } from "@/types";
 
 function parseDateOnly(value: string | null | undefined) {
@@ -27,6 +28,8 @@ export default function CampaignCard({ campaign }: { campaign: Campaign }) {
   const remainingDays = Number.isFinite(campaign.daysRemaining) ? Math.max(0, Number(campaign.daysRemaining)) : 0;
   const pct = porcentajeDeMeta(campaign.approvedContributions, campaign.goalContributions);
   const isActive = campaign.status === "activa";
+  // Pausada (2026-10-24: sale en /campanas): conserva su avance y lo dice en la etiqueta.
+  const isPaused = campaign.status === "pausada";
   const closeDate = campaign.endDate ? parseDateOnly(campaign.endDate)?.toLocaleDateString("es-MX", {
     day: "numeric",
     month: "short",
@@ -41,6 +44,8 @@ export default function CampaignCard({ campaign }: { campaign: Campaign }) {
           {campaign.especial?.etapa === "vigente" && <Tag tone="warn">★ Especial ×{campaign.especial.multiplicador}</Tag>}
           {campaign.isBanned ? (
             <Tag tone="danger">Baneado</Tag>
+          ) : isPaused ? (
+            <Tag tone={ETIQUETA_DE_CAMPANA.pausada.tono}>{ETIQUETA_DE_CAMPANA.pausada.texto}</Tag>
           ) : (
             <Tag>{isActive ? "● Activa" : campaign.status === "en_revision" ? "◦ Próxima" : campaign.status}</Tag>
           )}
@@ -58,7 +63,7 @@ export default function CampaignCard({ campaign }: { campaign: Campaign }) {
         </p>
       </div>
 
-      <ProgressBar pct={isActive ? pct : 0} />
+      <ProgressBar pct={isActive || isPaused ? pct : 0} />
 
       <div className="flex gap-6 max-md:gap-5">
         <div>

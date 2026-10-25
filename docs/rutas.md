@@ -25,7 +25,7 @@ No piden sesión. Archivos en `app/` (fuera de los grupos).
 | URL | Archivo | Tipo | Datos |
 | --- | --- | --- | --- |
 | `/` | `app/page.tsx` | S | SQL directo (`lib/db.ts`) para las cifras de la portada, y `lib/open-data.ts` para los conjuntos destacados. `revalidate = 300`: se regenera cada 5 min y sus consultas van en `try/catch` porque el build corre sin BD |
-| `/explorar` | `app/explorar/page.tsx` | S | `lib/campanas/publicas.ts` (`buscarCampanasActivas`, `obtenerTematicasActivas`, `obtenerEstadosActivos`). Filtros en `searchParams`; opciones de temática, estado y orden en filas desplazables en móvil, verticales en escritorio. Al abrir una campaña manda a `/campanas/[id]`, que pide sesión |
+| `/explorar` | `app/explorar/page.tsx` | S | `lib/campanas/publicas.ts` (`buscarCampanasParaExplorar`, `contarCampanasParaExplorar`, `obtenerTematicasParaExplorar`, `obtenerEstadosParaExplorar`): activas y, después, pausadas con su etiqueta (2026-10-24). Filtros en `searchParams`; opciones de temática, estado y orden en filas desplazables en móvil, verticales en escritorio. Al abrir una campaña manda a `/campanas/[id]`, que pide sesión |
 | `/datos` | `app/datos/page.tsx` | S | `lib/open-data.ts` (`buscarConjuntosAbiertos`, facetas). Catálogo de campañas `finalizada` |
 | `/datos/[id]` | `app/datos/[id]/page.tsx` | S | `lib/open-data.ts` (`obtenerConjuntoAbierto`). Cuatro métricas con su explicación debajo: tamaño (archivos del ZIP), descargas, calidad (aprobados de revisados) y formatos. El botón de descarga (`descargas.tsx`, cliente) apunta a `GET /api/datos/[id]/descarga` y sube el contador de descargas en el momento |
 | `/contacto`, `/sobre-nosotros` | `app/<nombre>/page.tsx` | S | Texto fijo |

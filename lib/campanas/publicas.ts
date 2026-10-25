@@ -2,8 +2,9 @@ import { pool } from "@/lib/db";
 import { activateScheduledCampaigns, calculateCampaignDaysRemaining, finalizeExpiredCampaigns } from "@/lib/campaign-date";
 
 /**
- * Campañas activas para la vitrina pública /explorar. Solo expone lo que ya
- * se ve en la landing y en /datos: nada de quién aporta ni de la revisión.
+ * Campañas de la vitrina pública /explorar: activas y, desde el 2026-10-24 (a pedido del usuario), también
+ * las pausadas, después de las activas y con su etiqueta (no reciben aportes). Solo expone lo que ya se ve
+ * en la landing y en /datos: nada de quién aporta ni de la revisión.
  */
 export type CampanaPublica = {
   id: string;
@@ -23,9 +24,13 @@ export type CampanaPublica = {
   goalContributions: number;
   participants: number;
   daysRemaining: number | null;
+  status: "activa" | "pausada";
 };
 
 export type OrdenDeCampanas = "participacion" | "recientes" | "cierre";
+
+/** Estados que salen en /explorar. */
+const ESTADOS_VISIBLES = "status IN ('activa', 'pausada')";
 
 const ORDER_SQL: Record<OrdenDeCampanas, string> = {
   participacion: "participants DESC, current_contributions DESC",
@@ -56,17 +61,18 @@ function mapCampana(row: Record<string, unknown>): CampanaPublica {
     goalContributions: Number(row.goal_contributions ?? 0),
     participants: Number(row.participants ?? 0),
     daysRemaining: calculateCampaignDaysRemaining(row.end_date),
+    status: row.status === "pausada" ? "pausada" : "activa",
   };
 }
 
 // Igual que en open-data.ts: si la BD no responde (o la tabla aún no existe)
 // se devuelve vacío en vez de tumbar la página.
-export async function buscarCampanasActivas(filtros: FiltrosDeCampanas): Promise<CampanaPublica[]> {
+export async function buscarCampanasParaExplorar(filtros: FiltrosDeCampanas): Promise<CampanaPublica[]> {
   try {
     // Una programada cuya hora de inicio ya llegó sale sin esperar a la tarea de cada minuto.
     await activateScheduledCampaigns();
     await finalizeExpiredCampaigns();
-    const condiciones = ["status = 'activa'"];
+    const condiciones = [ESTADOS_VISIBLES];
     const valores: unknown[] = [];
 
     const q = filtros.q?.trim();
@@ -88,10 +94,10 @@ export async function buscarCampanasActivas(filtros: FiltrosDeCampanas): Promise
 
     const result = await pool.query(
       `SELECT id, name, description, tematica, organizer, creator_name, location_city, location_state, todo_el_pais, data_types,
-              approved_contributions, goal_contributions, participants, end_date
+              approved_contributions, goal_contributions, participants, end_date, status
        FROM campanas
        WHERE ${condiciones.join(" AND ")}
-       ORDER BY ${ORDER_SQL[filtros.orden ?? "participacion"]}`,
+       ORDER BY (status = 'pausada'), ${ORDER_SQL[filtros.orden ?? "participacion"]}`,
       valores
     );
     return result.rows.map(mapCampana);
@@ -100,13 +106,19 @@ export async function buscarCampanasActivas(filtros: FiltrosDeCampanas): Promise
   }
 }
 
-/** Total de campañas activas, sin filtros: distingue "no hay campañas" de "sin resultados". */
-export async function contarCampanasActivas(): Promise<number> {
+/**
+ * Activas y pausadas, sin filtros: `activas` va en el texto de arriba ("N campañas activas recibiendo
+ * aportes") y `visibles` distingue "no hay campañas" de "sin resultados".
+ */
+export async function contarCampanasParaExplorar(): Promise<{ activas: number; visibles: number }> {
   try {
-    const result = await pool.query(`SELECT COUNT(*)::int AS total FROM campanas WHERE status = 'activa'`);
-    return Number(result.rows[0]?.total ?? 0);
+    const result = await pool.query(
+      `SELECT COUNT(*) FILTER (WHERE status = 'activa')::int AS activas, COUNT(*)::int AS visibles
+       FROM campanas WHERE ${ESTADOS_VISIBLES}`
+    );
+    return { activas: Number(result.rows[0]?.activas ?? 0), visibles: Number(result.rows[0]?.visibles ?? 0) };
   } catch {
-    return 0;
+    return { activas: 0, visibles: 0 };
   }
 }
 
@@ -115,7 +127,7 @@ async function facetas(columna: "tematica" | "location_state"): Promise<{ valor:
     const result = await pool.query(
       `SELECT ${columna} AS valor, COUNT(*)::int AS total
        FROM campanas
-       WHERE status = 'activa' AND ${columna} IS NOT NULL AND ${columna} <> ''
+       WHERE ${ESTADOS_VISIBLES} AND ${columna} IS NOT NULL AND ${columna} <> ''
        GROUP BY ${columna}
        ORDER BY total DESC, valor ASC`
     );
@@ -125,10 +137,10 @@ async function facetas(columna: "tematica" | "location_state"): Promise<{ valor:
   }
 }
 
-export function obtenerTematicasActivas() {
+export function obtenerTematicasParaExplorar() {
   return facetas("tematica");
 }
 
-export function obtenerEstadosActivos() {
+export function obtenerEstadosParaExplorar() {
   return facetas("location_state");
 }

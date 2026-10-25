@@ -72,12 +72,21 @@ const CIFRAS_VACIAS: CifrasReales = {
  */
 async function obtenerCifras(): Promise<CifrasReales> {
   try {
+    // Qué cuenta cada cifra (2026-10-24, decisiones del usuario; antes contaba todas las campañas, todos
+    // los aportes, solo personas con cuenta y creadores distintos):
+    //   - campañas: solo las publicadas (activa, pausada, finalizada), sin borradores, en revisión,
+    //     programadas ni rechazadas;
+    //   - participantes: personas con cuenta y dispositivos sin cuenta (anonimo_id) que aportaron;
+    //   - datos: solo aportes aprobados, como la meta y los datos abiertos;
+    //   - organizaciones: quién organiza las campañas publicadas (la organización escrita o, si no hay,
+    //     el nombre del creador, como quienOrganiza()), sin distinguir mayúsculas.
     const result = await pool.query(`
       SELECT
-        (SELECT COUNT(*)::int FROM campanas) AS campanas_creadas,
-        (SELECT COUNT(DISTINCT user_id)::int FROM aportes WHERE user_id IS NOT NULL) AS participantes,
-        (SELECT COUNT(*)::int FROM aportes) AS datos_recolectados,
-        (SELECT COUNT(DISTINCT creator_id)::int FROM campanas) AS organizaciones
+        (SELECT COUNT(*)::int FROM campanas WHERE status IN ('activa', 'pausada', 'finalizada')) AS campanas_creadas,
+        (SELECT COUNT(DISTINCT COALESCE(user_id::text, anonimo_id))::int FROM aportes) AS participantes,
+        (SELECT COUNT(*)::int FROM aportes WHERE status = 'aceptado') AS datos_recolectados,
+        (SELECT COUNT(DISTINCT lower(COALESCE(NULLIF(trim(organizer), ''), NULLIF(trim(creator_name), ''))))::int
+           FROM campanas WHERE status IN ('activa', 'pausada', 'finalizada')) AS organizaciones
     `);
     const row = result.rows[0] ?? {};
     return {
@@ -247,9 +256,9 @@ export default async function LandingPage() {
       <section className="w-full bg-system-900" aria-label="La plataforma en cifras">
         <div className="mx-auto grid max-w-4xl grid-cols-2 gap-6 px-6 py-8 sm:grid-cols-4">
           {[
-            { valor: cifras.campanasCreadas, etiqueta: "Campañas creadas" },
+            { valor: cifras.campanasCreadas, etiqueta: "Campañas publicadas" },
             { valor: cifras.participantes, etiqueta: "Participantes" },
-            { valor: cifras.datosRecolectados, etiqueta: "Datos recolectados" },
+            { valor: cifras.datosRecolectados, etiqueta: "Aportes aprobados" },
             { valor: cifras.organizaciones, etiqueta: "Organizaciones" },
           ].map((k) => (
             <div key={k.etiqueta}>

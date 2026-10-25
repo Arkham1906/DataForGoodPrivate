@@ -1,4 +1,5 @@
-// Pantalla /explorar (pública): vitrina de campañas activas con filtros en searchParams.
+// Pantalla /explorar (pública): vitrina de campañas activas y, después, las pausadas (con su etiqueta;
+// 2026-10-24), con filtros en searchParams.
 // Datos: lib/campanas/publicas.ts. Al abrir una campaña va a /campanas/[id], que sí pide sesión.
 
 import { textoDeUbicacion } from "@/lib/campanas/ubicacion";
@@ -16,13 +17,14 @@ import ProgressBar from "@/components/ui/ProgressBar";
 import Tag from "@/components/ui/Tag";
 import { Input } from "@/components/ui/Input";
 import {
-  buscarCampanasActivas,
-  contarCampanasActivas,
-  obtenerEstadosActivos,
-  obtenerTematicasActivas,
+  buscarCampanasParaExplorar,
+  contarCampanasParaExplorar,
+  obtenerEstadosParaExplorar,
+  obtenerTematicasParaExplorar,
   type OrdenDeCampanas,
 } from "@/lib/campanas/publicas";
 import { DATA_TYPE_LABELS } from "@/lib/open-data";
+import { ETIQUETA_DE_CAMPANA } from "@/lib/campanas/sistema-opciones";
 import type { DataType } from "@/types";
 
 export const metadata: Metadata = {
@@ -60,11 +62,11 @@ export default async function ExplorarCampanasPage({
     ? (sp.orden as OrdenDeCampanas)
     : "participacion";
 
-  const [campanas, total, tematicas, estados] = await Promise.all([
-    buscarCampanasActivas({ q, tematica, locationState, orden }),
-    contarCampanasActivas(),
-    obtenerTematicasActivas(),
-    obtenerEstadosActivos(),
+  const [campanas, { activas: total, visibles }, tematicas, estados] = await Promise.all([
+    buscarCampanasParaExplorar({ q, tematica, locationState, orden }),
+    contarCampanasParaExplorar(),
+    obtenerTematicasParaExplorar(),
+    obtenerEstadosParaExplorar(),
   ]);
 
   const activos = [q, tematica, locationState].filter(Boolean).length;
@@ -207,7 +209,7 @@ export default async function ExplorarCampanasPage({
 
             {campanas.length === 0 ? (
               <p className="rounded-lg bg-system-100 p-4 text-sm text-system-600">
-                {total === 0
+                {visibles === 0
                   ? "Por ahora no hay campañas activas. Vuelve pronto o crea la tuya."
                   : "Ninguna campaña coincide con estos filtros. Prueba quitando alguno o buscando por otro término."}
               </p>
@@ -228,7 +230,7 @@ export default async function ExplorarCampanasPage({
                             {c.name}
                           </p>
                           <span className="shrink-0">
-                            <Tag tone="ok">Activa</Tag>
+                            <Tag tone={ETIQUETA_DE_CAMPANA[c.status].tono}>{ETIQUETA_DE_CAMPANA[c.status].texto}</Tag>
                           </span>
                         </div>
                         <p className="truncate text-[12.5px] text-system-600" title={`${quienOrganiza(c)}${lugar ? ` · ${lugar}` : ""}`}>
@@ -248,7 +250,7 @@ export default async function ExplorarCampanasPage({
                           <ProgressBar pct={pct} tone="ok" />
                           <p className="mt-2 font-mono text-[11px] text-system-500">
                             {nf.format(c.participants)} participantes · {pct}% de la meta ·{" "}
-                            {textoDeCierre(c.daysRemaining)}
+                            {c.status === "pausada" ? "no recibe aportes por ahora" : textoDeCierre(c.daysRemaining)}
                           </p>
                         </div>
                       </Card>
