@@ -2,7 +2,8 @@
 // proxy.ts, /entrar (cliente) y el login con Google, así que no importa
 // nada de servidor.
 
-export const DESTINO_POR_DEFECTO = "/campanas";
+// /inicio desde el 2026-10-24 (antes /campanas).
+export const DESTINO_POR_DEFECTO = "/inicio";
 
 /**
  * Solo acepta rutas internas de la app, sin basePath: "/campanas/12" sí,

@@ -14,6 +14,8 @@ type Opcion = { href: string; label: string };
 
 // Todas las opciones se marcan en azul (accent), el color principal del sistema.
 const NAV_ITEMS: Opcion[] = [
+  // Inicio (2026-10-24): la primera pantalla al iniciar sesión.
+  { href: "/inicio", label: "Inicio" },
   { href: "/campanas", label: "Explorar" },
   { href: "/mis-aportes", label: "Mis aportes" },
   { href: "/mis-campanas", label: "Mis campañas" },

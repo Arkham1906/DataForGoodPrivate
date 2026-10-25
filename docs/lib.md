@@ -104,6 +104,7 @@
 
 | Archivo | Qué hace | Lo usa |
 | --- | --- | --- |
+| `inicio.ts` | `obtenerResumenDeInicio(usuario)`: datos de `/inicio` (cifras, campañas para ti, aportes recientes y notificaciones sin leer) | `/inicio` |
 | `directorio.ts` | Búsqueda de usuarios, ficha, estado de la cuenta, lista de sanciones (`listarSanciones`) | `/usuarios/**` |
 | `dashboard.ts` | Métricas de usuarios por rango de fechas | `/usuarios/dashboard` |
 | `supervisores.ts` | Lista de supervisores y su actividad | `/usuarios/supervisores/**` |

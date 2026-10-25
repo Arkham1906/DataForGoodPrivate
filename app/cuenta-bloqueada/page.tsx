@@ -18,7 +18,7 @@ export default async function CuentaBloqueadaPage() {
   const bloqueada = await obtenerBloqueoDeLaSesion();
   if (!bloqueada) {
     // Ya se levantó el bloqueo (o nunca lo hubo): de vuelta a la app.
-    redirect((await getSessionUser()) ? "/campanas" : "/entrar");
+    redirect((await getSessionUser()) ? "/inicio" : "/entrar");
   }
   return <CuentaBloqueada nombre={bloqueada.nombre} bloqueo={bloqueada.bloqueo} historial={bloqueada.historial} />;
 }

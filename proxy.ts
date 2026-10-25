@@ -95,6 +95,7 @@ export function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     "/api/:path*",
+    "/inicio/:path*",
     "/campanas/:path*",
     "/mis-aportes/:path*",
     "/mis-campanas/:path*",
