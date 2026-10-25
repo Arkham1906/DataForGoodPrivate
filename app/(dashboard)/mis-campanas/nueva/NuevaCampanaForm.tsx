@@ -20,6 +20,7 @@ import { BASE_PATH } from "@/lib/base-path";
 import { MAX_LARGO_TEXTO } from "@/lib/campanas/checklist";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import CampoDeFecha from "@/components/ui/CampoDeFecha";
+import AsaDeArrastre, { moverA } from "@/components/ui/AsaDeArrastre";
 import { errorDeFinAntesDeInicio, errorDeInicioPasado, hoyEnTepic } from "@/lib/fecha-de-tepic";
 import { LARGO_MAXIMO_ORGANIZACION } from "@/lib/campanas/organizacion";
 import { ETIQUETA_DE_CAMPANA } from "@/lib/campanas/sistema-opciones";
@@ -48,7 +49,10 @@ function mover<T>(lista: T[], i: number, paso: -1 | 1): T[] {
   return copia;
 }
 
-/** ↑ y ↓ para cambiar el orden en que aparece algo (2026-10-22): sin arrastrar, sirve con teclado y en el teléfono. */
+/**
+ * ↑ y ↓ para cambiar el orden en que aparece algo (2026-10-22). Desde el 2026-10-24 también se arrastra con
+ * el asa ⠿ (ui/AsaDeArrastre); estos botones se quedan para teclado y para quien no puede arrastrar (WCAG 2.5.7).
+ */
 function BotonesDeOrden({
   que,
   i,
@@ -780,7 +784,7 @@ function CampanaFormulario({
               <p className="mb-2.5 text-[12px] text-system-500">
                 Siempre escribe una descripción con sus palabras. Además puedes agregar
                 checklists con título para que marque lo que aplique: los que necesites, o ninguno.
-                Con ↑ y ↓ cambias el orden en que aparecen los checklists y sus opciones.
+                Para cambiar el orden de los checklists y sus opciones, arrástralos desde ⠿ o usa ↑ y ↓.
               </p>
               {editaEnPausa && (
                 <p className="mb-2.5 text-[12px] text-system-500">
@@ -788,10 +792,21 @@ function CampanaFormulario({
                 </p>
               )}
 
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              {/* data-orden-grupo / data-orden-elemento: lo que reacomoda ui/AsaDeArrastre. Mientras se arrastra,
+                  el elemento lleva data-arrastrando. */}
+              <div data-orden-grupo className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 {checklists.map((c, i) => (
-                  <div key={c.clave} className="rounded-lg border border-system-200 bg-system-50 p-3.5">
+                  <div
+                    key={c.clave}
+                    data-orden-elemento={i}
+                    className="rounded-lg border border-system-200 bg-system-50 p-3.5 data-[arrastrando]:border-brand-600 data-[arrastrando]:shadow-md"
+                  >
                     <div className="mb-2.5 flex items-center gap-2">
+                      <AsaDeArrastre
+                        titulo="Arrastra para mover el checklist"
+                        onMover={(de, a) => setChecklists((prev) => moverA(prev, de, a))}
+                        deshabilitado={contenidoBloqueado}
+                      />
                       <input
                         type="text"
                         value={c.titulo}
@@ -822,37 +837,48 @@ function CampanaFormulario({
                     {c.opciones.length === 0 && (
                       <p className="mb-2 text-[12px] text-system-500">Aún no agregas opciones a este checklist.</p>
                     )}
-                    {c.opciones.map((opcion, j) => (
-                      <div key={opcion.clave} className="mb-2 flex items-center gap-2 text-[12.5px] text-system-600">
-                        <span className="inline-block h-3.5 w-3.5 shrink-0 rounded-sm border border-system-300 bg-white" aria-hidden />
-                        <input
-                          type="text"
-                          value={opcion.texto}
-                          onChange={(e) =>
-                            cambiarOpciones(c.clave, (ops) => ops.map((o) => (o.clave === opcion.clave ? { ...o, texto: e.target.value } : o)))
-                          }
-                          maxLength={MAX_LARGO_TEXTO}
-                          aria-label={`Opción ${j + 1} del checklist ${c.titulo || i + 1}`}
-                          disabled={contenidoBloqueado}
-                          className="min-w-0 flex-1 rounded border border-transparent bg-transparent px-1.5 py-1 text-[12.5px] text-system-900 outline-none hover:border-system-300 focus:border-brand-600 focus:bg-white disabled:cursor-not-allowed disabled:opacity-50"
-                        />
-                        <BotonesDeOrden
-                          que={`la opción ${opcion.texto.trim() || j + 1}`}
-                          i={j}
-                          total={c.opciones.length}
-                          onMover={(paso) => cambiarOpciones(c.clave, (ops) => mover(ops, j, paso))}
-                          deshabilitado={contenidoBloqueado}
-                        />
-                        <button
-                          type="button"
-                          disabled={contenidoBloqueado}
-                          onClick={() => cambiarOpciones(c.clave, (ops) => ops.filter((o) => o.clave !== opcion.clave))}
-                          className="text-[11.5px] font-medium text-error-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    <div data-orden-grupo>
+                      {c.opciones.map((opcion, j) => (
+                        <div
+                          key={opcion.clave}
+                          data-orden-elemento={j}
+                          className="mb-2 flex items-center gap-2 rounded text-[12.5px] text-system-600 data-[arrastrando]:bg-brand-50 data-[arrastrando]:ring-1 data-[arrastrando]:ring-brand-600"
                         >
-                          Quitar
-                        </button>
-                      </div>
-                    ))}
+                          <AsaDeArrastre
+                            titulo="Arrastra para mover la opción"
+                            onMover={(de, a) => cambiarOpciones(c.clave, (ops) => moverA(ops, de, a))}
+                            deshabilitado={contenidoBloqueado}
+                          />
+                          <span className="inline-block h-3.5 w-3.5 shrink-0 rounded-sm border border-system-300 bg-white" aria-hidden />
+                          <input
+                            type="text"
+                            value={opcion.texto}
+                            onChange={(e) =>
+                              cambiarOpciones(c.clave, (ops) => ops.map((o) => (o.clave === opcion.clave ? { ...o, texto: e.target.value } : o)))
+                            }
+                            maxLength={MAX_LARGO_TEXTO}
+                            aria-label={`Opción ${j + 1} del checklist ${c.titulo || i + 1}`}
+                            disabled={contenidoBloqueado}
+                            className="min-w-0 flex-1 rounded border border-transparent bg-transparent px-1.5 py-1 text-[12.5px] text-system-900 outline-none hover:border-system-300 focus:border-brand-600 focus:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+                          />
+                          <BotonesDeOrden
+                            que={`la opción ${opcion.texto.trim() || j + 1}`}
+                            i={j}
+                            total={c.opciones.length}
+                            onMover={(paso) => cambiarOpciones(c.clave, (ops) => mover(ops, j, paso))}
+                            deshabilitado={contenidoBloqueado}
+                          />
+                          <button
+                            type="button"
+                            disabled={contenidoBloqueado}
+                            onClick={() => cambiarOpciones(c.clave, (ops) => ops.filter((o) => o.clave !== opcion.clave))}
+                            className="text-[11.5px] font-medium text-error-700 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Quitar
+                          </button>
+                        </div>
+                      ))}
+                    </div>
 
                     <div className="mt-2 flex gap-2">
                       <input
