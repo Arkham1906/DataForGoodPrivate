@@ -564,6 +564,15 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       // Se reanudó con incentivos que no se avisaron mientras estaba pausada.
       if (result.rows[0].is_special) avisarCampanaEspecial(Number(id));
     }
+    // El creador la pausó: queda en la bitácora (2026-10-24), como cuando pausa la supervisión.
+    if (currentStatus === "activa" && result.rows[0].status === "pausada") {
+      await registrarAuditoria({
+        actor: { tipo: "usuario", id: Number(user.id) },
+        accion: "campana.pausar",
+        objetivo: { tipo: "campana", id: Number(id) },
+        detalle: { estadoAnterior: currentStatus, estadoNuevo: "pausada" },
+      });
+    }
     // Entró a revisión (desde borrador o rechazada): avisa a los supervisores.
     if (result.rows[0].status === "en_revision" && currentStatus !== "en_revision") {
       avisarCampanaPorRevisar({ id: Number(id), creadorId: Number(user.id), otraVez: currentStatus === "rechazada" });
