@@ -159,7 +159,7 @@ function Invitacion({
           <Tag tone="ok">Activa</Tag>
         </div>
         <p className="text-[12.5px] text-system-600">
-          {campana.organizador || "Sin organización"}
+          {campana.organizador}
           {lugar ? ` · ${lugar}` : ""}
         </p>
         <p className="mt-3 text-[13.5px] leading-relaxed text-system-600">{campana.descripcion}</p>
