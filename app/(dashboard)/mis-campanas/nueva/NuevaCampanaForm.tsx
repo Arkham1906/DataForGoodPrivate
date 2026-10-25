@@ -40,45 +40,6 @@ function nuevoChecklist(titulo = "", opciones: string[] = []): ChecklistEditable
   return { clave: siguienteClave++, titulo, opciones: opciones.map((texto) => ({ clave: siguienteClave++, texto })), nuevaOpcion: "" };
 }
 
-/** Copia de `lista` con el elemento `i` movido una posición arriba (-1) o abajo (+1). */
-function mover<T>(lista: T[], i: number, paso: -1 | 1): T[] {
-  const j = i + paso;
-  if (j < 0 || j >= lista.length) return lista;
-  const copia = [...lista];
-  [copia[i], copia[j]] = [copia[j], copia[i]];
-  return copia;
-}
-
-/**
- * ↑ y ↓ para cambiar el orden en que aparece algo (2026-10-22). Desde el 2026-10-24 también se arrastra con
- * el asa ⠿ (ui/AsaDeArrastre); estos botones se quedan para teclado y para quien no puede arrastrar (WCAG 2.5.7).
- */
-function BotonesDeOrden({
-  que,
-  i,
-  total,
-  onMover,
-  deshabilitado,
-}: {
-  que: string;
-  i: number;
-  total: number;
-  onMover: (paso: -1 | 1) => void;
-  deshabilitado: boolean;
-}) {
-  const clase =
-    "flex h-7 w-7 shrink-0 items-center justify-center rounded border border-system-300 bg-white text-[12px] text-system-600 hover:border-brand-600 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-40";
-  return (
-    <span className="flex shrink-0 gap-1">
-      <button type="button" className={clase} disabled={deshabilitado || i === 0} onClick={() => onMover(-1)} aria-label={`Subir ${que}`} title="Subir">
-        ↑
-      </button>
-      <button type="button" className={clase} disabled={deshabilitado || i === total - 1} onClick={() => onMover(1)} aria-label={`Bajar ${que}`} title="Bajar">
-        ↓
-      </button>
-    </span>
-  );
-}
 
 // Las temáticas de campaña son las mismas que los intereses del perfil: el catálogo de
 // GET /api/tematicas (las 23 base y las que salen de los textos de los usuarios). Mientras carga,
@@ -784,7 +745,7 @@ function CampanaFormulario({
               <p className="mb-2.5 text-[12px] text-system-500">
                 Siempre escribe una descripción con sus palabras. Además puedes agregar
                 checklists con título para que marque lo que aplique: los que necesites, o ninguno.
-                Para cambiar el orden de los checklists y sus opciones, arrástralos desde ⠿ o usa ↑ y ↓.
+                Para cambiar el orden de los checklists y sus opciones, arrástralos desde ⠿.
               </p>
               {editaEnPausa && (
                 <p className="mb-2.5 text-[12px] text-system-500">
@@ -803,7 +764,7 @@ function CampanaFormulario({
                   >
                     <div className="mb-2.5 flex items-center gap-2">
                       <AsaDeArrastre
-                        titulo="Arrastra para mover el checklist"
+                        etiqueta={`el checklist ${c.titulo.trim() || i + 1}`}
                         onMover={(de, a) => setChecklists((prev) => moverA(prev, de, a))}
                         deshabilitado={contenidoBloqueado}
                       />
@@ -816,13 +777,6 @@ function CampanaFormulario({
                         aria-label={`Título del checklist ${i + 1}`}
                         disabled={contenidoBloqueado}
                         className="w-full rounded border border-system-300 bg-white px-3 py-2 text-[13px] font-semibold text-system-900 outline-none focus:border-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
-                      />
-                      <BotonesDeOrden
-                        que={`el checklist ${c.titulo.trim() || i + 1}`}
-                        i={i}
-                        total={checklists.length}
-                        onMover={(paso) => setChecklists((prev) => mover(prev, i, paso))}
-                        deshabilitado={contenidoBloqueado}
                       />
                       <button
                         type="button"
@@ -845,7 +799,7 @@ function CampanaFormulario({
                           className="mb-2 flex items-center gap-2 rounded text-[12.5px] text-system-600 data-[arrastrando]:bg-brand-50 data-[arrastrando]:ring-1 data-[arrastrando]:ring-brand-600"
                         >
                           <AsaDeArrastre
-                            titulo="Arrastra para mover la opción"
+                            etiqueta={`la opción ${opcion.texto.trim() || j + 1}`}
                             onMover={(de, a) => cambiarOpciones(c.clave, (ops) => moverA(ops, de, a))}
                             deshabilitado={contenidoBloqueado}
                           />
@@ -860,13 +814,6 @@ function CampanaFormulario({
                             aria-label={`Opción ${j + 1} del checklist ${c.titulo || i + 1}`}
                             disabled={contenidoBloqueado}
                             className="min-w-0 flex-1 rounded border border-transparent bg-transparent px-1.5 py-1 text-[12.5px] text-system-900 outline-none hover:border-system-300 focus:border-brand-600 focus:bg-white disabled:cursor-not-allowed disabled:opacity-50"
-                          />
-                          <BotonesDeOrden
-                            que={`la opción ${opcion.texto.trim() || j + 1}`}
-                            i={j}
-                            total={c.opciones.length}
-                            onMover={(paso) => cambiarOpciones(c.clave, (ops) => mover(ops, j, paso))}
-                            deshabilitado={contenidoBloqueado}
                           />
                           <button
                             type="button"
