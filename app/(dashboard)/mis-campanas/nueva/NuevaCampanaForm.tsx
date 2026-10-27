@@ -10,6 +10,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Field, Input, Textarea } from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
+import ButtonLink from "@/components/ui/ButtonLink";
 import Tag from "@/components/ui/Tag";
 import VentanaDeProblemas, { type ProblemaDeFormulario } from "@/components/ui/VentanaDeProblemas";
 import SelectorDeTemas from "@/components/ui/SelectorDeTemas";
@@ -22,7 +23,7 @@ import { MAX_LARGO_TEXTO } from "@/lib/campanas/checklist";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import CampoDeFecha from "@/components/ui/CampoDeFecha";
 import AsaDeArrastre, { moverA } from "@/components/ui/AsaDeArrastre";
-import { errorDeFinAntesDeInicio, errorDeInicioPasado, hoyEnTepic } from "@/lib/fecha-de-tepic";
+import { errorDeFinAntesDeInicio, errorDeInicioPasado, fechaDDMMAAAA, hoyEnTepic, inicioEnElFuturo } from "@/lib/fecha-de-tepic";
 import { LARGO_MAXIMO_ORGANIZACION } from "@/lib/campanas/organizacion";
 import CampoDeOrganizacion from "@/components/ui/CampoDeOrganizacion";
 import { ETIQUETA_DE_CAMPANA } from "@/lib/campanas/sistema-opciones";
@@ -277,6 +278,11 @@ function CampanaFormulario({
   const [intento, setIntento] = useState<"borrador" | "revision" | null>(null);
   const [problemasDelServidor, setProblemasDelServidor] = useState<Problema[]>([]);
   const [ventanaDeProblemas, setVentanaDeProblemas] = useState<Problema[] | null>(null);
+  // Pausada (2026-10-27): "Guardar y reanudar" (o "Guardar y programar" si el inicio quedó en el
+  // futuro) o "Guardar y dejar pausada". Si se guardó pero no se pudo reanudar, aquí va el motivo.
+  const [sinReanudar, setSinReanudar] = useState<string | null>(null);
+  // La que pausó la supervisión solo la reanuda la supervisión (2026-10-15).
+  const pausadaPorSupervision = editaEnPausa && editingCampaign?.pausa?.por === "supervision";
 
   const limiteActivasAlcanzado = activeCampaigns >= MAX_ACTIVE_CAMPAIGNS;
 
@@ -500,13 +506,16 @@ function CampanaFormulario({
     return lista;
   }
 
-  async function handleSubmit(e: React.FormEvent, asDraft: boolean) {
+  // alGuardar: solo en pausa, el estado al que pasa después de guardar ("activa" reanuda,
+  // "aceptada" la programa). Son dos PATCH: el de la edición y el mismo de /mis-campanas.
+  async function handleSubmit(e: React.FormEvent, asDraft: boolean, alGuardar: "activa" | "aceptada" | null = null) {
     e.preventDefault();
     if (soloLectura) return;
 
     const lista = problemasDe(asDraft);
     setIntento(asDraft ? "borrador" : "revision");
     setProblemasDelServidor([]);
+    setSinReanudar(null);
     if (lista.length > 0) {
       setVentanaDeProblemas(lista);
       return;
@@ -598,6 +607,20 @@ function CampanaFormulario({
         throw new Error(body.error ?? (editingCampaign ? "No se pudo actualizar la campaña" : "No se pudo crear la campaña"));
       }
 
+      if (editingCampaign && alGuardar) {
+        const cambio = await fetch(`${BASE_PATH}/api/campanas/${editingCampaign.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: alGuardar }),
+        });
+        if (!cambio.ok) {
+          // Los cambios ya se guardaron: se queda aquí y explica por qué sigue pausada.
+          const body = await cambio.json().catch(() => ({}));
+          setSinReanudar(body.error ?? (alGuardar === "aceptada" ? "No se pudo programar la campaña" : "No se pudo reanudar la campaña"));
+          return;
+        }
+      }
+
       router.push("/mis-campanas");
     } catch (error) {
       console.error(editingCampaign ? "Error actualizando campaña" : "Error creando campaña", error);
@@ -609,6 +632,8 @@ function CampanaFormulario({
   }
 
   const inicioMovido = editaEnPausa && startDate !== (editingCampaign?.startDate ?? "");
+  // Inicio todavía por llegar: se programa (vuelve a "aceptada") en vez de reanudarse.
+  const programar = editaEnPausa && inicioEnElFuturo(startDate, startTime);
   // Problemas a la vista: después del primer intento de guardar, se recalculan mientras se corrige.
   const errores: Problema[] = [...(intento ? problemasDe(intento === "borrador") : []), ...problemasDelServidor];
   const errorDe = (campo: CampoDeCampana) =>
@@ -643,7 +668,9 @@ function CampanaFormulario({
           </h1>
           <p className="mt-1 text-[13px] text-system-600">
             {editaEnPausa
-              ? "La campaña está pausada: puedes cambiar todo menos la organización. Sigue pausada al guardar y se avisa a quien la supervisa."
+              ? pausadaPorSupervision
+                ? "La campaña está pausada por la supervisión: puedes cambiar todo menos la organización. Sigue pausada al guardar y se avisa a quien la supervisa."
+                : "La campaña está pausada: puedes cambiar todo menos la organización. Al guardar eliges si la reanudas o la dejas pausada; se avisa a quien la supervisa."
               : edicionLimitada
               ? status === "aceptada"
                 ? "La campaña ya fue aceptada y espera su fecha de inicio: solo puedes ajustar la meta de aportes y la fecha/hora de finalización."
@@ -1140,8 +1167,13 @@ function CampanaFormulario({
           )}
           {edicionLimitada && (
             <div className="mb-6 max-w-lg rounded-lg bg-system-100 p-4 text-[12.5px] text-system-600">
-              La campaña está {status === "pausada" ? "pausada" : status === "aceptada" ? "aceptada" : "activa"}: los cambios se
-              guardan y mantiene su estado actual.
+              {!editaEnPausa
+                ? `La campaña está ${status === "aceptada" ? "aceptada" : "activa"}: los cambios se guardan y mantiene su estado actual.`
+                : pausadaPorSupervision
+                ? "La pausó la supervisión: los cambios se guardan, sigue pausada y la supervisión decide cuándo reanudarla."
+                : programar
+                ? `Empieza el ${fechaDDMMAAAA(startDate)}${startTime ? ` a las ${startTime.slice(0, 5)}` : ""}: con «Guardar y programar» queda programada y empieza sola a esa hora.`
+                : "Con «Guardar y reanudar» vuelve a recibir aportes en cuanto guardas; con «Guardar y dejar pausada» la reanudas después desde Mis campañas."}
               {editaEnPausa &&
                 " Los aportes que ya llegaron no cambian, aunque su tipo de dato ya no se pida. Quien la supervisa recibe un aviso de lo que cambiaste."}
             </div>
@@ -1161,20 +1193,45 @@ function CampanaFormulario({
             </div>
           )}
 
+          {sinReanudar && (
+            <div
+              role="alert"
+              className="mb-6 flex max-w-lg flex-wrap items-center justify-between gap-3 rounded-lg bg-warning-50 p-4 text-[12.5px] text-warning-800"
+            >
+              <span>
+                <b>Los cambios se guardaron, pero la campaña sigue pausada.</b> {sinReanudar}
+              </span>
+              <ButtonLink href="/mis-campanas" size="sm">
+                Ir a Mis campañas
+              </ButtonLink>
+            </div>
+          )}
+
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-system-200 pt-4">
             <p className="font-mono text-[12.5px] text-system-600">
               {activeCampaigns} de {MAX_ACTIVE_CAMPAIGNS} campañas activas usadas
             </p>
-            <div className="flex gap-2.5">
+            <div className="flex flex-wrap gap-2.5">
               {!edicionLimitada && (
                 <Button type="submit" onClick={(e) => handleSubmit(e, true)}>
                   Guardar borrador
                 </Button>
               )}
-              {/* Siempre activo (2026-10-27): si falta algo, al tocarlo se explica qué. */}
-              <Button variant="primary" type="submit">
-                {edicionLimitada ? "Guardar cambios" : "Enviar a revisión"}
-              </Button>
+              {editaEnPausa && !pausadaPorSupervision ? (
+                <>
+                  <Button type="submit" onClick={(e) => handleSubmit(e, false)}>
+                    Guardar y dejar pausada
+                  </Button>
+                  <Button variant="primary" type="submit" onClick={(e) => handleSubmit(e, false, programar ? "aceptada" : "activa")}>
+                    {programar ? "Guardar y programar" : "Guardar y reanudar"}
+                  </Button>
+                </>
+              ) : (
+                /* Siempre activo (2026-10-27): si falta algo, al tocarlo se explica qué. */
+                <Button variant="primary" type="submit">
+                  {edicionLimitada ? "Guardar cambios" : "Enviar a revisión"}
+                </Button>
+              )}
             </div>
           </div>
         </form>

@@ -741,7 +741,10 @@ paths:
         - **Pausar y reanudar (solo el creador):** `{ "status": "pausada" }` sobre una `activa` y
           `{ "status": "activa" }` sobre una `pausada`, sin otros campos. Una pausada no recibe aportes
           ni aparece en las listas públicas. Reanudar da 400 si su fecha de cierre ya pasó o si el
-          creador ya tiene 5 campañas activas. Si la pausó la supervisión, el creador no la reanuda (403).
+          creador ya tiene 5 campañas activas, y también si su inicio todavía no llega: entonces se programa
+          con `{ "status": "aceptada" }` (vuelve a "aceptada" y se activa sola a su hora; 400 si el inicio ya
+          llegó, mismas condiciones de cierre y cupo). Si la pausó la supervisión, el creador no la reanuda
+          ni la programa (403).
         - **Supervisor:** `{ "action": "tomar" }` para tomarla, o `{ "action": "aceptada" }` /
           `{ "action": "rechazada", "motivoDeLista": "...", "motivo": "...", "sancion": { "tipo": "...", "dias": 2 } }`
           para decidir. Al rechazar: `motivoDeLista` (uno de los motivos de reportar campaña u "Otro") y/o `motivo`
@@ -777,6 +780,7 @@ paths:
               finalizar: { value: { status: finalizada } }
               pausar: { value: { status: pausada } }
               reanudar: { value: { status: activa } }
+              programar: { value: { status: aceptada } }
               tomar: { value: { action: tomar } }
               rechazar: { value: { action: rechazada, motivoDeLista: Pide datos personales o sensibles, motivo: Pide la CURP de cada participante } }
               rechazarConSancion: { value: { action: rechazada, motivoDeLista: Engaño o fraude, pide datos para otro fin, sancion: { tipo: SUSPENSION_TEMPORAL, dias: 2 } } }

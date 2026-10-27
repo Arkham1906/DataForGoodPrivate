@@ -39,6 +39,20 @@ export function hoyEnTepic(): string {
   return `${a.year}-${String(a.month).padStart(2, "0")}-${String(a.day).padStart(2, "0")}`;
 }
 
+/**
+ * true si la fecha ("YYYY-MM-DD") y hora ("HH:MM", opcional) de inicio todavía no llegan en Tepic.
+ * Versión para el navegador de hasCampaignStarted (lib/campaign-date.ts): el formulario decide
+ * entre "Guardar y reanudar" y "Guardar y programar" con ella (2026-10-27).
+ */
+export function inicioEnElFuturo(fecha: string | null | undefined, hora?: string | null): boolean {
+  if (!fecha) return false;
+  const a = ahoraEnZona();
+  const dos = (n: number) => String(n).padStart(2, "0");
+  const ahora = `${hoyEnTepic()} ${dos(a.hour)}:${dos(a.minute)}:${dos(a.second)}`;
+  const inicio = `${fecha.slice(0, 10)} ${(hora || "00:00").slice(0, 5)}:00`;
+  return inicio > ahora;
+}
+
 /** "YYYY-MM-DD" → "DD/MM/AAAA", como se escriben en el formulario (ui/CampoDeFecha). Otro texto queda igual. */
 export function fechaDDMMAAAA(fecha: string): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(fecha);

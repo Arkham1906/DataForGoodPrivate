@@ -293,13 +293,15 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
     if (currentStatus === "activa" || currentStatus === "pausada") {
       // El creador puede finalizarla, pausarla (activa) o reanudarla (pausada)
-      // desde /mis-campanas, sin tocar ningún otro campo a la vez.
+      // desde /mis-campanas, sin tocar ningún otro campo a la vez. Una pausada
+      // cuyo inicio se movió al futuro se programa (2026-10-27): vuelve a
+      // "aceptada" y activateScheduledCampaigns la activa a su hora.
       const pedido = Object.keys(body).length === 1 ? normalizeCampaignStatus(body.status) : null;
       const cambiaEstado =
         pedido === "finalizada" ||
         (currentStatus === "activa" && pedido === "pausada") ||
-        (currentStatus === "pausada" && pedido === "activa");
-      if (pedido === "activa" && cambiaEstado) {
+        (currentStatus === "pausada" && (pedido === "activa" || pedido === "aceptada"));
+      if ((pedido === "activa" || pedido === "aceptada") && cambiaEstado) {
         // La que pausó la supervisión (2026-10-15) solo la reanuda la supervisión.
         if (existing.rows[0].pausa_por === "supervision") {
           return NextResponse.json(
@@ -316,16 +318,20 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
             { status: 400 }
           );
         }
-        // Editándola en pausa pudo quedar con inicio futuro: no se activa antes de empezar.
+        // Editándola en pausa pudo quedar con inicio futuro: no se activa antes de empezar
+        // (se programa), y la que ya empezó se reanuda, no se programa.
         const errorDeInicio = errorDeReanudarAntesDeInicio(existing.rows[0].start_date, existing.rows[0].start_time);
-        if (errorDeInicio) return NextResponse.json({ error: errorDeInicio }, { status: 400 });
+        if (pedido === "activa" && errorDeInicio) return NextResponse.json({ error: errorDeInicio }, { status: 400 });
+        if (pedido === "aceptada" && !errorDeInicio) {
+          return NextResponse.json({ error: "La campaña ya llegó a su fecha de inicio: reanúdala en vez de programarla" }, { status: 400 });
+        }
         const activas = await pool.query(
           `SELECT COUNT(*)::int AS count FROM campanas WHERE creator_id = $1 AND status = 'activa'`,
           [user.id]
         );
         if (Number(activas.rows[0].count) >= MAX_ACTIVE_CAMPAIGNS) {
           return NextResponse.json(
-            { error: `Ya tienes ${MAX_ACTIVE_CAMPAIGNS} campañas activas; pausa o finaliza otra antes de reanudar esta` },
+            { error: `Ya tienes ${MAX_ACTIVE_CAMPAIGNS} campañas activas; pausa o finaliza otra antes de ${pedido === "aceptada" ? "programar" : "reanudar"} esta` },
             { status: 400 }
           );
         }

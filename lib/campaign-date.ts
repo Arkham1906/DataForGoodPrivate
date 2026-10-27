@@ -149,11 +149,11 @@ function nowLocalTimestampParam(): string {
  * Sin start_time, COALESCE la deja en 00:00 (mismo comportamiento que antes).
  */
 export async function activateScheduledCampaigns(): Promise<void> {
-  const { rows } = await pool.query<{ id: number; creator_id: number; name: string }>(
+  const { rows } = await pool.query<{ id: number; creator_id: number; name: string; is_special: boolean }>(
     `UPDATE campanas SET status = 'activa', updated_at = NOW()
      WHERE status = 'aceptada'
        AND (start_date::timestamp + COALESCE(start_time, TIME '00:00:00')) <= $1::timestamp
-     RETURNING id, creator_id, name`,
+     RETURNING id, creator_id, name, is_special`,
     [nowLocalTimestampParam()]
   );
   if (rows.length === 0) return;
@@ -161,11 +161,13 @@ export async function activateScheduledCampaigns(): Promise<void> {
   // lib/campanas/enlaces.ts importa este archivo y un import estático haría un ciclo.
   const { asegurarEnlaceVigente } = await import("@/lib/campanas/enlaces");
   // Mismo motivo: campanas-por-interes importa este archivo.
-  const { avisarCampanaNueva } = await import("@/lib/notificaciones/campanas-por-interes");
-  for (const { id, creator_id, name } of rows) {
+  const { avisarCampanaNueva, avisarCampanaEspecial } = await import("@/lib/notificaciones/campanas-por-interes");
+  for (const { id, creator_id, name, is_special } of rows) {
     await asegurarEnlaceVigente(Number(id));
     // A quien tiene su temática y vive donde se hace (en segundo plano).
     avisarCampanaNueva(Number(id));
+    // Programada desde la pausa (2026-10-27) con incentivos que no se avisaron mientras estaba pausada.
+    if (is_special) avisarCampanaEspecial(Number(id));
     // El UPDATE solo devuelve la fila a quien la activó, así que se avisa una sola vez.
     await notificar({
       usuarioId: creator_id,

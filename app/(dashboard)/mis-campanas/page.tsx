@@ -21,7 +21,7 @@ import VentanaDeConfirmacion from "@/components/ui/VentanaDeConfirmacion";
 import CompartirCampana from "@/app/(dashboard)/campanas/[id]/compartir";
 import { resumenDeIncentivos, textoDelPeriodo } from "@/lib/campanas/especial-reglas";
 import { porcentajeDeMeta } from "@/lib/campanas/meta";
-import { fechaDDMMAAAA, ZONA_DE_CAMPANAS } from "@/lib/fecha-de-tepic";
+import { fechaDDMMAAAA, inicioEnElFuturo, ZONA_DE_CAMPANAS } from "@/lib/fecha-de-tepic";
 import { ETIQUETA_DE_CAMPANA } from "@/lib/campanas/sistema-opciones";
 
 const fechaDeRechazo = new Intl.DateTimeFormat("es-MX", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: ZONA_DE_CAMPANAS });
@@ -119,13 +119,14 @@ export default function MisCampanasPage() {
 
   // Solo el creador ve esta pantalla (viene de mine=true): no hace falta
   // revisar rol ni dueño aparte, ya está filtrado por sesión.
-  async function cambiarEstado(id: string, nuevo: "pausada" | "activa" | "finalizada") {
+  async function cambiarEstado(id: string, nuevo: "pausada" | "activa" | "aceptada" | "finalizada") {
     // "Pausar" y "Finalizar" ya se confirmaron en su ventana emergente (VentanaDeConfirmacion).
 
     const fallo = {
       finalizada: "No se pudo finalizar la campaña",
       pausada: "No se pudo pausar la campaña",
       activa: "No se pudo reanudar la campaña",
+      aceptada: "No se pudo programar la campaña",
     }[nuevo];
     setCambiandoId(id);
     setCambioError((prev) => ({ ...prev, [id]: "" }));
@@ -295,7 +296,12 @@ export default function MisCampanasPage() {
                         : []),
                       // La que pausó la supervisión solo la reanuda la supervisión (2026-10-15).
                       ...(campaign.status === "pausada" && campaign.pausa?.por !== "supervision"
-                        ? [{ etiqueta: "Reanudar campaña", alElegir: () => void cambiarEstado(campaign.id, "activa"), deshabilitado: cambiando }]
+                        ? [
+                            // Con el inicio movido al futuro se programa en vez de reanudarse (2026-10-27).
+                            inicioEnElFuturo(campaign.startDate, campaign.startTime)
+                              ? { etiqueta: "Programar campaña", alElegir: () => void cambiarEstado(campaign.id, "aceptada"), deshabilitado: cambiando }
+                              : { etiqueta: "Reanudar campaña", alElegir: () => void cambiarEstado(campaign.id, "activa"), deshabilitado: cambiando },
+                          ]
                         : []),
                       ...(puedeFinalizar
                         ? [
