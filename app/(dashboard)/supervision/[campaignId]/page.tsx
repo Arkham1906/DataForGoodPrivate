@@ -21,7 +21,7 @@ import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import EstadoDeCampanaSupervisada, { type CambioDeEstado } from "@/components/supervision/EstadoDeCampanaSupervisada";
 import type { PausaDeCampana } from "@/lib/campanas/pausa";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
-import { describirReparto, type CuotaPorTipo } from "@/lib/campanas/cuota-por-tipo";
+import { repartoSugerido } from "@/lib/campanas/reparto-sugerido";
 import { quienOrganiza } from "@/lib/campanas/organizacion";
 
 type Campaign = {
@@ -38,7 +38,6 @@ type Campaign = {
   approvedContributions?: number;
   participants?: number;
   quotaPerUser?: number;
-  cuotaPorTipo?: CuotaPorTipo | null;
   todoElPais?: boolean;
   description?: string;
   dataTypes?: string[];
@@ -328,7 +327,7 @@ export default function CampaignDetailPage() {
               <span className="text-system-600">Cuota por usuario</span>
               <span className="text-right font-mono">
                 {Number(campaign.quotaPerUser ?? 0)}
-                {campaign.cuotaPorTipo ? ` (${describirReparto(campaign.cuotaPorTipo)})` : ""}
+                {repartoSugerido(campaign.quotaPerUser, dataTypes) ? ` (sugerido: ${repartoSugerido(campaign.quotaPerUser, dataTypes)})` : ""}
               </span>
             </div>
           </div>

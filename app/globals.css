@@ -403,3 +403,33 @@ input::-ms-reveal,
 input::-ms-clear {
   display: none;
 }
+
+/* ── Respuesta al pulsar (2026-10-26) ─────────────────────────────────────
+ * Todo lo que funciona como botón se hunde un poco y se oscurece mientras se pulsa (mouse, dedo o
+ * Enter/Espacio en un <button>), para que se note que el clic llegó. Cubre <button>, roles de botón,
+ * <summary>, inputs de tipo botón y los enlaces con forma de botón (ButtonLink y los <Link> con
+ * rounded-pill). Al pulsar cambia al instante; al soltar vuelve con la transición del elemento.
+ * Con movimiento reducido solo se oscurece, sin hundirse. Para excluir un elemento (p. ej. el asa
+ * de arrastre de ui/AsaDeArrastre, que se mantiene pulsada al arrastrar): data-sin-respuesta. */
+@layer base {
+  :where(button, [role="button"], [role="switch"], [role="menuitem"], [role="tab"], summary,
+      input[type="button"], input[type="submit"], input[type="reset"], a.rounded-pill) {
+    transition-property: color, background-color, border-color, box-shadow, scale, filter;
+    transition-duration: 150ms;
+  }
+}
+
+:where(button, [role="button"], [role="switch"], [role="menuitem"], [role="tab"], summary,
+    input[type="button"], input[type="submit"], input[type="reset"], a.rounded-pill):active:not(
+    :disabled, [aria-disabled="true"], [data-sin-respuesta]) {
+  filter: brightness(0.92);
+  transition-duration: 0s;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :where(button, [role="button"], [role="switch"], [role="menuitem"], [role="tab"], summary,
+      input[type="button"], input[type="submit"], input[type="reset"], a.rounded-pill):active:not(
+      :disabled, [aria-disabled="true"], [data-sin-respuesta]) {
+    scale: 0.96;
+  }
+}

@@ -8,7 +8,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import Tag from "@/components/ui/Tag";
 import { obtenerCampanaParaRoot } from "@/lib/supervision/root";
-import { describirReparto } from "@/lib/campanas/cuota-por-tipo";
+import { repartoSugerido } from "@/lib/campanas/reparto-sugerido";
 import { BackLink } from "../_ui";
 import { quienOrganiza } from "@/lib/campanas/organizacion";
 import AccionesDeSupervision, { EstadoComoSuperUsuario } from "./acciones";
@@ -62,7 +62,7 @@ export default async function SupervisarCampanaPage({ params }: { params: Promis
         "Cuota por usuario",
         <span key="q" className="font-mono">
           {campaign.quotaPerUser}
-          {campaign.cuotaPorTipo ? ` (${describirReparto(campaign.cuotaPorTipo)})` : ""}
+          {repartoSugerido(campaign.quotaPerUser, campaign.dataTypes) ? ` (sugerido: ${repartoSugerido(campaign.quotaPerUser, campaign.dataTypes)})` : ""}
         </span>,
       ],
     ],

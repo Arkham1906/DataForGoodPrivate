@@ -171,3 +171,12 @@ Las pantallas del panel usan solo ese kit, y las de usuario solo `components/ui/
 - [ ] Inputs de 16 px o más en móvil; áreas táctiles razonables.
 - [ ] Estados vacío, cargando (`loading.tsx`) y error.
 - [ ] Sin `<Link>` anidado con `<Button>`; se puede usar solo con teclado.
+
+
+## Errores de formulario (2026-10-27)
+
+Cuando un formulario no se puede guardar, la app lo explica sin depender del navegador: `noValidate` en el `<form>` (sin globos nativos), botón de guardar siempre activo, y al intentar guardar:
+
+- `Field` (`components/ui/Input` → `CampoEtiquetado`) acepta `error`: motivo en rojo debajo, `aria-invalid` en el control (borde rojo con la variante `aria-invalid:` de `Input`, `Textarea` y los `<select>` que la lleven) o contorno rojo si es un grupo; el motivo entra en `aria-describedby`.
+- `ui/VentanaDeProblemas`: `<dialog>` con la lista de problemas; cada uno lleva a su campo (`data-campo` en el control o su contenedor) después de cerrarse.
+- Se recalcula mientras se corrige. Ejemplo completo: `NuevaCampanaForm` (`problemasDe`, `errorDe`, `campoDelMensaje`, pasos con `conProblemas`).

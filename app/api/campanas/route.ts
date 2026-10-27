@@ -16,7 +16,6 @@ import { normalizarSecciones, seccionesDesdeFila } from "@/lib/campanas/checklis
 import { XP_POR_APORTE, errorDeEstadoPedido } from "@/lib/campanas/estado-del-creador";
 import { pausaDesdeFila } from "@/lib/campanas/pausa";
 import { rechazoDesdeFila } from "@/lib/campanas/rechazo";
-import { errorDeCuotaPorTipo, normalizarCuotaPorTipo } from "@/lib/campanas/cuota-por-tipo";
 import { condicionDeVisibilidad } from "@/lib/campanas/visibilidad";
 import { activateScheduledCampaigns, calculateCampaignDaysRemaining, errorDeFinAntesDeInicio, errorDeInicioPasado, finalizeExpiredCampaigns, normalizeCampaignDate, normalizeCampaignTime } from "@/lib/campaign-date";
 
@@ -97,7 +96,6 @@ function mapCampaign(row: Record<string, unknown>) {
     checklistSecciones: seccionesDesdeFila(row),
     goalContributions: Number(row.goal_contributions ?? 0),
     quotaPerUser: Number(row.quota_per_user ?? 0),
-    cuotaPorTipo: normalizarCuotaPorTipo(row.cuota_por_tipo, Array.isArray(dataTypes) ? dataTypes.map(String) : []),
     currentContributions: Number(row.current_contributions ?? 0),
     approvedContributions: Number(row.approved_contributions ?? 0),
     pendingContributions: Number(row.pending_contributions ?? 0),
@@ -311,7 +309,6 @@ export async function POST(request: Request) {
 
     const goalContributions = Number(body.goalContributions ?? body.goal_contributions ?? 0);
     const quotaPerUser = Number(body.quotaPerUser ?? body.quota_per_user ?? 1);
-    const cuotaPorTipo = normalizarCuotaPorTipo(body.cuotaPorTipo, dataTypes);
     // Contadores, XP, "especial" y "revisor asignado" los decide el sistema, no el body:
     // una campaña nueva empieza en cero y sin revisor.
     const currentContributions = 0;
@@ -360,10 +357,6 @@ export async function POST(request: Request) {
       }
       if (!quotaPerUser || quotaPerUser <= 0) {
         return NextResponse.json({ error: "La cuota por persona debe ser mayor a 0" }, { status: 400 });
-      }
-      const errorDeReparto = errorDeCuotaPorTipo(quotaPerUser, dataTypes, cuotaPorTipo);
-      if (errorDeReparto) {
-        return NextResponse.json({ error: errorDeReparto }, { status: 400 });
       }
       if (!startDate) {
         return NextResponse.json({ error: "La fecha de inicio es obligatoria" }, { status: 400 });
@@ -453,7 +446,7 @@ export async function POST(request: Request) {
         startTime,
         endTime,
         JSON.stringify(checklistSecciones),
-        cuotaPorTipo ? JSON.stringify(cuotaPorTipo) : null,
+        null, // cuota_por_tipo: sin uso desde el 2026-10-27 (solo cuota general; lib/campanas/reparto-sugerido.ts)
         todoElPais,
       ]
     );

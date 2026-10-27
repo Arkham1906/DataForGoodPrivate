@@ -8,9 +8,21 @@
 //   - resolverIntereses(): valida los intereses de un perfil; solo acepta temáticas que existen.
 //   - listarTematicasDelPanel() / cambiarVisibilidad() / aprobar() / rechazar() /
 //     contarTematicasPendientes(): /sistema/tematicas del SuperUsuario y el número del menú.
+//   - crearTematica() / renombrarTematica() / borrarTematica() (2026-10-26): el SuperUsuario crea,
+//     edita y borra temáticas que no son base (decisiones del usuario: las 23 base quedan fijas;
+//     renombrar actualiza perfiles y campañas; no se borra una que usan campañas, se oculta).
 
 import { pool } from "@/lib/db";
-import { claveDeTematica, esTematicaNuevaValida, MAXIMO_DE_INTERESES } from "@/lib/tematicas/analizar";
+import {
+  claveDeTematica,
+  esTematicaNuevaValida,
+  LARGO_DEL_NOMBRE,
+  MAXIMO_DE_INTERESES,
+} from "@/lib/tematicas/analizar";
+import { esInapropiada } from "@/lib/tematicas/filtro";
+
+/** base: las 23 de lib/intereses.ts; usuario: salió del texto de un perfil; panel: la creó el SuperUsuario. */
+export type OrigenDeTematica = "base" | "usuario" | "panel";
 
 /**
  * Temáticas que se ofrecen: las 23 base en su orden de siempre y después las de los usuarios,
@@ -18,7 +30,7 @@ import { claveDeTematica, esTematicaNuevaValida, MAXIMO_DE_INTERESES } from "@/l
  * (creadas antes de que atrapara esa palabra; ver bloqueadaPorElFiltro).
  */
 export async function tematicasVisibles(): Promise<string[]> {
-  const result = await pool.query<{ nombre: string; origen: "base" | "usuario" }>(
+  const result = await pool.query<{ nombre: string; origen: OrigenDeTematica }>(
     `SELECT nombre, origen FROM tematicas
      WHERE NOT oculta AND aprobada
      ORDER BY origen = 'base' DESC, CASE WHEN origen = 'base' THEN id END, clave`,
@@ -31,7 +43,7 @@ export async function tematicasVisibles(): Promise<string[]> {
  * inapropiadas creció y "Asesinato" o "Muerte" ya estaban en el catálogo). No se ofrece ni se
  * puede guardar en un perfil, aunque la persona ya la tuviera. Las base nunca se bloquean.
  */
-export function bloqueadaPorElFiltro(tematica: { nombre: string; origen: "base" | "usuario" }): boolean {
+export function bloqueadaPorElFiltro(tematica: { nombre: string; origen: OrigenDeTematica }): boolean {
   return tematica.origen === "usuario" && !esTematicaNuevaValida(tematica.nombre);
 }
 
@@ -63,7 +75,7 @@ export async function resolverIntereses(
   if (pedidos.size === 0) return { ok: true, intereses: [] };
 
   const claves = [...pedidos.keys()];
-  const existentes = await pool.query<{ nombre: string; clave: string; oculta: boolean; aprobada: boolean; origen: "base" | "usuario" }>(
+  const existentes = await pool.query<{ nombre: string; clave: string; oculta: boolean; aprobada: boolean; origen: OrigenDeTematica }>(
     `SELECT nombre, clave, oculta, aprobada, origen FROM tematicas WHERE clave = ANY($1::text[])`,
     [claves],
   );
@@ -88,7 +100,7 @@ export async function resolverIntereses(
 export type TematicaDelPanel = {
   id: number;
   nombre: string;
-  origen: "base" | "usuario";
+  origen: OrigenDeTematica;
   oculta: boolean;
   /** false: la escribió un usuario y espera revisión; solo la tiene quien la escribió. */
   aprobada: boolean;
@@ -102,7 +114,7 @@ export type TematicaDelPanel = {
 };
 
 /**
- * Catálogo completo para /sistema/tematicas: primero las pendientes de revisar, luego las de los usuarios, de la más nueva a la más
+ * Catálogo completo para /sistema/tematicas: primero las pendientes de revisar, luego las de los usuarios y las del panel, de la más nueva a la más
  * vieja, y al final las base. `q` busca en el nombre sin importar acentos. La página verifica la
  * sesión raíz.
  */
@@ -111,7 +123,7 @@ export async function listarTematicasDelPanel(q?: string): Promise<TematicaDelPa
   const result = await pool.query<{
     id: number;
     nombre: string;
-    origen: "base" | "usuario";
+    origen: OrigenDeTematica;
     oculta: boolean;
     aprobada: boolean;
     created_at: Date;
@@ -123,7 +135,7 @@ export async function listarTematicasDelPanel(q?: string): Promise<TematicaDelPa
             (SELECT COUNT(*) FROM campanas c WHERE COALESCE(NULLIF(c.tematica, ''), c.tag) = t.nombre) AS campanas
      FROM tematicas t
      WHERE $1 = '' OR t.clave LIKE '%' || $1 || '%'
-     ORDER BY NOT t.aprobada AND NOT t.oculta DESC, t.origen = 'usuario' DESC, CASE WHEN t.origen = 'usuario' THEN t.created_at END DESC, t.id`,
+     ORDER BY NOT t.aprobada AND NOT t.oculta DESC, t.origen <> 'base' DESC, CASE WHEN t.origen <> 'base' THEN t.created_at END DESC, t.id`,
     [busqueda],
   );
   return result.rows.map((r) => ({
@@ -191,6 +203,175 @@ export async function rechazar(id: number): Promise<{ nombre: string; perfiles: 
     );
     await cliente.query("COMMIT");
     return { nombre, perfiles: perfiles.rowCount ?? 0 };
+  } catch (error) {
+    await cliente.query("ROLLBACK");
+    throw error;
+  } finally {
+    cliente.release();
+  }
+}
+
+export type ResultadoDelCatalogo<T = object> = ({ ok: true } & T) | { ok: false; error: string };
+
+/**
+ * Nombre que escribe el SuperUsuario, limpio (espacios simples), o el error que se le muestra:
+ * letras, espacios, guiones y comas; entre 3 y 60 caracteres; sin palabras del filtro de
+ * inapropiadas. No exige el resto de esTematicaNuevaValida (máximo 3 palabras, 4 letras): eso era
+ * para las palabras sueltas del texto de un perfil, y "Salud y bienestar" ya tiene 3.
+ */
+export function validarNombreDeTematica(entrada: unknown): { ok: true; nombre: string } | { ok: false; error: string } {
+  const nombre = String(entrada ?? "").trim().replace(/\s+/g, " ");
+  if (nombre.length < LARGO_DEL_NOMBRE.minimo || nombre.length > LARGO_DEL_NOMBRE.maximo) {
+    return { ok: false, error: `El nombre debe tener entre ${LARGO_DEL_NOMBRE.minimo} y ${LARGO_DEL_NOMBRE.maximo} caracteres.` };
+  }
+  if (!/^\p{L}[\p{L} ,-]*$/u.test(nombre)) {
+    return { ok: false, error: "Usa solo letras, espacios, guiones y comas, empezando con una letra." };
+  }
+  if (esInapropiada(nombre)) return { ok: false, error: "El nombre tiene palabras que no se permiten." };
+  return { ok: true, nombre };
+}
+
+/** Error de "ya existe" con el nombre de la que choca, y si está oculta, cómo recuperarla. */
+async function errorDeRepetida(clave: string, sinContarId?: number): Promise<string | null> {
+  const r = await pool.query<{ nombre: string; oculta: boolean }>(
+    `SELECT nombre, oculta FROM tematicas WHERE clave = $1 AND ($2::int IS NULL OR id <> $2)`,
+    [clave, sinContarId ?? null],
+  );
+  const fila = r.rows[0];
+  if (!fila) return null;
+  return fila.oculta
+    ? `Ya existe «${fila.nombre}», oculta. Usa "Mostrar" para volver a ofrecerla.`
+    : `Ya existe «${fila.nombre}».`;
+}
+
+/** Crea una temática del panel: aprobada y visible desde ya. Devuelve su id. */
+export async function crearTematica(nombre: string): Promise<ResultadoDelCatalogo<{ id: number }>> {
+  const clave = claveDeTematica(nombre);
+  const repetida = await errorDeRepetida(clave);
+  if (repetida) return { ok: false, error: repetida };
+  try {
+    const r = await pool.query<{ id: number }>(
+      `INSERT INTO tematicas (nombre, clave, origen, aprobada, oculta) VALUES ($1, $2, 'panel', true, false) RETURNING id`,
+      [nombre, clave],
+    );
+    return { ok: true, id: r.rows[0].id };
+  } catch (error) {
+    // Otra pestaña la creó entre la consulta y el INSERT (clave UNIQUE).
+    if ((error as { code?: string }).code === "23505") return { ok: false, error: `Ya existe «${nombre}».` };
+    throw error;
+  }
+}
+
+/**
+ * Cambia el nombre de una temática que no es base y lo actualiza, en la misma transacción, en los
+ * intereses de los perfiles (sin repetir, en el mismo lugar) y en las campañas (`tematica` y `tag`,
+ * que guarda lo mismo en las viejas). Devuelve el nombre anterior y cuántos perfiles y campañas cambiaron.
+ */
+export async function renombrarTematica(
+  id: number,
+  nombre: string,
+): Promise<ResultadoDelCatalogo<{ anterior: string; perfiles: number; campanas: number }>> {
+  const clave = claveDeTematica(nombre);
+  const repetida = await errorDeRepetida(clave, id);
+  if (repetida) return { ok: false, error: repetida };
+
+  const cliente = await pool.connect();
+  try {
+    await cliente.query("BEGIN");
+    const fila = await cliente.query<{ nombre: string; origen: OrigenDeTematica }>(
+      `SELECT nombre, origen FROM tematicas WHERE id = $1 FOR UPDATE`,
+      [id],
+    );
+    const actual = fila.rows[0];
+    if (!actual) {
+      await cliente.query("ROLLBACK");
+      return { ok: false, error: "La temática no existe." };
+    }
+    if (actual.origen === "base") {
+      await cliente.query("ROLLBACK");
+      return { ok: false, error: "Las 23 temáticas base no se editan; puedes ocultarlas." };
+    }
+    if (actual.nombre === nombre) {
+      await cliente.query("ROLLBACK");
+      return { ok: true, anterior: actual.nombre, perfiles: 0, campanas: 0 };
+    }
+
+    await cliente.query(`UPDATE tematicas SET nombre = $2, clave = $3 WHERE id = $1`, [id, nombre, clave]);
+    const perfiles = await cliente.query(
+      `UPDATE usuarios u SET
+         intereses = (
+           SELECT COALESCE(jsonb_agg(valor ORDER BY lugar), '[]'::jsonb)
+           FROM (
+             SELECT valor, MIN(lugar) AS lugar
+             FROM (
+               SELECT CASE WHEN e.valor = $1 THEN $2 ELSE e.valor END AS valor, e.lugar
+               FROM jsonb_array_elements_text(u.intereses) WITH ORDINALITY AS e(valor, lugar)
+             ) cambiados
+             GROUP BY valor
+           ) sin_repetir
+         ),
+         updated_at = NOW()
+       WHERE u.intereses ? $1`,
+      [actual.nombre, nombre],
+    );
+    const campanas = await cliente.query(
+      `UPDATE campanas SET
+         tematica = CASE WHEN tematica = $1 THEN $2 ELSE tematica END,
+         tag = CASE WHEN tag = $1 THEN $2 ELSE tag END
+       WHERE tematica = $1 OR tag = $1`,
+      [actual.nombre, nombre],
+    );
+    await cliente.query("COMMIT");
+    return { ok: true, anterior: actual.nombre, perfiles: perfiles.rowCount ?? 0, campanas: campanas.rowCount ?? 0 };
+  } catch (error) {
+    await cliente.query("ROLLBACK");
+    if ((error as { code?: string }).code === "23505") return { ok: false, error: `Ya existe «${nombre}».` };
+    throw error;
+  } finally {
+    cliente.release();
+  }
+}
+
+/**
+ * Borra una temática que no es base y la quita de los perfiles. Si alguna campaña (de cualquier
+ * estado) la usa, no se borra: se pide ocultarla (decisión del usuario, 2026-10-26).
+ */
+export async function borrarTematica(id: number): Promise<ResultadoDelCatalogo<{ nombre: string; perfiles: number }>> {
+  const cliente = await pool.connect();
+  try {
+    await cliente.query("BEGIN");
+    const fila = await cliente.query<{ nombre: string; origen: OrigenDeTematica }>(
+      `SELECT nombre, origen FROM tematicas WHERE id = $1 FOR UPDATE`,
+      [id],
+    );
+    const actual = fila.rows[0];
+    if (!actual) {
+      await cliente.query("ROLLBACK");
+      return { ok: false, error: "La temática no existe." };
+    }
+    if (actual.origen === "base") {
+      await cliente.query("ROLLBACK");
+      return { ok: false, error: "Las 23 temáticas base no se borran; puedes ocultarlas." };
+    }
+    const enCampanas = await cliente.query<{ n: number }>(
+      `SELECT COUNT(*)::int AS n FROM campanas c WHERE COALESCE(NULLIF(c.tematica, ''), c.tag) = $1`,
+      [actual.nombre],
+    );
+    const n = enCampanas.rows[0]?.n ?? 0;
+    if (n > 0) {
+      await cliente.query("ROLLBACK");
+      return {
+        ok: false,
+        error: `No se puede borrar: la ${n === 1 ? "usa 1 campaña" : `usan ${n} campañas`}. Ocúltala para que ya no se ofrezca.`,
+      };
+    }
+    await cliente.query(`DELETE FROM tematicas WHERE id = $1`, [id]);
+    const perfiles = await cliente.query(
+      `UPDATE usuarios SET intereses = intereses - $1::text, updated_at = NOW() WHERE intereses ? $1`,
+      [actual.nombre],
+    );
+    await cliente.query("COMMIT");
+    return { ok: true, nombre: actual.nombre, perfiles: perfiles.rowCount ?? 0 };
   } catch (error) {
     await cliente.query("ROLLBACK");
     throw error;

@@ -20,7 +20,7 @@ export const CAMPOS_DE_EDICION_LIMITADA = new Set(["goalContributions", "goal_co
 
 /**
  * Pausada (2026-10-22, a pedido del usuario): además nombre, descripción, temática, tipos de dato
- * (con la cuota y su reparto, que dependen de ellos), checklists (texto y orden), inicio y ubicación.
+ * (con la cuota, que depende de ellos), checklists (texto y orden), inicio y ubicación.
  * Sigue pausada y se avisa a quien la supervisa. La organización no cambia.
  */
 export const CAMPOS_EDITABLES_EN_PAUSA = new Set([
@@ -37,7 +37,6 @@ export const CAMPOS_EDITABLES_EN_PAUSA = new Set([
   "checklist_opciones",
   "quotaPerUser",
   "quota_per_user",
-  "cuotaPorTipo",
   "startDate",
   "start_date",
   "startTime",
@@ -60,7 +59,6 @@ export const COLUMNAS_AVISADAS_EN_PAUSA = [
   "checklist_secciones",
   "goal_contributions",
   "quota_per_user",
-  "cuota_por_tipo",
   "start_date",
   "start_time",
   "end_date",

@@ -26,7 +26,7 @@ import {
 } from "@/lib/campanas/especial-reglas";
 
 const ORDEN_DE_TIPOS: DataType[] = ["texto", "foto", "documento", "audio", "video"];
-const NOMBRE_DEL_TIPO: Record<DataType, string> = { texto: "Texto", foto: "Foto", documento: "Documento", audio: "Audio", video: "Video" };
+const NOMBRE_DEL_TIPO: Record<DataType, string> = { texto: "Texto", foto: "Foto", documento: "Archivo", audio: "Audio", video: "Video" };
 
 function hoy(): string {
   const d = new Date();

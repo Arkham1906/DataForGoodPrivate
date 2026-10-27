@@ -8,6 +8,8 @@
 //     la pista se conecta con aria-describedby.
 //   - Si no (varios controles juntos: fecha y hora, botones de opción), los hijos van en un grupo
 //     (role="group") que toma su nombre de la etiqueta. Así no se le cambia el nombre a ningún botón.
+//   - `error` (2026-10-27): el motivo en rojo debajo del campo; el control lleva aria-invalid (su borde
+//     se pone rojo con la variante aria-invalid: de Input, Textarea y los select) y el grupo, un contorno rojo.
 
 import { Children, cloneElement, isValidElement, useId, type ReactElement, type ReactNode } from "react";
 
@@ -29,15 +31,19 @@ export default function CampoEtiquetado({
   label,
   hint,
   required,
+  error,
   children,
 }: {
   label: string;
   hint?: string;
   required?: boolean;
+  /** Qué está mal en el campo; null o vacío si nada. */
+  error?: string | null;
   children: ReactNode;
 }) {
   const base = useId();
   const idPista = hint ? `${base}-pista` : undefined;
+  const idError = error ? `${base}-error` : undefined;
   const hijos = Children.toArray(children);
   const primero = hijos[0];
   const claseEtiqueta = "mb-1.5 block text-[13px] font-medium text-system-900";
@@ -51,17 +57,23 @@ export default function CampoEtiquetado({
       {hint}
     </p>
   );
+  const mensajeDeError = error && (
+    <p id={idError} className="mt-1.5 text-[12px] font-medium text-error-700">
+      {error}
+    </p>
+  );
 
   if (esControl(primero)) {
     const idControl = primero.props.id ?? `${base}-campo`;
-    const describe = [primero.props["aria-describedby"], idPista].filter(Boolean).join(" ") || undefined;
+    const describe = [primero.props["aria-describedby"], idError, idPista].filter(Boolean).join(" ") || undefined;
     return (
       <div className="mb-4">
         <label htmlFor={idControl} className={claseEtiqueta}>
           {contenidoEtiqueta}
         </label>
-        {cloneElement(primero, { id: idControl, "aria-describedby": describe })}
+        {cloneElement(primero, { id: idControl, "aria-describedby": describe, ...(error ? { "aria-invalid": true } : {}) })}
         {hijos.slice(1)}
+        {mensajeDeError}
         {pista}
       </div>
     );
@@ -73,9 +85,15 @@ export default function CampoEtiquetado({
       <span id={idEtiqueta} className={claseEtiqueta}>
         {contenidoEtiqueta}
       </span>
-      <div role="group" aria-labelledby={idEtiqueta} aria-describedby={idPista}>
+      <div
+        role="group"
+        aria-labelledby={idEtiqueta}
+        aria-describedby={[idError, idPista].filter(Boolean).join(" ") || undefined}
+        className={error ? "rounded ring-2 ring-error-700 ring-offset-2" : undefined}
+      >
         {children}
       </div>
+      {mensajeDeError}
       {pista}
     </div>
   );

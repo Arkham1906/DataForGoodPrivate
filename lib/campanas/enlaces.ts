@@ -14,7 +14,6 @@ import { tiposAceptados, type TipoDeArchivo } from "@/lib/aportes/archivo";
 import { normalizeCampaignDate } from "@/lib/campaign-date";
 import { seccionesDesdeFila, type SeccionDeChecklist } from "@/lib/campanas/checklist";
 import { pausaDesdeFila, type PausaDeCampana } from "@/lib/campanas/pausa";
-import { normalizarCuotaPorTipo, type CuotaPorTipo } from "@/lib/campanas/cuota-por-tipo";
 import { pool } from "@/lib/db";
 import { quienOrganiza } from "@/lib/campanas/organizacion";
 
@@ -200,7 +199,6 @@ export type CampanaDelEnlace = {
   aportesAprobados: number;
   cuotaPorPersona: number;
   /** Reparto de la cuota por tipo de dato; null = solo la cuota general. */
-  cuotaPorTipo: CuotaPorTipo | null;
   fechaFin: string | null;
   /** Checklists que el participante puede marcar (el formulario anónimo los muestra). */
   secciones: SeccionDeChecklist[];
@@ -222,7 +220,7 @@ export async function buscarEnlacePorToken(token: string): Promise<ResultadoDeTo
   const { rows } = await pool.query(
     `SELECT e.*, (SELECT COUNT(*) FROM aportes a WHERE a.enlace_id = e.id)::int AS aportes_recibidos,
             c.name, c.description, c.tematica, c.tag, c.organizer, c.creator_name, c.location_city, c.location_state, c.todo_el_pais,
-            c.status, c.goal_contributions, c.approved_contributions, c.quota_per_user, c.cuota_por_tipo, c.end_date,
+            c.status, c.goal_contributions, c.approved_contributions, c.quota_per_user, c.end_date,
             c.checklist_secciones, c.checklist_opciones, c.collection_mode, c.permite_anonimos, c.data_types,
             c.pausa_por, c.pausa_motivo, c.pausada_en
      FROM campana_enlaces e
@@ -248,7 +246,6 @@ export async function buscarEnlacePorToken(token: string): Promise<ResultadoDeTo
     meta: Number(row.goal_contributions ?? 0),
     aportesAprobados: Number(row.approved_contributions ?? 0),
     cuotaPorPersona: Number(row.quota_per_user ?? 0),
-    cuotaPorTipo: normalizarCuotaPorTipo(row.cuota_por_tipo, Array.isArray(row.data_types) ? row.data_types : []),
     fechaFin: normalizeCampaignDate(row.end_date),
     secciones: seccionesDesdeFila(row),
     permiteAnonimos: row.permite_anonimos !== false,

@@ -21,7 +21,7 @@ const NOMBRE: Record<TipoDeArchivo, string> = {
   foto: "Foto",
   video: "Video",
   audio: "Audio",
-  documento: "Documento",
+  documento: "Archivo",
   texto: "Texto",
 };
 

@@ -429,7 +429,8 @@ paths:
                 apellidos: { type: string }
                 state: { type: string }
                 city: { type: string }
-                specialty: { type: string }
+                specialty: { type: string, description: "Del catálogo o nueva (entra al catálogo); 400 si no pasa la validación" }
+                organizacion: { type: string, maxLength: 160, description: "Organización a la que pertenece (2026-10-26), opcional; \"\" la borra. Del catálogo o nueva (entra al catálogo)" }
                 intereses: { type: array, items: { type: string }, maxItems: 20 }
                 interesesTexto: { type: string, maxLength: 500 }
             example: { interesesTexto: "Me gusta andar en bici y la fotografía", intereses: [Movilidad, Cultura] }
@@ -735,7 +736,7 @@ paths:
         - **Creador:** manda solo los campos a cambiar (mismos nombres que `CampaignInput`).
           Los campos permitidos dependen del estado actual; una campaña `finalizada` es de solo lectura.
           `aceptada` y `activa`: solo `goalContributions`, `endDate` y `endTime`. `pausada` (2026-10-22): además
-          `name`, `description`, `tematica`, `dataTypes`, `quotaPerUser`, `cuotaPorTipo`, `startDate`, `startTime`,
+          `name`, `description`, `tematica`, `dataTypes`, `quotaPerUser`, `startDate`, `startTime`,
           `checklistSecciones`, `todoElPais` y la ubicación (400 con `organizer`); sigue pausada y se avisa a su supervisor.
         - **Pausar y reanudar (solo el creador):** `{ "status": "pausada" }` sobre una `activa` y
           `{ "status": "activa" }` sobre una `pausada`, sin otros campos. Una pausada no recibe aportes
@@ -1091,6 +1092,24 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /api/campanas/{id}/metricas:
+    get:
+      tags: [Campañas]
+      summary: Métricas generales de una campaña propia
+      description: |
+        "Métricas generales" del panel (2026-10-27): tipos de dato
+        (recibidos, aprobados, rechazados, % aprobados, peso promedio), ubicación (participantes con
+        cuenta en la zona de la campaña y por estado, sin estado, dispositivos sin cuenta), origen de
+        los aportes, revisión (tasa, horas promedio, motivos de rechazo), participación y respuestas de
+        cada checklist entre los aprobados. Solo conteos. Solo quien creó la campaña.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200": { description: "Métricas en `data` (forma en lib/campanas/metricas-generales-tipos.ts)" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { description: Campaña no encontrada }
+
   /api/campanas/{id}/recoleccion-diaria:
     parameters:
       - $ref: "#/components/parameters/Id"
@@ -1268,11 +1287,11 @@ paths:
       description: |
         El archivo se sube a MinIO. Reglas: la campaña debe estar activa, no puedes
         ser su creador ni estar baneado, y no debes haber alcanzado tu cuota (se cuenta con
-        candado: dos envíos simultáneos no la pasan). Si la campaña reparte la cuota por tipo
-        (`cuotaPorTipo`), tampoco la de ese tipo (400 "Ya llegaste al máximo de N fotos..."). El archivo debe ser de un tipo que acepta
+        candado: dos envíos simultáneos no la pasan). La cuota vale para cualquier tipo de dato (desde el
+        2026-10-27 ya no hay límite por tipo). El archivo debe ser de un tipo que acepta
         la campaña (`dataTypes`) y su contenido debe coincidir con la extensión (se revisa la
         firma): foto .jpg/.jpeg/.png (10 MB), video .mp4/.mov/.webm (50 MB), audio
-        .mp3/.m4a/.wav/.ogg (20 MB), documento .pdf/.docx (20 MB) y texto .txt (1 MB). Fotos y
+        .mp3/.m4a/.wav/.ogg (20 MB), archivo .pdf/.docx/.pptx/.xlsx/.xls (20 MB) y texto .txt (1 MB). Fotos y
         documentos se guardan sin metadatos (EXIF con GPS, autor...); video y audio, tal cual. Si
         la campaña acepta texto, `file` es opcional. 413 si el cuerpo pasa de 51 MB. La persona debe
         estar inscrita a la campaña (aceptó los acuerdos con POST /api/campanas/{id}/inscripcion);
@@ -1731,6 +1750,55 @@ paths:
           description: No se pudo leer el catálogo
           content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
 
+  /api/organizaciones:
+    get:
+      tags: [Usuarios]
+      summary: Catálogo de organizaciones
+      description: |
+        Las organizaciones que sugieren /bienvenida, /cuenta y el formulario de campaña (2026-10-26): las
+        que ya usaban las campañas y las que escribieron los usuarios al guardar su perfil, en orden
+        alfabético. Una nueva que se manda en `PATCH /api/usuarios/{id}` (`organizacion`) se valida
+        (empieza con letra o número; letras, números, espacios y . , & ' " - / ( ) # °; de 2 a 160
+        caracteres; sin palabras inapropiadas; si no, 400) y entra a este catálogo.
+      responses:
+        "200":
+          description: Catálogo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { type: string } }
+              example: { data: [Colectivo Ambiental de Tepic, Cruz Roja Mexicana] }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500":
+          description: No se pudo leer el catálogo
+          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+
+  /api/especialidades:
+    get:
+      tags: [Usuarios]
+      summary: Catálogo de especialidades
+      description: |
+        Las especialidades que sugieren /bienvenida y /cuenta (2026-10-26): las de la lista base y las
+        que escribieron los usuarios al guardar su perfil, juntas en orden alfabético. Una especialidad
+        nueva que se manda en `PATCH /api/usuarios/{id}` (`specialty`) se valida (letras, espacios y
+        . , - / ( ); de 3 a 150 caracteres; sin palabras inapropiadas; si no, 400) y entra a este catálogo.
+      responses:
+        "200":
+          description: Catálogo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { type: string } }
+              example: { data: [Administración, Agronomía, Biología, Ingeniería agrícola] }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500":
+          description: No se pudo leer el catálogo
+          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+
   /api/eventos:
     get:
       tags: [Revisiones y notificaciones]
@@ -1994,6 +2062,7 @@ components:
         state: { type: string }
         city: { type: string }
         specialty: { type: string }
+        organizacion: { type: [string, "null"], description: "Organización a la que pertenece (2026-10-26)" }
         intereses: { type: array, items: { type: string } }
         intereses_texto: { type: [string, "null"], description: "Lo que escribió sobre sus gustos" }
         role: { type: string, enum: [usuario, supervisor, revisor, admin] }
@@ -2012,6 +2081,7 @@ components:
         state: { type: string }
         city: { type: string }
         specialty: { type: string }
+        organizacion: { type: string, description: "Opcional; una nueva se guarda en el perfil pero no entra al catálogo hasta que la cuenta guarde su perfil" }
         intereses: { type: array, items: { type: string }, description: "Solo temáticas que ya existen en el catálogo; las demás se ignoran" }
       example:
         nombre: Ana
@@ -2041,17 +2111,7 @@ components:
             Por compatibilidad, un `checklistOpciones` (lista plana) se guarda como un checklist titulado "Checklist".
           items: { $ref: "#/components/schemas/ChecklistSeccion" }
         goalContributions: { type: integer, minimum: 1 }
-        quotaPerUser: { type: integer, minimum: 1 }
-        cuotaPorTipo:
-          type: [object, "null"]
-          description: |
-            Reparto de quotaPerUser por tipo de dato, con dos tipos o más (p. ej. foto y audio con cuota 10 →
-            `{ "foto": 5, "audio": 5 }`). Fuera de borrador es obligatorio con dos tipos o más: cada tipo de
-            `dataTypes` con al menos 1 y la suma igual a quotaPerUser (400 si no). Con un tipo se ignora (null).
-            En el PATCH se revisa si llega este campo, la cuota o los tipos; las campañas activas, pausadas o
-            aceptadas no lo cambian.
-          additionalProperties: { type: integer, minimum: 1 }
-          example: { foto: 5, audio: 5 }
+        quotaPerUser: { type: integer, minimum: 1, description: "Máximo de aportes por persona, de cualquier tipo de dato (2026-10-27: ya no se reparte por tipo; `cuotaPorTipo` se ignora)" }
         startDate: { type: string, format: date }
         startTime: { type: string, example: "08:00" }
         endDate: { type: string, format: date }
@@ -2105,10 +2165,6 @@ components:
         checklistSecciones: { type: array, items: { $ref: "#/components/schemas/ChecklistSeccion" } }
         goalContributions: { type: integer }
         quotaPerUser: { type: integer }
-        cuotaPorTipo:
-          type: [object, "null"]
-          description: Reparto de quotaPerUser por tipo de dato; null = solo la cuota general (campañas de antes o con un tipo).
-          additionalProperties: { type: integer }
         currentContributions: { type: integer }
         approvedContributions: { type: integer }
         pendingContributions: { type: integer }

@@ -62,6 +62,7 @@ export default async function CuentaPage() {
           state: currentUser.state,
           city: currentUser.city,
           specialty: currentUser.specialty,
+          organizacion: currentUser.organizacion,
           intereses: currentUser.intereses,
           interesesTexto: currentUser.intereses_texto,
         }}

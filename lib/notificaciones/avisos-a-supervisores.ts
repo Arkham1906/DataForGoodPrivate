@@ -111,7 +111,6 @@ const NOMBRES_DE_CAMPOS: Record<string, string> = {
   checklist_secciones: "checklists",
   goal_contributions: "meta",
   quota_per_user: "cuota",
-  cuota_por_tipo: "cuota",
   start_date: "inicio",
   start_time: "inicio",
   end_date: "finalización",

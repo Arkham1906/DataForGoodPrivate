@@ -11,6 +11,7 @@ import Link from "next/link";
 import { Field, Input, Textarea } from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import Tag from "@/components/ui/Tag";
+import VentanaDeProblemas, { type ProblemaDeFormulario } from "@/components/ui/VentanaDeProblemas";
 import SelectorDeTemas from "@/components/ui/SelectorDeTemas";
 import type { Campaign, DataType } from "@/types";
 import { municipiosDe, NOMBRES_DE_ESTADOS } from "@/lib/mexico-geo";
@@ -23,14 +24,74 @@ import CampoDeFecha from "@/components/ui/CampoDeFecha";
 import AsaDeArrastre, { moverA } from "@/components/ui/AsaDeArrastre";
 import { errorDeFinAntesDeInicio, errorDeInicioPasado, hoyEnTepic } from "@/lib/fecha-de-tepic";
 import { LARGO_MAXIMO_ORGANIZACION } from "@/lib/campanas/organizacion";
+import CampoDeOrganizacion from "@/components/ui/CampoDeOrganizacion";
 import { ETIQUETA_DE_CAMPANA } from "@/lib/campanas/sistema-opciones";
 import { GuiaDePasos, TarjetaDePaso, type Paso } from "./PasosDeCampana";
-import {
-  ORDEN_DE_TIPOS,
-  errorDeCuotaPorTipo,
-  repartirCuota,
-  type CuotaPorTipo,
-} from "@/lib/campanas/cuota-por-tipo";
+import { repartoSugerido } from "@/lib/campanas/reparto-sugerido";
+
+/** Campos del formulario que pueden tener un problema al guardar (2026-10-27). "general": nada en particular. */
+type CampoDeCampana =
+  | "nombre"
+  | "descripcion"
+  | "tematica"
+  | "organizacion"
+  | "tipos"
+  | "checklists"
+  | "meta"
+  | "cuota"
+  | "inicio"
+  | "fin"
+  | "estado"
+  | "municipio"
+  | "general";
+type Problema = ProblemaDeFormulario & { campo: CampoDeCampana };
+
+/** En qué paso está cada campo: el paso se marca en rojo si alguno de sus campos tiene un problema. */
+const PASO_DEL_CAMPO: Record<CampoDeCampana, string | null> = {
+  nombre: "paso-datos",
+  descripcion: "paso-datos",
+  tematica: "paso-datos",
+  organizacion: "paso-datos",
+  tipos: "paso-recoleccion",
+  checklists: "paso-recoleccion",
+  meta: "paso-meta",
+  cuota: "paso-meta",
+  inicio: "paso-vigencia",
+  fin: "paso-vigencia",
+  estado: "paso-vigencia",
+  municipio: "paso-vigencia",
+  general: null,
+};
+
+/** A qué campo se refiere un error del servidor (400), por sus palabras; si no se sabe, "general". */
+function campoDelMensaje(mensaje: string): CampoDeCampana {
+  const m = mensaje.toLowerCase();
+  if (m.includes("checklist") || m.includes("opción")) return "checklists";
+  if (m.includes("tipo de dato") || m.includes("tipos de dato")) return "tipos";
+  if (m.includes("temática") || m.includes("tematica")) return "tematica";
+  if (m.includes("organización") || m.includes("organizacion")) return "organizacion";
+  if (m.includes("descripción") || m.includes("descripcion")) return "descripcion";
+  if (m.includes("nombre")) return "nombre";
+  if (m.includes("meta")) return "meta";
+  if (m.includes("cuota")) return "cuota";
+  if (m.includes("municipio")) return "municipio";
+  if (m.includes("inicio")) return "inicio";
+  if (m.includes("finaliza") || m.includes("cierre") || m.includes("fecha de fin")) return "fin";
+  if (m.includes("estado") && !m.includes("campañas activas")) return "estado";
+  return "general";
+}
+
+/** Lleva al campo: lo centra en pantalla y enfoca su primer control (data-campo en el control o su contenedor). */
+function irAlCampo(campo: string) {
+  const el = document.querySelector<HTMLElement>(`[data-campo="${campo}"]`);
+  if (!el) return;
+  const reducido = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  el.scrollIntoView({ behavior: reducido ? "auto" : "smooth", block: "center" });
+  const enfocable = el.matches("input, select, textarea, button")
+    ? el
+    : el.querySelector<HTMLElement>("input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])");
+  enfocable?.focus({ preventScroll: true });
+}
 
 /** Un checklist en edición; las `clave` solo sirven como key de React (el texto de una opción se edita). */
 type OpcionEditable = { clave: number; texto: string };
@@ -51,7 +112,7 @@ const DATA_TYPES: { value: DataType; label: string }[] = [
   { value: "foto", label: "Foto" },
   { value: "video", label: "Video" },
   { value: "audio", label: "Audio" },
-  { value: "documento", label: "Documento" },
+  { value: "documento", label: "Archivo" },
 ];
 
 // Opción "Todo el estado" del selector de municipio. Solo vive en el formulario:
@@ -149,6 +210,23 @@ function CampanaFormulario({
   const [name, setName] = useState(editingCampaign?.name ?? "");
   const [description, setDescription] = useState(editingCampaign?.description ?? "");
   const [organizer, setOrganizer] = useState(editingCampaign?.organizer ?? "");
+  // Campaña nueva: se propone la organización del perfil (2026-10-26, a pedido del usuario); el
+  // creador puede cambiarla o borrarla. Al editar, se queda la que tiene la campaña.
+  useEffect(() => {
+    if (editingCampaign) return;
+    let vigente = true;
+    fetch(`${BASE_PATH}/api/auth/sesion`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body) => {
+        const delPerfil = typeof body?.data?.organizacion === "string" ? (body.data.organizacion as string) : "";
+        // Solo si el creador todavía no escribió nada.
+        if (vigente && delPerfil) setOrganizer((actual) => actual || delPerfil);
+      })
+      .catch(() => {});
+    return () => {
+      vigente = false;
+    };
+  }, [editingCampaign]);
   // Una campaña nueva empieza sin temática, sin tipos de dato y con meta y cuota vacías
   // (2026-10-21, a pedido del usuario; antes venían "Medio ambiente", Foto, 500 y 10).
   const [theme, setTheme] = useState(editingCampaign?.tag ?? "");
@@ -174,31 +252,9 @@ function CampanaFormulario({
   // Un borrador guardado sin meta o sin cuota trae 0: se muestra vacío, no "0".
   const [goal, setGoal] = useState(editingCampaign?.goalContributions ? String(editingCampaign.goalContributions) : "");
   const [quota, setQuota] = useState(editingCampaign?.quotaPerUser ? String(editingCampaign.quotaPerUser) : "");
-  // Reparto de la cuota por tipo (lib/campanas/cuota-por-tipo.ts), como texto de cada campo.
-  // Se sugiere de nuevo al cambiar la cuota o los tipos; el creador ajusta cada número. Una
-  // campaña de antes sin reparto (y con dos tipos o más) abre con la sugerencia.
-  const [repartoTexto, setRepartoTexto] = useState<Record<string, string>>(() => {
-    const guardado =
-      editingCampaign?.cuotaPorTipo ??
-      repartirCuota(editingCampaign?.quotaPerUser ?? 0, editingCampaign?.dataTypes ?? []);
-    return Object.fromEntries(Object.entries(guardado).map(([t, n]) => [t, String(n)]));
-  });
-  const tiposConReparto = ORDEN_DE_TIPOS.filter((t) => dataTypes.includes(t));
-  const hayReparto = tiposConReparto.length >= 2;
-  const reparto: CuotaPorTipo | null = hayReparto
-    ? Object.fromEntries(tiposConReparto.map((t) => [t, Number(repartoTexto[t] || 0)]))
-    : null;
-  const sumaDelReparto = tiposConReparto.reduce((total, t) => total + Number(repartoTexto[t] || 0), 0);
-
-  function sugerirReparto(cuota: string, tipos: DataType[]) {
-    const sugerido = repartirCuota(Number(cuota), tipos);
-    setRepartoTexto(Object.fromEntries(Object.entries(sugerido).map(([t, n]) => [t, String(n)])));
-  }
-
-  function cambiarCuota(valor: string) {
-    setQuota(valor);
-    sugerirReparto(valor, dataTypes);
-  }
+  // Sin reparto de la cuota por tipo desde el 2026-10-27 (a pedido del usuario): la cuota vale
+  // para cualquier tipo y debajo solo se muestra un reparto sugerido (lib/campanas/reparto-sugerido.ts).
+  const sugerencia = repartoSugerido(Number(quota), dataTypes);
   const [startDate, setStartDate] = useState(editingCampaign?.startDate ?? "");
   const [startTime, setStartTime] = useState(editingCampaign?.startTime ?? "");
   const [endDate, setEndDate] = useState(editingCampaign?.endDate ?? "");
@@ -214,7 +270,13 @@ function CampanaFormulario({
   const [todoElPais, setTodoElPais] = useState(editingCampaign?.todoElPais ?? false);
   const [reactivando, setReactivando] = useState(false);
   const [reactivarError, setReactivarError] = useState<string | null>(null);
-  const [formError, setFormError] = useState<string | null>(null);
+  // Por qué no se puede guardar (2026-10-27, a pedido del usuario): al intentar guardar se juntan
+  // todos los problemas (problemasDe), se marcan sus campos y pasos en rojo y se explican en una
+  // ventana de la app (ui/VentanaDeProblemas). Después del primer intento se recalculan mientras se
+  // corrige; los del servidor (400) se quedan hasta el siguiente intento.
+  const [intento, setIntento] = useState<"borrador" | "revision" | null>(null);
+  const [problemasDelServidor, setProblemasDelServidor] = useState<Problema[]>([]);
+  const [ventanaDeProblemas, setVentanaDeProblemas] = useState<Problema[] | null>(null);
 
   const limiteActivasAlcanzado = activeCampaigns >= MAX_ACTIVE_CAMPAIGNS;
 
@@ -274,7 +336,6 @@ function CampanaFormulario({
   function toggleDataType(type: DataType) {
     const nuevos = dataTypes.includes(type) ? dataTypes.filter((t) => t !== type) : [...dataTypes, type];
     setDataTypes(nuevos);
-    sugerirReparto(quota, nuevos);
   }
 
   function cambiarChecklist(clave: number, cambios: Partial<ChecklistEditable>) {
@@ -387,68 +448,69 @@ function CampanaFormulario({
   // Solo se exige completo al enviar a revisión o al editar una campaña ya
   // aceptada/activa/pausada: un borrador puede quedar a medias a propósito
   // (es justo lo que permite seguir bajo el límite de 5 campañas activas).
-  function validar(asDraft: boolean): string | null {
+  function problemasDe(asDraft: boolean): Problema[] {
+    const lista: Problema[] = [];
+    const agregar = (campo: CampoDeCampana, mensaje: string | null | undefined) => {
+      if (mensaje) lista.push({ campo, mensaje });
+    };
+    const vacio = (n: string) => !Number(n) || Number(n) <= 0;
+
     if (editaEnPausa) {
-      if (!name.trim()) return "Falta el nombre de la campaña";
-      if (!description.trim()) return "Falta la descripción";
-      if (!theme) return "Elige una temática";
-      if (dataTypes.length === 0) return "Selecciona al menos un tipo de dato";
-      const errorDeChecklist = validarChecklists();
-      if (errorDeChecklist) return errorDeChecklist;
-      if (!Number(goal) || Number(goal) <= 0) return "La meta de aportes debe ser mayor a 0";
-      if (!Number(quota) || Number(quota) <= 0) return "La cuota por persona debe ser mayor a 0";
-      const errorDeReparto = errorDeCuotaPorTipo(Number(quota), dataTypes, reparto);
-      if (errorDeReparto) return errorDeReparto;
-      if (!startDate) return "Falta la fecha de inicio";
-      if (!endDate) return "Falta la fecha de finalización";
-      if (errorDeFechas) return errorDeFechas;
-      if (!todoElPais && !locationState) return "Selecciona un estado o marca que la campaña es para todo el país";
-      if (!todoElPais && !locationCity) return "Selecciona un municipio o \"Todo el estado\"";
-      return null;
+      if (!name.trim()) agregar("nombre", "Falta el nombre de la campaña");
+      if (!description.trim()) agregar("descripcion", "Falta la descripción");
+      if (!theme) agregar("tematica", "Elige una temática");
+      if (dataTypes.length === 0) agregar("tipos", "Selecciona al menos un tipo de dato");
+      agregar("checklists", validarChecklists());
+      if (vacio(goal)) agregar("meta", "La meta de aportes debe ser mayor a 0");
+      if (vacio(quota)) agregar("cuota", "La cuota por persona debe ser mayor a 0");
+      if (!startDate) agregar("inicio", "Falta la fecha de inicio");
+      else if (inicioMovido) agregar("inicio", errorDeInicioPasado(startDate));
+      if (!endDate) agregar("fin", "Falta la fecha de finalización");
+      else agregar("fin", errorDeFinAntesDeInicio(startDate, endDate));
+      if (!todoElPais && !locationState) agregar("estado", "Selecciona un estado o marca que la campaña es para todo el país");
+      else if (!todoElPais && !locationCity) agregar("municipio", "Selecciona un municipio o \"Todo el estado\"");
+      return lista;
     }
     if (edicionLimitada) {
-      if (!Number(goal) || Number(goal) <= 0) return "La meta de aportes debe ser mayor a 0";
-      if (!endDate) return "Falta la fecha de finalización";
-      return errorDeFinAntesDeInicio(startDate, endDate);
+      if (vacio(goal)) agregar("meta", "La meta de aportes debe ser mayor a 0");
+      if (!endDate) agregar("fin", "Falta la fecha de finalización");
+      else agregar("fin", errorDeFinAntesDeInicio(startDate, endDate));
+      return lista;
     }
 
-    // Nombre, descripción y temática los exige el servidor incluso en borrador.
-    if (!name.trim()) return "Falta el nombre de la campaña";
-    if (!description.trim()) return "Falta la descripción";
-    if (!theme) return "Elige una temática";
+    // Nombre, descripción, temática, checklists y fechas los exige el servidor incluso en borrador.
+    if (!name.trim()) agregar("nombre", "Falta el nombre de la campaña");
+    if (!description.trim()) agregar("descripcion", "Falta la descripción");
+    if (!theme) agregar("tematica", "Elige una temática");
+    agregar("checklists", validarChecklists());
+    agregar("inicio", errorDeInicioPasado(startDate));
+    agregar("fin", errorDeFinAntesDeInicio(startDate, endDate));
+    if (asDraft) return lista;
 
-    const errorDeChecklist = validarChecklists();
-    if (errorDeChecklist) return errorDeChecklist;
-
-    // También en borrador: el servidor rechaza un inicio antes de hoy o un fin antes del inicio.
-    const errorDeInicio = errorDeInicioPasado(startDate) ?? errorDeFinAntesDeInicio(startDate, endDate);
-    if (errorDeInicio) return errorDeInicio;
-
-    if (asDraft) return null;
-
-    if (dataTypes.length === 0) return "Selecciona al menos un tipo de dato";
-    if (!goal || Number(goal) <= 0) return "La meta de aportes debe ser mayor a 0";
-    if (!quota || Number(quota) <= 0) return "La cuota por persona debe ser mayor a 0";
-    const errorDeReparto = errorDeCuotaPorTipo(Number(quota), dataTypes, reparto);
-    if (errorDeReparto) return errorDeReparto;
-    if (!startDate) return "Falta la fecha de inicio";
-    if (!endDate) return "Falta la fecha de finalización";
-    if (!todoElPais && !locationState) return "Selecciona un estado o marca que la campaña es para todo el país";
-    if (!todoElPais && !locationCity) return "Selecciona un municipio o \"Todo el estado\"";
-
-    return null;
+    if (limitReached) {
+      agregar("general", `Ya tienes ${MAX_ACTIVE_CAMPAIGNS} campañas activas: guárdala como borrador y envíala cuando pauses o finalices otra`);
+    }
+    if (dataTypes.length === 0) agregar("tipos", "Selecciona al menos un tipo de dato");
+    if (vacio(goal)) agregar("meta", "La meta de aportes debe ser mayor a 0");
+    if (vacio(quota)) agregar("cuota", "La cuota por persona debe ser mayor a 0");
+    if (!startDate) agregar("inicio", "Falta la fecha de inicio");
+    if (!endDate) agregar("fin", "Falta la fecha de finalización");
+    if (!todoElPais && !locationState) agregar("estado", "Selecciona un estado o marca que la campaña es para todo el país");
+    else if (!todoElPais && !locationCity) agregar("municipio", "Selecciona un municipio o \"Todo el estado\"");
+    return lista;
   }
 
   async function handleSubmit(e: React.FormEvent, asDraft: boolean) {
     e.preventDefault();
     if (soloLectura) return;
 
-    const error = validar(asDraft);
-    if (error) {
-      setFormError(error);
+    const lista = problemasDe(asDraft);
+    setIntento(asDraft ? "borrador" : "revision");
+    setProblemasDelServidor([]);
+    if (lista.length > 0) {
+      setVentanaDeProblemas(lista);
       return;
     }
-    setFormError(null);
 
     // Activa o aceptada: solo se guardan meta y fecha/hora de fin. Pausada: también
     // lo de CAMPOS_EDITABLES_EN_PAUSA. En los tres el estado no se manda, así la
@@ -465,7 +527,6 @@ function CampanaFormulario({
           checklistSecciones,
           goalContributions: Number(goal),
           quotaPerUser: Number(quota),
-          cuotaPorTipo: reparto,
           startDate,
           startTime: startTime || null,
           endDate,
@@ -492,7 +553,6 @@ function CampanaFormulario({
           checklistSecciones,
           goalContributions: Number(goal),
           quotaPerUser: Number(quota),
-          cuotaPorTipo: reparto,
           startDate,
           startTime: startTime || null,
           endDate,
@@ -541,36 +601,37 @@ function CampanaFormulario({
       router.push("/mis-campanas");
     } catch (error) {
       console.error(editingCampaign ? "Error actualizando campaña" : "Error creando campaña", error);
-      setFormError(error instanceof Error ? error.message : "No se pudo guardar la campaña");
+      const mensaje = error instanceof Error ? error.message : "No se pudo guardar la campaña";
+      const problema: Problema = { campo: campoDelMensaje(mensaje), mensaje };
+      setProblemasDelServidor([problema]);
+      setVentanaDeProblemas([problema]);
     }
   }
 
-  const canPublish = editaEnPausa
-    ? Boolean(name) && Boolean(description) && Boolean(theme) && dataTypes.length > 0 && Boolean(goal) && Boolean(endDate)
-    : edicionLimitada
-    ? Boolean(goal) && Boolean(endDate)
-    : !limitReached && Boolean(name) && Boolean(description) && Boolean(theme) && dataTypes.length > 0;
-
-  // Cuándo está completo cada paso (solo informa: lo que se exige al enviar es validar()).
-  // En pausa el inicio que ya pasó se conserva; solo un inicio nuevo no puede ser antes de hoy.
   const inicioMovido = editaEnPausa && startDate !== (editingCampaign?.startDate ?? "");
+  // Problemas a la vista: después del primer intento de guardar, se recalculan mientras se corrige.
+  const errores: Problema[] = [...(intento ? problemasDe(intento === "borrador") : []), ...problemasDelServidor];
+  const errorDe = (campo: CampoDeCampana) =>
+    errores.filter((p) => p.campo === campo).map((p) => p.mensaje).join(". ") || null;
+  const pasosConProblemas = new Set(errores.map((p) => PASO_DEL_CAMPO[p.campo]).filter(Boolean));
+
+  // Cuándo está completo cada paso (solo informa: lo que se exige al enviar es problemasDe()).
+  // En pausa el inicio que ya pasó se conserva; solo un inicio nuevo no puede ser antes de hoy.
   const errorDeFechas = edicionLimitada && !inicioMovido
     ? errorDeFinAntesDeInicio(startDate, endDate)
     : (errorDeInicioPasado(startDate) ?? errorDeFinAntesDeInicio(startDate, endDate));
-  const pasos: Paso[] = [
-    { id: "paso-datos", titulo: "Datos básicos", completo: Boolean(name.trim() && description.trim() && theme) },
-    { id: "paso-recoleccion", titulo: "Qué se recolecta", completo: dataTypes.length > 0 && !validarChecklists() },
-    {
-      id: "paso-meta",
-      titulo: "Meta y cuota",
-      completo: Number(goal) > 0 && Number(quota) > 0 && !errorDeCuotaPorTipo(Number(quota), dataTypes, reparto),
-    },
-    {
-      id: "paso-vigencia",
-      titulo: "Vigencia y lugar",
-      completo: Boolean(startDate && endDate && !errorDeFechas && (todoElPais || (locationState && locationCity))),
-    },
-  ];
+  const pasos: Paso[] = (
+    [
+      { id: "paso-datos", titulo: "Datos básicos", completo: Boolean(name.trim() && description.trim() && theme) },
+      { id: "paso-recoleccion", titulo: "Qué se recolecta", completo: dataTypes.length > 0 && !validarChecklists() },
+      { id: "paso-meta", titulo: "Meta y cuota", completo: Number(goal) > 0 && Number(quota) > 0 },
+      {
+        id: "paso-vigencia",
+        titulo: "Vigencia y lugar",
+        completo: Boolean(startDate && endDate && !errorDeFechas && (todoElPais || (locationState && locationCity))),
+      },
+    ] satisfies Paso[]
+  ).map((p) => ({ ...p, conProblemas: pasosConProblemas.has(p.id) }));
   const noEditable = contenidoBloqueado ? "No se puede cambiar" : undefined;
 
   return (
@@ -629,19 +690,22 @@ function CampanaFormulario({
           <GuiaDePasos pasos={pasos} />
         </aside>
 
-        <form onSubmit={(e) => handleSubmit(e, false)}>
+        {/* noValidate: sin los globos del navegador; los problemas los explica la app (2026-10-27). */}
+        <form noValidate data-campo="general" className="scroll-mt-24" onSubmit={(e) => handleSubmit(e, false)}>
           <TarjetaDePaso
             id="paso-datos"
             numero={1}
             titulo="Datos básicos"
             descripcion="Cómo se llama la campaña, de qué trata y quién la impulsa."
             completo={pasos[0].completo}
+            conProblemas={pasos[0].conProblemas}
             aviso={editaEnPausa ? "La organización no se puede cambiar" : noEditable}
           >
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <div>
-                <Field label="Nombre de la campaña" required>
+                <Field label="Nombre de la campaña" required error={errorDe("nombre")}>
                   <Input
+                    data-campo="nombre"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     maxLength={80}
@@ -657,7 +721,10 @@ function CampanaFormulario({
                 <p className="mb-1.5 text-[13px] font-medium text-system-900">
                   Temática <span className="text-error-700">*</span>
                 </p>
-                <div className="mb-1">
+                <div
+                  data-campo="tematica"
+                  className={`mb-1 ${errorDe("tematica") ? "rounded ring-2 ring-error-700 ring-offset-2" : ""}`}
+                >
                   {/* El mismo selector de /cuenta, con una sola temática. opcionesCon conserva
                       la temática de una campaña vieja aunque ya no esté en la lista. */}
                   <SelectorDeTemas
@@ -669,14 +736,18 @@ function CampanaFormulario({
                     descripcion="Marca una; define en qué categoría aparece la campaña en el catálogo público."
                   />
                 </div>
+                {errorDe("tematica") && (
+                  <p className="mt-1.5 text-[12px] font-medium text-error-700">{errorDe("tematica")}</p>
+                )}
                 <p className="text-[11.5px] text-system-500">
                   Define en qué categoría aparece la campaña en el catálogo público.
                 </p>
               </div>
 
               <div>
-                <Field label="Descripción" required>
+                <Field label="Descripción" required error={errorDe("descripcion")}>
                   <Textarea
+                    data-campo="descripcion"
                     rows={5}
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
@@ -690,11 +761,18 @@ function CampanaFormulario({
                   {description.length} / 500
                 </p>
 
-                {/* Opcional (2026-10-15, a pedido del usuario): antes se mandaba siempre "Ayuntamiento de Tepic". */}
-                <Field label="Organización (opcional)" hint="La organización a la que perteneces o que impulsa la campaña. Se muestra como quien la organiza.">
-                  <Input
+                {/* Opcional (2026-10-15, a pedido del usuario): antes se mandaba siempre "Ayuntamiento de Tepic".
+                    Desde el 2026-10-26 sugiere del catálogo de organizaciones (no da de alta nada) y en una
+                    campaña nueva viene con la del perfil. */}
+                <Field
+                  label="Organización (opcional)"
+                  hint="La organización a la que perteneces o que impulsa la campaña. Se muestra como quien la organiza."
+                  error={errorDe("organizacion")}
+                >
+                  <CampoDeOrganizacion
+                    data-campo="organizacion"
                     value={organizer}
-                    onChange={(e) => setOrganizer(e.target.value)}
+                    onChange={setOrganizer}
                     maxLength={LARGO_MAXIMO_ORGANIZACION}
                     placeholder="Ej. Colectivo Ambiental de Tepic"
                     disabled={edicionLimitada}
@@ -711,6 +789,7 @@ function CampanaFormulario({
             titulo="Qué se recolecta"
             descripcion="Qué tipo de aporte se pide y cómo lo describe quien participa."
             completo={pasos[1].completo}
+            conProblemas={pasos[1].conProblemas}
             aviso={noEditable}
           >
             <div className="mb-6">
@@ -718,7 +797,13 @@ function CampanaFormulario({
                 Tipo de dato solicitado <span className="text-error-700">*</span>
               </p>
               <p className="mb-2.5 text-[12px] text-system-500">Marca uno o varios.</p>
-              <div className="flex flex-wrap gap-2">
+              <div
+                data-campo="tipos"
+                role="group"
+                aria-label="Tipo de dato solicitado"
+                aria-describedby={errorDe("tipos") ? "error-de-tipos" : undefined}
+                className={`flex flex-wrap gap-2 ${errorDe("tipos") ? "rounded-pill p-1 ring-2 ring-error-700" : ""}`}
+              >
                 {DATA_TYPES.map((dt) => (
                   <button
                     key={dt.value}
@@ -736,6 +821,7 @@ function CampanaFormulario({
                   </button>
                 ))}
               </div>
+              {errorDe("tipos") && <p id="error-de-tipos" className="mt-1.5 text-[12px] font-medium text-error-700">{errorDe("tipos")}</p>}
             </div>
 
             <div>
@@ -755,7 +841,12 @@ function CampanaFormulario({
 
               {/* data-orden-grupo / data-orden-elemento: lo que reacomoda ui/AsaDeArrastre. Mientras se arrastra,
                   el elemento lleva data-arrastrando. */}
-              <div data-orden-grupo className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              {errorDe("checklists") && (
+                <p className="mb-2.5 rounded-lg border border-error-700 bg-error-50 p-3 text-[12.5px] font-medium text-error-700">
+                  {errorDe("checklists")}
+                </p>
+              )}
+              <div data-orden-grupo data-campo="checklists" className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 {checklists.map((c, i) => (
                   <div
                     key={c.clave}
@@ -876,11 +967,13 @@ function CampanaFormulario({
             titulo="Meta y cuota"
             descripcion="Cuántos aportes aprobados busca la campaña y cuántos puede enviar cada persona."
             completo={pasos[2].completo}
+            conProblemas={pasos[2].conProblemas}
             aviso={contenidoBloqueado ? "Solo la meta se puede cambiar" : undefined}
           >
             <div className="grid max-w-xl grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field label="Meta total" required hint="Solo cuentan los aportes aprobados.">
+              <Field label="Meta total" required hint="Solo cuentan los aportes aprobados." error={errorDe("meta")}>
                 <Input
+                  data-campo="meta"
                   type="number"
                   min={1}
                   value={goal}
@@ -890,12 +983,13 @@ function CampanaFormulario({
                   className="font-mono"
                 />
               </Field>
-              <Field label="Cuota por persona" required hint="Máximo de aportes por participante.">
+              <Field label="Cuota por persona" required hint="Máximo de aportes por participante." error={errorDe("cuota")}>
                 <Input
+                  data-campo="cuota"
                   type="number"
                   min={1}
                   value={quota}
-                  onChange={(e) => cambiarCuota(e.target.value)}
+                  onChange={(e) => setQuota(e.target.value)}
                   placeholder="Ej. 10"
                   required={!contenidoBloqueado}
                   disabled={contenidoBloqueado}
@@ -904,40 +998,11 @@ function CampanaFormulario({
               </Field>
             </div>
 
-            {hayReparto && (
-              <div className="mt-1 max-w-xl rounded-lg border border-system-200 bg-system-50 p-4">
-                <p className="text-[13px] font-medium text-system-900">
-                  Cuota por tipo de dato <span className="text-error-700">*</span>
-                </p>
-                <p className="mb-3 mt-0.5 text-[12px] text-system-500">
-                  Cuántos de cada tipo puede enviar cada persona. Se sugiere en partes iguales; ajústalo si
-                  quieres más de un tipo que de otro. La suma debe dar la cuota por persona.
-                </p>
-                <div className="grid grid-cols-2 gap-x-3 sm:grid-cols-3">
-                  {tiposConReparto.map((tipo) => (
-                    <Field key={tipo} label={DATA_TYPES.find((d) => d.value === tipo)?.label ?? tipo}>
-                      <Input
-                        type="number"
-                        min={1}
-                        value={repartoTexto[tipo] ?? ""}
-                        onChange={(e) => setRepartoTexto((prev) => ({ ...prev, [tipo]: e.target.value }))}
-                        disabled={contenidoBloqueado}
-                        className="font-mono disabled:cursor-not-allowed disabled:opacity-50"
-                      />
-                    </Field>
-                  ))}
-                </div>
-                <p
-                  className={`text-[12px] font-medium ${
-                    Number(quota) > 0 && sumaDelReparto === Number(quota) ? "text-success-700" : "text-error-700"
-                  }`}
-                  aria-live="polite"
-                >
-                  {Number(quota) > 0
-                    ? `Suma ${sumaDelReparto} de ${Number(quota)}`
-                    : "Escribe primero la cuota por persona"}
-                </p>
-              </div>
+            {sugerencia && (
+              <p className="mt-1 max-w-xl text-[12px] text-system-500" aria-live="polite">
+                La cuota vale para cualquier tipo de dato. A quien aporte se le sugerirá balancearlos:{" "}
+                <span className="font-medium text-system-700">{sugerencia}</span>.
+              </p>
             )}
           </TarjetaDePaso>
 
@@ -947,14 +1012,15 @@ function CampanaFormulario({
             titulo="Vigencia y lugar"
             descripcion="Cuándo recibe aportes y en qué parte del país."
             completo={pasos[3].completo}
+            conProblemas={pasos[3].conProblemas}
             aviso={contenidoBloqueado ? "Solo la finalización se puede cambiar" : undefined}
           >
             <p className="mb-3 text-[12px] text-system-500">
               La hora es opcional: sin hora, la campaña activa o finaliza desde el inicio de ese día.
             </p>
             <div className="mb-2 grid max-w-xl grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field label="Inicio" required>
-                <div className="flex gap-2">
+              <Field label="Inicio" required error={errorDe("inicio")}>
+                <div data-campo="inicio" className="flex gap-2">
                   <CampoDeFecha
                     value={startDate}
                     min={edicionLimitada ? undefined : hoyEnTepic()}
@@ -973,8 +1039,8 @@ function CampanaFormulario({
                   />
                 </div>
               </Field>
-              <Field label="Finalización" required>
-                <div className="flex gap-2">
+              <Field label="Finalización" required error={errorDe("fin")}>
+                <div data-campo="fin" className="flex gap-2">
                   <CampoDeFecha
                     value={endDate}
                     min={startDate || (edicionLimitada ? undefined : hoyEnTepic())}
@@ -992,7 +1058,7 @@ function CampanaFormulario({
                 </div>
               </Field>
             </div>
-            {errorDeFechas && (startDate || endDate) && (
+            {errorDeFechas && (startDate || endDate) && !errorDe("inicio") && !errorDe("fin") && (
               <p className="-mt-2 mb-4 text-[12px] text-error-700">{errorDeFechas}</p>
             )}
 
@@ -1018,13 +1084,14 @@ function CampanaFormulario({
 
             {!todoElPais && (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <Field label="Estado" required>
+                <Field label="Estado" required error={errorDe("estado")}>
                   <select
+                    data-campo="estado"
                     value={locationState}
                     onChange={(e) => cambiarEstado(e.target.value)}
                     required={!contenidoBloqueado}
                     disabled={contenidoBloqueado}
-                    className="w-full rounded border border-system-300 bg-white px-3.5 py-3 text-sm text-system-900 outline-none transition-colors focus:border-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="w-full rounded border border-system-300 bg-white px-3.5 py-3 text-sm text-system-900 outline-none transition-colors focus:border-brand-600 aria-invalid:border-error-700 aria-invalid:bg-error-50 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <option value="">Selecciona un estado</option>
                     {opcionesCon(locationState, NOMBRES_DE_ESTADOS).map((opcion) => (
@@ -1032,13 +1099,14 @@ function CampanaFormulario({
                     ))}
                   </select>
                 </Field>
-                <Field label="Municipio" required>
+                <Field label="Municipio" required error={errorDe("municipio")}>
                   <select
+                    data-campo="municipio"
                     value={locationCity}
                     onChange={(e) => cambiarMunicipio(e.target.value)}
                     required={!contenidoBloqueado}
                     disabled={!locationState || contenidoBloqueado}
-                    className="w-full rounded border border-system-300 bg-white px-3.5 py-3 text-sm text-system-900 outline-none transition-colors focus:border-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="w-full rounded border border-system-300 bg-white px-3.5 py-3 text-sm text-system-900 outline-none transition-colors focus:border-brand-600 aria-invalid:border-error-700 aria-invalid:bg-error-50 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <option value="">
                       {locationState ? "Selecciona un municipio" : "Primero selecciona un estado"}
@@ -1078,9 +1146,18 @@ function CampanaFormulario({
                 " Los aportes que ya llegaron no cambian, aunque su tipo de dato ya no se pida. Quien la supervisa recibe un aviso de lo que cambiaste."}
             </div>
           )}
-          {formError && (
-            <div className="mb-6 max-w-lg rounded-lg border border-error-700 bg-error-50 p-4 text-[12.5px] text-error-700">
-              {formError}
+          {errores.length > 0 && (
+            <div
+              role="alert"
+              className="mb-6 flex max-w-lg flex-wrap items-center justify-between gap-3 rounded-lg border border-error-700 bg-error-50 p-4 text-[12.5px] text-error-700"
+            >
+              <span>
+                <b>No se puede guardar todavía.</b>{" "}
+                {errores.length === 1 ? "Hay 1 cosa por corregir" : `Hay ${errores.length} cosas por corregir`}: están marcadas en rojo.
+              </span>
+              <Button type="button" size="sm" variant="danger" onClick={() => setVentanaDeProblemas(errores)}>
+                Ver qué falta
+              </Button>
             </div>
           )}
 
@@ -1094,13 +1171,22 @@ function CampanaFormulario({
                   Guardar borrador
                 </Button>
               )}
-              <Button variant="primary" type="submit" disabled={!canPublish}>
+              {/* Siempre activo (2026-10-27): si falta algo, al tocarlo se explica qué. */}
+              <Button variant="primary" type="submit">
                 {edicionLimitada ? "Guardar cambios" : "Enviar a revisión"}
               </Button>
             </div>
           </div>
         </form>
       </div>
+
+      <VentanaDeProblemas
+        abierto={ventanaDeProblemas !== null}
+        titulo={editingCampaign ? "No se pudo guardar la campaña" : "Todavía no se puede guardar la campaña"}
+        problemas={ventanaDeProblemas ?? []}
+        onCerrar={() => setVentanaDeProblemas(null)}
+        alIr={irAlCampo}
+      />
     </div>
   );
 }

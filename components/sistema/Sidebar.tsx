@@ -10,7 +10,9 @@ import { claseDeOpcionMarcada, useIndicadorDeMenu } from "@/components/ui/useInd
 
 import {
   IconoAportes,
+  IconoBirrete,
   IconoCampanas,
+  IconoEdificio,
   IconoEscudo,
   IconoEtiqueta,
   IconoInicio,
@@ -47,6 +49,10 @@ const MENU: Entrada[] = [
   { href: "/aportes", etiqueta: "Aportes", Icono: IconoAportes, seccion: ["/aportes"] },
   // Lleva el número de temáticas nuevas por revisar (2026-10-19).
   { href: "/sistema/tematicas", etiqueta: "Temáticas", Icono: IconoEtiqueta, seccion: ["/sistema/tematicas"] },
+  // Catálogo de especialidades del perfil (2026-10-26).
+  { href: "/sistema/especialidades", etiqueta: "Especialidades", Icono: IconoBirrete, seccion: ["/sistema/especialidades"] },
+  // Catálogo de organizaciones del perfil (2026-10-26).
+  { href: "/sistema/organizaciones", etiqueta: "Organizaciones", Icono: IconoEdificio, seccion: ["/sistema/organizaciones"] },
   {
     // Reportes y sanciones están dentro (2026-10-13): lleva el número de reportes pendientes.
     href: "/supervisar",

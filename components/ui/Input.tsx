@@ -9,6 +9,8 @@ interface FieldWrapperProps {
   label: string;
   hint?: string;
   required?: boolean;
+  /** Qué está mal en el campo (2026-10-27): borde rojo y el motivo debajo. */
+  error?: string | null;
   children: React.ReactNode;
 }
 
@@ -21,7 +23,7 @@ export const Input = marcarComoControl(function Input(props: InputHTMLAttributes
   return (
     <input
       {...props}
-      className={`w-full rounded border border-system-300 bg-white px-3.5 py-3 text-sm text-system-900 outline-none transition-colors focus:border-brand-600 ${
+      className={`w-full rounded border border-system-300 bg-white px-3.5 py-3 text-sm text-system-900 outline-none transition-colors focus:border-brand-600 aria-invalid:border-error-700 aria-invalid:bg-error-50 ${
         props.className ?? ""
       }`}
     />
@@ -32,7 +34,7 @@ export const Textarea = marcarComoControl(function Textarea(props: TextareaHTMLA
   return (
     <textarea
       {...props}
-      className={`w-full rounded border border-system-300 bg-white px-3.5 py-3 text-sm text-system-900 outline-none transition-colors focus:border-brand-600 ${
+      className={`w-full rounded border border-system-300 bg-white px-3.5 py-3 text-sm text-system-900 outline-none transition-colors focus:border-brand-600 aria-invalid:border-error-700 aria-invalid:bg-error-50 ${
         props.className ?? ""
       }`}
     />

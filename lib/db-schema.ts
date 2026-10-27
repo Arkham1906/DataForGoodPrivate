@@ -1,5 +1,6 @@
 import { pool } from "@/lib/db";
 import { TEMAS_DE_INTERES } from "@/lib/intereses";
+import { ESPECIALIDADES, claveDeCatalogo, validarEspecialidad, validarOrganizacion } from "@/lib/perfil-opciones";
 import { claveDeTematica } from "@/lib/tematicas/analizar";
 import { ensureAvisosDeCambios } from "@/lib/en-vivo-postgres";
 
@@ -26,6 +27,8 @@ export async function ensureUsuariosTable(): Promise<void> {
       state VARCHAR(100),
       city VARCHAR(100),
       specialty VARCHAR(150),
+      -- Organización a la que pertenece (2026-10-26, opcional; catálogo en lib/usuarios/organizaciones.ts).
+      organizacion VARCHAR(160),
       intereses JSONB NOT NULL DEFAULT '[]'::jsonb,
       -- Lo que la persona escribió sobre sus gustos; de ahí salen sus intereses (lib/tematicas/analizar.ts).
       intereses_texto VARCHAR(500),
@@ -69,6 +72,7 @@ export async function ensureUsuariosTable(): Promise<void> {
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS state VARCHAR(100);
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS city VARCHAR(100);
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS specialty VARCHAR(150);
+    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS organizacion VARCHAR(160);
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS intereses JSONB NOT NULL DEFAULT '[]'::jsonb;
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS intereses_texto VARCHAR(500);
     -- Preferencias de /cuenta: "Campañas nuevas" (avisos por temática y ubicación, 2026-10-14).
@@ -145,7 +149,8 @@ export async function ensureCampanasTable(): Promise<void> {
       checklist_secciones JSONB NOT NULL DEFAULT '[]'::jsonb,
       goal_contributions INTEGER NOT NULL DEFAULT 0,
       quota_per_user INTEGER NOT NULL DEFAULT 1,
-      -- Reparto de la cuota por tipo de dato ({"foto": 5, "audio": 5}); NULL = solo la cuota general (lib/campanas/cuota-por-tipo.ts).
+      -- Reparto de la cuota por tipo de dato (2026-10-21 al 2026-10-27). SIN USO: hoy solo vale la cuota
+      -- general y el reparto es una sugerencia (lib/campanas/reparto-sugerido.ts). Se deja la columna con sus datos.
       cuota_por_tipo JSONB,
       current_contributions INTEGER NOT NULL DEFAULT 0,
       approved_contributions INTEGER NOT NULL DEFAULT 0,
@@ -610,12 +615,15 @@ export async function ensureTematicasTable(): Promise<void> {
       id SERIAL PRIMARY KEY,
       nombre VARCHAR(60) NOT NULL,
       clave VARCHAR(60) NOT NULL UNIQUE,
-      origen VARCHAR(10) NOT NULL DEFAULT 'usuario' CHECK (origen IN ('base', 'usuario')),
+      origen VARCHAR(10) NOT NULL DEFAULT 'usuario' CHECK (origen IN ('base', 'usuario', 'panel')),
       creada_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
       oculta BOOLEAN NOT NULL DEFAULT false,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     ALTER TABLE tematicas ADD COLUMN IF NOT EXISTS aprobada BOOLEAN NOT NULL DEFAULT true;
+    -- 'panel' (2026-10-26): las que crea el SuperUsuario en /sistema/tematicas.
+    ALTER TABLE tematicas DROP CONSTRAINT IF EXISTS tematicas_origen_check;
+    ALTER TABLE tematicas ADD CONSTRAINT tematicas_origen_check CHECK (origen IN ('base', 'usuario', 'panel'));
     -- Desde el 2026-10-22 rechazar borra la temática (lib/tematicas/catalogo.ts, rechazar); las que
     -- se rechazaron antes quedaban ocultas sin aprobar. Ya se quitaron de los perfiles al rechazarlas.
     -- Después de la primera vez no borra nada.
@@ -628,6 +636,89 @@ export async function ensureTematicasTable(): Promise<void> {
      ON CONFLICT (clave) DO NOTHING`,
     [TEMAS_DE_INTERES, TEMAS_DE_INTERES.map(claveDeTematica)],
   );
+}
+
+/**
+ * Catálogo de especialidades del perfil (2026-10-26, lib/usuarios/especialidades.ts): empieza con
+ * ESPECIALIDADES de lib/perfil-opciones.ts y crece con lo que escriben los usuarios, que se ofrece
+ * a todos. `clave` sin acentos ni mayúsculas para no repetir. usuarios.specialty guarda el nombre.
+ */
+export async function ensureEspecialidadesTable(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS especialidades (
+      id SERIAL PRIMARY KEY,
+      nombre VARCHAR(150) NOT NULL,
+      clave VARCHAR(150) NOT NULL UNIQUE,
+      origen VARCHAR(10) NOT NULL DEFAULT 'usuario' CHECK (origen IN ('base', 'usuario', 'panel')),
+      creada_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    -- 'panel': las que crea el SuperUsuario en /sistema/especialidades.
+    ALTER TABLE especialidades DROP CONSTRAINT IF EXISTS especialidades_origen_check;
+    ALTER TABLE especialidades ADD CONSTRAINT especialidades_origen_check CHECK (origen IN ('base', 'usuario', 'panel'));
+  `);
+  // ON CONFLICT: repetirlo en cada arranque es inofensivo. Si alguien ya había escrito una que
+  // ahora es base, se marca como base.
+  await pool.query(
+    `INSERT INTO especialidades (nombre, clave, origen)
+     SELECT nombre, clave, 'base' FROM unnest($1::text[], $2::text[]) AS t(nombre, clave)
+     ON CONFLICT (clave) DO UPDATE SET origen = 'base', nombre = EXCLUDED.nombre`,
+    [ESPECIALIDADES, ESPECIALIDADES.map(claveDeCatalogo)],
+  );
+  // Las que ya estaban escritas en los perfiles (antes del catálogo) también se ofrecen, si pasan
+  // la validación de hoy. Después de la primera vez no inserta nada.
+  const escritas = await pool.query<{ specialty: string }>(
+    `SELECT DISTINCT specialty FROM usuarios WHERE COALESCE(specialty, '') <> '' AND eliminada_en IS NULL`,
+  );
+  const validas = escritas.rows
+    .map((r) => validarEspecialidad(r.specialty))
+    .filter((v): v is { ok: true; nombre: string } => v.ok)
+    .map((v) => v.nombre);
+  if (validas.length > 0) {
+    await pool.query(
+      `INSERT INTO especialidades (nombre, clave, origen)
+       SELECT nombre, clave, 'usuario' FROM unnest($1::text[], $2::text[]) AS t(nombre, clave)
+       ON CONFLICT (clave) DO NOTHING`,
+      [validas, validas.map(claveDeCatalogo)],
+    );
+  }
+}
+
+/**
+ * Catálogo de organizaciones (2026-10-26, lib/usuarios/organizaciones.ts): a cuál pertenece cada
+ * persona (usuarios.organizacion, una y opcional). Sin lista base. La primera vez (tabla vacía) se
+ * siembra con las que ya usaban las campañas (campanas.organizer) y pasan la validación; después
+ * crece con lo que escriben los usuarios, y el SuperUsuario la administra en /sistema/organizaciones.
+ * Solo se siembra una vez para que una borrada en el panel no vuelva al arrancar.
+ */
+export async function ensureOrganizacionesTable(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS organizaciones (
+      id SERIAL PRIMARY KEY,
+      nombre VARCHAR(160) NOT NULL,
+      clave VARCHAR(160) NOT NULL UNIQUE,
+      origen VARCHAR(10) NOT NULL DEFAULT 'usuario' CHECK (origen IN ('base', 'usuario', 'panel')),
+      creada_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+  const vacia = await pool.query(`SELECT 1 FROM organizaciones LIMIT 1`);
+  if ((vacia.rowCount ?? 0) > 0) return;
+  const escritas = await pool.query<{ organizer: string }>(
+    `SELECT DISTINCT organizer FROM campanas WHERE COALESCE(organizer, '') <> ''`,
+  );
+  const validas = escritas.rows
+    .map((r) => validarOrganizacion(r.organizer))
+    .filter((v): v is { ok: true; nombre: string } => v.ok)
+    .map((v) => v.nombre);
+  if (validas.length > 0) {
+    await pool.query(
+      `INSERT INTO organizaciones (nombre, clave, origen)
+       SELECT nombre, clave, 'usuario' FROM unnest($1::text[], $2::text[]) AS t(nombre, clave)
+       ON CONFLICT (clave) DO NOTHING`,
+      [validas, validas.map(claveDeCatalogo)],
+    );
+  }
 }
 
 /**
@@ -683,6 +774,8 @@ export async function ensureCoreSchema(): Promise<void> {
   await ensureListaNegraTable();
   await ensureAuditLogTable();
   await ensureTematicasTable(); // después de usuarios: creada_por la referencia
+  await ensureEspecialidadesTable(); // después de usuarios: creada_por la referencia
+  await ensureOrganizacionesTable(); // después de usuarios y campanas: creada_por y la siembra
   await ensureMedallasTables(); // después de usuarios: medallas_usuario.usuario_id la referencia
   await ensureAvisosDeCambios(); // al final: pone triggers en las tablas de arriba
 }

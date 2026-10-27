@@ -53,7 +53,7 @@ export const NOMBRE_DE_TIPO: Record<TipoDeDato, string> = {
   foto: "Foto",
   video: "Video",
   audio: "Audio",
-  documento: "Documento",
+  documento: "Archivo",
   texto: "Texto",
 };
 

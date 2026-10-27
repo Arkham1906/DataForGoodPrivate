@@ -7,7 +7,8 @@
 // El correo no se puede cambiar.
 // Intereses: texto libre del que salen las temáticas (ui/InteresesDesdeTexto).
 // La foto o ícono se cambia con el lápiz sobre el avatar (EditarAvatar, en page.tsx).
-// Catálogos: lib/mexico-geo.ts, lib/perfil-opciones.ts; temáticas en GET /api/tematicas.
+// Catálogos: lib/mexico-geo.ts, lib/perfil-opciones.ts; temáticas en GET /api/tematicas; especialidades
+// en GET /api/especialidades (ui/CampoDeEspecialidad, 2026-10-26: se elige o se escribe; una nueva se ofrece a todos).
 
 import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useState } from "react";
@@ -15,7 +16,9 @@ import Button from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Input";
 import InteresesDesdeTexto from "@/components/ui/InteresesDesdeTexto";
 import LogoutButton from "@/components/auth/LogoutButton";
-import { ESPECIALIDADES, OTRA_ESPECIALIDAD, opcionesCon } from "@/lib/perfil-opciones";
+import CampoDeEspecialidad from "@/components/ui/CampoDeEspecialidad";
+import CampoDeOrganizacion from "@/components/ui/CampoDeOrganizacion";
+import { opcionesCon } from "@/lib/perfil-opciones";
 import { municipiosDe, NOMBRES_DE_ESTADOS } from "@/lib/mexico-geo";
 import { BASE_PATH } from "@/lib/base-path";
 
@@ -26,6 +29,7 @@ type Usuario = {
   state: string | null;
   city: string | null;
   specialty: string | null;
+  organizacion: string | null;
   intereses: string[];
   interesesTexto: string | null;
   email: string;
@@ -57,9 +61,7 @@ export default function PerfilForm({
   const [state, setState] = useState(usuario.state ?? "");
   const [city, setCity] = useState(usuario.city ?? "");
   const [specialty, setSpecialty] = useState(usuario.specialty ?? "");
-  const [especialidadPersonalizada, setEspecialidadPersonalizada] = useState(
-    () => specialty !== "" && !ESPECIALIDADES.includes(specialty),
-  );
+  const [organizacion, setOrganizacion] = useState(usuario.organizacion ?? "");
   const [intereses, setIntereses] = useState<string[]>(usuario.intereses);
   const [interesesTexto, setInteresesTexto] = useState(usuario.interesesTexto ?? "");
   const [guardando, setGuardando] = useState(false);
@@ -73,6 +75,7 @@ export default function PerfilForm({
     state: usuario.state ?? "",
     city: usuario.city ?? "",
     specialty: usuario.specialty ?? "",
+    organizacion: usuario.organizacion ?? "",
     intereses: usuario.intereses,
     interesesTexto: usuario.interesesTexto ?? "",
   });
@@ -84,6 +87,7 @@ export default function PerfilForm({
     state !== guardado.state ||
     city !== guardado.city ||
     specialty !== guardado.specialty ||
+    organizacion !== guardado.organizacion ||
     interesesTexto !== guardado.interesesTexto ||
     intereses.length !== guardado.intereses.length ||
     intereses.some((tema, i) => tema !== guardado.intereses[i]);
@@ -100,23 +104,13 @@ export default function PerfilForm({
     setCity("");
   }
 
-  function elegirEspecialidad(valor: string) {
-    if (valor === OTRA_ESPECIALIDAD) {
-      setEspecialidadPersonalizada(true);
-      setSpecialty("");
-    } else {
-      setEspecialidadPersonalizada(false);
-      setSpecialty(valor);
-    }
-  }
-
   function cancelar() {
     setNombre(guardado.nombre);
     setApellidos(guardado.apellidos);
     setState(guardado.state);
     setCity(guardado.city);
     setSpecialty(guardado.specialty);
-    setEspecialidadPersonalizada(guardado.specialty !== "" && !ESPECIALIDADES.includes(guardado.specialty));
+    setOrganizacion(guardado.organizacion);
     setIntereses(guardado.intereses);
     setInteresesTexto(guardado.interesesTexto);
     setError("");
@@ -137,6 +131,7 @@ export default function PerfilForm({
         state,
         city,
         specialty: specialty.trim(),
+        organizacion: organizacion.trim(),
         intereses,
         interesesTexto: interesesTexto.trim(),
       };
@@ -151,13 +146,18 @@ export default function PerfilForm({
       // El servidor devuelve los intereses con el nombre del catálogo (p. ej. con otra mayúscula
       // o acento): se muestran esos.
       const guardados = Array.isArray(body.data?.intereses) ? (body.data.intereses as string[]) : intereses;
+      // Igual con la especialidad: "biologia" se guarda como "Biología" del catálogo (2026-10-26).
+      const especialidad = typeof body.data?.specialty === "string" ? body.data.specialty : body.data ? "" : cambios.specialty;
+      const organizacionGuardada =
+        typeof body.data?.organizacion === "string" ? body.data.organizacion : body.data ? "" : cambios.organizacion;
 
       setNombre(cambios.nombre);
       setApellidos(cambios.apellidos);
-      setSpecialty(cambios.specialty);
+      setSpecialty(especialidad);
+      setOrganizacion(organizacionGuardada);
       setIntereses(guardados);
       setInteresesTexto(cambios.interesesTexto);
-      setGuardado({ ...cambios, intereses: guardados });
+      setGuardado({ ...cambios, specialty: especialidad, organizacion: organizacionGuardada, intereses: guardados });
       setAvisoVisible(true);
       router.refresh();
     } catch (e) {
@@ -239,28 +239,15 @@ export default function PerfilForm({
               </Field>
             </div>
 
-            <Field label="¿En qué área eres experto?">
-              <select
-                value={especialidadPersonalizada ? OTRA_ESPECIALIDAD : specialty}
-                onChange={(e) => elegirEspecialidad(e.target.value)}
-                className={CLASE_SELECT}
-              >
-                <option value="">Selecciona una especialidad</option>
-                {ESPECIALIDADES.map((opcion) => (
-                  <option key={opcion}>{opcion}</option>
-                ))}
-                <option value={OTRA_ESPECIALIDAD}>Otra (especifica)</option>
-              </select>
-              {especialidadPersonalizada && (
-                <Input
-                  value={specialty}
-                  onChange={(e) => setSpecialty(e.target.value)}
-                  placeholder="Escribe tu especialidad"
-                  aria-label="Tu especialidad"
-                  maxLength={150}
-                  className="mt-2"
-                />
-              )}
+            <Field label="¿En qué área eres experto?" hint="Elige una de la lista o escribe la tuya.">
+              <CampoDeEspecialidad value={specialty} onChange={setSpecialty} />
+            </Field>
+
+            <Field
+              label="¿Perteneces a alguna organización?"
+              hint="Opcional. Elige una de la lista o escribe la tuya. Se propone como organizadora al crear una campaña."
+            >
+              <CampoDeOrganizacion value={organizacion} onChange={setOrganizacion} />
             </Field>
           </div>
         </section>

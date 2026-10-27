@@ -1,7 +1,8 @@
 "use client";
 
 // Pantalla /mis-campanas/[id]/panel: métricas de una campaña propia.
-// Componente cliente. Datos: GET /api/campanas?id= (viewer.isCreator) y GET /api/campanas/[id]/recoleccion-diaria.
+// Componente cliente. Datos: GET /api/campanas?id= (viewer.isCreator), GET /api/campanas/[id]/recoleccion-diaria
+// y, desde el 2026-10-27, GET /api/campanas/[id]/metricas ("Métricas generales", components/campanas/MetricasGenerales).
 // Solo el creador: a cualquier otra persona le sale el aviso de página no encontrada (2026-10-20;
 // antes veía las métricas). La recolección diaria ya respondía 403 a quien no la creó.
 // La meta cuenta solo los aprobados (lib/campanas/meta.ts).
@@ -18,6 +19,8 @@ import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import { AvisoNoEncontrado } from "@/components/ui/AvisoNoEncontrado";
 import { porcentajeDeMeta, pronosticoDeMeta } from "@/lib/campanas/meta";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
+import MetricasGenerales from "@/components/campanas/MetricasGenerales";
+import type { MetricasGenerales as DatosDeMetricas } from "@/lib/campanas/metricas-generales-tipos";
 
 const TEXTO_DEL_PRONOSTICO = {
   alcanzada: "La campaña ya alcanzó su meta de aportes aprobados.",
@@ -34,6 +37,7 @@ export default function PanelCampanaPage() {
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [recoleccionDiaria, setRecoleccionDiaria] = useState<DiaDeRecoleccion[]>([]);
   const [porTipo, setPorTipo] = useState<TipoDeAporte[]>([]);
+  const [metricasGenerales, setMetricasGenerales] = useState<DatosDeMetricas | null>(null);
   const [noEncontrada, setNoEncontrada] = useState(false);
 
   // Vuelve a leer cuando algo cambia en la base (actualización en vivo).
@@ -42,9 +46,10 @@ export default function PanelCampanaPage() {
     let activo = true;
 
     async function loadCampaign() {
-      const [campaignResponse, recoleccionResponse] = await Promise.all([
+      const [campaignResponse, recoleccionResponse, metricasResponse] = await Promise.all([
         fetch(`${BASE_PATH}/api/campanas?id=${params.id}`, { cache: "no-store" }),
         fetch(`${BASE_PATH}/api/campanas/${params.id}/recoleccion-diaria`, { cache: "no-store" }),
+        fetch(`${BASE_PATH}/api/campanas/${params.id}/metricas`, { cache: "no-store" }),
       ]);
       if (!activo) return;
 
@@ -59,6 +64,10 @@ export default function PanelCampanaPage() {
         const body = await recoleccionResponse.json();
         setRecoleccionDiaria(Array.isArray(body.data) ? body.data : []);
         setPorTipo(Array.isArray(body.porTipo) ? body.porTipo : []);
+      }
+      if (metricasResponse.ok) {
+        const body = await metricasResponse.json();
+        if (activo) setMetricasGenerales(body.data ?? null);
       }
     }
 
@@ -229,6 +238,8 @@ export default function PanelCampanaPage() {
           )}
         </div>
       </div>
+
+      {metricasGenerales ? <MetricasGenerales datos={metricasGenerales} /> : null}
     </div>
   );
 }

@@ -20,7 +20,7 @@ import ProgressBar from "@/components/ui/ProgressBar";
 import Tag from "@/components/ui/Tag";
 import { buscarEnlacePorToken, registrarVisita, type CampanaDelEnlace } from "@/lib/campanas/enlaces";
 import { porcentajeDeMeta } from "@/lib/campanas/meta";
-import { describirReparto } from "@/lib/campanas/cuota-por-tipo";
+import { repartoSugerido } from "@/lib/campanas/reparto-sugerido";
 import { avisoDePausa } from "@/lib/campanas/pausa";
 import { COOKIE_ANONIMO, dispositivoValido } from "@/lib/aportes/anonimato";
 import {
@@ -173,7 +173,7 @@ function Invitacion({
           <p className="mt-2 font-mono text-[11px] text-system-500">
             {numero.format(campana.aportesAprobados)} de {numero.format(campana.meta)} aportes aprobados · hasta{" "}
             {numero.format(campana.cuotaPorPersona)} por persona
-            {campana.cuotaPorTipo ? ` (${describirReparto(campana.cuotaPorTipo)})` : ""}
+            {repartoSugerido(campana.cuotaPorPersona, campana.tiposDeArchivo) ? ` (sugerido: ${repartoSugerido(campana.cuotaPorPersona, campana.tiposDeArchivo)})` : ""}
             {campana.fechaFin ? ` · cierra el ${fecha.format(new Date(`${campana.fechaFin}T00:00:00Z`))}` : ""}
           </p>
         </div>

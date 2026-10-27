@@ -33,6 +33,8 @@ const MAXIMO_POR_ANALISIS = 10;
 /** Una palabra nueva necesita al menos estas letras para volverse temática. */
 const LARGO_MINIMO_NUEVA = 4;
 const LARGO_MAXIMO_NUEVA = 40;
+/** Largo del nombre que el SuperUsuario escribe en /sistema/tematicas (la columna `tematicas.nombre` es de 60). */
+export const LARGO_DEL_NOMBRE = { minimo: 3, maximo: 60 } as const;
 
 /** Nombre sin acentos, en minúsculas y con espacios simples: "Educación" y "educacion" son la misma. */
 export function claveDeTematica(nombre: string): string {

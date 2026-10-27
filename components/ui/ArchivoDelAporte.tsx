@@ -47,12 +47,12 @@ export default function ArchivoDelAporte({
       </div>
     );
   }
-  // Documento (PDF o Word: se descarga) y texto (.txt: se abre en otra pestaña).
+  // Archivo (PDF, Word, PowerPoint o Excel: se descarga) y texto (.txt: se abre en otra pestaña).
   return (
     <div className={`${CAJA} ${alto}`}>
-      <span className="font-medium text-system-900">{tipo === "texto" ? "Archivo de texto" : "Documento"}</span>
+      <span className="font-medium text-system-900">{tipo === "texto" ? "Archivo de texto" : "Archivo"}</span>
       <a href={src} target="_blank" rel="noreferrer" className="font-semibold text-brand-600 hover:underline">
-        {tipo === "texto" ? "Abrir el archivo" : "Descargar el documento"}
+        {tipo === "texto" ? "Abrir el archivo" : "Descargar el archivo"}
       </a>
     </div>
   );

@@ -27,7 +27,6 @@ import { condicionDeVisibilidad } from "@/lib/campanas/visibilidad";
 import { normalizarSecciones, seccionesDesdeFila } from "@/lib/campanas/checklist";
 import { asegurarEnlaceVigente } from "@/lib/campanas/enlaces";
 import { errorDeOrganizacion } from "@/lib/campanas/organizacion";
-import { errorDeCuotaPorTipo, normalizarCuotaPorTipo } from "@/lib/campanas/cuota-por-tipo";
 import { activateScheduledCampaigns, calculateCampaignDaysRemaining, errorDeFinAntesDeInicio, errorDeInicioPasado, errorDeReanudarAntesDeInicio, finalizeExpiredCampaigns, hasCampaignEnded, normalizeCampaignDate, normalizeCampaignTime } from "@/lib/campaign-date";
 
 function normalizeDataTypes(input: unknown): string[] {
@@ -90,7 +89,6 @@ function mapCampaign(row: Record<string, unknown>) {
     checklistSecciones: seccionesDesdeFila(row),
     goalContributions: Number(row.goal_contributions ?? 0),
     quotaPerUser: Number(row.quota_per_user ?? 0),
-    cuotaPorTipo: normalizarCuotaPorTipo(row.cuota_por_tipo, dataTypes),
     currentContributions: Number(row.current_contributions ?? 0),
     approvedContributions: Number(row.approved_contributions ?? 0),
     pendingContributions: Number(row.pending_contributions ?? 0),
@@ -401,16 +399,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const checklistOpciones = seccionesNuevas ? [] : null;
     const goalContributions = "goalContributions" in body || "goal_contributions" in body ? Number(body.goalContributions ?? body.goal_contributions) : null;
     const quotaPerUser = "quotaPerUser" in body || "quota_per_user" in body ? Number(body.quotaPerUser ?? body.quota_per_user) : null;
-    // Reparto de la cuota por tipo (lib/campanas/cuota-por-tipo.ts): se recalcula si cambia el
-    // reparto, la cuota o los tipos, contra lo que quede de los otros dos. Activa y aceptada
-    // no llegan aquí con estos campos (solo meta y fin); una pausada sí.
-    const tocaReparto = "cuotaPorTipo" in body || quotaPerUser !== null || dataTypes !== null;
-    const tiposQueQuedan: string[] = dataTypes ?? (Array.isArray(existing.rows[0].data_types) ? existing.rows[0].data_types : []);
-    const cuotaQueQueda = quotaPerUser ?? Number(existing.rows[0].quota_per_user ?? 0);
-    const cuotaPorTipo = normalizarCuotaPorTipo(
-      "cuotaPorTipo" in body ? body.cuotaPorTipo : existing.rows[0].cuota_por_tipo,
-      tiposQueQuedan
-    );
+    // Sin reparto de la cuota por tipo desde el 2026-10-27: al cambiar la cuota o los tipos, el
+    // reparto viejo (cuota_por_tipo) se vacía.
+    const tocaReparto = quotaPerUser !== null || dataTypes !== null;
     const startDate = "startDate" in body || "start_date" in body ? normalizeCampaignDate(body.startDate ?? body.start_date) : undefined;
     const startTime = "startTime" in body || "start_time" in body ? normalizeCampaignTime(body.startTime ?? body.start_time) : undefined;
     const endDate = "endDate" in body || "end_date" in body ? normalizeCampaignDate(body.endDate ?? body.end_date) : undefined;
@@ -483,10 +474,6 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       if (quotaPerUser !== null && (!quotaPerUser || quotaPerUser <= 0)) {
         return NextResponse.json({ error: "La cuota por persona debe ser mayor a 0" }, { status: 400 });
       }
-      const errorDeReparto = tocaReparto && errorDeCuotaPorTipo(cuotaQueQueda, tiposQueQuedan, cuotaPorTipo);
-      if (errorDeReparto) {
-        return NextResponse.json({ error: errorDeReparto }, { status: 400 });
-      }
       if (startDate !== undefined && !startDate) {
         return NextResponse.json({ error: "La fecha de inicio es obligatoria" }, { status: 400 });
       }
@@ -553,7 +540,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         endTime === undefined ? null : endTime,
         seccionesNuevas ? JSON.stringify(seccionesNuevas) : null,
         tocaReparto,
-        cuotaPorTipo ? JSON.stringify(cuotaPorTipo) : null,
+        null,
         todoElPais,
       ]
     );
@@ -657,7 +644,6 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     const checklistOpciones: string[] = [];
     const goalContributions = Number(body.goalContributions ?? body.goal_contributions ?? 0);
     const quotaPerUser = Number(body.quotaPerUser ?? body.quota_per_user ?? 1);
-    const cuotaPorTipo = normalizarCuotaPorTipo(body.cuotaPorTipo, dataTypes);
     const startDate = normalizeCampaignDate(body.startDate ?? body.start_date);
     const startTime = normalizeCampaignTime(body.startTime ?? body.start_time);
     const endDate = normalizeCampaignDate(body.endDate ?? body.end_date);
@@ -690,10 +676,6 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
       }
       if (!quotaPerUser || quotaPerUser <= 0) {
         return NextResponse.json({ error: "La cuota por persona debe ser mayor a 0" }, { status: 400 });
-      }
-      const errorDeReparto = errorDeCuotaPorTipo(quotaPerUser, dataTypes, cuotaPorTipo);
-      if (errorDeReparto) {
-        return NextResponse.json({ error: errorDeReparto }, { status: 400 });
       }
       if (!startDate) {
         return NextResponse.json({ error: "La fecha de inicio es obligatoria" }, { status: 400 });
@@ -756,7 +738,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
         startTime,
         endTime,
         JSON.stringify(checklistSecciones),
-        cuotaPorTipo ? JSON.stringify(cuotaPorTipo) : null,
+        null, // cuota_por_tipo: sin uso desde el 2026-10-27 (solo cuota general; lib/campanas/reparto-sugerido.ts)
         todoElPais,
       ]
     );

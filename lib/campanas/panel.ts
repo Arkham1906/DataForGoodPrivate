@@ -18,7 +18,7 @@ const ETIQUETA_DE_TIPO: Record<string, string> = {
   foto: "Foto",
   video: "Video",
   audio: "Audio",
-  documento: "Documento",
+  documento: "Archivo",
 };
 
 export type PanelDeCampana = {

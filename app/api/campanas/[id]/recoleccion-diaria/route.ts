@@ -14,7 +14,7 @@ const ETIQUETA_DE_TIPO: Record<string, string> = {
   foto: "Foto",
   video: "Video",
   audio: "Audio",
-  documento: "Documento",
+  documento: "Archivo",
 };
 
 /** Últimos `dias` días (más antiguo primero), como clave "YYYY-MM-DD" + etiqueta corta. */

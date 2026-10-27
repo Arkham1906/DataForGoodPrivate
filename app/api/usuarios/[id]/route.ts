@@ -7,6 +7,8 @@ import { destroySession, getSessionUser } from "@/lib/session";
 import { hasRootSession } from "@/lib/rootSession";
 import { errorDeLargo } from "@/lib/usuarios/perfil";
 import { resolverIntereses } from "@/lib/tematicas/catalogo";
+import { resolverEspecialidad } from "@/lib/usuarios/especialidades";
+import { resolverOrganizacion } from "@/lib/usuarios/organizaciones";
 import { LARGO_MAXIMO_DEL_TEXTO } from "@/lib/tematicas/analizar";
 import { comprobarContrasenaActual } from "@/lib/usuarios/contrasena-actual";
 import { solicitarBaja } from "@/lib/usuarios/baja";
@@ -50,6 +52,7 @@ export async function GET(
         state,
         city,
         specialty,
+        organizacion,
         intereses,
         intereses_texto,
         role,
@@ -127,9 +130,25 @@ export async function PATCH(
     // "no toques este campo".
     const state = body.state !== undefined ? String(body.state).trim() || null : undefined;
     const city = body.city !== undefined ? String(body.city).trim() || null : undefined;
-    const specialty = body.specialty !== undefined ? String(body.specialty).trim() || null : undefined;
+    let specialty = body.specialty !== undefined ? String(body.specialty).trim() || null : undefined;
     const errorLargo = errorDeLargo({ nombre, apellidos, state, city, specialty });
     if (errorLargo) return NextResponse.json({ error: errorLargo }, { status: 400 });
+    // Especialidad del catálogo (lib/usuarios/especialidades.ts, 2026-10-26): una nueva se da de
+    // alta y se ofrece a todos. La que ya tenía guardada no se vuelve a validar (pudo escribirse
+    // antes de estas reglas).
+    if (specialty && specialty !== sessionUser.specialty) {
+      const resuelta = await resolverEspecialidad(specialty, sessionUser.id);
+      if (!resuelta.ok) return NextResponse.json({ error: resuelta.error }, { status: 400 });
+      specialty = resuelta.especialidad;
+    }
+    // Organización a la que pertenece (lib/usuarios/organizaciones.ts, 2026-10-26): opcional, una;
+    // "" la borra; una nueva entra al catálogo. Igual que la especialidad, la guardada no se revalida.
+    let organizacion = body.organizacion !== undefined ? String(body.organizacion ?? "").trim() || null : undefined;
+    if (organizacion && organizacion !== sessionUser.organizacion) {
+      const resuelta = await resolverOrganizacion(organizacion, sessionUser.id);
+      if (!resuelta.ok) return NextResponse.json({ error: resuelta.error }, { status: 400 });
+      organizacion = resuelta.valor;
+    }
 
     // Texto libre de gustos (de ahí salen los intereses, lib/tematicas/analizar.ts). "" lo borra.
     const interesesTexto =
@@ -158,9 +177,10 @@ export async function PATCH(
            specialty = CASE WHEN $8::boolean THEN $9 ELSE specialty END,
            intereses = COALESCE($10::jsonb, intereses),
            intereses_texto = CASE WHEN $11::boolean THEN $12 ELSE intereses_texto END,
+           organizacion = CASE WHEN $13::boolean THEN $14 ELSE organizacion END,
            updated_at = NOW()
        WHERE id = $1
-       RETURNING id, nombre, apellidos, email, state, city, specialty, intereses, intereses_texto, role, xp_total, level, streak_days`,
+       RETURNING id, nombre, apellidos, email, state, city, specialty, organizacion, intereses, intereses_texto, role, xp_total, level, streak_days`,
       [
         Number(rawId),
         nombre,
@@ -174,6 +194,8 @@ export async function PATCH(
         intereses,
         interesesTexto !== undefined,
         interesesTexto ?? null,
+        organizacion !== undefined,
+        organizacion ?? null,
       ]
     );
 

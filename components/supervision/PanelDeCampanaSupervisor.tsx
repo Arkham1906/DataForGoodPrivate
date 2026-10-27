@@ -1,9 +1,12 @@
 // Panel de métricas de una campaña, compartido por /supervision/[id]/panel y /supervisar/[id]/panel.
-// Recibe los datos ya calculados por lib/campanas/panel.ts.
+// Recibe los datos ya calculados por lib/campanas/panel.ts y, desde el 2026-10-27, las métricas
+// generales de lib/campanas/metricas-generales.ts (components/campanas/MetricasGenerales).
 
 import Link from "next/link";
 import Tag from "@/components/ui/Tag";
 import type { PanelDeCampana } from "@/lib/campanas/panel";
+import MetricasGenerales from "@/components/campanas/MetricasGenerales";
+import type { MetricasGenerales as DatosDeMetricas } from "@/lib/campanas/metricas-generales-tipos";
 import RefrescoEnVivo from "./RefrescoEnVivo";
 
 const ESTADO: Record<string, string> = {
@@ -33,10 +36,12 @@ function formatearFecha(fecha: string | null, conAnio = true) {
  */
 export default function PanelDeCampanaSupervisor({
   panel,
+  metricasGenerales,
   volverHref,
   volverTexto,
 }: {
   panel: PanelDeCampana;
+  metricasGenerales: DatosDeMetricas | null;
   volverHref: string;
   volverTexto: string;
 }) {
@@ -154,6 +159,8 @@ export default function PanelDeCampanaSupervisor({
           <p className="mt-5 rounded-lg bg-system-100 p-4 text-[12.5px] leading-5 text-system-600">{mensajeRitmo}</p>
         </section>
       </div>
+
+      {metricasGenerales ? <MetricasGenerales datos={metricasGenerales} /> : null}
     </div>
   );
 }

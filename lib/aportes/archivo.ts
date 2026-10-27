@@ -10,6 +10,11 @@ export type TipoDeArchivo = "foto" | "video" | "audio" | "documento" | "texto";
 
 const MB = 1_000_000;
 
+export const MIME_DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+export const MIME_PPTX = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+export const MIME_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+export const MIME_XLS = "application/vnd.ms-excel";
+
 export const FORMATOS: Record<TipoDeArchivo, { extensiones: string[]; mimes: string[]; tamanoMaximo: number }> = {
   foto: { extensiones: [".jpg", ".jpeg", ".png"], mimes: ["image/jpeg", "image/png"], tamanoMaximo: 10 * MB },
   video: { extensiones: [".mp4", ".mov", ".webm"], mimes: ["video/mp4", "video/quicktime", "video/webm"], tamanoMaximo: 50 * MB },
@@ -18,9 +23,10 @@ export const FORMATOS: Record<TipoDeArchivo, { extensiones: string[]; mimes: str
     mimes: ["audio/mpeg", "audio/mp4", "audio/x-m4a", "audio/wav", "audio/x-wav", "audio/wave", "audio/ogg"],
     tamanoMaximo: 20 * MB,
   },
+  // "Archivos" en pantalla (2026-10-26): además de PDF y Word, PowerPoint y Excel. El valor sigue siendo "documento".
   documento: {
-    extensiones: [".pdf", ".docx"],
-    mimes: ["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+    extensiones: [".pdf", ".docx", ".pptx", ".xlsx", ".xls"],
+    mimes: ["application/pdf", MIME_DOCX, MIME_PPTX, MIME_XLSX, MIME_XLS],
     tamanoMaximo: 20 * MB,
   },
   texto: { extensiones: [".txt"], mimes: ["text/plain"], tamanoMaximo: 1 * MB },
@@ -96,7 +102,7 @@ const NOMBRE_EN_FRASE: Record<TipoDeArchivo, string> = {
   foto: "fotos",
   video: "videos",
   audio: "audios",
-  documento: "documentos",
+  documento: "archivos",
   texto: "archivos de texto",
 };
 
@@ -115,10 +121,10 @@ export const TIPO_DE_DATO: Record<string, { titulo: string; detalle: string }> =
   foto: { titulo: "Fotos", detalle: "Una foto JPG o PNG por aporte, de hasta 10 MB." },
   video: { titulo: "Video", detalle: "Un video MP4, MOV o WEBM por aporte, de hasta 50 MB." },
   audio: { titulo: "Audio", detalle: "Un audio MP3, M4A, WAV u OGG por aporte, de hasta 20 MB." },
-  documento: { titulo: "Documentos", detalle: "Un PDF o Word (.docx) por aporte, de hasta 20 MB." },
+  documento: { titulo: "Archivos", detalle: "Un PDF, Word (.docx), PowerPoint (.pptx) o Excel (.xlsx o .xls) por aporte, de hasta 20 MB." },
   texto: { titulo: "Texto", detalle: "Lo que observaste, en la descripción; si quieres, también un archivo .txt de hasta 1 MB." },
 };
 
 /** Aviso para video y audio, que se guardan tal cual: pueden llevar la ubicación de donde se grabaron. */
 export const AVISO_METADATOS_MEDIA =
-  "Los videos y audios se guardan tal como los subes: si tu teléfono guarda la ubicación al grabar, el archivo la lleva. Las fotos y los documentos se guardan sin esos datos.";
+  "Los videos y audios se guardan tal como los subes: si tu teléfono guarda la ubicación al grabar, el archivo la lleva. Las fotos y los archivos se guardan sin esos datos, salvo los Excel .xls (formato antiguo), que también van tal cual.";

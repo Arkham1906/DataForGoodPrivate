@@ -27,7 +27,7 @@ import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import { AvisoNoEncontrado } from "@/components/ui/AvisoNoEncontrado";
 import { InscripcionACampana } from "@/components/ui/AcuerdosDeAporte";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
-import { describirReparto } from "@/lib/campanas/cuota-por-tipo";
+import { repartoSugerido } from "@/lib/campanas/reparto-sugerido";
 import { quienOrganiza } from "@/lib/campanas/organizacion";
 
 export default function CampaignDetailPage() {
@@ -209,7 +209,8 @@ export default function CampaignDetailPage() {
           <p className="mt-2 mb-4 font-mono text-[12.5px] text-system-600">
             {campaign.approvedContributions} de {campaign.goalContributions} aportes aprobados · tu
             cuota: {campaign.quotaPerUser}
-            {campaign.cuotaPorTipo ? ` (${describirReparto(campaign.cuotaPorTipo)})` : ""}
+            {/* Solo sugerencia (2026-10-27): la cuota vale para cualquier tipo. */}
+            {repartoSugerido(campaign.quotaPerUser, campaign.dataTypes) ? ` (sugerido: ${repartoSugerido(campaign.quotaPerUser, campaign.dataTypes)})` : ""}
           </p>
 
           {isCreator ? (

@@ -46,7 +46,7 @@ export const DATA_TYPE_LABELS: Record<DataType, string> = {
   foto: "Foto",
   video: "Video",
   audio: "Audio",
-  documento: "Documento",
+  documento: "Archivo",
 };
 
 /**
@@ -69,6 +69,9 @@ const MIME_FORMAT_LABELS: Record<string, string> = {
   "audio/ogg": "OGG",
   "application/pdf": "PDF",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "DOCX",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation": "PPTX",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "XLSX",
+  "application/vnd.ms-excel": "XLS",
   "text/plain": "TXT",
 };
 

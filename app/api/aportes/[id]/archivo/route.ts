@@ -4,6 +4,7 @@
 
 import { Readable } from "node:stream";
 import { NextResponse } from "next/server";
+import { MIME_PPTX, MIME_XLS, MIME_XLSX } from "@/lib/aportes/archivo";
 import { pool } from "@/lib/db";
 import { getSessionUser } from "@/lib/session";
 import { abrirArchivo, tamanoDeArchivo } from "@/lib/minio";
@@ -30,6 +31,10 @@ const TIPOS_SERVIBLES: Record<string, { contentType: string; enLinea: boolean }>
     contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     enLinea: false,
   },
+  // PowerPoint y Excel (2026-10-26): se descargan.
+  [MIME_PPTX]: { contentType: MIME_PPTX, enLinea: false },
+  [MIME_XLSX]: { contentType: MIME_XLSX, enLinea: false },
+  [MIME_XLS]: { contentType: MIME_XLS, enLinea: false },
 };
 
 /** Un solo rango "bytes=a-b", "bytes=a-" o "bytes=-n". null sin cabecera (o con varios rangos: se manda todo). */

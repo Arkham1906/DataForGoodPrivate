@@ -1,9 +1,11 @@
 // Pantalla /supervision/[campaignId]/panel: métricas de una campaña que supervisas.
 // Server Component. Datos: obtenerPanelDeCampana() de lib/campanas/panel.ts, solo si supervisor_id eres tú.
+// Métricas generales (2026-10-27): lib/campanas/metricas-generales.ts.
 
 import { notFound, redirect } from "next/navigation";
 import PanelDeCampanaSupervisor from "@/components/supervision/PanelDeCampanaSupervisor";
 import { obtenerPanelDeCampana } from "@/lib/campanas/panel";
+import { obtenerMetricasGenerales } from "@/lib/campanas/metricas-generales";
 import { pool } from "@/lib/db";
 import { exigirUsuario } from "@/lib/session";
 import type { Metadata } from "next";
@@ -23,12 +25,13 @@ export default async function SupervisedCampaignPanel({ params }: { params: Prom
   ]);
   if (acceso.rowCount === 0) notFound();
 
-  const panel = await obtenerPanelDeCampana(campaignId);
+  const [panel, metricasGenerales] = await Promise.all([obtenerPanelDeCampana(campaignId), obtenerMetricasGenerales(campaignId)]);
   if (!panel) notFound();
 
   return (
     <PanelDeCampanaSupervisor
       panel={panel}
+      metricasGenerales={metricasGenerales}
       volverHref={`/supervision/${campaignId}`}
       volverTexto="Volver al detalle de campaña"
     />

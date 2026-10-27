@@ -71,7 +71,18 @@ export type AccionAuditada =
   | "tematica.ocultar"
   | "tematica.mostrar"
   | "tematica.aprobar"
-  | "tematica.rechazar";
+  | "tematica.rechazar"
+  | "tematica.crear"
+  | "tematica.editar"
+  | "tematica.borrar"
+  // Catálogo de especialidades (lib/usuarios/acciones-especialidades.ts).
+  | "especialidad.crear"
+  | "especialidad.editar"
+  | "especialidad.borrar"
+  // Catálogo de organizaciones (lib/usuarios/acciones-organizaciones.ts).
+  | "organizacion.crear"
+  | "organizacion.editar"
+  | "organizacion.borrar";
 
 export async function registrarAuditoria(entrada: {
   actor: ActorDeAuditoria;

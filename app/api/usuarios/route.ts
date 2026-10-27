@@ -14,6 +14,8 @@ import { hasRootSession } from "@/lib/rootSession";
 import { buscarUsuarios, POR_PAGINA } from "@/lib/usuarios/directorio";
 import { errorDeLargo } from "@/lib/usuarios/perfil";
 import { resolverIntereses } from "@/lib/tematicas/catalogo";
+import { resolverEspecialidad } from "@/lib/usuarios/especialidades";
+import { resolverOrganizacion } from "@/lib/usuarios/organizaciones";
 
 // POST: registro. Crea la cuenta sin verificar y envía el código por correo.
 export async function POST(request: Request) {
@@ -56,6 +58,15 @@ export async function POST(request: Request) {
       );
     }
 
+    // Especialidad (2026-10-26): validada; con el nombre del catálogo si existe. Una nueva no entra
+    // al catálogo hasta que la cuenta guarde su perfil (resolverEspecialidad con darDeAlta: false).
+    const resuelta = await resolverEspecialidad(specialty, null, { darDeAlta: false });
+    if (!resuelta.ok) return NextResponse.json({ error: resuelta.error }, { status: 400 });
+    const especialidad = resuelta.especialidad;
+    // Organización (2026-10-26): igual que la especialidad. En la pantalla se pregunta en /bienvenida.
+    const organizacionResuelta = await resolverOrganizacion(String(body.organizacion ?? ""), null, { darDeAlta: false });
+    if (!organizacionResuelta.ok) return NextResponse.json({ error: organizacionResuelta.error }, { status: 400 });
+
     // En el registro aún no hay cuenta: solo se aceptan temáticas que ya existen (no se crean).
     const resueltos = await resolverIntereses(Array.isArray(body.intereses) ? body.intereses : [], [], { descartarDesconocidas: true });
     const intereses = resueltos.ok ? resueltos.intereses : [];
@@ -80,10 +91,10 @@ export async function POST(request: Request) {
     const passwordHash = await hashPassword(password);
 
     const result = await pool.query(
-      `INSERT INTO usuarios (nombre, apellidos, email, password_hash, state, city, specialty, intereses, xp_total, level, streak_days, role)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, 0, 1, 0, $9::jsonb)
-       RETURNING id, nombre, apellidos, email, state, city, specialty, intereses, role, xp_total, level, streak_days, email_verificado`,
-      [nombre, apellidos, email, passwordHash, state, city, specialty, JSON.stringify(intereses), JSON.stringify(roles)]
+      `INSERT INTO usuarios (nombre, apellidos, email, password_hash, state, city, specialty, intereses, xp_total, level, streak_days, role, organizacion)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, 0, 1, 0, $9::jsonb, $10)
+       RETURNING id, nombre, apellidos, email, state, city, specialty, organizacion, intereses, role, xp_total, level, streak_days, email_verificado`,
+      [nombre, apellidos, email, passwordHash, state, city, especialidad, JSON.stringify(intereses), JSON.stringify(roles), organizacionResuelta.valor]
     );
 
     const usuario = result.rows[0];

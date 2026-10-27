@@ -39,6 +39,8 @@ export type TipoDeNotificacion =
   // Campañas para participar (lib/notificaciones/campanas-por-interes.ts)
   | "campana_nueva"
   | "campana_especial"
+  // Una temática nueva coincide con lo que escribió sobre sus gustos (./tematica-nueva.ts, 2026-10-26).
+  | "tematica_nueva"
   // Periódicas, según Preferencias (lib/notificaciones/periodicas.ts)
   | "recordatorio_semanal"
   | "resumen_mensual"
@@ -80,6 +82,7 @@ export function tonoDeNotificacion(tipo: string): "ok" | "warn" | "danger" | "de
     case "campana_iniciada":
     case "campana_reanudada":
     case "campana_nueva":
+    case "tematica_nueva":
     case "revisor_acepto":
     case "rol_asignado":
     case "sancion_restaurada":

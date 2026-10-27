@@ -5,14 +5,27 @@
 //   - TarjetaDePaso: la tarjeta de un paso, con su número (✓ cuando está completo) y su título.
 //   - GuiaDePasos: en escritorio (lg), la lista fija a la izquierda; marca ✓ los completos, resalta
 //     el que está a la vista y lleva a cada uno. Debajo de lg solo dice cuántos van completos.
-// Qué hace "completo" a cada paso lo decide NuevaCampanaForm.tsx.
+// Qué hace "completo" a cada paso lo decide NuevaCampanaForm.tsx. Desde el 2026-10-27, un paso con
+// algo mal al intentar guardar (`conProblemas`) se marca en rojo con "!" en la tarjeta y en la guía.
 
 import { useEffect, useState, type ReactNode } from "react";
 
-export type Paso = { id: string; titulo: string; completo: boolean };
+export type Paso = { id: string; titulo: string; completo: boolean; conProblemas?: boolean };
 
-function NumeroDePaso({ numero, completo, activo }: { numero: number; completo: boolean; activo?: boolean }) {
-  const clases = completo
+function NumeroDePaso({
+  numero,
+  completo,
+  activo,
+  conProblemas,
+}: {
+  numero: number;
+  completo: boolean;
+  activo?: boolean;
+  conProblemas?: boolean;
+}) {
+  const clases = conProblemas
+    ? "border-error-700 bg-error-700 text-white"
+    : completo
     ? "border-success-700 bg-success-700 text-white"
     : activo
       ? "border-brand-600 bg-brand-600 text-white"
@@ -22,7 +35,7 @@ function NumeroDePaso({ numero, completo, activo }: { numero: number; completo: 
       className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-[12.5px] font-bold ${clases}`}
       aria-hidden
     >
-      {completo ? "✓" : numero}
+      {conProblemas ? "!" : completo ? "✓" : numero}
     </span>
   );
 }
@@ -33,6 +46,7 @@ export function TarjetaDePaso({
   titulo,
   descripcion,
   completo,
+  conProblemas,
   aviso,
   children,
 }: {
@@ -41,6 +55,8 @@ export function TarjetaDePaso({
   titulo: string;
   descripcion: string;
   completo: boolean;
+  /** Algo de este paso impide guardar (2026-10-27). */
+  conProblemas?: boolean;
   /** Nota a la derecha del título, p. ej. que el paso no se puede cambiar. */
   aviso?: string;
   children: ReactNode;
@@ -49,14 +65,14 @@ export function TarjetaDePaso({
     <section
       id={id}
       aria-labelledby={`${id}-titulo`}
-      className="mb-5 scroll-mt-24 rounded-lg border border-system-200 bg-white p-5 sm:p-6"
+      className={`mb-5 scroll-mt-24 rounded-lg border bg-white p-5 sm:p-6 ${conProblemas ? "border-error-700" : "border-system-200"}`}
     >
       <div className="mb-5 flex items-start gap-3">
-        <NumeroDePaso numero={numero} completo={completo} />
+        <NumeroDePaso numero={numero} completo={completo} conProblemas={conProblemas} />
         <div className="min-w-0 flex-1">
           <h2 id={`${id}-titulo`} className="text-[15px] font-bold text-system-900">
             {titulo}
-            <span className="sr-only">{completo ? " (completo)" : " (pendiente)"}</span>
+            <span className="sr-only">{conProblemas ? " (con errores)" : completo ? " (completo)" : " (pendiente)"}</span>
           </h2>
           <p className="mt-0.5 text-[12.5px] text-system-600">{descripcion}</p>
         </div>
@@ -120,10 +136,10 @@ export function GuiaDePasos({ pasos }: { pasos: Paso[] }) {
                   activo === paso.id ? "bg-system-100 font-semibold text-system-900" : "text-system-600"
                 }`}
               >
-                <NumeroDePaso numero={i + 1} completo={paso.completo} activo={activo === paso.id} />
-                <span>
+                <NumeroDePaso numero={i + 1} completo={paso.completo} activo={activo === paso.id} conProblemas={paso.conProblemas} />
+                <span className={paso.conProblemas ? "text-error-700" : undefined}>
                   {paso.titulo}
-                  <span className="sr-only">{paso.completo ? " (completo)" : " (pendiente)"}</span>
+                  <span className="sr-only">{paso.conProblemas ? " (con errores)" : paso.completo ? " (completo)" : " (pendiente)"}</span>
                 </span>
               </a>
             </li>

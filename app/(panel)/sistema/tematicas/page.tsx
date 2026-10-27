@@ -7,6 +7,9 @@
 // 2026-10-20 el texto ya no crea temáticas: solo quedan por revisar las que se crearon antes.
 // Server Component. Acceso: sesión raíz. Datos: lib/tematicas/catalogo.ts. Búsqueda con ?q=.
 // Acción: cambiarVisibilidadDeTematica (lib/tematicas/acciones-tematicas.ts), en BotonDeVisibilidad.
+// Desde el 2026-10-26 el SuperUsuario crea temáticas (NuevaTematica, origen "panel") y edita o borra
+// las que no son base desde "Más" (EditarOBorrar): renombrar las cambia en perfiles y campañas; no se
+// borra una que usan campañas. Las 23 base solo se ocultan.
 
 import type { Metadata } from "next";
 
@@ -17,6 +20,8 @@ import { listarTematicasDelPanel } from "@/lib/tematicas/catalogo";
 import { ZONA_DE_CAMPANAS } from "@/lib/campaign-date";
 import BotonDeVisibilidad from "./BotonDeVisibilidad";
 import BotonesDeRevision from "./BotonesDeRevision";
+import EditarOBorrar from "./EditarOBorrar";
+import NuevaTematica from "./NuevaTematica";
 
 export const metadata: Metadata = { title: "Temáticas" };
 export const dynamic = "force-dynamic";
@@ -28,6 +33,7 @@ export default async function TematicasPage({ searchParams }: { searchParams: Pr
   const { q = "" } = await searchParams;
   const tematicas = await listarTematicasDelPanel(q);
   const deUsuarios = tematicas.filter((t) => t.origen === "usuario").length;
+  const delPanel = tematicas.filter((t) => t.origen === "panel").length;
   const ocultas = tematicas.filter((t) => t.oculta).length;
   const pendientes = tematicas.filter((t) => !t.aprobada && !t.oculta).length;
 
@@ -35,8 +41,10 @@ export default async function TematicasPage({ searchParams }: { searchParams: Pr
     <div>
       <Encabezado
         titulo="Temáticas"
-        subtitulo="Intereses de los perfiles y temáticas de las campañas. Las nuevas salen de lo que escriben los usuarios sobre sus gustos y quedan pendientes: solo las tiene quien las escribió hasta que las apruebas; si la rechazas, se borra y se quita de su perfil. Una oculta deja de ofrecerse, pero no se quita de los perfiles ni de las campañas que ya la tienen."
+        subtitulo="Intereses de los perfiles y temáticas de las campañas. Puedes crear temáticas y editar o borrar las que no son base (las 23 base solo se ocultan). Las nuevas salen de lo que escriben los usuarios sobre sus gustos y quedan pendientes: solo las tiene quien las escribió hasta que las apruebas; si la rechazas, se borra y se quita de su perfil. Una oculta deja de ofrecerse, pero no se quita de los perfiles ni de las campañas que ya la tienen."
       />
+
+      <NuevaTematica />
 
       <form method="get" className="mb-4 flex flex-wrap items-center gap-2" role="search">
         <input
@@ -49,7 +57,7 @@ export default async function TematicasPage({ searchParams }: { searchParams: Pr
         />
         <p className="font-mono text-[12px] text-system-500">
           {formatearNumero(tematicas.length)} {q ? "encontradas" : "en total"} · {formatearNumero(pendientes)} por revisar ·{" "}
-          {formatearNumero(deUsuarios)} de usuarios ·{" "}
+          {formatearNumero(deUsuarios)} de usuarios · {formatearNumero(delPanel)} creadas aquí ·{" "}
           {formatearNumero(ocultas)} ocultas
         </p>
       </form>
@@ -63,7 +71,9 @@ export default async function TematicasPage({ searchParams }: { searchParams: Pr
               <div className="min-w-0">
                 <p className={`break-words font-bold ${t.oculta ? "text-system-500 line-through" : "text-system-900"}`}>{t.nombre}</p>
                 <p className="mt-0.5 text-[12px] text-system-500">
-                  {t.origen === "base" ? "Base" : `De un usuario · ${fecha.format(new Date(t.creadaEl))}`} ·{" "}
+                  {t.origen === "base"
+                    ? "Base"
+                    : `${t.origen === "panel" ? "Creada aquí" : "De un usuario"} · ${fecha.format(new Date(t.creadaEl))}`} ·{" "}
                   {formatearNumero(t.personas)} {t.personas === 1 ? "persona" : "personas"} ·{" "}
                   {formatearNumero(t.campanas)} {t.campanas === 1 ? "campaña" : "campañas"}
                 </p>
@@ -81,6 +91,9 @@ export default async function TematicasPage({ searchParams }: { searchParams: Pr
                     <BotonesDeRevision id={t.id} nombre={t.nombre} />
                   </>
                 )}
+                {t.origen !== "base" ? (
+                  <EditarOBorrar id={t.id} nombre={t.nombre} personas={t.personas} campanas={t.campanas} />
+                ) : null}
               </div>
             </li>
           ))}

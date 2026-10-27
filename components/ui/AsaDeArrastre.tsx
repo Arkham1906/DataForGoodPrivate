@@ -151,6 +151,7 @@ export default function AsaDeArrastre({
       ref={asaRef}
       type="button"
       disabled={deshabilitado}
+      data-sin-respuesta
       onPointerDown={alPresionar}
       onKeyDown={alTeclear}
       aria-label={`Mover ${etiqueta}: arrastra o usa las flechas`}

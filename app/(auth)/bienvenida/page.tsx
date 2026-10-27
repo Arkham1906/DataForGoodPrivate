@@ -1,18 +1,21 @@
 "use client";
 
 // Pantalla /bienvenida: perfil inicial tras verificar, en dos pasos del registro: paso 3 (estado y
-// municipio) y paso 4 (especialidad e intereses). Se puede omitir.
+// municipio) y paso 4 (especialidad, organización desde el 2026-10-26, e intereses). Se puede omitir.
 // Datos: GET /api/auth/sesion. Guarda con PATCH /api/usuarios/[id] al pasar al paso 4 y al finalizar.
 // Intereses: la persona escribe qué le gusta y de ahí salen sus temáticas (ui/InteresesDesdeTexto).
-// Catálogos: lib/mexico-geo.ts, lib/perfil-opciones.ts; temáticas en GET /api/tematicas.
+// Catálogos: lib/mexico-geo.ts, lib/perfil-opciones.ts; temáticas en GET /api/tematicas; especialidades
+// en GET /api/especialidades (ui/CampoDeEspecialidad: se elige o se escribe; una nueva se ofrece a todos).
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Button from "@/components/ui/Button";
-import { Field, Input } from "@/components/ui/Input";
+import { Field } from "@/components/ui/Input";
 import InteresesDesdeTexto from "@/components/ui/InteresesDesdeTexto";
 import Skeleton from "@/components/ui/Skeleton";
-import { ESPECIALIDADES, OTRA_ESPECIALIDAD, opcionesCon } from "@/lib/perfil-opciones";
+import CampoDeEspecialidad from "@/components/ui/CampoDeEspecialidad";
+import CampoDeOrganizacion from "@/components/ui/CampoDeOrganizacion";
+import { opcionesCon, validarEspecialidad, validarOrganizacion } from "@/lib/perfil-opciones";
 import { municipiosDe, NOMBRES_DE_ESTADOS } from "@/lib/mexico-geo";
 import { BASE_PATH } from "@/lib/base-path";
 import { conDestino, destinoSeguro } from "@/lib/redireccion";
@@ -24,6 +27,7 @@ type SessionUser = {
   state?: string | null;
   city?: string | null;
   specialty?: string | null;
+  organizacion?: string | null;
   intereses?: string[];
   intereses_texto?: string | null;
 };
@@ -46,7 +50,9 @@ function BienvenidaForm() {
   const [state, setState] = useState("");
   const [city, setCity] = useState("");
   const [specialty, setSpecialty] = useState("");
-  const [especialidadPersonalizada, setEspecialidadPersonalizada] = useState(false);
+  const [errorDeEspecialidad, setErrorDeEspecialidad] = useState<string | null>(null);
+  const [organizacion, setOrganizacion] = useState("");
+  const [errorDeOrganizacion, setErrorDeOrganizacion] = useState<string | null>(null);
   // Paso 3: ubicación. Paso 4: especialidad y temáticas.
   const [paso, setPaso] = useState<3 | 4>(3);
 
@@ -62,14 +68,13 @@ function BienvenidaForm() {
       const currentUser = body.data as SessionUser | undefined;
       if (!currentUser) return;
 
-      const especialidad = currentUser.specialty ?? "";
       setUser(currentUser);
       setSelected(currentUser.intereses ?? ["Medio ambiente", "Educación"]);
       setTextoDeIntereses(currentUser.intereses_texto ?? "");
       setState(currentUser.state ?? "");
       setCity(currentUser.city ?? "");
-      setSpecialty(especialidad);
-      setEspecialidadPersonalizada(especialidad !== "" && !ESPECIALIDADES.includes(especialidad));
+      setSpecialty(currentUser.specialty ?? "");
+      setOrganizacion(currentUser.organizacion ?? "");
     }
 
     loadUser();
@@ -81,27 +86,23 @@ function BienvenidaForm() {
     setCity("");
   }
 
-  function elegirEspecialidad(valor: string) {
-    if (valor === OTRA_ESPECIALIDAD) {
-      setEspecialidadPersonalizada(true);
-      setSpecialty("");
-    } else {
-      setEspecialidadPersonalizada(false);
-      setSpecialty(valor);
-    }
-  }
-
-  async function guardar(campos: Record<string, unknown>) {
-    if (!user?.id) return;
+  /** Guarda en el perfil. Devuelve el error del servidor (400), o null si se guardó o si falló la red (no se detiene el registro). */
+  async function guardar(campos: Record<string, unknown>): Promise<string | null> {
+    if (!user?.id) return null;
     try {
-      await fetch(`${BASE_PATH}/api/usuarios/${user.id}`, {
+      const respuesta = await fetch(`${BASE_PATH}/api/usuarios/${user.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(campos),
       });
+      if (respuesta.status === 400) {
+        const cuerpo = (await respuesta.json().catch(() => ({}))) as { error?: string };
+        return cuerpo.error ?? "Revisa tus datos";
+      }
     } catch (error) {
       console.error("No se pudo guardar el perfil del usuario", error);
     }
+    return null;
   }
 
   // La ubicación se guarda ya al avanzar: si la persona cierra en el paso 4, no la pierde.
@@ -111,7 +112,20 @@ function BienvenidaForm() {
   }
 
   async function finish() {
-    await guardar({ state, city, specialty, intereses: selected, interesesTexto: textoDeIntereses });
+    // Especialidad y organización escritas se revisan antes con las mismas reglas que el servidor,
+    // para no perder el resto del perfil por un 400.
+    const validada = specialty.trim() ? validarEspecialidad(specialty) : null;
+    const organizacionValidada = organizacion.trim() ? validarOrganizacion(organizacion) : null;
+    if (validada && !validada.ok) setErrorDeEspecialidad(validada.error);
+    if (organizacionValidada && !organizacionValidada.ok) setErrorDeOrganizacion(organizacionValidada.error);
+    if ((validada && !validada.ok) || (organizacionValidada && !organizacionValidada.ok)) return;
+
+    const error = await guardar({ state, city, specialty, organizacion, intereses: selected, interesesTexto: textoDeIntereses });
+    if (error) {
+      if (error.startsWith("La organización")) setErrorDeOrganizacion(error);
+      else setErrorDeEspecialidad(error);
+      return;
+    }
     router.push(destinoSeguro(next));
   }
 
@@ -210,32 +224,45 @@ function BienvenidaForm() {
       ) : (
         <>
           <div className="lg:grid lg:grid-cols-2 lg:gap-x-8 lg:items-start">
+            <div>
             <Field
               label="Especialidad (opcional)"
-              hint="Si más adelante te asignan el rol de supervisor, se usará para repartirte campañas de tu área."
+              hint="Elige una de la lista o escribe la tuya. Si más adelante te asignan el rol de supervisor, se usará para repartirte campañas de tu área."
             >
-              <select
-                value={especialidadPersonalizada ? OTRA_ESPECIALIDAD : specialty}
-                onChange={(e) => elegirEspecialidad(e.target.value)}
-                className="w-full rounded border border-system-300 bg-white px-3.5 py-3 text-sm text-system-900 outline-none focus:border-brand-600"
-              >
-                <option value="">Selecciona una especialidad</option>
-                {ESPECIALIDADES.map((opcion) => (
-                  <option key={opcion}>{opcion}</option>
-                ))}
-                <option value={OTRA_ESPECIALIDAD}>Otra (especifica)</option>
-              </select>
-              {especialidadPersonalizada && (
-                <Input
-                  value={specialty}
-                  onChange={(e) => setSpecialty(e.target.value)}
-                  placeholder="Escribe tu especialidad"
-                  aria-label="Tu especialidad"
-                  maxLength={150}
-                  className="mt-2"
-                />
+              <CampoDeEspecialidad
+                value={specialty}
+                onChange={(valor) => {
+                  setSpecialty(valor);
+                  setErrorDeEspecialidad(null);
+                }}
+                aria-invalid={errorDeEspecialidad ? true : undefined}
+              />
+              {errorDeEspecialidad && (
+                <p role="alert" className="mt-1.5 text-[12.5px] text-error-700">
+                  {errorDeEspecialidad}
+                </p>
               )}
             </Field>
+
+            <Field
+              label="¿Perteneces a alguna organización? (opcional)"
+              hint="Elige una de la lista o escribe la tuya. Se propondrá como organizadora cuando crees una campaña."
+            >
+              <CampoDeOrganizacion
+                value={organizacion}
+                onChange={(valor) => {
+                  setOrganizacion(valor);
+                  setErrorDeOrganizacion(null);
+                }}
+                aria-invalid={errorDeOrganizacion ? true : undefined}
+              />
+              {errorDeOrganizacion && (
+                <p role="alert" className="mt-1.5 text-[12.5px] text-error-700">
+                  {errorDeOrganizacion}
+                </p>
+              )}
+            </Field>
+            </div>
 
             <div className="mb-3">
               <InteresesDesdeTexto
