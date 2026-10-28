@@ -21,7 +21,7 @@ import { agregarEtiquetas, guardarEtiquetasDeCampana } from "@/lib/etiquetas/cat
 import { validarProposito } from "@/lib/campanas/proposito";
 import { hasRootSession } from "@/lib/rootSession";
 import { campanasParaTi } from "@/lib/usuarios/inicio";
-import { activateScheduledCampaigns, calculateCampaignDaysRemaining, errorDeFinAntesDeInicio, errorDeInicioPasado, finalizeExpiredCampaigns, normalizeCampaignDate, normalizeCampaignTime } from "@/lib/campaign-date";
+import { activateScheduledCampaigns, ahoraEnZona, calculateCampaignDaysRemaining, errorDeFinAntesDeInicio, errorDeInicioPasado, finalizeExpiredCampaigns, normalizeCampaignDate, normalizeCampaignTime } from "@/lib/campaign-date";
 
 async function obtenerIdsGuardados(usuarioId: number): Promise<Set<number>> {
   const result = await pool.query<{ campana_id: number }>(
@@ -132,6 +132,7 @@ function mapCampaign(row: Record<string, unknown>) {
     shareTokenExpiresAt: row.share_token_expires_at ? new Date(row.share_token_expires_at as string).toISOString() : undefined,
     contributions: aportes,
     myContributionsCount: row.mis_aportes_count != null ? Number(row.mis_aportes_count) : undefined,
+    ...(row.can_delete != null ? { canDelete: row.can_delete === true } : {}),
   };
 }
 
@@ -221,6 +222,7 @@ export async function GET(request: Request) {
           // Si está rechazada, el motivo, la fecha y la sanción del último rechazo (lib/campanas/rechazo.ts).
           // El reporte con sanción se escribe en la misma transacción que el rechazo: mismo NOW().
           `SELECT c.*,
+                  NOT EXISTS (SELECT 1 FROM aportes a WHERE a.campaign_id = c.id) AS can_delete,
                   r.motivo AS rechazo_motivo, r.created_at AS rechazo_en, r.por_superusuario AS rechazo_por_root,
                   s.tipo AS rechazo_sancion_tipo, s.dias AS rechazo_sancion_dias
            FROM campanas c
@@ -341,9 +343,7 @@ export async function POST(request: Request) {
     const hasReviewerAssigned = false;
 
     const startDate = normalizeCampaignDate(body.startDate ?? body.start_date);
-    const startTime = normalizeCampaignTime(body.startTime ?? body.start_time);
     const endDate = normalizeCampaignDate(body.endDate ?? body.end_date);
-    const endTime = normalizeCampaignTime(body.endTime ?? body.end_time);
     // Para todo el país: sin estado, municipio ni colonia (lib/campanas/ubicacion.ts).
     const todoElPais = body.todoElPais === true;
     const locationCity = todoElPais ? "" : String(body.locationCity ?? body.location_city ?? "").trim();
@@ -389,6 +389,8 @@ export async function POST(request: Request) {
     }
 
     const aportes: unknown[] = [];
+    const ahora = ahoraEnZona();
+    const horaDeCreacion = `${String(ahora.hour).padStart(2, "0")}:${String(ahora.minute).padStart(2, "0")}`;
 
     // La campaña y sus etiquetas (subtemáticas, opcionales) se guardan juntas: una etiqueta
     // inválida no deja una campaña a medias.
@@ -471,8 +473,8 @@ export async function POST(request: Request) {
           shareToken,
           shareTokenExpiresAt,
           JSON.stringify(aportes),
-          startTime,
-          endTime,
+          horaDeCreacion,
+          horaDeCreacion,
           JSON.stringify(checklistSecciones),
           null, // cuota_por_tipo: sin uso desde el 2026-10-27 (solo cuota general; lib/campanas/reparto-sugerido.ts)
           todoElPais,

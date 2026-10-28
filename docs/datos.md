@@ -87,6 +87,8 @@ borrador ──► en_revision ──(supervisor acepta)──► aceptada ─�
 | `finalizada` | Cerrada; aparece en `/datos` como dato abierto | El creador (botón "Finalizar") o automático al vencer `end_date` |
 | `rechazada` | El supervisor la rechazó con un motivo | El supervisor |
 
+El creador puede eliminar una campaña sin aportes desde «Mis campañas», en cualquier estado; la operación pide confirmación y se rechaza si ya existe un aporte.
+
 - **Transiciones automáticas sin cron.** `activateScheduledCampaigns()` (`aceptada` → `activa`) y `finalizeExpiredCampaigns()` (`activa` → `finalizada`) de `lib/campaign-date.ts` se ejecutan **cada minuto** en la tarea de `instrumentation-node.ts` y además cada vez que se lee `GET /api/campanas`, `/explorar`, la landing o la portada de `/sistema`. Una `pausada` no se finaliza sola. Una `aceptada` solo se activa si el creador tiene menos de 5 activas; si no, espera lugar y se le avisa (`campana_en_espera`, 2026-10-27).
 - **Enlace público automático.** Cada vez que una campaña **pasa a `activa`** (el supervisor la acepta y ya empezó, llega su fecha de inicio o se reactiva) se le genera un enlace `/c/[token]` de 24 h si no tiene uno vigente (`asegurarEnlaceVigente` de `lib/campanas/enlaces.ts`). Si la acepta con inicio futuro, el enlace se crea el día que arranca, no antes, para que no venza sin usarse. Después solo el creador lo regenera.
 - **"Reportada"** no cambia el estado: queda registrada en `campana_supervisores`.

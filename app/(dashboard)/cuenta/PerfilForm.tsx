@@ -250,7 +250,7 @@ export default function PerfilForm({
               </Field>
             </div>
 
-            <Field label="¿En qué área eres experto?" hint="Elige una de la lista o escribe la tuya.">
+            <Field label="¿En qué te especializas?" hint="Elige una de la lista o escribe la tuya.">
               <CampoDeEspecialidad value={specialty} onChange={setSpecialty} />
             </Field>
 

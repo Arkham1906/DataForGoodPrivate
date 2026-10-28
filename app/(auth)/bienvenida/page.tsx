@@ -229,7 +229,7 @@ function BienvenidaForm() {
           <div className="lg:grid lg:grid-cols-2 lg:gap-x-8 lg:items-start">
             <div>
             <Field
-              label="Especialidad (opcional)"
+              label="¿En qué te especializas?"
               hint="Elige una de la lista o escribe la tuya. Si más adelante te asignan el rol de supervisor, se usará para repartirte campañas de tu área."
             >
               <CampoDeEspecialidad

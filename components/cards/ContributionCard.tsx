@@ -5,6 +5,7 @@ import Tag from "@/components/ui/Tag";
 import Card from "@/components/ui/Card";
 import type { Contribution } from "@/types";
 import { formatearTamano } from "@/lib/aportes/archivo";
+import ArchivoDelAporte from "@/components/ui/ArchivoDelAporte";
 
 const STATUS_TONE: Record<Contribution["status"], { label: string; tone: "ok" | "warn" | "danger" | "default" }> = {
   aceptado: { label: "Aceptado", tone: "ok" },
@@ -29,6 +30,21 @@ export default function ContributionCard({ contribution }: { contribution: Contr
       <div className="min-w-0">
         <p className="text-[14px] font-bold text-system-900">{contribution.campaignName}</p>
         <p className="mt-1 text-[13px] text-system-600">{contribution.description}</p>
+        <div className="mt-3 max-w-2xl">
+          {contribution.archivoBorrado ? (
+            <div className="flex aspect-video items-center justify-center rounded-lg border border-dashed border-system-300 bg-system-100 text-[12.5px] text-system-500">
+              El creador borró este archivo
+            </div>
+          ) : (
+            <ArchivoDelAporte
+              aporteId={contribution.id}
+              tipo={contribution.fileType}
+              sinArchivo={contribution.sinArchivo}
+              alt={`Archivo de tu aporte en ${contribution.campaignName}`}
+              alto="aspect-video max-h-80"
+            />
+          )}
+        </div>
         <div className="mt-2 flex gap-4 text-[11.5px] text-system-500">
           <span>{formatDateTime(contribution.submittedAt)}</span>
           <span>{contribution.fileType}</span>

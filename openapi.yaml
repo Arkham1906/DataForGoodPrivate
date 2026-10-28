@@ -663,7 +663,7 @@ paths:
       parameters:
         - { name: id, in: query, schema: { type: integer }, description: "Una sola campaña. La respuesta trae además `viewer: { isCreator, isMySupervision, baneado, motivoDeBaneo, yaReportada }` (`baneado`: el creador te baneó de esta campaña; `yaReportada`: ya la reportaste)" }
         - { name: available, in: query, schema: { type: boolean }, description: Campañas en las que puedo aportar (excluye aquellas de las que el creador me baneó) }
-        - { name: mine, in: query, schema: { type: boolean }, description: Campañas que creé (requiere sesión) }
+        - { name: mine, in: query, schema: { type: boolean }, description: "Campañas que creé (requiere sesión); incluye `canDelete` para indicar si la campaña no tiene aportes." }
         - { name: supervised, in: query, schema: { type: boolean }, description: Campañas que superviso (requiere sesión) }
         - { name: misAportes, in: query, schema: { type: boolean }, description: "Campañas donde aporté, con `myContributionsCount`" }
         - { name: paraTi, in: query, schema: { type: boolean }, description: "Pide sesión. 'Campañas para ti' (2026-10-27): hasta 3 activas de otros, primero de sus intereses, luego de su estado y luego las más concurridas. Otra forma: `{ id, nombre, tematica, aprobados, meta, participantes, motivo: interes | estado | popular }`" }
@@ -684,7 +684,8 @@ paths:
       description: |
         Exige sesión: la campaña es de quien la crea. `status` solo `borrador` (por defecto) o
         `en_revision`; con 5 campañas activas, solo `borrador`. Contadores, XP, `isSpecial` y
-        `hasReviewerAssigned` del body se ignoran.
+        `hasReviewerAssigned` del body se ignoran. La fecha de inicio y la de fin usan la hora de
+        Tepic del momento de creación; `startTime` y `endTime` enviados por clientes anteriores se ignoran.
       requestBody:
         required: true
         content:
@@ -800,6 +801,30 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
           description: La campaña cambió de estado mientras tanto (pausar, reanudar o finalizar de la supervisión)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+    delete:
+      tags: [Campañas]
+      summary: Eliminar una campaña sin aportes (solo el creador)
+      description: |
+        Elimina la campaña y sus registros relacionados. Solo se permite si aún no tiene aportes,
+        sin importar su estado. La operación se verifica dentro de una transacción y queda en
+        `audit_log` como `campana.eliminar`. La interfaz de usuario ofrece esta acción únicamente
+        en «Mis campañas» y pide confirmación.
+      responses:
+        "200":
+          description: Campaña eliminada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: Campaña eliminada }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: La campaña ya recibió aportes y no se puede eliminar
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
@@ -1485,8 +1510,8 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
     delete:
       tags: [Aportes]
-      summary: Eliminar mi aporte pendiente o rechazado
-      description: Uno aceptado ya no se borra (400). Al borrar uno rechazado se recupera ese espacio de la cuota. Borra también su archivo de MinIO y recalcula los contadores de la campaña.
+      summary: Eliminar mi aporte en revisión
+      description: Solo quien aportó puede eliminarlo mientras siga en revisión y la campaña esté activa (400 en otro estado). Borra el archivo de MinIO y recalcula los contadores.
       responses:
         "200": { $ref: "#/components/responses/Message" }
         "400": { $ref: "#/components/responses/BadRequest" }
@@ -2165,9 +2190,9 @@ components:
         goalContributions: { type: integer, minimum: 1 }
         quotaPerUser: { type: integer, minimum: 1, description: "Máximo de aportes por persona, de cualquier tipo de dato (2026-10-27: ya no se reparte por tipo; `cuotaPorTipo` se ignora)" }
         startDate: { type: string, format: date }
-        startTime: { type: string, example: "08:00" }
+        startTime: { type: string, example: "08:00", description: "Compatibilidad con clientes anteriores. POST /api/campanas ignora este campo y usa la hora de Tepic al crear; los formularios ya no solicitan horas." }
         endDate: { type: string, format: date }
-        endTime: { type: string, example: "20:00" }
+        endTime: { type: string, example: "20:00", description: "Compatibilidad con clientes anteriores. POST /api/campanas ignora este campo y usa la hora de Tepic al crear; los formularios ya no solicitan horas." }
         locationState: { type: string }
         locationCity: { type: string, description: "Municipio. Opcional: vacío, la campaña abarca todo el estado" }
         locationColonia: { type: string, description: "Solo con municipio; sin él se guarda vacía" }
@@ -2192,9 +2217,7 @@ components:
         goalContributions: 100
         quotaPerUser: 5
         startDate: "2026-10-01"
-        startTime: "08:00"
         endDate: "2026-10-31"
-        endTime: "20:00"
         locationState: Nayarit
         locationCity: Tepic
         locationColonia: ""
@@ -2254,6 +2277,7 @@ components:
         isSaved: { type: boolean, description: Solo con sesión }
         isBanned: { type: boolean, description: "Solo con sesión: el creador te baneó de esta campaña" }
         myContributionsCount: { type: integer, description: Solo con `misAportes=true` }
+        canDelete: { type: boolean, description: "Solo con `mine=true`: indica que la campaña aún no recibió aportes." }
 
     Contribution:
       type: object

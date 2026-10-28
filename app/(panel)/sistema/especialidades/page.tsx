@@ -24,7 +24,7 @@ export default async function EspecialidadesPage({ searchParams }: { searchParam
   return (
     <PantallaDeCatalogo
       titulo="Especialidades"
-      subtitulo="Lo que las personas eligen o escriben en «¿En qué área eres experto?» al registrarse y en su cuenta. Las que escriben se sugieren a todos desde que se guardan. Puedes crear especialidades y editar o borrar las que no son base: al editar una, cambia también en los perfiles que la tienen; al borrarla, esos perfiles quedan sin especialidad."
+      subtitulo="Lo que las personas eligen o escriben en «¿En qué te especializas?» al registrarse y en su cuenta. Las que escriben se sugieren a todos desde que se guardan. Puedes crear especialidades y editar o borrar las que no son base: al editar una, cambia también en los perfiles que la tienen; al borrarla, esos perfiles quedan sin especialidad."
       q={q}
       elementos={especialidades}
       conCampanas={false}
