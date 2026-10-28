@@ -13,7 +13,6 @@
 import { useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
 import ButtonLink from "@/components/ui/ButtonLink";
-import MenuDeAcciones from "@/components/ui/MenuDeAcciones";
 import Tag from "@/components/ui/Tag";
 import RutaDeTematica from "@/components/ui/RutaDeTematica";
 import ProgressBar from "@/components/ui/ProgressBar";
@@ -41,10 +40,11 @@ const labels: Record<CampaignStatus, string> = {
   rechazada: "Rechazada",
 };
 
-type Filtro = "todas" | CampaignStatus;
+type Filtro = "todas" | "proximas" | CampaignStatus;
 
 const FILTROS: { valor: Filtro; etiqueta: string; fijo?: boolean }[] = [
   { valor: "todas", etiqueta: "Todas", fijo: true },
+  { valor: "proximas", etiqueta: "Próximas a finalizar", fijo: true },
   { valor: "en_revision", etiqueta: "En revisión", fijo: true },
   { valor: "aceptada", etiqueta: "Aceptadas", fijo: true },
   { valor: "activa", etiqueta: "Activas", fijo: true },
@@ -55,6 +55,36 @@ const FILTROS: { valor: Filtro; etiqueta: string; fijo?: boolean }[] = [
 ];
 
 type CampanaDeMisCampanas = Campaign & { canDelete: boolean };
+
+type TipoDeIconoDeAccion = "compartir" | "editar" | "pausar" | "reanudar" | "finalizar";
+
+function IconoDeAccion({ tipo }: { tipo: TipoDeIconoDeAccion }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      {tipo === "compartir" && (
+        <>
+          <circle cx="18" cy="5" r="2" />
+          <circle cx="6" cy="12" r="2" />
+          <circle cx="18" cy="19" r="2" />
+          <path d="m7.8 11 8.4-5M7.8 13l8.4 5" />
+        </>
+      )}
+      {tipo === "editar" && <path d="m4 16.5-.7 3.7 3.7-.7L18.6 8a2.1 2.1 0 0 0-3-3L4 16.5ZM14.5 6.5l3 3" />}
+      {tipo === "pausar" && <path d="M8 5v14M16 5v14" />}
+      {tipo === "reanudar" && <path d="m8 5 10 7-10 7V5Z" />}
+      {tipo === "finalizar" && <path d="M6 6h12v12H6zM9 12h6" />}
+    </svg>
+  );
+}
+
+function estaProximaAFinalizar(campaign: Campaign): boolean {
+  return (
+    (campaign.status === "activa" || campaign.status === "pausada") &&
+    campaign.daysRemaining !== null &&
+    campaign.daysRemaining >= 0 &&
+    campaign.daysRemaining <= 5
+  );
+}
 
 function mapCampaign(row: Record<string, unknown>): CampanaDeMisCampanas {
   const status = String(row.status ?? "borrador") as CampaignStatus;
@@ -135,9 +165,15 @@ export default function MisCampanasPage() {
   }, [recarga]);
 
   const count = (status: CampaignStatus) => campaigns.filter((campaign) => campaign.status === status).length;
+  const proximasAFinalizar = campaigns.filter(estaProximaAFinalizar);
   // Los estados fijos siempre se ven; el resto solo si hay alguna campaña en él.
-  const filtros = FILTROS.filter((f) => f.fijo || (f.valor !== "todas" && count(f.valor) > 0));
-  const visibles = filtro === "todas" ? campaigns : campaigns.filter((campaign) => campaign.status === filtro);
+  const filtros = FILTROS.filter((f) => f.fijo || (f.valor !== "todas" && f.valor !== "proximas" && count(f.valor) > 0));
+  const visibles =
+    filtro === "todas"
+      ? campaigns
+      : filtro === "proximas"
+        ? proximasAFinalizar
+        : campaigns.filter((campaign) => campaign.status === filtro);
 
   // Solo el creador ve esta pantalla (viene de mine=true): no hace falta
   // revisar rol ni dueño aparte, ya está filtrado por sesión.
@@ -211,7 +247,7 @@ export default function MisCampanasPage() {
       >
         {filtros.map((f) => {
           const activo = filtro === f.valor;
-          const total = f.valor === "todas" ? campaigns.length : count(f.valor);
+          const total = f.valor === "todas" ? campaigns.length : f.valor === "proximas" ? proximasAFinalizar.length : count(f.valor);
           return (
             <button
               key={f.valor}
@@ -238,7 +274,9 @@ export default function MisCampanasPage() {
       ) : campaigns.length === 0 ? (
         <p className="rounded-lg bg-system-100 p-4 text-sm text-system-600">Todavía no has creado campañas.</p>
       ) : visibles.length === 0 ? (
-        <p className="rounded-lg bg-system-100 p-4 text-sm text-system-600">No tienes campañas en este estado.</p>
+        <p className="rounded-lg bg-system-100 p-4 text-sm text-system-600">
+          {filtro === "proximas" ? "No tienes campañas próximas a finalizar." : "No tienes campañas en este estado."}
+        </p>
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {visibles.map((campaign) => {
@@ -319,7 +357,7 @@ export default function MisCampanasPage() {
                 )}
                 {/* Una acción principal y "Panel" a la vista; lo demás en "Más" (Ley de Hick, 2026-10-07).
                     Rechazada: la principal es corregirla (no tiene aportes que revisar). */}
-                <div className="relative z-10 mt-auto flex flex-wrap items-center gap-1.5 max-md:gap-1">
+                <div className="relative z-10 mt-auto flex flex-wrap items-center gap-1.5 border-t border-system-100 pt-3 max-md:gap-1">
                   {campaign.status === "rechazada" ? (
                     <ButtonLink href={`/mis-campanas/nueva?edit=${campaign.id}`} variant="primary" size="sm" className="max-md:px-2 max-md:py-1.5 max-md:text-[11px]">
                       Corregir y reenviar
@@ -331,6 +369,39 @@ export default function MisCampanasPage() {
                     </ButtonLink>
                   )}
                   <ButtonLink href={`/mis-campanas/${campaign.id}/panel`} size="sm" className="max-md:px-2 max-md:py-1.5 max-md:text-[11px]">Panel</ButtonLink>
+                  <div className="ml-auto flex w-fit items-center gap-1 rounded-lg border border-system-200 bg-system-50 p-1 max-md:mx-auto">
+                  {campaign.status === "activa" && (
+                    <Button type="button" variant="secondary" size="sm" className="!size-9 !rounded-md !p-0" aria-label={`Compartir ${campaign.name}`} title="Compartir" onClick={() => setPorCompartir(campaign)}>
+                      <IconoDeAccion tipo="compartir" />
+                    </Button>
+                  )}
+                  <ButtonLink href={`/mis-campanas/nueva?edit=${campaign.id}`} variant="secondary" size="sm" className="!size-9 !rounded-md !p-0" aria-label={`Editar ${campaign.name}`} title="Editar">
+                    <IconoDeAccion tipo="editar" />
+                  </ButtonLink>
+                  {campaign.status === "activa" && (
+                    <Button type="button" variant="secondary" size="sm" className="!size-9 !rounded-md !p-0" aria-label={`Pausar ${campaign.name}`} title="Pausar campaña" onClick={() => setPorPausar(campaign)} disabled={cambiando}>
+                      <IconoDeAccion tipo="pausar" />
+                    </Button>
+                  )}
+                  {campaign.status === "pausada" && campaign.pausa?.por !== "supervision" && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className="!size-9 !rounded-md !p-0"
+                      aria-label={inicioEnElFuturo(campaign.startDate, campaign.startTime) ? `Programar ${campaign.name}` : `Reanudar ${campaign.name}`}
+                      title={inicioEnElFuturo(campaign.startDate, campaign.startTime) ? "Programar campaña" : "Reanudar campaña"}
+                      onClick={() => void cambiarEstado(campaign.id, inicioEnElFuturo(campaign.startDate, campaign.startTime) ? "aceptada" : "activa")}
+                      disabled={cambiando}
+                    >
+                      <IconoDeAccion tipo="reanudar" />
+                    </Button>
+                  )}
+                  {puedeFinalizar && (
+                    <Button type="button" variant="danger" size="sm" className="!size-9 !rounded-md !p-0" aria-label={`Finalizar ${campaign.name}`} title="Finalizar campaña" onClick={() => setPorFinalizar(campaign)} disabled={cambiando}>
+                      <IconoDeAccion tipo="finalizar" />
+                    </Button>
+                  )}
                   {campaign.canDelete && (
                     <Button
                       variant="danger"
@@ -342,7 +413,8 @@ export default function MisCampanasPage() {
                       Eliminar
                     </Button>
                   )}
-                  <MenuDeAcciones
+                  </div>
+                  {/* <MenuDeAcciones className="hidden"
                     etiqueta={`Más acciones de ${campaign.name}`}
                     opciones={[
                       ...(campaign.status === "activa"
@@ -375,7 +447,7 @@ export default function MisCampanasPage() {
                           ]
                         : []),
                     ]}
-                  />
+                  /> */}
                 </div>
                 {cambioError[campaign.id] && (
                   <p role="alert" className="mt-2 text-[11.5px] text-error-700">{cambioError[campaign.id]}</p>
