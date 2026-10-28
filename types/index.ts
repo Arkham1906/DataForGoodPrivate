@@ -116,6 +116,7 @@ export interface Contribution {
   fileSizeBytes?: number;
   sinArchivo?: boolean; // aporte de solo texto: la descripción es el dato (2026-10-14)
   caracteristicas?: string[];
+  calificacion?: "bien" | "muy_bueno" | "excelente";
   status: ContributionStatus;
   /** Indica si la sesión actual puede revisar este aporte (no es quien lo envió). */
   canReview?: boolean;

@@ -27,6 +27,7 @@ function mapAporte(row: Record<string, unknown>) {
     fileSizeBytes: row.file_size_bytes != null ? Number(row.file_size_bytes) : undefined,
     sinArchivo: !row.file_path,
     caracteristicas: Array.isArray(row.caracteristicas) ? row.caracteristicas : [],
+    calificacion: row.calificacion ? String(row.calificacion) : undefined,
     status: String(row.status ?? "pendiente"),
     submittedAt: row.submitted_at ? new Date(String(row.submitted_at)).toISOString() : new Date().toISOString(),
     rejectionReason: row.rejection_reason ? String(row.rejection_reason) : undefined,
@@ -141,6 +142,10 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     }
 
     const rejectionReason = body.rejectionReason ?? body.rejection_reason ?? null;
+    const calificacion = String(body.calificacion ?? "").trim().toLowerCase();
+    if (!["bien", "muy_bueno", "excelente"].includes(calificacion)) {
+      return NextResponse.json({ error: "calificacion debe ser bien, muy_bueno o excelente" }, { status: 400 });
+    }
     const comoRevisor = isReviewer && !isCampaignCreator;
     // Una decisión no se cambia, la haya tomado quien sea (dominio.md § 5). El UPDATE lo vuelve
     // a comprobar, por si el creador y el revisor deciden a la vez.
@@ -170,16 +175,18 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         `UPDATE aportes SET
           status = $2,
           rejection_reason = $3,
-          first_pass_by = $4,
-          first_pass_by_user_id = $5,
+          calificacion = $4,
+          first_pass_by = $5,
+          first_pass_by_user_id = $6,
           reviewed_at = NOW(),
           updated_at = NOW()
-        WHERE id = $1 AND status = ANY($6::text[])
+        WHERE id = $1 AND status = ANY($7::text[])
         RETURNING *`,
         [
           id,
           nuevoEstado,
           nuevoEstado === "rechazado" ? String(rejectionReason).trim() : null,
+          calificacion,
           firstPassBy,
           comoRevisor ? user.id : row.first_pass_by_user_id,
           ESTADOS_SIN_DECISION,

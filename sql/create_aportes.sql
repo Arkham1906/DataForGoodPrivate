@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS aportes (
   file_mime_type VARCHAR(100),
   file_size_bytes INTEGER,
   caracteristicas JSONB NOT NULL DEFAULT '[]'::jsonb,
+  calificacion VARCHAR(20),
   status VARCHAR(20) NOT NULL DEFAULT 'pendiente',
   rejection_reason TEXT,
   first_pass_by VARCHAR(160),

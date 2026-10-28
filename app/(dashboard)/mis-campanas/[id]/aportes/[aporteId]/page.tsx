@@ -21,8 +21,11 @@ import ArchivoDelAporte from "@/components/ui/ArchivoDelAporte";
 import { MOTIVOS_DE_RECHAZO } from "@/lib/aportes/motivos-de-rechazo";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import ReportarAPlataforma from "@/components/ui/ReportarAPlataforma";
+import VentanaDeConfirmacion from "@/components/ui/VentanaDeConfirmacion";
 import { MOTIVOS_DE_REPORTE_DE_APORTE } from "@/lib/reportes/motivos";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
+import SelectorDeCalificacion from "@/components/aportes/SelectorDeCalificacion";
+import { etiquetaDeCalificacion, type CalificacionDeAporte } from "@/lib/aportes/calificacion";
 
 
 /**
@@ -52,6 +55,7 @@ export default function RevisionAportePage() {
   const [banReason, setBanReason] = useState("");
   // Si el autor ya está baneado de la campaña se ofrece quitar el baneo en vez de banearlo otra vez.
   const [autorBaneado, setAutorBaneado] = useState(false);
+  const [calificacion, setCalificacion] = useState<CalificacionDeAporte | "">("");
 
   // Vuelve a leer cuando algo cambia en la base (actualización en vivo).
   const recarga = useRecargaEnVivo();
@@ -85,13 +89,17 @@ export default function RevisionAportePage() {
   const contributionId = item.id;
 
   async function review(status: "aceptado" | "rechazado", rejectionReason?: string) {
+    if (!calificacion) {
+      setActionError("Selecciona una calificación antes de guardar la decisión");
+      return;
+    }
     setSubmitting(true);
     setActionError(null);
     try {
       const response = await fetch(`${BASE_PATH}/api/aportes/${params.aporteId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status, rejectionReason, ...(status === "rechazado" && inapropiado ? { inapropiado: true } : {}) }),
+        body: JSON.stringify({ status, rejectionReason, calificacion, ...(status === "rechazado" && inapropiado ? { inapropiado: true } : {}) }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error ?? "No se pudo actualizar el aporte");
@@ -119,8 +127,7 @@ export default function RevisionAportePage() {
     void review("rechazado", customReason.trim() || reason);
   }
 
-  async function banUser(e: React.FormEvent) {
-    e.preventDefault();
+  async function banUser() {
     setSubmitting(true);
     setActionError(null);
     try {
@@ -208,9 +215,10 @@ export default function RevisionAportePage() {
   const canReject = Boolean(reason) || customReason.trim().length > 0;
   const alreadyReviewed = item.status === "aceptado" || item.status === "rechazado";
   const esAnonimo = item.userId === null;
+  const calificacionMostrada = etiquetaDeCalificacion(item.calificacion);
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="mx-auto w-full max-w-6xl">
       <Link
         href={`/mis-campanas/${params.id}/aportes`}
         className="mb-4 inline-block text-[13px] text-system-600 hover:text-system-900"
@@ -239,13 +247,13 @@ export default function RevisionAportePage() {
       {aviso && <p className="mb-4 rounded border border-warning-500 bg-warning-50 p-3 text-[12.5px] text-warning-800">{aviso}</p>}
 
 
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(360px,1fr)]">
         {item.archivoBorrado ? (
           <div className="flex h-44 items-center justify-center rounded-lg border border-dashed border-system-300 bg-system-100 text-[12.5px] text-system-500">
             Archivo borrado
           </div>
         ) : (
-          <ArchivoDelAporte aporteId={item.id} tipo={item.fileType} sinArchivo={item.sinArchivo} alt="Archivo del aporte" alto="h-44" />
+          <ArchivoDelAporte aporteId={item.id} tipo={item.fileType} sinArchivo={item.sinArchivo} alt="Archivo del aporte" alto="h-44 lg:h-72" />
         )}
 
         <div>
@@ -290,6 +298,12 @@ export default function RevisionAportePage() {
                 <dd className="font-medium text-system-900">{item.firstPassBy}</dd>
               </div>
             )}
+            {calificacionMostrada && (
+              <div className="flex justify-between">
+                <dt className="text-system-600">Calificación</dt>
+                <dd className="font-semibold text-system-900">{calificacionMostrada}</dd>
+              </div>
+            )}
             {item.status === "rechazado" && item.rejectionReason && (
               <div className="flex justify-between gap-4">
                 <dt className="text-system-600">Motivo de rechazo</dt>
@@ -297,6 +311,17 @@ export default function RevisionAportePage() {
               </div>
             )}
           </dl>
+
+          {!alreadyReviewed && (
+            <div className="border-t border-system-200 pt-4 text-center">
+              <p className="mb-2 text-[12.5px] font-semibold text-system-900">
+                Calificación del aporte <span className="text-error-700">*</span>
+              </p>
+              <div className="flex justify-center">
+                <SelectorDeCalificacion value={calificacion} onChange={setCalificacion} disabled={submitting} />
+              </div>
+            </div>
+          )}
 
           {actionError && (
             <p className="mb-3 rounded border border-error-700 bg-error-50 p-2 text-[12px] text-error-700">{actionError}</p>
@@ -349,16 +374,25 @@ export default function RevisionAportePage() {
                   ? "Obligatorio al rechazar. Es un aporte anónimo: queda registrado, pero nadie lo recibe."
                   : "Obligatorio al rechazar. El participante lo verá en Mis aportes."}
               </p>
-              <Button variant="danger" type="submit" disabled={!canReject || submitting}>
+              <Button variant="danger" type="submit" disabled={!canReject || !calificacion || submitting}>
                 Confirmar rechazo
               </Button>
             </form>
           )}
 
-          {showBanForm && (
-            <form ref={llevarALaVista} onSubmit={banUser} className="mb-4 rounded-lg border border-error-700 p-4">
+          <VentanaDeConfirmacion
+            abierto={showBanForm}
+            titulo={esAnonimo ? "Bloquear este dispositivo en la campaña" : "Banear usuario de la campaña"}
+            textoConfirmar={esAnonimo ? "Confirmar bloqueo" : "Confirmar baneo"}
+            textoOcupado="Guardando…"
+            ocupado={submitting}
+            peligro
+            confirmarDeshabilitado={!banReason.trim()}
+            onCancelar={() => setShowBanForm(false)}
+            onConfirmar={() => void banUser()}
+          >
               <p className="mb-2 text-[13px] font-medium text-system-900">
-                {esAnonimo ? "Bloquear este dispositivo en la campaña" : "Banear usuario de la campaña"}
+                {esAnonimo ? "Explica el motivo del bloqueo" : "Explica el motivo del baneo"}
               </p>
               <Textarea
                 rows={3}
@@ -376,12 +410,7 @@ export default function RevisionAportePage() {
                   La persona recibirá este motivo en una notificación y lo verá en la campaña.
                 </p>
               )}
-              <div className="mt-3 flex gap-2">
-                <Button type="button" size="sm" onClick={() => setShowBanForm(false)}>Cancelar</Button>
-                <Button variant="danger" size="sm" type="submit" disabled={!banReason.trim() || submitting}>{esAnonimo ? "Confirmar bloqueo" : "Confirmar baneo"}</Button>
-              </div>
-            </form>
-          )}
+          </VentanaDeConfirmacion>
         </div>
       </div>
 
@@ -409,8 +438,9 @@ export default function RevisionAportePage() {
 
       {/* Banear o bloquear se puede antes o después de decidir (es sobre la persona). La decisión,
           en cambio, ya no se cambia (dominio.md § 5). */}
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-system-200 pt-4">
-        {esAnonimo ? (
+      <div className="mt-6 grid grid-cols-1 items-center gap-3 border-t border-system-200 pt-4 sm:grid-cols-3">
+         <div className="order-3 flex w-full justify-center sm:order-3 sm:col-start-1 sm:row-start-2 sm:w-auto sm:justify-self-start">
+         {esAnonimo ? (
           // Aporte sin cuenta (enlace público): se bloquea el dispositivo, no una cuenta.
           item.dispositivoBloqueadoId ? (
             <div className="flex flex-wrap items-center gap-2">
@@ -436,33 +466,33 @@ export default function RevisionAportePage() {
             Banear usuario de la campaña
           </Button>
         )}
-        {alreadyReviewed ? (
+         </div>
+         {alreadyReviewed ? (
           <p className="text-[12.5px] text-system-600">Este aporte ya tiene una decisión y no se puede cambiar.</p>
         ) : (
-          <div className="flex gap-2">
-            <Button onClick={() => setShowRejectForm(true)} disabled={submitting}>Rechazar</Button>
-            <Button variant="primary" onClick={approve} disabled={submitting}>
+           <div className="order-1 flex w-full justify-center gap-2 sm:order-1 sm:col-start-2 sm:row-start-1 sm:w-auto sm:justify-self-center">
+            <Button size="sm" onClick={() => setShowRejectForm(true)} disabled={submitting}>Rechazar</Button>
+            <Button size="sm" variant="primary" onClick={approve} disabled={submitting || !calificacion}>
               Aprobar aporte
             </Button>
           </div>
         )}
+        {item.userId && (
+          <div className="order-2 mt-4 flex w-full justify-center sm:order-2 sm:col-start-2 sm:row-start-2 sm:mt-0 sm:justify-self-center">
+            <ReportarAPlataforma
+              url={`/api/aportes/${item.id}/reportar-participante`}
+              motivos={MOTIVOS_DE_REPORTE_DE_APORTE}
+              titulo="Reportar a quien aportó"
+              explicacion="Para contenido inapropiado o faltas de quien lo envió (acoso, contenido ilegal, abuso repetido). Al reportarlo, el aporte se rechaza (aunque ya estuviera aceptado) y la supervisión decide si da un aviso a la cuenta. Esa persona no sabrá quién la reportó. Para sacarla solo de tu campaña, banéala."
+              placeholder="Qué hizo quien envió el aporte"
+              yaReportado={Boolean(item.participanteReportado)}
+              textoYaReportado="Ya reportaste a quien envió este aporte. La supervisión lo está revisando."
+              enVentana
+            />
+          </div>
+        )}
       </div>
 
-      {/* Reportar a la plataforma (2026-10-12): solo aportes con cuenta. Va a /reportes; si el
-          SuperUsuario lo confirma, quien aportó recibe un aviso (lib/usuarios/escala-de-avisos.ts). */}
-      {item.userId && (
-        <div className="mt-4 flex flex-col">
-          <ReportarAPlataforma
-            url={`/api/aportes/${item.id}/reportar-participante`}
-            motivos={MOTIVOS_DE_REPORTE_DE_APORTE}
-            titulo="Reportar a quien aportó"
-            explicacion="Para contenido inapropiado o faltas de quien lo envió (acoso, contenido ilegal, abuso repetido). Al reportarlo, el aporte se rechaza (aunque ya estuviera aceptado) y la supervisión decide si da un aviso a la cuenta. Esa persona no sabrá quién la reportó. Para sacarla solo de tu campaña, banéala."
-            placeholder="Qué hizo quien envió el aporte"
-            yaReportado={Boolean(item.participanteReportado)}
-            textoYaReportado="Ya reportaste a quien envió este aporte. La supervisión lo está revisando."
-          />
-        </div>
-      )}
     </div>
   );
 }

@@ -10,8 +10,8 @@ import ButtonLink from "@/components/ui/ButtonLink";
 import Card from "@/components/ui/Card";
 import MetricCard from "@/components/ui/MetricCard";
 import Tag from "@/components/ui/Tag";
-import { exigirUsuario } from "@/lib/session";
-import { ZONA_DE_CAMPANAS } from "@/lib/fecha-de-tepic";
+import { exigirUsuario, marcarBienvenidaVista } from "@/lib/session";
+import { ahoraEnZona, ZONA_DE_CAMPANAS } from "@/lib/fecha-de-tepic";
 import { fechaDeNotificacion, tonoDeNotificacion } from "@/lib/notificaciones/tipos";
 import { obtenerResumenDeInicio } from "@/lib/usuarios/inicio";
 import CampanasParaTi from "@/components/campanas/CampanasParaTi";
@@ -38,8 +38,16 @@ const ESTADO_DE_APORTE: Record<string, { texto: string; tono: "default" | "ok" |
 /** Como Card, pero sin relleno: las filas de la lista llevan el suyo. */
 const CAJA_DE_LISTA = "overflow-hidden rounded-lg border border-system-200 bg-white shadow-sm";
 
+function saludoDeInicio(): string {
+  const hora = ahoraEnZona().hour;
+  if (hora < 12) return "Buenos días";
+  if (hora < 19) return "Buenas tardes";
+  return "Buenas noches";
+}
+
 export default async function InicioPage() {
   const usuario = await exigirUsuario();
+  const mostrarBienvenida = !usuario.bienvenida_vista && (await marcarBienvenidaVista(usuario.id));
   const resumen = await obtenerResumenDeInicio(usuario);
   const { aportes, campanas } = resumen;
 
@@ -47,7 +55,7 @@ export default async function InicioPage() {
     <div className="space-y-8 max-md:space-y-6">
       <div>
         <h1 className="text-2xl font-extrabold text-system-900 max-md:text-xl max-md:leading-tight">
-          Hola, {usuario.nombre}
+          {mostrarBienvenida ? `¡Bienvenido a DataForGood, ${usuario.nombre}!` : `${saludoDeInicio()}, ${usuario.nombre}`}
         </h1>
         <p className="mt-1 text-[13px] text-system-600">Esto es lo que pasa con tus aportes y tus campañas.</p>
       </div>

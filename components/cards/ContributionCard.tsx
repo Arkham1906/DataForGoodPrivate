@@ -5,6 +5,7 @@ import Tag from "@/components/ui/Tag";
 import Card from "@/components/ui/Card";
 import type { Contribution } from "@/types";
 import { formatearTamano } from "@/lib/aportes/archivo";
+import { etiquetaDeCalificacion } from "@/lib/aportes/calificacion";
 import ArchivoDelAporte from "@/components/ui/ArchivoDelAporte";
 
 const STATUS_TONE: Record<Contribution["status"], { label: string; tone: "ok" | "warn" | "danger" | "default" }> = {
@@ -50,6 +51,11 @@ export default function ContributionCard({ contribution }: { contribution: Contr
           <span>{contribution.fileType}</span>
           <span>{formatearTamano(contribution.fileSizeBytes)}</span>
         </div>
+        {etiquetaDeCalificacion(contribution.calificacion) && (
+          <p className="mt-2 text-[12px] text-system-600">
+            <span className="font-semibold">Calificación:</span> {etiquetaDeCalificacion(contribution.calificacion)}
+          </p>
+        )}
         {contribution.status === "rechazado" && contribution.rejectionReason && (
           <p className="mt-2 rounded border border-error-700 bg-error-50 px-3 py-2 text-[12px] text-system-900">
             <span className="font-semibold">Motivo del rechazo:</span> {contribution.rejectionReason}

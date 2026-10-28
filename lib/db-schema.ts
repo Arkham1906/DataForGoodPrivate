@@ -36,6 +36,7 @@ export async function ensureUsuariosTable(): Promise<void> {
       xp_total INTEGER NOT NULL DEFAULT 0,
       level INTEGER NOT NULL DEFAULT 1,
       streak_days INTEGER NOT NULL DEFAULT 0,
+      bienvenida_vista BOOLEAN NOT NULL DEFAULT false,
       email_verificado BOOLEAN NOT NULL DEFAULT false,
       failed_login_attempts INTEGER NOT NULL DEFAULT 0,
       locked_until TIMESTAMPTZ,
@@ -75,6 +76,11 @@ export async function ensureUsuariosTable(): Promise<void> {
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS organizacion VARCHAR(160);
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS intereses JSONB NOT NULL DEFAULT '[]'::jsonb;
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS intereses_texto VARCHAR(500);
+    -- Solo las cuentas nuevas muestran la bienvenida en /inicio la primera vez.
+    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS bienvenida_vista BOOLEAN;
+    UPDATE usuarios SET bienvenida_vista = true WHERE bienvenida_vista IS NULL;
+    ALTER TABLE usuarios ALTER COLUMN bienvenida_vista SET DEFAULT false;
+    ALTER TABLE usuarios ALTER COLUMN bienvenida_vista SET NOT NULL;
     -- Preferencias de /cuenta: "Campañas nuevas" (avisos por temática y ubicación, 2026-10-14).
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS avisos_campanas_nuevas BOOLEAN NOT NULL DEFAULT true;
     -- El resto de Preferencias (lib/usuarios/preferencias-opciones.ts) y el último envío de los
@@ -415,6 +421,7 @@ export async function ensureAportesTable(): Promise<void> {
       file_mime_type VARCHAR(100),
       file_size_bytes INTEGER,
       caracteristicas JSONB NOT NULL DEFAULT '[]'::jsonb,
+      calificacion VARCHAR(20),
       status VARCHAR(20) NOT NULL DEFAULT 'pendiente',
       rejection_reason TEXT,
       first_pass_by VARCHAR(160),
@@ -438,6 +445,7 @@ export async function ensureAportesTable(): Promise<void> {
 
   await pool.query(`
     ALTER TABLE aportes ADD COLUMN IF NOT EXISTS caracteristicas JSONB NOT NULL DEFAULT '[]'::jsonb;
+    ALTER TABLE aportes ADD COLUMN IF NOT EXISTS calificacion VARCHAR(20);
     ALTER TABLE aportes ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
     ALTER TABLE aportes ADD COLUMN IF NOT EXISTS first_pass_by VARCHAR(160);
     ALTER TABLE aportes ADD COLUMN IF NOT EXISTS first_pass_by_user_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL;
