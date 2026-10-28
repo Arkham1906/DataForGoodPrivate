@@ -107,6 +107,8 @@ const NOMBRES_DE_CAMPOS: Record<string, string> = {
   name: "nombre",
   description: "descripción",
   tematica: "temática",
+  proposito: "propósito",
+  proposito_otro: "propósito",
   etiquetas: "etiquetas",
   data_types: "tipos de dato",
   checklist_secciones: "checklists",

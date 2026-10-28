@@ -96,7 +96,7 @@ El creador puede eliminar una campaña sin aportes desde «Mis campañas», en c
 - **Qué se puede editar según el estado** (`PATCH /api/campanas/[id]`):
   - `borrador`, `en_revision`, `rechazada`: todo.
   - `aceptada`, `activa`: solo la meta y la fecha de fin. Desde `activa` también se puede finalizar.
-  - `pausada` (2026-10-22): además nombre, descripción, temática, tipos de dato (con la cuota y su reparto), checklists (texto y orden), inicio (si se mueve, no antes de hoy) y ubicación; no la organización (`CAMPOS_EDITABLES_EN_PAUSA` de `lib/campanas/estado-del-creador.ts`). Sigue pausada, los aportes que ya llegaron no cambian, queda `campana.editar_pausada` en `audit_log` y su supervisor recibe `campana_editada`. También se puede finalizar.
+  - `pausada` (2026-10-22): además nombre, descripción, temática, propósito, tipos de dato (con la cuota y su reparto), checklists (texto y orden), inicio (si se mueve, no antes de hoy) y ubicación; no la organización (`CAMPOS_EDITABLES_EN_PAUSA` de `lib/campanas/estado-del-creador.ts`). La edición normal sigue pausada, los aportes que ya llegaron no cambian, queda `campana.editar_pausada` en `audit_log` y su supervisor recibe `campana_editada`. Si se pulsa Editar desde una campaña activa, `/mis-campanas` primero pide confirmación y la pausa; al guardar desde ese formulario especial, los cambios y el paso a `en_revision` se hacen en el mismo PATCH. También se puede finalizar.
   - `finalizada`: solo reactivar (`status: "activa"`) con una fecha de fin nueva, y si la persona tiene menos de 5 campañas activas.
 
 ## 4. Ciclo de vida de un aporte

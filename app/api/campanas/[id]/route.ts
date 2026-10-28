@@ -296,6 +296,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     }
 
     const currentStatus = String(existing.rows[0].status ?? "borrador");
+    const estadoSolicitado = "status" in body ? normalizeCampaignStatus(body.status) : null;
+    const enviarRevisionDesdePausa = currentStatus === "pausada" && estadoSolicitado === "en_revision";
 
     // Reglas de edición por estado: una finalizada es de solo lectura salvo
     // para reactivarla (status: "activa", con cupo libre de campañas activas);
@@ -363,6 +365,43 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     }
 
     if (currentStatus === "activa" || currentStatus === "pausada") {
+      if (enviarRevisionDesdePausa && existing.rows[0].pausa_por !== "creador") {
+        return NextResponse.json(
+          { error: "Solo puedes enviar a revisión una campaña que pausaste para editarla" },
+          { status: 403 }
+        );
+      }
+      if (enviarRevisionDesdePausa) {
+        const errorDeEstado = await errorDeEstadoPedido("en_revision", user.id);
+        if (errorDeEstado) return NextResponse.json({ error: errorDeEstado }, { status: 400 });
+        const camposRequeridos = [
+          "name",
+          "description",
+          "tematica",
+          "proposito",
+          "propositoOtro",
+          "etiquetas",
+          "dataTypes",
+          "checklistSecciones",
+          "goalContributions",
+          "quotaPerUser",
+          "startDate",
+          "endDate",
+          "todoElPais",
+          "locationState",
+          "locationCity",
+          "locationColonia",
+        ];
+        if (camposRequeridos.some((campo) => !(campo in body))) {
+          return NextResponse.json({ error: "Para enviar a revisión, guarda todos los datos de la campaña" }, { status: 400 });
+        }
+        const camposNoPermitidos = Object.keys(body).filter(
+          (key) => key !== "status" && !CAMPOS_EDITABLES_EN_PAUSA.has(key)
+        );
+        if (camposNoPermitidos.length > 0) {
+          return NextResponse.json({ error: "Con la campaña pausada no se cambia la organización" }, { status: 400 });
+        }
+      }
       // El creador puede finalizarla, pausarla (activa) o reanudarla (pausada)
       // desde /mis-campanas, sin tocar ningún otro campo a la vez. Una pausada
       // cuyo inicio se movió al futuro se programa (2026-10-27): vuelve a
@@ -371,7 +410,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       const cambiaEstado =
         pedido === "finalizada" ||
         (currentStatus === "activa" && pedido === "pausada") ||
-        (currentStatus === "pausada" && (pedido === "activa" || pedido === "aceptada"));
+        (currentStatus === "pausada" && (pedido === "activa" || pedido === "aceptada")) ||
+        enviarRevisionDesdePausa;
       if ((pedido === "activa" || pedido === "aceptada") && cambiaEstado) {
         // La que pausó la supervisión (2026-10-15) solo la reanuda la supervisión.
         if (existing.rows[0].pausa_por === "supervision") {
@@ -521,7 +561,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     }
     // Pausada: casi siempre ya empezó, así que su inicio (en el pasado) se conserva; solo
     // si se mueve, el nuevo no puede ser antes de hoy. Nombre, descripción y temática no se vacían.
-    if (currentStatus === "pausada" && status === null) {
+    if (currentStatus === "pausada" && (status === null || enviarRevisionDesdePausa)) {
       if (startDate !== undefined && startDate !== normalizeCampaignDate(existing.rows[0].start_date)) {
         const errorDeInicio = errorDeInicioPasado(startDate);
         if (errorDeInicio) return NextResponse.json({ error: errorDeInicio }, { status: 400 });
@@ -567,7 +607,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     // se revisa el que llega o, si no llega, el que ya tenía.
     const traeProposito = "proposito" in body || "propositoOtro" in body;
     let propositoNuevo: { proposito: string | null; otro: string | null } | null = null;
-    if (traeProposito || (ESTADOS_CON_EDICION_COMPLETA.has(currentStatus) && effectiveStatus !== "borrador")) {
+    if (traeProposito || ((ESTADOS_CON_EDICION_COMPLETA.has(currentStatus) || enviarRevisionDesdePausa) && effectiveStatus !== "borrador")) {
       const validado = validarProposito(
         traeProposito ? body.proposito : existing.rows[0].proposito,
         traeProposito ? body.propositoOtro ?? body.proposito_otro : existing.rows[0].proposito_otro,
@@ -621,9 +661,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         proposito = CASE WHEN $25::boolean THEN $26 ELSE proposito END,
         proposito_otro = CASE WHEN $25::boolean THEN $27 ELSE proposito_otro END,
         -- La pausó el creador (sin motivo). "status" a la derecha es el estado anterior.
-        pausa_por = CASE WHEN $5 = 'pausada' AND status <> 'pausada' THEN 'creador' ELSE pausa_por END,
-        pausa_motivo = CASE WHEN $5 = 'pausada' AND status <> 'pausada' THEN NULL ELSE pausa_motivo END,
-        pausada_en = CASE WHEN $5 = 'pausada' AND status <> 'pausada' THEN NOW() ELSE pausada_en END,
+        pausa_por = CASE WHEN $5 = 'en_revision' AND status = 'pausada' THEN NULL WHEN $5 = 'pausada' AND status <> 'pausada' THEN 'creador' ELSE pausa_por END,
+        pausa_motivo = CASE WHEN $5 = 'en_revision' AND status = 'pausada' THEN NULL WHEN $5 = 'pausada' AND status <> 'pausada' THEN NULL ELSE pausa_motivo END,
+        pausada_en = CASE WHEN $5 = 'en_revision' AND status = 'pausada' THEN NULL WHEN $5 = 'pausada' AND status <> 'pausada' THEN NOW() ELSE pausada_en END,
+        supervisor_id = CASE WHEN $5 = 'en_revision' AND status = 'pausada' THEN NULL ELSE supervisor_id END,
+        supervisado_por_root = CASE WHEN $5 = 'en_revision' AND status = 'pausada' THEN false ELSE supervisado_por_root END,
         updated_at = NOW()
       WHERE id = $1
       RETURNING *`,
@@ -675,7 +717,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     }
     // Entró a revisión (desde borrador o rechazada): avisa a los supervisores.
     if (result.rows[0].status === "en_revision" && currentStatus !== "en_revision") {
-      avisarCampanaPorRevisar({ id: Number(id), creadorId: Number(user.id), otraVez: currentStatus === "rechazada" });
+      avisarCampanaPorRevisar({
+        id: Number(id),
+        creadorId: Number(user.id),
+        otraVez: currentStatus === "rechazada" || enviarRevisionDesdePausa,
+      });
     }
     // Se editó estando pausada: queda en la bitácora y se avisa a quien la supervisa.
     if (currentStatus === "pausada" && result.rows[0].status === "pausada") {

@@ -11,6 +11,7 @@
 // la lista viene de mine=true y el servidor revisa creator_id.
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 import ButtonLink from "@/components/ui/ButtonLink";
 import Tag from "@/components/ui/Tag";
@@ -132,12 +133,14 @@ function mapCampaign(row: Record<string, unknown>): CampanaDeMisCampanas {
 }
 
 export default function MisCampanasPage() {
+  const router = useRouter();
   const [campaigns, setCampaigns] = useState<CampanaDeMisCampanas[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [cambiandoId, setCambiandoId] = useState<string | null>(null);
   const [cambioError, setCambioError] = useState<Record<string, string>>({});
   // Campaña cuya ventana de "Pausar" está abierta.
   const [porPausar, setPorPausar] = useState<Campaign | null>(null);
+  const [porEditar, setPorEditar] = useState<Campaign | null>(null);
   const [porCompartir, setPorCompartir] = useState<Campaign | null>(null);
   // Campaña cuya ventana de "Finalizar" está abierta (2026-10-16; antes window.confirm).
   const [porFinalizar, setPorFinalizar] = useState<Campaign | null>(null);
@@ -217,6 +220,28 @@ export default function MisCampanasPage() {
       setCambioError((prev) => ({
         ...prev,
         [campaign.id]: cause instanceof Error ? cause.message : "No se pudo eliminar la campaña",
+      }));
+    } finally {
+      setCambiandoId(null);
+    }
+  }
+
+  async function pausarYEditar(campaign: Campaign) {
+    setCambiandoId(campaign.id);
+    setCambioError((prev) => ({ ...prev, [campaign.id]: "" }));
+    try {
+      const response = await fetch(`${BASE_PATH}/api/campanas/${campaign.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "pausada" }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error ?? "No se pudo pausar la campaña");
+      router.push(`/mis-campanas/nueva?edit=${encodeURIComponent(campaign.id)}&enviarRevision=true`);
+    } catch (cause) {
+      setCambioError((prev) => ({
+        ...prev,
+        [campaign.id]: cause instanceof Error ? cause.message : "No se pudo pausar la campaña",
       }));
     } finally {
       setCambiandoId(null);
@@ -375,9 +400,15 @@ export default function MisCampanasPage() {
                       <IconoDeAccion tipo="compartir" />
                     </Button>
                   )}
-                  <ButtonLink href={`/mis-campanas/nueva?edit=${campaign.id}`} variant="secondary" size="sm" className="!size-9 !rounded-md !p-0" aria-label={`Editar ${campaign.name}`} title="Editar">
-                    <IconoDeAccion tipo="editar" />
-                  </ButtonLink>
+                  {campaign.status === "activa" ? (
+                    <Button type="button" variant="secondary" size="sm" className="!size-9 !rounded-md !p-0" aria-label={`Editar ${campaign.name}`} title="Editar y enviar a revisión" onClick={() => setPorEditar(campaign)} disabled={cambiando}>
+                      <IconoDeAccion tipo="editar" />
+                    </Button>
+                  ) : (
+                    <ButtonLink href={`/mis-campanas/nueva?edit=${campaign.id}`} variant="secondary" size="sm" className="!size-9 !rounded-md !p-0" aria-label={`Editar ${campaign.name}`} title="Editar">
+                      <IconoDeAccion tipo="editar" />
+                    </ButtonLink>
+                  )}
                   {campaign.status === "activa" && (
                     <Button type="button" variant="secondary" size="sm" className="!size-9 !rounded-md !p-0" aria-label={`Pausar ${campaign.name}`} title="Pausar campaña" onClick={() => setPorPausar(campaign)} disabled={cambiando}>
                       <IconoDeAccion tipo="pausar" />
@@ -470,6 +501,22 @@ export default function MisCampanasPage() {
       )}
 
       <VentanaDeConfirmacion
+        abierto={porEditar !== null}
+        titulo="¿Pausar la campaña para editarla?"
+        textoConfirmar="Pausar y editar"
+        textoOcupado="Pausando…"
+        ocupado={porEditar !== null && cambiandoId === porEditar.id}
+        onCancelar={() => setPorEditar(null)}
+        onConfirmar={() => {
+          if (porEditar) void pausarYEditar(porEditar);
+        }}
+      >
+        {porEditar && <p className="mb-3 font-semibold text-system-900">{porEditar.name}</p>}
+        <p>La campaña dejará de recibir aportes mientras haces los cambios. Al guardar, pasará a En revisión para que la supervisión revise la versión actualizada.</p>
+        {porEditar && cambioError[porEditar.id] && <p role="alert" className="mt-3 text-error-700">{cambioError[porEditar.id]}</p>}
+      </VentanaDeConfirmacion>
+
+      <VentanaDeConfirmacion
         abierto={porPausar !== null}
         titulo="¿Pausar esta campaña?"
         textoConfirmar="Pausar campaña"
@@ -548,9 +595,15 @@ export default function MisCampanasPage() {
                   Verla como participante
                 </ButtonLink>
               )}
-              <ButtonLink href={`/mis-campanas/nueva?edit=${abierta.id}`} size="sm">
-                Editar
-              </ButtonLink>
+              {abierta.status === "activa" ? (
+                <Button type="button" size="sm" onClick={() => { setPorEditar(abierta); setAbierta(null); }}>
+                  Editar
+                </Button>
+              ) : (
+                <ButtonLink href={`/mis-campanas/nueva?edit=${abierta.id}`} size="sm">
+                  Editar
+                </ButtonLink>
+              )}
               <ButtonLink href={`/mis-campanas/${abierta.id}/panel`} size="sm">
                 Panel
               </ButtonLink>

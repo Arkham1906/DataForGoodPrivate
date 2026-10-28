@@ -172,6 +172,7 @@ function labelEstado(status: string | undefined) {
 export default function NuevaCampanaForm() {
   const searchParams = useSearchParams();
   const editId = searchParams.get("edit");
+  const solicitarRevisionAlGuardar = searchParams.get("enviarRevision") === "true";
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [cargando, setCargando] = useState(true);
 
@@ -212,6 +213,7 @@ export default function NuevaCampanaForm() {
       editingCampaign={editingCampaign}
       activeCampaigns={activeCampaigns.length}
       limitReached={limitReached}
+      solicitarRevisionAlGuardar={solicitarRevisionAlGuardar}
     />
   );
 }
@@ -220,24 +222,29 @@ function CampanaFormulario({
   editingCampaign,
   activeCampaigns,
   limitReached,
+  solicitarRevisionAlGuardar,
 }: {
   editingCampaign: Campaign | undefined;
   activeCampaigns: number;
   limitReached: boolean;
+  solicitarRevisionAlGuardar: boolean;
 }) {
   const router = useRouter();
 
   // Reglas de edición por estado (dominio.md): una campaña en revisión o
   // rechazada se puede editar por completo y reenviar; activa, pausada o
   // aceptada (aprobada, esperando su fecha de inicio) solo permiten ajustar
-  // meta y fecha de finalización, sin tocar su estado; pausada además casi
-  // todo (2026-10-22: no la organización) y sigue pausada;
+  // meta y fecha de finalización, sin tocar su estado; pausada permite casi
+  // todo (2026-10-22: no la organización) y normalmente sigue pausada. El
+  // flujo de edición iniciado desde una activa la envía a revisión al guardar;
   // finalizada queda en solo lectura.
   const status = editingCampaign?.status;
   const soloLectura = status === "finalizada";
   const edicionLimitada = status === "activa" || status === "pausada" || status === "aceptada";
   const edicionCompleta = !edicionLimitada && !soloLectura;
   const editaEnPausa = status === "pausada";
+  const enviarRevisionAlGuardar =
+    solicitarRevisionAlGuardar && editaEnPausa && editingCampaign?.pausa?.por === "creador";
   // Lo que solo se edita por completo o en pausa (nombre, temática, tipos, cuota, inicio, ubicación).
   const contenidoBloqueado = edicionLimitada && !editaEnPausa;
 
@@ -342,6 +349,9 @@ function CampanaFormulario({
   const [sinReanudar, setSinReanudar] = useState<string | null>(null);
   // La que pausó la supervisión solo la reanuda la supervisión (2026-10-15).
   const pausadaPorSupervision = editaEnPausa && editingCampaign?.pausa?.por === "supervision";
+  const propositoEditado =
+    proposito !== (editingCampaign?.proposito ?? "") ||
+    propositoOtro !== (editingCampaign?.propositoOtro ?? "");
 
   const limiteActivasAlcanzado = activeCampaigns >= MAX_ACTIVE_CAMPAIGNS;
 
@@ -524,6 +534,10 @@ function CampanaFormulario({
       else agregar("fin", errorDeFinAntesDeInicio(fechaInicioFormulario, fechaFinFormulario));
       if (!todoElPais && !locationState) agregar("estado", "Selecciona un estado o marca que la campaña es para todo el país");
       else if (!todoElPais && !locationCity) agregar("municipio", "Selecciona un municipio o \"Todo el estado\"");
+      if (propositoEditado || enviarRevisionAlGuardar) {
+        const validado = validarProposito(proposito, propositoOtro, true);
+        if (!validado.ok) agregar("proposito", validado.error);
+      }
       return lista;
     }
     if (edicionLimitada) {
@@ -558,8 +572,8 @@ function CampanaFormulario({
     return lista;
   }
 
-  // alGuardar: solo en pausa, el estado al que pasa después de guardar ("activa" reanuda,
-  // "aceptada" la programa). Son dos PATCH: el de la edición y el mismo de /mis-campanas.
+  // alGuardar: pausa manual, el estado al que pasa después de guardar ("activa" reanuda,
+  // "aceptada" la programa). El envío del flujo de edición de una activa va en el PATCH de edición.
   async function handleSubmit(e: React.FormEvent, asDraft: boolean, alGuardar: "activa" | "aceptada" | null = null) {
     e.preventDefault();
     if (soloLectura) return;
@@ -580,6 +594,10 @@ function CampanaFormulario({
     const checklistSecciones = checklists.map((c) => ({ titulo: c.titulo.trim(), opciones: c.opciones.map((o) => o.texto.trim()) }));
     const camposEditables = editaEnPausa
       ? {
+          status: enviarRevisionAlGuardar ? "en_revision" : undefined,
+          ...(propositoEditado || enviarRevisionAlGuardar
+            ? { proposito, propositoOtro: proposito === "otro" ? propositoOtro.trim() : "" }
+            : {}),
           name,
           description,
           tematica: theme,
@@ -917,14 +935,14 @@ function CampanaFormulario({
             conProblemas={pasos[1].conProblemas}
             aviso={noEditable}
           >
-            {/* Propósito (2026-10-27): solo se elige antes de la revisión; después quien participa ya lo aceptó. */}
+            {/* El propósito se puede actualizar al editar una campaña pausada; el servidor lo valida al guardarlo. */}
             <div className="mb-6">
               <Field label="Propósito — ¿Para qué se utilizarán los datos?" required error={errorDe("proposito")}>
                 <select
                   data-campo="proposito"
                   value={proposito}
                   onChange={(e) => setProposito(e.target.value)}
-                  disabled={contenidoBloqueado || editaEnPausa}
+                  disabled={contenidoBloqueado}
                   className="w-full rounded border border-system-300 bg-white px-3.5 py-3 text-sm text-system-900 outline-none transition-colors focus:border-brand-600 aria-invalid:border-error-700 aria-invalid:bg-error-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <option value="">Elige un propósito</option>
@@ -942,13 +960,13 @@ function CampanaFormulario({
                   maxLength={LARGO_MAXIMO_PROPOSITO_OTRO}
                   placeholder="Escribe para qué se utilizarán los datos"
                   aria-label="Otro propósito"
-                  disabled={contenidoBloqueado || editaEnPausa}
+                  disabled={contenidoBloqueado}
                   className="-mt-2"
                 />
               )}
               <p className="mt-1.5 text-[11.5px] text-system-500">
                 Se muestra en la campaña, en el acuerdo que acepta quien participa y en los datos abiertos.
-                {(contenidoBloqueado || editaEnPausa) && proposito ? " Ya no se cambia: quien participa lo aceptó." : ""}
+                {contenidoBloqueado && proposito ? " Ya no se cambia: quien participa lo aceptó." : ""}
               </p>
             </div>
 
@@ -1316,7 +1334,9 @@ function CampanaFormulario({
           )}
           {edicionLimitada && (
             <div className="mb-6 max-w-lg rounded-lg bg-system-100 p-4 text-[12.5px] text-system-600">
-              {!editaEnPausa
+              {enviarRevisionAlGuardar
+                ? "Al guardar, la campaña pasará a En revisión. No recibirá aportes nuevos mientras la supervisión revisa los cambios."
+                : !editaEnPausa
                 ? `La campaña está ${status === "aceptada" ? "aceptada" : "activa"}: los cambios se guardan y mantiene su estado actual.`
                 : pausadaPorSupervision
                 ? "La pausó la supervisión: los cambios se guardan, sigue pausada y la supervisión decide cuándo reanudarla."
@@ -1361,12 +1381,12 @@ function CampanaFormulario({
               {activeCampaigns} de {MAX_ACTIVE_CAMPAIGNS} campañas activas usadas
             </p>
             <div className="flex flex-wrap gap-2.5">
-              {!edicionLimitada && (
+              {!edicionLimitada && !enviarRevisionAlGuardar && (
                 <Button type="submit" onClick={(e) => handleSubmit(e, true)}>
                   Guardar borrador
                 </Button>
               )}
-              {editaEnPausa && !pausadaPorSupervision ? (
+              {editaEnPausa && !pausadaPorSupervision && !enviarRevisionAlGuardar ? (
                 <>
                   <Button type="submit" onClick={(e) => handleSubmit(e, false)}>
                     Guardar y dejar pausada
@@ -1378,7 +1398,7 @@ function CampanaFormulario({
               ) : (
                 /* Siempre activo (2026-10-27): si falta algo, al tocarlo se explica qué. */
                 <Button variant="primary" type="submit">
-                  {edicionLimitada ? "Guardar cambios" : "Enviar a revisión"}
+                  {enviarRevisionAlGuardar ? "Enviar a revisión" : edicionLimitada ? "Guardar cambios" : "Enviar a revisión"}
                 </Button>
               )}
             </div>

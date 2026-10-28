@@ -19,9 +19,10 @@ export const ESTADOS_CON_EDICION_COMPLETA = new Set(["borrador", "en_revision", 
 export const CAMPOS_DE_EDICION_LIMITADA = new Set(["goalContributions", "goal_contributions", "endDate", "end_date", "endTime", "end_time"]);
 
 /**
- * Pausada (2026-10-22, a pedido del usuario): además nombre, descripción, temática, tipos de dato
- * (con la cuota, que depende de ellos), checklists (texto y orden), inicio y ubicación.
- * Sigue pausada y se avisa a quien la supervisa. La organización no cambia.
+ * Pausada (2026-10-22, a pedido del usuario): además nombre, descripción, temática, propósito, tipos
+ * de dato (con la cuota, que depende de ellos), checklists (texto y orden), inicio y ubicación.
+ * La edición normal sigue pausada y avisa a quien la supervisa; desde Editar en una activa,
+ * se pausa antes y se puede enviar a revisión al guardar. La organización no cambia.
  */
 export const CAMPOS_EDITABLES_EN_PAUSA = new Set([
   ...CAMPOS_DE_EDICION_LIMITADA,
@@ -30,6 +31,9 @@ export const CAMPOS_EDITABLES_EN_PAUSA = new Set([
   "description",
   "tematica",
   "tag",
+  "proposito",
+  "propositoOtro",
+  "proposito_otro",
   "dataTypes",
   "data_types",
   "checklistSecciones",
@@ -56,6 +60,8 @@ export const COLUMNAS_AVISADAS_EN_PAUSA = [
   "name",
   "description",
   "tematica",
+  "proposito",
+  "proposito_otro",
   "data_types",
   "checklist_secciones",
   "goal_contributions",
