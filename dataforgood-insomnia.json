@@ -324,9 +324,9 @@
       "parameters": [],
       "body": {
         "mimeType": "application/json",
-        "text": "{\n  \"name\": \"Baches en Tepic\",\n  \"description\": \"Fotos de baches en calles de la ciudad\",\n  \"tematica\": \"infraestructura\",\n  \"dataTypes\": [\n    \"foto\"\n  ],\n  \"checklistSecciones\": [\n    {\n      \"titulo\": \"Tamaño del bache\",\n      \"opciones\": [\n        \"Chico\",\n        \"Mediano\",\n        \"Grande\"\n      ]\n    }\n  ],\n  \"goalContributions\": 100,\n  \"quotaPerUser\": 5,\n  \"xpPerContribution\": 30,\n  \"startDate\": \"2026-10-01\",\n  \"startTime\": \"08:00\",\n  \"endDate\": \"2026-10-31\",\n  \"endTime\": \"20:00\",\n  \"locationState\": \"Nayarit\",\n  \"locationCity\": \"Tepic\",\n  \"locationColonia\": \"\",\n  \"organizer\": \"\",\n  \"status\": \"en_revision\"\n}"
+        "text": "{\n  \"name\": \"Baches en Tepic\",\n  \"description\": \"Fotos de baches en calles de la ciudad\",\n  \"tematica\": \"infraestructura\",\n  \"dataTypes\": [\n    \"foto\"\n  ],\n  \"checklistSecciones\": [\n    {\n      \"titulo\": \"Tamaño del bache\",\n      \"opciones\": [\n        \"Chico\",\n        \"Mediano\",\n        \"Grande\"\n      ]\n    }\n  ],\n  \"goalContributions\": 100,\n  \"quotaPerUser\": 5,\n  \"xpPerContribution\": 30,\n  \"startDate\": \"2026-10-01\",\n  \"endDate\": \"2026-10-31\",\n  \"locationState\": \"Nayarit\",\n  \"locationCity\": \"Tepic\",\n  \"locationColonia\": \"\",\n  \"organizer\": \"\",\n  \"status\": \"en_revision\"\n}"
       },
-      "description": "status: borrador, en_revision, aceptada, activa, pausada, finalizada, rechazada. dataTypes: texto, foto, video, audio, documento. checklistSecciones: cero o más checklists { titulo, opciones } además de la descripción obligatoria del aporte.",
+      "description": "status: borrador, en_revision, aceptada, activa, pausada, finalizada, rechazada. dataTypes: texto, foto, video, audio, documento. checklistSecciones: cero o más checklists { titulo, opciones } además de la descripción obligatoria del aporte. startTime/endTime se ignoran al crear: se usa la hora de Tepic del momento de creación.",
       "metaSortKey": 11
     },
     {
@@ -383,6 +383,19 @@
       },
       "description": "Solo el creador. Los campos editables dependen del estado actual.",
       "metaSortKey": 14
+    },
+    {
+      "_id": "req_campana_eliminar",
+      "_type": "request",
+      "parentId": "fld_campanas",
+      "name": "Eliminar campaña sin aportes",
+      "method": "DELETE",
+      "url": "{{ _.base }}/api/campanas/{{ _.campanaId }}",
+      "headers": [],
+      "parameters": [],
+      "body": {},
+      "description": "Solo el creador. La campaña debe estar vacía de aportes, sin importar su estado. Registra campana.eliminar.",
+      "metaSortKey": 14.5
     },
     {
       "_id": "req_20",

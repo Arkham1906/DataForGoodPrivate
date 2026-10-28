@@ -6,6 +6,7 @@
 
 import { NextResponse } from "next/server";
 import { especialDesdeFila } from "@/lib/campanas/especial";
+import type { PoolClient } from "pg";
 import { avisarCampanaEspecial } from "@/lib/notificaciones/campanas-por-interes";
 import { avisarCampanaPorRevisar } from "@/lib/notificaciones/avisos-a-supervisores";
 import {
@@ -136,6 +137,62 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   } catch (error) {
     console.error("Error obteniendo campaña", error);
     return NextResponse.json({ error: "No se pudo obtener la campaña" }, { status: 500 });
+  }
+}
+
+// DELETE: el creador puede eliminar la campaña solo si todavía no tiene aportes.
+export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }) {
+  let client: PoolClient | null = null;
+  try {
+    const { id } = await context.params;
+    if (!/^[1-9]\d{0,8}$/.test(id)) {
+      return NextResponse.json({ error: "Campaña no encontrada" }, { status: 404 });
+    }
+
+    const user = await getSessionUser();
+    if (!user) return NextResponse.json({ error: "Debes iniciar sesión" }, { status: 401 });
+
+    client = await pool.connect();
+    await client.query("BEGIN");
+
+    const campaign = await client.query<{ status: string }>(
+      `SELECT status FROM campanas WHERE id = $1 AND creator_id = $2 FOR UPDATE`,
+      [id, user.id],
+    );
+    if (campaign.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return NextResponse.json({ error: "Campaña no encontrada" }, { status: 404 });
+    }
+
+    const aportes = await client.query(
+      `SELECT 1 FROM aportes WHERE campaign_id = $1 LIMIT 1`,
+      [id],
+    );
+    if (aportes.rowCount !== 0) {
+      await client.query("ROLLBACK");
+      return NextResponse.json(
+        { error: "No puedes eliminar una campaña que ya recibió aportes." },
+        { status: 409 },
+      );
+    }
+
+    await client.query(`DELETE FROM campanas WHERE id = $1 AND creator_id = $2`, [id, user.id]);
+    await client.query("COMMIT");
+
+    await registrarAuditoria({
+      actor: { tipo: "usuario", id: Number(user.id) },
+      accion: "campana.eliminar",
+      objetivo: { tipo: "campana", id },
+      detalle: { estado: campaign.rows[0].status },
+    });
+
+    return NextResponse.json({ message: "Campaña eliminada" });
+  } catch (error) {
+    if (client) await client.query("ROLLBACK").catch(() => undefined);
+    console.error("Error eliminando campaña", error);
+    return NextResponse.json({ error: "No se pudo eliminar la campaña" }, { status: 500 });
+  } finally {
+    client?.release();
   }
 }
 

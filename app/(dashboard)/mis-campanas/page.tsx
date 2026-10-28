@@ -2,14 +2,16 @@
 
 // Pantalla /mis-campanas: campañas que creaste, con filtros por estado.
 // Componente cliente. Datos: GET /api/campanas?mine=true.
-// Acciones en "Más", con PATCH /api/campanas/[id] { status }: "Pausar" (activa → pausada),
+// Acciones secundarias en "Más", con PATCH /api/campanas/[id] { status }: "Pausar" (activa → pausada),
 // "Reanudar" (pausada → activa; no si la pausó la supervisión, que se muestra con su motivo)
 // y "Finalizar" (activa o pausada). Pausar y Finalizar se confirman en una ventana emergente
-// (ui/VentanaDeConfirmacion). "Compartir" (activa, 2026-10-19) abre el mismo cuadro de
+// (ui/VentanaDeConfirmacion). "Eliminar" aparece si no tiene aportes, confirma antes de borrar
+// y llama DELETE /api/campanas/[id]. "Compartir" (activa, 2026-10-19) abre el mismo cuadro de
 // /campanas/[id] (enlace, redes sociales y QR; campanas/[id]/compartir.tsx). Solo el creador las ve:
 // la lista viene de mine=true y el servidor revisa creator_id.
 
 import { useEffect, useState } from "react";
+import Button from "@/components/ui/Button";
 import ButtonLink from "@/components/ui/ButtonLink";
 import MenuDeAcciones from "@/components/ui/MenuDeAcciones";
 import Tag from "@/components/ui/Tag";
@@ -50,7 +52,9 @@ const FILTROS: { valor: Filtro; etiqueta: string; fijo?: boolean }[] = [
   { valor: "borrador", etiqueta: "Borradores" },
 ];
 
-function mapCampaign(row: Record<string, unknown>): Campaign {
+type CampanaDeMisCampanas = Campaign & { canDelete: boolean };
+
+function mapCampaign(row: Record<string, unknown>): CampanaDeMisCampanas {
   const status = String(row.status ?? "borrador") as CampaignStatus;
   return {
     id: String(row.id ?? ""),
@@ -79,11 +83,12 @@ function mapCampaign(row: Record<string, unknown>): Campaign {
     especial: (row.especial as Campaign["especial"]) ?? null,
     pausa: (row.pausa as Campaign["pausa"]) ?? null,
     rechazo: (row.rechazo as Campaign["rechazo"]) ?? null,
+    canDelete: row.canDelete === true,
   };
 }
 
 export default function MisCampanasPage() {
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [campaigns, setCampaigns] = useState<CampanaDeMisCampanas[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [cambiandoId, setCambiandoId] = useState<string | null>(null);
   const [cambioError, setCambioError] = useState<Record<string, string>>({});
@@ -92,6 +97,7 @@ export default function MisCampanasPage() {
   const [porCompartir, setPorCompartir] = useState<Campaign | null>(null);
   // Campaña cuya ventana de "Finalizar" está abierta (2026-10-16; antes window.confirm).
   const [porFinalizar, setPorFinalizar] = useState<Campaign | null>(null);
+  const [porEliminar, setPorEliminar] = useState<CampanaDeMisCampanas | null>(null);
   const [cargando, setCargando] = useState(true);
   const [filtro, setFiltro] = useState<Filtro>("todas");
 
@@ -141,6 +147,25 @@ export default function MisCampanasPage() {
       setCampaigns((prev) => prev.map((c) => (c.id === id ? { ...c, status: nuevo } : c)));
     } catch (cause) {
       setCambioError((prev) => ({ ...prev, [id]: cause instanceof Error ? cause.message : fallo }));
+    } finally {
+      setCambiandoId(null);
+    }
+  }
+
+  async function eliminarCampana(campaign: CampanaDeMisCampanas) {
+    setCambiandoId(campaign.id);
+    setCambioError((prev) => ({ ...prev, [campaign.id]: "" }));
+    try {
+      const response = await fetch(`${BASE_PATH}/api/campanas/${campaign.id}`, { method: "DELETE" });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error ?? "No se pudo eliminar la campaña");
+      setCampaigns((prev) => prev.filter((item) => item.id !== campaign.id));
+      setPorEliminar(null);
+    } catch (cause) {
+      setCambioError((prev) => ({
+        ...prev,
+        [campaign.id]: cause instanceof Error ? cause.message : "No se pudo eliminar la campaña",
+      }));
     } finally {
       setCambiandoId(null);
     }
@@ -281,6 +306,17 @@ export default function MisCampanasPage() {
                     </ButtonLink>
                   )}
                   <ButtonLink href={`/mis-campanas/${campaign.id}/panel`} size="sm" className="max-md:px-2 max-md:py-1.5 max-md:text-[11px]">Panel</ButtonLink>
+                  {campaign.canDelete && (
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      className="max-md:px-2 max-md:py-1.5 max-md:text-[11px]"
+                      onClick={() => setPorEliminar(campaign)}
+                      disabled={cambiando}
+                    >
+                      Eliminar
+                    </Button>
+                  )}
                   <MenuDeAcciones
                     etiqueta={`Más acciones de ${campaign.name}`}
                     opciones={[
@@ -378,6 +414,28 @@ export default function MisCampanasPage() {
           <li>Sus aportes aprobados se publicarán en Datos abiertos.</li>
         </ul>
         <p className="mt-3">Para volver a abrirla tendrás que editarla y ponerle una fecha de cierre nueva.</p>
+      </VentanaDeConfirmacion>
+
+      <VentanaDeConfirmacion
+        abierto={porEliminar !== null}
+        titulo="¿Eliminar esta campaña?"
+        textoConfirmar="Eliminar campaña"
+        textoOcupado="Eliminando…"
+        peligro
+        ocupado={porEliminar !== null && cambiandoId === porEliminar.id}
+        onCancelar={() => setPorEliminar(null)}
+        onConfirmar={() => {
+          if (!porEliminar) return;
+          void eliminarCampana(porEliminar);
+        }}
+      >
+        {porEliminar && <p className="mb-3 font-semibold text-system-900">{porEliminar.name}</p>}
+        <p>
+          Advertencia: la campaña se eliminará permanentemente y no se podrá recuperar. Solo puedes eliminar campañas que aún no hayan recibido aportes.
+        </p>
+        {porEliminar && cambioError[porEliminar.id] && (
+          <p role="alert" className="mt-3 text-error-700">{cambioError[porEliminar.id]}</p>
+        )}
       </VentanaDeConfirmacion>
     </div>
   );

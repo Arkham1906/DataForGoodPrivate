@@ -2,16 +2,15 @@
 
 // Pantalla /mis-aportes/[campanaId]: tus aportes en una campaña.
 // Componente cliente. Datos: GET /api/campanas?id= y GET /api/aportes?campaignId=&mine=true.
-// Acción: borrar un aporte pendiente o rechazado (no uno aceptado) con DELETE /api/aportes/[id];
-// así se recupera ese espacio de la cuota.
+// Acción: borrar un aporte que sigue en revisión con DELETE /api/aportes/[id], previa confirmación.
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import ContributionCard from "@/components/cards/ContributionCard";
 import Button from "@/components/ui/Button";
+import VentanaDeConfirmacion from "@/components/ui/VentanaDeConfirmacion";
 import ProgressBar from "@/components/ui/ProgressBar";
-import Tag from "@/components/ui/Tag";
 import type { Campaign, Contribution } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
@@ -28,6 +27,7 @@ export default function CampaignContributionsPage() {
   // 404: no existe o no la puede ver (lib/campanas/visibilidad.ts).
   const [noEncontrada, setNoEncontrada] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [porEliminar, setPorEliminar] = useState<Contribution | null>(null);
 
   // Vuelve a leer cuando algo cambia en la base (actualización en vivo).
   const recarga = useRecargaEnVivo();
@@ -95,6 +95,7 @@ export default function CampaignContributionsPage() {
       if (!response.ok) throw new Error(payload.error ?? "No se pudo eliminar el aporte");
       setRemovedIds((current) => [...current, contributionId]);
       setItems((current) => current.filter((item) => item.id !== contributionId));
+      setPorEliminar(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se pudo eliminar el aporte");
     } finally {
@@ -160,22 +161,33 @@ export default function CampaignContributionsPage() {
           {filteredItems.map((item) => (
             <div key={item.id}>
               <ContributionCard contribution={item} />
-              {item.status !== "aceptado" && (
+              {(item.status === "pendiente" || item.status === "espera_final") && isActive && (
                 <div className="-mt-2 rounded-b-lg border border-t-0 border-warning-500 bg-warning-50 px-4 pb-3 pt-4">
-                  <button type="button" className="text-[12px] font-bold text-error-700 underline disabled:cursor-not-allowed disabled:opacity-50" disabled={deletingId === item.id} onClick={() => void deleteContribution(item.id)}>
-                    {deletingId === item.id ? "Eliminando..." : "Eliminar aporte"}
+                  <button type="button" className="text-[12px] font-bold text-error-700 underline disabled:cursor-not-allowed disabled:opacity-50" disabled={deletingId === item.id} onClick={() => setPorEliminar(item)}>
+                    Eliminar aporte
                   </button>
-                  <span className="ml-3 text-[11.5px] text-system-600">Al eliminarlo desaparece del historial y recuperas el cupo en tu cuota.</span>
+                  <span className="ml-3 text-[11.5px] text-system-600">Solo puedes eliminar aportes en revisión.</span>
                 </div>
               )}
             </div>
           ))}
         </div>
       )}
-      <div className="mt-5 flex items-center gap-2 rounded-lg border border-system-200 bg-white p-3 text-[12px] text-system-600">
-        <Tag>{isActive ? "Consulta" : "Solo lectura"}</Tag>
-        <span>{isActive ? "Para enviar contenido nuevo usa Añadir aporte." : "La campaña finalizó: ya no puedes añadir ni eliminar aportes."}</span>
-      </div>
+      <VentanaDeConfirmacion
+        abierto={porEliminar !== null}
+        titulo="¿Eliminar este aporte?"
+        textoConfirmar="Sí, eliminar aporte"
+        textoOcupado="Eliminando aporte…"
+        peligro
+        ocupado={porEliminar !== null && deletingId === porEliminar.id}
+        onCancelar={() => setPorEliminar(null)}
+        onConfirmar={() => {
+          if (porEliminar) void deleteContribution(porEliminar.id);
+        }}
+      >
+        <p>Esta acción no se puede deshacer. Se eliminarán el aporte y su archivo, y recuperarás el espacio de tu cuota.</p>
+        {porEliminar && <p className="mt-3 line-clamp-3 font-semibold text-system-900">{porEliminar.description}</p>}
+      </VentanaDeConfirmacion>
     </div>
   );
 }

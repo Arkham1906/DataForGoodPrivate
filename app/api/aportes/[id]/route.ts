@@ -296,8 +296,8 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
   }
 }
 
-// DELETE: quien aportó borra su aporte pendiente o rechazado (recupera ese espacio de su cuota).
-// Uno aceptado ya no se borra. Descuenta los contadores de la campaña.
+// DELETE: quien aportó borra su aporte mientras sigue en revisión y la campaña está activa.
+// Descuenta los contadores y borra también el archivo.
 export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }) {
   const client = await pool.connect();
 
@@ -313,20 +313,28 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
       return NextResponse.json({ error: "Solo quien envió el aporte puede eliminarlo" }, { status: 403 });
     }
 
-    if (String(row.status) === "aceptado") {
-      return NextResponse.json({ error: "Un aporte aceptado ya no se puede eliminar" }, { status: 400 });
+    if (row.status !== "pendiente" && row.status !== "espera_final") {
+      return NextResponse.json({ error: "Solo puedes eliminar un aporte que sigue en revisión" }, { status: 400 });
     }
 
     await client.query("BEGIN");
-    await client.query(`SELECT 1 FROM campanas WHERE id = $1 FOR NO KEY UPDATE`, [row.campaign_id]);
-    // status en el WHERE: si lo aceptaron mientras tanto, ya no se borra.
+    const campaign = await client.query(
+      `SELECT status FROM campanas WHERE id = $1 FOR NO KEY UPDATE`,
+      [row.campaign_id]
+    );
+    if (campaign.rows[0]?.status !== "activa") {
+      await client.query("ROLLBACK");
+      return NextResponse.json({ error: "Solo puedes eliminar aportes mientras la campaña está activa" }, { status: 400 });
+    }
+    // La condición evita borrar si la revisión decidió el aporte mientras se esperaba el bloqueo.
     const borrado = await client.query(
-      `DELETE FROM aportes WHERE id = $1 AND user_id = $2 AND status <> 'aceptado'`,
+      `DELETE FROM aportes
+       WHERE id = $1 AND user_id = $2 AND status IN ('pendiente', 'espera_final')`,
       [id, user.id]
     );
     if (borrado.rowCount === 0) {
       await client.query("ROLLBACK");
-      return NextResponse.json({ error: "Un aporte aceptado ya no se puede eliminar" }, { status: 400 });
+      return NextResponse.json({ error: "Solo puedes eliminar un aporte que sigue en revisión" }, { status: 400 });
     }
     await recalcularContadores(row.campaign_id, client);
     await client.query("COMMIT");

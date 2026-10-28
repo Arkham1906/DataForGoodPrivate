@@ -5,7 +5,7 @@
 // Editar: carga con GET /api/campanas?mine=true y guarda con PATCH /api/campanas/[id].
 // Qué campos se pueden editar depende del estado; la regla real está en el PATCH (ver docs/datos.md § 3).
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Field, Input, Textarea } from "@/components/ui/Input";
@@ -46,6 +46,29 @@ type CampoDeCampana =
   | "municipio"
   | "general";
 type Problema = ProblemaDeFormulario & { campo: CampoDeCampana };
+
+function fechaLocalActual(): string {
+  const fecha = new Date();
+  return `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, "0")}-${String(fecha.getDate()).padStart(2, "0")}`;
+}
+
+function suscribirSinCambios(): () => void {
+  return () => {};
+}
+
+function fechaEnServidor(): string {
+  return "";
+}
+
+function sumarMeses(fecha: string, meses: number): string {
+  // Calcula cada duración desde el día de inicio, conservándolo si cabe en el mes final.
+  const [anio, mes, dia] = fecha.split("-").map(Number);
+  const indiceMes = anio * 12 + mes - 1 + meses;
+  const anioFinal = Math.floor(indiceMes / 12);
+  const mesFinal = ((indiceMes % 12) + 12) % 12;
+  const diaFinal = Math.min(dia, new Date(Date.UTC(anioFinal, mesFinal + 1, 0)).getUTCDate());
+  return `${anioFinal}-${String(mesFinal + 1).padStart(2, "0")}-${String(diaFinal).padStart(2, "0")}`;
+}
 
 /** En qué paso está cada campo: el paso se marca en rojo si alguno de sus campos tiene un problema. */
 const PASO_DEL_CAMPO: Record<CampoDeCampana, string | null> = {
@@ -257,9 +280,15 @@ function CampanaFormulario({
   // para cualquier tipo y debajo solo se muestra un reparto sugerido (lib/campanas/reparto-sugerido.ts).
   const sugerencia = repartoSugerido(Number(quota), dataTypes);
   const [startDate, setStartDate] = useState(editingCampaign?.startDate ?? "");
-  const [startTime, setStartTime] = useState(editingCampaign?.startTime ?? "");
+  const startTime = editingCampaign?.startTime ?? "";
   const [endDate, setEndDate] = useState(editingCampaign?.endDate ?? "");
-  const [endTime, setEndTime] = useState(editingCampaign?.endTime ?? "");
+  const endTime = editingCampaign?.endTime ?? "";
+  const [duracionEnMeses, setDuracionEnMeses] = useState(1);
+  const hoyLocal = useSyncExternalStore(suscribirSinCambios, fechaLocalActual, fechaEnServidor);
+  const [inicioModificado, setInicioModificado] = useState(false);
+  const fechaInicioFormulario = startDate || (!editingCampaign && !inicioModificado ? hoyLocal : "");
+  const fechaFinFormulario =
+    endDate || (!editingCampaign && fechaInicioFormulario ? sumarMeses(fechaInicioFormulario, duracionEnMeses) : "");
   const [locationState, setLocationState] = useState(editingCampaign?.locationState ?? "");
   // Una campaña guardada con estado y sin municipio abarca todo el estado.
   const [locationCity, setLocationCity] = useState(
@@ -286,23 +315,23 @@ function CampanaFormulario({
 
   const limiteActivasAlcanzado = activeCampaigns >= MAX_ACTIVE_CAMPAIGNS;
 
-  // Si la campaña llegó a "finalizada" porque su fecha/hora de fin ya se
-  // cumplió (lo normal: finalizeExpiredCampaigns), reactivarla sin mover esa
-  // fecha hace que la próxima lectura de /api/campanas la vuelva a cerrar de
-  // inmediato. Por eso al reactivar se exige una fecha/hora de fin futura.
-  function momentoDe(fecha: string, hora: string): number | null {
-    if (!fecha) return null;
-    const [year, month, day] = fecha.split("-").map(Number);
-    const [hour, minute] = (hora || "00:00").split(":").map(Number);
-    return new Date(year, month - 1, day, hour || 0, minute || 0).getTime();
+  function cambiarInicio(fecha: string) {
+    setInicioModificado(true);
+    setStartDate(fecha);
+    if (!editingCampaign) setEndDate(fecha ? sumarMeses(fecha, duracionEnMeses) : "");
+  }
+
+  function cambiarDuracion(meses: number) {
+    const nuevaDuracion = Math.max(1, duracionEnMeses + meses);
+    setDuracionEnMeses(nuevaDuracion);
+    if (fechaInicioFormulario) setEndDate(sumarMeses(fechaInicioFormulario, nuevaDuracion));
   }
 
   async function handleReactivar() {
     if (!editingCampaign || limiteActivasAlcanzado || !endDate) return;
 
-    const moment = momentoDe(endDate, endTime);
-    if (moment === null || moment <= Date.now()) {
-      setReactivarError("Elige una fecha/hora de finalización posterior a ahora.");
+    if (!inicioEnElFuturo(endDate, endTime)) {
+      setReactivarError("Elige una fecha de finalización futura según el horario que ya tiene la campaña.");
       return;
     }
 
@@ -312,7 +341,7 @@ function CampanaFormulario({
       const response = await fetch(`${BASE_PATH}/api/campanas/${editingCampaign.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "activa", endDate, endTime: endTime || null }),
+        body: JSON.stringify({ status: "activa", endDate }),
       });
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
@@ -391,7 +420,7 @@ function CampanaFormulario({
             <h1 className="text-xl font-extrabold text-system-900">{name}</h1>
             <p className="mt-1 text-[13px] text-system-600">
               Esta campaña ya finalizó y queda en solo lectura: no se puede editar. Para
-              reactivarla, primero define una nueva fecha/hora de finalización.
+              reactivarla, primero define una nueva fecha de finalización.
             </p>
           </div>
           <Tag>Finalizada</Tag>
@@ -413,25 +442,15 @@ function CampanaFormulario({
           <Field
             label="Nueva fecha de finalización"
             required
-            hint="Debe ser posterior a este momento; si no, la campaña volvería a finalizar de inmediato."
+            hint="La campaña conservará su horario de finalización actual."
           >
-            <div className="flex gap-2">
-              <CampoDeFecha
-                value={endDate}
-                aria-label="Nueva fecha de finalización"
-                onChange={setEndDate}
-                disabled={limiteActivasAlcanzado}
-                required
-              />
-              <Input
-                type="time"
-                value={endTime}
-                aria-label="Nueva hora de finalización (opcional)"
-                onChange={(e) => setEndTime(e.target.value)}
-                disabled={limiteActivasAlcanzado}
-                className="max-w-[7.5rem] shrink-0 font-mono disabled:cursor-not-allowed disabled:opacity-50"
-              />
-            </div>
+            <CampoDeFecha
+              value={endDate}
+              aria-label="Nueva fecha de finalización"
+              onChange={setEndDate}
+              disabled={limiteActivasAlcanzado}
+              required
+            />
           </Field>
         </div>
 
@@ -469,18 +488,18 @@ function CampanaFormulario({
       agregar("checklists", validarChecklists());
       if (vacio(goal)) agregar("meta", "La meta de aportes debe ser mayor a 0");
       if (vacio(quota)) agregar("cuota", "La cuota por persona debe ser mayor a 0");
-      if (!startDate) agregar("inicio", "Falta la fecha de inicio");
-      else if (inicioMovido) agregar("inicio", errorDeInicioPasado(startDate));
-      if (!endDate) agregar("fin", "Falta la fecha de finalización");
-      else agregar("fin", errorDeFinAntesDeInicio(startDate, endDate));
+      if (!fechaInicioFormulario) agregar("inicio", "Falta la fecha de inicio");
+      else if (inicioMovido) agregar("inicio", errorDeInicioPasado(fechaInicioFormulario));
+      if (!fechaFinFormulario) agregar("fin", "Falta la fecha de finalización");
+      else agregar("fin", errorDeFinAntesDeInicio(fechaInicioFormulario, fechaFinFormulario));
       if (!todoElPais && !locationState) agregar("estado", "Selecciona un estado o marca que la campaña es para todo el país");
       else if (!todoElPais && !locationCity) agregar("municipio", "Selecciona un municipio o \"Todo el estado\"");
       return lista;
     }
     if (edicionLimitada) {
       if (vacio(goal)) agregar("meta", "La meta de aportes debe ser mayor a 0");
-      if (!endDate) agregar("fin", "Falta la fecha de finalización");
-      else agregar("fin", errorDeFinAntesDeInicio(startDate, endDate));
+      if (!fechaFinFormulario) agregar("fin", "Falta la fecha de finalización");
+      else agregar("fin", errorDeFinAntesDeInicio(fechaInicioFormulario, fechaFinFormulario));
       return lista;
     }
 
@@ -489,8 +508,8 @@ function CampanaFormulario({
     if (!description.trim()) agregar("descripcion", "Falta la descripción");
     if (!theme) agregar("tematica", "Elige una temática");
     agregar("checklists", validarChecklists());
-    agregar("inicio", errorDeInicioPasado(startDate));
-    agregar("fin", errorDeFinAntesDeInicio(startDate, endDate));
+    agregar("inicio", errorDeInicioPasado(fechaInicioFormulario));
+    agregar("fin", errorDeFinAntesDeInicio(fechaInicioFormulario, fechaFinFormulario));
     if (asDraft) return lista;
 
     if (limitReached) {
@@ -499,8 +518,8 @@ function CampanaFormulario({
     if (dataTypes.length === 0) agregar("tipos", "Selecciona al menos un tipo de dato");
     if (vacio(goal)) agregar("meta", "La meta de aportes debe ser mayor a 0");
     if (vacio(quota)) agregar("cuota", "La cuota por persona debe ser mayor a 0");
-    if (!startDate) agregar("inicio", "Falta la fecha de inicio");
-    if (!endDate) agregar("fin", "Falta la fecha de finalización");
+    if (!fechaInicioFormulario) agregar("inicio", "Falta la fecha de inicio");
+    if (!fechaFinFormulario) agregar("fin", "Falta la fecha de finalización");
     if (!todoElPais && !locationState) agregar("estado", "Selecciona un estado o marca que la campaña es para todo el país");
     else if (!todoElPais && !locationCity) agregar("municipio", "Selecciona un municipio o \"Todo el estado\"");
     return lista;
@@ -521,7 +540,7 @@ function CampanaFormulario({
       return;
     }
 
-    // Activa o aceptada: solo se guardan meta y fecha/hora de fin. Pausada: también
+    // Activa o aceptada: solo se guardan meta y fecha de fin. Pausada: también
     // lo de CAMPOS_EDITABLES_EN_PAUSA. En los tres el estado no se manda, así la
     // campaña se mantiene en el estado en el que estaba.
     // En el orden en que se ven (↑/↓).
@@ -536,10 +555,8 @@ function CampanaFormulario({
           checklistSecciones,
           goalContributions: Number(goal),
           quotaPerUser: Number(quota),
-          startDate,
-          startTime: startTime || null,
-          endDate,
-          endTime: endTime || null,
+          startDate: fechaInicioFormulario,
+          endDate: fechaFinFormulario,
           todoElPais,
           locationCity: todoElPais ? "" : municipioReal,
           locationState: todoElPais ? "" : locationState,
@@ -548,8 +565,7 @@ function CampanaFormulario({
       : edicionLimitada
       ? {
           goalContributions: Number(goal),
-          endDate,
-          endTime: endTime || null,
+          endDate: fechaFinFormulario,
         }
       : {
           name,
@@ -562,10 +578,8 @@ function CampanaFormulario({
           checklistSecciones,
           goalContributions: Number(goal),
           quotaPerUser: Number(quota),
-          startDate,
-          startTime: startTime || null,
-          endDate,
-          endTime: endTime || null,
+          startDate: fechaInicioFormulario,
+          endDate: fechaFinFormulario,
           todoElPais,
           locationCity: todoElPais ? "" : municipioReal,
           locationState: todoElPais ? "" : locationState,
@@ -633,7 +647,7 @@ function CampanaFormulario({
 
   const inicioMovido = editaEnPausa && startDate !== (editingCampaign?.startDate ?? "");
   // Inicio todavía por llegar: se programa (vuelve a "aceptada") en vez de reanudarse.
-  const programar = editaEnPausa && inicioEnElFuturo(startDate, startTime);
+  const programar = editaEnPausa && inicioEnElFuturo(fechaInicioFormulario, startTime);
   // Problemas a la vista: después del primer intento de guardar, se recalculan mientras se corrige.
   const errores: Problema[] = [...(intento ? problemasDe(intento === "borrador") : []), ...problemasDelServidor];
   const errorDe = (campo: CampoDeCampana) =>
@@ -643,8 +657,8 @@ function CampanaFormulario({
   // Cuándo está completo cada paso (solo informa: lo que se exige al enviar es problemasDe()).
   // En pausa el inicio que ya pasó se conserva; solo un inicio nuevo no puede ser antes de hoy.
   const errorDeFechas = edicionLimitada && !inicioMovido
-    ? errorDeFinAntesDeInicio(startDate, endDate)
-    : (errorDeInicioPasado(startDate) ?? errorDeFinAntesDeInicio(startDate, endDate));
+    ? errorDeFinAntesDeInicio(fechaInicioFormulario, fechaFinFormulario)
+    : (errorDeInicioPasado(fechaInicioFormulario) ?? errorDeFinAntesDeInicio(fechaInicioFormulario, fechaFinFormulario));
   const pasos: Paso[] = (
     [
       { id: "paso-datos", titulo: "Datos básicos", completo: Boolean(name.trim() && description.trim() && theme) },
@@ -653,7 +667,7 @@ function CampanaFormulario({
       {
         id: "paso-vigencia",
         titulo: "Vigencia y lugar",
-        completo: Boolean(startDate && endDate && !errorDeFechas && (todoElPais || (locationState && locationCity))),
+        completo: Boolean(fechaInicioFormulario && fechaFinFormulario && !errorDeFechas && (todoElPais || (locationState && locationCity))),
       },
     ] satisfies Paso[]
   ).map((p) => ({ ...p, conProblemas: pasosConProblemas.has(p.id) }));
@@ -673,8 +687,8 @@ function CampanaFormulario({
                 : "La campaña está pausada: puedes cambiar todo menos la organización. Al guardar eliges si la reanudas o la dejas pausada; se avisa a quien la supervisa."
               : edicionLimitada
               ? status === "aceptada"
-                ? "La campaña ya fue aceptada y espera su fecha de inicio: solo puedes ajustar la meta de aportes y la fecha/hora de finalización."
-                : "La campaña ya está en curso: solo puedes ajustar la meta de aportes y la fecha/hora de finalización. Para cambiar lo demás, páusala."
+                ? "La campaña ya fue aceptada y espera su fecha de inicio: solo puedes ajustar la meta de aportes y la fecha de finalización."
+                : "La campaña ya está en curso: solo puedes ajustar la meta de aportes y la fecha de finalización. Para cambiar lo demás, páusala."
               : "Completa los cuatro pasos y envíala a revisión. Puedes guardarla como borrador en cualquier momento."}
           </p>
         </div>
@@ -1043,49 +1057,65 @@ function CampanaFormulario({
             aviso={contenidoBloqueado ? "Solo la finalización se puede cambiar" : undefined}
           >
             <p className="mb-3 text-[12px] text-system-500">
-              La hora es opcional: sin hora, la campaña activa o finaliza desde el inicio de ese día.
+              Solo se eligen fechas: las campañas nuevas usan la hora de creación y al editar se conserva la hora guardada.
             </p>
             <div className="mb-2 grid max-w-xl grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="Inicio" required error={errorDe("inicio")}>
                 <div data-campo="inicio" className="flex gap-2">
                   <CampoDeFecha
-                    value={startDate}
-                    min={edicionLimitada ? undefined : hoyEnTepic()}
+                    value={fechaInicioFormulario}
+                    min={edicionLimitada ? undefined : editingCampaign ? hoyEnTepic() : hoyLocal || undefined}
                     aria-label="Fecha de inicio"
-                    onChange={setStartDate}
+                    onChange={cambiarInicio}
                     required
                     disabled={contenidoBloqueado}
-                  />
-                  <Input
-                    type="time"
-                    value={startTime}
-                    aria-label="Hora de inicio (opcional)"
-                    onChange={(e) => setStartTime(e.target.value)}
-                    disabled={contenidoBloqueado}
-                    className="max-w-[7.5rem] shrink-0 font-mono disabled:cursor-not-allowed disabled:opacity-50"
                   />
                 </div>
               </Field>
               <Field label="Finalización" required error={errorDe("fin")}>
-                <div data-campo="fin" className="flex gap-2">
-                  <CampoDeFecha
-                    value={endDate}
-                    min={startDate || (edicionLimitada ? undefined : hoyEnTepic())}
-                    aria-label="Fecha de finalización"
-                    onChange={setEndDate}
-                    required
-                  />
-                  <Input
-                    type="time"
-                    value={endTime}
-                    aria-label="Hora de finalización (opcional)"
-                    onChange={(e) => setEndTime(e.target.value)}
-                    className="max-w-[7.5rem] shrink-0 font-mono"
-                  />
+                <div data-campo="fin" className="flex flex-col gap-2">
+                  {editingCampaign ? (
+                    <CampoDeFecha
+                      value={fechaFinFormulario}
+                      min={fechaInicioFormulario || (edicionLimitada ? undefined : hoyEnTepic())}
+                      aria-label="Fecha de finalización"
+                      onChange={setEndDate}
+                      required
+                    />
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          aria-label="Restar un mes a la duración"
+                          onClick={() => cambiarDuracion(-1)}
+                          disabled={duracionEnMeses <= 1 || !fechaInicioFormulario}
+                        >
+                          −
+                        </Button>
+                        <p aria-live="polite" className="min-w-0 text-[13px] font-semibold text-system-900">
+                          {duracionEnMeses} {duracionEnMeses === 1 ? "mes" : "meses"}
+                        </p>
+                        <Button
+                          type="button"
+                          size="sm"
+                          aria-label="Sumar un mes a la duración"
+                          onClick={() => cambiarDuracion(1)}
+                          disabled={!fechaInicioFormulario}
+                        >
+                          +
+                        </Button>
+                      </div>
+                      <p className="text-[12px] text-system-600">
+                        {fechaFinFormulario ? `Finaliza el ${fechaDDMMAAAA(fechaFinFormulario)}` : "Selecciona la fecha de inicio"}
+                      </p>
+                    </>
+                  )}
                 </div>
               </Field>
             </div>
-            {errorDeFechas && (startDate || endDate) && !errorDe("inicio") && !errorDe("fin") && (
+            {errorDeFechas && (fechaInicioFormulario || fechaFinFormulario) && !errorDe("inicio") && !errorDe("fin") && (
               <p className="-mt-2 mb-4 text-[12px] text-error-700">{errorDeFechas}</p>
             )}
 
@@ -1172,7 +1202,7 @@ function CampanaFormulario({
                 : pausadaPorSupervision
                 ? "La pausó la supervisión: los cambios se guardan, sigue pausada y la supervisión decide cuándo reanudarla."
                 : programar
-                ? `Empieza el ${fechaDDMMAAAA(startDate)}${startTime ? ` a las ${startTime.slice(0, 5)}` : ""}: con «Guardar y programar» queda programada y empieza sola a esa hora.`
+                ? `Empieza el ${fechaDDMMAAAA(fechaInicioFormulario)}: con «Guardar y programar» queda programada y empieza sola ese día.`
                 : "Con «Guardar y reanudar» vuelve a recibir aportes en cuanto guardas; con «Guardar y dejar pausada» la reanudas después desde Mis campañas."}
               {editaEnPausa &&
                 " Los aportes que ya llegaron no cambian, aunque su tipo de dato ya no se pida. Quien la supervisa recibe un aviso de lo que cambiaste."}
