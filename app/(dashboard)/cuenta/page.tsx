@@ -14,6 +14,7 @@
 import { ViewTransition } from "react";
 import ButtonLink from "@/components/ui/ButtonLink";
 import { exigirUsuario } from "@/lib/session";
+import { etiquetasDelUsuario } from "@/lib/etiquetas/catalogo";
 import PerfilForm from "./PerfilForm";
 import CambiarContrasena from "./CambiarContrasena";
 import PreferenciasDeComunicacion from "./PreferenciasDeComunicacion";
@@ -65,6 +66,7 @@ export default async function CuentaPage() {
           organizacion: currentUser.organizacion,
           intereses: currentUser.intereses,
           interesesTexto: currentUser.intereses_texto,
+          etiquetas: await etiquetasDelUsuario(currentUser.id),
         }}
         encabezado={
           <div className="flex items-center gap-4">

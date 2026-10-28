@@ -16,6 +16,7 @@ import { seccionesDesdeFila, type SeccionDeChecklist } from "@/lib/campanas/chec
 import { pausaDesdeFila, type PausaDeCampana } from "@/lib/campanas/pausa";
 import { pool } from "@/lib/db";
 import { quienOrganiza } from "@/lib/campanas/organizacion";
+import { textoDelProposito } from "@/lib/campanas/proposito";
 
 /** Ventana durante la cual el enlace sirve; al vencer hay que regenerarlo. */
 export const HORAS_DE_VIGENCIA = 24;
@@ -208,6 +209,8 @@ export type CampanaDelEnlace = {
   tiposDeArchivo: TipoDeArchivo[];
   /** Quién la pausó y por qué, o null si no está pausada. */
   pausa: PausaDeCampana | null;
+  /** Para qué se usarán los datos (2026-10-27), como se lee; null si no tiene. */
+  proposito: string | null;
 };
 
 export type ResultadoDeToken =
@@ -222,7 +225,7 @@ export async function buscarEnlacePorToken(token: string): Promise<ResultadoDeTo
             c.name, c.description, c.tematica, c.tag, c.organizer, c.creator_name, c.location_city, c.location_state, c.todo_el_pais,
             c.status, c.goal_contributions, c.approved_contributions, c.quota_per_user, c.end_date,
             c.checklist_secciones, c.checklist_opciones, c.collection_mode, c.permite_anonimos, c.data_types,
-            c.pausa_por, c.pausa_motivo, c.pausada_en
+            c.pausa_por, c.pausa_motivo, c.pausada_en, c.proposito, c.proposito_otro
      FROM campana_enlaces e
      JOIN campanas c ON c.id = e.campana_id
      WHERE e.token = $1
@@ -251,6 +254,7 @@ export async function buscarEnlacePorToken(token: string): Promise<ResultadoDeTo
     permiteAnonimos: row.permite_anonimos !== false,
     tiposDeArchivo: tiposAceptados(row.data_types),
     pausa: pausaDesdeFila(row),
+    proposito: textoDelProposito(row.proposito, row.proposito_otro),
   };
 
   if (enlace.revocadoEn) return { tipo: "revocado", enlace, campana };

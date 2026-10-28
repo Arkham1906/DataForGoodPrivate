@@ -4,6 +4,8 @@ import { pool } from "@/lib/db";
 import { activateScheduledCampaigns, finalizeExpiredCampaigns, normalizeCampaignDate } from "@/lib/campaign-date";
 import { hasRootSession } from "@/lib/rootSession";
 import { pausaDesdeFila, type PausaDeCampana } from "@/lib/campanas/pausa";
+import { agregarEtiquetas } from "@/lib/etiquetas/catalogo";
+import type { EtiquetaDeCampana } from "@/lib/etiquetas/reglas";
 
 /*
  * Datos del modo supervisor del SuperUsuario (/supervisar, dentro de
@@ -29,6 +31,8 @@ export type CampanaSupervisable = {
   name: string;
   creatorName: string;
   tag: string;
+  /** Subtemáticas (2026-10-27), también las pendientes: el SuperUsuario supervisa. */
+  etiquetas: EtiquetaDeCampana[];
   status: string;
   latestSupervisionAction: string | null;
   /** libre: nadie la ha tomado; mia: la tomó el SuperUsuario; otro: la tomó un usuario supervisor. */
@@ -44,6 +48,9 @@ export type CampanaSupervisable = {
   /** Reparto de la cuota por tipo de dato; null = solo la cuota general. */
   description: string;
   organizer: string;
+  /** ¿Para qué se usarán los datos? (2026-10-27, lib/campanas/proposito.ts). */
+  proposito: string | null;
+  propositoOtro: string | null;
   dataTypes: string[];
   locationColonia: string;
   /** Para todo el país (lib/campanas/ubicacion.ts). */
@@ -62,6 +69,7 @@ function mapear(row: Record<string, unknown>): CampanaSupervisable {
     name: String(row.name ?? ""),
     creatorName: String(row.creator_name ?? ""),
     tag: String(row.tag ?? row.tematica ?? ""),
+    etiquetas: Array.isArray(row.etiquetas) ? (row.etiquetas as EtiquetaDeCampana[]) : [],
     status: String(row.status ?? ""),
     latestSupervisionAction: row.latest_supervision_action ? String(row.latest_supervision_action) : null,
     supervision: row.supervisado_por_root ? "mia" : row.supervisor_id != null ? "otro" : "libre",
@@ -77,6 +85,8 @@ function mapear(row: Record<string, unknown>): CampanaSupervisable {
     quotaPerUser: Number(row.quota_per_user ?? 0),
     description: String(row.description ?? ""),
     organizer: String(row.organizer ?? ""),
+    proposito: row.proposito ? String(row.proposito) : null,
+    propositoOtro: row.proposito_otro ? String(row.proposito_otro) : null,
     dataTypes: Array.isArray(row.data_types) ? row.data_types.map(String) : [],
     locationColonia: String(row.location_colonia ?? ""),
     todoElPais: row.todo_el_pais === true,
@@ -131,6 +141,7 @@ export async function listarCampanasParaRoot(): Promise<{
     ),
   ]);
 
+  await agregarEtiquetas([...pendientes.rows, ...supervisadas.rows], null, true);
   return { pendientes: pendientes.rows.map(mapear), supervisadas: supervisadas.rows.map(mapear) };
 }
 
@@ -145,7 +156,9 @@ export async function obtenerCampanaParaRoot(id: string): Promise<CampanaSupervi
      LIMIT 1`,
     [id],
   );
-  return result.rowCount === 0 ? null : mapear(result.rows[0]);
+  if (result.rowCount === 0) return null;
+  await agregarEtiquetas(result.rows, null, true);
+  return mapear(result.rows[0]);
 }
 
 /** Campaña que ya recolecta (o recolectó), la haya aceptado quien sea: participantes, aportes y panel. */

@@ -16,11 +16,13 @@ import {
   DIAS_PARA_NOTIFICACION_VIEJA,
   EVENTO_NOTIFICACIONES,
   fechaDeNotificacion,
-  tonoDeNotificacion,
+  CATEGORIAS_DE_NOTIFICACION,
+  ORDEN_DE_CATEGORIAS,
+  categoriaDeNotificacion,
+  claseDelPunto,
   type Notificacion,
 } from "@/lib/notificaciones/tipos";
 
-const COLOR_DEL_PUNTO = { ok: "bg-success-700", warn: "bg-warning-500", danger: "bg-error-700", default: "bg-brand-600" } as const;
 
 export default function ListaDeNotificaciones({
   items,
@@ -103,6 +105,19 @@ export default function ListaDeNotificaciones({
 
   return (
     <div className="space-y-3">
+      {/* Qué significa cada color (2026-10-27). */}
+      <ul aria-label="Qué significa cada color" className="flex flex-wrap gap-x-4 gap-y-1.5 text-[12px] text-system-600">
+        {ORDEN_DE_CATEGORIAS.map((c) => (
+          <li key={c} className="flex items-center gap-1.5">
+            <span aria-hidden className={`h-2.5 w-2.5 rounded-full ${CATEGORIAS_DE_NOTIFICACION[c].punto}`} />
+            {CATEGORIAS_DE_NOTIFICACION[c].nombre}
+          </li>
+        ))}
+        <li className="flex items-center gap-1.5">
+          <span aria-hidden className="h-2.5 w-2.5 rounded-full border border-system-300" />
+          Leída
+        </li>
+      </ul>
       {(noLeidas > 0 || limpiables > 0) && (
         <div className="flex flex-wrap justify-end gap-2">
           {noLeidas > 0 && (
@@ -151,7 +166,8 @@ export default function ListaDeNotificaciones({
             <li key={item.id} className={`flex gap-3 px-4 py-3.5 first:rounded-t-lg last:rounded-b-lg ${item.readAt ? "" : "bg-brand-50"}`}>
               <span
                 aria-hidden
-                className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${item.readAt ? "bg-system-300" : COLOR_DEL_PUNTO[tonoDeNotificacion(item.type)]}`}
+                title={CATEGORIAS_DE_NOTIFICACION[categoriaDeNotificacion(item.type)].nombre}
+                className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${claseDelPunto(item.type, Boolean(item.readAt))}`}
               />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
@@ -163,6 +179,7 @@ export default function ListaDeNotificaciones({
                   >
                     {item.title}
                     {!item.readAt && <span className="sr-only"> (sin leer)</span>}
+                    <span className="sr-only">. {CATEGORIAS_DE_NOTIFICACION[categoriaDeNotificacion(item.type)].nombre}</span>
                   </button>
                   <time dateTime={item.createdAt} className="shrink-0 text-[11.5px] text-system-500">
                     {fechaDeNotificacion(item.createdAt)}

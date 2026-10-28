@@ -30,7 +30,7 @@ export const SIN_ACUERDOS: Acuerdos = { confirmaContenido: false, aceptaUso: fal
 export const acuerdosCompletos = (a: Acuerdos) => a.confirmaContenido && a.aceptaUso;
 
 /** Ventana de solo lectura con el texto completo de los dos acuerdos. */
-function VentanaDeAcuerdos({ abierta, onCerrar }: { abierta: boolean; onCerrar: () => void }) {
+function VentanaDeAcuerdos({ abierta, onCerrar, proposito }: { abierta: boolean; onCerrar: () => void; proposito?: string | null }) {
   const dialogo = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -64,6 +64,12 @@ function VentanaDeAcuerdos({ abierta, onCerrar }: { abierta: boolean; onCerrar: 
           <p className="mb-4">{AVISO_DE_CONTENIDO}</p>
           <h3 className="mb-1 text-[13px] font-bold text-system-900">Acuerdo de uso del aporte</h3>
           <p>{AVISO_DE_USO}</p>
+          {proposito && (
+            // Propósito de la campaña (2026-10-27): para qué se usarán los datos.
+            <p className="mt-2">
+              <span className="font-semibold text-system-900">Propósito de esta campaña:</span> {proposito}.
+            </p>
+          )}
           <p className="mt-4 text-[11.5px] text-system-500">{CONSECUENCIA_DEL_CONTENIDO}</p>
         </div>
         <div className="flex justify-end border-t border-system-200 p-4">
@@ -81,10 +87,13 @@ export function CasillasDeAcuerdos({
   acuerdos,
   onCambio,
   deshabilitado = false,
+  proposito,
 }: {
   acuerdos: Acuerdos;
   onCambio: (acuerdos: Acuerdos) => void;
   deshabilitado?: boolean;
+  /** Para qué se usarán los datos (lib/campanas/proposito.ts, textoDelProposito), si la campaña lo tiene. */
+  proposito?: string | null;
 }) {
   const [leyendo, setLeyendo] = useState(false);
 
@@ -108,7 +117,10 @@ export function CasillasDeAcuerdos({
           onChange={(e) => onCambio({ ...acuerdos, aceptaUso: e.target.checked })}
           disabled={deshabilitado}
         />
-        {CASILLA_DE_USO}
+        <span>
+          {CASILLA_DE_USO}
+          {proposito && <span className="mt-0.5 block text-[11.5px] text-system-500">Los datos se usarán para: {proposito}.</span>}
+        </span>
       </label>
       <button
         type="button"
@@ -117,7 +129,7 @@ export function CasillasDeAcuerdos({
       >
         Leer los acuerdos
       </button>
-      <VentanaDeAcuerdos abierta={leyendo} onCerrar={() => setLeyendo(false)} />
+      <VentanaDeAcuerdos abierta={leyendo} onCerrar={() => setLeyendo(false)} proposito={proposito} />
     </div>
   );
 }
@@ -129,7 +141,15 @@ export function agregarAcuerdos(datos: FormData, acuerdos: Acuerdos) {
 }
 
 /** Bloque "Inscríbete para aportar": casillas y botón. Llama a onInscrito cuando el servidor lo confirma. */
-export function InscripcionACampana({ campanaId, onInscrito }: { campanaId: string; onInscrito: () => void }) {
+export function InscripcionACampana({
+  campanaId,
+  onInscrito,
+  proposito,
+}: {
+  campanaId: string;
+  onInscrito: () => void;
+  proposito?: string | null;
+}) {
   const [acuerdos, setAcuerdos] = useState(SIN_ACUERDOS);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -160,7 +180,7 @@ export function InscripcionACampana({ campanaId, onInscrito }: { campanaId: stri
       <p className="text-[12.5px] text-system-600">
         Para aportar, inscríbete aceptando estos acuerdos. Solo se piden una vez en esta campaña.
       </p>
-      <CasillasDeAcuerdos acuerdos={acuerdos} onCambio={setAcuerdos} deshabilitado={enviando} />
+      <CasillasDeAcuerdos acuerdos={acuerdos} onCambio={setAcuerdos} deshabilitado={enviando} proposito={proposito} />
       {error && (
         <p role="alert" className="rounded border border-error-700 bg-error-50 p-2 text-[12px] text-error-700">
           {error}

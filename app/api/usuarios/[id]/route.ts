@@ -7,6 +7,8 @@ import { destroySession, getSessionUser } from "@/lib/session";
 import { hasRootSession } from "@/lib/rootSession";
 import { errorDeLargo } from "@/lib/usuarios/perfil";
 import { resolverIntereses } from "@/lib/tematicas/catalogo";
+import { etiquetasDelUsuario, guardarEtiquetasDelUsuario, recortarEtiquetasDelUsuario } from "@/lib/etiquetas/catalogo";
+import { MAXIMO_DE_ETIQUETAS_EN_PERFIL } from "@/lib/etiquetas/reglas";
 import { resolverEspecialidad } from "@/lib/usuarios/especialidades";
 import { resolverOrganizacion } from "@/lib/usuarios/organizaciones";
 import { LARGO_MAXIMO_DEL_TEXTO } from "@/lib/tematicas/analizar";
@@ -167,6 +169,10 @@ export async function PATCH(
       if (!resueltos.ok) return NextResponse.json({ error: resueltos.error }, { status: 400 });
       intereses = JSON.stringify(resueltos.intereses);
     }
+    // Subtemáticas (etiquetas, 2026-10-27): ids, de las temáticas que queden en sus intereses.
+    if ("etiquetas" in body && (!Array.isArray(body.etiquetas) || body.etiquetas.length > MAXIMO_DE_ETIQUETAS_EN_PERFIL)) {
+      return NextResponse.json({ error: `Puedes marcar hasta ${MAXIMO_DE_ETIQUETAS_EN_PERFIL} subtemáticas` }, { status: 400 });
+    }
 
     const result = await pool.query(
       `UPDATE usuarios
@@ -216,7 +222,15 @@ export async function PATCH(
       ]);
     }
 
-    return NextResponse.json({ data: result.rows[0] }, { status: 200 });
+    const interesesFinales: string[] = Array.isArray(result.rows[0].intereses) ? result.rows[0].intereses : [];
+    if ("etiquetas" in body) {
+      const guardadas = await guardarEtiquetasDelUsuario(Number(rawId), body.etiquetas, interesesFinales);
+      if (!guardadas.ok) return NextResponse.json({ error: guardadas.error }, { status: 400 });
+    } else if (intereses !== null) {
+      await recortarEtiquetasDelUsuario(Number(rawId), interesesFinales);
+    }
+
+    return NextResponse.json({ data: { ...result.rows[0], etiquetas: await etiquetasDelUsuario(Number(rawId)) } }, { status: 200 });
   } catch (error) {
     console.error(error);
     return NextResponse.json(

@@ -12,6 +12,7 @@ import Topbar from "@/components/sistema/Topbar";
 import { hasRootSession } from "@/lib/rootSession";
 import { contarReportesPendientes } from "@/lib/reportes/reportes";
 import { contarTematicasPendientes } from "@/lib/tematicas/catalogo";
+import { contarEtiquetasPendientes } from "@/lib/etiquetas/catalogo";
 import { tituloDeSeccion } from "@/lib/titulo";
 
 export const dynamic = "force-dynamic";
@@ -27,7 +28,13 @@ export default async function PanelLayout({ children }: { children: ReactNode })
   if (!sesionValida) {
     redirect("/root");
   }
-  const [{ reportes }, tematicas] = await Promise.all([contarReportesPendientes(), contarTematicasPendientes()]);
+  // "Temáticas" cuenta también las etiquetas que propusieron los creadores (2026-10-27): se revisan en la misma pantalla.
+  const [{ reportes }, tematicasPendientes, etiquetasPendientes] = await Promise.all([
+    contarReportesPendientes(),
+    contarTematicasPendientes(),
+    contarEtiquetasPendientes(),
+  ]);
+  const tematicas = tematicasPendientes + etiquetasPendientes;
 
   return (
     <div className="min-h-screen bg-system-50">

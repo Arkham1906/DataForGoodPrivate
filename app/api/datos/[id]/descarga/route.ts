@@ -2,7 +2,8 @@ import { ZipArchive } from "archiver";
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { pool } from "@/lib/db";
-import { extensionForMime } from "@/lib/open-data";
+import { extensionForMime, OPEN_DATA_LICENSE } from "@/lib/open-data";
+import { textoDelProposito } from "@/lib/campanas/proposito";
 import { tablaDeAportesCsv, ubicacionDeCampana, type FilaDeAporteAbierto } from "@/lib/open-data-csv";
 import { readUploadedFile } from "@/lib/minio";
 
@@ -13,14 +14,15 @@ import { readUploadedFile } from "@/lib/minio";
  * participó (dominio.md § 9). La tabla lleva todos los aportes aceptados,
  * también los de solo texto; cada archivo se llama aporte-NNN.ext con el
  * mismo número que su fila. El contador de descargas sube en cada ZIP
- * generado, no cuando el navegador termina de bajarlo.
+ * generado, no cuando el navegador termina de bajarlo. Desde el 2026-10-27 lleva también LEEME.txt
+ * con la campaña, su propósito (para qué se recolectaron los datos) y la licencia.
  */
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
 
     const campana = await pool.query(
-      `SELECT id, name, location_state, location_city, location_colonia, todo_el_pais
+      `SELECT id, name, location_state, location_city, location_colonia, todo_el_pais, proposito, proposito_otro
        FROM campanas WHERE id = $1 AND status = 'finalizada' LIMIT 1`,
       [id]
     );
@@ -87,6 +89,17 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       });
     }
     archive.append(tablaDeAportesCsv(filas), { name: "aportes.csv" });
+    const proposito = textoDelProposito(c.proposito, c.proposito_otro);
+    archive.append(
+      [
+        `Campaña: ${String(c.name ?? "")}`,
+        `Propósito de los datos: ${proposito ?? "no indicado"}`,
+        `Licencia: ${OPEN_DATA_LICENSE}`,
+        "Contenido: aportes.csv (un renglón por aporte aceptado) y los archivos aporte-NNN con el mismo número.",
+        "",
+      ].join("\r\n"),
+      { name: "LEEME.txt" },
+    );
     await archive.finalize();
     await finished;
 

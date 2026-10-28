@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/session";
 import { tematicasVisibles } from "@/lib/tematicas/catalogo";
 
-// GET — las temáticas que se ofrecen (sin las ocultas): las 23 base y después las de los usuarios.
+// GET — las temáticas que se ofrecen (sin las ocultas): las base y después las de los usuarios.
 export async function GET() {
   try {
     const user = await getSessionUser();

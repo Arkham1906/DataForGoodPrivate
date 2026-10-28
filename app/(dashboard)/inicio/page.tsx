@@ -9,13 +9,12 @@ import type { Metadata } from "next";
 import ButtonLink from "@/components/ui/ButtonLink";
 import Card from "@/components/ui/Card";
 import MetricCard from "@/components/ui/MetricCard";
-import ProgressBar from "@/components/ui/ProgressBar";
 import Tag from "@/components/ui/Tag";
 import { exigirUsuario } from "@/lib/session";
-import { porcentajeDeMeta } from "@/lib/campanas/meta";
 import { ZONA_DE_CAMPANAS } from "@/lib/fecha-de-tepic";
 import { fechaDeNotificacion, tonoDeNotificacion } from "@/lib/notificaciones/tipos";
-import { obtenerResumenDeInicio, type CampanaParaTi } from "@/lib/usuarios/inicio";
+import { obtenerResumenDeInicio } from "@/lib/usuarios/inicio";
+import CampanasParaTi from "@/components/campanas/CampanasParaTi";
 
 export const metadata: Metadata = { title: "Inicio" };
 
@@ -38,12 +37,6 @@ const ESTADO_DE_APORTE: Record<string, { texto: string; tono: "default" | "ok" |
 
 /** Como Card, pero sin relleno: las filas de la lista llevan el suyo. */
 const CAJA_DE_LISTA = "overflow-hidden rounded-lg border border-system-200 bg-white shadow-sm";
-
-const MOTIVO: Record<CampanaParaTi["motivo"], string> = {
-  interes: "De tus intereses",
-  estado: "En tu estado",
-  popular: "Popular",
-};
 
 export default async function InicioPage() {
   const usuario = await exigirUsuario();
@@ -83,49 +76,23 @@ export default async function InicioPage() {
         )}
       </section>
 
-      <section aria-labelledby="inicio-para-ti">
-        <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
-          <h2 id="inicio-para-ti" className="text-lg font-extrabold text-system-900">
-            Campañas para ti
-          </h2>
+      <CampanasParaTi
+        id="inicio-para-ti"
+        campanas={resumen.paraTi}
+        accion={
           <Link href="/campanas" className="text-[13px] font-semibold text-brand-600 hover:underline">
             Ver todas →
           </Link>
-        </div>
-        {resumen.paraTi.length === 0 ? (
+        }
+        vacio={
           <Card>
             <p className="text-[13px] text-system-600">Por ahora no hay campañas activas para participar.</p>
             <ButtonLink href="/mis-campanas/nueva" variant="secondary" size="sm" className="mt-3">
               Crear una campaña
             </ButtonLink>
           </Card>
-        ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {resumen.paraTi.map((c) => {
-              const pct = porcentajeDeMeta(c.aprobados, c.meta);
-              return (
-                <Link key={c.id} href={`/campanas/${c.id}`} className="block rounded-lg">
-                  <Card className="flex h-full min-w-0 flex-col hover:border-brand-600">
-                    <div className="mb-2 flex flex-wrap items-center gap-1.5">
-                      {c.tematica && <Tag>{c.tematica}</Tag>}
-                      <Tag tone={c.motivo === "popular" ? "default" : "ok"}>{MOTIVO[c.motivo]}</Tag>
-                    </div>
-                    <p className="line-clamp-2 break-words text-[15px] font-bold text-system-900" title={c.nombre}>
-                      {c.nombre}
-                    </p>
-                    <div className="mt-auto pt-3">
-                      <ProgressBar pct={pct} tone="ok" />
-                      <p className="mt-2 font-mono text-[11px] text-system-500">
-                        {nf.format(c.participantes)} {c.participantes === 1 ? "participante" : "participantes"} · {pct}% de la meta
-                      </p>
-                    </div>
-                  </Card>
-                </Link>
-              );
-            })}
-          </div>
-        )}
-      </section>
+        }
+      />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <section aria-labelledby="inicio-aportes">

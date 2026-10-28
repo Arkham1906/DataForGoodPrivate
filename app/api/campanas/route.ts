@@ -17,6 +17,10 @@ import { XP_POR_APORTE, errorDeEstadoPedido } from "@/lib/campanas/estado-del-cr
 import { pausaDesdeFila } from "@/lib/campanas/pausa";
 import { rechazoDesdeFila } from "@/lib/campanas/rechazo";
 import { condicionDeVisibilidad } from "@/lib/campanas/visibilidad";
+import { agregarEtiquetas, guardarEtiquetasDeCampana } from "@/lib/etiquetas/catalogo";
+import { validarProposito } from "@/lib/campanas/proposito";
+import { hasRootSession } from "@/lib/rootSession";
+import { campanasParaTi } from "@/lib/usuarios/inicio";
 import { activateScheduledCampaigns, calculateCampaignDaysRemaining, errorDeFinAntesDeInicio, errorDeInicioPasado, finalizeExpiredCampaigns, normalizeCampaignDate, normalizeCampaignTime } from "@/lib/campaign-date";
 
 async function obtenerIdsGuardados(usuarioId: number): Promise<Set<number>> {
@@ -89,6 +93,11 @@ function mapCampaign(row: Record<string, unknown>) {
     description: String(row.description ?? ""),
     tematica: String(row.tematica ?? row.tag ?? ""),
     tag: String(row.tag ?? String(row.tematica ?? "")),
+    // Subtemáticas (2026-10-27): las pone agregarEtiquetas antes de mapear; las pendientes solo para el creador y la supervisión.
+    etiquetas: Array.isArray(row.etiquetas) ? row.etiquetas : [],
+    // ¿Para qué se usarán los datos? (2026-10-27, lib/campanas/proposito.ts).
+    proposito: row.proposito ? String(row.proposito) : null,
+    propositoOtro: row.proposito_otro ? String(row.proposito_otro) : null,
     status: String(row.status ?? "borrador"),
     dataTypes,
     collectionMode: String(row.collection_mode ?? "checklist"),
@@ -127,7 +136,8 @@ function mapCampaign(row: Record<string, unknown>) {
 }
 
 // GET: campañas. Modos por query: ?id= (una, con bloque viewer), ?mine=true (creadas por ti),
-// ?misAportes=true (aportaste o guardaste), ?available=true (puedes aportar), ?supervised=true (supervisas).
+// ?misAportes=true (aportaste o guardaste), ?available=true (puedes aportar), ?supervised=true (supervisas),
+// ?paraTi=true ("Campañas para ti": hasta 3, como en /inicio; otra forma, CampanaParaTi de lib/usuarios/inicio.ts).
 // Sin parámetros: activas, sin sesión.
 export async function GET(request: Request) {
   try {
@@ -138,15 +148,18 @@ export async function GET(request: Request) {
     const supervised = url.searchParams.get("supervised") === "true";
     // Campañas donde ya se aportó o que se guardaron: el conjunto que muestra "Mis aportes".
     const misAportes = url.searchParams.get("misAportes") === "true";
+    // "Campañas para ti" de /campanas (2026-10-27): las mismas hasta 3 que en /inicio.
+    const paraTi = url.searchParams.get("paraTi") === "true";
     // Siempre se intenta leer la sesión (aunque el modo no la exija) para poder marcar isSaved.
     const user = await getSessionUser();
 
     await activateScheduledCampaigns();
     await finalizeExpiredCampaigns();
 
-    if ((mine || available || misAportes || supervised) && !user) {
+    if ((mine || available || misAportes || supervised || paraTi) && !user) {
       return NextResponse.json({ error: "Debes iniciar sesion" }, { status: 401 });
     }
+    if (paraTi) return NextResponse.json({ data: await campanasParaTi(user!) });
 
     const [savedIds, bannedIds] = user
       ? await Promise.all([obtenerIdsGuardados(user.id), idsDeCampanasConBaneo(user.id)])
@@ -176,6 +189,7 @@ export async function GET(request: Request) {
          ORDER BY c.created_at DESC`,
         [user!.id]
       );
+      await agregarEtiquetas(result.rows, user, await hasRootSession());
       return NextResponse.json({ data: result.rows.map(conIsSaved) });
     }
 
@@ -183,6 +197,7 @@ export async function GET(request: Request) {
       const visible = await condicionDeVisibilidad(user, "campanas", 2);
       const result = await pool.query(`SELECT * FROM campanas WHERE id = $1 AND ${visible.sql} LIMIT 1`, [campaignId, ...visible.params]);
       if (result.rowCount === 0) return NextResponse.json({ error: "Campaña no encontrada" }, { status: 404 });
+      await agregarEtiquetas(result.rows, user, await hasRootSession());
       const campaign = conIsSaved(result.rows[0]);
       return NextResponse.json({
         data: campaign,
@@ -250,6 +265,7 @@ export async function GET(request: Request) {
               pool.query(`SELECT * FROM campanas WHERE ${visible.sql} ORDER BY created_at DESC`, visible.params),
             );
 
+    await agregarEtiquetas(result.rows, user, await hasRootSession());
     return NextResponse.json({ data: result.rows.map(conIsSaved) });
   } catch (error) {
     console.error("Error listando campanas", error);
@@ -290,6 +306,9 @@ export async function POST(request: Request) {
     const status = normalizeCampaignStatus(body.status ?? "borrador");
     const errorDeEstado = await errorDeEstadoPedido(status, creatorId);
     if (errorDeEstado) return NextResponse.json({ error: errorDeEstado }, { status: 400 });
+    // Propósito (2026-10-27): obligatorio para enviar a revisión; un borrador puede no tenerlo.
+    const proposito = validarProposito(body.proposito, body.propositoOtro ?? body.proposito_otro, status !== "borrador");
+    if (!proposito.ok) return NextResponse.json({ error: proposito.error }, { status: 400 });
     // Checklists con título (la descripción del aporte siempre es obligatoria:
     // es el texto libre). Un cliente viejo que manda la lista plana
     // checklistOpciones la guarda como un solo checklist titulado "Checklist".
@@ -371,85 +390,116 @@ export async function POST(request: Request) {
 
     const aportes: unknown[] = [];
 
-    const result = await pool.query(
-      `INSERT INTO campanas (
-        creator_id,
-        creator_name,
-        name,
-        description,
-        tematica,
-        tag,
-        status,
-        data_types,
-        collection_mode,
-        checklist_opciones,
-        goal_contributions,
-        quota_per_user,
-        current_contributions,
-        approved_contributions,
-        pending_contributions,
-        rejected_contributions,
-        participants,
-        start_date,
-        end_date,
-        location_city,
-        location_state,
-        location_colonia,
-        organizer,
-        xp_per_contribution,
-        is_special,
-        days_remaining,
-        has_reviewer_assigned,
-        share_token,
-        share_token_expires_at,
-        aportes,
-        start_time,
-        end_time,
-        checklist_secciones,
-        cuota_por_tipo,
-        todo_el_pais
-      ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10::jsonb, $11, $12, $13, $14, $15,
-        $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30::jsonb, $31, $32, $33::jsonb, $34::jsonb, $35
-      ) RETURNING *`,
-      [
-        creatorId,
-        creator,
-        name,
-        description,
-        tematica,
-        tag,
-        status,
-        JSON.stringify(dataTypes),
-        collectionMode,
-        JSON.stringify(checklistOpciones),
-        goalContributions,
-        quotaPerUser,
-        currentContributions,
-        approvedContributions,
-        pendingContributions,
-        rejectedContributions,
-        participants,
-        startDate,
-        endDate,
-        locationCity,
-        locationState,
-        locationColonia,
-        organizer,
-        xpPerContribution,
-        isSpecial,
-        daysRemaining,
-        hasReviewerAssigned,
-        shareToken,
-        shareTokenExpiresAt,
-        JSON.stringify(aportes),
-        startTime,
-        endTime,
-        JSON.stringify(checklistSecciones),
-        null, // cuota_por_tipo: sin uso desde el 2026-10-27 (solo cuota general; lib/campanas/reparto-sugerido.ts)
-        todoElPais,
-      ]
-    );
+    // La campaña y sus etiquetas (subtemáticas, opcionales) se guardan juntas: una etiqueta
+    // inválida no deja una campaña a medias.
+    const cliente = await pool.connect();
+    let result;
+    try {
+      await cliente.query("BEGIN");
+      result = await cliente.query(
+        `INSERT INTO campanas (
+          creator_id,
+          creator_name,
+          name,
+          description,
+          tematica,
+          tag,
+          status,
+          data_types,
+          collection_mode,
+          checklist_opciones,
+          goal_contributions,
+          quota_per_user,
+          current_contributions,
+          approved_contributions,
+          pending_contributions,
+          rejected_contributions,
+          participants,
+          start_date,
+          end_date,
+          location_city,
+          location_state,
+          location_colonia,
+          organizer,
+          xp_per_contribution,
+          is_special,
+          days_remaining,
+          has_reviewer_assigned,
+          share_token,
+          share_token_expires_at,
+          aportes,
+          start_time,
+          end_time,
+          checklist_secciones,
+          cuota_por_tipo,
+          todo_el_pais,
+          proposito,
+          proposito_otro
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10::jsonb, $11, $12, $13, $14, $15,
+          $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30::jsonb, $31, $32, $33::jsonb, $34::jsonb, $35,
+          $36, $37
+        ) RETURNING *`,
+        [
+          creatorId,
+          creator,
+          name,
+          description,
+          tematica,
+          tag,
+          status,
+          JSON.stringify(dataTypes),
+          collectionMode,
+          JSON.stringify(checklistOpciones),
+          goalContributions,
+          quotaPerUser,
+          currentContributions,
+          approvedContributions,
+          pendingContributions,
+          rejectedContributions,
+          participants,
+          startDate,
+          endDate,
+          locationCity,
+          locationState,
+          locationColonia,
+          organizer,
+          xpPerContribution,
+          isSpecial,
+          daysRemaining,
+          hasReviewerAssigned,
+          shareToken,
+          shareTokenExpiresAt,
+          JSON.stringify(aportes),
+          startTime,
+          endTime,
+          JSON.stringify(checklistSecciones),
+          null, // cuota_por_tipo: sin uso desde el 2026-10-27 (solo cuota general; lib/campanas/reparto-sugerido.ts)
+          todoElPais,
+          proposito.proposito,
+          proposito.otro,
+        ]
+      );
+      if ("etiquetas" in body) {
+        const errorDeEtiquetas = await guardarEtiquetasDeCampana(cliente, {
+          campanaId: Number(result.rows[0].id),
+          tematica,
+          nombres: body.etiquetas,
+          usuarioId: creatorId,
+        });
+        if (errorDeEtiquetas) {
+          await cliente.query("ROLLBACK");
+          return NextResponse.json({ error: errorDeEtiquetas }, { status: 400 });
+        }
+      }
+      await cliente.query("COMMIT");
+    } catch (error) {
+      await cliente.query("ROLLBACK").catch(() => {});
+      throw error;
+    } finally {
+      cliente.release();
+    }
+    await agregarEtiquetas(result.rows, sessionUser);
 
     if (result.rows[0].status === "en_revision") {
       avisarCampanaPorRevisar({ id: Number(result.rows[0].id), creadorId: creatorId });

@@ -77,6 +77,8 @@ export type FiltrosDeCampanas = {
   q?: string;
   estado?: EstadoDeCampana;
   tematica?: string;
+  /** Subtemática (nombre, aprobada); solo junto con `tematica`. */
+  etiqueta?: string;
   tipo?: TipoDeDato;
   vigencia?: string;
   orden?: string;
@@ -110,6 +112,12 @@ export async function buscarCampanas(f: FiltrosDeCampanas): Promise<{ filas: Fil
   }
   if (f.estado) condiciones.push(`status = ${param(f.estado)}`);
   if (f.tematica) condiciones.push(`tematica = ${param(f.tematica)}`);
+  if (f.tematica && f.etiqueta) {
+    condiciones.push(
+      `EXISTS (SELECT 1 FROM campana_etiquetas ce JOIN etiquetas e ON e.id = ce.etiqueta_id
+               WHERE ce.campana_id = base.id AND e.aprobada AND e.nombre = ${param(f.etiqueta)})`,
+    );
+  }
   if (f.tipo) condiciones.push(`data_types ? ${param(f.tipo)}`);
   if (f.vigencia === "7d" || f.vigencia === "30d" || f.vigencia === "mas30") {
     const hoy = param(hoyLocal());
@@ -155,6 +163,22 @@ export async function contarPorEstado(): Promise<Record<EstadoDeCampana | "todas
     if (e) conteos[e] = Number(r.n);
   }
   return { ...conteos, todas };
+}
+
+/** Etiquetas aprobadas que usan las campañas del listado (sin borradores), por temática, para el filtro. */
+export async function listarEtiquetasPorTematica(): Promise<Record<string, string[]>> {
+  await prepararLectura();
+  const result = await pool.query<{ tematica: string; nombre: string }>(
+    `SELECT DISTINCT c.tematica, e.nombre
+     FROM campanas c
+     JOIN campana_etiquetas ce ON ce.campana_id = c.id
+     JOIN etiquetas e ON e.id = ce.etiqueta_id AND e.aprobada
+     WHERE c.status <> 'borrador'
+     ORDER BY c.tematica, e.nombre`,
+  );
+  const porTema: Record<string, string[]> = {};
+  for (const r of result.rows) (porTema[r.tematica] ??= []).push(r.nombre);
+  return porTema;
 }
 
 /** Temáticas que existen en la BD, para el filtro del listado. */

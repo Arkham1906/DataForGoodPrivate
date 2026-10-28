@@ -12,7 +12,7 @@ import Tag from "@/components/ui/Tag";
 import BarraDeFiltros, { type ValoresDeFiltros } from "@/components/campanas/BarraDeFiltros";
 import { BASE_PATH } from "@/lib/base-path";
 import { porcentajeDeMeta } from "@/lib/campanas/meta";
-import { FILTROS_VACIOS, avisoSinResultados, filtrarCampanas, opcionesDeTematica, type FiltrosLocales } from "@/lib/campanas/filtro-local";
+import { FILTROS_VACIOS, avisoSinResultados, conFiltro, etiquetasPorTematica, filtrarCampanas, opcionesDeTematica, type FiltrosLocales } from "@/lib/campanas/filtro-local";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import PestanasDeModeracion from "@/components/moderacion/PestanasDeModeracion";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
@@ -26,6 +26,7 @@ type CampaignApiItem = {
   name: string;
   tag?: string;
   tematica?: string;
+  etiquetas?: { nombre: string; pendiente: boolean }[];
   status: string;
   latestSupervisionAction?: "aceptada" | "rechazada" | "reportada" | "reasignada" | null;
   approvedContributions?: number;
@@ -146,8 +147,13 @@ export default function SupervisionPage() {
   );
 
   function cambiarFiltro(clave: keyof ValoresDeFiltros, valor: string) {
-    setFiltros((actuales) => ({ ...actuales, [clave]: valor }));
+    setFiltros((actuales) => conFiltro(actuales, clave, valor));
   }
+
+  const etiquetasDelFiltro = useMemo(
+    () => etiquetasPorTematica([...pendingCampaigns, ...supervisedCampaigns, ...finishedCampaigns, ...flaggedCampaigns], tematicaDe),
+    [pendingCampaigns, supervisedCampaigns, finishedCampaigns, flaggedCampaigns]
+  );
 
   const filteredPendingCampaigns = useMemo(
     () => filtrarCampanas(pendingCampaigns, filtros, tematicaDe),
@@ -333,6 +339,7 @@ export default function SupervisionPage() {
       <BarraDeFiltros
         valores={filtros}
         tematicas={themeOptions}
+        etiquetasPorTematica={etiquetasDelFiltro}
         onCambiar={cambiarFiltro}
         colapsableEnMovil
       />

@@ -1,5 +1,5 @@
 import { pool } from "@/lib/db";
-import { TEMAS_DE_INTERES } from "@/lib/intereses";
+import { RENOMBRES_DE_TEMATICAS_BASE, TEMAS_DE_INTERES } from "@/lib/intereses";
 import { ESPECIALIDADES, claveDeCatalogo, validarEspecialidad, validarOrganizacion } from "@/lib/perfil-opciones";
 import { claveDeTematica } from "@/lib/tematicas/analizar";
 import { ensureAvisosDeCambios } from "@/lib/en-vivo-postgres";
@@ -166,6 +166,9 @@ export async function ensureCampanasTable(): Promise<void> {
       location_colonia VARCHAR(150),
       -- Para todo el país (lib/campanas/ubicacion.ts): estado, municipio y colonia vacíos.
       todo_el_pais BOOLEAN NOT NULL DEFAULT false,
+      -- Propósito: ¿para qué se usarán los datos? (2026-10-27, lib/campanas/proposito.ts).
+      proposito VARCHAR(40),
+      proposito_otro VARCHAR(80),
       organizer VARCHAR(160),
       xp_per_contribution INTEGER NOT NULL DEFAULT 0,
       is_special BOOLEAN NOT NULL DEFAULT false,
@@ -213,6 +216,10 @@ export async function ensureCampanasTable(): Promise<void> {
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS location_state VARCHAR(120);
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS location_colonia VARCHAR(150);
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS todo_el_pais BOOLEAN NOT NULL DEFAULT false;
+    -- Propósito (2026-10-27): uno de PROPOSITOS (lib/campanas/proposito.ts) y la frase de "Otro".
+    -- NULL en las campañas de antes; obligatorio al enviar a revisión desde ese día.
+    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS proposito VARCHAR(40);
+    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS proposito_otro VARCHAR(80);
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS organizer VARCHAR(160);
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS xp_per_contribution INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS is_special BOOLEAN NOT NULL DEFAULT false;
@@ -599,8 +606,75 @@ export async function ensureAuditLogTable(): Promise<void> {
 }
 
 /**
+ * Renombra una temática base (2026-10-27, RENOMBRES_DE_TEMATICAS_BASE de lib/intereses.ts) en el
+ * catálogo, en los intereses de los perfiles (sin repetir, en el mismo lugar) y en las campañas
+ * (`tematica` y su copia `tag`). Sus etiquetas la siguen por id. Si el nombre nuevo ya existía
+ * (una temática de usuario o del panel), se juntan: perfiles y campañas pasan a la existente, que
+ * queda como base, y las etiquetas de la vieja se mueven a ella. Sin la vieja, no hace nada.
+ */
+async function renombrarTematicaBase(antes: string, ahora: string): Promise<void> {
+  const claveAntes = claveDeTematica(antes);
+  const claveAhora = claveDeTematica(ahora);
+  const cliente = await pool.connect();
+  try {
+    await cliente.query("BEGIN");
+    const vieja = await cliente.query<{ id: number }>(`SELECT id FROM tematicas WHERE clave = $1 FOR UPDATE`, [claveAntes]);
+    if (!vieja.rows[0]) {
+      await cliente.query("ROLLBACK");
+      return;
+    }
+    const idVieja = Number(vieja.rows[0].id);
+    const nueva = await cliente.query<{ id: number }>(`SELECT id FROM tematicas WHERE clave = $1 FOR UPDATE`, [claveAhora]);
+    if (nueva.rows[0]) {
+      const idNueva = Number(nueva.rows[0].id);
+      const hayEtiquetas = await cliente.query<{ existe: string | null }>(`SELECT to_regclass('etiquetas')::text AS existe`);
+      if (hayEtiquetas.rows[0]?.existe) {
+        await cliente.query(
+          `UPDATE etiquetas SET tematica_id = $2
+           WHERE tematica_id = $1 AND clave NOT IN (SELECT clave FROM etiquetas WHERE tematica_id = $2)`,
+          [idVieja, idNueva],
+        );
+      }
+      await cliente.query(`DELETE FROM tematicas WHERE id = $1`, [idVieja]);
+      await cliente.query(`UPDATE tematicas SET nombre = $2, origen = 'base', aprobada = true, oculta = false WHERE id = $1`, [idNueva, ahora]);
+    } else {
+      await cliente.query(`UPDATE tematicas SET nombre = $2, clave = $3 WHERE id = $1`, [idVieja, ahora, claveAhora]);
+    }
+    await cliente.query(
+      `UPDATE usuarios u SET
+         intereses = (
+           SELECT COALESCE(jsonb_agg(valor ORDER BY lugar), '[]'::jsonb)
+           FROM (
+             SELECT valor, MIN(lugar) AS lugar
+             FROM (
+               SELECT CASE WHEN e.valor = $1 THEN $2 ELSE e.valor END AS valor, e.lugar
+               FROM jsonb_array_elements_text(u.intereses) WITH ORDINALITY AS e(valor, lugar)
+             ) cambiados
+             GROUP BY valor
+           ) sin_repetir
+         )
+       WHERE u.intereses ? $1`,
+      [antes, ahora],
+    );
+    await cliente.query(
+      `UPDATE campanas SET
+         tematica = CASE WHEN tematica = $1 THEN $2 ELSE tematica END,
+         tag = CASE WHEN tag = $1 THEN $2 ELSE tag END
+       WHERE tematica = $1 OR tag = $1`,
+      [antes, ahora],
+    );
+    await cliente.query("COMMIT");
+  } catch (error) {
+    await cliente.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    cliente.release();
+  }
+}
+
+/**
  * Catálogo de temáticas (2026-10-07): intereses de los perfiles y temática de las campañas son
- * la misma lista. Empieza con las 23 de lib/intereses.ts (origen 'base') y crece con las palabras
+ * la misma lista. Empieza con las de lib/intereses.ts (origen 'base') y crece con las palabras
  * clave que salen de lo que escriben los usuarios (origen 'usuario', lib/tematicas/catalogo.ts).
  * `clave` es el nombre sin acentos ni mayúsculas: evita "Ciclismo" y "ciclismo" duplicadas.
  * El SuperUsuario puede ocultar una (`oculta`): deja de ofrecerse, pero no se quita de los perfiles
@@ -629,13 +703,58 @@ export async function ensureTematicasTable(): Promise<void> {
     -- Después de la primera vez no borra nada.
     DELETE FROM tematicas WHERE NOT aprobada AND oculta;
   `);
-  // Las 23 de siempre, en su orden (id). ON CONFLICT: repetirlo en cada arranque es inofensivo.
+  // Antes de sembrar: las base que cambiaron de nombre (2026-10-27) se renombran, para que la siembra
+  // no cree una nueva al lado de la vieja.
+  for (const [antes, ahora] of RENOMBRES_DE_TEMATICAS_BASE) await renombrarTematicaBase(antes, ahora);
+  // Las base, en el orden de lib/intereses.ts. ON CONFLICT: repetirlo en cada arranque es inofensivo.
   await pool.query(
     `INSERT INTO tematicas (nombre, clave, origen)
      SELECT nombre, clave, 'base' FROM unnest($1::text[], $2::text[]) AS t(nombre, clave)
      ON CONFLICT (clave) DO NOTHING`,
     [TEMAS_DE_INTERES, TEMAS_DE_INTERES.map(claveDeTematica)],
   );
+}
+
+/**
+ * Etiquetas (2026-10-27): subtemáticas de una temática (Protección animal → Perros, Gatos...).
+ * Reglas en lib/etiquetas/catalogo.ts.
+ *   - `etiquetas`: catálogo por temática (`tematica_id`; el nombre no se repite dentro de la misma
+ *     temática por `clave`). Las crea el SuperUsuario (origen 'panel', aprobadas) o las propone el
+ *     creador al hacer su campaña (origen 'usuario', `aprobada` = false hasta que el SuperUsuario
+ *     las revisa en /sistema/tematicas). `oculta`: deja de ofrecerse, pero se queda donde ya está.
+ *     Borrar la temática borra sus etiquetas.
+ *   - `campana_etiquetas`: hasta 5 por campaña (MAXIMO_DE_ETIQUETAS_POR_CAMPANA), opcionales.
+ *   - `usuario_etiquetas`: subtemáticas que la persona marca en sus intereses (/bienvenida, /cuenta),
+ *     solo de temáticas que tiene en `usuarios.intereses`.
+ */
+export async function ensureEtiquetasTables(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS etiquetas (
+      id SERIAL PRIMARY KEY,
+      tematica_id INTEGER NOT NULL REFERENCES tematicas(id) ON DELETE CASCADE,
+      nombre VARCHAR(60) NOT NULL,
+      clave VARCHAR(60) NOT NULL,
+      origen VARCHAR(10) NOT NULL DEFAULT 'usuario' CHECK (origen IN ('panel', 'usuario')),
+      creada_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+      aprobada BOOLEAN NOT NULL DEFAULT false,
+      oculta BOOLEAN NOT NULL DEFAULT false,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (tematica_id, clave)
+    );
+    CREATE TABLE IF NOT EXISTS campana_etiquetas (
+      campana_id INTEGER NOT NULL REFERENCES campanas(id) ON DELETE CASCADE,
+      etiqueta_id INTEGER NOT NULL REFERENCES etiquetas(id) ON DELETE CASCADE,
+      PRIMARY KEY (campana_id, etiqueta_id)
+    );
+    -- Filtrar por etiqueta y contar sus campañas.
+    CREATE INDEX IF NOT EXISTS campana_etiquetas_etiqueta_idx ON campana_etiquetas (etiqueta_id);
+    CREATE TABLE IF NOT EXISTS usuario_etiquetas (
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+      etiqueta_id INTEGER NOT NULL REFERENCES etiquetas(id) ON DELETE CASCADE,
+      PRIMARY KEY (usuario_id, etiqueta_id)
+    );
+    CREATE INDEX IF NOT EXISTS usuario_etiquetas_etiqueta_idx ON usuario_etiquetas (etiqueta_id);
+  `);
 }
 
 /**
@@ -774,6 +893,7 @@ export async function ensureCoreSchema(): Promise<void> {
   await ensureListaNegraTable();
   await ensureAuditLogTable();
   await ensureTematicasTable(); // después de usuarios: creada_por la referencia
+  await ensureEtiquetasTables(); // después de tematicas, campanas y usuarios: las referencian
   await ensureEspecialidadesTable(); // después de usuarios: creada_por la referencia
   await ensureOrganizacionesTable(); // después de usuarios y campanas: creada_por y la siembra
   await ensureMedallasTables(); // después de usuarios: medallas_usuario.usuario_id la referencia

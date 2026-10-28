@@ -203,6 +203,7 @@ function Invitacion({
                 cuota={campana.cuotaPorPersona}
                 restantesIniciales={restantes}
                 esperaInicial={espera}
+                proposito={campana.proposito}
               />
             </Card>
           )}

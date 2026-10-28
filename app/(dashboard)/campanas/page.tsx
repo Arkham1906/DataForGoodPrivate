@@ -1,7 +1,8 @@
 "use client";
 
 // Pantalla /campanas: campañas activas para participar, con filtros por temática y "Tu localidad".
-// Componente cliente. Datos: GET /api/campanas y GET /api/auth/sesion. Mientras llegan, tarjetas esqueleto
+// Componente cliente. Datos: GET /api/campanas y GET /api/auth/sesion; arriba, "Campañas para ti" como en
+// /inicio (GET /api/campanas?paraTi=true, components/campanas/CampanasParaTi; 2026-10-27). Mientras llegan, tarjetas esqueleto
 // (cards/CampaignCardSkeleton) en vez de la lista vacía.
 // Pocas opciones a la vez (Ley de Hick, 2026-10-07): la fila muestra hasta MAXIMO_DE_TEMAS_VISIBLES
 // temáticas, primero las de los intereses de la persona, y el resto va en "Más temáticas"
@@ -14,8 +15,12 @@ import CampaignCard from "@/components/cards/CampaignCard";
 import CampaignCardSkeleton from "@/components/cards/CampaignCardSkeleton";
 import BarraDeFiltros, { type ValoresDeFiltros } from "@/components/campanas/BarraDeFiltros";
 import MasTematicas from "@/components/campanas/MasTematicas";
+import CampanasParaTi from "@/components/campanas/CampanasParaTi";
+import type { CampanaParaTi } from "@/lib/usuarios/inicio";
 import Skeleton from "@/components/ui/Skeleton";
 import Button from "@/components/ui/Button";
+import ButtonLink from "@/components/ui/ButtonLink";
+import VentanaDeCampana from "@/components/campanas/VentanaDeCampana";
 import type { Campaign } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
 import { FILTROS_VACIOS, filtrarCampanas, type FiltrosLocales } from "@/lib/campanas/filtro-local";
@@ -46,7 +51,17 @@ function normalizarEstado(valor: string | null | undefined): string {
 
 export default function CampanasPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  // "Campañas para ti" (2026-10-27): las mismas de /inicio, arriba de los filtros.
+  const [paraTi, setParaTi] = useState<CampanaParaTi[]>([]);
+  // Campaña cuya ventana de detalle está abierta (2026-10-27): clic en su tarjeta.
+  const [abierta, setAbierta] = useState<Campaign | null>(null);
   const [activeTag, setActiveTag] = useState("Todas");
+  // Subtemática dentro de la temática elegida (2026-10-27); "" = todas. Cambiar de filtro la quita.
+  const [etiquetaActiva, setEtiquetaActiva] = useState("");
+  function elegirFiltro(filtro: string) {
+    setActiveTag(filtro);
+    setEtiquetaActiva("");
+  }
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(true);
   // Estado declarado en el perfil (Mi cuenta); vacío si no lo ha indicado.
@@ -60,10 +75,14 @@ export default function CampanasPage() {
   useEffect(() => {
     async function cargarCampanas() {
       try {
-        const [response, sesionRes] = await Promise.all([
+        const [response, sesionRes, paraTiRes] = await Promise.all([
           fetch(`${BASE_PATH}/api/campanas`, { cache: "no-store" }),
           fetch(`${BASE_PATH}/api/auth/sesion`, { cache: "no-store" }),
+          fetch(`${BASE_PATH}/api/campanas?paraTi=true`, { cache: "no-store" }),
         ]);
+        // Si falla, la sección no sale; la lista sigue.
+        const paraTiBody = await paraTiRes.json().catch(() => ({}));
+        setParaTi(paraTiRes.ok && Array.isArray(paraTiBody.data) ? (paraTiBody.data as CampanaParaTi[]) : []);
         const sesion = await sesionRes.json().catch(() => ({}));
         if (sesionRes.ok) {
           setMiEstado(String(sesion.data?.state ?? "").trim());
@@ -119,9 +138,23 @@ export default function CampanasPage() {
           ? enMiEstado
           : campaigns.filter((c) => c.tag === activeTag);
 
+  // Etiquetas de la temática elegida, con cuántas campañas de la lista tiene cada una (así nunca
+  // sale un filtro sin resultados). Solo cuando el filtro activo es una temática.
+  const esTematica = !FILTROS_FIJOS.includes(activeTag);
+  const etiquetasDelTema = esTematica
+    ? Array.from(
+        porFiltro.reduce((conteo, c) => {
+          for (const e of c.etiquetas ?? []) if (!e.pendiente) conteo.set(e.nombre, (conteo.get(e.nombre) ?? 0) + 1);
+          return conteo;
+        }, new Map<string, number>())
+      ).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "es"))
+    : [];
+  const porEtiqueta =
+    esTematica && etiquetaActiva ? porFiltro.filter((c) => (c.etiquetas ?? []).some((e) => e.nombre === etiquetaActiva)) : porFiltro;
+
   const conBusqueda = campaigns.length > UMBRAL_DE_BUSQUEDA;
   const buscando = conBusqueda && (busqueda.q.trim() !== "" || busqueda.tipo !== "" || busqueda.orden !== "");
-  const filtered = conBusqueda ? filtrarCampanas(porFiltro, busqueda, (c) => c.tag) : porFiltro;
+  const filtered = conBusqueda ? filtrarCampanas(porEtiqueta, busqueda, (c) => c.tag) : porEtiqueta;
 
   function cambiarBusqueda(clave: keyof ValoresDeFiltros, valor: string) {
     if (clave === "q" || clave === "tipo" || clave === "orden") setBusqueda((actual) => ({ ...actual, [clave]: valor }));
@@ -143,6 +176,8 @@ export default function CampanasPage() {
         </Link>
       </div>
 
+      {!cargando && !error && <CampanasParaTi id="campanas-para-ti" campanas={paraTi} className="mb-8 max-md:mb-6" />}
+
       <div className="dashboard-nav mb-6 mt-4 flex w-full min-w-0 flex-nowrap gap-2 overflow-x-auto overscroll-x-contain pb-2 [-webkit-overflow-scrolling:touch] max-md:mb-4 max-md:gap-1.5 md:flex-wrap md:overflow-visible md:pb-0" role="group" aria-label="Filtrar campañas">
         {filtros.map((filtro) => {
           const active = filtro === activeTag;
@@ -161,7 +196,7 @@ export default function CampanasPage() {
             <button
               key={filtro}
               type="button"
-              onClick={() => setActiveTag(filtro)}
+              onClick={() => elegirFiltro(filtro)}
               aria-pressed={active}
               title={
                 filtro === TU_LOCALIDAD && miEstado
@@ -192,9 +227,34 @@ export default function CampanasPage() {
             <Skeleton key={i} className="h-[33px] w-28 shrink-0 rounded-pill max-md:h-[27px] max-md:w-24" />
           ))}
         {temasOcultos.length > 0 && (
-          <MasTematicas temas={temasOcultos} onElegir={setActiveTag} claseDelBoton={`${CLASE_DEL_FILTRO} ${CLASE_INACTIVO}`} />
+          <MasTematicas temas={temasOcultos} onElegir={elegirFiltro} claseDelBoton={`${CLASE_DEL_FILTRO} ${CLASE_INACTIVO}`} />
         )}
       </div>
+
+      {etiquetasDelTema.length > 0 && (
+        <div
+          className="dashboard-nav -mt-3 mb-6 flex w-full min-w-0 flex-nowrap items-center gap-1.5 overflow-x-auto overscroll-x-contain pb-2 [-webkit-overflow-scrolling:touch] max-md:-mt-2 max-md:mb-4 md:flex-wrap md:overflow-visible md:pb-0"
+          role="group"
+          aria-label={`Etiquetas de ${activeTag}`}
+        >
+          <span className="mr-1 shrink-0 text-[12px] text-system-500">Etiquetas:</span>
+          {etiquetasDelTema.map(([nombre, total]) => {
+            const activa = etiquetaActiva === nombre;
+            return (
+              <button
+                key={nombre}
+                type="button"
+                aria-pressed={activa}
+                onClick={() => setEtiquetaActiva(activa ? "" : nombre)}
+                className={`shrink-0 whitespace-nowrap rounded-pill border px-2.5 py-1 text-[12px] font-semibold transition-colors ${activa ? CLASE_ACTIVO : CLASE_INACTIVO}`}
+              >
+                #{nombre}
+                <span className="ml-1.5 font-mono">{total}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {conBusqueda && !cargando && !error && (
         <BarraDeFiltros
@@ -238,9 +298,29 @@ export default function CampanasPage() {
           {/* Las tarjetas usan h3: este h2 evita saltar del h1 al h3. */}
           <h2 className="sr-only">Lista de campañas</h2>
           {filtered.map((campaign) => (
-            <CampaignCard key={campaign.id} campaign={campaign} />
+            <CampaignCard key={campaign.id} campaign={campaign} onAbrir={() => setAbierta(campaign)} />
           ))}
         </div>
+      )}
+
+      {abierta && (
+        <VentanaDeCampana
+          key={abierta.id}
+          campana={abierta}
+          onCerrar={() => setAbierta(null)}
+          extra={
+            abierta.isBanned ? (
+              <p className="rounded-lg bg-error-50 p-3 text-[12.5px] text-error-700">Quien organiza esta campaña te baneó: ya no puedes aportar en ella.</p>
+            ) : abierta.status === "pausada" ? (
+              <p className="rounded-lg bg-warning-50 p-3 text-[12.5px] text-system-900">Está pausada: por ahora no recibe aportes.</p>
+            ) : undefined
+          }
+          acciones={
+            <ButtonLink href={`/campanas/${abierta.id}`} variant="primary" size="sm">
+              {abierta.status === "activa" && !abierta.isBanned ? "Ir a la campaña y participar" : "Ir a la campaña"}
+            </ButtonLink>
+          }
+        />
       )}
     </div>
   );

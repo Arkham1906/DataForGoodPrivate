@@ -18,7 +18,9 @@ import { sincronizarPush } from "@/lib/notificaciones/registro-push";
 import {
   EVENTO_NOTIFICACIONES,
   haceCuanto,
-  tonoDeNotificacion,
+  CATEGORIAS_DE_NOTIFICACION,
+  categoriaDeNotificacion,
+  claseDelPunto,
   type Notificacion,
   type PaginaDeNotificaciones,
 } from "@/lib/notificaciones/tipos";
@@ -26,7 +28,6 @@ import {
 const CADA_CUANTO_MS = 60_000;
 const EN_LA_CAMPANA = 8;
 
-const COLOR_DEL_PUNTO = { ok: "bg-success-700", warn: "bg-warning-500", danger: "bg-error-700", default: "bg-brand-600" } as const;
 
 export default function NotificationsBell() {
   const router = useRouter();
@@ -187,7 +188,8 @@ export default function NotificationsBell() {
                   >
                     <span
                       aria-hidden
-                      className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${item.readAt ? "bg-system-300" : COLOR_DEL_PUNTO[tonoDeNotificacion(item.type)]}`}
+                      title={CATEGORIAS_DE_NOTIFICACION[categoriaDeNotificacion(item.type)].nombre}
+                      className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${claseDelPunto(item.type, Boolean(item.readAt))}`}
                     />
                     <span className="min-w-0 flex-1">
                       <span className="flex items-baseline justify-between gap-2">

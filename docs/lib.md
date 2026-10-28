@@ -43,11 +43,11 @@
 
 | Archivo | Contenido |
 | --- | --- |
-| `intereses.ts` 🟢 | `TEMAS_DE_INTERES`: las 23 temáticas base, con las que se siembra la tabla `tematicas` al arrancar. El catálogo real (que crece) está en `tematicas/` |
+| `intereses.ts` 🟢 | `TEMAS_DE_INTERES`: las 28 temáticas base (2026-10-27; antes 23) y `RENOMBRES_DE_TEMATICAS_BASE`, con las que se siembra la tabla `tematicas` al arrancar. El catálogo real (que crece) está en `tematicas/` |
 | `mexico-geo.ts` 🟢 | Estados y municipios de México (`ESTADOS_DE_MEXICO`, `municipiosDe`) |
 | `perfil-opciones.ts` 🟢 | Especialidades y organizaciones del perfil: lista base `ESPECIALIDADES` (44 desde el 2026-10-26), `validarEspecialidad()`, `validarOrganizacion()` y `claveDeCatalogo()` (las usan los formularios y el servidor) |
 | `legal.ts` 🟢 | `RESPONSABLE` (nombre, domicilio y correo; `null` = pendiente) y `FECHA_DE_ACTUALIZACION` de `/terminos` y `/privacidad` (2026-10-19) |
-| `campaign-date.ts` | Fechas de campaña y las transiciones automáticas (`activateScheduledCampaigns`, `finalizeExpiredCampaigns`, `hasCampaignStarted`, `hasCampaignEnded`). Al activar o finalizar por fecha, avisa al creador. Corren cada minuto desde `instrumentation-node.ts` y al leer las listas de campañas |
+| `campaign-date.ts` | Fechas de campaña y las transiciones automáticas (`activateScheduledCampaigns`, `finalizeExpiredCampaigns`, `hasCampaignStarted`, `hasCampaignEnded`). Al activar o finalizar por fecha, avisa al creador; respeta el tope de 5 activas al activar (las demás esperan lugar). Corren cada minuto desde `instrumentation-node.ts` y al leer las listas de campañas |
 | `open-data.ts` | Catálogo de datos abiertos (`/datos`): búsqueda, facetas, formatos, licencia |
 | `open-data-csv.ts` | `tablaDeAportesCsv(filas)`: la tabla `aportes.csv` del ZIP de descarga (seudónimos "Participante N" / "Anónimo", UTF-8 con BOM, celdas a salvo de fórmulas) y `ubicacionDeCampana()` |
 
@@ -174,6 +174,16 @@ Catálogo de temáticas (intereses del perfil y temática de campaña), desde el
 | `analizar.ts` 🟢 | `analizarIntereses(texto, catalogo)`: temáticas que salen de un texto (diccionario local, palabras vacías, groserías, singular). `esTematicaNuevaValida`, `claveDeTematica`, `conMayuscula`, `MAXIMO_DE_INTERESES` (20), `LARGO_MAXIMO_DEL_TEXTO` (500), `LARGO_DEL_NOMBRE` (3 a 60, nombres del panel) | `ui/InteresesDesdeTexto`, `catalogo.ts`, `db-schema.ts` |
 | `catalogo.ts` | `tematicasVisibles()`, `resolverIntereses()` (valida y da de alta las nuevas), `listarTematicasDelPanel(q)`, `cambiarVisibilidad()`; desde el 2026-10-26 `validarNombreDeTematica()`, `crearTematica()` (origen `panel`), `renombrarTematica()` (también en perfiles y campañas, en transacción) y `borrarTematica()` (no si la usan campañas; la quita de los perfiles). Las base no se editan ni borran | `GET /api/tematicas`, `POST`/`PATCH /api/usuarios`, `/sistema/tematicas` |
 | `acciones-tematicas.ts` | Server actions `cambiarVisibilidadDeTematica(id, oculta)` y `revisarTematica(id, aprobada)` (aprobar, o rechazar: la borra y la quita de los perfiles, desde el 2026-10-22), y desde el 2026-10-26 `crearTematicaDelPanel`, `editarTematica` y `borrarTematicaDelPanel`: sesión raíz, bitácora `tematica.ocultar`/`mostrar`/`aprobar`/`rechazar`/`crear`/`editar`/`borrar` | `/sistema/tematicas` |
+
+### `etiquetas/` (2026-10-27)
+
+Subtemáticas de una temática (Protección animal → Perros, Gatos...).
+
+| Archivo | Qué hace | Lo usa |
+| --- | --- | --- |
+| `reglas.ts` 🟢 | `MAXIMO_DE_ETIQUETAS_POR_CAMPANA` (5), `MAXIMO_DE_ETIQUETAS_EN_PERFIL` (20) y tipos | Formulario de campaña, perfil, tarjetas |
+| `catalogo.ts` | `etiquetasVisibles()`, `guardarEtiquetasDeCampana()`, `quitarEtiquetasDeOtraTematica()`, `etiquetasDeCampanas()`, `agregarEtiquetas()` (pone `etiquetas` en las filas antes de mapearlas; las pendientes solo para creador, supervisor y SuperUsuario), perfil (`etiquetasDelUsuario`, `guardarEtiquetasDelUsuario`, `recortarEtiquetasDelUsuario`) y panel (`listarEtiquetasDelPanel`, `crearEtiqueta`, `renombrarEtiqueta`, `borrarEtiqueta`, `aprobarEtiqueta`, `rechazarEtiqueta`...) | `/api/campanas`, `/api/usuarios/[id]`, `/api/etiquetas`, `lib/campanas/publicas.ts`, `lib/supervision/root.ts`, `/sistema/tematicas` |
+| `acciones-etiquetas.ts` | Server actions del panel: crear, editar, borrar, ocultar/mostrar, aprobar/rechazar; sesión raíz y bitácora `etiqueta.*` | `/sistema/tematicas` |
 
 ### `notificaciones/`
 

@@ -24,6 +24,7 @@ export default function AporteAnonimo({
   cuota,
   restantesIniciales,
   esperaInicial,
+  proposito,
 }: {
   token: string;
   secciones: SeccionDeChecklist[];
@@ -33,6 +34,8 @@ export default function AporteAnonimo({
   restantesIniciales: number;
   /** Segundos que faltan para poder enviar otro (lo calcula el servidor). */
   esperaInicial: number;
+  /** Para qué se usarán los datos, para el acuerdo de uso (2026-10-27). */
+  proposito?: string | null;
 }) {
   const [restantes, setRestantes] = useState(restantesIniciales);
   const [espera, setEspera] = useState(esperaInicial);
@@ -161,7 +164,7 @@ export default function AporteAnonimo({
       ))}
 
       <div className="mb-4 rounded-lg border border-system-200 bg-white p-3.5">
-        <CasillasDeAcuerdos acuerdos={acuerdos} onCambio={setAcuerdos} deshabilitado={enviando} />
+        <CasillasDeAcuerdos acuerdos={acuerdos} onCambio={setAcuerdos} deshabilitado={enviando} proposito={proposito} />
       </div>
 
       {error && (

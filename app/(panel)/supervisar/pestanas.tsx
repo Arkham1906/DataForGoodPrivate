@@ -8,7 +8,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import Tag from "@/components/ui/Tag";
 import BarraDeFiltros, { type ValoresDeFiltros } from "@/components/campanas/BarraDeFiltros";
-import { FILTROS_VACIOS, avisoSinResultados, filtrarCampanas, opcionesDeTematica, type FiltrosLocales } from "@/lib/campanas/filtro-local";
+import { FILTROS_VACIOS, avisoSinResultados, conFiltro, etiquetasPorTematica, filtrarCampanas, opcionesDeTematica, type FiltrosLocales } from "@/lib/campanas/filtro-local";
 import type { CampanaSupervisable } from "@/lib/supervision/root";
 import { porcentajeDeMeta } from "@/lib/campanas/meta";
 
@@ -46,8 +46,13 @@ export default function PestanasDeSupervision({
   const conIncidencia = useMemo(() => filtrarCampanas(todasConIncidencia, filtros, tematicaDe), [todasConIncidencia, filtros]);
 
   function cambiarFiltro(clave: keyof ValoresDeFiltros, valor: string) {
-    setFiltros((actuales) => ({ ...actuales, [clave]: valor }));
+    setFiltros((actuales) => conFiltro(actuales, clave, valor));
   }
+
+  const etiquetasDelFiltro = useMemo(
+    () => etiquetasPorTematica([...todasPendientes, ...todasSupervisadas, ...todasFinalizadas, ...todasConIncidencia], tematicaDe),
+    [todasPendientes, todasSupervisadas, todasFinalizadas, todasConIncidencia],
+  );
 
   const renderPendingList = () => (
     <div className="space-y-3">
@@ -273,6 +278,7 @@ export default function PestanasDeSupervision({
       <BarraDeFiltros
         valores={filtros}
         tematicas={tematicas}
+        etiquetasPorTematica={etiquetasDelFiltro}
         onCambiar={cambiarFiltro}
         colapsableEnMovil
       />

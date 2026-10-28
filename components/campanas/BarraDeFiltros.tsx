@@ -1,6 +1,8 @@
 "use client";
 
-// Barra de filtros de campañas: búsqueda, temática, tipo de dato, vigencia (opcional) y orden.
+// Barra de filtros de campañas: búsqueda, temática, etiqueta (subtemática de la temática elegida,
+// 2026-10-27; solo si quien la usa pasa `etiquetasPorTematica`), tipo de dato, vigencia (opcional) y orden.
+// Quien la usa vacía la etiqueta cuando cambia la temática.
 // Solo dibuja y avisa de los cambios; quien la usa decide qué hacer con ellos:
 // /sistema/campanas los escribe en la URL y /supervision, /supervisar y /campanas filtran en el navegador.
 // Constantes de lib/campanas/sistema-opciones.ts (sin imports de servidor).
@@ -17,6 +19,7 @@ const CLASE_SELECT =
 export type ValoresDeFiltros = {
   q: string;
   tematica: string;
+  etiqueta?: string;
   tipo: string;
   vigencia?: string;
   orden: string;
@@ -29,9 +32,12 @@ export default function BarraDeFiltros({
   conVigencia = false,
   colapsableEnMovil = false,
   conTematica = true,
+  etiquetasPorTematica,
 }: {
   valores: ValoresDeFiltros;
   tematicas: string[];
+  /** Etiquetas de cada temática que hay en la lista: con una temática elegida, aparece el filtro de etiqueta. */
+  etiquetasPorTematica?: Record<string, string[]>;
   onCambiar: (clave: keyof ValoresDeFiltros, valor: string) => void;
   /** Muestra el filtro "Vigencia" (solo /sistema/campanas). */
   conVigencia?: boolean;
@@ -44,6 +50,7 @@ export default function BarraDeFiltros({
   const [panelAbierto, setPanelAbierto] = useState(false);
   const [filtrosBorrador, setFiltrosBorrador] = useState({
     tematica: valores.tematica,
+    etiqueta: valores.etiqueta ?? "",
     tipo: valores.tipo,
     vigencia: valores.vigencia,
     orden: valores.orden,
@@ -52,6 +59,7 @@ export default function BarraDeFiltros({
   const idQ = useId();
   const idPanel = useId();
   const idTema = useId();
+  const idEtiqueta = useId();
   const idTipo = useId();
   const idVig = useId();
   const idOrden = useId();
@@ -87,7 +95,8 @@ export default function BarraDeFiltros({
     const filtros = borrador ? { ...valores, ...filtrosBorrador } : valores;
     const cambiar = (clave: keyof ValoresDeFiltros, valor: string) => {
       if (borrador) {
-        setFiltrosBorrador((actuales) => ({ ...actuales, [clave]: valor }));
+        // Otra temática: la etiqueta elegida ya no aplica.
+        setFiltrosBorrador((actuales) => ({ ...actuales, [clave]: valor, ...(clave === "tematica" ? { etiqueta: "" } : {}) }));
       } else {
         onCambiar(clave, valor);
       }
@@ -110,6 +119,27 @@ export default function BarraDeFiltros({
               {tematicas.map((tema) => (
                 <option key={tema} value={tema}>
                   {tema}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {conTematica && etiquetasPorTematica && filtros.tematica && (etiquetasPorTematica[filtros.tematica] ?? []).length > 0 && (
+          <div className="min-w-0 flex-1">
+            <label className="sr-only" htmlFor={`${idEtiqueta}-${sufijo}`}>
+              Filtrar por etiqueta
+            </label>
+            <select
+              id={`${idEtiqueta}-${sufijo}`}
+              className={CLASE_SELECT}
+              value={filtros.etiqueta ?? ""}
+              onChange={(e) => cambiar("etiqueta", e.target.value)}
+            >
+              <option value="">Etiqueta: todas</option>
+              {etiquetasPorTematica[filtros.tematica].map((etiqueta) => (
+                <option key={etiqueta} value={etiqueta}>
+                  #{etiqueta}
                 </option>
               ))}
             </select>
@@ -182,6 +212,7 @@ export default function BarraDeFiltros({
     if (!panelAbierto) {
       setFiltrosBorrador({
         tematica: valores.tematica,
+        etiqueta: valores.etiqueta ?? "",
         tipo: valores.tipo,
         vigencia: valores.vigencia,
         orden: valores.orden,
@@ -192,6 +223,7 @@ export default function BarraDeFiltros({
 
   function aplicarPanel() {
     if (conTematica) onCambiar("tematica", filtrosBorrador.tematica);
+    if (conTematica && etiquetasPorTematica) onCambiar("etiqueta", filtrosBorrador.etiqueta);
     onCambiar("tipo", filtrosBorrador.tipo);
     onCambiar("orden", filtrosBorrador.orden);
     if (filtrosBorrador.vigencia !== undefined) onCambiar("vigencia", filtrosBorrador.vigencia);

@@ -14,6 +14,10 @@ import ButtonLink from "@/components/ui/ButtonLink";
 import Tag from "@/components/ui/Tag";
 import VentanaDeProblemas, { type ProblemaDeFormulario } from "@/components/ui/VentanaDeProblemas";
 import SelectorDeTemas from "@/components/ui/SelectorDeTemas";
+import SelectorDeEtiquetas from "@/components/ui/SelectorDeEtiquetas";
+import RutaDeTematica from "@/components/ui/RutaDeTematica";
+import { LARGO_MAXIMO_PROPOSITO_OTRO, PROPOSITOS, validarProposito } from "@/lib/campanas/proposito";
+import { MAXIMO_DE_ETIQUETAS_POR_CAMPANA, type CatalogoDeEtiquetas } from "@/lib/etiquetas/reglas";
 import type { Campaign, DataType } from "@/types";
 import { municipiosDe, NOMBRES_DE_ESTADOS } from "@/lib/mexico-geo";
 import { opcionesCon } from "@/lib/perfil-opciones";
@@ -35,7 +39,9 @@ type CampoDeCampana =
   | "nombre"
   | "descripcion"
   | "tematica"
+  | "etiquetas"
   | "organizacion"
+  | "proposito"
   | "tipos"
   | "checklists"
   | "meta"
@@ -52,7 +58,9 @@ const PASO_DEL_CAMPO: Record<CampoDeCampana, string | null> = {
   nombre: "paso-datos",
   descripcion: "paso-datos",
   tematica: "paso-datos",
+  etiquetas: "paso-datos",
   organizacion: "paso-datos",
+  proposito: "paso-recoleccion",
   tipos: "paso-recoleccion",
   checklists: "paso-recoleccion",
   meta: "paso-meta",
@@ -67,8 +75,10 @@ const PASO_DEL_CAMPO: Record<CampoDeCampana, string | null> = {
 /** A qué campo se refiere un error del servidor (400), por sus palabras; si no se sabe, "general". */
 function campoDelMensaje(mensaje: string): CampoDeCampana {
   const m = mensaje.toLowerCase();
+  if (m.includes("propósito") || m.includes("proposito")) return "proposito";
   if (m.includes("checklist") || m.includes("opción")) return "checklists";
   if (m.includes("tipo de dato") || m.includes("tipos de dato")) return "tipos";
+  if (m.includes("etiqueta")) return "etiquetas";
   if (m.includes("temática") || m.includes("tematica")) return "tematica";
   if (m.includes("organización") || m.includes("organizacion")) return "organizacion";
   if (m.includes("descripción") || m.includes("descripcion")) return "descripcion";
@@ -104,8 +114,8 @@ function nuevoChecklist(titulo = "", opciones: string[] = []): ChecklistEditable
 
 
 // Las temáticas de campaña son las mismas que los intereses del perfil: el catálogo de
-// GET /api/tematicas (las 23 base y las que salen de los textos de los usuarios). Mientras carga,
-// o si falla, se ofrecen las 23 base.
+// GET /api/tematicas (las base y las que salen de los textos de los usuarios). Mientras carga,
+// o si falla, se ofrecen las base.
 const THEMES = TEMAS_DE_INTERES;
 
 const DATA_TYPES: { value: DataType; label: string }[] = [
@@ -211,6 +221,9 @@ function CampanaFormulario({
   const [name, setName] = useState(editingCampaign?.name ?? "");
   const [description, setDescription] = useState(editingCampaign?.description ?? "");
   const [organizer, setOrganizer] = useState(editingCampaign?.organizer ?? "");
+  // Propósito: ¿para qué se usarán los datos? (2026-10-27). Uno de la lista u "Otro" con una frase.
+  const [proposito, setProposito] = useState(editingCampaign?.proposito ?? "");
+  const [propositoOtro, setPropositoOtro] = useState(editingCampaign?.propositoOtro ?? "");
   // Campaña nueva: se propone la organización del perfil (2026-10-26, a pedido del usuario); el
   // creador puede cambiarla o borrarla. Al editar, se queda la que tiene la campaña.
   useEffect(() => {
@@ -238,6 +251,23 @@ function CampanaFormulario({
       .then((r) => (r.ok ? r.json() : null))
       .then((body) => {
         if (vigente && Array.isArray(body?.data)) setCatalogoDeTemas(body.data as string[]);
+      })
+      .catch(() => {});
+    return () => {
+      vigente = false;
+    };
+  }, []);
+  // Etiquetas: subtemáticas de la temática (2026-10-27), opcionales. El catálogo sale de
+  // GET /api/etiquetas; cambiar de temática las vacía.
+  const [etiquetas, setEtiquetas] = useState<string[]>(() => (editingCampaign?.etiquetas ?? []).map((e) => e.nombre));
+  const etiquetasPendientes = (editingCampaign?.etiquetas ?? []).filter((e) => e.pendiente).map((e) => e.nombre);
+  const [catalogoDeEtiquetas, setCatalogoDeEtiquetas] = useState<CatalogoDeEtiquetas>({});
+  useEffect(() => {
+    let vigente = true;
+    fetch(`${BASE_PATH}/api/etiquetas`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body) => {
+        if (vigente && body?.data && typeof body.data === "object") setCatalogoDeEtiquetas(body.data as CatalogoDeEtiquetas);
       })
       .catch(() => {});
     return () => {
@@ -491,6 +521,9 @@ function CampanaFormulario({
     agregar("checklists", validarChecklists());
     agregar("inicio", errorDeInicioPasado(startDate));
     agregar("fin", errorDeFinAntesDeInicio(startDate, endDate));
+    // El propósito se exige al enviar a revisión; en un borrador solo se revisa si se eligió "Otro".
+    const propositoValido = validarProposito(proposito, propositoOtro, !asDraft);
+    if (!propositoValido.ok) agregar("proposito", propositoValido.error);
     if (asDraft) return lista;
 
     if (limitReached) {
@@ -532,6 +565,7 @@ function CampanaFormulario({
           description,
           tematica: theme,
           tag: theme,
+          etiquetas,
           dataTypes,
           checklistSecciones,
           goalContributions: Number(goal),
@@ -556,6 +590,9 @@ function CampanaFormulario({
           description,
           tematica: theme,
           tag: theme,
+          etiquetas,
+          proposito,
+          propositoOtro: proposito === "otro" ? propositoOtro.trim() : "",
           organizer: organizer.trim(),
           status: asDraft ? "borrador" : "en_revision",
           dataTypes,
@@ -648,7 +685,11 @@ function CampanaFormulario({
   const pasos: Paso[] = (
     [
       { id: "paso-datos", titulo: "Datos básicos", completo: Boolean(name.trim() && description.trim() && theme) },
-      { id: "paso-recoleccion", titulo: "Qué se recolecta", completo: dataTypes.length > 0 && !validarChecklists() },
+      {
+        id: "paso-recoleccion",
+        titulo: "Qué se recolecta",
+        completo: dataTypes.length > 0 && !validarChecklists() && validarProposito(proposito, propositoOtro, true).ok,
+      },
       { id: "paso-meta", titulo: "Meta y cuota", completo: Number(goal) > 0 && Number(quota) > 0 },
       {
         id: "paso-vigencia",
@@ -758,7 +799,11 @@ function CampanaFormulario({
                     unica
                     opciones={opcionesCon(theme, catalogoDeTemas)}
                     seleccionados={theme ? [theme] : []}
-                    onAceptar={(temas) => setTheme(temas[0] ?? theme)}
+                    onAceptar={(temas) => {
+                      const nueva = temas[0] ?? theme;
+                      if (nueva !== theme) setEtiquetas([]);
+                      setTheme(nueva);
+                    }}
                     deshabilitado={contenidoBloqueado}
                     descripcion="Marca una; define en qué categoría aparece la campaña en el catálogo público."
                   />
@@ -769,6 +814,45 @@ function CampanaFormulario({
                 <p className="text-[11.5px] text-system-500">
                   Define en qué categoría aparece la campaña en el catálogo público.
                 </p>
+
+                <p className="mb-1.5 mt-4 text-[13px] font-medium text-system-900">
+                  Etiquetas <span className="font-normal text-system-500">(opcional)</span>
+                </p>
+                <div
+                  data-campo="etiquetas"
+                  className={`mb-1 ${errorDe("etiquetas") ? "rounded ring-2 ring-error-700 ring-offset-2" : ""}`}
+                >
+                  <SelectorDeEtiquetas
+                    tematica={theme}
+                    opciones={(catalogoDeEtiquetas[theme] ?? []).map((e) => e.nombre)}
+                    seleccionadas={etiquetas}
+                    pendientes={etiquetasPendientes}
+                    onCambiar={setEtiquetas}
+                    maximo={MAXIMO_DE_ETIQUETAS_POR_CAMPANA}
+                    deshabilitado={contenidoBloqueado}
+                    tematicas={catalogoDeTemas}
+                  />
+                </div>
+                {errorDe("etiquetas") && (
+                  <p className="mt-1.5 text-[12px] font-medium text-error-700">{errorDe("etiquetas")}</p>
+                )}
+                <p className="text-[11.5px] text-system-500">
+                  Subtemáticas que precisan de qué trata (en Protección animal: Perros, Gatos...). Hasta{" "}
+                  {MAXIMO_DE_ETIQUETAS_POR_CAMPANA}; una que propongas se ve en tu campaña cuando la aprueba el SuperUsuario.
+                </p>
+                {theme && (
+                  // Vista previa (2026-10-27): la temática y sus etiquetas como se verán en la campaña.
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <span className="text-[11.5px] text-system-500">Así se verá:</span>
+                    <RutaDeTematica
+                      tematica={theme}
+                      etiquetas={etiquetas.map((nombre) => ({
+                        nombre,
+                        pendiente: !(catalogoDeEtiquetas[theme] ?? []).some((e) => e.nombre === nombre),
+                      }))}
+                    />
+                  </div>
+                )}
               </div>
 
               <div>
@@ -819,6 +903,41 @@ function CampanaFormulario({
             conProblemas={pasos[1].conProblemas}
             aviso={noEditable}
           >
+            {/* Propósito (2026-10-27): solo se elige antes de la revisión; después quien participa ya lo aceptó. */}
+            <div className="mb-6">
+              <Field label="Propósito — ¿Para qué se utilizarán los datos?" required error={errorDe("proposito")}>
+                <select
+                  data-campo="proposito"
+                  value={proposito}
+                  onChange={(e) => setProposito(e.target.value)}
+                  disabled={contenidoBloqueado || editaEnPausa}
+                  className="w-full rounded border border-system-300 bg-white px-3.5 py-3 text-sm text-system-900 outline-none transition-colors focus:border-brand-600 aria-invalid:border-error-700 aria-invalid:bg-error-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="">Elige un propósito</option>
+                  {PROPOSITOS.map((p) => (
+                    <option key={p.valor} value={p.valor}>
+                      {p.etiqueta}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              {proposito === "otro" && (
+                <Input
+                  value={propositoOtro}
+                  onChange={(e) => setPropositoOtro(e.target.value)}
+                  maxLength={LARGO_MAXIMO_PROPOSITO_OTRO}
+                  placeholder="Escribe para qué se utilizarán los datos"
+                  aria-label="Otro propósito"
+                  disabled={contenidoBloqueado || editaEnPausa}
+                  className="-mt-2"
+                />
+              )}
+              <p className="mt-1.5 text-[11.5px] text-system-500">
+                Se muestra en la campaña, en el acuerdo que acepta quien participa y en los datos abiertos.
+                {(contenidoBloqueado || editaEnPausa) && proposito ? " Ya no se cambia: quien participa lo aceptó." : ""}
+              </p>
+            </div>
+
             <div className="mb-6">
               <p className="mb-1.5 text-[13px] font-medium text-system-900">
                 Tipo de dato solicitado <span className="text-error-700">*</span>

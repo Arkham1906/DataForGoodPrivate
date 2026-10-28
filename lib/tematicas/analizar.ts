@@ -4,7 +4,7 @@
 // inapropiadas (lib/tematicas/filtro.ts). Nada sale a un servicio externo.
 //
 // Desde el 2026-10-20 (decisión del usuario) solo reconoce palabras clave: el texto da temáticas
-// que ya existen (las 23 base o las del catálogo ya aprobadas) y nunca crea temáticas nuevas; lo
+// que ya existen (las base o las del catálogo ya aprobadas) y nunca crea temáticas nuevas; lo
 // que no es palabra clave se ignora ("me gusta jugar en linea" ya no da "Linea"). Antes cada
 // palabra desconocida se volvía una temática nueva.
 //
@@ -53,11 +53,11 @@ export function claveDeTematica(nombre: string): string {
 // otra temática ("tren" exacto por "entrenar", "foto" exacto por "fotocopia" no importa).
 const DICCIONARIO: Record<string, string[]> = {
   "Medio ambiente": [
-    "medio ambiente", "cambio climatico", "calentamiento global", "energia renovable", "energia solar",
-    "ambient*", "ecolog*", "naturaleza", "planeta", "clima*", "sustentab*", "sostenib*", "contaminacion", "contaminar",
+    "medio ambiente", "cambio climatico", "calentamiento global", "energia renovable", "energia solar", "ambient*",
+    "ecolog*", "naturaleza", "planeta", "clima*", "sustentab*", "sostenib*", "contaminacion", "contaminar",
     "ecosistema*", "playa*", "renovable*", "montana*", "cerro*", "volcan*",
   ],
-  "Salud urbana": [
+  "Salud": [
     "salud mental", "salud", "medic*", "enfermer*", "hospital*", "clinica*", "doctor*", "nutricion*", "nutriolog*",
     "vacuna*", "enfermedad*", "psicolog*", "psiquiatr*", "bienestar", "terapia*", "dental", "dentista*", "farmacia*",
     "meditacion", "meditar",
@@ -71,23 +71,37 @@ const DICCIONARIO: Record<string, string[]> = {
     "infraestructura*", "bache*", "pavimen*", "construc*", "puente*", "alumbrado*", "carretera*", "arquitect*",
     "urbanismo", "ingenier*",
   ],
+  // Causa (2026-10-27): rescate, maltrato y conservación de especies. Mascotas y granja: Animales.
   "Protección animal": [
+    "callejer*", "refugio*", "albergue*", "esteriliz*", "maltrato*", "rescatista*", "proteccion animal",
+    "bienestar animal", "maltrato animal", "rescate animal", "rescatar animales", "rescatar perros", "rescatar gatos", "rescatar perritos", "rescatar gatitos", "rescatar animalitos", "rescatar tortugas", "liberar tortugas", "tortugas marinas",
+    "perros callejeros", "gatos callejeros", "animales callejeros", "fauna silvestre", "especies en peligro",
+    "en peligro de extincion", "trafico de especies", "conservacion*", "extincion", "santuario*",
+  ],
+  // Tema general (2026-10-27): mascotas, animales de granja, caballos.
+  "Animales": [
     "animal*", "perro*", "perrit*", "lomit*", "cachorr*", "gato*", "gatit*", "michi*", "felino*", "canino*", "mascota*",
-    "veterinar*", "callejer*", "caballo", "caballos", "conejo*", "hamster*", "perico*", "loro*", "refugio*", "albergue*",
-    "esteriliz*", "maltrato*", "rescatista*",
+    "veterinar*", "caballo", "caballos", "conejo*", "hamster*", "perico*", "loro*", "granja*", "vaca*", "gallina*",
+    "borrego*", "cerdo*", "puerco*", "chivo*", "cabra*", "pato*", "pez", "peces", "acuario*", "tortuguita*",
   ],
   "Movilidad": [
     "transporte publico", "movilidad", "bici*", "ciclis*", "ciclov*", "transporte*", "camion*", "autobus*", "trafico",
     "vialidad*", "peaton*", "metro", "coche*", "carro", "carros", "auto", "autos", "motocicleta*", "moto", "motos",
     "tren", "trenes", "taxi*", "scooter*", "manejar", "conducir",
   ],
-  "Cultura": [
-    "cultur*", "arte", "artes", "artist*", "artesan*", "music*", "cancion*", "cantar", "canto", "coro", "coros", "concierto*",
-    "banda*", "rock", "jazz", "rap", "guitarra*", "piano*", "violin*", "teatro*", "actuacion", "actuar", "cine",
-    "pelicula*", "serie*", "anime", "manga*", "comic*", "danza*", "bail*", "ballet", "museo*", "leer", "lectura*",
-    "libro*", "biblioteca*", "literatura*", "novela*", "historia*", "pintar", "pintura*", "poesia*", "poema*",
-    "escribir", "escritura*", "tradicion*", "fotograf*", "foto", "fotos", "dibuj*", "escultura*", "ceramica*",
-    "festival*", "patrimonio*", "arqueolog*", "diseno*", "moda", "muerto",
+  "Arte y cultura": [
+    "cultur*", "arte", "artes", "artist*", "artesan*", "music*", "cancion*", "cantar", "canto", "coro", "coros",
+    "concierto*", "banda*", "rock", "jazz", "rap", "guitarra*", "piano*", "violin*", "teatro*", "actuacion", "actuar",
+    "danza*", "bail*", "ballet", "museo*", "leer", "lectura*", "libro*", "biblioteca*", "literatura*", "novela*",
+    "historia*", "pintar", "pintura*", "poesia*", "poema*", "escribir", "escritura*", "tradicion*", "fotograf*", "foto",
+    "fotos", "dibuj*", "escultura*", "ceramica*", "festival*", "patrimonio*", "arqueolog*", "diseno*", "moda", "muerto",
+    "graffiti*", "grafiti*", "mural*",
+  ],
+  // Tema general (2026-10-27): cine, series, anime, videojuegos, juegos de mesa.
+  "Entretenimiento": [
+    "cine", "pelicula*", "serie*", "anime", "manga*", "comic*", "videojuego*", "consola*", "gamer*", "gaming",
+    "esports", "nintendo", "playstation", "xbox", "streaming", "juegos de mesa", "ajedrez", "entretenimiento",
+    "podcast*", "youtube", "netflix", "karaoke", "conciertos",
   ],
   "Agua y saneamiento": [
     "agua", "drenaje*", "saneamiento", "rio", "rios", "laguna*", "lago", "lagos", "potable", "lluvia*", "pozo", "pozos",
@@ -98,72 +112,89 @@ const DICCIONARIO: Record<string, string[]> = {
     "recicl*", "residuo*", "basura*", "desecho*", "composta*", "plastico*", "reutiliz*", "carton*", "vidrio*", "unicel",
   ],
   "Biodiversidad": [
-    "biodiversidad", "flora", "fauna", "planta*", "arbol*", "bosque*", "selva*", "especie*", "ave", "aves", "pajaro*",
-    "ornitolog*", "insecto*", "abeja*", "mariposa*", "jardin*", "reforest*", "tortuga*", "mar", "biolog*", "botanic*",
-    "cactus", "hongo*", "reptil*", "anfibio*", "ballena*", "delfin*", "coral*", "manglar*", "naturalista*",
+    "biodiversidad", "flora", "fauna", "arbol*", "bosque*", "selva*", "especie*", "ave", "aves", "pajaro*",
+    "ornitolog*", "insecto*", "abeja*", "mariposa*", "reforest*", "tortuga*", "mar", "biolog*", "botanic*", "hongo*",
+    "reptil*", "anfibio*", "ballena*", "delfin*", "coral*", "manglar*", "naturalista*",
   ],
-  "Espacios públicos": ["espacio publico", "espacios publicos", "parque*", "plaza*", "banqueta*", "malecon*", "andador*", "glorieta*"],
-  "Seguridad ciudadana": [
-    "seguridad ciudadana", "seguridad", "delincuencia*", "robo*", "violencia*", "crimen*", "policia*", "vigilancia*",
-    "asalto*",
+  // Tema general (2026-10-27): jardín y plantas. Especies y ecosistemas: Biodiversidad.
+  "Plantas y jardinería": [
+    "planta*", "jardin*", "cactus", "flor", "flores", "suculenta*", "orquidea*", "bonsai*", "maceta*", "jardineria",
+  ],
+  "Espacios públicos": [
+    "espacio publico", "espacios publicos", "parque*", "plaza*", "banqueta*", "malecon*", "andador*", "glorieta*",
+  ],
+  // "robo", "robos", "robar" exactos: "robo*" atrapaba "robótica" y "robots" (2026-10-27).
+  "Seguridad": [
+    "seguridad ciudadana", "seguridad", "delincuencia*", "robo", "robos", "robar", "violencia*", "crimen*", "policia*",
+    "vigilancia*", "asalto*",
   ],
   "Protección civil": [
     "proteccion civil", "primeros auxilios", "sismo*", "terremoto*", "huracan*", "inundacion*", "incendio*",
     "emergencia*", "desastre*", "bombero*", "auxilio*", "paramedic*", "brigada*", "simulacro*",
   ],
-  "Accesibilidad": [
+  "Accesibilidad e inclusión": [
     "lengua de senas", "silla de ruedas", "accesib*", "discapacidad*", "rampa*", "inclusion*", "inclusiv*", "sordo*",
-    "ciego*", "braille", "autismo", "autista*", "neurodivers*",
+    "ciego*", "braille", "autismo", "autista*", "neurodivers*", "inclusion social",
   ],
-  "Igualdad de género": ["igualdad de genero", "diversidad sexual", "genero", "igualdad", "mujer*", "feminis*", "equidad", "lgbt*"],
+  "Igualdad de género": [
+    "igualdad de genero", "diversidad sexual", "genero", "igualdad", "mujer*", "feminis*", "equidad", "lgbt*",
+  ],
   "Derechos humanos": [
     "derechos humanos", "migrante*", "indigena*", "justicia*", "discrimin*", "dignidad", "refugiad*", "activismo",
-    "activista*", "pobreza", "desigualdad", "infancia", "ninez", "adultos mayores",
+    "activista*", "pobreza", "desigualdad", "infancia", "ninez", "adultos mayores", "personas mayores", "tercera edad",
   ],
-  "Transparencia y gobierno": [
+  "Gobierno y participación ciudadana": [
     "transparencia*", "gobierno*", "politic*", "corrupcion*", "eleccion*", "presupuesto*", "rendicion", "democracia*",
-    "voto", "votos", "votar",
+    "voto", "votos", "votar", "participacion ciudadana", "consulta*", "cabildo*",
   ],
   "Vivienda": ["vivienda*", "habitacional*", "inmobiliari*", "renta*", "hipoteca*"],
-  "Alimentación y agricultura": [
-    "aliment*", "agricult*", "cultivo*", "cultivar", "siembra*", "sembrar", "huerto*", "huerta*", "cocin*", "comida*",
-    "ganader*", "cosecha*", "receta*", "fruta*", "verdura*", "hortaliza*", "pastel*", "reposter*", "hornear",
-    "panader*", "gastronom*", "chef", "vegan*", "vegetarian*", "agroecolog*", "maiz", "frijol*", "milpa*", "cafe",
+  "Agricultura": [
+    "agricult*", "cultivo*", "cultivar", "siembra*", "sembrar", "huerto*", "huerta*", "ganader*", "cosecha*",
+    "hortaliza*", "agroecolog*", "maiz", "frijol*", "milpa*",
   ],
-  "Empleo y economía local": [
+  // Tema general (2026-10-27): recetas y comida. Cultivo y ganadería: Agricultura.
+  "Cocina y alimentación": [
+    "aliment*", "cocin*", "comida*", "receta*", "fruta*", "verdura*", "pastel*", "reposter*", "hornear", "panader*",
+    "gastronom*", "chef", "vegan*", "vegetarian*", "cafe",
+  ],
+  "Trabajo y economía": [
     "economia local", "emple*", "economia*", "negocio*", "emprend*", "comercio*", "tianguis", "finanza*", "ahorro*",
     "cooperativa*", "marketing", "ventas", "contabilidad", "inversion*", "oficio*",
   ],
-  "Tecnología y conectividad": [
+  "Tecnología": [
     "inteligencia artificial", "redes sociales", "tecnolog*", "internet", "computa*", "programacion", "programar",
-    "programador*", "software", "robot*", "conectividad", "digital*", "celular*", "videojuego*", "consola*", "gamer*",
-    "gaming", "esports", "nintendo", "playstation", "xbox", "codigo", "electronica*", "ciberseguridad", "streaming",
-    "aplicacion*",
+    "programador*", "software", "robot*", "conectividad", "digital*", "celular*", "codigo", "electronica*",
+    "ciberseguridad", "aplicacion*", "dron", "drones",
   ],
-  "Deporte y recreación": [
-    "juegos de mesa", "artes marciales", "futbol americano", "deport*", "futbol*", "basquet*", "beisbol*", "voleibol*",
-    "voley*", "nadar", "natacion", "correr", "ejercicio*", "gimnasio*", "gym", "yoga", "pilates", "crossfit",
-    "caminar", "caminata*", "senderismo", "excursion*", "recreacion*", "boxeo", "tenis", "atletismo", "entrenar",
-    "patinar", "patineta*", "skate*", "surf*", "escalada", "escalar", "alpinismo", "maraton*", "karate", "judo",
-    "taekwondo", "equitacion", "acampar", "pasear", "paseo*", "pesca*", "pescar", "ajedrez", "cancha*",
+  "Deporte": [
+    "artes marciales", "futbol americano", "deport*", "futbol*", "basquet*", "beisbol*", "voleibol*", "voley*", "nadar",
+    "natacion", "correr", "ejercicio*", "gimnasio*", "gym", "yoga", "pilates", "crossfit", "boxeo", "tenis",
+    "atletismo", "entrenar", "patinar", "patineta*", "skate*", "surf*", "maraton*", "karate", "judo", "taekwondo",
+    "equitacion", "cancha*", "lucha libre", "soccer", "golf", "box",
+  ],
+  // Tema general (2026-10-27): senderismo, acampar, pesca, paseos. Deportes: Deporte.
+  "Aire libre": [
+    "caminar", "caminata*", "senderismo", "excursion*", "recreacion*", "escalada", "escalar", "alpinismo", "acampar",
+    "pasear", "paseo*", "pesca*", "pescar", "aire libre", "campamento*", "acampada*", "picnic*", "montanismo", "kayak*",
+    "rapel",
   ],
 };
 
 // Palabras ambiguas: solo cuentan si en esa parte del texto no hubo una palabra clave clara.
-// "rescatar perritos" → solo Protección animal; "jugar videojuegos" → solo Tecnología; pero
+// "jugar videojuegos" → solo Entretenimiento; "adoptar perritos" → solo Animales; pero
 // "me gusta rescatar" sola sí da Protección civil.
 const DEBILES: Record<string, string[]> = {
   "Protección civil": ["rescat*", "civil"],
-  "Deporte y recreación": ["juego*", "jugar"],
+  "Deporte": ["juego*", "jugar"],
   "Residuos y reciclaje": ["limpi*"],
   "Espacios públicos": ["espacio*"],
   "Infraestructura": ["calle", "calles", "obra*"],
-  "Protección animal": ["adopt*"],
-  "Empleo y economía local": ["trabajo", "mercado*"],
+  "Trabajo y economía": ["trabajo", "mercado*"],
   "Calidad del aire": ["aire"],
   "Derechos humanos": ["derecho*", "voluntariado"],
-  "Tecnología y conectividad": ["programa*", "artificial"],
-  "Cultura": ["tocar"],
+  "Tecnología": ["programa*", "artificial"],
+  "Arte y cultura": ["tocar"],
+  "Animales": ["adopt*"],
 };
 
 // Palabras que nunca son un interés por sí solas: conectores, pronombres y los verbos con que la

@@ -15,6 +15,7 @@ import { type ReactNode, useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Input";
 import InteresesDesdeTexto from "@/components/ui/InteresesDesdeTexto";
+import SubtematicasDelPerfil from "@/components/ui/SubtematicasDelPerfil";
 import LogoutButton from "@/components/auth/LogoutButton";
 import CampoDeEspecialidad from "@/components/ui/CampoDeEspecialidad";
 import CampoDeOrganizacion from "@/components/ui/CampoDeOrganizacion";
@@ -32,6 +33,8 @@ type Usuario = {
   organizacion: string | null;
   intereses: string[];
   interesesTexto: string | null;
+  /** Ids de las subtemáticas (etiquetas) que marcó, 2026-10-27. */
+  etiquetas: number[];
   email: string;
 };
 
@@ -64,6 +67,7 @@ export default function PerfilForm({
   const [organizacion, setOrganizacion] = useState(usuario.organizacion ?? "");
   const [intereses, setIntereses] = useState<string[]>(usuario.intereses);
   const [interesesTexto, setInteresesTexto] = useState(usuario.interesesTexto ?? "");
+  const [etiquetas, setEtiquetas] = useState<number[]>(usuario.etiquetas);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState("");
   const [avisoVisible, setAvisoVisible] = useState(false);
@@ -78,6 +82,7 @@ export default function PerfilForm({
     organizacion: usuario.organizacion ?? "",
     intereses: usuario.intereses,
     interesesTexto: usuario.interesesTexto ?? "",
+    etiquetas: usuario.etiquetas,
   });
 
   // Hay algo distinto de lo guardado: se muestran los botones de guardar y descartar.
@@ -90,7 +95,8 @@ export default function PerfilForm({
     organizacion !== guardado.organizacion ||
     interesesTexto !== guardado.interesesTexto ||
     intereses.length !== guardado.intereses.length ||
-    intereses.some((tema, i) => tema !== guardado.intereses[i]);
+    intereses.some((tema, i) => tema !== guardado.intereses[i]) ||
+    [...etiquetas].sort().join() !== [...guardado.etiquetas].sort().join();
 
   useEffect(() => {
     if (!avisoVisible) return;
@@ -113,6 +119,7 @@ export default function PerfilForm({
     setOrganizacion(guardado.organizacion);
     setIntereses(guardado.intereses);
     setInteresesTexto(guardado.interesesTexto);
+    setEtiquetas(guardado.etiquetas);
     setError("");
   }
 
@@ -134,6 +141,7 @@ export default function PerfilForm({
         organizacion: organizacion.trim(),
         intereses,
         interesesTexto: interesesTexto.trim(),
+        etiquetas,
       };
       const response = await fetch(`${BASE_PATH}/api/usuarios/${usuario.id}`, {
         method: "PATCH",
@@ -157,7 +165,10 @@ export default function PerfilForm({
       setOrganizacion(organizacionGuardada);
       setIntereses(guardados);
       setInteresesTexto(cambios.interesesTexto);
-      setGuardado({ ...cambios, specialty: especialidad, organizacion: organizacionGuardada, intereses: guardados });
+      // El servidor quita las subtemáticas de temáticas que ya no tiene.
+      const etiquetasGuardadas = Array.isArray(body.data?.etiquetas) ? (body.data.etiquetas as number[]) : etiquetas;
+      setEtiquetas(etiquetasGuardadas);
+      setGuardado({ ...cambios, specialty: especialidad, organizacion: organizacionGuardada, intereses: guardados, etiquetas: etiquetasGuardadas });
       setAvisoVisible(true);
       router.refresh();
     } catch (e) {
@@ -268,6 +279,7 @@ export default function PerfilForm({
             seleccionados={intereses}
             onCambiar={setIntereses}
           />
+          <SubtematicasDelPerfil intereses={intereses} seleccionadas={etiquetas} onCambiar={setEtiquetas} />
           <p className="mt-3 text-[12.5px] text-system-600">
             Determinan qué campañas aparecen en “Sugeridas para ti”. Los cambios se aplican al dar “Guardar cambios”.
           </p>

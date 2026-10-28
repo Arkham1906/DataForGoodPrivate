@@ -1,6 +1,7 @@
 import { pool } from "@/lib/db";
 import type { DataType } from "@/types";
 import { quienOrganiza } from "@/lib/campanas/organizacion";
+import { textoDelProposito } from "@/lib/campanas/proposito";
 
 /**
  * Un "conjunto de datos abierto" no tiene tabla propia todavía: por ahora es
@@ -18,6 +19,8 @@ export interface OpenDataset {
   /** Quién organiza (quienOrganiza): la organización o, si no puso, el nombre del creador. */
   organizer: string;
   tematica: string;
+  /** Para qué se usaron los datos (2026-10-27, lib/campanas/proposito.ts); null en campañas de antes. */
+  proposito: string | null;
   dataTypes: DataType[];
   approvedContributions: number;
   /** Rechazados de la campaña: con los aprobados dan la calidad (no van en la descarga). */
@@ -108,7 +111,7 @@ export interface OpenDataFilters {
 }
 
 const SELECT = `
-  SELECT c.id, c.name, c.description, c.tematica, c.tag, c.data_types,
+  SELECT c.id, c.name, c.description, c.tematica, c.tag, c.proposito, c.proposito_otro, c.data_types,
          c.approved_contributions, c.rejected_contributions,
          c.location_city, c.location_state, c.todo_el_pais, c.organizer, c.creator_name,
          c.end_date, c.supervisor_id, c.supervisado_por_root, c.downloads_count,
@@ -140,6 +143,7 @@ function mapDataset(row: Record<string, unknown>): OpenDataset {
     description: String(row.description ?? ""),
     organizer: quienOrganiza({ organizer: row.organizer as string | null, creatorName: row.creator_name as string | null }),
     tematica: String(row.tematica ?? row.tag ?? ""),
+    proposito: textoDelProposito(row.proposito, row.proposito_otro),
     dataTypes: Array.isArray(row.data_types) ? (row.data_types as DataType[]) : [],
     approvedContributions: approved,
     rejectedContributions: rejected,

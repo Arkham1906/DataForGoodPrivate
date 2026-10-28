@@ -13,6 +13,8 @@ export type TipoDeNotificacion =
   | "campana_rechazada"
   | "campana_reportada"
   | "campana_iniciada"
+  // Llegó su inicio, pero el creador ya tiene el máximo de activas (lib/campaign-date.ts, 2026-10-27).
+  | "campana_en_espera"
   | "campana_finalizada"
   // La supervisión la pausó o la reanudó (lib/supervision/estado-por-supervision.ts).
   | "campana_pausada"
@@ -74,40 +76,77 @@ export type PaginaDeNotificaciones = {
   porPagina: number;
 };
 
-/** Tono del punto de color de cada notificación (mismos nombres que ui/Tag). */
-export function tonoDeNotificacion(tipo: string): "ok" | "warn" | "danger" | "default" {
+/**
+ * Escala de colores de las notificaciones (2026-10-27, a pedido del usuario: los colores de antes
+ * confundían; el verde servía igual para "tu aporte fue aceptado" que para "hay una campaña nueva", y
+ * lo que pedía una acción salía sin color). Cada color dice qué significa para quien la recibe, y es
+ * el mismo en la campana, /notificaciones (con leyenda) e /inicio.
+ */
+export type CategoriaDeNotificacion = "problema" | "accion" | "buena" | "novedad" | "aviso";
+
+export const CATEGORIAS_DE_NOTIFICACION: Record<
+  CategoriaDeNotificacion,
+  { nombre: string; punto: string; tono: "danger" | "warn" | "ok" | "info" | "default" }
+> = {
+  problema: { nombre: "Algo salió mal", punto: "bg-error-700", tono: "danger" },
+  accion: { nombre: "Necesitas hacer algo", punto: "bg-warning-500", tono: "warn" },
+  buena: { nombre: "Buenas noticias", punto: "bg-success-700", tono: "ok" },
+  novedad: { nombre: "Novedades para participar", punto: "bg-brand-600", tono: "info" },
+  aviso: { nombre: "Para que lo sepas", punto: "bg-system-500", tono: "default" },
+};
+
+/** Orden de la leyenda: de lo más urgente a lo informativo. */
+export const ORDEN_DE_CATEGORIAS: CategoriaDeNotificacion[] = ["problema", "accion", "buena", "novedad", "aviso"];
+
+export function categoriaDeNotificacion(tipo: string): CategoriaDeNotificacion {
   switch (tipo) {
+    // Algo salió mal para ti.
+    case "aporte_rechazado":
+    case "campana_rechazada":
+    case "campana_baneo":
+    case "sancion_aplicada":
+      return "problema";
+    // Necesitas hacer algo (revisar, aceptar o atender tu campaña).
+    case "invitacion_revisor":
+    case "campana_por_revisar":
+    case "reporte_nuevo":
+    case "campana_editada":
+    case "campana_en_espera":
+    case "campana_pausada":
+      return "accion";
+    // Buenas noticias.
     case "aporte_aceptado":
     case "campana_aceptada":
     case "campana_iniciada":
     case "campana_reanudada":
-    case "campana_nueva":
-    case "tematica_nueva":
     case "revisor_acepto":
     case "rol_asignado":
     case "sancion_restaurada":
     case "campana_desbaneo":
     case "aportes_recibidos":
-      return "ok";
+      return "buena";
+    // Novedades para participar.
+    case "campana_nueva":
     case "campana_especial":
-    case "campana_reportada":
-    case "campana_pausada":
-    case "aporte_reportado":
-    case "rol_revocado":
-    case "revisor_quitado":
-    case "campana_en_revision":
-    case "supervision_revertida":
-    case "reporte_nuevo":
-    case "campana_editada":
-      return "warn";
-    case "aporte_rechazado":
-    case "campana_rechazada":
-    case "campana_baneo":
-    case "sancion_aplicada":
-      return "danger";
+    case "tematica_nueva":
+    case "recordatorio_semanal":
+    case "resumen_mensual":
+      return "novedad";
+    // Solo para que lo sepas: campana_finalizada, rol_revocado, revisor_quitado, campana_en_revision,
+    // supervision_revertida y los que ya no se crean (campana_reportada, aporte_reportado).
     default:
-      return "default";
+      return "aviso";
   }
+}
+
+/** Tono de ui/Tag de cada notificación (/inicio). */
+export function tonoDeNotificacion(tipo: string): "danger" | "warn" | "ok" | "info" | "default" {
+  return CATEGORIAS_DE_NOTIFICACION[categoriaDeNotificacion(tipo)].tono;
+}
+
+/** Clase del punto de color de una notificación; leída, un círculo vacío (así no se confunde con el gris de "Para que lo sepas"). */
+export function claseDelPunto(tipo: string, leida: boolean): string {
+  return leida ? "border border-system-300 bg-transparent" : CATEGORIAS_DE_NOTIFICACION[categoriaDeNotificacion(tipo)].punto;
 }
 
 const FECHA = new Intl.DateTimeFormat("es-MX", {

@@ -1,8 +1,11 @@
 // Tarjeta de campaña para las listas de la zona de usuario (/campanas, /mis-aportes...). Recibe un Campaign de types/index.ts.
+// Con `onAbrir` (2026-10-27) toda la tarjeta es clickeable: un botón que la cubre abre el detalle en
+// una ventana (campanas/VentanaDeCampana); "Ver detalles" queda encima y sigue llevando a /campanas/[id].
 
 import Link from "next/link";
 import Card from "@/components/ui/Card";
 import Tag from "@/components/ui/Tag";
+import RutaDeTematica from "@/components/ui/RutaDeTematica";
 import ProgressBar from "@/components/ui/ProgressBar";
 import Button from "@/components/ui/Button";
 import { porcentajeDeMeta } from "@/lib/campanas/meta";
@@ -24,7 +27,7 @@ function formatDateRange(start: string | null, end: string | null) {
   return `${s} – ${e}`;
 }
 
-export default function CampaignCard({ campaign }: { campaign: Campaign }) {
+export default function CampaignCard({ campaign, onAbrir }: { campaign: Campaign; onAbrir?: () => void }) {
   const remainingDays = Number.isFinite(campaign.daysRemaining) ? Math.max(0, Number(campaign.daysRemaining)) : 0;
   const pct = porcentajeDeMeta(campaign.approvedContributions, campaign.goalContributions);
   const isActive = campaign.status === "activa";
@@ -37,9 +40,19 @@ export default function CampaignCard({ campaign }: { campaign: Campaign }) {
   }) : "Sin fecha";
 
   return (
-    <Card className="flex flex-col gap-3 max-md:gap-2.5 max-md:p-3.5">
+    <Card className={`flex flex-col gap-3 max-md:gap-2.5 max-md:p-3.5 ${onAbrir ? "relative cursor-pointer transition-colors hover:border-brand-600" : ""}`}>
+      {onAbrir && (
+        <button
+          type="button"
+          onClick={onAbrir}
+          aria-label={`Ver la información de ${campaign.name}`}
+          data-sin-respuesta
+          className="absolute inset-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+        />
+      )}
       <div className="flex items-center justify-between gap-2">
-        <Tag tone="ok">{campaign.tag}</Tag>
+        {/* Temática › etiquetas (2026-10-27). */}
+        <RutaDeTematica tematica={campaign.tematica || campaign.tag} etiquetas={campaign.etiquetas} />
         <div className="flex flex-wrap justify-end gap-1.5">
           {campaign.especial?.etapa === "vigente" && <Tag tone="warn">★ Especial ×{campaign.especial.multiplicador}</Tag>}
           {campaign.isBanned ? (
@@ -80,7 +93,7 @@ export default function CampaignCard({ campaign }: { campaign: Campaign }) {
         </div>
       </div>
 
-      <Link href={`/campanas/${campaign.id}`}>
+      <Link href={`/campanas/${campaign.id}`} className="relative z-10">
         <Button className="w-full">Ver detalles</Button>
       </Link>
     </Card>

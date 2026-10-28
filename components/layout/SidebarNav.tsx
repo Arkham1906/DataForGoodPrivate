@@ -3,22 +3,33 @@
 // Menú lateral de la zona de usuario. Agrega "Supervisión" si el usuario tiene rol supervisor
 // y "Revisor de aportes" si tiene rol revisor. "Supervisión" lleva el número de reportes pendientes
 // (Reportes y Sanciones están dentro, 2026-10-13). La opción activa la marca una pastilla que
-// se desliza entre opciones (components/ui/useIndicadorDeMenu.tsx).
+// se desliza entre opciones (components/ui/useIndicadorDeMenu.tsx). Cada opción lleva su ícono, como el
+// menú del SuperUsuario (2026-10-27; mismos íconos de components/sistema/icons.tsx).
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { ComponentType, SVGProps } from "react";
+import {
+  IconoAportes,
+  IconoBuscar,
+  IconoCampanas,
+  IconoEscudo,
+  IconoInicio,
+  IconoRevisar,
+} from "@/components/sistema/icons";
 import { claseDeOpcionMarcada, useIndicadorDeMenu } from "@/components/ui/useIndicadorDeMenu";
 import type { SessionUser } from "@/lib/session";
 
-type Opcion = { href: string; label: string };
+type Opcion = { href: string; label: string; Icono: ComponentType<SVGProps<SVGSVGElement>> };
 
 // Todas las opciones se marcan en azul (accent), el color principal del sistema.
 const NAV_ITEMS: Opcion[] = [
   // Inicio (2026-10-24): la primera pantalla al iniciar sesión.
-  { href: "/inicio", label: "Inicio" },
-  { href: "/campanas", label: "Explorar" },
-  { href: "/mis-aportes", label: "Mis aportes" },
-  { href: "/mis-campanas", label: "Mis campañas" },
+  { href: "/inicio", label: "Inicio", Icono: IconoInicio },
+  // "Explorar campañas" desde el 2026-10-27 (antes "Explorar"), a pedido del usuario.
+  { href: "/campanas", label: "Explorar campañas", Icono: IconoBuscar },
+  { href: "/mis-aportes", label: "Mis aportes", Icono: IconoAportes },
+  { href: "/mis-campanas", label: "Mis campañas", Icono: IconoCampanas },
 ];
 
 // Sin contador de reportes junto a "Supervisión" (2026-10-15, a pedido del usuario): cada reporte llega
@@ -29,8 +40,8 @@ export default function SidebarNav({ usuario }: { usuario: SessionUser }) {
 
   const opciones: Opcion[] = [
     ...NAV_ITEMS,
-    ...(roles.includes("supervisor") ? [{ href: "/supervision", label: "Supervisión" }] : []),
-    ...(roles.includes("revisor") ? [{ href: "/revisiones", label: "Revisor de aportes" }] : []),
+    ...(roles.includes("supervisor") ? [{ href: "/supervision", label: "Supervisión", Icono: IconoEscudo }] : []),
+    ...(roles.includes("revisor") ? [{ href: "/revisiones", label: "Revisor de aportes", Icono: IconoRevisar }] : []),
   ];
 
   const activo = opciones.find((o) => pathname.startsWith(o.href))?.href ?? null;
@@ -52,10 +63,11 @@ export default function SidebarNav({ usuario }: { usuario: SessionUser }) {
               data-menu-clave={item.href}
               aria-current={activo === item.href ? "page" : undefined}
               onClick={alElegir(item.href)}
-              className={`relative rounded-pill px-3.5 py-2.5 text-sm font-medium transition-colors duration-300 ${
+              className={`group relative flex items-center gap-2.5 rounded-pill px-3.5 py-2.5 text-sm font-medium transition-colors duration-300 ${
                 marcada ? claseDeOpcionMarcada() : "text-system-600 hover:bg-system-100 hover:text-system-900"
               }`}
             >
+              <item.Icono className="h-4 w-4 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transition-none" />
               {item.label}
             </Link>
           );

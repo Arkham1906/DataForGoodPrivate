@@ -1,6 +1,6 @@
 // Catálogo de temáticas en la base de datos (tabla `tematicas`, lib/db-schema.ts). Desde el
 // 2026-10-07 los intereses de los perfiles y la temática de las campañas salen de aquí, no de una
-// lista fija: empieza con las 23 de lib/intereses.ts. Del 2026-10-07 al 2026-10-20 crecía con las
+// lista fija: empieza con las de lib/intereses.ts. Del 2026-10-07 al 2026-10-20 crecía con las
 // palabras que salían del texto de cada persona; desde el 2026-10-20 (decisión del usuario) el
 // texto solo da temáticas que ya existen y ya no se crean desde un perfil. Las de usuario que
 // quedaron se siguen revisando en el panel.
@@ -9,7 +9,7 @@
 //   - listarTematicasDelPanel() / cambiarVisibilidad() / aprobar() / rechazar() /
 //     contarTematicasPendientes(): /sistema/tematicas del SuperUsuario y el número del menú.
 //   - crearTematica() / renombrarTematica() / borrarTematica() (2026-10-26): el SuperUsuario crea,
-//     edita y borra temáticas que no son base (decisiones del usuario: las 23 base quedan fijas;
+//     edita y borra temáticas que no son base (decisiones del usuario: las base quedan fijas;
 //     renombrar actualiza perfiles y campañas; no se borra una que usan campañas, se oculta).
 
 import { pool } from "@/lib/db";
@@ -20,12 +20,14 @@ import {
   MAXIMO_DE_INTERESES,
 } from "@/lib/tematicas/analizar";
 import { esInapropiada } from "@/lib/tematicas/filtro";
+import { TEMAS_DE_INTERES } from "@/lib/intereses";
 
-/** base: las 23 de lib/intereses.ts; usuario: salió del texto de un perfil; panel: la creó el SuperUsuario. */
+/** base: las de lib/intereses.ts; usuario: salió del texto de un perfil; panel: la creó el SuperUsuario. */
 export type OrigenDeTematica = "base" | "usuario" | "panel";
 
 /**
- * Temáticas que se ofrecen: las 23 base en su orden de siempre y después las de los usuarios,
+ * Temáticas que se ofrecen: las base en el orden de lib/intereses.ts (cada tema general junto a su
+ * causa, 2026-10-27) y después las de los usuarios,
  * en orden alfabético. Sin las ocultas, sin las pendientes de aprobar, ni las de usuarios que no pasan el filtro de hoy
  * (creadas antes de que atrapara esa palabra; ver bloqueadaPorElFiltro).
  */
@@ -35,7 +37,15 @@ export async function tematicasVisibles(): Promise<string[]> {
      WHERE NOT oculta AND aprobada
      ORDER BY origen = 'base' DESC, CASE WHEN origen = 'base' THEN id END, clave`,
   );
-  return result.rows.filter((r) => !bloqueadaPorElFiltro(r)).map((r) => r.nombre);
+  const lugar = (nombre: string) => {
+    const i = TEMAS_DE_INTERES.indexOf(nombre);
+    return i === -1 ? TEMAS_DE_INTERES.length : i;
+  };
+  // sort es estable: las de usuarios conservan su orden alfabético después de las base.
+  return result.rows
+    .filter((r) => !bloqueadaPorElFiltro(r))
+    .sort((a, b) => (a.origen === "base" && b.origen === "base" ? lugar(a.nombre) - lugar(b.nombre) : 0))
+    .map((r) => r.nombre);
 }
 
 /**
@@ -289,7 +299,7 @@ export async function renombrarTematica(
     }
     if (actual.origen === "base") {
       await cliente.query("ROLLBACK");
-      return { ok: false, error: "Las 23 temáticas base no se editan; puedes ocultarlas." };
+      return { ok: false, error: "Las temáticas base no se editan; puedes ocultarlas." };
     }
     if (actual.nombre === nombre) {
       await cliente.query("ROLLBACK");
@@ -351,7 +361,7 @@ export async function borrarTematica(id: number): Promise<ResultadoDelCatalogo<{
     }
     if (actual.origen === "base") {
       await cliente.query("ROLLBACK");
-      return { ok: false, error: "Las 23 temáticas base no se borran; puedes ocultarlas." };
+      return { ok: false, error: "Las temáticas base no se borran; puedes ocultarlas." };
     }
     const enCampanas = await cliente.query<{ n: number }>(
       `SELECT COUNT(*)::int AS n FROM campanas c WHERE COALESCE(NULLIF(c.tematica, ''), c.tag) = $1`,

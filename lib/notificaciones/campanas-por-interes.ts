@@ -4,6 +4,9 @@
 //     a quien tiene la temática, viva donde viva. Máximo 3 al día por persona.
 //   - campana_especial: al publicarse los incentivos de una campaña activa (o al reanudarla), a
 //     quien ya participa (aportó o la guardó) y a quien cumple lo mismo que en campana_nueva.
+// Subtemáticas (etiquetas, 2026-10-27, decisión del usuario): si la persona marcó alguna de la
+// temática de la campaña, no le llegan los avisos por interés de campañas que solo tengan otras
+// etiquetas; las campañas sin etiquetas sí le llegan (son generales de la temática).
 // Quien apaga "Campañas nuevas" en Preferencias (usuarios.avisos_campanas_nuevas) no recibe los
 // avisos por interés; quien participa recibe el de especial igual. Nunca al creador, a cuentas
 // bloqueadas o dadas de baja, ni a quien está baneado de la campaña; una vez por campaña y tipo.
@@ -42,6 +45,8 @@ type Candidato = {
   participa: boolean;
   /** usuarios.avisos_campanas_nuevas (Preferencias de /cuenta). */
   acepta: boolean;
+  /** Etiquetas (ids) que marcó dentro de la temática de la campaña. */
+  etiquetas_del_tema: number[];
 };
 
 /** Avisa de una campaña recién activada. No espera ni lanza. */
@@ -55,7 +60,13 @@ export function avisarCampanaEspecial(campanaId: number): void {
 }
 
 async function leerCampana(campanaId: number): Promise<Campana | null> {
-  const r = await pool.query<Campana>(`SELECT * FROM campanas WHERE id = $1`, [campanaId]);
+  const r = await pool.query<Campana>(
+    `SELECT c.*,
+            ARRAY(SELECT ce.etiqueta_id FROM campana_etiquetas ce JOIN etiquetas e ON e.id = ce.etiqueta_id
+                  WHERE ce.campana_id = c.id AND e.aprobada) AS etiquetas_ids
+       FROM campanas c WHERE c.id = $1`,
+    [campanaId],
+  );
   return r.rows[0] ?? null;
 }
 
@@ -68,7 +79,11 @@ async function candidatos(campana: Campana, tipo: TipoDeNotificacion): Promise<C
     `SELECT u.id, u.intereses, u.state, u.city,
             (EXISTS (SELECT 1 FROM aportes a WHERE a.campaign_id = $1 AND a.user_id = u.id)
              OR EXISTS (SELECT 1 FROM campanas_guardadas g WHERE g.campana_id = $1 AND g.usuario_id = u.id)) AS participa,
-            u.avisos_campanas_nuevas AS acepta
+            u.avisos_campanas_nuevas AS acepta,
+            ARRAY(SELECT ue.etiqueta_id FROM usuario_etiquetas ue
+                    JOIN etiquetas e ON e.id = ue.etiqueta_id
+                    JOIN tematicas t ON t.id = e.tematica_id
+                   WHERE ue.usuario_id = u.id AND t.clave = $4) AS etiquetas_del_tema
        FROM usuarios u
       WHERE u.id <> $2
         AND u.email_verificado
@@ -76,14 +91,28 @@ async function candidatos(campana: Campana, tipo: TipoDeNotificacion): Promise<C
         AND NOT ${SQL_SANCION_BLOQUEANTE}
         AND NOT EXISTS (SELECT 1 FROM campana_baneados b WHERE b.campana_id = $1 AND b.usuario_id = u.id)
         AND NOT EXISTS (SELECT 1 FROM notificaciones n WHERE n.usuario_id = u.id AND n.campana_id = $1 AND n.tipo = $3)`,
-    [campana.id, campana.creator_id, tipo],
+    [campana.id, campana.creator_id, tipo, claveDeTematica(String(campana.tematica ?? ""))],
   );
-  return r.rows.map((fila) => ({ ...fila, participa: Boolean(fila.participa), acepta: Boolean(fila.acepta) }));
+  return r.rows.map((fila) => ({
+    ...fila,
+    participa: Boolean(fila.participa),
+    acepta: Boolean(fila.acepta),
+    etiquetas_del_tema: (fila.etiquetas_del_tema ?? []).map(Number),
+  }));
 }
 
-/** Tiene la temática en sus intereses y vive donde se hace la campaña (y quiere estos avisos). */
+/**
+ * Tiene la temática en sus intereses y vive donde se hace la campaña (y quiere estos avisos). Si
+ * marcó subtemáticas de esa temática y la campaña tiene etiquetas, alguna debe ser de las suyas.
+ * Una campaña sin etiquetas le llega igual (decisión del usuario, 2026-10-27): las etiquetas son
+ * opcionales y quien marcó subtemáticas no debe perderse las campañas generales de su temática.
+ */
 function leInteresa(campana: Campana, persona: Candidato): boolean {
-  return persona.acepta && coincideConPersona(campana, persona);
+  if (!persona.acepta || !coincideConPersona(campana, persona)) return false;
+  if (persona.etiquetas_del_tema.length === 0) return true;
+  const deLaCampana = new Set((Array.isArray(campana.etiquetas_ids) ? campana.etiquetas_ids : []).map(Number));
+  if (deLaCampana.size === 0) return true;
+  return persona.etiquetas_del_tema.some((id) => deLaCampana.has(id));
 }
 
 /**

@@ -15,11 +15,13 @@ import ButtonLink from "@/components/ui/ButtonLink";
 import Card from "@/components/ui/Card";
 import ProgressBar from "@/components/ui/ProgressBar";
 import Tag from "@/components/ui/Tag";
+import RutaDeTematica from "@/components/ui/RutaDeTematica";
 import { Input } from "@/components/ui/Input";
 import {
   buscarCampanasParaExplorar,
   contarCampanasParaExplorar,
   obtenerEstadosParaExplorar,
+  obtenerEtiquetasParaExplorar,
   obtenerTematicasParaExplorar,
   type OrdenDeCampanas,
 } from "@/lib/campanas/publicas";
@@ -57,24 +59,28 @@ export default async function ExplorarCampanasPage({
   const sp = await searchParams;
   const q = sp.q?.trim() || undefined;
   const tematica = sp.tematica || undefined;
+  // Subtemática (2026-10-27): solo con una temática elegida.
+  const etiqueta = tematica ? sp.etiqueta || undefined : undefined;
   const locationState = sp.estado || undefined;
   const orden: OrdenDeCampanas = ORDENES_VALIDOS.has(sp.orden as OrdenDeCampanas)
     ? (sp.orden as OrdenDeCampanas)
     : "participacion";
 
-  const [campanas, { activas: total, visibles }, tematicas, estados] = await Promise.all([
-    buscarCampanasParaExplorar({ q, tematica, locationState, orden }),
+  const [campanas, { activas: total, visibles }, tematicas, estados, etiquetas] = await Promise.all([
+    buscarCampanasParaExplorar({ q, tematica, etiqueta, locationState, orden }),
     contarCampanasParaExplorar(),
     obtenerTematicasParaExplorar(),
     obtenerEstadosParaExplorar(),
+    tematica ? obtenerEtiquetasParaExplorar(tematica) : Promise.resolve([]),
   ]);
 
-  const activos = [q, tematica, locationState].filter(Boolean).length;
+  const activos = [q, tematica, etiqueta, locationState].filter(Boolean).length;
 
   function enlaceCon(cambios: Record<string, string | undefined>) {
     const params = new URLSearchParams();
     if (q) params.set("q", q);
     if (tematica) params.set("tematica", tematica);
+    if (etiqueta) params.set("etiqueta", etiqueta);
     if (locationState) params.set("estado", locationState);
     if (orden !== "participacion") params.set("orden", orden);
     for (const [clave, valor] of Object.entries(cambios)) {
@@ -104,6 +110,7 @@ export default async function ExplorarCampanasPage({
         <form style={retraso(240)} className="landing-entrada mt-6 flex flex-wrap gap-2.5" action={`${BASE_PATH}/explorar`} method="get">
           {orden !== "participacion" && <input type="hidden" name="orden" value={orden} />}
           {tematica && <input type="hidden" name="tematica" value={tematica} />}
+          {etiqueta && <input type="hidden" name="etiqueta" value={etiqueta} />}
           {locationState && <input type="hidden" name="estado" value={locationState} />}
           <Input
             type="search"
@@ -124,7 +131,7 @@ export default async function ExplorarCampanasPage({
               <p className="text-[12.5px] font-semibold text-system-900">Filtros</p>
               {activos > 0 && (
                 <Link
-                  href={enlaceCon({ q: undefined, tematica: undefined, estado: undefined })}
+                  href={enlaceCon({ q: undefined, tematica: undefined, etiqueta: undefined, estado: undefined })}
                   className="text-[12.5px] font-medium text-brand-600 hover:underline"
                 >
                   Limpiar
@@ -141,7 +148,7 @@ export default async function ExplorarCampanasPage({
                   {tematicas.map((t) => (
                     <Link
                       key={t.valor}
-                      href={enlaceCon({ tematica: tematica === t.valor ? undefined : t.valor })}
+                      href={enlaceCon({ tematica: tematica === t.valor ? undefined : t.valor, etiqueta: undefined })}
                       className={`flex shrink-0 items-center justify-between gap-2 whitespace-nowrap rounded-pill border px-3 py-1.5 text-[12.5px] md:shrink md:rounded md:border-0 md:px-2 md:py-1.5 md:text-[13px] ${
                         tematica === t.valor
                           ? "border-brand-600 bg-brand-50 font-semibold text-brand-600"
@@ -150,6 +157,30 @@ export default async function ExplorarCampanasPage({
                     >
                       <span>{t.valor}</span>
                       <span className="font-mono text-[11px] text-system-500">{t.total}</span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {tematica && etiquetas.length > 0 && (
+              <div>
+                <p className="mb-2 text-[11.5px] font-semibold uppercase tracking-wide text-system-500">
+                  Etiquetas de {tematica}
+                </p>
+                <div className="dashboard-nav flex min-w-0 flex-row gap-2 overflow-x-auto overscroll-x-contain pb-2 [-webkit-overflow-scrolling:touch] md:flex-col md:gap-1 md:overflow-visible md:pb-0">
+                  {etiquetas.map((e) => (
+                    <Link
+                      key={e.valor}
+                      href={enlaceCon({ etiqueta: etiqueta === e.valor ? undefined : e.valor })}
+                      className={`flex shrink-0 items-center justify-between gap-2 whitespace-nowrap rounded-pill border px-3 py-1.5 text-[12.5px] md:shrink md:rounded md:border-0 md:px-2 md:py-1.5 md:text-[13px] ${
+                        etiqueta === e.valor
+                          ? "border-brand-600 bg-brand-50 font-semibold text-brand-600"
+                          : "border-system-300 bg-white text-system-600 hover:bg-system-100 md:border-transparent md:bg-transparent"
+                      }`}
+                    >
+                      <span>#{e.valor}</span>
+                      <span className="font-mono text-[11px] text-system-500">{e.total}</span>
                     </Link>
                   ))}
                 </div>
@@ -237,11 +268,11 @@ export default async function ExplorarCampanasPage({
                           {quienOrganiza(c)}
                           {lugar ? ` · ${lugar}` : ""}
                         </p>
+                        <RutaDeTematica tematica={c.tematica} etiquetas={c.etiquetas} className="mt-2" />
                         <p className="mt-2 line-clamp-3 break-words text-[13px] leading-snug text-system-600">
                           {c.description.length > 140 ? `${c.description.slice(0, 140)}…` : c.description}
                         </p>
                         <div className="mt-2.5 flex flex-wrap gap-1.5">
-                          {c.tematica && <Tag>{c.tematica}</Tag>}
                           {c.dataTypes.map((dt) => (
                             <Tag key={dt}>{DATA_TYPE_LABELS[dt as DataType] ?? dt}</Tag>
                           ))}

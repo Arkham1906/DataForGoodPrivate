@@ -1,4 +1,4 @@
-// Pantalla /sistema/tematicas: catálogo de temáticas (2026-10-07). Las 23 base y las que salen de lo
+// Pantalla /sistema/tematicas: catálogo de temáticas (2026-10-07). Las base y las que salen de lo
 // que escriben los usuarios sobre sus gustos (lib/tematicas/analizar.ts). El SuperUsuario oculta las
 // que no deben ofrecerse (groserías que pasaron el filtro, palabras sin sentido) o las vuelve a mostrar.
 // Desde el 2026-10-19 las nuevas de usuarios entran pendientes (arriba de todo): Aprobar o Rechazar
@@ -9,7 +9,9 @@
 // Acción: cambiarVisibilidadDeTematica (lib/tematicas/acciones-tematicas.ts), en BotonDeVisibilidad.
 // Desde el 2026-10-26 el SuperUsuario crea temáticas (NuevaTematica, origen "panel") y edita o borra
 // las que no son base desde "Más" (EditarOBorrar): renombrar las cambia en perfiles y campañas; no se
-// borra una que usan campañas. Las 23 base solo se ocultan.
+// borra una que usan campañas. Las base solo se ocultan.
+// Desde el 2026-10-27 cada temática despliega sus etiquetas (subtemáticas; EtiquetasDeTematica): el
+// SuperUsuario las crea, edita, borra, oculta, y aprueba o rechaza las que propusieron los creadores.
 
 import type { Metadata } from "next";
 
@@ -17,6 +19,8 @@ import Tag from "@/components/sistema/Tag";
 import { Encabezado, formatearNumero } from "@/components/sistema/ui";
 import { exigirSesionRoot } from "@/lib/supervision/root";
 import { listarTematicasDelPanel } from "@/lib/tematicas/catalogo";
+import { listarEtiquetasDelPanel } from "@/lib/etiquetas/catalogo";
+import EtiquetasDeTematica from "./EtiquetasDeTematica";
 import { ZONA_DE_CAMPANAS } from "@/lib/campaign-date";
 import BotonDeVisibilidad from "./BotonDeVisibilidad";
 import BotonesDeRevision from "./BotonesDeRevision";
@@ -31,7 +35,8 @@ const fecha = new Intl.DateTimeFormat("es-MX", { dateStyle: "medium", timeZone: 
 export default async function TematicasPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   await exigirSesionRoot();
   const { q = "" } = await searchParams;
-  const tematicas = await listarTematicasDelPanel(q);
+  const [tematicas, etiquetas] = await Promise.all([listarTematicasDelPanel(q), listarEtiquetasDelPanel()]);
+  const etiquetasPorRevisar = [...etiquetas.values()].flat().filter((e) => !e.aprobada).length;
   const deUsuarios = tematicas.filter((t) => t.origen === "usuario").length;
   const delPanel = tematicas.filter((t) => t.origen === "panel").length;
   const ocultas = tematicas.filter((t) => t.oculta).length;
@@ -41,7 +46,7 @@ export default async function TematicasPage({ searchParams }: { searchParams: Pr
     <div>
       <Encabezado
         titulo="Temáticas"
-        subtitulo="Intereses de los perfiles y temáticas de las campañas. Puedes crear temáticas y editar o borrar las que no son base (las 23 base solo se ocultan). Las nuevas salen de lo que escriben los usuarios sobre sus gustos y quedan pendientes: solo las tiene quien las escribió hasta que las apruebas; si la rechazas, se borra y se quita de su perfil. Una oculta deja de ofrecerse, pero no se quita de los perfiles ni de las campañas que ya la tienen."
+        subtitulo="Intereses de los perfiles y temáticas de las campañas. Cada temática tiene sus etiquetas (subtemáticas, como Perros o Gatos en Protección animal): las creas aquí o las proponen los creadores al hacer su campaña, y quedan por revisar. Puedes crear temáticas y editar o borrar las que no son base (las base solo se ocultan). Las nuevas salen de lo que escriben los usuarios sobre sus gustos y quedan pendientes: solo las tiene quien las escribió hasta que las apruebas; si la rechazas, se borra y se quita de su perfil. Una oculta deja de ofrecerse, pero no se quita de los perfiles ni de las campañas que ya la tienen."
       />
 
       <NuevaTematica />
@@ -58,7 +63,7 @@ export default async function TematicasPage({ searchParams }: { searchParams: Pr
         <p className="font-mono text-[12px] text-system-500">
           {formatearNumero(tematicas.length)} {q ? "encontradas" : "en total"} · {formatearNumero(pendientes)} por revisar ·{" "}
           {formatearNumero(deUsuarios)} de usuarios · {formatearNumero(delPanel)} creadas aquí ·{" "}
-          {formatearNumero(ocultas)} ocultas
+          {formatearNumero(ocultas)} ocultas · {formatearNumero(etiquetasPorRevisar)} etiquetas por revisar
         </p>
       </form>
 
@@ -95,6 +100,7 @@ export default async function TematicasPage({ searchParams }: { searchParams: Pr
                   <EditarOBorrar id={t.id} nombre={t.nombre} personas={t.personas} campanas={t.campanas} />
                 ) : null}
               </div>
+              {t.aprobada ? <EtiquetasDeTematica tematicaId={t.id} tematica={t.nombre} etiquetas={etiquetas.get(t.id) ?? []} /> : null}
             </li>
           ))}
         </ul>

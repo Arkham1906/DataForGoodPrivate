@@ -4,6 +4,7 @@
 import type { CampanaEspecial } from "@/lib/campanas/especial-reglas";
 import type { PausaDeCampana } from "@/lib/campanas/pausa";
 import type { RechazoDeCampana } from "@/lib/campanas/rechazo";
+import type { EtiquetaDeCampana } from "@/lib/etiquetas/reglas";
 
 export type CampaignStatus =
   | "borrador"
@@ -51,6 +52,11 @@ export interface Campaign {
   description: string;
   tag: string;
   tematica?: string;
+  /** Subtemáticas de su temática (2026-10-27), hasta 5. Las pendientes solo le llegan al creador y a la supervisión. */
+  etiquetas?: EtiquetaDeCampana[];
+  /** ¿Para qué se usarán los datos? Valor de PROPOSITOS (lib/campanas/proposito.ts) y la frase de "Otro" (2026-10-27). */
+  proposito?: string | null;
+  propositoOtro?: string | null;
   status: CampaignStatus;
   dataTypes: DataType[];
   collectionMode?: CollectionMode;

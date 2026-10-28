@@ -12,6 +12,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Button from "@/components/ui/Button";
 import { Field } from "@/components/ui/Input";
 import InteresesDesdeTexto from "@/components/ui/InteresesDesdeTexto";
+import SubtematicasDelPerfil from "@/components/ui/SubtematicasDelPerfil";
 import Skeleton from "@/components/ui/Skeleton";
 import CampoDeEspecialidad from "@/components/ui/CampoDeEspecialidad";
 import CampoDeOrganizacion from "@/components/ui/CampoDeOrganizacion";
@@ -46,6 +47,8 @@ function BienvenidaForm() {
   const next = useSearchParams().get("next");
   const [user, setUser] = useState<SessionUser | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
+  // Subtemáticas (etiquetas) de esos intereses, opcionales (2026-10-27). Empiezan vacías.
+  const [etiquetas, setEtiquetas] = useState<number[]>([]);
   const [textoDeIntereses, setTextoDeIntereses] = useState("");
   const [state, setState] = useState("");
   const [city, setCity] = useState("");
@@ -120,7 +123,7 @@ function BienvenidaForm() {
     if (organizacionValidada && !organizacionValidada.ok) setErrorDeOrganizacion(organizacionValidada.error);
     if ((validada && !validada.ok) || (organizacionValidada && !organizacionValidada.ok)) return;
 
-    const error = await guardar({ state, city, specialty, organizacion, intereses: selected, interesesTexto: textoDeIntereses });
+    const error = await guardar({ state, city, specialty, organizacion, intereses: selected, interesesTexto: textoDeIntereses, etiquetas });
     if (error) {
       if (error.startsWith("La organización")) setErrorDeOrganizacion(error);
       else setErrorDeEspecialidad(error);
@@ -271,6 +274,7 @@ function BienvenidaForm() {
                 seleccionados={selected}
                 onCambiar={setSelected}
               />
+              <SubtematicasDelPerfil intereses={selected} seleccionadas={etiquetas} onCambiar={setEtiquetas} />
             </div>
           </div>
           <p className="mb-5 text-[11.5px] text-system-500">

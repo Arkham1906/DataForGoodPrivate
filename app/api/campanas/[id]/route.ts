@@ -24,6 +24,14 @@ import { ACCIONES_DE_SUPERVISION, registrarDecisionDeCampana, tomarCampanaParaSu
 import { CAMBIOS_DE_ESTADO_POR_SUPERVISION, cambiarEstadoPorSupervision, type CambioDeEstadoPorSupervision } from "@/lib/supervision/estado-por-supervision";
 import { pausaDesdeFila } from "@/lib/campanas/pausa";
 import { condicionDeVisibilidad } from "@/lib/campanas/visibilidad";
+import {
+  agregarEtiquetas,
+  guardarEtiquetasDeCampana,
+  nombresDeEtiquetasDeCampana,
+  quitarEtiquetasDeOtraTematica,
+} from "@/lib/etiquetas/catalogo";
+import { hasRootSession } from "@/lib/rootSession";
+import { validarProposito } from "@/lib/campanas/proposito";
 import { normalizarSecciones, seccionesDesdeFila } from "@/lib/campanas/checklist";
 import { asegurarEnlaceVigente } from "@/lib/campanas/enlaces";
 import { errorDeOrganizacion } from "@/lib/campanas/organizacion";
@@ -82,6 +90,11 @@ function mapCampaign(row: Record<string, unknown>) {
     description: String(row.description ?? ""),
     tematica: String(row.tematica ?? row.tag ?? ""),
     tag: String(row.tag ?? String(row.tematica ?? "")),
+    // Subtemáticas (2026-10-27): las pone agregarEtiquetas antes de mapear.
+    etiquetas: Array.isArray(row.etiquetas) ? row.etiquetas : [],
+    // ¿Para qué se usarán los datos? (2026-10-27, lib/campanas/proposito.ts).
+    proposito: row.proposito ? String(row.proposito) : null,
+    propositoOtro: row.proposito_otro ? String(row.proposito_otro) : null,
     status: String(row.status ?? "borrador"),
     dataTypes,
     collectionMode: String(row.collection_mode ?? "checklist"),
@@ -131,6 +144,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       return NextResponse.json({ error: "Campaña no encontrada" }, { status: 404 });
     }
 
+    await agregarEtiquetas(result.rows, user, await hasRootSession());
     const campaign = mapCampaign(result.rows[0]);
     return NextResponse.json({ data: campaign, viewer: { isCreator: user ? campaign.creatorId === String(user.id) : false } });
   } catch (error) {
@@ -491,6 +505,37 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       }
     }
 
+    // Propósito (2026-10-27): solo donde se edita todo (borrador, en revisión, rechazada; en activa o
+    // pausada los participantes ya aceptaron el acuerdo de uso con él). Obligatorio al ir a revisión:
+    // se revisa el que llega o, si no llega, el que ya tenía.
+    const traeProposito = "proposito" in body || "propositoOtro" in body;
+    let propositoNuevo: { proposito: string | null; otro: string | null } | null = null;
+    if (traeProposito || (ESTADOS_CON_EDICION_COMPLETA.has(currentStatus) && effectiveStatus !== "borrador")) {
+      const validado = validarProposito(
+        traeProposito ? body.proposito : existing.rows[0].proposito,
+        traeProposito ? body.propositoOtro ?? body.proposito_otro : existing.rows[0].proposito_otro,
+        effectiveStatus !== "borrador",
+      );
+      if (!validado.ok) return NextResponse.json({ error: validado.error }, { status: 400 });
+      if (traeProposito) propositoNuevo = validado;
+    }
+
+    // Etiquetas (subtemáticas, 2026-10-27): se validan y guardan antes del UPDATE, con la temática
+    // que va a quedar; si hay un error, no cambia nada. En pausa se comparan para el aviso al supervisor.
+    const tematicaQueQueda = tematica || String(existing.rows[0].tematica ?? existing.rows[0].tag ?? "");
+    const etiquetasAntes = currentStatus === "pausada" ? await nombresDeEtiquetasDeCampana(Number(id)) : [];
+    if ("etiquetas" in body) {
+      const errorDeEtiquetas = await guardarEtiquetasDeCampana(pool, {
+        campanaId: Number(id),
+        tematica: tematicaQueQueda,
+        nombres: body.etiquetas,
+        usuarioId: Number(user.id),
+      });
+      if (errorDeEtiquetas) return NextResponse.json({ error: errorDeEtiquetas }, { status: 400 });
+    } else if (tematica) {
+      await quitarEtiquetasDeOtraTematica(pool, Number(id), tematica);
+    }
+
     const result = await pool.query(
       `UPDATE campanas SET
         name = COALESCE($2, name),
@@ -516,6 +561,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         checklist_secciones = COALESCE($21::jsonb, checklist_secciones),
         cuota_por_tipo = CASE WHEN $22::boolean THEN $23::jsonb ELSE cuota_por_tipo END,
         todo_el_pais = COALESCE($24::boolean, todo_el_pais),
+        proposito = CASE WHEN $25::boolean THEN $26 ELSE proposito END,
+        proposito_otro = CASE WHEN $25::boolean THEN $27 ELSE proposito_otro END,
         -- La pausó el creador (sin motivo). "status" a la derecha es el estado anterior.
         pausa_por = CASE WHEN $5 = 'pausada' AND status <> 'pausada' THEN 'creador' ELSE pausa_por END,
         pausa_motivo = CASE WHEN $5 = 'pausada' AND status <> 'pausada' THEN NULL ELSE pausa_motivo END,
@@ -548,6 +595,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         tocaReparto,
         null,
         todoElPais,
+        propositoNuevo !== null,
+        propositoNuevo?.proposito ?? null,
+        propositoNuevo?.otro ?? null,
       ]
     );
 
@@ -576,7 +626,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       const despues = result.rows[0];
       // NULL y "" valen lo mismo: una colonia NULL que el formulario manda vacía no es un cambio.
       const valor = (v: unknown) => JSON.stringify(v === null || v === undefined ? "" : v);
-      const campos = COLUMNAS_AVISADAS_EN_PAUSA.filter((c) => valor(antes[c]) !== valor(despues[c]));
+      const campos: string[] = COLUMNAS_AVISADAS_EN_PAUSA.filter((c) => valor(antes[c]) !== valor(despues[c]));
+      if (valor(etiquetasAntes) !== valor(await nombresDeEtiquetasDeCampana(Number(id)))) campos.push("etiquetas");
       if (campos.length > 0) {
         await registrarAuditoria({
           actor: { tipo: "usuario", id: Number(user.id) },
@@ -588,6 +639,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       }
     }
 
+    await agregarEtiquetas(result.rows, user);
     return NextResponse.json({ message: "Campaña actualizada", data: mapCampaign(result.rows[0]) });
   } catch (error) {
     console.error("Error actualizando campaña", error);
@@ -629,6 +681,8 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     }
 
     const status = normalizeCampaignStatus(body.status ?? "borrador");
+    const proposito = validarProposito(body.proposito, body.propositoOtro ?? body.proposito_otro, status !== null && status !== "borrador");
+    if (!proposito.ok) return NextResponse.json({ error: proposito.error }, { status: 400 });
     if (status === null) {
       return NextResponse.json({ error: `status debe ser uno de: ${Array.from(ALLOWED_STATUS).join(", ")}` }, { status: 400 });
     }
@@ -694,6 +748,19 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
       }
     }
 
+    // Etiquetas (subtemáticas): antes del UPDATE, como en el PATCH. Sin `etiquetas`, se quitan las de otra temática.
+    if ("etiquetas" in body) {
+      const errorDeEtiquetas = await guardarEtiquetasDeCampana(pool, {
+        campanaId: Number(id),
+        tematica,
+        nombres: body.etiquetas,
+        usuarioId: Number(user.id),
+      });
+      if (errorDeEtiquetas) return NextResponse.json({ error: errorDeEtiquetas }, { status: 400 });
+    } else {
+      await quitarEtiquetasDeOtraTematica(pool, Number(id), tematica);
+    }
+
     const result = await pool.query(
       `UPDATE campanas SET
         name = $2,
@@ -719,6 +786,8 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
         checklist_secciones = $21::jsonb,
         cuota_por_tipo = $22::jsonb,
         todo_el_pais = $23,
+        proposito = $24,
+        proposito_otro = $25,
         updated_at = NOW()
       WHERE id = $1
       RETURNING *`,
@@ -746,6 +815,8 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
         JSON.stringify(checklistSecciones),
         null, // cuota_por_tipo: sin uso desde el 2026-10-27 (solo cuota general; lib/campanas/reparto-sugerido.ts)
         todoElPais,
+        proposito.proposito,
+        proposito.otro,
       ]
     );
 
@@ -756,6 +827,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
       avisarCampanaPorRevisar({ id: Number(id), creadorId: Number(user.id), otraVez: estadoAnterior === "rechazada" });
     }
 
+    await agregarEtiquetas(result.rows, user);
     return NextResponse.json({ message: "Campaña actualizada", data: mapCampaign(result.rows[0]) });
   } catch (error) {
     console.error("Error reemplazando campaña", error);

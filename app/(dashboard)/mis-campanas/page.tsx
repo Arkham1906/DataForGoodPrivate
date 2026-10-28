@@ -13,7 +13,9 @@ import { useEffect, useState } from "react";
 import ButtonLink from "@/components/ui/ButtonLink";
 import MenuDeAcciones from "@/components/ui/MenuDeAcciones";
 import Tag from "@/components/ui/Tag";
+import RutaDeTematica from "@/components/ui/RutaDeTematica";
 import ProgressBar from "@/components/ui/ProgressBar";
+import VentanaDeCampana from "@/components/campanas/VentanaDeCampana";
 import type { Campaign, CampaignStatus } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
 import { EsqueletoDeTarjetas } from "@/components/ui/Esqueletos";
@@ -60,6 +62,8 @@ function mapCampaign(row: Record<string, unknown>): Campaign {
     description: String(row.description ?? ""),
     tag: String(row.tag ?? ""),
     tematica: String(row.tematica ?? ""),
+    // Subtemáticas (2026-10-27); las pendientes de aprobar se marcan.
+    etiquetas: Array.isArray(row.etiquetas) ? (row.etiquetas as Campaign["etiquetas"]) : [],
     status: labels[status] ? status : "borrador",
     dataTypes: Array.isArray(row.dataTypes) ? (row.dataTypes as Campaign["dataTypes"]) : [],
     goalContributions: Number(row.goalContributions ?? 0),
@@ -70,9 +74,19 @@ function mapCampaign(row: Record<string, unknown>): Campaign {
     rejectedContributions: Number(row.rejectedContributions ?? 0),
     participants: Number(row.participants ?? 0),
     startDate: row.startDate as string | null,
+    // Horas, checklists, colonia, "todo el país" y organización: la ventana de detalle (2026-10-27).
+    // startTime también decide entre "Reanudar" y "Programar" (antes no llegaba y se tomaba 00:00).
+    startTime: (row.startTime as string | null) ?? null,
     endDate: row.endDate as string | null,
+    endTime: (row.endTime as string | null) ?? null,
+    checklistSecciones: Array.isArray(row.checklistSecciones) ? (row.checklistSecciones as Campaign["checklistSecciones"]) : [],
     locationCity: String(row.locationCity ?? ""),
     locationState: String(row.locationState ?? ""),
+    locationColonia: String(row.locationColonia ?? ""),
+    todoElPais: row.todoElPais === true,
+    organizer: String(row.organizer ?? ""),
+    proposito: row.proposito ? String(row.proposito) : null,
+    propositoOtro: row.propositoOtro ? String(row.propositoOtro) : null,
     xpPerContribution: Number(row.xpPerContribution ?? 0),
     daysRemaining: row.daysRemaining as number | null,
     hasReviewerAssigned: Boolean(row.hasReviewerAssigned),
@@ -92,6 +106,8 @@ export default function MisCampanasPage() {
   const [porCompartir, setPorCompartir] = useState<Campaign | null>(null);
   // Campaña cuya ventana de "Finalizar" está abierta (2026-10-16; antes window.confirm).
   const [porFinalizar, setPorFinalizar] = useState<Campaign | null>(null);
+  // Campaña cuya ventana de detalle está abierta (2026-10-27): clic en su tarjeta.
+  const [abierta, setAbierta] = useState<Campaign | null>(null);
   const [cargando, setCargando] = useState(true);
   const [filtro, setFiltro] = useState<Filtro>("todas");
 
@@ -208,7 +224,15 @@ export default function MisCampanasPage() {
             return (
               // Tarjeta en columna (2026-10-22): los botones van al fondo, así quedan a la misma altura
               // en las dos tarjetas de una fila, y el aviso de pausa va antes que ellos.
-              <div key={campaign.id} className="flex min-w-0 flex-col rounded-lg border border-system-200 bg-white p-4 max-md:p-3.5">
+              // Toda la tarjeta abre el detalle (2026-10-27): un botón la cubre y los botones de abajo quedan encima.
+              <div key={campaign.id} className="relative flex min-w-0 cursor-pointer flex-col rounded-lg border border-system-200 bg-white p-4 transition-colors hover:border-brand-600 max-md:p-3.5">
+                <button
+                  type="button"
+                  onClick={() => setAbierta(campaign)}
+                  aria-label={`Ver la información de ${campaign.name}`}
+                  data-sin-respuesta
+                  className="absolute inset-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+                />
                 <div className="mb-1 flex items-start justify-between gap-2">
                   <p className="line-clamp-2 min-w-0 break-words text-[13.5px] font-medium text-system-900 max-md:text-[13px]" title={campaign.name}>
                     {campaign.name}
@@ -219,6 +243,7 @@ export default function MisCampanasPage() {
                     <Tag tone={ETIQUETA_DE_CAMPANA[campaign.status]?.tono ?? "default"}>{labels[campaign.status]}</Tag>
                   </div>
                 </div>
+                <RutaDeTematica tematica={campaign.tematica || campaign.tag} etiquetas={campaign.etiquetas} className="mb-2" />
                 {campaign.status === "rechazada" ? (
                   // Por qué se rechazó (2026-10-22, a pedido del usuario; antes solo en la notificación).
                   // Ocupa el lugar de fechas, barra y números con la misma altura (65 px + margen = los
@@ -269,7 +294,7 @@ export default function MisCampanasPage() {
                 )}
                 {/* Una acción principal y "Panel" a la vista; lo demás en "Más" (Ley de Hick, 2026-10-07).
                     Rechazada: la principal es corregirla (no tiene aportes que revisar). */}
-                <div className="mt-auto flex flex-wrap items-center gap-1.5 max-md:gap-1">
+                <div className="relative z-10 mt-auto flex flex-wrap items-center gap-1.5 max-md:gap-1">
                   {campaign.status === "rechazada" ? (
                     <ButtonLink href={`/mis-campanas/nueva?edit=${campaign.id}`} variant="primary" size="sm" className="max-md:px-2 max-md:py-1.5 max-md:text-[11px]">
                       Corregir y reenviar
@@ -379,6 +404,86 @@ export default function MisCampanasPage() {
         </ul>
         <p className="mt-3">Para volver a abrirla tendrás que editarla y ponerle una fecha de cierre nueva.</p>
       </VentanaDeConfirmacion>
+
+      {abierta && (
+        <VentanaDeCampana
+          key={abierta.id}
+          campana={abierta}
+          onCerrar={() => setAbierta(null)}
+          extra={<DatosDelCreador campana={abierta} />}
+          acciones={
+            <>
+              {["activa", "pausada", "finalizada"].includes(abierta.status) && (
+                <ButtonLink href={`/campanas/${abierta.id}`} size="sm">
+                  Verla como participante
+                </ButtonLink>
+              )}
+              <ButtonLink href={`/mis-campanas/nueva?edit=${abierta.id}`} size="sm">
+                Editar
+              </ButtonLink>
+              <ButtonLink href={`/mis-campanas/${abierta.id}/panel`} size="sm">
+                Panel
+              </ButtonLink>
+              {abierta.status === "rechazada" ? (
+                <ButtonLink href={`/mis-campanas/nueva?edit=${abierta.id}`} variant="primary" size="sm">
+                  Corregir y reenviar
+                </ButtonLink>
+              ) : (
+                <ButtonLink href={`/mis-campanas/${abierta.id}/aportes`} variant="primary" size="sm">
+                  Revisar aportes{abierta.pendingContributions > 0 && <span className="font-mono"> ({abierta.pendingContributions})</span>}
+                </ButtonLink>
+              )}
+            </>
+          }
+        />
+      )}
+    </div>
+  );
+}
+
+/** Lo que solo ve el creador en la ventana de detalle (2026-10-27): estado, motivos, aportes y revisión. */
+function DatosDelCreador({ campana }: { campana: Campaign }) {
+  const nf = new Intl.NumberFormat("es-MX");
+  const cifras = [
+    { valor: campana.currentContributions, texto: "recibidos" },
+    { valor: campana.pendingContributions, texto: "por revisar" },
+    { valor: campana.approvedContributions, texto: "aprobados" },
+    { valor: campana.rejectedContributions, texto: "rechazados" },
+  ];
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-system-500">Solo para ti, como creador</p>
+      {campana.status === "rechazada" && (
+        <div className="rounded-lg border border-error-200 bg-error-50 p-3 text-[12.5px]">
+          <p className="font-semibold text-error-700">
+            {campana.rechazo?.porSuperUsuario ? "La supervisión" : "Un supervisor"} la rechazó
+            {campana.rechazo && <> el {fechaDeRechazo.format(new Date(campana.rechazo.fecha))}</>}
+            {campana.rechazo?.sancion && <> · se aplicó {campana.rechazo.sancion}</>}
+          </p>
+          <p className="mt-1 whitespace-pre-line break-words text-system-600">Motivo: {campana.rechazo?.motivo ?? "sin motivo registrado"}</p>
+        </div>
+      )}
+      {campana.status === "pausada" && (
+        <div className="rounded-lg border border-warning-200 bg-warning-50 p-3 text-[12.5px] text-system-900">
+          <p className="font-semibold">{campana.pausa?.por === "supervision" ? "La supervisión pausó esta campaña" : "La pausaste tú"}</p>
+          {campana.pausa?.por === "supervision" && (
+            <p className="mt-1 whitespace-pre-line break-words text-system-600">Motivo: {campana.pausa.motivo || "sin motivo registrado"}</p>
+          )}
+        </div>
+      )}
+      <dl className="grid grid-cols-4 gap-2 max-sm:grid-cols-2">
+        {cifras.map((c) => (
+          // Título primero (dt antes de dd); se ve debajo del número con flex-col-reverse.
+          <div key={c.texto} className="flex flex-col-reverse rounded-lg bg-system-50 p-2.5 text-center">
+            <dt className="text-[11px] text-system-500">{c.texto}</dt>
+            <dd className="font-mono text-[16px] font-bold text-system-900">{nf.format(c.valor)}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="text-[12.5px] text-system-600">
+        {campana.hasReviewerAssigned ? "Tiene revisor de aportes asignado." : "Todavía no tiene revisor de aportes: los revisas tú."}
+        {campana.especial && <> {resumenDeIncentivos(campana.especial)} ({textoDelPeriodo(campana.especial)}).</>}
+      </p>
     </div>
   );
 }

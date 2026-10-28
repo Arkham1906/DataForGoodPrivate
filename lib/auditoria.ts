@@ -75,6 +75,14 @@ export type AccionAuditada =
   | "tematica.crear"
   | "tematica.editar"
   | "tematica.borrar"
+  // Etiquetas: subtemáticas de una temática (lib/etiquetas/acciones-etiquetas.ts, 2026-10-27).
+  | "etiqueta.crear"
+  | "etiqueta.editar"
+  | "etiqueta.borrar"
+  | "etiqueta.ocultar"
+  | "etiqueta.mostrar"
+  | "etiqueta.aprobar"
+  | "etiqueta.rechazar"
   // Catálogo de especialidades (lib/usuarios/acciones-especialidades.ts).
   | "especialidad.crear"
   | "especialidad.editar"

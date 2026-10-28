@@ -25,6 +25,7 @@ export const CAMPOS_DE_EDICION_LIMITADA = new Set(["goalContributions", "goal_co
  */
 export const CAMPOS_EDITABLES_EN_PAUSA = new Set([
   ...CAMPOS_DE_EDICION_LIMITADA,
+  "etiquetas",
   "name",
   "description",
   "tematica",

@@ -1,5 +1,6 @@
 import { pool } from "@/lib/db";
 import { activateScheduledCampaigns, calculateCampaignDaysRemaining, finalizeExpiredCampaigns } from "@/lib/campaign-date";
+import { etiquetasDeCampanas } from "@/lib/etiquetas/catalogo";
 
 /**
  * Campañas de la vitrina pública /explorar: activas y, desde el 2026-10-24 (a pedido del usuario), también
@@ -11,6 +12,8 @@ export type CampanaPublica = {
   name: string;
   description: string;
   tematica: string;
+  /** Subtemáticas aprobadas (2026-10-27). */
+  etiquetas: string[];
   organizer: string;
   /** Nombre de quien la creó: se muestra si no puso organización (quienOrganiza). */
   creatorName: string;
@@ -41,6 +44,8 @@ const ORDER_SQL: Record<OrdenDeCampanas, string> = {
 export type FiltrosDeCampanas = {
   q?: string;
   tematica?: string;
+  /** Subtemática (nombre); solo tiene sentido junto con `tematica`. */
+  etiqueta?: string;
   locationState?: string;
   orden?: OrdenDeCampanas;
 };
@@ -51,6 +56,7 @@ function mapCampana(row: Record<string, unknown>): CampanaPublica {
     name: String(row.name ?? ""),
     description: String(row.description ?? ""),
     tematica: String(row.tematica ?? ""),
+    etiquetas: [],
     organizer: String(row.organizer ?? ""),
     creatorName: String(row.creator_name ?? ""),
     locationCity: String(row.location_city ?? ""),
@@ -86,6 +92,13 @@ export async function buscarCampanasParaExplorar(filtros: FiltrosDeCampanas): Pr
       valores.push(filtros.tematica);
       condiciones.push(`tematica = $${valores.length}`);
     }
+    if (filtros.etiqueta) {
+      valores.push(filtros.etiqueta);
+      condiciones.push(
+        `EXISTS (SELECT 1 FROM campana_etiquetas ce JOIN etiquetas e ON e.id = ce.etiqueta_id
+                 WHERE ce.campana_id = campanas.id AND e.aprobada AND e.nombre = $${valores.length})`
+      );
+    }
     if (filtros.locationState) {
       valores.push(filtros.locationState);
       // Una campaña para todo el país también vale en ese estado.
@@ -100,7 +113,10 @@ export async function buscarCampanasParaExplorar(filtros: FiltrosDeCampanas): Pr
        ORDER BY (status = 'pausada'), ${ORDER_SQL[filtros.orden ?? "participacion"]}`,
       valores
     );
-    return result.rows.map(mapCampana);
+    const campanas = result.rows.map(mapCampana);
+    const etiquetas = await etiquetasDeCampanas(campanas.map((c) => Number(c.id)));
+    for (const c of campanas) c.etiquetas = (etiquetas.get(Number(c.id)) ?? []).map((e) => e.nombre);
+    return campanas;
   } catch {
     return [];
   }
@@ -139,6 +155,25 @@ async function facetas(columna: "tematica" | "location_state"): Promise<{ valor:
 
 export function obtenerTematicasParaExplorar() {
   return facetas("tematica");
+}
+
+/** Etiquetas aprobadas de las campañas visibles de una temática, con cuántas campañas tiene cada una. */
+export async function obtenerEtiquetasParaExplorar(tematica: string): Promise<{ valor: string; total: number }[]> {
+  try {
+    const result = await pool.query(
+      `SELECT e.nombre AS valor, COUNT(*)::int AS total
+       FROM campanas c
+       JOIN campana_etiquetas ce ON ce.campana_id = c.id
+       JOIN etiquetas e ON e.id = ce.etiqueta_id AND e.aprobada
+       WHERE c.${ESTADOS_VISIBLES} AND c.tematica = $1
+       GROUP BY e.nombre
+       ORDER BY total DESC, valor ASC`,
+      [tematica]
+    );
+    return result.rows;
+  } catch {
+    return [];
+  }
 }
 
 export function obtenerEstadosParaExplorar() {

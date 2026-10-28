@@ -15,17 +15,21 @@ import BarraDeFiltros from "@/components/campanas/BarraDeFiltros";
 export default function FiltrosDeCampanas({
   q,
   tematica,
+  etiqueta,
   tipo,
   vigencia,
   orden,
   tematicas,
+  etiquetasPorTematica,
 }: {
   q: string;
   tematica: string;
+  etiqueta: string;
   tipo: string;
   vigencia: string;
   orden: string;
   tematicas: string[];
+  etiquetasPorTematica: Record<string, string[]>;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -36,6 +40,8 @@ export default function FiltrosDeCampanas({
     const params = new URLSearchParams(searchParams.toString());
     if (valor) params.set(clave, valor);
     else params.delete(clave);
+    // Otra temática: la etiqueta (subtemática) ya no aplica.
+    if (clave === "tematica") params.delete("etiqueta");
     // Cualquier cambio de filtro vuelve a la primera página.
     params.delete("pagina");
     const qs = params.toString();
@@ -44,8 +50,9 @@ export default function FiltrosDeCampanas({
 
   return (
     <BarraDeFiltros
-      valores={{ q, tematica, tipo, vigencia, orden }}
+      valores={{ q, tematica, etiqueta, tipo, vigencia, orden }}
       tematicas={tematicas}
+      etiquetasPorTematica={etiquetasPorTematica}
       onCambiar={aplicar}
       conVigencia
       colapsableEnMovil

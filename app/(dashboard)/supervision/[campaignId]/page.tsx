@@ -23,6 +23,7 @@ import type { PausaDeCampana } from "@/lib/campanas/pausa";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 import { repartoSugerido } from "@/lib/campanas/reparto-sugerido";
 import { quienOrganiza } from "@/lib/campanas/organizacion";
+import { textoDelProposito } from "@/lib/campanas/proposito";
 
 type Campaign = {
   id: string;
@@ -34,6 +35,8 @@ type Campaign = {
   supervisorId?: string | null;
   supervisedByRoot?: boolean;
   organizer?: string;
+  proposito?: string | null;
+  propositoOtro?: string | null;
   goalContributions?: number;
   approvedContributions?: number;
   participants?: number;
@@ -291,6 +294,11 @@ export default function CampaignDetailPage() {
               <span className="text-system-600">Organiza</span>
               {/* La organización que puso; si no puso ninguna, el nombre de quien la creó (2026-10-23). */}
               <span className="min-w-0 break-words text-right">{quienOrganiza(campaign)}</span>
+            </div>
+            {/* Para qué se usarán los datos (2026-10-27): el supervisor lo revisa antes de aceptarla. */}
+            <div className="flex justify-between gap-4 border-b border-system-200 pb-3 text-[13px]">
+              <span className="text-system-600">Propósito</span>
+              <span className="min-w-0 break-words text-right">{textoDelProposito(campaign.proposito, campaign.propositoOtro) ?? "Sin definir"}</span>
             </div>
             <div className="flex justify-between gap-4 border-b border-system-200 pb-3 text-[13px]">
               <span className="text-system-600">Temática</span>

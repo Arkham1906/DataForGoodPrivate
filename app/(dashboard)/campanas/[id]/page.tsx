@@ -14,7 +14,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Button from "@/components/ui/Button";
 import ProgressBar from "@/components/ui/ProgressBar";
-import Tag from "@/components/ui/Tag";
+import RutaDeTematica from "@/components/ui/RutaDeTematica";
 import type { Campaign } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
 import { TIPO_DE_DATO } from "@/lib/aportes/archivo";
@@ -29,6 +29,7 @@ import { InscripcionACampana } from "@/components/ui/AcuerdosDeAporte";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 import { repartoSugerido } from "@/lib/campanas/reparto-sugerido";
 import { quienOrganiza } from "@/lib/campanas/organizacion";
+import { textoDelProposito } from "@/lib/campanas/proposito";
 
 export default function CampaignDetailPage() {
   const params = useParams<{ id: string }>();
@@ -115,7 +116,7 @@ export default function CampaignDetailPage() {
         </Link>
 
         <div className="mb-2 flex items-center justify-between">
-          <Tag tone="ok">{campaign.tag}</Tag>
+          <RutaDeTematica tematica={campaign.tematica || campaign.tag} etiquetas={campaign.etiquetas} />
           <CompartirCampana campanaId={campaign.id} nombre={campaign.name} tematica={campaign.tematica || campaign.tag} />
         </div>
 
@@ -221,7 +222,11 @@ export default function CampaignDetailPage() {
               {motivoDeBaneo && <span className="mt-1 block font-semibold">Motivo: {motivoDeBaneo}</span>}
             </p>
           ) : campaign.status === "activa" && !inscrito ? (
-            <InscripcionACampana campanaId={campaign.id} onInscrito={() => setInscrito(true)} />
+            <InscripcionACampana
+              campanaId={campaign.id}
+              onInscrito={() => setInscrito(true)}
+              proposito={textoDelProposito(campaign.proposito, campaign.propositoOtro)}
+            />
           ) : campaign.status === "activa" ? (
             <Link href={`/campanas/${campaign.id}/aportar`}>
               <Button variant="primary" className="w-full">Realizar un aporte</Button>
@@ -246,6 +251,15 @@ export default function CampaignDetailPage() {
                 {quienOrganiza(campaign)}
               </dd>
             </div>
+            {/* Para qué se usarán los datos (2026-10-27). */}
+            {textoDelProposito(campaign.proposito, campaign.propositoOtro) && (
+              <div className="flex justify-between gap-4">
+                <dt className="text-system-600">Propósito</dt>
+                <dd className="min-w-0 break-words text-right font-medium text-system-900">
+                  {textoDelProposito(campaign.proposito, campaign.propositoOtro)}
+                </dd>
+              </div>
+            )}
             <div className="flex justify-between">
               <dt className="text-system-600">Tipo de dato</dt>
               <dd className="font-medium text-system-900">

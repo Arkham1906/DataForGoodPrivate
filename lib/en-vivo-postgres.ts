@@ -27,6 +27,9 @@ const TABLAS_CON_AVISO = [
   "dispositivos_bloqueados",
   "lista_negra_correos",
   "tematicas",
+  "etiquetas",
+  "campana_etiquetas",
+  "usuario_etiquetas",
   "medallas_usuario",
 ];
 

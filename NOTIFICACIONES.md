@@ -48,6 +48,7 @@ Los tipos están declarados en [`lib/notificaciones/tipos.ts`](./lib/notificacio
 | `campana_reportada` | Ya no se crea (2026-10-15): cuando un supervisor reporta una campaña, el creador no recibe aviso. Puede aparecer en avisos viejos. |
 | `campana_en_revision` | El creador recibe el aviso de que su campaña vuelve a revisión después de que el SuperUsuario revierte una decisión. |
 | `campana_iniciada` | El creador recibe el aviso de que llegó la fecha de inicio y su campaña empezó a recibir aportes. |
+| `campana_en_espera` | El creador recibe el aviso de que su campaña programada llegó a su fecha de inicio pero no empezó porque ya tiene 5 campañas activas; empieza sola al liberarse un lugar (2026-10-27). Se borra cuando empieza. |
 | `campana_pausada` | El creador recibe el aviso de que la supervisión pausó su campaña, con el motivo (2026-10-15). |
 | `campana_reanudada` | El creador recibe el aviso de que la supervisión reanudó su campaña (2026-10-15). |
 | `campana_finalizada` | El creador recibe el aviso de que llegó la fecha de fin y su campaña dejó de recibir aportes, o de que la supervisión la finalizó, con el motivo (2026-10-15). |

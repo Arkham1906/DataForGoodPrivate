@@ -66,6 +66,13 @@ export default async function ConjuntoAbiertoPage({
             : ""}
         </p>
 
+        {conjunto.proposito && (
+          // Para qué se recolectaron los datos (2026-10-27).
+          <p className="mt-2 text-[13.5px] text-system-600">
+            <span className="font-semibold text-system-900">Propósito:</span> {conjunto.proposito}
+          </p>
+        )}
+
         {conjunto.description && (
           <p className="mt-5 max-w-2xl text-[14.5px] leading-relaxed text-system-600">
             {conjunto.description}

@@ -19,6 +19,7 @@ import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import { AvisoNoEncontrado } from "@/components/ui/AvisoNoEncontrado";
 import IndicadorDeCarga from "@/components/ui/IndicadorDeCarga";
 import { InscripcionACampana } from "@/components/ui/AcuerdosDeAporte";
+import { textoDelProposito } from "@/lib/campanas/proposito";
 import SelectorDeArchivo from "@/components/ui/SelectorDeArchivo";
 import { archivoEsOpcional, tiposAceptados } from "@/lib/aportes/archivo";
 import { repartoSugerido } from "@/lib/campanas/reparto-sugerido";
@@ -152,7 +153,11 @@ export default function AportarPage() {
 
       {!inscrito && !quotaReached && (
         <div className="mb-6 rounded-lg border border-brand-200 bg-white p-4">
-          <InscripcionACampana campanaId={campaign.id} onInscrito={() => setInscrito(true)} />
+          <InscripcionACampana
+            campanaId={campaign.id}
+            onInscrito={() => setInscrito(true)}
+            proposito={textoDelProposito(campaign.proposito, campaign.propositoOtro)}
+          />
         </div>
       )}
 

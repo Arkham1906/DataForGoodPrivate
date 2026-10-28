@@ -50,15 +50,50 @@ const VACIO: ResumenDeInicio = {
   notificacionesSinLeer: 0,
 };
 
+/**
+ * "Campañas para ti" (2026-10-24 en /inicio; desde el 2026-10-27 también en /campanas, vía
+ * GET /api/campanas?paraTi=true): activas de otros, sin las que lo banearon. Primero las de sus
+ * intereses, luego las de su estado (o para todo el país) y, si no hay de esas, las más concurridas.
+ */
+export async function campanasParaTi(
+  usuario: { id: number | string; state: string | null; intereses: string[] },
+  limite = CAMPANAS_PARA_TI,
+): Promise<CampanaParaTi[]> {
+  const intereses = usuario.intereses.map((t) => t.trim().toLowerCase()).filter(Boolean);
+  const estado = usuario.state?.trim() ?? "";
+  const r = await pool.query(
+    `SELECT c.id, c.name, COALESCE(NULLIF(c.tematica, ''), c.tag) AS tematica, c.approved_contributions,
+            c.goal_contributions, c.participants,
+            CASE WHEN lower(COALESCE(NULLIF(c.tematica, ''), c.tag)) = ANY($2::text[]) THEN 'interes'
+                 WHEN $3 <> '' AND (c.todo_el_pais OR c.location_state = $3) THEN 'estado'
+                 ELSE 'popular' END AS motivo
+     FROM campanas c
+     WHERE c.status = 'activa' AND c.creator_id <> $1
+       AND NOT EXISTS (SELECT 1 FROM campana_baneados b WHERE b.campana_id = c.id AND b.usuario_id = $1)
+     ORDER BY CASE WHEN lower(COALESCE(NULLIF(c.tematica, ''), c.tag)) = ANY($2::text[]) THEN 0
+                   WHEN $3 <> '' AND (c.todo_el_pais OR c.location_state = $3) THEN 1
+                   ELSE 2 END,
+              c.participants DESC, c.created_at DESC
+     LIMIT $4`,
+    [usuario.id, intereses, estado, limite]
+  );
+  return r.rows.map((f) => ({
+    id: String(f.id),
+    nombre: String(f.name ?? ""),
+    tematica: String(f.tematica ?? ""),
+    aprobados: Number(f.approved_contributions ?? 0),
+    meta: Number(f.goal_contributions ?? 0),
+    participantes: Number(f.participants ?? 0),
+    motivo: f.motivo === "interes" || f.motivo === "estado" ? f.motivo : "popular",
+  }));
+}
+
 export async function obtenerResumenDeInicio(usuario: {
   id: number | string;
   state: string | null;
   intereses: string[];
 }): Promise<ResumenDeInicio> {
   try {
-    const intereses = usuario.intereses.map((t) => t.trim().toLowerCase()).filter(Boolean);
-    const estado = usuario.state?.trim() ?? "";
-
     const [aportes, campanas, paraTi, recientes, notificaciones] = await Promise.all([
       pool.query(
         `SELECT COUNT(*)::int AS total,
@@ -76,24 +111,7 @@ export async function obtenerResumenDeInicio(usuario: {
          FROM campanas WHERE creator_id = $1`,
         [usuario.id]
       ),
-      // Activas de otros, sin las que lo banearon: primero las de sus intereses, luego las de su estado
-      // (o para todo el país) y, si no hay de esas, las más concurridas.
-      pool.query(
-        `SELECT c.id, c.name, COALESCE(NULLIF(c.tematica, ''), c.tag) AS tematica, c.approved_contributions,
-                c.goal_contributions, c.participants,
-                CASE WHEN lower(COALESCE(NULLIF(c.tematica, ''), c.tag)) = ANY($2::text[]) THEN 'interes'
-                     WHEN $3 <> '' AND (c.todo_el_pais OR c.location_state = $3) THEN 'estado'
-                     ELSE 'popular' END AS motivo
-         FROM campanas c
-         WHERE c.status = 'activa' AND c.creator_id <> $1
-           AND NOT EXISTS (SELECT 1 FROM campana_baneados b WHERE b.campana_id = c.id AND b.usuario_id = $1)
-         ORDER BY CASE WHEN lower(COALESCE(NULLIF(c.tematica, ''), c.tag)) = ANY($2::text[]) THEN 0
-                       WHEN $3 <> '' AND (c.todo_el_pais OR c.location_state = $3) THEN 1
-                       ELSE 2 END,
-                  c.participants DESC, c.created_at DESC
-         LIMIT $4`,
-        [usuario.id, intereses, estado, CAMPANAS_PARA_TI]
-      ),
+      campanasParaTi(usuario),
       pool.query(
         `SELECT a.id, a.campaign_id, c.name AS campana, a.description, a.status,
                 to_char(a.submitted_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS enviado_en
@@ -121,15 +139,7 @@ export async function obtenerResumenDeInicio(usuario: {
         enRevision: Number(c.en_revision ?? 0),
         borradores: Number(c.borradores ?? 0),
       },
-      paraTi: paraTi.rows.map((r) => ({
-        id: String(r.id),
-        nombre: String(r.name ?? ""),
-        tematica: String(r.tematica ?? ""),
-        aprobados: Number(r.approved_contributions ?? 0),
-        meta: Number(r.goal_contributions ?? 0),
-        participantes: Number(r.participants ?? 0),
-        motivo: r.motivo === "interes" || r.motivo === "estado" ? r.motivo : "popular",
-      })),
+      paraTi,
       recientes: recientes.rows.map((r) => ({
         id: String(r.id),
         campanaId: String(r.campaign_id),

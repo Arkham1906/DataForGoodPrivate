@@ -4,15 +4,22 @@
 
 import { TEMAS_DE_INTERES } from "@/lib/intereses";
 
-export type FiltrosLocales = { q: string; tematica: string; tipo: string; orden: string };
+export type FiltrosLocales = { q: string; tematica: string; etiqueta?: string; tipo: string; orden: string };
 
-export const FILTROS_VACIOS: FiltrosLocales = { q: "", tematica: "", tipo: "", orden: "" };
+export const FILTROS_VACIOS: FiltrosLocales = { q: "", tematica: "", etiqueta: "", tipo: "", orden: "" };
+
+/** Cambia un filtro; otra temática vacía la etiqueta (subtemática), que ya no aplica. */
+export function conFiltro(actuales: FiltrosLocales, clave: string, valor: string): FiltrosLocales {
+  return { ...actuales, [clave]: valor, ...(clave === "tematica" ? { etiqueta: "" } : {}) };
+}
 
 type CampanaFiltrable = {
   id: string;
   name: string;
   creatorName?: string;
   dataTypes?: string[];
+  /** Subtemáticas (2026-10-27). */
+  etiquetas?: { nombre: string }[];
   participants?: number;
   currentContributions?: number;
   approvedContributions?: number;
@@ -52,11 +59,13 @@ export function filtrarCampanas<T extends CampanaFiltrable>(
   const resultado = lista.filter((c) => {
     const tema = tematicaDe(c);
     if (filtros.tematica && tema !== filtros.tematica) return false;
+    if (filtros.tematica && filtros.etiqueta && !(c.etiquetas ?? []).some((e) => e.nombre === filtros.etiqueta)) return false;
     if (filtros.tipo && !(c.dataTypes ?? []).includes(filtros.tipo)) return false;
     if (!q) return true;
     return (
       c.name.toLowerCase().includes(q) ||
       tema.toLowerCase().includes(q) ||
+      (c.etiquetas ?? []).some((e) => e.nombre.toLowerCase().includes(q)) ||
       (c.creatorName ?? "").toLowerCase().includes(q) ||
       c.id === filtros.q.trim()
     );
@@ -67,6 +76,23 @@ export function filtrarCampanas<T extends CampanaFiltrable>(
   return [...resultado].sort((a, b) => comparar(a, b) || Number(b.id) - Number(a.id));
 }
 
+/** Etiquetas de cada temática en una lista de campañas, en orden alfabético (para el filtro de etiqueta). */
+export function etiquetasPorTematica<T extends CampanaFiltrable>(
+  lista: T[],
+  tematicaDe: (campana: T) => string,
+): Record<string, string[]> {
+  const porTema = new Map<string, Set<string>>();
+  for (const c of lista) {
+    const tema = tematicaDe(c);
+    for (const e of c.etiquetas ?? []) {
+      const nombres = porTema.get(tema) ?? new Set<string>();
+      nombres.add(e.nombre);
+      porTema.set(tema, nombres);
+    }
+  }
+  return Object.fromEntries([...porTema].map(([tema, nombres]) => [tema, [...nombres].sort((a, b) => a.localeCompare(b, "es"))]));
+}
+
 /**
  * Aviso de lista vacía: si la pestaña no tiene campañas, el texto propio de esa pestaña;
  * si las tiene pero los filtros las ocultan todas, que ninguna coincide.
@@ -75,7 +101,7 @@ export function avisoSinResultados(totalSinFiltrar: number, sinCampanas: string)
   return totalSinFiltrar === 0 ? sinCampanas : "Ninguna campaña coincide con estos filtros.";
 }
 
-/** Temáticas para el filtro: las 23 compartidas y, al final, cualquier otra que traigan las campañas. */
+/** Temáticas para el filtro: las compartidas y, al final, cualquier otra que traigan las campañas. */
 export function opcionesDeTematica(temas: string[]): string[] {
   const extra = [...new Set(temas.filter((t) => t && !TEMAS_DE_INTERES.includes(t)))].sort((a, b) =>
     a.localeCompare(b, "es"),

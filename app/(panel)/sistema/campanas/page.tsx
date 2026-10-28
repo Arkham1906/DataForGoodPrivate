@@ -20,6 +20,7 @@ import {
   esEstado,
   esTipo,
   formatearFechaCampana,
+  listarEtiquetasPorTematica,
   listarTematicas,
   type EstadoDeCampana,
 } from "@/lib/campanas/sistema";
@@ -32,6 +33,7 @@ type Busqueda = {
   q?: string;
   estado?: string;
   tematica?: string;
+  etiqueta?: string;
   tipo?: string;
   vigencia?: string;
   orden?: string;
@@ -46,18 +48,20 @@ export default async function ListadoDeCampanasPage({ searchParams }: { searchPa
   const estado = ESTADOS_DEL_LISTADO.find((e) => e === esEstado(sp.estado));
   const pagina = Math.max(1, Number(sp.pagina ?? 1) || 1);
 
-  const [conteos, { filas, total }, tematicas] = await Promise.all([
+  const [conteos, { filas, total }, tematicas, etiquetasPorTematica] = await Promise.all([
     contarPorEstado(),
     buscarCampanas({
       q: sp.q,
       estado,
       tematica: sp.tematica,
+      etiqueta: sp.etiqueta,
       tipo: esTipo(sp.tipo),
       vigencia: sp.vigencia,
       orden: sp.orden,
       pagina,
     }),
     listarTematicas(),
+    listarEtiquetasPorTematica(),
   ]);
 
   const paginas = Math.max(1, Math.ceil(total / POR_PAGINA));
@@ -122,10 +126,12 @@ export default async function ListadoDeCampanasPage({ searchParams }: { searchPa
         <FiltrosDeCampanas
           q={sp.q ?? ""}
           tematica={sp.tematica ?? ""}
+          etiqueta={sp.etiqueta ?? ""}
           tipo={sp.tipo ?? ""}
           vigencia={sp.vigencia ?? ""}
           orden={sp.orden ?? ""}
           tematicas={tematicas}
+          etiquetasPorTematica={etiquetasPorTematica}
         />
       </Suspense>
 

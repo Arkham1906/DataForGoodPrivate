@@ -1,4 +1,5 @@
-// Íconos SVG del panel del SuperUsuario.
+// Íconos SVG del panel del SuperUsuario. Desde el 2026-10-27 también los usa el menú de la zona de
+// usuario (components/layout/SidebarNav.tsx), para que los dos menús se vean iguales.
 
 import type { ReactNode, SVGProps } from "react";
 
@@ -124,6 +125,17 @@ export function IconoBuscar(props: IconoProps) {
     <Base {...props}>
       <circle cx="11" cy="11" r="7" />
       <path d="M20 20l-3.5-3.5" />
+    </Base>
+  );
+}
+
+/** Revisor de aportes (2026-10-27): tablilla con palomita. */
+export function IconoRevisar(props: IconoProps) {
+  return (
+    <Base {...props}>
+      <path d="M9 4H6a1 1 0 0 0-1 1v15a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1h-3" />
+      <rect x="9" y="2.5" width="6" height="3" rx="1" />
+      <path d="M9 13l2 2 4-4" />
     </Base>
   );
 }
