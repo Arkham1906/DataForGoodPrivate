@@ -25,6 +25,8 @@ import { MOTIVOS_DE_REPORTE_DE_APORTE } from "@/lib/reportes/motivos";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import ArchivoDelAporte from "@/components/ui/ArchivoDelAporte";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
+import SelectorDeCalificacion from "@/components/aportes/SelectorDeCalificacion";
+import { etiquetaDeCalificacion, type CalificacionDeAporte } from "@/lib/aportes/calificacion";
 
 const STATUS_LABELS: Record<string, string> = {
   pendiente: "Sin revisar",
@@ -47,6 +49,7 @@ export default function RevisionAportePage() {
   const [detalleDeReporte, setDetalleDeReporte] = useState("");
   const [aviso, setAviso] = useState<string | null>(null);
   const [inapropiado, setInapropiado] = useState(false);
+  const [calificacion, setCalificacion] = useState<CalificacionDeAporte | "">("");
 
   // Vuelve a leer cuando algo cambia en la base (actualización en vivo).
   const recarga = useRecargaEnVivo();
@@ -66,13 +69,17 @@ export default function RevisionAportePage() {
   }, [aporteId, recarga]);
 
   async function decidir(status: "aceptado" | "rechazado", rejectionReason?: string) {
+    if (!calificacion) {
+      setError("Selecciona una calificación antes de guardar la decisión");
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
       const response = await fetch(`${BASE_PATH}/api/aportes/${aporteId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status, rejectionReason, ...(status === "rechazado" && inapropiado ? { inapropiado: true } : {}) }),
+        body: JSON.stringify({ status, rejectionReason, calificacion, ...(status === "rechazado" && inapropiado ? { inapropiado: true } : {}) }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error ?? "No se pudo guardar la decisión");
@@ -146,6 +153,7 @@ export default function RevisionAportePage() {
     motivoDeReporte.length + detalleDeReporte.trim().length + 3 <= MAXIMO_MOTIVO_DE_REPORTE;
   const statusTone = item.status === "aceptado" ? "ok" : item.status === "rechazado" ? "danger" : "warn";
   const submittedAt = new Date(item.submittedAt);
+  const calificacionMostrada = etiquetaDeCalificacion(item.calificacion);
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -207,7 +215,7 @@ export default function RevisionAportePage() {
             {item.caracteristicas && item.caracteristicas.length > 0 && (
               <div>
                 <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-system-500">Características</p>
-                <div className="flex flex-wrap gap-2">
+                 <div className="flex flex-wrap gap-2">
                   {item.caracteristicas.map((feature) => <Tag key={feature}>{feature}</Tag>)}
                 </div>
               </div>
@@ -215,7 +223,18 @@ export default function RevisionAportePage() {
             <dl className="space-y-2 border-t border-system-200 pt-4 text-[13px]">
               <div className="flex justify-between gap-4"><dt className="text-system-600">Enviado</dt><dd className="font-mono text-right text-system-900">{submittedAt.toLocaleDateString("es-MX", { day: "numeric", month: "short" })} · {submittedAt.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}</dd></div>
               <div className="flex justify-between gap-4"><dt className="text-system-600">Tipo</dt><dd className="text-system-900">{item.fileType}</dd></div>
+              {calificacionMostrada && <div className="flex justify-between gap-4"><dt className="text-system-600">Calificación</dt><dd className="font-semibold text-system-900">{calificacionMostrada}</dd></div>}
             </dl>
+            {!yaDecidido && (
+              <div className="border-t border-system-200 pt-4 text-center">
+                <p className="mb-2 text-[12.5px] font-semibold text-system-900">
+                  Calificación del aporte <span className="text-error-700">*</span>
+                </p>
+                <div className="flex justify-center">
+                  <SelectorDeCalificacion value={calificacion} onChange={setCalificacion} disabled={submitting} />
+                </div>
+              </div>
+            )}
           </div>
         </section>
       </div>
@@ -268,11 +287,11 @@ export default function RevisionAportePage() {
               ? "Obligatorio al rechazar. Es un aporte anónimo: queda registrado, pero nadie lo recibe."
               : "Obligatorio al rechazar. El participante lo recibirá en una notificación y lo verá en Mis aportes."}
           </p>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" onClick={() => setRechazando(false)} disabled={submitting}>
               Cancelar
             </Button>
-            <Button variant="danger" type="submit" disabled={!puedeRechazar || submitting}>
+            <Button variant="danger" type="submit" disabled={!puedeRechazar || !calificacion || submitting}>
               Confirmar rechazo
             </Button>
           </div>
@@ -334,26 +353,23 @@ export default function RevisionAportePage() {
               ? "Este aporte ya tiene una decisión."
               : "Tu decisión es final: el aporte queda aceptado o rechazado, sin pasar por quien creó la campaña."}
           </p>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex w-full flex-wrap justify-center gap-2 sm:w-auto sm:justify-start">
+            <div className="order-2 flex flex-wrap justify-center gap-2 sm:order-1 sm:justify-start">
             {item.userId === null && !item.inapropiado && !yaDecidido && (
               <Button variant="danger" disabled={submitting} onClick={() => void marcarInapropiado()}>
                 Marcar como inapropiado
               </Button>
             )}
-            {!item.reporte && item.userId !== null && (
-              <Button variant="ghost" disabled={submitting || reportando} onClick={() => setReportando(true)}>
-                Reportar a supervisión
-              </Button>
-            )}
+            </div>
             {!yaDecidido && (
-              <>
-                <Button disabled={submitting || rechazando} onClick={() => setRechazando(true)}>
+              <div className="order-1 flex w-full justify-center gap-2 sm:order-2 sm:w-auto">
+                <Button size="sm" disabled={submitting || rechazando} onClick={() => setRechazando(true)}>
                   Rechazar
                 </Button>
-                <Button variant="primary" disabled={submitting} onClick={() => void decidir("aceptado")}>
+                <Button size="sm" variant="primary" disabled={submitting || !calificacion} onClick={() => void decidir("aceptado")}>
                   {submitting ? "Guardando..." : "Aceptar aporte"}
                 </Button>
-              </>
+              </div>
             )}
           </div>
         </div>
@@ -362,7 +378,12 @@ export default function RevisionAportePage() {
       {/* Reportar a la plataforma (2026-10-12): solo aportes con cuenta. Va a /reportes; si el
           SuperUsuario lo confirma, quien aportó recibe un aviso (lib/usuarios/escala-de-avisos.ts). */}
       {item.canReview && item.userId && (
-        <div className="mt-4 flex flex-col">
+        <div className="mt-4 flex flex-col items-center gap-3">
+          {!item.reporte && (
+            <Button variant="ghost" disabled={submitting || reportando} onClick={() => setReportando(true)}>
+              Reportar a supervisión
+            </Button>
+          )}
           <ReportarAPlataforma
             url={`/api/aportes/${item.id}/reportar-participante`}
             motivos={MOTIVOS_DE_REPORTE_DE_APORTE}
@@ -371,6 +392,7 @@ export default function RevisionAportePage() {
             placeholder="Qué hizo quien envió el aporte"
             yaReportado={Boolean(item.participanteReportado)}
             textoYaReportado="Ya reportaste a quien envió este aporte. La supervisión lo está revisando."
+            enVentana
           />
         </div>
       )}

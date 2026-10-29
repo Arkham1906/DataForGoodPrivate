@@ -31,6 +31,7 @@ function mapAporte(row: Record<string, unknown>) {
     sinArchivo: !row.file_path,
     archivoBorrado: row.archivo_borrado_en != null,
     caracteristicas: Array.isArray(row.caracteristicas) ? row.caracteristicas : [],
+    calificacion: row.calificacion ? String(row.calificacion) : undefined,
     status: String(row.status ?? "pendiente"),
     submittedAt: row.submitted_at ? new Date(String(row.submitted_at)).toISOString() : new Date().toISOString(),
     rejectionReason: row.rejection_reason ? String(row.rejection_reason) : undefined,
