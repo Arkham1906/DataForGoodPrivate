@@ -2,8 +2,8 @@
 
 // Pantalla /supervision/[campaignId]: revisar una campaña en_revision y dictaminar.
 // Componente cliente. Datos: GET /api/campanas?id=.
-// Acciones: tomar con PATCH /api/campanas/[id] { action: "tomar" }; dictaminar con
-// PATCH { action: "aceptada" | "rechazada", motivoDeLista, motivo, sancion }. Al rechazar se puede sancionar
+// Acciones: sin botón para tomarla (2026-10-29): el dictamen la toma si está libre. Dictaminar con
+// PATCH /api/campanas/[id] { action: "aceptada" | "rechazada", motivoDeLista, motivo, sancion }. Al rechazar se puede sancionar
 // al creador (components/supervision/FormularioDeRechazo); "Reportar" se quitó el 2026-10-16.
 // Reglas en lib/supervision/decision.ts.
 // Activa o pausada: PATCH { action: "pausar" | "reanudar" | "finalizar", motivo } con

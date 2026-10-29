@@ -1055,6 +1055,9 @@ function CampanaFormulario({
             conProblemas={paso("paso-vigencia").conProblemas}
             aviso={contenidoBloqueado ? "Solo la finalización se puede cambiar" : undefined}
           >
+            <p className="mb-3 text-[12px] text-system-500">
+              Solo se eligen fechas: las campañas nuevas usan la hora de creación y al editar se conserva la hora guardada.
+            </p>
             {!editingCampaign && (
               <fieldset className="mb-4 max-w-xl">
                 <legend className="mb-2 text-[12px] font-medium text-system-700">
@@ -1081,7 +1084,7 @@ function CampanaFormulario({
                       onChange={() => setModoFinalizacion("personalizada")}
                       className="h-4 w-4 accent-brand-600"
                     />
-                    Fecha específica (opcional)
+                    Fecha específica
                   </label>
                 </div>
                 <p className="mt-1 text-[12px] text-system-500">
