@@ -50,6 +50,10 @@ export type TipoDeNotificacion =
   // El SuperUsuario revisó una etiqueta que la persona propuso en su perfil o su campaña (2026-10-28).
   | "etiqueta_aprobada"
   | "etiqueta_rechazada"
+  // El SuperUsuario revisó una temática que la persona propuso (2026-10-29); al rechazarla, también al
+  // creador de cada campaña que la usaba (pasó a otra temática).
+  | "tematica_aprobada"
+  | "tematica_rechazada"
   // Periódicas, según Preferencias (lib/notificaciones/periodicas.ts)
   | "recordatorio_semanal"
   | "resumen_mensual"
@@ -132,6 +136,7 @@ export function categoriaDeNotificacion(tipo: string): CategoriaDeNotificacion {
     case "campana_desbaneo":
     case "aportes_recibidos":
     case "etiqueta_aprobada":
+    case "tematica_aprobada":
     case "campana_avance":
       return "buena";
     // Novedades para participar.
@@ -143,7 +148,7 @@ export function categoriaDeNotificacion(tipo: string): CategoriaDeNotificacion {
     case "resumen_mensual":
       return "novedad";
     // Solo para que lo sepas: campana_finalizada, rol_revocado, revisor_quitado, campana_en_revision,
-    // supervision_revertida, etiqueta_rechazada y los que ya no se crean (campana_reportada, aporte_reportado).
+    // supervision_revertida, etiqueta_rechazada, tematica_rechazada y los que ya no se crean (campana_reportada, aporte_reportado).
     default:
       return "aviso";
   }

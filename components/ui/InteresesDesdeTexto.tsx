@@ -9,6 +9,9 @@
 // no reconoce se ignora y no se crean temáticas nuevas. Lo usan /bienvenida (paso 4) y /cuenta
 // (Mis intereses).
 // Catálogo: GET /api/tematicas; si falla, las base.
+// Desde el 2026-10-29 (a pedido del usuario) "Agregar temáticas" deja proponer una que no está: va en
+// `nuevas` (el formulario la manda como `tematicasNuevas` en PATCH /api/usuarios/[id]) y queda pendiente
+// hasta que el SuperUsuario la revisa; las ya propuestas (`propias` del catálogo) se marcan "por aprobar".
 
 import { useEffect, useId, useRef, useState } from "react";
 import { Textarea } from "@/components/ui/Input";
@@ -31,15 +34,21 @@ export default function InteresesDesdeTexto({
   seleccionados,
   onCambiar,
   deshabilitado = false,
+  nuevas: propuestasSinGuardar = [],
+  onNuevas,
 }: {
   texto: string;
   onTexto: (texto: string) => void;
   seleccionados: string[];
   onCambiar: (temas: string[]) => void;
   deshabilitado?: boolean;
+  /** Temáticas propuestas aún sin guardar (2026-10-29). Sin `onNuevas` no se puede proponer. */
+  nuevas?: string[];
+  onNuevas?: (nuevas: string[]) => void;
 }) {
   const id = useId();
   const [catalogo, setCatalogo] = useState<string[]>(TEMAS_DE_INTERES);
+  const [propias, setPropias] = useState<string[]>([]);
   const [aviso, setAviso] = useState<string | null>(null);
 
   useEffect(() => {
@@ -48,6 +57,7 @@ export default function InteresesDesdeTexto({
       .then((r) => (r.ok ? r.json() : null))
       .then((body) => {
         if (vigente && Array.isArray(body?.data)) setCatalogo(body.data as string[]);
+        if (vigente && Array.isArray(body?.propias)) setPropias(body.propias as string[]);
       })
       .catch(() => {
         // Sin catálogo se analiza contra las base; el servidor revisa todo al guardar.
@@ -193,10 +203,26 @@ export default function InteresesDesdeTexto({
               quitadasAMano.current.add(clave);
             }
             onCambiar(temas);
+            // Propuestas: las que no son del catálogo ni ya propuestas, y que no tenía antes (o que
+            // ya eran nuevas sin guardar).
+            if (onNuevas) {
+              const yaPropuestas = new Set(propias.map(claveDeTematica));
+              const sinGuardar = new Set(propuestasSinGuardar.map(claveDeTematica));
+              const tenia = new Set(seleccionados.map(claveDeTematica));
+              onNuevas(
+                temas.filter((tema) => {
+                  const clave = claveDeTematica(tema);
+                  return !enCatalogo.has(clave) && !yaPropuestas.has(clave) && (sinGuardar.has(clave) || !tenia.has(clave));
+                }),
+              );
+            }
             setAviso(null);
           }}
           quitables
           deshabilitado={deshabilitado}
+          proponer={Boolean(onNuevas)}
+          pendientes={propias}
+          nuevas={propuestasSinGuardar}
         />
       </div>
     </div>

@@ -33,6 +33,7 @@ import {
 } from "@/lib/etiquetas/catalogo";
 import { hasRootSession } from "@/lib/rootSession";
 import { validarProposito } from "@/lib/campanas/proposito";
+import { crearPropuestas, revisarTematicaDeCampana } from "@/lib/tematicas/catalogo";
 import { normalizarSecciones, seccionesDesdeFila } from "@/lib/campanas/checklist";
 import { enviadosPorTipoDesdeFila, limitePorTipoDesdeFila, resolverMetaYLimites } from "@/lib/campanas/limite-por-tipo";
 import { normalizarFormatosDeDocumento } from "@/lib/aportes/archivo";
@@ -500,7 +501,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
     const name = "name" in body ? String(body.name ?? "").trim() : null;
     const description = "description" in body ? String(body.description ?? "").trim() : null;
-    const tematica = "tematica" in body || "tag" in body ? String(body.tematica ?? body.tag ?? "").trim() : null;
+    let tematica = "tematica" in body || "tag" in body ? String(body.tematica ?? body.tag ?? "").trim() : null;
     const status = "status" in body ? normalizeCampaignStatus(body.status) : null;
     const dataTypes = "dataTypes" in body || "data_types" in body ? normalizeDataTypes(body.dataTypes ?? body.data_types) : null;
     // Formatos de "Archivo" (2026-10-28): si llegan o cambian los tipos; sin "documento", [].
@@ -643,6 +644,18 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       );
       if (!validado.ok) return NextResponse.json({ error: validado.error }, { status: 400 });
       if (traeProposito) propositoNuevo = validado;
+    }
+
+    // Temática del catálogo, o una nueva que propone el creador con `tematicaNueva: true` (2026-10-29),
+    // como en POST /api/campanas. La que la campaña ya tenía se acepta tal cual.
+    if (tematica) {
+      const revisada = await revisarTematicaDeCampana(tematica, Number(user.id), {
+        proponer: body.tematicaNueva === true,
+        actual: String(existing.rows[0].tematica || existing.rows[0].tag || ""),
+      });
+      if (!revisada.ok) return NextResponse.json({ error: revisada.error }, { status: 400 });
+      tematica = revisada.tematica;
+      await crearPropuestas(revisada.porCrear, Number(user.id));
     }
 
     // Etiquetas (subtemáticas, 2026-10-27): se validan y guardan antes del UPDATE, con la temática
@@ -811,7 +824,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
 
     const name = String(body.name ?? "").trim();
     const description = String(body.description ?? "").trim();
-    const tematica = String(body.tematica ?? body.theme ?? body.tag ?? "").trim();
+    let tematica = String(body.tematica ?? body.theme ?? body.tag ?? "").trim();
     if (!name || !description || !tematica) {
       return NextResponse.json({ error: "name, description y tematica son obligatorios" }, { status: 400 });
     }
@@ -888,6 +901,15 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
         return NextResponse.json({ error: "Selecciona un estado" }, { status: 400 });
       }
     }
+
+    // Temática del catálogo o propuesta (2026-10-29), como en el PATCH.
+    const tematicaRevisada = await revisarTematicaDeCampana(tematica, Number(user.id), {
+      proponer: body.tematicaNueva === true,
+      actual: String(existing.rows[0].tematica || existing.rows[0].tag || ""),
+    });
+    if (!tematicaRevisada.ok) return NextResponse.json({ error: tematicaRevisada.error }, { status: 400 });
+    tematica = tematicaRevisada.tematica;
+    await crearPropuestas(tematicaRevisada.porCrear, Number(user.id));
 
     // Etiquetas (subtemáticas): antes del UPDATE, como en el PATCH. Sin `etiquetas`, se quitan las de otra temática.
     if ("etiquetas" in body) {

@@ -11,6 +11,10 @@
 //   - crearTematica() / renombrarTematica() / borrarTematica() (2026-10-26): el SuperUsuario crea,
 //     edita y borra temáticas que no son base (decisiones del usuario: las base quedan fijas;
 //     renombrar actualiza perfiles y campañas; no se borra una que usan campañas, se oculta).
+//   - revisarPropuestas() / crearPropuestas() / revisarTematicaDeCampana() (2026-10-29, a pedido del
+//     usuario): la persona propone una temática nueva desde su perfil o al crear o editar una
+//     campaña. Queda pendiente (origen 'usuario', creada_por) hasta que el SuperUsuario la revisa;
+//     si la rechaza y alguna campaña la usa, elige a qué temática pasan (rechazar con reemplazo).
 
 import { pool } from "@/lib/db";
 import {
@@ -18,6 +22,7 @@ import {
   esTematicaNuevaValida,
   LARGO_DEL_NOMBRE,
   MAXIMO_DE_INTERESES,
+  MAXIMO_DE_TEMATICAS_PROPUESTAS,
 } from "@/lib/tematicas/analizar";
 import { esInapropiada } from "@/lib/tematicas/filtro";
 import { TEMAS_DE_INTERES } from "@/lib/intereses";
@@ -187,32 +192,79 @@ export async function aprobar(id: number): Promise<string | null> {
   return result.rows[0]?.nombre ?? null;
 }
 
+/** Campaña que cambió de temática porque el SuperUsuario rechazó la suya (para avisar a su creador). */
+export type CampanaReasignada = { id: number; creadorId: number; nombre: string };
+
 /**
  * Rechaza una temática pendiente: se borra del catálogo (desde el 2026-10-22, a pedido del usuario;
  * antes quedaba oculta con "Aprobar" por si se rechazó por error) y se quita de los perfiles que la
- * tenían, que solo pueden ser los de quienes la escribieron. No vuelve a aparecer: desde el
- * 2026-10-20 el texto de un perfil ya no crea temáticas. Su nombre queda en audit_log. Devuelve su
- * nombre y de cuántos perfiles se quitó, o null si no existe o ya estaba aprobada (esas se ocultan).
+ * tenían (quienes la propusieron). Su nombre queda en audit_log.
+ *
+ * Desde el 2026-10-29 una campaña también puede usar una temática propuesta. Si alguna la usa, hay
+ * que dar `reemplazo` (decisión del usuario): una temática aprobada y visible a la que pasan esas
+ * campañas, en la misma transacción; sus etiquetas de la rechazada se borran en cascada. Sin
+ * reemplazo, error. Devuelve el nombre, de cuántos perfiles se quitó y las campañas que cambiaron.
  */
-export async function rechazar(id: number): Promise<{ nombre: string; perfiles: number } | null> {
+export async function rechazar(
+  id: number,
+  reemplazo?: string,
+): Promise<ResultadoDelCatalogo<{ nombre: string; perfiles: number; campanas: CampanaReasignada[]; reemplazo: string | null }>> {
   const cliente = await pool.connect();
   try {
     await cliente.query("BEGIN");
     const fila = await cliente.query<{ nombre: string }>(
-      `DELETE FROM tematicas WHERE id = $1 AND NOT aprobada RETURNING nombre`,
+      `SELECT nombre FROM tematicas WHERE id = $1 AND NOT aprobada FOR UPDATE`,
       [id],
     );
     const nombre = fila.rows[0]?.nombre;
     if (!nombre) {
       await cliente.query("ROLLBACK");
-      return null;
+      return { ok: false, error: "La temática no existe o ya estaba aprobada." };
     }
+
+    const usadas = await cliente.query<{ n: number }>(
+      `SELECT COUNT(*)::int AS n FROM campanas WHERE COALESCE(NULLIF(tematica, ''), tag) = $1`,
+      [nombre],
+    );
+    const enCampanas = usadas.rows[0]?.n ?? 0;
+    let destino: string | null = null;
+    let campanas: CampanaReasignada[] = [];
+    if (enCampanas > 0) {
+      const pedido = String(reemplazo ?? "").trim();
+      const elegida = pedido
+        ? await cliente.query<{ nombre: string }>(
+            `SELECT nombre FROM tematicas WHERE clave = $1 AND aprobada AND NOT oculta AND id <> $2`,
+            [claveDeTematica(pedido), id],
+          )
+        : null;
+      destino = elegida?.rows[0]?.nombre ?? null;
+      if (!destino) {
+        await cliente.query("ROLLBACK");
+        return {
+          ok: false,
+          error: `La ${enCampanas === 1 ? "usa 1 campaña" : `usan ${enCampanas} campañas`}: elige a qué temática aprobada pasan.`,
+        };
+      }
+      const cambiadas = await cliente.query<{ id: number; creator_id: number; name: string }>(
+        `UPDATE campanas SET
+           tematica = CASE WHEN COALESCE(NULLIF(tematica, ''), tag) = $1 THEN $2 ELSE tematica END,
+           tag = CASE WHEN tag = $1 THEN $2 ELSE tag END,
+           updated_at = NOW()
+         WHERE COALESCE(NULLIF(tematica, ''), tag) = $1
+         RETURNING id, creator_id, name`,
+        [nombre, destino],
+      );
+      campanas = cambiadas.rows.map((r) => ({ id: Number(r.id), creadorId: Number(r.creator_id), nombre: r.name }));
+    }
+
+    // ON DELETE CASCADE: se van sus etiquetas y, con ellas, las de las campañas que cambiaron.
+    await cliente.query(`DELETE FROM tematicas WHERE id = $1`, [id]);
     const perfiles = await cliente.query(
       `UPDATE usuarios SET intereses = intereses - $1::text, updated_at = NOW() WHERE intereses ? $1`,
       [nombre],
     );
     await cliente.query("COMMIT");
-    return { nombre, perfiles: perfiles.rowCount ?? 0 };
+    return { ok: true, nombre, perfiles: perfiles.rowCount ?? 0, campanas, reemplazo: destino };
   } catch (error) {
     await cliente.query("ROLLBACK");
     throw error;
@@ -221,7 +273,133 @@ export async function rechazar(id: number): Promise<{ nombre: string; perfiles: 
   }
 }
 
+/**
+ * Quién propuso una temática pendiente y si la tiene en su perfil o en alguna campaña suya
+ * (2026-10-29), para avisarle cuando el SuperUsuario la revisa. Se lee antes de decidir: rechazar
+ * la borra. Null si no existe, ya estaba aprobada o no tiene autor.
+ */
+export async function propuestaDeTematica(
+  id: number,
+): Promise<{ usuarioId: number; nombre: string; enPerfil: boolean; enCampana: boolean } | null> {
+  const r = await pool.query<{ creada_por: number; nombre: string; en_perfil: boolean; en_campana: boolean }>(
+    `SELECT t.creada_por, t.nombre,
+            EXISTS (SELECT 1 FROM usuarios u WHERE u.id = t.creada_por AND u.intereses ? t.nombre) AS en_perfil,
+            EXISTS (SELECT 1 FROM campanas c WHERE c.creator_id = t.creada_por
+                    AND COALESCE(NULLIF(c.tematica, ''), c.tag) = t.nombre) AS en_campana
+     FROM tematicas t
+     WHERE t.id = $1 AND NOT t.aprobada AND t.creada_por IS NOT NULL`,
+    [id],
+  );
+  const f = r.rows[0];
+  return f ? { usuarioId: Number(f.creada_por), nombre: f.nombre, enPerfil: f.en_perfil, enCampana: f.en_campana } : null;
+}
+
+/** Temáticas que propuso una persona y siguen sin revisar (se marcan "por aprobar" en su perfil y sus campañas). */
+export async function tematicasPropuestasPor(usuarioId: number): Promise<string[]> {
+  const r = await pool.query<{ nombre: string }>(
+    `SELECT nombre FROM tematicas WHERE creada_por = $1 AND NOT aprobada AND NOT oculta ORDER BY clave`,
+    [usuarioId],
+  );
+  return r.rows.map((f) => f.nombre);
+}
+
 export type ResultadoDelCatalogo<T = object> = ({ ok: true } & T) | { ok: false; error: string };
+
+/**
+ * Revisa, sin escribir nada, las temáticas que una persona propone (2026-10-29). Cada nombre se
+ * valida como los del panel (validarNombreDeTematica). Si ya existe en el catálogo:
+ *   - aprobada: no es propuesta (se elige como cualquier otra; una oculta no se agrega de nuevo);
+ *   - pendiente (la propuso alguien más o ella misma): se usa esa, sin crear otra.
+ * Las que no existen se crearán con crearPropuestas(). Tope: MAXIMO_DE_TEMATICAS_PROPUESTAS
+ * pendientes por persona, contando las que ya tiene.
+ * Devuelve `nombres` (cómo quedan: del catálogo o como se escribieron) y `porCrear`.
+ */
+export async function revisarPropuestas(
+  entrada: unknown,
+  usuarioId: number,
+): Promise<ResultadoDelCatalogo<{ nombres: string[]; porCrear: string[] }>> {
+  if (!Array.isArray(entrada)) return { ok: false, error: "Las temáticas propuestas deben ser una lista" };
+  const pedidas = new Map<string, string>();
+  for (const valor of entrada) {
+    const validado = validarNombreDeTematica(valor);
+    if (!validado.ok) return { ok: false, error: `Temática «${String(valor ?? "").trim()}»: ${validado.error}` };
+    const clave = claveDeTematica(validado.nombre);
+    if (!pedidas.has(clave)) pedidas.set(clave, validado.nombre);
+  }
+  if (pedidas.size === 0) return { ok: true, nombres: [], porCrear: [] };
+
+  const existentes = await pool.query<{ nombre: string; clave: string; aprobada: boolean }>(
+    `SELECT nombre, clave, aprobada FROM tematicas WHERE clave = ANY($1::text[])`,
+    [[...pedidas.keys()]],
+  );
+  const porClave = new Map(existentes.rows.map((r) => [r.clave, r]));
+  const nombres: string[] = [];
+  const porCrear: string[] = [];
+  for (const [clave, nombre] of pedidas) {
+    const fila = porClave.get(clave);
+    if (!fila) {
+      nombres.push(nombre);
+      porCrear.push(nombre);
+    } else if (!fila.aprobada) {
+      nombres.push(fila.nombre);
+    }
+  }
+
+  if (porCrear.length > 0) {
+    const suyas = await pool.query<{ n: number }>(
+      `SELECT COUNT(*)::int AS n FROM tematicas WHERE creada_por = $1 AND NOT aprobada AND NOT oculta`,
+      [usuarioId],
+    );
+    if ((suyas.rows[0]?.n ?? 0) + porCrear.length > MAXIMO_DE_TEMATICAS_PROPUESTAS) {
+      return {
+        ok: false,
+        error: `Puedes tener hasta ${MAXIMO_DE_TEMATICAS_PROPUESTAS} temáticas propuestas esperando revisión`,
+      };
+    }
+  }
+  return { ok: true, nombres, porCrear };
+}
+
+/**
+ * Da de alta, pendientes de aprobar, las temáticas que revisarPropuestas() dejó en `porCrear`.
+ * ON CONFLICT: si otra persona la propuso en el mismo instante, se queda la suya.
+ */
+export async function crearPropuestas(nombres: string[], usuarioId: number): Promise<void> {
+  for (const nombre of nombres) {
+    await pool.query(
+      `INSERT INTO tematicas (nombre, clave, origen, creada_por, aprobada, oculta)
+       VALUES ($1, $2, 'usuario', $3, false, false)
+       ON CONFLICT (clave) DO NOTHING`,
+      [nombre, claveDeTematica(nombre), usuarioId],
+    );
+  }
+}
+
+/**
+ * Temática de una campaña al crearla o editarla (2026-10-29). Antes el servidor no la comparaba con
+ * el catálogo. Ahora:
+ *   - Si existe (en cualquier estado), se guarda con su nombre del catálogo.
+ *   - Si es la que la campaña ya tenía (`actual`), se acepta tal cual aunque ya no exista.
+ *   - Si no existe y llega `proponer`, se revisa como propuesta (revisarPropuestas) y hay que
+ *     crearla con crearPropuestas() antes de guardar la campaña (`porCrear`).
+ *   - Si no, error.
+ */
+export async function revisarTematicaDeCampana(
+  tematica: string,
+  usuarioId: number,
+  { proponer = false, actual = "" }: { proponer?: boolean; actual?: string } = {},
+): Promise<ResultadoDelCatalogo<{ tematica: string; porCrear: string[] }>> {
+  const limpia = tematica.trim().replace(/\s+/g, " ");
+  if (actual && limpia === actual) return { ok: true, tematica: limpia, porCrear: [] };
+  const existente = await pool.query<{ nombre: string }>(`SELECT nombre FROM tematicas WHERE clave = $1`, [
+    claveDeTematica(limpia),
+  ]);
+  if (existente.rows[0]) return { ok: true, tematica: existente.rows[0].nombre, porCrear: [] };
+  if (!proponer) return { ok: false, error: `«${limpia}» no es una temática del catálogo` };
+  const revisadas = await revisarPropuestas([limpia], usuarioId);
+  if (!revisadas.ok) return revisadas;
+  return { ok: true, tematica: revisadas.nombres[0] ?? limpia, porCrear: revisadas.porCrear };
+}
 
 /**
  * Nombre que escribe el SuperUsuario, limpio (espacios simples), o el error que se le muestra:

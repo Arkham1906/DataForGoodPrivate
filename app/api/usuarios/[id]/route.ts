@@ -6,7 +6,7 @@ import { pool } from "@/lib/db";
 import { destroySession, getSessionUser } from "@/lib/session";
 import { hasRootSession } from "@/lib/rootSession";
 import { errorDeLargo } from "@/lib/usuarios/perfil";
-import { resolverIntereses } from "@/lib/tematicas/catalogo";
+import { crearPropuestas, resolverIntereses, revisarPropuestas } from "@/lib/tematicas/catalogo";
 import { etiquetasDelUsuario, guardarEtiquetasDelUsuario, recortarEtiquetasDelUsuario, validarEtiquetasNuevas } from "@/lib/etiquetas/catalogo";
 import { MAXIMO_DE_ETIQUETAS_EN_PERFIL, type EtiquetaNueva } from "@/lib/etiquetas/reglas";
 import { resolverEspecialidad } from "@/lib/usuarios/especialidades";
@@ -161,13 +161,14 @@ export async function PATCH(
         { status: 400 }
       );
     }
-    // Intereses del catálogo de temáticas (lib/tematicas/catalogo.ts): desde el 2026-10-20 solo
-    // las que existen (400 si no). Una oculta o pendiente solo se conserva si ya la tenía.
-    let intereses: string | null = null;
-    if (Array.isArray(body.intereses)) {
-      const resueltos = await resolverIntereses(body.intereses, sessionUser.intereses ?? []);
-      if (!resueltos.ok) return NextResponse.json({ error: resueltos.error }, { status: 400 });
-      intereses = JSON.stringify(resueltos.intereses);
+    // Temáticas que la persona propone porque no las encontró (2026-10-29): nombres que quedan
+    // pendientes hasta que el SuperUsuario los revisa. Se revisan aquí y se crean justo antes de
+    // resolver los intereses, cuando ya pasó todo lo demás.
+    let tematicasPropuestas: { nombres: string[]; porCrear: string[] } = { nombres: [], porCrear: [] };
+    if ("tematicasNuevas" in body) {
+      const revisadas = await revisarPropuestas(body.tematicasNuevas, Number(sessionUser.id));
+      if (!revisadas.ok) return NextResponse.json({ error: revisadas.error }, { status: 400 });
+      tematicasPropuestas = revisadas;
     }
     // Subtemáticas (etiquetas, 2026-10-27): ids, de las temáticas que queden en sus intereses.
     if ("etiquetas" in body && (!Array.isArray(body.etiquetas) || body.etiquetas.length > MAXIMO_DE_ETIQUETAS_EN_PERFIL)) {
@@ -180,6 +181,17 @@ export async function PATCH(
       const validadas = await validarEtiquetasNuevas(body.etiquetasNuevas);
       if (!validadas.ok) return NextResponse.json({ error: validadas.error }, { status: 400 });
       etiquetasNuevas = validadas.nuevas;
+    }
+
+    // Intereses del catálogo de temáticas (lib/tematicas/catalogo.ts): desde el 2026-10-20 solo
+    // las que existen (400 si no). Una oculta o pendiente solo se conserva si ya la tenía o si la
+    // propone ahora (2026-10-29: las propuestas se dan de alta aquí).
+    let intereses: string | null = null;
+    if (Array.isArray(body.intereses)) {
+      await crearPropuestas(tematicasPropuestas.porCrear, Number(sessionUser.id));
+      const resueltos = await resolverIntereses(body.intereses, [...(sessionUser.intereses ?? []), ...tematicasPropuestas.nombres]);
+      if (!resueltos.ok) return NextResponse.json({ error: resueltos.error }, { status: 400 });
+      intereses = JSON.stringify(resueltos.intereses);
     }
 
     const result = await pool.query(

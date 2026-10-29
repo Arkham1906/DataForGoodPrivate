@@ -12,13 +12,16 @@
 // borra una que usan campañas. Las base solo se ocultan.
 // Desde el 2026-10-27 cada temática despliega sus etiquetas (subtemáticas; EtiquetasDeTematica): el
 // SuperUsuario las crea, edita, borra, oculta, y aprueba o rechaza las que propusieron los creadores.
+// Desde el 2026-10-29 los usuarios proponen temáticas desde su perfil y al crear o editar una campaña
+// (pendientes, con quién la propuso). Si se rechaza una que usan campañas, BotonesDeRevision pide a qué
+// temática aprobada pasan (tematicasVisibles).
 
 import type { Metadata } from "next";
 
 import Tag from "@/components/sistema/Tag";
 import { Encabezado, formatearNumero } from "@/components/sistema/ui";
 import { exigirSesionRoot } from "@/lib/supervision/root";
-import { listarTematicasDelPanel } from "@/lib/tematicas/catalogo";
+import { listarTematicasDelPanel, tematicasVisibles } from "@/lib/tematicas/catalogo";
 import { listarEtiquetasDelPanel } from "@/lib/etiquetas/catalogo";
 import EtiquetasDeTematica from "./EtiquetasDeTematica";
 import { ZONA_DE_CAMPANAS } from "@/lib/campaign-date";
@@ -35,7 +38,11 @@ const fecha = new Intl.DateTimeFormat("es-MX", { dateStyle: "medium", timeZone: 
 export default async function TematicasPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   await exigirSesionRoot();
   const { q = "" } = await searchParams;
-  const [tematicas, etiquetas] = await Promise.all([listarTematicasDelPanel(q), listarEtiquetasDelPanel()]);
+  const [tematicas, etiquetas, aprobadas] = await Promise.all([
+    listarTematicasDelPanel(q),
+    listarEtiquetasDelPanel(),
+    tematicasVisibles(),
+  ]);
   const etiquetasPorRevisar = [...etiquetas.values()].flat().filter((e) => !e.aprobada).length;
   const deUsuarios = tematicas.filter((t) => t.origen === "usuario").length;
   const delPanel = tematicas.filter((t) => t.origen === "panel").length;
@@ -46,7 +53,7 @@ export default async function TematicasPage({ searchParams }: { searchParams: Pr
     <div>
       <Encabezado
         titulo="Temáticas"
-        subtitulo="Intereses de los perfiles y temáticas de las campañas. Cada temática tiene sus etiquetas (subtemáticas, como Perros o Gatos en Protección animal): las creas aquí o las proponen los usuarios (al hacer su campaña o en sus intereses), y quedan por revisar; si rechazas una, se borra y se quita de las campañas y los perfiles que la tenían. Puedes crear temáticas y editar o borrar las que no son base (las base solo se ocultan). Las nuevas salen de lo que escriben los usuarios sobre sus gustos y quedan pendientes: solo las tiene quien las escribió hasta que las apruebas; si la rechazas, se borra y se quita de su perfil. Una oculta deja de ofrecerse, pero no se quita de los perfiles ni de las campañas que ya la tienen."
+        subtitulo="Intereses de los perfiles y temáticas de las campañas. Cada temática tiene sus etiquetas (subtemáticas, como Perros o Gatos en Protección animal): las creas aquí o las proponen los usuarios (al hacer su campaña o en sus intereses), y quedan por revisar; si rechazas una, se borra y se quita de las campañas y los perfiles que la tenían. Puedes crear temáticas y editar o borrar las que no son base (las base solo se ocultan). Los usuarios también proponen temáticas nuevas desde su perfil o al crear una campaña, y quedan pendientes: solo las tiene quien las propuso hasta que las apruebas; si la rechazas, se borra y se quita de su perfil, y si alguna campaña la usa eliges a qué temática pasa. Una oculta deja de ofrecerse, pero no se quita de los perfiles ni de las campañas que ya la tienen."
       />
 
       <NuevaTematica />
@@ -78,7 +85,7 @@ export default async function TematicasPage({ searchParams }: { searchParams: Pr
                 <p className="mt-0.5 text-[12px] text-system-500">
                   {t.origen === "base"
                     ? "Base"
-                    : `${t.origen === "panel" ? "Creada aquí" : "De un usuario"} · ${fecha.format(new Date(t.creadaEl))}`} ·{" "}
+                    : `${t.origen === "panel" ? "Creada aquí" : t.aprobada ? "De un usuario" : "Propuesta por un usuario"} · ${fecha.format(new Date(t.creadaEl))}`} ·{" "}
                   {formatearNumero(t.personas)} {t.personas === 1 ? "persona" : "personas"} ·{" "}
                   {formatearNumero(t.campanas)} {t.campanas === 1 ? "campaña" : "campañas"}
                 </p>
@@ -93,14 +100,22 @@ export default async function TematicasPage({ searchParams }: { searchParams: Pr
                 ) : (
                   <>
                     <Tag tone="on">Pendiente</Tag>
-                    <BotonesDeRevision id={t.id} nombre={t.nombre} />
+                    <BotonesDeRevision
+                      id={t.id}
+                      nombre={t.nombre}
+                      campanas={t.campanas}
+                      reemplazos={aprobadas.filter((a) => a !== t.nombre)}
+                    />
                   </>
                 )}
                 {t.origen !== "base" ? (
                   <EditarOBorrar id={t.id} nombre={t.nombre} personas={t.personas} campanas={t.campanas} />
                 ) : null}
               </div>
-              {t.aprobada ? <EtiquetasDeTematica tematicaId={t.id} tematica={t.nombre} etiquetas={etiquetas.get(t.id) ?? []} /> : null}
+              {/* Una pendiente solo muestra sus etiquetas si alguien propuso alguna (2026-10-29): se revisan junto con ella. */}
+              {t.aprobada || (etiquetas.get(t.id)?.length ?? 0) > 0 ? (
+                <EtiquetasDeTematica tematicaId={t.id} tematica={t.nombre} etiquetas={etiquetas.get(t.id) ?? []} />
+              ) : null}
             </li>
           ))}
         </ul>

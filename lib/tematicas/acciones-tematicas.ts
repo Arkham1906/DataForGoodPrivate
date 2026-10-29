@@ -10,11 +10,13 @@ import { revalidatePath } from "next/cache";
 import { hasRootSession } from "@/lib/rootSession";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { avisarTematicaNueva } from "@/lib/notificaciones/tematica-nueva";
+import { avisarTematicaRevisada } from "@/lib/notificaciones/tematica-revisada";
 import {
   aprobar,
   borrarTematica,
   cambiarVisibilidad,
   crearTematica,
+  propuestaDeTematica,
   rechazar,
   renombrarTematica,
   validarNombreDeTematica,
@@ -41,21 +43,30 @@ export async function cambiarVisibilidadDeTematica(id: number, oculta: boolean):
 
 /**
  * Aprueba (se ofrece a todos) o rechaza (se borra del catálogo y se quita de los perfiles de quienes
- * la escribieron; desde el 2026-10-22) una temática pendiente.
+ * la escribieron; desde el 2026-10-22) una temática pendiente. Desde el 2026-10-29 una campaña
+ * también puede usar una propuesta: al rechazarla, `reemplazo` es la temática aprobada a la que pasan
+ * esas campañas (obligatorio si alguna la usa). Se avisa a quien la propuso y a esos creadores.
  */
-export async function revisarTematica(id: number, aprobada: boolean): Promise<ResultadoDeAccion> {
+export async function revisarTematica(id: number, aprobada: boolean, reemplazo?: string): Promise<ResultadoDeAccion> {
   if (!(await hasRootSession())) throw new Error("No autorizado");
   if (!Number.isInteger(id) || id <= 0) return { ok: false, error: "Temática inválida." };
 
+  // Antes de decidir: rechazar la borra, y después ya no se sabe quién la propuso.
+  const propuesta = await propuestaDeTematica(id);
   let detalle: Record<string, unknown>;
+  let rechazo: Awaited<ReturnType<typeof rechazar>> | null = null;
   if (aprobada) {
     const nombre = await aprobar(id);
     if (!nombre) return { ok: false, error: "La temática no existe." };
     detalle = { nombre };
   } else {
-    const rechazo = await rechazar(id);
-    if (!rechazo) return { ok: false, error: "La temática no existe o ya estaba aprobada." };
-    detalle = { nombre: rechazo.nombre, perfiles: rechazo.perfiles };
+    rechazo = await rechazar(id, typeof reemplazo === "string" ? reemplazo : undefined);
+    if (!rechazo.ok) return rechazo;
+    detalle = {
+      nombre: rechazo.nombre,
+      perfiles: rechazo.perfiles,
+      ...(rechazo.reemplazo ? { reemplazo: rechazo.reemplazo, campanas: rechazo.campanas.map((c) => c.id) } : {}),
+    };
   }
 
   await registrarAuditoria({
@@ -65,6 +76,7 @@ export async function revisarTematica(id: number, aprobada: boolean): Promise<Re
     detalle,
   });
   revalidatePath("/sistema/tematicas");
+  await avisarTematicaRevisada(propuesta, aprobada, rechazo?.ok ? rechazo : undefined);
   // Aprobada, ya se ofrece a todos: se agrega y se avisa a quien la mencionó en sus gustos.
   if (aprobada) avisarTematicaNueva(String(detalle.nombre));
   return { ok: true };

@@ -35,6 +35,11 @@ const LARGO_MINIMO_NUEVA = 4;
 const LARGO_MAXIMO_NUEVA = 40;
 /** Largo del nombre que el SuperUsuario escribe en /sistema/tematicas (la columna `tematicas.nombre` es de 60). */
 export const LARGO_DEL_NOMBRE = { minimo: 3, maximo: 60 } as const;
+/**
+ * Temáticas que una persona puede tener propuestas y sin revisar a la vez (2026-10-29), desde su
+ * perfil o el formulario de campaña. Evita que una sola cuenta llene la bandeja del SuperUsuario.
+ */
+export const MAXIMO_DE_TEMATICAS_PROPUESTAS = 3;
 
 /** Nombre sin acentos, en minúsculas y con espacios simples: "Educación" y "educacion" son la misma. */
 export function claveDeTematica(nombre: string): string {

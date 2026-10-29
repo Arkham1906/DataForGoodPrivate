@@ -301,18 +301,24 @@ function CampanaFormulario({
   // (2026-10-21, a pedido del usuario; antes venían "Medio ambiente", Foto, 500 y 10).
   const [theme, setTheme] = useState(editingCampaign?.tag ?? "");
   const [catalogoDeTemas, setCatalogoDeTemas] = useState<string[]>(THEMES);
+  // Las que propuso esta persona y siguen sin revisar (2026-10-29): se marcan "por aprobar".
+  const [tematicasPropias, setTematicasPropias] = useState<string[]>([]);
   useEffect(() => {
     let vigente = true;
     fetch(`${BASE_PATH}/api/tematicas`, { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((body) => {
         if (vigente && Array.isArray(body?.data)) setCatalogoDeTemas(body.data as string[]);
+        if (vigente && Array.isArray(body?.propias)) setTematicasPropias(body.propias as string[]);
       })
       .catch(() => {});
     return () => {
       vigente = false;
     };
   }, []);
+  // Temática propuesta en este formulario (2026-10-29): no está en el catálogo ni es la que la campaña
+  // ya tenía. Se manda `tematicaNueva` y el servidor la da de alta pendiente de aprobar.
+  const esTematicaNueva = Boolean(theme) && theme !== (editingCampaign?.tag ?? "") && !catalogoDeTemas.includes(theme);
   // Etiquetas: subtemáticas de la temática (2026-10-27), opcionales. El catálogo sale de
   // GET /api/etiquetas; cambiar de temática las vacía.
   const [etiquetas, setEtiquetas] = useState<string[]>(() => (editingCampaign?.etiquetas ?? []).map((e) => e.nombre));
@@ -707,6 +713,7 @@ function CampanaFormulario({
           name,
           description,
           tematica: theme,
+          tematicaNueva: esTematicaNueva,
           tag: theme,
           etiquetas,
           dataTypes,
@@ -734,6 +741,7 @@ function CampanaFormulario({
           name,
           description,
           tematica: theme,
+          tematicaNueva: esTematicaNueva,
           tag: theme,
           etiquetas,
           proposito,
@@ -946,11 +954,15 @@ function CampanaFormulario({
                   className={`mb-1 ${errorDe("tematica") ? "rounded ring-2 ring-error-700 ring-offset-2" : ""}`}
                 >
                   {/* El mismo selector de /cuenta, con una sola temática. opcionesCon conserva
-                      la temática de una campaña vieja aunque ya no esté en la lista. */}
+                      la temática de una campaña vieja aunque ya no esté en la lista. Con
+                      `proponer` (2026-10-29) se puede proponer una que no está. */}
                   <SelectorDeTemas
                     unica
+                    proponer
                     opciones={opcionesCon(theme, catalogoDeTemas)}
                     seleccionados={theme ? [theme] : []}
+                    pendientes={tematicasPropias}
+                    nuevas={esTematicaNueva ? [theme] : []}
                     onAceptar={(temas) => {
                       const nueva = temas[0] ?? theme;
                       if (nueva !== theme) setEtiquetas([]);
@@ -964,7 +976,9 @@ function CampanaFormulario({
                   <p className="mt-1.5 text-[12px] font-medium text-error-700">{errorDe("tematica")}</p>
                 )}
                 <p className="text-[11.5px] text-system-500">
-                  Define en qué categoría aparece la campaña en el catálogo público.
+                  Define en qué categoría aparece la campaña en el catálogo público. Si no está la tuya, puedes
+                  proponerla: queda pendiente hasta que la apruebe el SuperUsuario y, si no la acepta, tu campaña
+                  pasa a la temática que él elija.
                 </p>
 
                 <p className="mb-1.5 mt-4 text-[13px] font-medium text-system-900">

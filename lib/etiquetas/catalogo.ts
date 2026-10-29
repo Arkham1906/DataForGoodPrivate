@@ -61,9 +61,22 @@ export async function etiquetasVisibles(usuarioId?: number | string): Promise<Ca
   return catalogo;
 }
 
-/** Temáticas aprobadas y visibles: a ellas se les puede proponer una etiqueta desde el perfil. */
-export async function tematicasConEtiquetas(): Promise<string[]> {
-  const r = await pool.query<{ nombre: string }>(`SELECT nombre FROM tematicas WHERE aprobada AND NOT oculta ORDER BY nombre`);
+/**
+ * Temáticas aprobadas y visibles: a ellas se les puede proponer una etiqueta desde el perfil. Con
+ * `usuarioId` (2026-10-29) también las pendientes que esa persona propuso o tiene en sus intereses:
+ * puede proponer subtemáticas dentro de una temática que ella misma propuso.
+ */
+export async function tematicasConEtiquetas(usuarioId?: number | string): Promise<string[]> {
+  const r = await pool.query<{ nombre: string }>(
+    `SELECT t.nombre FROM tematicas t
+     WHERE NOT t.oculta AND (
+       t.aprobada
+       OR ($1::int IS NOT NULL AND (
+             t.creada_por = $1
+             OR EXISTS (SELECT 1 FROM usuarios u WHERE u.id = $1 AND u.intereses ? t.nombre))))
+     ORDER BY t.nombre`,
+    [usuarioId ?? null],
+  );
   return r.rows.map((f) => f.nombre);
 }
 
@@ -283,9 +296,10 @@ export async function guardarEtiquetasDelUsuario(
     );
     const ids = validas.rows.map((f) => Number(f.id));
     for (const nueva of nuevas) {
-      // Solo en temáticas que tiene y que están aprobadas y visibles.
+      // Solo en temáticas que tiene y que no están ocultas. Desde el 2026-10-29 también en una pendiente:
+      // `intereses` ya viene de resolverIntereses, que solo deja una pendiente si la propuso o ya la tenía.
       const tematica = await cliente.query<{ id: number }>(
-        `SELECT id FROM tematicas WHERE clave = $1 AND clave = ANY($2::text[]) AND aprobada AND NOT oculta`,
+        `SELECT id FROM tematicas WHERE clave = $1 AND clave = ANY($2::text[]) AND NOT oculta`,
         [claveDeTematica(nueva.tematica), claves],
       );
       if (!tematica.rows[0]) continue;

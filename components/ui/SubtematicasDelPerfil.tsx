@@ -10,6 +10,9 @@
 // las campañas que solo tengan otras etiquetas (las que no tienen etiquetas sí avisan). Se guardan con
 // el perfil (PATCH /api/usuarios/[id], `etiquetas`: ids, `etiquetasNuevas`: [{ tematica, nombre }]);
 // el servidor quita las de temáticas que ya no tiene.
+// Desde el 2026-10-29 (a pedido del usuario) también se proponen subtemáticas dentro de una temática que
+// la persona propuso: las pendientes suyas llegan en `tematicas` de GET /api/etiquetas y las que aún no
+// guarda, en `tematicasPropuestas`.
 
 import { useEffect, useId, useRef, useState } from "react";
 
@@ -45,6 +48,7 @@ export default function SubtematicasDelPerfil({
   nuevas,
   onNuevas,
   error,
+  tematicasPropuestas = [],
 }: {
   /**
    * Lo que la persona escribió sobre sus gustos (2026-10-28): las etiquetas que menciona se marcan
@@ -61,9 +65,11 @@ export default function SubtematicasDelPerfil({
   onNuevas: (nuevas: EtiquetaNueva[]) => void;
   /** Error del servidor sobre las etiquetas, si lo hubo al guardar. */
   error?: string | null;
+  /** Temáticas que la persona propone y aún no se guardan (2026-10-29): también llevan submenú. */
+  tematicasPropuestas?: string[];
 }) {
   const [catalogo, setCatalogo] = useState<CatalogoDeEtiquetas | null>(null);
-  // Temáticas aprobadas y visibles: solo a esas se les puede proponer una etiqueta.
+  // Temáticas aprobadas y visibles, y las pendientes propias: solo a esas se les puede proponer una etiqueta.
   const [tematicas, setTematicas] = useState<string[]>([]);
   const [abiertas, setAbiertas] = useState<Set<string>>(new Set());
 
@@ -135,7 +141,7 @@ export default function SubtematicasDelPerfil({
   }, [texto, clavesDeIntereses, catalogo]);
 
   if (!catalogo) return null;
-  const clavesDeTematicas = new Set(tematicas.map(claveDeTematica));
+  const clavesDeTematicas = new Set([...tematicas, ...tematicasPropuestas].map(claveDeTematica));
   const conSubmenu = intereses.filter((tema) => (catalogo[tema] ?? []).length > 0 || clavesDeTematicas.has(claveDeTematica(tema)));
   if (conSubmenu.length === 0) return null;
 

@@ -438,6 +438,13 @@ paths:
                   maxItems: 20
                   items: { type: integer }
                   description: Ids de subtemáticas (GET /api/etiquetas) de las temáticas que quedan en `intereses`; las demás se descartan (2026-10-27).
+                tematicasNuevas:
+                  type: array
+                  items: { type: string }
+                  description: >-
+                    Temáticas que la persona propone porque no estaban (2026-10-29); también van en `intereses`.
+                    Las que no existen se dan de alta pendientes hasta que el SuperUsuario las revisa (máximo 3
+                    pendientes por persona; 400 si un nombre no pasa la validación).
             example: { interesesTexto: "Me gusta andar en bici y la fotografía", intereses: [Movilidad, Cultura] }
       responses:
         "200": { description: Perfil actualizado (con `intereses` ya con el nombre del catálogo) }
@@ -1769,7 +1776,8 @@ paths:
       description: |
         Las temáticas que se ofrecen como intereses y como temática de campaña: las 23 base en su
         orden y después las que salieron de los textos de los usuarios (hasta el 2026-10-20) ya
-        aprobadas, en orden alfabético. Sin las que ocultó el SuperUsuario.
+        aprobadas, en orden alfabético. Sin las que ocultó el SuperUsuario. `propias` (2026-10-29): las
+        que propuso quien pregunta y siguen sin revisar.
       responses:
         "200":
           description: Catálogo
@@ -1779,7 +1787,8 @@ paths:
                 type: object
                 properties:
                   data: { type: array, items: { type: string } }
-              example: { data: [Medio ambiente, Salud urbana, Educación, Ajedrez, Fotografía] }
+                  propias: { type: array, items: { type: string } }
+              example: { data: [Medio ambiente, Salud, Educación, Ajedrez, Fotografía], propias: [Cetrería] }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "500":
           description: No se pudo leer el catálogo
@@ -1809,7 +1818,14 @@ paths:
                         properties:
                           id: { type: integer }
                           nombre: { type: string }
-              example: { data: { "Protección animal": [{ id: 1, nombre: Gatos }, { id: 2, nombre: Perros }] } }
+                          pendiente: { type: boolean, description: "Propuesta de quien pregunta, sin revisar (2026-10-28)" }
+                  tematicas:
+                    type: array
+                    items: { type: string }
+                    description: >-
+                      Temáticas a las que se les puede proponer una etiqueta desde el perfil: las aprobadas y visibles
+                      y, desde el 2026-10-29, las pendientes que propuso quien pregunta o tiene en sus intereses.
+              example: { data: { "Protección animal": [{ id: 1, nombre: Gatos }, { id: 2, nombre: Perros }] }, tematicas: ["Protección animal"] }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "500":
           description: No se pudo leer el catálogo
@@ -2164,7 +2180,12 @@ components:
       properties:
         name: { type: string }
         description: { type: string }
-        tematica: { type: string }
+        tematica: { type: string, description: "Del catálogo (GET /api/tematicas); desde el 2026-10-29 una que no existe da 400 salvo con `tematicaNueva`" }
+        tematicaNueva:
+          type: boolean
+          description: >-
+            true si `tematica` es una propuesta del creador (2026-10-29): si no existe, se da de alta pendiente
+            hasta que el SuperUsuario la revisa (máximo 3 pendientes por persona). Si ya existe, no hace nada.
         proposito:
           type: string
           enum: [investigacion_cientifica, desarrollo_ia, monitoreo, prevencion, diagnostico, educacion, planeacion, toma_de_decisiones, concientizacion, desarrollo_tecnologico, politicas_publicas, otro]

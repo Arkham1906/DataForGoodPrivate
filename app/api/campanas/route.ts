@@ -21,6 +21,7 @@ import { rechazoDesdeFila } from "@/lib/campanas/rechazo";
 import { condicionDeVisibilidad } from "@/lib/campanas/visibilidad";
 import { agregarEtiquetas, guardarEtiquetasDeCampana } from "@/lib/etiquetas/catalogo";
 import { validarProposito } from "@/lib/campanas/proposito";
+import { crearPropuestas, revisarTematicaDeCampana } from "@/lib/tematicas/catalogo";
 import { hasRootSession } from "@/lib/rootSession";
 import { campanasParaTi } from "@/lib/usuarios/inicio";
 import { activateScheduledCampaigns, ahoraEnZona, calculateCampaignDaysRemaining, errorDeFinAntesDeInicio, errorDeInicioPasado, finalizeExpiredCampaigns, normalizeCampaignDate, normalizeCampaignTime } from "@/lib/campaign-date";
@@ -292,15 +293,22 @@ export async function POST(request: Request) {
 
     const name = String(body.name ?? "").trim();
     const description = String(body.description ?? "").trim();
-    const tematica = String(body.tematica ?? body.theme ?? body.tag ?? "").trim();
-    const tag = String(body.tag ?? tematica ?? "").trim();
+    const tematicaPedida = String(body.tematica ?? body.theme ?? body.tag ?? "").trim();
 
-    if (!name || !description || !tematica) {
+    if (!name || !description || !tematicaPedida) {
       return NextResponse.json(
         { error: "name, description y tematica son obligatorios" },
         { status: 400 }
       );
     }
+    // Temática del catálogo, o una nueva que propone el creador con `tematicaNueva: true` (2026-10-29):
+    // queda pendiente hasta que el SuperUsuario la revisa y se da de alta justo antes de guardar.
+    const tematicaRevisada = await revisarTematicaDeCampana(tematicaPedida, Number(sessionUser.id), {
+      proponer: body.tematicaNueva === true,
+    });
+    if (!tematicaRevisada.ok) return NextResponse.json({ error: tematicaRevisada.error }, { status: 400 });
+    const tematica = tematicaRevisada.tematica;
+    const tag = tematica;
 
     const creatorId = Number(sessionUser.id);
     const creator = `${sessionUser.nombre} ${sessionUser.apellidos}`.trim();
@@ -401,6 +409,8 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Selecciona un estado" }, { status: 400 });
       }
     }
+
+    await crearPropuestas(tematicaRevisada.porCrear, creatorId);
 
     const aportes: unknown[] = [];
     const ahora = ahoraEnZona();

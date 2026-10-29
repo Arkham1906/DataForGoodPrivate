@@ -71,6 +71,10 @@ export default function PerfilForm({
   const [etiquetas, setEtiquetas] = useState<number[]>(usuario.etiquetas);
   // Subtemáticas que escribió porque no estaban (2026-10-28): se crean pendientes al guardar.
   const [etiquetasNuevas, setEtiquetasNuevas] = useState<EtiquetaNueva[]>([]);
+  // Temáticas que propone porque no estaban (2026-10-29): se crean pendientes al guardar.
+  const [tematicasNuevas, setTematicasNuevas] = useState<string[]>([]);
+  // Cambia al guardar: vuelve a montar los intereses para que lean sus propuestas ya guardadas.
+  const [vecesGuardado, setVecesGuardado] = useState(0);
   const [errorDeEtiquetas, setErrorDeEtiquetas] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState("");
@@ -101,7 +105,8 @@ export default function PerfilForm({
     intereses.length !== guardado.intereses.length ||
     intereses.some((tema, i) => tema !== guardado.intereses[i]) ||
     [...etiquetas].sort().join() !== [...guardado.etiquetas].sort().join() ||
-    etiquetasNuevas.length > 0;
+    etiquetasNuevas.length > 0 ||
+    tematicasNuevas.length > 0;
 
   useEffect(() => {
     if (!avisoVisible) return;
@@ -126,6 +131,7 @@ export default function PerfilForm({
     setInteresesTexto(guardado.interesesTexto);
     setEtiquetas(guardado.etiquetas);
     setEtiquetasNuevas([]);
+    setTematicasNuevas([]);
     setErrorDeEtiquetas(null);
     setError("");
   }
@@ -154,7 +160,7 @@ export default function PerfilForm({
       const response = await fetch(`${BASE_PATH}/api/usuarios/${usuario.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...cambios, etiquetasNuevas }),
+        body: JSON.stringify({ ...cambios, etiquetasNuevas, tematicasNuevas }),
       });
 
       const body = await response.json().catch(() => ({}));
@@ -184,6 +190,8 @@ export default function PerfilForm({
       const etiquetasGuardadas = Array.isArray(body.data?.etiquetas) ? (body.data.etiquetas as number[]) : etiquetas;
       setEtiquetas(etiquetasGuardadas);
       setEtiquetasNuevas([]);
+      setTematicasNuevas([]);
+      setVecesGuardado((n) => n + 1);
       setGuardado({ ...cambios, specialty: especialidad, organizacion: organizacionGuardada, intereses: guardados, etiquetas: etiquetasGuardadas });
       setAvisoVisible(true);
       router.refresh();
@@ -290,12 +298,16 @@ export default function PerfilForm({
           </div>
 
           <InteresesDesdeTexto
+            key={vecesGuardado}
             texto={interesesTexto}
             onTexto={setInteresesTexto}
             seleccionados={intereses}
             onCambiar={setIntereses}
+            nuevas={tematicasNuevas}
+            onNuevas={setTematicasNuevas}
           />
           <SubtematicasDelPerfil
+            key={vecesGuardado}
             texto={interesesTexto}
             intereses={intereses}
             seleccionadas={etiquetas}
@@ -303,6 +315,7 @@ export default function PerfilForm({
             nuevas={etiquetasNuevas}
             onNuevas={setEtiquetasNuevas}
             error={errorDeEtiquetas}
+            tematicasPropuestas={tematicasNuevas}
           />
           <p className="mt-3 text-[12.5px] text-system-600">
             Determinan qué campañas aparecen en “Sugeridas para ti”. Los cambios se aplican al dar “Guardar cambios”.

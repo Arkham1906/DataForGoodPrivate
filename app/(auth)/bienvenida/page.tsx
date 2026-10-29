@@ -52,6 +52,8 @@ function BienvenidaForm() {
   const [etiquetas, setEtiquetas] = useState<number[]>([]);
   // Las que escribe porque no estaban (2026-10-28): se crean pendientes al terminar.
   const [etiquetasNuevas, setEtiquetasNuevas] = useState<EtiquetaNueva[]>([]);
+  // Temáticas que propone porque no estaban (2026-10-29): se crean pendientes al terminar.
+  const [tematicasNuevas, setTematicasNuevas] = useState<string[]>([]);
   const [errorDeEtiquetas, setErrorDeEtiquetas] = useState<string | null>(null);
   const [textoDeIntereses, setTextoDeIntereses] = useState("");
   const [state, setState] = useState("");
@@ -137,10 +139,12 @@ function BienvenidaForm() {
       interesesTexto: textoDeIntereses,
       etiquetas,
       etiquetasNuevas,
+      tematicasNuevas,
     });
     if (error) {
       if (error.startsWith("La organización")) setErrorDeOrganizacion(error);
-      else if (/etiqueta|subtemática/i.test(error)) setErrorDeEtiquetas(error);
+      // Los de temáticas propuestas (2026-10-29) también van junto a los intereses.
+      else if (/etiqueta|temática/i.test(error)) setErrorDeEtiquetas(error);
       else setErrorDeEspecialidad(error);
       return;
     }
@@ -288,6 +292,8 @@ function BienvenidaForm() {
                 onTexto={setTextoDeIntereses}
                 seleccionados={selected}
                 onCambiar={setSelected}
+                nuevas={tematicasNuevas}
+                onNuevas={setTematicasNuevas}
               />
               <SubtematicasDelPerfil
                 texto={textoDeIntereses}
@@ -297,6 +303,7 @@ function BienvenidaForm() {
                 nuevas={etiquetasNuevas}
                 onNuevas={setEtiquetasNuevas}
                 error={errorDeEtiquetas}
+                tematicasPropuestas={tematicasNuevas}
               />
             </div>
           </div>
