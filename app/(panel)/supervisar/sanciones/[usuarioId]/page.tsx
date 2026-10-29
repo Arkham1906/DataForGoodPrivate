@@ -6,10 +6,12 @@ import type { Metadata } from "next";
 
 import PantallaDeSancionar, { tituloDeSancionar } from "@/components/moderacion/PantallaDeSancionar";
 import { exigirModerador } from "@/lib/moderacion/moderador";
+import { exigirSesionRoot } from "@/lib/supervision/root";
 
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: Promise<{ usuarioId: string }> }): Promise<Metadata> {
+  await exigirSesionRoot();
   const { usuarioId } = await params;
   return { title: await tituloDeSancionar(usuarioId) };
 }
@@ -21,6 +23,7 @@ export default async function SancionarPage({
   params: Promise<{ usuarioId: string }>;
   searchParams: Promise<{ reportes?: string }>;
 }) {
+  await exigirSesionRoot();
   const moderador = await exigirModerador("supervisar");
   const { usuarioId } = await params;
   const { reportes } = await searchParams;

@@ -41,8 +41,15 @@ export type TipoDeNotificacion =
   // Campañas para participar (lib/notificaciones/campanas-por-interes.ts)
   | "campana_nueva"
   | "campana_especial"
+  // Socialización, a quien participa (./socializacion.ts, 2026-10-28): la campaña pasó un hito de su
+  // meta, o se activó otra con alguna de sus etiquetas.
+  | "campana_avance"
+  | "campana_relacionada"
   // Una temática nueva coincide con lo que escribió sobre sus gustos (./tematica-nueva.ts, 2026-10-26).
   | "tematica_nueva"
+  // El SuperUsuario revisó una etiqueta que la persona propuso en su perfil o su campaña (2026-10-28).
+  | "etiqueta_aprobada"
+  | "etiqueta_rechazada"
   // Periódicas, según Preferencias (lib/notificaciones/periodicas.ts)
   | "recordatorio_semanal"
   | "resumen_mensual"
@@ -124,16 +131,19 @@ export function categoriaDeNotificacion(tipo: string): CategoriaDeNotificacion {
     case "sancion_restaurada":
     case "campana_desbaneo":
     case "aportes_recibidos":
+    case "etiqueta_aprobada":
+    case "campana_avance":
       return "buena";
     // Novedades para participar.
     case "campana_nueva":
     case "campana_especial":
+    case "campana_relacionada":
     case "tematica_nueva":
     case "recordatorio_semanal":
     case "resumen_mensual":
       return "novedad";
     // Solo para que lo sepas: campana_finalizada, rol_revocado, revisor_quitado, campana_en_revision,
-    // supervision_revertida y los que ya no se crean (campana_reportada, aporte_reportado).
+    // supervision_revertida, etiqueta_rechazada y los que ya no se crean (campana_reportada, aporte_reportado).
     default:
       return "aviso";
   }

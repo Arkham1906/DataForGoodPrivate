@@ -1,5 +1,5 @@
 import { pool } from "@/lib/db";
-import { calculateCampaignDaysRemaining, normalizeCampaignDate } from "@/lib/campaign-date";
+import { ZONA_DE_CAMPANAS, calculateCampaignDaysRemaining, hoyEnTepic, normalizeCampaignDate } from "@/lib/campaign-date";
 
 /*
  * Datos del "Panel de campaña" de la vista de supervisor (usuario promovido
@@ -49,12 +49,12 @@ export type PanelDeCampana = {
   };
 };
 
-/** Últimos `dias` días (más antiguo primero), como clave "YYYY-MM-DD" + etiqueta corta. */
+/** Últimos `dias` días de Tepic (más antiguo primero), como clave "YYYY-MM-DD" + etiqueta corta. */
 function diasRecientes(dias: number): { clave: string; etiqueta: string }[] {
-  const hoy = new Date();
+  const [anio, mes, dia] = hoyEnTepic().split("-").map(Number);
   const lista: { clave: string; etiqueta: string }[] = [];
   for (let i = dias - 1; i >= 0; i--) {
-    const fecha = new Date(Date.UTC(hoy.getUTCFullYear(), hoy.getUTCMonth(), hoy.getUTCDate() - i));
+    const fecha = new Date(Date.UTC(anio, mes - 1, dia - i));
     lista.push({ clave: fecha.toISOString().slice(0, 10), etiqueta: NOMBRE_DE_DIA.format(fecha).replace(".", "") });
   }
   return lista;
@@ -81,12 +81,14 @@ export async function obtenerPanelDeCampana(campanaId: string | number): Promise
        FROM aportes WHERE campaign_id = $1`,
       [campanaId],
     ),
+    // submitted_at se guarda en UTC; el día se cuenta en la hora de Tepic (antes, desde las
+    // 17:00 de Tepic los aportes caían en el día siguiente).
     pool.query<{ dia: string; n: string }>(
-      `SELECT to_char(date_trunc('day', submitted_at), 'YYYY-MM-DD') AS dia, COUNT(*) AS n
+      `SELECT to_char((submitted_at AT TIME ZONE 'UTC') AT TIME ZONE $3, 'YYYY-MM-DD') AS dia, COUNT(*) AS n
        FROM aportes
-       WHERE campaign_id = $1 AND submitted_at >= $2::date
+       WHERE campaign_id = $1 AND submitted_at >= ($2::date::timestamp AT TIME ZONE $3) AT TIME ZONE 'UTC'
        GROUP BY 1`,
-      [campanaId, desde],
+      [campanaId, desde, ZONA_DE_CAMPANAS],
     ),
     pool.query<{ file_type: string; n: string }>(
       `SELECT file_type, COUNT(*) AS n FROM aportes WHERE campaign_id = $1 AND status = 'aceptado' GROUP BY file_type`,

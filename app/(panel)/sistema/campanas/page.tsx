@@ -25,6 +25,7 @@ import {
   type EstadoDeCampana,
 } from "@/lib/campanas/sistema";
 import FiltrosDeCampanas from "./filtros";
+import { exigirSesionRoot } from "@/lib/supervision/root";
 
 export const metadata: Metadata = { title: "Listado de campañas" };
 export const dynamic = "force-dynamic";
@@ -43,6 +44,7 @@ type Busqueda = {
 const BASE = "/sistema/campanas";
 
 export default async function ListadoDeCampanasPage({ searchParams }: { searchParams: Promise<Busqueda> }) {
+  await exigirSesionRoot();
   const sp = await searchParams;
   // Un ?estado=borrador escrito a mano se ignora: el listado no muestra borradores.
   const estado = ESTADOS_DEL_LISTADO.find((e) => e === esEstado(sp.estado));

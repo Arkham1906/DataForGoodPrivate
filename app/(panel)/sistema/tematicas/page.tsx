@@ -46,7 +46,7 @@ export default async function TematicasPage({ searchParams }: { searchParams: Pr
     <div>
       <Encabezado
         titulo="Temáticas"
-        subtitulo="Intereses de los perfiles y temáticas de las campañas. Cada temática tiene sus etiquetas (subtemáticas, como Perros o Gatos en Protección animal): las creas aquí o las proponen los creadores al hacer su campaña, y quedan por revisar. Puedes crear temáticas y editar o borrar las que no son base (las base solo se ocultan). Las nuevas salen de lo que escriben los usuarios sobre sus gustos y quedan pendientes: solo las tiene quien las escribió hasta que las apruebas; si la rechazas, se borra y se quita de su perfil. Una oculta deja de ofrecerse, pero no se quita de los perfiles ni de las campañas que ya la tienen."
+        subtitulo="Intereses de los perfiles y temáticas de las campañas. Cada temática tiene sus etiquetas (subtemáticas, como Perros o Gatos en Protección animal): las creas aquí o las proponen los usuarios (al hacer su campaña o en sus intereses), y quedan por revisar; si rechazas una, se borra y se quita de las campañas y los perfiles que la tenían. Puedes crear temáticas y editar o borrar las que no son base (las base solo se ocultan). Las nuevas salen de lo que escriben los usuarios sobre sus gustos y quedan pendientes: solo las tiene quien las escribió hasta que las apruebas; si la rechazas, se borra y se quita de su perfil. Una oculta deja de ofrecerse, pero no se quita de los perfiles ni de las campañas que ya la tienen."
       />
 
       <NuevaTematica />

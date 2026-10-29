@@ -9,10 +9,12 @@ import { listarCampanasParaRoot, type CampanaSupervisable } from "@/lib/supervis
 import { porcentajeDeMeta } from "@/lib/campanas/meta";
 import { BackLink } from "../_ui";
 import type { Metadata } from "next";
+import { exigirSesionRoot } from "@/lib/supervision/root";
 
 export const metadata: Metadata = { title: "Campañas supervisadas" };
 
 export default async function SupervisedCampaignsPage() {
+  await exigirSesionRoot();
   const { supervisadas } = await listarCampanasParaRoot();
   const campaigns = supervisadas.filter((c) => c.status === "activa" || c.status === "aceptada" || c.status === "pausada");
   const mias = campaigns.filter((c) => c.supervision === "mia");

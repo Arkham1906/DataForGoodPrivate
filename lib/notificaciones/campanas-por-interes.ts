@@ -20,6 +20,7 @@ import { especialDesdeFila } from "@/lib/campanas/especial";
 import { fechaCorta } from "@/lib/campanas/especial-reglas";
 import { ZONA_DE_CAMPANAS } from "@/lib/campaign-date";
 import { notificar } from "./notificaciones";
+import { avisarCampanaRelacionada } from "./socializacion";
 import type { TipoDeNotificacion } from "./tipos";
 
 /** Tope de avisos de campañas nuevas por persona y día (hora de Tepic). */
@@ -49,9 +50,15 @@ type Candidato = {
   etiquetas_del_tema: number[];
 };
 
-/** Avisa de una campaña recién activada. No espera ni lanza. */
+/**
+ * Avisa de una campaña recién activada. No espera ni lanza. Después invita a quien participa en
+ * campañas con sus etiquetas (campana_relacionada, ./socializacion.ts): va detrás para no repetírselo
+ * a quien ya recibió el de campaña nueva.
+ */
 export function avisarCampanaNueva(campanaId: number): void {
-  void enviarCampanaNueva(campanaId).catch((error) => console.error(`Error avisando la campaña nueva ${campanaId}`, error));
+  void enviarCampanaNueva(campanaId)
+    .catch((error) => console.error(`Error avisando la campaña nueva ${campanaId}`, error))
+    .finally(() => avisarCampanaRelacionada(campanaId));
 }
 
 /** Avisa de los incentivos de una campaña especial activa. No espera ni lanza. */

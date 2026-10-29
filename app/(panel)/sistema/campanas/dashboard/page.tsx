@@ -23,6 +23,7 @@ import {
   obtenerDashboardDeCampanas,
   porcentajeDeMeta,
 } from "@/lib/campanas/sistema";
+import { exigirSesionRoot } from "@/lib/supervision/root";
 
 export const metadata: Metadata = { title: "Dashboard de campañas" };
 export const dynamic = "force-dynamic";
@@ -30,6 +31,7 @@ export const dynamic = "force-dynamic";
 const corte = new Intl.DateTimeFormat("es-MX", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
 export default async function DashboardDeCampanasPage() {
+  await exigirSesionRoot();
   const d = await obtenerDashboardDeCampanas();
   const v = d.vigencia;
 

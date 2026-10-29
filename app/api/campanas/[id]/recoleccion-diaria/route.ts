@@ -2,6 +2,7 @@
 // Solo el creador de la campaña (es su panel: /mis-campanas/[id]/panel).
 
 import { NextResponse } from "next/server";
+import { ZONA_DE_CAMPANAS, hoyEnTepic } from "@/lib/campaign-date";
 import { pool } from "@/lib/db";
 import { getSessionUser } from "@/lib/session";
 
@@ -17,12 +18,12 @@ const ETIQUETA_DE_TIPO: Record<string, string> = {
   documento: "Archivo",
 };
 
-/** Últimos `dias` días (más antiguo primero), como clave "YYYY-MM-DD" + etiqueta corta. */
+/** Últimos `dias` días de Tepic (más antiguo primero), como clave "YYYY-MM-DD" + etiqueta corta. */
 function diasRecientes(dias: number): { clave: string; etiqueta: string }[] {
-  const hoy = new Date();
+  const [anio, mes, dia] = hoyEnTepic().split("-").map(Number);
   const lista: { clave: string; etiqueta: string }[] = [];
   for (let i = dias - 1; i >= 0; i--) {
-    const fecha = new Date(Date.UTC(hoy.getUTCFullYear(), hoy.getUTCMonth(), hoy.getUTCDate() - i));
+    const fecha = new Date(Date.UTC(anio, mes - 1, dia - i));
     lista.push({
       clave: fecha.toISOString().slice(0, 10),
       etiqueta: NOMBRE_DE_DIA.format(fecha).replace(".", ""),
@@ -51,12 +52,13 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     const desde = dias[0]?.clave ?? "1970-01-01";
 
     const [diariaResult, tipoResult, campanaResult] = await Promise.all([
+      // Día en la hora de Tepic (submitted_at se guarda en UTC), igual que lib/campanas/panel.ts.
       pool.query<{ dia: string; n: string }>(
-        `SELECT to_char(date_trunc('day', submitted_at), 'YYYY-MM-DD') AS dia, COUNT(*) AS n
+        `SELECT to_char((submitted_at AT TIME ZONE 'UTC') AT TIME ZONE $3, 'YYYY-MM-DD') AS dia, COUNT(*) AS n
          FROM aportes
-         WHERE campaign_id = $1 AND submitted_at >= $2::date
+         WHERE campaign_id = $1 AND submitted_at >= ($2::date::timestamp AT TIME ZONE $3) AT TIME ZONE 'UTC'
          GROUP BY 1`,
-        [id, desde]
+        [id, desde, ZONA_DE_CAMPANAS]
       ),
       // Base de "aportes aprobados", igual que el MetricCard de arriba del
       // panel: es la pregunta que responde esta sección ("¿de qué tipo son

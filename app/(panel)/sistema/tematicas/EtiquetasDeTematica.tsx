@@ -77,7 +77,7 @@ export default function EtiquetasDeTematica({
                     #{e.nombre}
                   </p>
                   <p className="text-[11.5px] text-system-500">
-                    {e.origen === "panel" ? "Creada aquí" : "Propuesta por un creador"} · {cuantos(e.campanas, "campaña", "campañas")} ·{" "}
+                    {e.origen === "panel" ? "Creada aquí" : "Propuesta por un usuario (en su campaña o su perfil)"} · {cuantos(e.campanas, "campaña", "campañas")} ·{" "}
                     {cuantos(e.personas, "persona", "personas")}
                   </p>
                 </div>

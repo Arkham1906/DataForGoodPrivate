@@ -14,6 +14,7 @@ import { quienOrganiza } from "@/lib/campanas/organizacion";
 import { textoDelProposito } from "@/lib/campanas/proposito";
 import AccionesDeSupervision, { EstadoComoSuperUsuario } from "./acciones";
 import type { Metadata } from "next";
+import { exigirSesionRoot } from "@/lib/supervision/root";
 
 export const metadata: Metadata = { title: "Supervisar campaña" };
 
@@ -35,6 +36,7 @@ function formatDate(date: string | null) {
 }
 
 export default async function SupervisarCampanaPage({ params }: { params: Promise<{ campaignId: string }> }) {
+  await exigirSesionRoot();
   const { campaignId } = await params;
   const campaign = await obtenerCampanaParaRoot(campaignId);
   if (!campaign) notFound();

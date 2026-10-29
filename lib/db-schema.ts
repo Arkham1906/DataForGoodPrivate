@@ -2,6 +2,7 @@ import { pool } from "@/lib/db";
 import { RENOMBRES_DE_TEMATICAS_BASE, TEMAS_DE_INTERES } from "@/lib/intereses";
 import { ESPECIALIDADES, claveDeCatalogo, validarEspecialidad, validarOrganizacion } from "@/lib/perfil-opciones";
 import { claveDeTematica } from "@/lib/tematicas/analizar";
+import { ETIQUETAS_BASE } from "@/lib/etiquetas/base";
 import { ensureAvisosDeCambios } from "@/lib/en-vivo-postgres";
 
 /**
@@ -246,6 +247,18 @@ export async function ensureCampanasTable(): Promise<void> {
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS pausa_por VARCHAR(20);
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS pausa_motivo TEXT;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS pausada_en TIMESTAMPTZ;
+    -- Último hito de la meta (25, 50, 75 o 100 %) avisado a quienes participan (2026-10-28,
+    -- lib/notificaciones/socializacion.ts). Al crear la columna, las campañas que ya existían
+    -- arrancan en el hito que ya alcanzaron: no reciben avisos atrasados.
+    DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                      WHERE table_name = 'campanas' AND column_name = 'ultimo_hito_avisado') THEN
+        ALTER TABLE campanas ADD COLUMN ultimo_hito_avisado SMALLINT NOT NULL DEFAULT 0;
+        UPDATE campanas SET ultimo_hito_avisado = LEAST(100, approved_contributions * 100 / goal_contributions / 25 * 25)
+         WHERE goal_contributions > 0;
+      END IF;
+    END $$;
   `);
 }
 
@@ -725,7 +738,9 @@ export async function ensureTematicasTable(): Promise<void> {
  *     Borrar la temática borra sus etiquetas.
  *   - `campana_etiquetas`: hasta 5 por campaña (MAXIMO_DE_ETIQUETAS_POR_CAMPANA), opcionales.
  *   - `usuario_etiquetas`: subtemáticas que la persona marca en sus intereses (/bienvenida, /cuenta),
- *     solo de temáticas que tiene en `usuarios.intereses`.
+ *     solo de temáticas que tiene en `usuarios.intereses`. Desde el 2026-10-28 también puede proponer
+ *     una nueva desde ahí (origen 'usuario', pendiente, como las de los creadores).
+ *   - Etiquetas base (2026-10-28): lib/etiquetas/base.ts, sembradas una vez por temática.
  */
 export async function ensureEtiquetasTables(): Promise<void> {
   await pool.query(`
@@ -754,7 +769,24 @@ export async function ensureEtiquetasTables(): Promise<void> {
       PRIMARY KEY (usuario_id, etiqueta_id)
     );
     CREATE INDEX IF NOT EXISTS usuario_etiquetas_etiqueta_idx ON usuario_etiquetas (etiqueta_id);
+    -- Ya recibió sus etiquetas base (2026-10-28, lib/etiquetas/base.ts): no se vuelven a sembrar.
+    ALTER TABLE tematicas ADD COLUMN IF NOT EXISTS etiquetas_sembradas BOOLEAN NOT NULL DEFAULT false;
   `);
+  // Etiquetas base: una sola vez por temática, marcándola en la misma sentencia. Las que ya existían
+  // (ON CONFLICT) se respetan, y ninguna puede llamarse como una temática.
+  for (const [tematica, nombres] of Object.entries(ETIQUETAS_BASE)) {
+    await pool.query(
+      `WITH t AS (
+         UPDATE tematicas SET etiquetas_sembradas = true WHERE clave = $1 AND NOT etiquetas_sembradas RETURNING id
+       )
+       INSERT INTO etiquetas (tematica_id, nombre, clave, origen, aprobada)
+       SELECT t.id, n.nombre, n.clave, 'panel', true
+       FROM t, unnest($2::text[], $3::text[]) AS n(nombre, clave)
+       WHERE n.clave NOT IN (SELECT clave FROM tematicas)
+       ON CONFLICT (tematica_id, clave) DO NOTHING`,
+      [claveDeTematica(tematica), nombres, nombres.map(claveDeTematica)],
+    );
+  }
 }
 
 /**

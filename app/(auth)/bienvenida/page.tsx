@@ -20,6 +20,7 @@ import { opcionesCon, validarEspecialidad, validarOrganizacion } from "@/lib/per
 import { municipiosDe, NOMBRES_DE_ESTADOS } from "@/lib/mexico-geo";
 import { BASE_PATH } from "@/lib/base-path";
 import { conDestino, destinoSeguro } from "@/lib/redireccion";
+import type { EtiquetaNueva } from "@/lib/etiquetas/reglas";
 
 type SessionUser = {
   id: number;
@@ -49,6 +50,9 @@ function BienvenidaForm() {
   const [selected, setSelected] = useState<string[]>([]);
   // Subtemáticas (etiquetas) de esos intereses, opcionales (2026-10-27). Empiezan vacías.
   const [etiquetas, setEtiquetas] = useState<number[]>([]);
+  // Las que escribe porque no estaban (2026-10-28): se crean pendientes al terminar.
+  const [etiquetasNuevas, setEtiquetasNuevas] = useState<EtiquetaNueva[]>([]);
+  const [errorDeEtiquetas, setErrorDeEtiquetas] = useState<string | null>(null);
   const [textoDeIntereses, setTextoDeIntereses] = useState("");
   const [state, setState] = useState("");
   const [city, setCity] = useState("");
@@ -123,9 +127,20 @@ function BienvenidaForm() {
     if (organizacionValidada && !organizacionValidada.ok) setErrorDeOrganizacion(organizacionValidada.error);
     if ((validada && !validada.ok) || (organizacionValidada && !organizacionValidada.ok)) return;
 
-    const error = await guardar({ state, city, specialty, organizacion, intereses: selected, interesesTexto: textoDeIntereses, etiquetas });
+    setErrorDeEtiquetas(null);
+    const error = await guardar({
+      state,
+      city,
+      specialty,
+      organizacion,
+      intereses: selected,
+      interesesTexto: textoDeIntereses,
+      etiquetas,
+      etiquetasNuevas,
+    });
     if (error) {
       if (error.startsWith("La organización")) setErrorDeOrganizacion(error);
+      else if (/etiqueta|subtemática/i.test(error)) setErrorDeEtiquetas(error);
       else setErrorDeEspecialidad(error);
       return;
     }
@@ -274,7 +289,15 @@ function BienvenidaForm() {
                 seleccionados={selected}
                 onCambiar={setSelected}
               />
-              <SubtematicasDelPerfil intereses={selected} seleccionadas={etiquetas} onCambiar={setEtiquetas} />
+              <SubtematicasDelPerfil
+                texto={textoDeIntereses}
+                intereses={selected}
+                seleccionadas={etiquetas}
+                onCambiar={setEtiquetas}
+                nuevas={etiquetasNuevas}
+                onNuevas={setEtiquetasNuevas}
+                error={errorDeEtiquetas}
+              />
             </div>
           </div>
           <p className="mb-5 text-[11.5px] text-system-500">

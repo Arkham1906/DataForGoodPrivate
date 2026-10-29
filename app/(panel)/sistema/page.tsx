@@ -6,10 +6,12 @@ import Link from "next/link";
 import MetricCard from "@/components/sistema/MetricCard";
 import { IconoCampanas } from "@/components/sistema/icons";
 import { obtenerMetricasDelSistema } from "@/lib/sistema/metricas";
+import { exigirSesionRoot } from "@/lib/supervision/root";
 
 export const metadata: Metadata = { title: "Panel del sistema" };
 
 export default async function PanelDelSistemaPage() {
+  await exigirSesionRoot();
   const m = await obtenerMetricasDelSistema();
 
   return (

@@ -81,7 +81,7 @@ Una server action es un endpoint público: cualquiera puede invocarla con su ID.
 | Zona | Patrón actual |
 | --- | --- |
 | `(dashboard)` | Página `"use client"` que carga con `fetch("/api/...")` en `useEffect` y maneja `cargando` / `error`. Algunas, como `mis-campanas/nueva`, separan un formulario cliente (`NuevaCampanaForm.tsx`) |
-| `(panel)` | Server Component `async` que debe llamar a `exigirSesionRoot()` o a una función de `lib/` que ya la exija (hoy `/sistema` y `/usuarios/**` no lo hacen, ver `roles-y-sesiones.md` § 8), lee con funciones de `lib/<modulo>/` y pasa props a componentes cliente hermanos (`filtros.tsx`, `botones-de-rol.tsx`, `formulario.tsx`) que llaman a server actions |
+| `(panel)` | Server Component `async` que llama a `exigirSesionRoot()` al empezar (todas desde el 2026-10-28; también en `generateMetadata` si lee datos), lee con funciones de `lib/<modulo>/` y pasa props a componentes cliente hermanos (`filtros.tsx`, `botones-de-rol.tsx`, `formulario.tsx`) que llaman a server actions |
 | Públicas (`/`, `/datos`) | Server Components. `/` usa `revalidate = 300`: sus consultas van en `try/catch` con valores por defecto porque el build no tiene base de datos |
 
 Actualización en vivo: `components/supervision/RefrescoEnVivo.tsx` hace `router.refresh()` periódico (polling) en los paneles de campañas activas.

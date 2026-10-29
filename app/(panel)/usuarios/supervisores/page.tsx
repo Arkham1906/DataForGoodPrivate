@@ -15,6 +15,7 @@ import {
   obtenerResumenDeSupervisores,
 } from "@/lib/usuarios/supervisores";
 import BuscadorDeSupervisores from "./buscador";
+import { exigirSesionRoot } from "@/lib/supervision/root";
 
 export const metadata: Metadata = { title: "Supervisores" };
 export const dynamic = "force-dynamic";
@@ -24,6 +25,7 @@ export default async function SupervisoresPage({
 }: {
   searchParams: Promise<{ q?: string }>;
 }) {
+  await exigirSesionRoot();
   const { q } = await searchParams;
   const [resumen, supervisores] = await Promise.all([
     obtenerResumenDeSupervisores(),

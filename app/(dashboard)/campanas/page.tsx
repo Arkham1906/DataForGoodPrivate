@@ -7,7 +7,9 @@
 // Pocas opciones a la vez (Ley de Hick, 2026-10-07): la fila muestra hasta MAXIMO_DE_TEMAS_VISIBLES
 // temáticas, primero las de los intereses de la persona, y el resto va en "Más temáticas"
 // (campanas/MasTematicas). Con más de UMBRAL_DE_BUSQUEDA campañas aparece la búsqueda con tipo y orden
-// (campanas/BarraDeFiltros, sin temática: esa se elige con los botones).
+// (campanas/BarraDeFiltros, sin temática ni tipo: esos se eligen con los botones).
+// Tipo de dato (2026-10-28, a pedido del usuario): fila de botones siempre visible con los tipos que
+// piden las campañas de la lista; se combina con temática, etiqueta y búsqueda.
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -24,6 +26,7 @@ import VentanaDeCampana from "@/components/campanas/VentanaDeCampana";
 import type { Campaign } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
 import { FILTROS_VACIOS, filtrarCampanas, type FiltrosLocales } from "@/lib/campanas/filtro-local";
+import { NOMBRE_DE_TIPO, type TipoDeDato } from "@/lib/campanas/sistema-opciones";
 import { claveDeTematica } from "@/lib/tematicas/analizar";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 
@@ -43,6 +46,8 @@ const CLASE_DEL_FILTRO =
   "shrink-0 whitespace-nowrap rounded-pill border px-3.5 py-1.5 text-[13px] font-semibold transition-colors max-md:px-2.5 max-md:py-1 max-md:text-[12px]";
 const CLASE_INACTIVO = "border-system-300 bg-white text-system-600 hover:border-brand-600";
 const CLASE_ACTIVO = "border-brand-600 bg-brand-600 text-white";
+// Orden de los botones de tipo de dato: el mismo del formulario de campaña.
+const TIPOS_DE_DATO = Object.keys(NOMBRE_DE_TIPO) as TipoDeDato[];
 
 /** "Estado de México" y "estado de mexico" cuentan como el mismo estado. */
 function normalizarEstado(valor: string | null | undefined): string {
@@ -69,6 +74,8 @@ export default function CampanasPage() {
   // Intereses del perfil (por clave, sin acentos): sus temáticas van primero en la fila.
   const [misIntereses, setMisIntereses] = useState<Set<string>>(new Set());
   const [busqueda, setBusqueda] = useState<FiltrosLocales>(FILTROS_VACIOS);
+  // Tipo de dato elegido con los botones; "" = todos. Se conserva al cambiar de temática.
+  const [tipoActivo, setTipoActivo] = useState("");
 
   // Vuelve a leer cuando algo cambia en la base (actualización en vivo).
   const recarga = useRecargaEnVivo();
@@ -152,12 +159,18 @@ export default function CampanasPage() {
   const porEtiqueta =
     esTematica && etiquetaActiva ? porFiltro.filter((c) => (c.etiquetas ?? []).some((e) => e.nombre === etiquetaActiva)) : porFiltro;
 
+  // Tipos de dato de la lista ya filtrada por temática y etiqueta, con cuántas campañas lo piden
+  // (así nunca sale un botón sin resultados); el elegido sigue visible aunque quede en 0, para poder quitarlo.
+  const tiposDeLaLista = TIPOS_DE_DATO.map((tipo) => [tipo, porEtiqueta.filter((c) => (c.dataTypes ?? []).includes(tipo)).length] as const).filter(
+    ([tipo, total]) => total > 0 || tipo === tipoActivo
+  );
+
   const conBusqueda = campaigns.length > UMBRAL_DE_BUSQUEDA;
-  const buscando = conBusqueda && (busqueda.q.trim() !== "" || busqueda.tipo !== "" || busqueda.orden !== "");
-  const filtered = conBusqueda ? filtrarCampanas(porEtiqueta, busqueda, (c) => c.tag) : porEtiqueta;
+  const buscando = tipoActivo !== "" || (conBusqueda && (busqueda.q.trim() !== "" || busqueda.orden !== ""));
+  const filtered = filtrarCampanas(porEtiqueta, { ...(conBusqueda ? busqueda : FILTROS_VACIOS), tipo: tipoActivo }, (c) => c.tag);
 
   function cambiarBusqueda(clave: keyof ValoresDeFiltros, valor: string) {
-    if (clave === "q" || clave === "tipo" || clave === "orden") setBusqueda((actual) => ({ ...actual, [clave]: valor }));
+    if (clave === "q" || clave === "orden") setBusqueda((actual) => ({ ...actual, [clave]: valor }));
   }
 
   return (
@@ -256,12 +269,38 @@ export default function CampanasPage() {
         </div>
       )}
 
+      {!cargando && !error && tiposDeLaLista.length > 0 && (
+        <div
+          className="dashboard-nav -mt-3 mb-6 flex w-full min-w-0 flex-nowrap items-center gap-1.5 overflow-x-auto overscroll-x-contain pb-2 [-webkit-overflow-scrolling:touch] max-md:-mt-2 max-md:mb-4 md:flex-wrap md:overflow-visible md:pb-0"
+          role="group"
+          aria-label="Filtrar por tipo de dato"
+        >
+          <span className="mr-1 shrink-0 text-[12px] text-system-500">Tipo de dato:</span>
+          {tiposDeLaLista.map(([tipo, total]) => {
+            const activo = tipoActivo === tipo;
+            return (
+              <button
+                key={tipo}
+                type="button"
+                aria-pressed={activo}
+                onClick={() => setTipoActivo(activo ? "" : tipo)}
+                className={`shrink-0 whitespace-nowrap rounded-pill border px-2.5 py-1 text-[12px] font-semibold transition-colors ${activo ? CLASE_ACTIVO : CLASE_INACTIVO}`}
+              >
+                {NOMBRE_DE_TIPO[tipo]}
+                <span className="ml-1.5 font-mono">{total}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {conBusqueda && !cargando && !error && (
         <BarraDeFiltros
-          valores={{ ...busqueda, tematica: "" }}
+          valores={{ ...busqueda, tematica: "", tipo: "" }}
           tematicas={[]}
           onCambiar={cambiarBusqueda}
           conTematica={false}
+          conTipo={false}
           colapsableEnMovil
         />
       )}
@@ -285,8 +324,10 @@ export default function CampanasPage() {
         </p>
       ) : filtered.length === 0 ? (
         <p className="text-sm text-system-600">
-          {buscando && porFiltro.length > 0
-            ? "Ninguna campaña coincide con la búsqueda."
+          {buscando && porEtiqueta.length > 0
+            ? tipoActivo && !(conBusqueda && busqueda.q.trim())
+              ? `Ninguna campaña de esta lista pide ${NOMBRE_DE_TIPO[tipoActivo as TipoDeDato].toLowerCase()}.`
+              : "Ninguna campaña coincide con la búsqueda."
             : activeTag === "Guardadas"
               ? "Todavía no has guardado ninguna campaña."
               : activeTag === TU_LOCALIDAD

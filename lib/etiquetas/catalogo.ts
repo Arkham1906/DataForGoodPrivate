@@ -8,6 +8,9 @@
 //     quita de las campañas).
 //   - Se muestran en la campaña, se filtra por ellas (/explorar, /campanas, el panel y la
 //     supervisión) y la persona las marca en sus intereses para los avisos de campañas nuevas.
+//   - Desde el 2026-10-28 la persona también propone una al guardar sus intereses (/bienvenida,
+//     /cuenta): queda pendiente y solo ella la ve en su perfil hasta que el SuperUsuario la revisa;
+//     rechazarla la borra y la quita de su perfil. Las etiquetas base salen de ./base.ts.
 // Los nombres se validan como los de las temáticas (validarNombreDeTematica) y no se repiten dentro
 // de la misma temática (por `clave`, sin acentos ni mayúsculas).
 
@@ -18,9 +21,11 @@ import { claveDeTematica } from "@/lib/tematicas/analizar";
 import { validarNombreDeTematica, type ResultadoDelCatalogo } from "@/lib/tematicas/catalogo";
 import {
   MAXIMO_DE_ETIQUETAS_EN_PERFIL,
+  MAXIMO_DE_ETIQUETAS_NUEVAS_EN_PERFIL,
   MAXIMO_DE_ETIQUETAS_POR_CAMPANA,
   type CatalogoDeEtiquetas,
   type EtiquetaDeCampana,
+  type EtiquetaNueva,
 } from "@/lib/etiquetas/reglas";
 
 type Db = Pool | PoolClient;
@@ -33,17 +38,33 @@ async function idDeTematica(db: Db, nombre: string): Promise<number | null> {
   return r.rows[0] ? Number(r.rows[0].id) : null;
 }
 
-/** Etiquetas que se ofrecen (aprobadas y visibles), por nombre de temática, en orden alfabético. */
-export async function etiquetasVisibles(): Promise<CatalogoDeEtiquetas> {
-  const r = await pool.query<{ id: number; nombre: string; tematica: string }>(
-    `SELECT e.id, e.nombre, t.nombre AS tematica
+/**
+ * Etiquetas que se ofrecen (aprobadas y visibles), por nombre de temática, en orden alfabético.
+ * Con `usuarioId` (2026-10-28) también las pendientes que esa persona propuso o ya tiene en su
+ * perfil, con `pendiente: true`: solo ella las ve hasta que el SuperUsuario las revisa.
+ */
+export async function etiquetasVisibles(usuarioId?: number | string): Promise<CatalogoDeEtiquetas> {
+  const r = await pool.query<{ id: number; nombre: string; tematica: string; aprobada: boolean }>(
+    `SELECT e.id, e.nombre, t.nombre AS tematica, e.aprobada
      FROM etiquetas e JOIN tematicas t ON t.id = e.tematica_id
-     WHERE e.aprobada AND NOT e.oculta
+     WHERE (e.aprobada AND NOT e.oculta)
+        OR ($1::int IS NOT NULL AND NOT e.aprobada AND (
+              e.creada_por = $1
+              OR EXISTS (SELECT 1 FROM usuario_etiquetas ue WHERE ue.usuario_id = $1 AND ue.etiqueta_id = e.id)))
      ORDER BY t.nombre, e.clave`,
+    [usuarioId ?? null],
   );
   const catalogo: CatalogoDeEtiquetas = {};
-  for (const fila of r.rows) (catalogo[fila.tematica] ??= []).push({ id: Number(fila.id), nombre: fila.nombre });
+  for (const fila of r.rows) {
+    (catalogo[fila.tematica] ??= []).push({ id: Number(fila.id), nombre: fila.nombre, ...(fila.aprobada ? {} : { pendiente: true }) });
+  }
   return catalogo;
+}
+
+/** Temáticas aprobadas y visibles: a ellas se les puede proponer una etiqueta desde el perfil. */
+export async function tematicasConEtiquetas(): Promise<string[]> {
+  const r = await pool.query<{ nombre: string }>(`SELECT nombre FROM tematicas WHERE aprobada AND NOT oculta ORDER BY nombre`);
+  return r.rows.map((f) => f.nombre);
 }
 
 /**
@@ -206,14 +227,40 @@ export async function etiquetasDelUsuario(usuarioId: number | string): Promise<n
 }
 
 /**
+ * Revisa las etiquetas nuevas que llegan del perfil (`etiquetasNuevas`, 2026-10-28) antes de tocar la
+ * base: lista de { tematica, nombre }, hasta MAXIMO_DE_ETIQUETAS_NUEVAS_EN_PERFIL, con nombres como
+ * los de las temáticas (validarNombreDeTematica) y que no sean el de una temática. Repetidas, una vez.
+ */
+export async function validarEtiquetasNuevas(entrada: unknown): Promise<ResultadoDelCatalogo<{ nuevas: EtiquetaNueva[] }>> {
+  if (!Array.isArray(entrada)) return { ok: false, error: "Las etiquetas nuevas deben ser una lista" };
+  const nuevas = new Map<string, EtiquetaNueva>();
+  for (const item of entrada) {
+    const tematica = String((item as EtiquetaNueva | null)?.tematica ?? "").trim();
+    const validado = validarNombreDeTematica((item as EtiquetaNueva | null)?.nombre);
+    if (!validado.ok) return { ok: false, error: `Etiqueta «${String((item as EtiquetaNueva | null)?.nombre ?? "")}»: ${validado.error}` };
+    const esTematica = await errorDeNombreDeTematica(pool, claveDeTematica(validado.nombre));
+    if (esTematica) return { ok: false, error: esTematica };
+    nuevas.set(`${claveDeTematica(tematica)}|${claveDeTematica(validado.nombre)}`, { tematica, nombre: validado.nombre });
+  }
+  if (nuevas.size > MAXIMO_DE_ETIQUETAS_NUEVAS_EN_PERFIL) {
+    return { ok: false, error: `Puedes proponer hasta ${MAXIMO_DE_ETIQUETAS_NUEVAS_EN_PERFIL} etiquetas nuevas a la vez` };
+  }
+  return { ok: true, nuevas: [...nuevas.values()] };
+}
+
+/**
  * Guarda las etiquetas del perfil: solo de las temáticas que la persona tiene en `intereses`,
  * aprobadas y visibles (una oculta se conserva si ya la tenía), sin repetir y hasta
  * MAXIMO_DE_ETIQUETAS_EN_PERFIL. Las de temáticas que ya no tiene se quitan.
+ * Pendientes (2026-10-28): se aceptan las que propuso ella o ya tenía; `nuevas` (ya validadas con
+ * validarEtiquetasNuevas) se agregan: si existe una con ese nombre en la temática se usa (aprobada o
+ * pendiente) y si no, se crea pendiente (origen 'usuario') para que el SuperUsuario la revise.
  */
 export async function guardarEtiquetasDelUsuario(
   usuarioId: number | string,
   entrada: unknown,
   intereses: string[],
+  nuevas: EtiquetaNueva[] = [],
 ): Promise<ResultadoDelCatalogo> {
   if (!Array.isArray(entrada)) return { ok: false, error: "Las etiquetas deben ser una lista" };
   const pedidas = [...new Set(entrada.map(Number).filter((n) => Number.isInteger(n) && n > 0))];
@@ -227,11 +274,41 @@ export async function guardarEtiquetasDelUsuario(
     const validas = await cliente.query<{ id: number }>(
       `SELECT e.id FROM etiquetas e JOIN tematicas t ON t.id = e.tematica_id
        WHERE e.id = ANY($1::int[]) AND t.clave = ANY($2::text[])
-         AND e.aprobada
-         AND (NOT e.oculta OR EXISTS (SELECT 1 FROM usuario_etiquetas ue WHERE ue.usuario_id = $3 AND ue.etiqueta_id = e.id))`,
+         AND (
+           (e.aprobada AND (NOT e.oculta OR EXISTS (SELECT 1 FROM usuario_etiquetas ue WHERE ue.usuario_id = $3 AND ue.etiqueta_id = e.id)))
+           OR (NOT e.aprobada AND (e.creada_por = $3
+                OR EXISTS (SELECT 1 FROM usuario_etiquetas ue WHERE ue.usuario_id = $3 AND ue.etiqueta_id = e.id)))
+         )`,
       [pedidas, claves, usuarioId],
     );
     const ids = validas.rows.map((f) => Number(f.id));
+    for (const nueva of nuevas) {
+      // Solo en temáticas que tiene y que están aprobadas y visibles.
+      const tematica = await cliente.query<{ id: number }>(
+        `SELECT id FROM tematicas WHERE clave = $1 AND clave = ANY($2::text[]) AND aprobada AND NOT oculta`,
+        [claveDeTematica(nueva.tematica), claves],
+      );
+      if (!tematica.rows[0]) continue;
+      const clave = claveDeTematica(nueva.nombre);
+      // ON CONFLICT: ya existe en esa temática (aprobada, pendiente u oculta): se toma esa.
+      const fila = await cliente.query<{ id: number; aprobada: boolean; oculta: boolean }>(
+        `INSERT INTO etiquetas (tematica_id, nombre, clave, origen, creada_por, aprobada)
+         VALUES ($1, $2, $3, 'usuario', $4, false)
+         ON CONFLICT (tematica_id, clave) DO UPDATE SET clave = EXCLUDED.clave
+         RETURNING id, aprobada, oculta`,
+        [Number(tematica.rows[0].id), nueva.nombre, clave, usuarioId],
+      );
+      const existente = fila.rows[0];
+      if (existente.aprobada && existente.oculta) {
+        await cliente.query("ROLLBACK");
+        return { ok: false, error: `La etiqueta «${nueva.nombre}» no está disponible` };
+      }
+      if (!ids.includes(Number(existente.id))) ids.push(Number(existente.id));
+    }
+    if (ids.length > MAXIMO_DE_ETIQUETAS_EN_PERFIL) {
+      await cliente.query("ROLLBACK");
+      return { ok: false, error: `Puedes marcar hasta ${MAXIMO_DE_ETIQUETAS_EN_PERFIL} subtemáticas` };
+    }
     await cliente.query(`DELETE FROM usuario_etiquetas WHERE usuario_id = $1 AND NOT (etiqueta_id = ANY($2::int[]))`, [usuarioId, ids]);
     if (ids.length > 0) {
       await cliente.query(
@@ -402,6 +479,27 @@ export async function borrarEtiqueta(id: number): Promise<ResultadoDelCatalogo<{
 export async function cambiarVisibilidadDeEtiqueta(id: number, oculta: boolean): Promise<string | null> {
   const r = await pool.query<{ nombre: string }>(`UPDATE etiquetas SET oculta = $2 WHERE id = $1 RETURNING nombre`, [id, oculta]);
   return r.rows[0]?.nombre ?? null;
+}
+
+/**
+ * Quién propuso una etiqueta pendiente y dónde la tiene (2026-10-28), para avisarle cuando el
+ * SuperUsuario la revisa. Se lee antes de aprobar o rechazar (rechazar la borra). Null si no existe,
+ * ya estaba aprobada o no tiene autor (la cuenta se borró).
+ */
+export async function propuestaDeEtiqueta(
+  id: number,
+): Promise<{ usuarioId: number; nombre: string; tematica: string; enPerfil: boolean; enCampana: boolean } | null> {
+  const r = await pool.query<{ creada_por: number; nombre: string; tematica: string; en_perfil: boolean; en_campana: boolean }>(
+    `SELECT e.creada_por, e.nombre, t.nombre AS tematica,
+            EXISTS (SELECT 1 FROM usuario_etiquetas ue WHERE ue.etiqueta_id = e.id AND ue.usuario_id = e.creada_por) AS en_perfil,
+            EXISTS (SELECT 1 FROM campana_etiquetas ce JOIN campanas c ON c.id = ce.campana_id
+                    WHERE ce.etiqueta_id = e.id AND c.creator_id = e.creada_por) AS en_campana
+     FROM etiquetas e JOIN tematicas t ON t.id = e.tematica_id
+     WHERE e.id = $1 AND NOT e.aprobada AND e.creada_por IS NOT NULL`,
+    [id],
+  );
+  const f = r.rows[0];
+  return f ? { usuarioId: Number(f.creada_por), nombre: f.nombre, tematica: f.tematica, enPerfil: f.en_perfil, enCampana: f.en_campana } : null;
 }
 
 /** Aprueba una etiqueta que propuso un creador: desde ahora se ofrece a todos y se ve en su campaña. */

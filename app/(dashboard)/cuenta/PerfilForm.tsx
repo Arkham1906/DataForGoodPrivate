@@ -22,6 +22,7 @@ import CampoDeOrganizacion from "@/components/ui/CampoDeOrganizacion";
 import { opcionesCon } from "@/lib/perfil-opciones";
 import { municipiosDe, NOMBRES_DE_ESTADOS } from "@/lib/mexico-geo";
 import { BASE_PATH } from "@/lib/base-path";
+import type { EtiquetaNueva } from "@/lib/etiquetas/reglas";
 
 type Usuario = {
   id: number;
@@ -68,6 +69,9 @@ export default function PerfilForm({
   const [intereses, setIntereses] = useState<string[]>(usuario.intereses);
   const [interesesTexto, setInteresesTexto] = useState(usuario.interesesTexto ?? "");
   const [etiquetas, setEtiquetas] = useState<number[]>(usuario.etiquetas);
+  // Subtemáticas que escribió porque no estaban (2026-10-28): se crean pendientes al guardar.
+  const [etiquetasNuevas, setEtiquetasNuevas] = useState<EtiquetaNueva[]>([]);
+  const [errorDeEtiquetas, setErrorDeEtiquetas] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState("");
   const [avisoVisible, setAvisoVisible] = useState(false);
@@ -96,7 +100,8 @@ export default function PerfilForm({
     interesesTexto !== guardado.interesesTexto ||
     intereses.length !== guardado.intereses.length ||
     intereses.some((tema, i) => tema !== guardado.intereses[i]) ||
-    [...etiquetas].sort().join() !== [...guardado.etiquetas].sort().join();
+    [...etiquetas].sort().join() !== [...guardado.etiquetas].sort().join() ||
+    etiquetasNuevas.length > 0;
 
   useEffect(() => {
     if (!avisoVisible) return;
@@ -120,6 +125,8 @@ export default function PerfilForm({
     setIntereses(guardado.intereses);
     setInteresesTexto(guardado.interesesTexto);
     setEtiquetas(guardado.etiquetas);
+    setEtiquetasNuevas([]);
+    setErrorDeEtiquetas(null);
     setError("");
   }
 
@@ -131,6 +138,7 @@ export default function PerfilForm({
 
     setGuardando(true);
     setError("");
+    setErrorDeEtiquetas(null);
     try {
       const cambios = {
         nombre: nombre.trim(),
@@ -146,11 +154,18 @@ export default function PerfilForm({
       const response = await fetch(`${BASE_PATH}/api/usuarios/${usuario.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(cambios),
+        body: JSON.stringify({ ...cambios, etiquetasNuevas }),
       });
 
       const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body.error ?? "No se pudo guardar el perfil");
+      if (!response.ok) {
+        // Un error de las subtemáticas se muestra junto a ellas.
+        if (typeof body.error === "string" && /etiqueta|subtemática/i.test(body.error)) {
+          setErrorDeEtiquetas(body.error);
+          return;
+        }
+        throw new Error(body.error ?? "No se pudo guardar el perfil");
+      }
       // El servidor devuelve los intereses con el nombre del catálogo (p. ej. con otra mayúscula
       // o acento): se muestran esos.
       const guardados = Array.isArray(body.data?.intereses) ? (body.data.intereses as string[]) : intereses;
@@ -168,6 +183,7 @@ export default function PerfilForm({
       // El servidor quita las subtemáticas de temáticas que ya no tiene.
       const etiquetasGuardadas = Array.isArray(body.data?.etiquetas) ? (body.data.etiquetas as number[]) : etiquetas;
       setEtiquetas(etiquetasGuardadas);
+      setEtiquetasNuevas([]);
       setGuardado({ ...cambios, specialty: especialidad, organizacion: organizacionGuardada, intereses: guardados, etiquetas: etiquetasGuardadas });
       setAvisoVisible(true);
       router.refresh();
@@ -279,7 +295,15 @@ export default function PerfilForm({
             seleccionados={intereses}
             onCambiar={setIntereses}
           />
-          <SubtematicasDelPerfil intereses={intereses} seleccionadas={etiquetas} onCambiar={setEtiquetas} />
+          <SubtematicasDelPerfil
+            texto={interesesTexto}
+            intereses={intereses}
+            seleccionadas={etiquetas}
+            onCambiar={setEtiquetas}
+            nuevas={etiquetasNuevas}
+            onNuevas={setEtiquetasNuevas}
+            error={errorDeEtiquetas}
+          />
           <p className="mt-3 text-[12.5px] text-system-600">
             Determinan qué campañas aparecen en “Sugeridas para ti”. Los cambios se aplican al dar “Guardar cambios”.
           </p>

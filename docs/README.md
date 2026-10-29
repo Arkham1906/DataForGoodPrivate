@@ -210,7 +210,6 @@ Están anotados para que no te sorprendan. No los "arregles de paso": cada uno e
 
 | Problema | Dónde |
 | --- | --- |
-| **Páginas del panel protegidas solo por el layout.** `/sistema` y `/usuarios/**` no vuelven a comprobar la sesión raíz (ni la página ni sus funciones de `lib/`). Las server actions que escriben sí verifican | `app/(panel)/sistema/page.tsx`, `app/(panel)/usuarios/**`, `lib/usuarios/{directorio,dashboard,supervisores}.ts`, `lib/sistema/metricas.ts` |
 | **Tope de aportes anónimos por IP en memoria:** se reinicia con cada despliegue y no se comparte entre instancias. En local, sin proxy delante, todas las peticiones caen en la misma "IP" (`desconocida`) y comparten el tope de 20 por hora | `lib/campanas/aportes-anonimos.ts` |
 | **El tope y la espera por IP confían en `X-Forwarded-For`.** Detrás del proxy es correcto; si el puerto de la app queda abierto a Internet, alguien puede inventar su IP. La cuota por dispositivo sí aplica. Se resuelve en el despliegue, no en el código | `lib/ip.ts`, `docker-compose.yml` |
 | **Fotos anteriores al 2026-10-01 en el servidor:** pueden conservar su EXIF (GPS incluido) hasta correr `scripts/limpiar-metadatos.mjs --aplicar` (comando en su cabecera) | MinIO |
@@ -218,6 +217,5 @@ Están anotados para que no te sorprendan. No los "arregles de paso": cada uno e
 | **Un usuario sancionado puede aportar como anónimo** desde un enlace (al no tener sesión válida ve el formulario anónimo), igual que cualquiera que cierre sesión. No hay forma de ligar el dispositivo a la cuenta | `app/c/[token]/page.tsx` |
 | **Video y audio se guardan con sus metadatos** (pueden llevar la ubicación de donde se grabaron): limpiarlos exige ffmpeg en la imagen. La pantalla de aportar lo avisa. Tampoco se limpian las imágenes incrustadas en un .docx o .pdf | `lib/aportes/limpiar-archivo.ts` |
 | **Archivos de hasta 50 MB pasan por la memoria del servidor** (`request.formData()` y la limpieza los cargan completos). Para archivos más grandes conviene subir directo a MinIO con POST firmado. El proxy del servidor también debe aceptar cuerpos de ~51 MB | `lib/aportes/comun.ts`, `next.config.ts` |
-| El build falla a veces descargando Google Fonts; reintentar. La solución es `next/font/local` | `app/layout.tsx` |
 | La imagen de MinIO ya no se puede descargar de internet; solo sirve la que está en caché | `docker-compose.yml` |
 | Sin respaldos de Postgres ni MinIO, y sin `/api/health` | — |

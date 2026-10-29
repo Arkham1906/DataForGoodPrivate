@@ -1,5 +1,5 @@
 // Pantalla /explorar (pública): vitrina de campañas activas y, después, las pausadas (con su etiqueta;
-// 2026-10-24), con filtros en searchParams.
+// 2026-10-24), con filtros en searchParams (?q, ?tematica, ?etiqueta, ?estado, ?tipo desde el 2026-10-28, ?orden).
 // Datos: lib/campanas/publicas.ts. Al abrir una campaña va a /campanas/[id], que sí pide sesión.
 
 import { textoDeUbicacion } from "@/lib/campanas/ubicacion";
@@ -23,9 +23,11 @@ import {
   obtenerEstadosParaExplorar,
   obtenerEtiquetasParaExplorar,
   obtenerTematicasParaExplorar,
+  obtenerTiposParaExplorar,
   type OrdenDeCampanas,
 } from "@/lib/campanas/publicas";
 import { DATA_TYPE_LABELS } from "@/lib/open-data";
+import { esTipo } from "@/lib/campanas/sistema-opciones";
 import { ETIQUETA_DE_CAMPANA } from "@/lib/campanas/sistema-opciones";
 import type { DataType } from "@/types";
 
@@ -62,19 +64,22 @@ export default async function ExplorarCampanasPage({
   // Subtemática (2026-10-27): solo con una temática elegida.
   const etiqueta = tematica ? sp.etiqueta || undefined : undefined;
   const locationState = sp.estado || undefined;
+  // Tipo de dato (2026-10-28): solo los conocidos; otro valor en la URL se ignora.
+  const tipo = esTipo(sp.tipo);
   const orden: OrdenDeCampanas = ORDENES_VALIDOS.has(sp.orden as OrdenDeCampanas)
     ? (sp.orden as OrdenDeCampanas)
     : "participacion";
 
-  const [campanas, { activas: total, visibles }, tematicas, estados, etiquetas] = await Promise.all([
-    buscarCampanasParaExplorar({ q, tematica, etiqueta, locationState, orden }),
+  const [campanas, { activas: total, visibles }, tematicas, estados, etiquetas, tipos] = await Promise.all([
+    buscarCampanasParaExplorar({ q, tematica, etiqueta, locationState, tipo, orden }),
     contarCampanasParaExplorar(),
     obtenerTematicasParaExplorar(),
     obtenerEstadosParaExplorar(),
     tematica ? obtenerEtiquetasParaExplorar(tematica) : Promise.resolve([]),
+    obtenerTiposParaExplorar(),
   ]);
 
-  const activos = [q, tematica, etiqueta, locationState].filter(Boolean).length;
+  const activos = [q, tematica, etiqueta, locationState, tipo].filter(Boolean).length;
 
   function enlaceCon(cambios: Record<string, string | undefined>) {
     const params = new URLSearchParams();
@@ -82,6 +87,7 @@ export default async function ExplorarCampanasPage({
     if (tematica) params.set("tematica", tematica);
     if (etiqueta) params.set("etiqueta", etiqueta);
     if (locationState) params.set("estado", locationState);
+    if (tipo) params.set("tipo", tipo);
     if (orden !== "participacion") params.set("orden", orden);
     for (const [clave, valor] of Object.entries(cambios)) {
       if (valor) params.set(clave, valor);
@@ -112,6 +118,7 @@ export default async function ExplorarCampanasPage({
           {tematica && <input type="hidden" name="tematica" value={tematica} />}
           {etiqueta && <input type="hidden" name="etiqueta" value={etiqueta} />}
           {locationState && <input type="hidden" name="estado" value={locationState} />}
+          {tipo && <input type="hidden" name="tipo" value={tipo} />}
           <Input
             type="search"
             name="q"
@@ -131,7 +138,7 @@ export default async function ExplorarCampanasPage({
               <p className="text-[12.5px] font-semibold text-system-900">Filtros</p>
               {activos > 0 && (
                 <Link
-                  href={enlaceCon({ q: undefined, tematica: undefined, etiqueta: undefined, estado: undefined })}
+                  href={enlaceCon({ q: undefined, tematica: undefined, etiqueta: undefined, estado: undefined, tipo: undefined })}
                   className="text-[12.5px] font-medium text-brand-600 hover:underline"
                 >
                   Limpiar
@@ -181,6 +188,30 @@ export default async function ExplorarCampanasPage({
                     >
                       <span>#{e.valor}</span>
                       <span className="font-mono text-[11px] text-system-500">{e.total}</span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {tipos.length > 0 && (
+              <div>
+                <p className="mb-2 text-[11.5px] font-semibold uppercase tracking-wide text-system-500">
+                  Tipo de dato
+                </p>
+                <div className="dashboard-nav flex min-w-0 flex-row gap-2 overflow-x-auto overscroll-x-contain pb-2 [-webkit-overflow-scrolling:touch] md:flex-col md:gap-1 md:overflow-visible md:pb-0">
+                  {tipos.map((t) => (
+                    <Link
+                      key={t.valor}
+                      href={enlaceCon({ tipo: tipo === t.valor ? undefined : t.valor })}
+                      className={`flex shrink-0 items-center justify-between gap-2 whitespace-nowrap rounded-pill border px-3 py-1.5 text-[12.5px] md:shrink md:rounded md:border-0 md:px-2 md:py-1.5 md:text-[13px] ${
+                        tipo === t.valor
+                          ? "border-brand-600 bg-brand-50 font-semibold text-brand-600"
+                          : "border-system-300 bg-white text-system-600 hover:bg-system-100 md:border-transparent md:bg-transparent"
+                      }`}
+                    >
+                      <span>{DATA_TYPE_LABELS[t.valor as DataType] ?? t.valor}</span>
+                      <span className="font-mono text-[11px] text-system-500">{t.total}</span>
                     </Link>
                   ))}
                 </div>

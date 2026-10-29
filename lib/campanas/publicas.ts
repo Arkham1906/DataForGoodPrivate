@@ -47,6 +47,8 @@ export type FiltrosDeCampanas = {
   /** Subtemática (nombre); solo tiene sentido junto con `tematica`. */
   etiqueta?: string;
   locationState?: string;
+  /** Tipo de dato que pide la campaña (foto, video, audio, documento o texto; 2026-10-28). */
+  tipo?: string;
   orden?: OrdenDeCampanas;
 };
 
@@ -103,6 +105,11 @@ export async function buscarCampanasParaExplorar(filtros: FiltrosDeCampanas): Pr
       valores.push(filtros.locationState);
       // Una campaña para todo el país también vale en ese estado.
       condiciones.push(`(location_state = $${valores.length} OR todo_el_pais)`);
+    }
+    if (filtros.tipo) {
+      valores.push(filtros.tipo);
+      // data_types es un arreglo JSONB de textos: ? busca el elemento.
+      condiciones.push(`data_types ? $${valores.length}`);
     }
 
     const result = await pool.query(
@@ -178,4 +185,20 @@ export async function obtenerEtiquetasParaExplorar(tematica: string): Promise<{ 
 
 export function obtenerEstadosParaExplorar() {
   return facetas("location_state");
+}
+
+/** Tipos de dato que piden las campañas visibles, con cuántas campañas pide cada uno (2026-10-28). */
+export async function obtenerTiposParaExplorar(): Promise<{ valor: string; total: number }[]> {
+  try {
+    const result = await pool.query(
+      `SELECT t.valor, COUNT(*)::int AS total
+       FROM campanas, jsonb_array_elements_text(data_types) AS t(valor)
+       WHERE ${ESTADOS_VISIBLES}
+       GROUP BY t.valor
+       ORDER BY total DESC, t.valor ASC`
+    );
+    return result.rows;
+  } catch {
+    return [];
+  }
 }

@@ -18,6 +18,7 @@ import {
   formatearFechaCampana,
   obtenerCabeceraDeCampana,
 } from "@/lib/campanas/sistema";
+import { exigirSesionRoot } from "@/lib/supervision/root";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 }
 
 export default async function PanelDeCampanaSistemaPage({ params }: { params: Promise<{ id: string }> }) {
+  await exigirSesionRoot();
   const { id } = await params;
   // La cabecera exige sesión raíz; va primero para no leer nada sin ella.
   const cabecera = await obtenerCabeceraDeCampana(id);

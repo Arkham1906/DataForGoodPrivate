@@ -9,6 +9,7 @@ import { bloqueoEnCampanaDelAporte, marcarInapropiado, quitarMarcaInapropiado } 
 import { recalcularContadores } from "@/lib/aportes/comun";
 import { borrarArchivo } from "@/lib/minio";
 import { notificar } from "@/lib/notificaciones/notificaciones";
+import { avisarAvanceDeCampana } from "@/lib/notificaciones/socializacion";
 import { ESTADOS_SIN_DECISION, tieneDecision } from "@/lib/aportes/decision";
 import { yaReporto } from "@/lib/reportes/reportes";
 
@@ -200,6 +201,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
     // Aceptar es la decisión final: se quita la marca de inapropiado que pudo poner alguien antes.
     if (nuevoEstado === "aceptado") await quitarMarcaInapropiado(Number(id));
+    // Si con este aporte la campaña pasó un hito de su meta, se avisa a quienes participan (en segundo plano).
+    if (nuevoEstado === "aceptado") avisarAvanceDeCampana(row.campaign_id);
     const bloqueoGlobal = inapropiado ? (await marcarInapropiado(Number(id), Number(user.id))).bloqueoGlobal : false;
 
     // La decisión (del creador o del revisor) llega al participante. Un aporte anónimo no tiene a quién avisar.

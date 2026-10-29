@@ -10,6 +10,7 @@ import Tag from "@/components/sistema/Tag";
 import { PESTANAS_USUARIOS } from "@/lib/usuarios/dashboard";
 import { ETIQUETA_DE_ESTADO, POR_PAGINA, buscarUsuarios } from "@/lib/usuarios/directorio";
 import Filtros from "./filtros";
+import { exigirSesionRoot } from "@/lib/supervision/root";
 
 export const metadata: Metadata = { title: "Directorio de usuarios" };
 export const dynamic = "force-dynamic";
@@ -21,6 +22,7 @@ export default async function DirectorioPage({
 }: {
   searchParams: Promise<Busqueda>;
 }) {
+  await exigirSesionRoot();
   const sp = await searchParams;
   const pagina = Math.max(1, Number(sp.pagina ?? 1) || 1);
 

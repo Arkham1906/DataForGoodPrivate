@@ -18,7 +18,7 @@ export const OPCIONES_DE_PREFERENCIAS: {
     clave: "avisosCampanasNuevas",
     columna: "avisos_campanas_nuevas",
     titulo: "Campañas nuevas",
-    encendida: "Campañas de tus temáticas en tu zona (hasta 3 al día) y las especiales.",
+    encendida: "Campañas de tus temáticas en tu zona (hasta 3 al día), las especiales y las parecidas a las que participas.",
     apagada: "No recibes avisos de campañas nuevas.",
   },
   {

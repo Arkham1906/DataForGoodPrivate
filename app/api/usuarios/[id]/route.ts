@@ -7,8 +7,8 @@ import { destroySession, getSessionUser } from "@/lib/session";
 import { hasRootSession } from "@/lib/rootSession";
 import { errorDeLargo } from "@/lib/usuarios/perfil";
 import { resolverIntereses } from "@/lib/tematicas/catalogo";
-import { etiquetasDelUsuario, guardarEtiquetasDelUsuario, recortarEtiquetasDelUsuario } from "@/lib/etiquetas/catalogo";
-import { MAXIMO_DE_ETIQUETAS_EN_PERFIL } from "@/lib/etiquetas/reglas";
+import { etiquetasDelUsuario, guardarEtiquetasDelUsuario, recortarEtiquetasDelUsuario, validarEtiquetasNuevas } from "@/lib/etiquetas/catalogo";
+import { MAXIMO_DE_ETIQUETAS_EN_PERFIL, type EtiquetaNueva } from "@/lib/etiquetas/reglas";
 import { resolverEspecialidad } from "@/lib/usuarios/especialidades";
 import { resolverOrganizacion } from "@/lib/usuarios/organizaciones";
 import { LARGO_MAXIMO_DEL_TEXTO } from "@/lib/tematicas/analizar";
@@ -173,6 +173,14 @@ export async function PATCH(
     if ("etiquetas" in body && (!Array.isArray(body.etiquetas) || body.etiquetas.length > MAXIMO_DE_ETIQUETAS_EN_PERFIL)) {
       return NextResponse.json({ error: `Puedes marcar hasta ${MAXIMO_DE_ETIQUETAS_EN_PERFIL} subtemáticas` }, { status: 400 });
     }
+    // Etiquetas que la persona propone porque no las encontró (2026-10-28): [{ tematica, nombre }], quedan
+    // pendientes hasta que el SuperUsuario las revisa. Se validan antes de guardar nada.
+    let etiquetasNuevas: EtiquetaNueva[] = [];
+    if ("etiquetasNuevas" in body) {
+      const validadas = await validarEtiquetasNuevas(body.etiquetasNuevas);
+      if (!validadas.ok) return NextResponse.json({ error: validadas.error }, { status: 400 });
+      etiquetasNuevas = validadas.nuevas;
+    }
 
     const result = await pool.query(
       `UPDATE usuarios
@@ -223,8 +231,13 @@ export async function PATCH(
     }
 
     const interesesFinales: string[] = Array.isArray(result.rows[0].intereses) ? result.rows[0].intereses : [];
-    if ("etiquetas" in body) {
-      const guardadas = await guardarEtiquetasDelUsuario(Number(rawId), body.etiquetas, interesesFinales);
+    if ("etiquetas" in body || etiquetasNuevas.length > 0) {
+      const guardadas = await guardarEtiquetasDelUsuario(
+        Number(rawId),
+        "etiquetas" in body ? body.etiquetas : await etiquetasDelUsuario(Number(rawId)),
+        interesesFinales,
+        etiquetasNuevas,
+      );
       if (!guardadas.ok) return NextResponse.json({ error: guardadas.error }, { status: 400 });
     } else if (intereses !== null) {
       await recortarEtiquetasDelUsuario(Number(rawId), interesesFinales);

@@ -9,10 +9,12 @@ import { pool } from "@/lib/db";
 import { obtenerCampanaSupervisadaPorRoot } from "@/lib/supervision/root";
 import { formatearTamano } from "@/lib/aportes/archivo";
 import type { Metadata } from "next";
+import { exigirSesionRoot } from "@/lib/supervision/root";
 
 export const metadata: Metadata = { title: "Aportes de un participante" };
 
 export default async function UserContributionsPage({ params }: { params: Promise<{ campaignId: string; userId: string }> }) {
+  await exigirSesionRoot();
   const { campaignId, userId } = await params;
   const campaign = await obtenerCampanaSupervisadaPorRoot(campaignId);
   if (!campaign) notFound();

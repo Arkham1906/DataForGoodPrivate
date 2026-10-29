@@ -99,7 +99,7 @@ function RegistroForm() {
       }
 
       router.push(conDestino("/verificar", next));
-    } catch (error) {
+    } catch {
       setServerError("No se pudo conectar con el servicio de usuarios");
     } finally {
       setSubmitting(false);
@@ -237,6 +237,7 @@ function RegistroForm() {
           // Con Google también se crea la cuenta: primero hay que aceptar los términos.
           disabled={!acceptedTerms}
           onClick={() => {
+            // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- route handler que redirige a Google: hace falta navegación completa, no router.push
             window.location.href = `${BASE_PATH}${conDestino("/api/auth/google", next)}`;
           }}
         >

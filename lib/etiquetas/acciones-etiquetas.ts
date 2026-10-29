@@ -2,7 +2,8 @@
 
 // Server actions de las etiquetas (subtemáticas, 2026-10-27) en /sistema/tematicas: el SuperUsuario
 // las crea dentro de una temática, las edita, las borra (si ninguna campaña las usa), las oculta o
-// muestra, y aprueba o rechaza las que propusieron los creadores. Lógica en lib/etiquetas/catalogo.ts.
+// muestra, y aprueba o rechaza las que propusieron los usuarios (en su campaña o, desde el 2026-10-28,
+// en su perfil; se les avisa con una notificación). Lógica en lib/etiquetas/catalogo.ts.
 // Todo queda en audit_log.
 
 import { revalidatePath } from "next/cache";
@@ -14,10 +15,12 @@ import {
   borrarEtiqueta,
   cambiarVisibilidadDeEtiqueta as cambiarVisibilidad,
   crearEtiqueta,
+  propuestaDeEtiqueta,
   rechazarEtiqueta,
   renombrarEtiqueta,
 } from "@/lib/etiquetas/catalogo";
 import { validarNombreDeTematica } from "@/lib/tematicas/catalogo";
+import { avisarEtiquetaRevisada } from "@/lib/notificaciones/etiqueta-revisada";
 
 export type ResultadoDeAccion = { ok: true } | { ok: false; error: string };
 
@@ -106,6 +109,8 @@ export async function revisarEtiqueta(id: number, aprobada: boolean): Promise<Re
   if (!(await hasRootSession())) throw new Error("No autorizado");
   if (!idValido(id)) return { ok: false, error: "Etiqueta inválida." };
 
+  // Antes de decidir: rechazar la borra, y después ya no se sabe quién la propuso (2026-10-28).
+  const propuesta = await propuestaDeEtiqueta(id);
   let detalle: Record<string, unknown>;
   if (aprobada) {
     const nombre = await aprobarEtiqueta(id);
@@ -122,6 +127,8 @@ export async function revisarEtiqueta(id: number, aprobada: boolean): Promise<Re
     objetivo: { tipo: "etiqueta", id },
     detalle,
   });
+  // Se avisa a quien la propuso (no a quien la tenía sin proponerla).
+  if (propuesta) await avisarEtiquetaRevisada(propuesta, aprobada);
   terminar();
   return { ok: true };
 }

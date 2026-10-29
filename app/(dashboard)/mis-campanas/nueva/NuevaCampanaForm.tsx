@@ -297,7 +297,14 @@ function CampanaFormulario({
     fetch(`${BASE_PATH}/api/etiquetas`, { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((body) => {
-        if (vigente && body?.data && typeof body.data === "object") setCatalogoDeEtiquetas(body.data as CatalogoDeEtiquetas);
+        if (vigente && body?.data && typeof body.data === "object") {
+          // Solo las aprobadas: las pendientes que trae (2026-10-28) son las de su perfil; las de su
+          // campaña ya vienen en editingCampaign.etiquetas.
+          const catalogo = body.data as CatalogoDeEtiquetas;
+          setCatalogoDeEtiquetas(
+            Object.fromEntries(Object.entries(catalogo).map(([tema, lista]) => [tema, lista.filter((e) => !e.pendiente)]))
+          );
+        }
       })
       .catch(() => {});
     return () => {
@@ -801,7 +808,7 @@ function CampanaFormulario({
             conProblemas={pasos[0].conProblemas}
             aviso={editaEnPausa ? "La organización no se puede cambiar" : noEditable}
           >
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-6">
               <div>
                 <Field label="Nombre de la campaña" required error={errorDe("nombre")}>
                   <Input
@@ -1024,7 +1031,7 @@ function CampanaFormulario({
                   {errorDe("checklists")}
                 </p>
               )}
-              <div data-orden-grupo data-campo="checklists" className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div data-orden-grupo data-campo="checklists" className="grid grid-cols-1 gap-3">
                 {checklists.map((c, i) => (
                   <div
                     key={c.clave}
@@ -1148,7 +1155,7 @@ function CampanaFormulario({
             conProblemas={pasos[2].conProblemas}
             aviso={contenidoBloqueado ? "Solo la meta se puede cambiar" : undefined}
           >
-            <div className="grid max-w-xl grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid max-w-xl grid-cols-1 gap-4">
               <Field label="Meta total" required hint="Solo cuentan los aportes aprobados." error={errorDe("meta")}>
                 <Input
                   data-campo="meta"
@@ -1277,6 +1284,8 @@ function CampanaFormulario({
             </label>
 
             {!todoElPais && (
+              // "Vigencia y lugar" es la única sección con campos lado a lado (2026-10-28, a pedido del usuario;
+              // el resto del formulario va en una columna). En móvil, en columna.
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <Field label="Estado" required error={errorDe("estado")}>
                   <select

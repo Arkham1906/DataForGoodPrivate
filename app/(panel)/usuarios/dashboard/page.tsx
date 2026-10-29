@@ -23,6 +23,7 @@ import {
   type RangoDeFechas,
 } from "@/lib/usuarios/dashboard";
 import SelectorDeRango from "./selector-de-rango";
+import { exigirSesionRoot } from "@/lib/supervision/root";
 
 export const metadata: Metadata = { title: "Dashboard de usuarios" };
 export const dynamic = "force-dynamic";
@@ -39,6 +40,7 @@ export default async function DashboardDeUsuariosPage({
   // En Next 16 searchParams llega como promesa.
   searchParams: Promise<{ rango?: string }>;
 }) {
+  await exigirSesionRoot();
   const { rango } = await searchParams;
   const activo = normalizarRango(rango);
   const d = await obtenerDashboardDeUsuarios(activo);

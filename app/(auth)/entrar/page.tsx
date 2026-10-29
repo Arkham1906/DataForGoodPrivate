@@ -165,6 +165,7 @@ function EntrarForm() {
           type="button"
           className="mt-2.5 w-full"
           onClick={() => {
+            // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- route handler que redirige a Google: hace falta navegación completa, no router.push
             window.location.href = `${BASE_PATH}${conDestino("/api/auth/google", next)}`;
           }}
         >

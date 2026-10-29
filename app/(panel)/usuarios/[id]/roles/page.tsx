@@ -22,6 +22,7 @@ import {
   type RolAsignable,
 } from "@/lib/usuarios/directorio";
 import { BotonAsignar, BotonRevocar } from "./botones-de-rol";
+import { exigirSesionRoot } from "@/lib/supervision/root";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +33,7 @@ export async function generateMetadata({
 }: {
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
+  await exigirSesionRoot();
   const { id } = await params;
   const u = await obtenerUsuario(id);
   return { title: u ? `Roles de ${u.nombre}` : "Roles" };
@@ -42,6 +44,7 @@ export default async function RolesPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await exigirSesionRoot();
   const { id } = await params;
   const u = await obtenerUsuario(id);
   if (!u) notFound();

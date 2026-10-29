@@ -7,10 +7,12 @@ import type { Metadata } from "next";
 import { listarCampanasParaRoot } from "@/lib/supervision/root";
 import PestanasDeModeracion from "@/components/moderacion/PestanasDeModeracion";
 import PestanasDeSupervision from "./pestanas";
+import { exigirSesionRoot } from "@/lib/supervision/root";
 
 export const metadata: Metadata = { title: "Modo supervisor" };
 
 export default async function SupervisarPage() {
+  await exigirSesionRoot();
   const { pendientes, supervisadas } = await listarCampanasParaRoot();
 
   return (

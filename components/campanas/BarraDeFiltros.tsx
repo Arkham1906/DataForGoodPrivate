@@ -32,6 +32,7 @@ export default function BarraDeFiltros({
   conVigencia = false,
   colapsableEnMovil = false,
   conTematica = true,
+  conTipo = true,
   etiquetasPorTematica,
 }: {
   valores: ValoresDeFiltros;
@@ -45,6 +46,8 @@ export default function BarraDeFiltros({
   colapsableEnMovil?: boolean;
   /** false: sin el select de temática (/campanas, donde la temática se elige con botones). */
   conTematica?: boolean;
+  /** false: sin el select de tipo de dato (/campanas, donde el tipo se elige con botones, 2026-10-28). */
+  conTipo?: boolean;
 }) {
   const [texto, setTexto] = useState(valores.q);
   const [panelAbierto, setPanelAbierto] = useState(false);
@@ -146,24 +149,26 @@ export default function BarraDeFiltros({
           </div>
         )}
 
-        <div className="min-w-0 flex-1">
-          <label className="sr-only" htmlFor={`${idTipo}-${sufijo}`}>
-            Filtrar por tipo de dato
-          </label>
-          <select
-            id={`${idTipo}-${sufijo}`}
-            className={CLASE_SELECT}
-            value={filtros.tipo}
-            onChange={(e) => cambiar("tipo", e.target.value)}
-          >
-            <option value="">Tipo de dato: todos</option>
-            {TIPOS.map((tipo) => (
-              <option key={tipo} value={tipo}>
-                {NOMBRE_DE_TIPO[tipo]}
-              </option>
-            ))}
-          </select>
-        </div>
+        {conTipo && (
+          <div className="min-w-0 flex-1">
+            <label className="sr-only" htmlFor={`${idTipo}-${sufijo}`}>
+              Filtrar por tipo de dato
+            </label>
+            <select
+              id={`${idTipo}-${sufijo}`}
+              className={CLASE_SELECT}
+              value={filtros.tipo}
+              onChange={(e) => cambiar("tipo", e.target.value)}
+            >
+              <option value="">Tipo de dato: todos</option>
+              {TIPOS.map((tipo) => (
+                <option key={tipo} value={tipo}>
+                  {NOMBRE_DE_TIPO[tipo]}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {conVigencia && (
           <div className="min-w-0 flex-1">
@@ -224,7 +229,7 @@ export default function BarraDeFiltros({
   function aplicarPanel() {
     if (conTematica) onCambiar("tematica", filtrosBorrador.tematica);
     if (conTematica && etiquetasPorTematica) onCambiar("etiqueta", filtrosBorrador.etiqueta);
-    onCambiar("tipo", filtrosBorrador.tipo);
+    if (conTipo) onCambiar("tipo", filtrosBorrador.tipo);
     onCambiar("orden", filtrosBorrador.orden);
     if (filtrosBorrador.vigencia !== undefined) onCambiar("vigencia", filtrosBorrador.vigencia);
     setPanelAbierto(false);

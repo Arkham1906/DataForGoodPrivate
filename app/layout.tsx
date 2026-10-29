@@ -1,22 +1,24 @@
-// Layout raíz de toda la app: <html>, fuentes (next/font/google) y globals.css.
+// Layout raíz de toda la app: <html>, fuentes (next/font/local) y globals.css.
 // Todas las rutas pasan por aquí; cada route group agrega su propio layout encima.
 
 import type { Metadata } from "next";
 import { PLANTILLA_DE_TITULO } from "@/lib/titulo";
-import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { BASE_PATH } from "@/lib/base-path";
 
-const jakarta = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+// Fuentes en el repo (app/fuentes, 2026-10-28): con next/font/google el build fallaba sin
+// acceso a Google Fonts. Variables, subconjunto latino (cubre el español), licencia OFL al lado.
+const jakarta = localFont({
+  src: "./fuentes/PlusJakartaSans-latin.woff2",
+  weight: "200 800",
   variable: "--font-jakarta",
   display: "swap",
 });
 
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500"],
+const jetbrainsMono = localFont({
+  src: "./fuentes/JetBrainsMono-latin.woff2",
+  weight: "100 800",
   variable: "--font-jetbrains",
   display: "swap",
 });
@@ -26,9 +28,16 @@ export const metadata: Metadata = {
   title: { default: "DataForGood — Plataforma de crowdsourcing de datos", template: PLANTILLA_DE_TITULO },
   description:
     "DataForGood conecta organizaciones con personas dispuestas a aportar información en campo para causas sociales, ambientales y comunitarias.",
-  // Ícono y modo "app" al agregarla a la pantalla de inicio del iPhone (requisito para el push en iOS).
+  // Favicon (public/icono.svg: el logo sin metadatos; el PNG para navegadores sin SVG) e ícono y modo
+  // "app" al agregarla a la pantalla de inicio del iPhone (requisito para el push en iOS).
   // Las rutas de metadata no llevan el basePath solas.
-  icons: { apple: `${BASE_PATH}/icono-192.png` },
+  icons: {
+    icon: [
+      { url: `${BASE_PATH}/icono.svg`, type: "image/svg+xml" },
+      { url: `${BASE_PATH}/icono-192.png`, type: "image/png", sizes: "192x192" },
+    ],
+    apple: `${BASE_PATH}/icono-192.png`,
+  },
   appleWebApp: { capable: true, title: "DataForGood", statusBarStyle: "default" },
 };
 

@@ -19,6 +19,7 @@ import {
 } from "@/components/sistema/ui";
 import { formatearFecha, obtenerUsuario } from "@/lib/usuarios/directorio";
 import { baneosDeUsuario } from "@/lib/campanas/baneos";
+import { exigirSesionRoot } from "@/lib/supervision/root";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,7 @@ export async function generateMetadata({
 }: {
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
+  await exigirSesionRoot();
   const { id } = await params;
   const u = await obtenerUsuario(id);
   return { title: u ? u.nombre : "Usuario" };
@@ -37,6 +39,7 @@ export default async function FichaDeUsuarioPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await exigirSesionRoot();
   const { id } = await params;
   const u = await obtenerUsuario(id);
   if (!u) notFound();

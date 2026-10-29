@@ -1,7 +1,7 @@
 // Layout del panel del SuperUsuario: Topbar + Sidebar de components/sistema.
 // ActualizacionEnVivo vuelve a leer las pantallas cuando cambia algo en la base (lib/en-vivo.ts).
 // Guardia: hasRootSession() (cookie root_session_token); sin sesión raíz → /root.
-// Ojo: /sistema y /usuarios/** dependen solo de este layout (docs/README.md § 8).
+// Además, cada página llama a exigirSesionRoot() (2026-10-28): no depende solo de este layout.
 
 import type { Metadata } from "next";
 import type { ReactNode } from "react";

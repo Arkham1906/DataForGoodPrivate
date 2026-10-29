@@ -7,10 +7,12 @@ import { BackLink } from "../../_ui";
 import { pool } from "@/lib/db";
 import { obtenerCampanaSupervisadaPorRoot } from "@/lib/supervision/root";
 import type { Metadata } from "next";
+import { exigirSesionRoot } from "@/lib/supervision/root";
 
 export const metadata: Metadata = { title: "Participantes de la campaña" };
 
 export default async function CampaignUsersPage({ params }: { params: Promise<{ campaignId: string }> }) {
+  await exigirSesionRoot();
   const { campaignId } = await params;
   const campaign = await obtenerCampanaSupervisadaPorRoot(campaignId);
   if (!campaign) notFound();

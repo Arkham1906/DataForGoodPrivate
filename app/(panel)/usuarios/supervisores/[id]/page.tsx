@@ -21,6 +21,7 @@ import {
   formatearFechaSup,
   obtenerActividad,
 } from "@/lib/usuarios/supervisores";
+import { exigirSesionRoot } from "@/lib/supervision/root";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,7 @@ export async function generateMetadata({
 }: {
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
+  await exigirSesionRoot();
   const { id } = await params;
   const s = await obtenerActividad(id);
   return { title: s ? `Actividad de ${s.nombre}` : "Actividad" };
@@ -39,6 +41,7 @@ export default async function ActividadDeSupervisorPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await exigirSesionRoot();
   const { id } = await params;
   const s = await obtenerActividad(id);
   if (!s) notFound();

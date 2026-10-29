@@ -14,18 +14,21 @@ import {
   obtenerActividad,
 } from "@/lib/usuarios/supervisores";
 import FormularioDeReversion from "./formulario";
+import { exigirSesionRoot } from "@/lib/supervision/root";
 
 export const dynamic = "force-dynamic";
 
 type Params = Promise<{ id: string; accionId: string }>;
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
+  await exigirSesionRoot();
   const { id, accionId } = await params;
   const a = await obtenerAccion(id, accionId);
   return { title: a ? describirReversion(a).titulo : "Revertir acción" };
 }
 
 export default async function RevertirAccionPage({ params }: { params: Params }) {
+  await exigirSesionRoot();
   const { id, accionId } = await params;
   const [supervisor, accion] = await Promise.all([
     obtenerActividad(id),
