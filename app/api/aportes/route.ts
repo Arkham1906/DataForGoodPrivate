@@ -1,6 +1,7 @@
 // /api/aportes — listado y envío de aportes. El archivo se sube a MinIO (lib/minio.ts).
 
 import { enviadosPorTipoDesdeFila, limitePorTipoDesdeFila } from "@/lib/campanas/limite-por-tipo";
+import { normalizarFormatosDeDocumento } from "@/lib/aportes/archivo";
 import { NextResponse } from "next/server";
 import { pool } from "@/lib/db";
 import { getSessionUser } from "@/lib/session";
@@ -148,7 +149,9 @@ export async function POST(request: Request) {
 
     // El archivo debe ser de un tipo que acepta la campaña; sin archivo, solo si acepta texto.
     const tipos = tiposAceptados(campaign.data_types);
-    const errorArchivo = errorDeArchivo(file, tipos);
+    // Con los formatos de "Archivo" que acepta la campaña (2026-10-28; [] = todos).
+    const formatosDeDocumento = normalizarFormatosDeDocumento(campaign.formatos_de_documento);
+    const errorArchivo = errorDeArchivo(file, tipos, formatosDeDocumento);
     if (errorArchivo) {
       return NextResponse.json({ error: errorArchivo }, { status: 400 });
     }
@@ -194,7 +197,7 @@ export async function POST(request: Request) {
     if (!conLugar.ok) return NextResponse.json({ error: conLugar.error }, { status: 400 });
 
     // Se comprueba por su contenido y se guarda sin los metadatos que se pueden quitar.
-    const subida = await guardarArchivoDelAporte(file, campaignId, conLugar.tipos);
+    const subida = await guardarArchivoDelAporte(file, campaignId, conLugar.tipos, formatosDeDocumento);
     if (!subida.ok) return NextResponse.json({ error: subida.error }, { status: 400 });
     const { tipo, guardado: saved } = subida.archivo;
     // Solo respuestas de los checklists del tipo real del archivo ("Título: opción"; 2026-10-28).

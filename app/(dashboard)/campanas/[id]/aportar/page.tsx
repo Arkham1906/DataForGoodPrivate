@@ -182,6 +182,7 @@ export default function AportarPage() {
       <form onSubmit={(e) => void handleSubmit(e)} className="grid grid-cols-1 gap-6 sm:grid-cols-2">
         <SelectorDeArchivo
           tipos={tipos}
+          formatosDeDocumento={campaign.formatosDeDocumento ?? []}
           archivo={file}
           error={fileError}
           onCambio={(elegido, problema) => {

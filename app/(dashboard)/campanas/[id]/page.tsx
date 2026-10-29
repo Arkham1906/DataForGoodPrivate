@@ -17,7 +17,7 @@ import ProgressBar from "@/components/ui/ProgressBar";
 import RutaDeTematica from "@/components/ui/RutaDeTematica";
 import type { Campaign } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
-import { TIPO_DE_DATO } from "@/lib/aportes/archivo";
+import { TIPO_DE_DATO, extensionesDe, nombresDeFormatos } from "@/lib/aportes/archivo";
 import { fechaCorta } from "@/lib/campanas/especial-reglas";
 import { porcentajeDeMeta } from "@/lib/campanas/meta";
 import { avisoDePausa } from "@/lib/campanas/pausa";
@@ -180,7 +180,11 @@ export default function CampaignDetailPage() {
             .map((tipo) => (
               <div key={tipo} className="rounded-lg border border-system-200 bg-white p-4">
                 <p className="text-[14px] font-bold text-system-900">{TIPO_DE_DATO[tipo]?.titulo ?? tipo}</p>
-                <p className="mt-1 text-[12px] text-system-500">{TIPO_DE_DATO[tipo]?.detalle}</p>
+                <p className="mt-1 text-[12px] text-system-500">
+                  {tipo === "documento" && (campaign.formatosDeDocumento ?? []).length > 0
+                    ? `Solo ${nombresDeFormatos(campaign.formatosDeDocumento)} (${extensionesDe("documento", campaign.formatosDeDocumento).join(", ")}), un archivo por aporte, de hasta 20 MB.`
+                    : TIPO_DE_DATO[tipo]?.detalle}
+                </p>
               </div>
             ))}
           <div className="rounded-lg border border-system-200 bg-white p-4">

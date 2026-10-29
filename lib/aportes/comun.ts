@@ -7,7 +7,15 @@ import type { PoolClient } from "pg";
 import { pool } from "@/lib/db";
 import { borrarArchivo, guardarArchivo, type SavedUpload } from "@/lib/minio";
 import { limpiarArchivo } from "@/lib/aportes/limpiar-archivo";
-import { TAMANO_MAXIMO as TAMANO_MAXIMO_DE_ARCHIVO, archivoEsOpcional, tipoPorNombre, type TipoDeArchivo } from "@/lib/aportes/archivo";
+import {
+  TAMANO_MAXIMO as TAMANO_MAXIMO_DE_ARCHIVO,
+  archivoEsOpcional,
+  documentoPermitido,
+  textoDeExtensiones,
+  tipoPorNombre,
+  type FormatoDeDocumento,
+  type TipoDeArchivo,
+} from "@/lib/aportes/archivo";
 import { avisarAportesRecibidos } from "@/lib/notificaciones/hitos-de-aportes";
 import {
   limitePorTipoDesdeFila,
@@ -63,7 +71,9 @@ export type ArchivoDelAporte = { tipo: TipoDeArchivo; guardado: SavedUpload | nu
 export async function guardarArchivoDelAporte(
   archivo: FormDataEntryValue | null,
   campaignId: string | number,
-  tipos: TipoDeArchivo[]
+  tipos: TipoDeArchivo[],
+  /** Formatos de "Archivo" que acepta la campaña ([] o sin dar = todos; 2026-10-28). */
+  formatosDeDocumento: readonly FormatoDeDocumento[] = []
 ): Promise<{ ok: true; archivo: ArchivoDelAporte } | { ok: false; error: string }> {
   if (!(archivo instanceof File) || archivo.size === 0) {
     return archivoEsOpcional(tipos)
@@ -72,6 +82,10 @@ export async function guardarArchivoDelAporte(
   }
   const limpio = await limpiarArchivo(archivo, tipos);
   if (!limpio.ok) return limpio;
+  // Con el formato real (por contenido), no el que dice el nombre.
+  if (limpio.archivo.tipo === "documento" && !documentoPermitido(limpio.archivo.extension, formatosDeDocumento)) {
+    return { ok: false, error: `Formato no válido. Esta campaña acepta ${textoDeExtensiones(tipos, formatosDeDocumento)}.` };
+  }
   const guardado = await guardarArchivo(limpio.archivo.contenido, {
     subdir: `campanas/${campaignId}`,
     extension: limpio.archivo.extension,

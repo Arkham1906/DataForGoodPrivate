@@ -13,7 +13,9 @@ import {
   acceptDeArchivo,
   archivoEsOpcional,
   errorDeArchivo,
+  extensionesDe,
   textoDeTamano,
+  type FormatoDeDocumento,
   type TipoDeArchivo,
 } from "@/lib/aportes/archivo";
 
@@ -27,6 +29,7 @@ const NOMBRE: Record<TipoDeArchivo, string> = {
 
 export default function SelectorDeArchivo({
   tipos,
+  formatosDeDocumento = [],
   archivo,
   error,
   onCambio,
@@ -34,6 +37,8 @@ export default function SelectorDeArchivo({
   className = "",
 }: {
   tipos: TipoDeArchivo[];
+  /** Formatos de "Archivo" que acepta la campaña (2026-10-28); [] = todos. */
+  formatosDeDocumento?: FormatoDeDocumento[];
   archivo: File | null;
   error: string | null;
   /** Archivo elegido (null si no sirve o se quitó) y el error para mostrar. */
@@ -50,7 +55,7 @@ export default function SelectorDeArchivo({
   function elegir(e: React.ChangeEvent<HTMLInputElement>) {
     const elegido = e.target.files?.[0] ?? null;
     if (!elegido) return onCambio(null, null);
-    const problema = errorDeArchivo(elegido, tipos);
+    const problema = errorDeArchivo(elegido, tipos, formatosDeDocumento);
     onCambio(problema ? null : elegido, problema);
   }
 
@@ -60,7 +65,7 @@ export default function SelectorDeArchivo({
         Archivo {opcional ? <span className="font-normal text-system-500">(opcional)</span> : <span className="text-error-700">*</span>}
       </p>
       <label className="flex cursor-pointer flex-col items-center gap-1 rounded-lg border border-dashed border-system-300 bg-system-100 p-6 text-center text-[13px] text-system-600 hover:border-brand-600">
-        <input key={`${reinicio}-${vaciado}`} type="file" accept={acceptDeArchivo(tipos)} className="hidden" onChange={elegir} />
+        <input key={`${reinicio}-${vaciado}`} type="file" accept={acceptDeArchivo(tipos, formatosDeDocumento)} className="hidden" onChange={elegir} />
         {archivo ? (
           <span className="font-medium break-all text-system-900">{archivo.name}</span>
         ) : (
@@ -68,7 +73,7 @@ export default function SelectorDeArchivo({
             <span className="font-medium text-system-900">Toca o haz clic para elegir un archivo</span>
             {tipos.map((tipo) => (
               <span key={tipo} className="font-mono text-[11px]">
-                {NOMBRE[tipo]}: {FORMATOS[tipo].extensiones.join(" ")} · máximo {textoDeTamano(FORMATOS[tipo].tamanoMaximo)}
+                {NOMBRE[tipo]}: {extensionesDe(tipo, formatosDeDocumento).join(" ")} · máximo {textoDeTamano(FORMATOS[tipo].tamanoMaximo)}
               </span>
             ))}
           </>

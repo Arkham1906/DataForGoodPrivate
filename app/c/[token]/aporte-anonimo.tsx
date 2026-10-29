@@ -13,7 +13,7 @@ import IndicadorDeCarga from "@/components/ui/IndicadorDeCarga";
 import { CasillasDeAcuerdos, SIN_ACUERDOS, acuerdosCompletos, agregarAcuerdos } from "@/components/ui/AcuerdosDeAporte";
 import { Field, Textarea } from "@/components/ui/Input";
 import SelectorDeArchivo from "@/components/ui/SelectorDeArchivo";
-import { LARGO_MAXIMO_DESCRIPCION, archivoEsOpcional, type TipoDeArchivo } from "@/lib/aportes/archivo";
+import { LARGO_MAXIMO_DESCRIPCION, archivoEsOpcional, type FormatoDeDocumento, type TipoDeArchivo } from "@/lib/aportes/archivo";
 import { BASE_PATH } from "@/lib/base-path";
 import { respuestasValidas, seccionesParaElAporte, type SeccionDeChecklist } from "@/lib/campanas/checklist";
 import ChecklistsDelAporte from "@/components/aportes/ChecklistsDelAporte";
@@ -22,6 +22,7 @@ export default function AporteAnonimo({
   token,
   secciones,
   tipos,
+  formatosDeDocumento = [],
   cuota,
   restantesIniciales,
   esperaInicial,
@@ -31,6 +32,8 @@ export default function AporteAnonimo({
   secciones: SeccionDeChecklist[];
   /** Tipos de archivo que acepta la campaña; con "texto", el archivo es opcional. */
   tipos: TipoDeArchivo[];
+  /** Formatos de "Archivo" que acepta (2026-10-28); [] = todos. */
+  formatosDeDocumento?: FormatoDeDocumento[];
   cuota: number;
   restantesIniciales: number;
   /** Segundos que faltan para poder enviar otro (lo calcula el servidor). */
@@ -130,6 +133,7 @@ export default function AporteAnonimo({
       <SelectorDeArchivo
         className="mb-4"
         tipos={tipos}
+        formatosDeDocumento={formatosDeDocumento}
         archivo={archivo}
         error={errorArchivo}
         reinicio={vuelta}

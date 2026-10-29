@@ -3,6 +3,10 @@
 // videos). Es opcional: un tipo sin número no tiene límite (y las campañas anteriores, ninguno).
 // Cuentan los enviados que no se rechazaron (pendientes y aprobados): un rechazado libera su lugar.
 // Al llenarse un tipo ya nadie puede mandar de ese tipo; la cuota por persona sigue igual.
+// Cómo se mide la meta (2026-10-28, segunda decisión del usuario): POR DEFECTO por tipo de dato (cada
+// tipo lleva su límite, obligatorio, y la meta de aprobados es la suma de los límites); o, si al creador
+// no le importa cuántos de cada tipo, una META GENERAL (un total de aprobados, sin límites por tipo, que
+// solo marca el avance). Ver resolverMetaYLimites. La cuota por persona vale en los dos casos.
 // Se guarda en campanas.limite_por_tipo ({ "foto": 100 }) y el conteo en campanas.enviados_por_tipo
 // (lo recalcula recalcularContadores, lib/aportes/comun.ts, que también lo exige al insertar).
 // Sin imports de servidor: lo usan el formulario de campaña y las pantallas de aportar.
@@ -116,4 +120,29 @@ export function avisoDeTodoLleno(tipos: readonly string[], limite: LimitePorTipo
   return tipos.length > 0 && tiposConLugar(tipos, limite, enviados).length === 0
     ? "Esta campaña ya recibió todos los aportes que pedía de cada tipo."
     : null;
+}
+
+/**
+ * Meta y límites según cómo se mide la meta (campo `metaPorTipo` del formulario, 2026-10-28):
+ * - true (por defecto en el formulario): un límite por cada tipo que pide la campaña (obligatorio si
+ *   `exigirCompleto`, es decir, fuera de borrador); la meta es la suma (`metaDeLaSuma`).
+ * - false (meta general): sin límites por tipo; la meta es la que escribió el creador.
+ * - sin el campo (clientes anteriores): límites opcionales tal como llegan y la meta que llegó.
+ */
+export function resolverMetaYLimites(
+  body: { metaPorTipo?: unknown; limitePorTipo?: unknown },
+  tipos: readonly string[],
+  exigirCompleto: boolean,
+): { ok: true; limite: LimitePorTipo | null; metaDeLaSuma: number | null } | { ok: false; error: string } {
+  if (body.metaPorTipo === false) return { ok: true, limite: null, metaDeLaSuma: null };
+  const validado = normalizarLimitePorTipo(body.limitePorTipo, tipos);
+  if (!validado.ok) return validado;
+  if (body.metaPorTipo !== true) return { ok: true, limite: validado.limite, metaDeLaSuma: null };
+  const limite = validado.limite ?? {};
+  if (exigirCompleto) {
+    const falta = ORDEN.find((t) => tipos.includes(t) && !limite[t]);
+    if (falta) return { ok: false, error: `Falta el límite de ${PLURALES_DE_TIPO[falta][1]}` };
+  }
+  const suma = Object.values(limite).reduce((total, n) => total + (n ?? 0), 0);
+  return { ok: true, limite: validado.limite, metaDeLaSuma: suma > 0 ? suma : null };
 }

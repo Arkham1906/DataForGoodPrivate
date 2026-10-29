@@ -206,6 +206,7 @@ function Invitacion({
                 token={token}
                 secciones={campana.secciones}
                 tipos={tiposConLugar(campana.tiposDeArchivo, campana.limitePorTipo, campana.enviadosPorTipo)}
+                formatosDeDocumento={campana.formatosDeDocumento}
                 cuota={campana.cuotaPorPersona}
                 restantesIniciales={restantes}
                 esperaInicial={espera}

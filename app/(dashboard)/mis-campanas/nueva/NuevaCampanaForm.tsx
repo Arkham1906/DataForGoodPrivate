@@ -34,6 +34,7 @@ import { ETIQUETA_DE_CAMPANA } from "@/lib/campanas/sistema-opciones";
 import { GuiaDePasos, TarjetaDePaso, type Paso } from "./PasosDeCampana";
 import { PLURALES_DE_TIPO, repartoSugerido } from "@/lib/campanas/reparto-sugerido";
 import { LIMITE_MAXIMO_POR_TIPO } from "@/lib/campanas/limite-por-tipo";
+import { FORMATOS_DE_DOCUMENTO, type FormatoDeDocumento } from "@/lib/aportes/archivo";
 
 /** Campos del formulario que pueden tener un problema al guardar (2026-10-27). "general": nada en particular. */
 type CampoDeCampana =
@@ -337,6 +338,14 @@ function CampanaFormulario({
     };
   }, []);
   const [dataTypes, setDataTypes] = useState<DataType[]>(editingCampaign?.dataTypes ?? []);
+  // Formatos de "Archivo" que acepta la campaña (2026-10-28, a pedido del usuario): se eligen al marcar
+  // "Archivo"; ninguno marcado = todos (PDF, Word, PowerPoint y Excel).
+  const [formatosDeDocumento, setFormatosDeDocumento] = useState<FormatoDeDocumento[]>(editingCampaign?.formatosDeDocumento ?? []);
+  function alternarFormato(formato: FormatoDeDocumento) {
+    setFormatosDeDocumento((actuales) =>
+      actuales.includes(formato) ? actuales.filter((f) => f !== formato) : [...actuales, formato]
+    );
+  }
   // Sin ejemplos: una campaña nueva empieza sin checklists. Los de campañas
   // viejas (lista plana, sin título) se titulan "Checklist" para poder guardarlos.
   const [checklists, setChecklists] = useState<ChecklistEditable[]>(() =>
@@ -348,15 +357,27 @@ function CampanaFormulario({
   // Sin reparto de la cuota por tipo desde el 2026-10-27 (a pedido del usuario): la cuota vale
   // para cualquier tipo y debajo solo se muestra un reparto sugerido (lib/campanas/reparto-sugerido.ts).
   const sugerencia = repartoSugerido(Number(quota), dataTypes);
-  // Límite TOTAL de aportes de cada tipo (2026-10-28, a pedido del usuario; lib/campanas/limite-por-tipo.ts).
-  // Opcional: vacío = sin límite. Se puede cambiar también con la campaña activa o aceptada, como la meta.
+  // Cómo se mide la meta (2026-10-28, a pedido del usuario; lib/campanas/limite-por-tipo.ts): por defecto
+  // POR TIPO DE DATO (cada tipo con su límite total, obligatorio; la meta es la suma) o META GENERAL (un
+  // total de aprobados, sin límites por tipo). Una campaña que ya existe sin límites queda en meta general.
+  // Meta y límites se pueden cambiar también con la campaña activa o aceptada.
+  const [metaPorTipo, setMetaPorTipo] = useState(
+    () => !editingCampaign || Object.keys(editingCampaign.limitePorTipo ?? {}).length > 0
+  );
   const [limites, setLimites] = useState<Partial<Record<DataType, string>>>(() =>
     Object.fromEntries(Object.entries(editingCampaign?.limitePorTipo ?? {}).map(([tipo, n]) => [tipo, String(n)]))
   );
-  // Solo de los tipos marcados; los de un tipo que se desmarcó no se guardan.
-  const limitePorTipo = Object.fromEntries(
-    dataTypes.filter((t) => (limites[t] ?? "").trim() !== "").map((t) => [t, Number(limites[t])])
-  );
+  // Solo de los tipos marcados (los de un tipo que se desmarcó no se guardan), y solo con meta por tipo.
+  const limitePorTipo: Partial<Record<DataType, number>> = metaPorTipo
+    ? Object.fromEntries(dataTypes.filter((t) => (limites[t] ?? "").trim() !== "").map((t) => [t, Number(limites[t])]))
+    : {};
+  const sumaDeLimites = Object.values(limitePorTipo).reduce((total, n) => total + (Number.isInteger(n) && n > 0 ? n : 0), 0);
+  /** La meta que se guarda: la suma de los límites (por tipo) o la que escribió (general). */
+  const metaFinal = metaPorTipo ? sumaDeLimites : Number(goal);
+  function faltaLimite(): string | null {
+    const falta = DATA_TYPES.find((d) => dataTypes.includes(d.value) && !limitePorTipo[d.value]);
+    return falta ? `Falta el límite de ${PLURALES_DE_TIPO[falta.value][1]}` : null;
+  }
   function validarLimites(): string | null {
     for (const [tipo, n] of Object.entries(limitePorTipo)) {
       if (!Number.isInteger(n) || n < 1 || n > LIMITE_MAXIMO_POR_TIPO) {
@@ -587,6 +608,11 @@ function CampanaFormulario({
       if (mensaje) lista.push({ campo, mensaje });
     };
     const vacio = (n: string) => !Number(n) || Number(n) <= 0;
+    // Por tipo: cada tipo marcado con su límite. General: la meta escrita.
+    const revisarMeta = () => {
+      if (metaPorTipo) agregar("limites", validarLimites() ?? faltaLimite());
+      else if (vacio(goal)) agregar("meta", "La meta de aportes debe ser mayor a 0");
+    };
 
     if (editaEnPausa) {
       if (!name.trim()) agregar("nombre", "Falta el nombre de la campaña");
@@ -594,9 +620,8 @@ function CampanaFormulario({
       if (!theme) agregar("tematica", "Elige una temática");
       if (dataTypes.length === 0) agregar("tipos", "Selecciona al menos un tipo de dato");
       agregar("checklists", validarChecklists());
-      if (vacio(goal)) agregar("meta", "La meta de aportes debe ser mayor a 0");
+      revisarMeta();
       if (vacio(quota)) agregar("cuota", "La cuota por persona debe ser mayor a 0");
-      agregar("limites", validarLimites());
       if (!fechaInicioFormulario) agregar("inicio", "Falta la fecha de inicio");
       else if (inicioMovido) agregar("inicio", errorDeInicioPasado(fechaInicioFormulario));
       if (!fechaFinFormulario) agregar("fin", "Falta la fecha de finalización");
@@ -610,8 +635,7 @@ function CampanaFormulario({
       return lista;
     }
     if (edicionLimitada) {
-      if (vacio(goal)) agregar("meta", "La meta de aportes debe ser mayor a 0");
-      agregar("limites", validarLimites());
+      revisarMeta();
       if (!fechaFinFormulario) agregar("fin", "Falta la fecha de finalización");
       else agregar("fin", errorDeFinAntesDeInicio(fechaInicioFormulario, fechaFinFormulario));
       return lista;
@@ -622,7 +646,8 @@ function CampanaFormulario({
     if (!description.trim()) agregar("descripcion", "Falta la descripción");
     if (!theme) agregar("tematica", "Elige una temática");
     agregar("checklists", validarChecklists());
-    agregar("limites", validarLimites());
+    // En borrador solo se revisa que los límites escritos sean números válidos.
+    if (asDraft && metaPorTipo) agregar("limites", validarLimites());
     agregar("inicio", errorDeInicioPasado(fechaInicioFormulario));
     agregar("fin", errorDeFinAntesDeInicio(fechaInicioFormulario, fechaFinFormulario));
     // El propósito se exige al enviar a revisión; en un borrador solo se revisa si se eligió "Otro".
@@ -634,7 +659,7 @@ function CampanaFormulario({
       agregar("general", `Ya tienes ${MAX_ACTIVE_CAMPAIGNS} campañas activas: guárdala como borrador y envíala cuando pauses o finalices otra`);
     }
     if (dataTypes.length === 0) agregar("tipos", "Selecciona al menos un tipo de dato");
-    if (vacio(goal)) agregar("meta", "La meta de aportes debe ser mayor a 0");
+    revisarMeta();
     if (vacio(quota)) agregar("cuota", "La cuota por persona debe ser mayor a 0");
     if (!fechaInicioFormulario) agregar("inicio", "Falta la fecha de inicio");
     if (!fechaFinFormulario) agregar("fin", "Falta la fecha de finalización");
@@ -679,9 +704,11 @@ function CampanaFormulario({
           tag: theme,
           etiquetas,
           dataTypes,
+          formatosDeDocumento: dataTypes.includes("documento") ? formatosDeDocumento : [],
           checklistSecciones,
-          goalContributions: Number(goal),
+          goalContributions: metaFinal,
           quotaPerUser: Number(quota),
+          metaPorTipo,
           limitePorTipo,
           startDate: fechaInicioFormulario,
           endDate: fechaFinFormulario,
@@ -692,7 +719,8 @@ function CampanaFormulario({
         }
       : edicionLimitada
       ? {
-          goalContributions: Number(goal),
+          goalContributions: metaFinal,
+          metaPorTipo,
           limitePorTipo,
           endDate: fechaFinFormulario,
         }
@@ -707,9 +735,11 @@ function CampanaFormulario({
           organizer: organizer.trim(),
           status: asDraft ? "borrador" : "en_revision",
           dataTypes,
+          formatosDeDocumento: dataTypes.includes("documento") ? formatosDeDocumento : [],
           checklistSecciones,
-          goalContributions: Number(goal),
+          goalContributions: metaFinal,
           quotaPerUser: Number(quota),
+          metaPorTipo,
           limitePorTipo,
           startDate: fechaInicioFormulario,
           endDate: fechaFinFormulario,
@@ -806,7 +836,11 @@ function CampanaFormulario({
         titulo: "Qué se recolecta",
         completo: dataTypes.length > 0 && !validarChecklists() && validarProposito(proposito, propositoOtro, true).ok,
       },
-      { id: "paso-meta", titulo: "Meta y cuota", completo: Number(goal) > 0 && Number(quota) > 0 },
+      {
+        id: "paso-meta",
+        titulo: "Meta y cuota",
+        completo: (metaPorTipo ? !validarLimites() && !faltaLimite() && sumaDeLimites > 0 : Number(goal) > 0) && Number(quota) > 0,
+      },
     ] satisfies Paso[]
   ).map((p) => ({ ...p, conProblemas: pasosConProblemas.has(p.id) }));
   const paso = (id: string) => pasos.find((p) => p.id === id)!;
@@ -1223,6 +1257,44 @@ function CampanaFormulario({
                 ))}
               </div>
               {errorDe("tipos") && <p id="error-de-tipos" className="mt-1.5 text-[12px] font-medium text-error-700">{errorDe("tipos")}</p>}
+
+              {/* Al marcar "Archivo": qué formatos acepta (2026-10-28). Ninguno marcado = todos. */}
+              {dataTypes.includes("documento") && (
+                <div className="mt-3 rounded-lg border border-system-200 bg-system-50 p-3.5">
+                  <p className="text-[12.5px] font-semibold text-system-900">¿Qué archivos aceptas?</p>
+                  <p className="mb-2.5 text-[11.5px] text-system-500">
+                    Marca los formatos que se pueden subir. Si no marcas ninguno, se aceptan todos.
+                  </p>
+                  <div role="group" aria-label="Formatos de archivo aceptados" className="flex flex-wrap gap-2">
+                    {FORMATOS_DE_DOCUMENTO.map((formato) => {
+                      const marcado = formatosDeDocumento.includes(formato.valor);
+                      return (
+                        <button
+                          key={formato.valor}
+                          type="button"
+                          disabled={contenidoBloqueado}
+                          onClick={() => alternarFormato(formato.valor)}
+                          aria-pressed={marcado}
+                          className={`rounded-pill border px-3 py-1.5 text-[12px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                            marcado
+                              ? "border-brand-600 bg-brand-600 text-white"
+                              : "border-system-300 bg-white text-system-600 hover:border-brand-600"
+                          }`}
+                        >
+                          {formato.nombre} <span className="font-mono font-normal">({formato.extensiones.join(", ")})</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-2 text-[11.5px] text-system-600" aria-live="polite">
+                    {formatosDeDocumento.length === 0 || formatosDeDocumento.length === FORMATOS_DE_DOCUMENTO.length
+                      ? "Se aceptan todos: PDF, Word, PowerPoint y Excel."
+                      : `Solo se acepta: ${FORMATOS_DE_DOCUMENTO.filter((f) => formatosDeDocumento.includes(f.valor))
+                          .flatMap((f) => f.extensiones)
+                          .join(", ")}.`}
+                  </p>
+                </div>
+              )}
             </div>
 
             <div>
@@ -1386,25 +1458,110 @@ function CampanaFormulario({
             id="paso-meta"
             numero={4}
             titulo="Meta y cuota"
-            descripcion="Cuántos aportes aprobados busca la campaña, cuántos puede enviar cada persona y, si quieres, cuántos recibe de cada tipo."
+            descripcion="Cuántos aportes busca la campaña de cada tipo de dato (o en total) y cuántos puede enviar cada persona."
             completo={paso("paso-meta").completo}
             conProblemas={paso("paso-meta").conProblemas}
-            aviso={contenidoBloqueado ? "Solo la meta y el límite por tipo se pueden cambiar" : undefined}
+            aviso={contenidoBloqueado ? "Solo la meta y los límites por tipo se pueden cambiar" : undefined}
           >
-            <div className="grid max-w-xl grid-cols-1 gap-4">
-              <Field label="Meta total" required hint="Solo cuentan los aportes aprobados." error={errorDe("meta")}>
-                <Input
-                  data-campo="meta"
-                  type="number"
-                  min={1}
-                  value={goal}
-                  onChange={(e) => setGoal(e.target.value)}
-                  placeholder="Ej. 500"
-                  required
-                  className="font-mono"
-                />
-              </Field>
-              <Field label="Cuota por persona" required hint="Máximo de aportes por participante." error={errorDe("cuota")}>
+            {/* Cómo se mide la meta (2026-10-28): por tipo de dato (por defecto) o meta general. */}
+            <fieldset className="max-w-xl">
+              <legend className="mb-2 text-[13px] font-medium text-system-900">¿Cómo se mide la meta?</legend>
+              <div role="group" aria-label="Cómo se mide la meta" className="grid grid-cols-1 gap-2">
+                {[
+                  {
+                    valor: true,
+                    titulo: "Por tipo de dato",
+                    detalle: "Cada tipo tiene su propio límite (p. ej. 100 fotos y 100 videos). La meta es la suma.",
+                  },
+                  {
+                    valor: false,
+                    titulo: "Meta general",
+                    detalle: "No importa cuántos de cada tipo: una sola meta de aportes aprobados para toda la campaña.",
+                  },
+                ].map((opcion) => (
+                  <button
+                    key={opcion.titulo}
+                    type="button"
+                    onClick={() => setMetaPorTipo(opcion.valor)}
+                    aria-pressed={metaPorTipo === opcion.valor}
+                    className={`rounded-lg border p-3 text-left transition-colors ${
+                      metaPorTipo === opcion.valor
+                        ? "border-brand-600 bg-brand-50 ring-1 ring-brand-600"
+                        : "border-system-300 bg-white hover:border-brand-600"
+                    }`}
+                  >
+                    <span className="block text-[13px] font-semibold text-system-900">{opcion.titulo}</span>
+                    <span className="block text-[11.5px] text-system-500">{opcion.detalle}</span>
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+
+            {metaPorTipo ? (
+              <fieldset data-campo="limites" className="mt-4 max-w-xl">
+                <legend className="text-[13px] font-medium text-system-900">
+                  Límite por tipo de dato <span className="text-error-700">*</span>
+                </legend>
+                <p className="mb-2.5 text-[11.5px] text-system-500">
+                  Cuántos aportes de cada tipo recibe la campaña en total. Al llegar al límite de un tipo, nadie puede mandar
+                  más de ese tipo; un aporte rechazado libera su lugar.
+                </p>
+                {dataTypes.length === 0 ? (
+                  <p className="rounded-lg border border-dashed border-system-300 p-3 text-[12px] text-system-500">
+                    Marca en &quot;Qué se recolecta&quot; los tipos de dato que pides para ponerles límite.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-1 gap-3">
+                    {DATA_TYPES.filter((d) => dataTypes.includes(d.value)).map((d) => {
+                      const enviados = editingCampaign?.enviadosPorTipo?.[d.value] ?? 0;
+                      return (
+                        <Field
+                          key={d.value}
+                          label={PLURALES_DE_TIPO[d.value][1].replace(/^./, (c) => c.toUpperCase())}
+                          required
+                          hint={editingCampaign && enviados > 0 ? `Ya recibió ${enviados} (sin contar rechazados).` : undefined}
+                        >
+                          <Input
+                            type="number"
+                            min={1}
+                            value={limites[d.value] ?? ""}
+                            onChange={(e) => setLimites((prev) => ({ ...prev, [d.value]: e.target.value }))}
+                            placeholder="Ej. 100"
+                            aria-invalid={errorDe("limites") ? true : undefined}
+                            className="font-mono"
+                          />
+                        </Field>
+                      );
+                    })}
+                  </div>
+                )}
+                {errorDe("limites") && <p className="mt-1.5 text-[12px] text-error-700">{errorDe("limites")}</p>}
+                {sumaDeLimites > 0 && (
+                  <p className="mt-2 text-[12.5px] text-system-600" aria-live="polite">
+                    Meta de la campaña: <span className="font-mono font-semibold text-system-900">{sumaDeLimites}</span> aportes
+                    aprobados (la suma de los límites).
+                  </p>
+                )}
+              </fieldset>
+            ) : (
+              <div className="mt-4 grid max-w-xl grid-cols-1 gap-4">
+                <Field label="Meta general" required hint="Solo cuentan los aportes aprobados, de cualquier tipo." error={errorDe("meta")}>
+                  <Input
+                    data-campo="meta"
+                    type="number"
+                    min={1}
+                    value={goal}
+                    onChange={(e) => setGoal(e.target.value)}
+                    placeholder="Ej. 500"
+                    required
+                    className="font-mono"
+                  />
+                </Field>
+              </div>
+            )}
+
+            <div className="mt-4 grid max-w-xl grid-cols-1 gap-4">
+              <Field label="Cuota por persona" required hint="Máximo de aportes por participante, de cualquier tipo." error={errorDe("cuota")}>
                 <Input
                   data-campo="cuota"
                   type="number"
@@ -1425,44 +1582,6 @@ function CampanaFormulario({
                 <span className="font-medium text-system-700">{sugerencia}</span>.
               </p>
             )}
-
-            {/* Límite total por tipo de dato (2026-10-28): un campo por cada tipo marcado en "Qué se recolecta". */}
-            <fieldset data-campo="limites" className="mt-4 max-w-xl">
-              <legend className="text-[13px] font-medium text-system-900">Límite por tipo de dato (opcional)</legend>
-              <p className="mb-2.5 text-[11.5px] text-system-500">
-                Cuántos aportes de cada tipo recibe la campaña en total. Al llegar al límite, nadie puede mandar más de ese
-                tipo; un aporte rechazado libera su lugar. Déjalo vacío para no poner límite.
-              </p>
-              {dataTypes.length === 0 ? (
-                <p className="rounded-lg border border-dashed border-system-300 p-3 text-[12px] text-system-500">
-                  Marca en &quot;Qué se recolecta&quot; los tipos de dato que pides para ponerles límite.
-                </p>
-              ) : (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  {DATA_TYPES.filter((d) => dataTypes.includes(d.value)).map((d) => {
-                    const enviados = editingCampaign?.enviadosPorTipo?.[d.value] ?? 0;
-                    return (
-                      <Field
-                        key={d.value}
-                        label={PLURALES_DE_TIPO[d.value][1].replace(/^./, (c) => c.toUpperCase())}
-                        hint={editingCampaign && enviados > 0 ? `Ya recibió ${enviados} (sin contar rechazados).` : undefined}
-                      >
-                        <Input
-                          type="number"
-                          min={1}
-                          value={limites[d.value] ?? ""}
-                          onChange={(e) => setLimites((prev) => ({ ...prev, [d.value]: e.target.value }))}
-                          placeholder="Sin límite"
-                          aria-invalid={errorDe("limites") ? true : undefined}
-                          className="font-mono"
-                        />
-                      </Field>
-                    );
-                  })}
-                </div>
-              )}
-              {errorDe("limites") && <p className="mt-1.5 text-[12px] text-error-700">{errorDe("limites")}</p>}
-            </fieldset>
           </TarjetaDePaso>
 
           {edicionCompleta && (

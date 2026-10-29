@@ -180,7 +180,7 @@ export async function enviarAporteAnonimo(entrada: {
   if (descripcion.length > LARGO_MAXIMO_DESCRIPCION) {
     return { ok: false, status: 400, error: "La descripción no puede superar 1000 caracteres" };
   }
-  const errorArchivo = errorDeArchivo(entrada.archivo, campana.tiposDeArchivo);
+  const errorArchivo = errorDeArchivo(entrada.archivo, campana.tiposDeArchivo, campana.formatosDeDocumento);
   if (errorArchivo) return { ok: false, status: 400, error: errorArchivo };
   // Límite total por tipo de dato (2026-10-28): aviso antes de subir; solo se aceptan los tipos con lugar.
   const conLugar = tiposConLugarParaElAporte(entrada.archivo, campana.tiposDeArchivo, campana.limitePorTipo, campana.enviadosPorTipo);
@@ -198,7 +198,7 @@ export async function enviarAporteAnonimo(entrada: {
     if (faltanRed > 0) return { ok: false, status: 429, error: mensajeDeEspera(faltanRed), esperaSegundos: faltanRed };
   }
 
-  const subida = await guardarArchivoDelAporte(entrada.archivo, campana.id, conLugar.tipos);
+  const subida = await guardarArchivoDelAporte(entrada.archivo, campana.id, conLugar.tipos, campana.formatosDeDocumento);
   if (!subida.ok) return { ok: false, status: 400, error: subida.error };
   const { tipo, guardado } = subida.archivo;
   // Solo respuestas de los checklists del tipo real del archivo ("Título: opción"; 2026-10-28).

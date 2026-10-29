@@ -59,6 +59,8 @@ export interface Campaign {
   propositoOtro?: string | null;
   status: CampaignStatus;
   dataTypes: DataType[];
+  /** Formatos de "Archivo" que acepta (2026-10-28): "pdf" | "word" | "powerpoint" | "excel"; [] = todos. */
+  formatosDeDocumento?: ("pdf" | "word" | "powerpoint" | "excel")[];
   collectionMode?: CollectionMode;
   /** Solo lectura de campañas viejas: hoy se usa checklistSecciones. */
   checklistOpciones?: string[];

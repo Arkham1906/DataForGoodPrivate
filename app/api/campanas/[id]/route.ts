@@ -34,7 +34,8 @@ import {
 import { hasRootSession } from "@/lib/rootSession";
 import { validarProposito } from "@/lib/campanas/proposito";
 import { normalizarSecciones, seccionesDesdeFila } from "@/lib/campanas/checklist";
-import { enviadosPorTipoDesdeFila, limitePorTipoDesdeFila, normalizarLimitePorTipo } from "@/lib/campanas/limite-por-tipo";
+import { enviadosPorTipoDesdeFila, limitePorTipoDesdeFila, resolverMetaYLimites } from "@/lib/campanas/limite-por-tipo";
+import { normalizarFormatosDeDocumento } from "@/lib/aportes/archivo";
 import { asegurarEnlaceVigente } from "@/lib/campanas/enlaces";
 import { errorDeOrganizacion } from "@/lib/campanas/organizacion";
 import { activateScheduledCampaigns, calculateCampaignDaysRemaining, errorDeFinAntesDeInicio, errorDeInicioPasado, errorDeReanudarAntesDeInicio, finalizeExpiredCampaigns, hasCampaignEnded, normalizeCampaignDate, normalizeCampaignTime } from "@/lib/campaign-date";
@@ -99,6 +100,8 @@ function mapCampaign(row: Record<string, unknown>) {
     propositoOtro: row.proposito_otro ? String(row.proposito_otro) : null,
     status: String(row.status ?? "borrador"),
     dataTypes,
+    // Formatos de "Archivo" que acepta (2026-10-28); [] = todos.
+    formatosDeDocumento: normalizarFormatosDeDocumento(row.formatos_de_documento),
     collectionMode: String(row.collection_mode ?? "checklist"),
     checklistOpciones,
     checklistSecciones: seccionesDesdeFila(row),
@@ -499,6 +502,13 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const tematica = "tematica" in body || "tag" in body ? String(body.tematica ?? body.tag ?? "").trim() : null;
     const status = "status" in body ? normalizeCampaignStatus(body.status) : null;
     const dataTypes = "dataTypes" in body || "data_types" in body ? normalizeDataTypes(body.dataTypes ?? body.data_types) : null;
+    // Formatos de "Archivo" (2026-10-28): si llegan o cambian los tipos; sin "documento", [].
+    const formatosDeDocumento =
+      "formatosDeDocumento" in body || dataTypes !== null
+        ? (dataTypes ?? (Array.isArray(existing.rows[0].data_types) ? existing.rows[0].data_types.map(String) : [])).includes("documento")
+          ? normalizarFormatosDeDocumento("formatosDeDocumento" in body ? body.formatosDeDocumento : existing.rows[0].formatos_de_documento)
+          : []
+        : null;
     // Checklists con título. Un cliente viejo que manda la lista plana
     // checklistOpciones la guarda como un solo checklist titulado "Checklist".
     const traeSecciones = "checklistSecciones" in body || "checklist_secciones" in body;
@@ -520,19 +530,22 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     // Columnas anteriores a las secciones: se dejan coherentes para quien aún las lea.
     const collectionMode = seccionesNuevas ? (seccionesNuevas.length > 0 ? "checklist" : "texto_libre") : null;
     const checklistOpciones = seccionesNuevas ? [] : null;
-    const goalContributions = "goalContributions" in body || "goal_contributions" in body ? Number(body.goalContributions ?? body.goal_contributions) : null;
+    // Meta por tipo de dato o meta general (2026-10-28, lib/campanas/limite-por-tipo.ts), con los tipos
+    // que van a quedar. Por tipo, la meta es la suma de los límites.
+    let limitePorTipo: { limite: Record<string, number> | null; metaDeLaSuma: number | null } | null = null;
+    if ("limitePorTipo" in body || "metaPorTipo" in body) {
+      const tiposQueQuedan = dataTypes ?? (Array.isArray(existing.rows[0].data_types) ? existing.rows[0].data_types.map(String) : []);
+      const validado = resolverMetaYLimites(body, tiposQueQuedan, (status ?? currentStatus) !== "borrador");
+      if (!validado.ok) return NextResponse.json({ error: validado.error }, { status: 400 });
+      limitePorTipo = validado;
+    }
+    const goalContributions =
+      limitePorTipo?.metaDeLaSuma ??
+      ("goalContributions" in body || "goal_contributions" in body ? Number(body.goalContributions ?? body.goal_contributions) : null);
     const quotaPerUser = "quotaPerUser" in body || "quota_per_user" in body ? Number(body.quotaPerUser ?? body.quota_per_user) : null;
     // Sin reparto de la cuota por tipo desde el 2026-10-27: al cambiar la cuota o los tipos, el
     // reparto viejo (cuota_por_tipo) se vacía.
     const tocaReparto = quotaPerUser !== null || dataTypes !== null;
-    // Límite total por tipo de dato (2026-10-28): con los tipos que van a quedar.
-    let limitePorTipo: { limite: Record<string, number> | null } | null = null;
-    if ("limitePorTipo" in body) {
-      const tiposQueQuedan = dataTypes ?? (Array.isArray(existing.rows[0].data_types) ? existing.rows[0].data_types.map(String) : []);
-      const validado = normalizarLimitePorTipo(body.limitePorTipo, tiposQueQuedan);
-      if (!validado.ok) return NextResponse.json({ error: validado.error }, { status: 400 });
-      limitePorTipo = validado;
-    }
     const startDate = "startDate" in body || "start_date" in body ? normalizeCampaignDate(body.startDate ?? body.start_date) : undefined;
     const startTime = "startTime" in body || "start_time" in body ? normalizeCampaignTime(body.startTime ?? body.start_time) : undefined;
     const endDate = "endDate" in body || "end_date" in body ? normalizeCampaignDate(body.endDate ?? body.end_date) : undefined;
@@ -675,6 +688,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         proposito = CASE WHEN $25::boolean THEN $26 ELSE proposito END,
         proposito_otro = CASE WHEN $25::boolean THEN $27 ELSE proposito_otro END,
         limite_por_tipo = CASE WHEN $28::boolean THEN $29::jsonb ELSE limite_por_tipo END,
+        formatos_de_documento = COALESCE($30::jsonb, formatos_de_documento),
         -- La pausó el creador (sin motivo). "status" a la derecha es el estado anterior.
         pausa_por = CASE WHEN $5 = 'en_revision' AND status = 'pausada' THEN NULL WHEN $5 = 'pausada' AND status <> 'pausada' THEN 'creador' ELSE pausa_por END,
         pausa_motivo = CASE WHEN $5 = 'en_revision' AND status = 'pausada' THEN NULL WHEN $5 = 'pausada' AND status <> 'pausada' THEN NULL ELSE pausa_motivo END,
@@ -714,6 +728,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         propositoNuevo?.otro ?? null,
         limitePorTipo !== null,
         limitePorTipo?.limite ? JSON.stringify(limitePorTipo.limite) : null,
+        formatosDeDocumento ? JSON.stringify(formatosDeDocumento) : null,
       ]
     );
 
@@ -810,6 +825,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     if (errorDeEstado) return NextResponse.json({ error: errorDeEstado }, { status: 400 });
 
     const dataTypes = normalizeDataTypes(body.dataTypes ?? body.data_types ?? []);
+    const formatosDeDocumento = dataTypes.includes("documento") ? normalizarFormatosDeDocumento(body.formatosDeDocumento) : [];
     const secciones = normalizarSecciones(
       body.checklistSecciones ?? body.checklist_secciones ??
         (Array.isArray(body.checklistOpciones ?? body.checklist_opciones)
@@ -823,11 +839,11 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     const checklistSecciones = secciones.secciones;
     const collectionMode = checklistSecciones.length > 0 ? "checklist" : "texto_libre";
     const checklistOpciones: string[] = [];
-    const goalContributions = Number(body.goalContributions ?? body.goal_contributions ?? 0);
-    const quotaPerUser = Number(body.quotaPerUser ?? body.quota_per_user ?? 1);
-    // Límite total por tipo de dato (2026-10-28): opcional; sin él, ningún tipo tiene límite.
-    const limitePorTipo = normalizarLimitePorTipo(body.limitePorTipo, dataTypes);
+    // Meta por tipo de dato o meta general (2026-10-28, lib/campanas/limite-por-tipo.ts).
+    const limitePorTipo = resolverMetaYLimites(body, dataTypes, status !== "borrador");
     if (!limitePorTipo.ok) return NextResponse.json({ error: limitePorTipo.error }, { status: 400 });
+    const goalContributions = limitePorTipo.metaDeLaSuma ?? Number(body.goalContributions ?? body.goal_contributions ?? 0);
+    const quotaPerUser = Number(body.quotaPerUser ?? body.quota_per_user ?? 1);
     const startDate = normalizeCampaignDate(body.startDate ?? body.start_date);
     const startTime = normalizeCampaignTime(body.startTime ?? body.start_time);
     const endDate = normalizeCampaignDate(body.endDate ?? body.end_date);
@@ -913,6 +929,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
         proposito = $24,
         proposito_otro = $25,
         limite_por_tipo = $26::jsonb,
+        formatos_de_documento = $27::jsonb,
         updated_at = NOW()
       WHERE id = $1
       RETURNING *`,
@@ -943,6 +960,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
         proposito.proposito,
         proposito.otro,
         limitePorTipo.limite ? JSON.stringify(limitePorTipo.limite) : null,
+        JSON.stringify(formatosDeDocumento),
       ]
     );
 

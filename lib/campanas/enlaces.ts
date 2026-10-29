@@ -11,7 +11,7 @@ import { enviadosPorTipoDesdeFila, limitePorTipoDesdeFila, type EnviadosPorTipo,
 import { randomInt } from "node:crypto";
 import QRCode from "qrcode";
 import { absoluteUrl } from "@/lib/app-url";
-import { tiposAceptados, type TipoDeArchivo } from "@/lib/aportes/archivo";
+import { normalizarFormatosDeDocumento, tiposAceptados, type FormatoDeDocumento, type TipoDeArchivo } from "@/lib/aportes/archivo";
 import { normalizeCampaignDate } from "@/lib/campaign-date";
 import { seccionesDesdeFila, type SeccionDeChecklist } from "@/lib/campanas/checklist";
 import { pausaDesdeFila, type PausaDeCampana } from "@/lib/campanas/pausa";
@@ -210,6 +210,8 @@ export type CampanaDelEnlace = {
   permiteAnonimos: boolean;
   /** Tipos de archivo que acepta (campanas.data_types; lib/aportes/archivo.ts). */
   tiposDeArchivo: TipoDeArchivo[];
+  /** Formatos de "Archivo" que acepta (2026-10-28); [] = todos. */
+  formatosDeDocumento: FormatoDeDocumento[];
   /** Quién la pausó y por qué, o null si no está pausada. */
   pausa: PausaDeCampana | null;
   /** Para qué se usarán los datos (2026-10-27), como se lee; null si no tiene. */
@@ -229,7 +231,7 @@ export async function buscarEnlacePorToken(token: string): Promise<ResultadoDeTo
             c.status, c.goal_contributions, c.approved_contributions, c.quota_per_user, c.end_date,
             c.checklist_secciones, c.checklist_opciones, c.collection_mode, c.permite_anonimos, c.data_types,
             c.pausa_por, c.pausa_motivo, c.pausada_en, c.proposito, c.proposito_otro,
-            c.limite_por_tipo, c.enviados_por_tipo
+            c.limite_por_tipo, c.enviados_por_tipo, c.formatos_de_documento
      FROM campana_enlaces e
      JOIN campanas c ON c.id = e.campana_id
      WHERE e.token = $1
@@ -259,6 +261,7 @@ export async function buscarEnlacePorToken(token: string): Promise<ResultadoDeTo
     secciones: seccionesDesdeFila(row),
     permiteAnonimos: row.permite_anonimos !== false,
     tiposDeArchivo: tiposAceptados(row.data_types),
+    formatosDeDocumento: normalizarFormatosDeDocumento(row.formatos_de_documento),
     pausa: pausaDesdeFila(row),
     proposito: textoDelProposito(row.proposito, row.proposito_otro),
   };

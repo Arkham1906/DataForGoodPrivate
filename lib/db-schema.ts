@@ -163,6 +163,8 @@ export async function ensureCampanasTable(): Promise<void> {
       limite_por_tipo JSONB,
       -- Aportes no rechazados de cada tipo; lo recalcula recalcularContadores (lib/aportes/comun.ts).
       enviados_por_tipo JSONB NOT NULL DEFAULT '{}'::jsonb,
+      -- Formatos de "Archivo" que acepta (2026-10-28): ["pdf", "word"]; [] = todos (lib/aportes/archivo.ts).
+      formatos_de_documento JSONB NOT NULL DEFAULT '[]'::jsonb,
       current_contributions INTEGER NOT NULL DEFAULT 0,
       approved_contributions INTEGER NOT NULL DEFAULT 0,
       pending_contributions INTEGER NOT NULL DEFAULT 0,
@@ -215,6 +217,7 @@ export async function ensureCampanasTable(): Promise<void> {
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS quota_per_user INTEGER NOT NULL DEFAULT 1;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS cuota_por_tipo JSONB;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS limite_por_tipo JSONB;
+    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS formatos_de_documento JSONB NOT NULL DEFAULT '[]'::jsonb;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS current_contributions INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS approved_contributions INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS pending_contributions INTEGER NOT NULL DEFAULT 0;

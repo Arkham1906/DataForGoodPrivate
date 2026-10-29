@@ -2189,6 +2189,13 @@ components:
           items: { $ref: "#/components/schemas/ChecklistSeccion" }
         goalContributions: { type: integer, minimum: 1 }
         quotaPerUser: { type: integer, minimum: 1, description: "Máximo de aportes por persona, de cualquier tipo de dato (2026-10-27: ya no se reparte por tipo; `cuotaPorTipo` se ignora)" }
+        formatosDeDocumento:
+          type: array
+          description: "Formatos de Archivo (documento) que acepta (2026-10-28). Vacío = todos. Solo cuenta si dataTypes incluye documento."
+          items: { type: string, enum: [pdf, word, powerpoint, excel] }
+        metaPorTipo:
+          type: boolean
+          description: "Cómo se mide la meta (2026-10-28). true: un límite por cada tipo (obligatorio fuera de borrador) y la meta es su suma (se ignora goalContributions). false: meta general (goalContributions), sin límites por tipo. Sin el campo: límites opcionales."
         limitePorTipo:
           type: object
           description: "Límite TOTAL de aportes por tipo de dato (2026-10-28, opcional). Solo los tipos que pide; vacío o 0 = sin límite. Cuentan los no rechazados."

@@ -13,7 +13,8 @@ import { yaReporto } from "@/lib/reportes/reportes";
 import { inscripcionDe } from "@/lib/campanas/inscripciones";
 import { errorDeOrganizacion } from "@/lib/campanas/organizacion";
 import { normalizarSecciones, seccionesDesdeFila } from "@/lib/campanas/checklist";
-import { enviadosPorTipoDesdeFila, limitePorTipoDesdeFila, normalizarLimitePorTipo } from "@/lib/campanas/limite-por-tipo";
+import { enviadosPorTipoDesdeFila, limitePorTipoDesdeFila, resolverMetaYLimites } from "@/lib/campanas/limite-por-tipo";
+import { normalizarFormatosDeDocumento } from "@/lib/aportes/archivo";
 import { XP_POR_APORTE, errorDeEstadoPedido } from "@/lib/campanas/estado-del-creador";
 import { pausaDesdeFila } from "@/lib/campanas/pausa";
 import { rechazoDesdeFila } from "@/lib/campanas/rechazo";
@@ -101,6 +102,8 @@ function mapCampaign(row: Record<string, unknown>) {
     propositoOtro: row.proposito_otro ? String(row.proposito_otro) : null,
     status: String(row.status ?? "borrador"),
     dataTypes,
+    // Formatos de "Archivo" que acepta (2026-10-28); [] = todos.
+    formatosDeDocumento: normalizarFormatosDeDocumento(row.formatos_de_documento),
     collectionMode: String(row.collection_mode ?? "checklist"),
     checklistOpciones,
     checklistSecciones: seccionesDesdeFila(row),
@@ -309,6 +312,8 @@ export async function POST(request: Request) {
     }
 
     const dataTypes = normalizeDataTypes(body.dataTypes ?? body.data_types ?? []);
+    // Formatos de "Archivo" (2026-10-28): solo si pide archivos; [] = todos.
+    const formatosDeDocumento = dataTypes.includes("documento") ? normalizarFormatosDeDocumento(body.formatosDeDocumento) : [];
     const status = normalizeCampaignStatus(body.status ?? "borrador");
     const errorDeEstado = await errorDeEstadoPedido(status, creatorId);
     if (errorDeEstado) return NextResponse.json({ error: errorDeEstado }, { status: 400 });
@@ -333,11 +338,12 @@ export async function POST(request: Request) {
     const collectionMode = checklistSecciones.length > 0 ? "checklist" : "texto_libre";
     const checklistOpciones: string[] = [];
 
-    const goalContributions = Number(body.goalContributions ?? body.goal_contributions ?? 0);
-    const quotaPerUser = Number(body.quotaPerUser ?? body.quota_per_user ?? 1);
-    // Límite total de aportes por tipo de dato (2026-10-28): opcional, solo de los tipos que pide.
-    const limitePorTipo = normalizarLimitePorTipo(body.limitePorTipo, dataTypes);
+    // Meta por tipo de dato (por defecto: un límite por tipo y la meta es su suma) o meta general
+    // (2026-10-28, lib/campanas/limite-por-tipo.ts). Los límites solo de los tipos que pide.
+    const limitePorTipo = resolverMetaYLimites(body, dataTypes, status !== "borrador");
     if (!limitePorTipo.ok) return NextResponse.json({ error: limitePorTipo.error }, { status: 400 });
+    const goalContributions = limitePorTipo.metaDeLaSuma ?? Number(body.goalContributions ?? body.goal_contributions ?? 0);
+    const quotaPerUser = Number(body.quotaPerUser ?? body.quota_per_user ?? 1);
     // Contadores, XP, "especial" y "revisor asignado" los decide el sistema, no el body:
     // una campaña nueva empieza en cero y sin revisor.
     const currentContributions = 0;
@@ -445,11 +451,12 @@ export async function POST(request: Request) {
           todo_el_pais,
           proposito,
           proposito_otro,
-          limite_por_tipo
+          limite_por_tipo,
+          formatos_de_documento
         ) VALUES (
           $1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10::jsonb, $11, $12, $13, $14, $15,
           $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30::jsonb, $31, $32, $33::jsonb, $34::jsonb, $35,
-          $36, $37, $38::jsonb
+          $36, $37, $38::jsonb, $39::jsonb
         ) RETURNING *`,
         [
           creatorId,
@@ -490,6 +497,7 @@ export async function POST(request: Request) {
           proposito.proposito,
           proposito.otro,
           limitePorTipo.limite ? JSON.stringify(limitePorTipo.limite) : null,
+          JSON.stringify(formatosDeDocumento),
         ]
       );
       if ("etiquetas" in body) {

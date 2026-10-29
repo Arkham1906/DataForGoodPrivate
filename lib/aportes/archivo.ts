@@ -34,6 +34,51 @@ export const FORMATOS: Record<TipoDeArchivo, { extensiones: string[]; mimes: str
 
 const ORDEN: TipoDeArchivo[] = ["foto", "video", "audio", "documento", "texto"];
 
+/**
+ * Formatos de "Archivo" que el creador puede limitar (2026-10-28, a pedido del usuario): al marcar
+ * "Archivo" en el formulario de campaña elige cuáles acepta (p. ej. solo PDF y Word). Ninguno marcado
+ * = todos. Se guarda en campanas.formatos_de_documento (["pdf", "word"]).
+ */
+export type FormatoDeDocumento = "pdf" | "word" | "powerpoint" | "excel";
+export const FORMATOS_DE_DOCUMENTO: { valor: FormatoDeDocumento; nombre: string; extensiones: string[]; mimes: string[] }[] = [
+  { valor: "pdf", nombre: "PDF", extensiones: [".pdf"], mimes: ["application/pdf"] },
+  { valor: "word", nombre: "Word", extensiones: [".docx"], mimes: [MIME_DOCX] },
+  { valor: "powerpoint", nombre: "PowerPoint", extensiones: [".pptx"], mimes: [MIME_PPTX] },
+  { valor: "excel", nombre: "Excel", extensiones: [".xlsx", ".xls"], mimes: [MIME_XLSX, MIME_XLS] },
+];
+
+/** Los formatos válidos, sin repetir y en orden fijo; [] = todos (también si se marcaron los cuatro). */
+export function normalizarFormatosDeDocumento(input: unknown): FormatoDeDocumento[] {
+  const lista = Array.isArray(input) ? input.map(String) : [];
+  const elegidos = FORMATOS_DE_DOCUMENTO.filter((f) => lista.includes(f.valor)).map((f) => f.valor);
+  return elegidos.length === FORMATOS_DE_DOCUMENTO.length ? [] : elegidos;
+}
+
+/** Los formatos de documento que acepta una campaña ([] = todos). */
+function formatosPermitidos(formatos: readonly FormatoDeDocumento[] | undefined) {
+  return formatos && formatos.length > 0 ? FORMATOS_DE_DOCUMENTO.filter((f) => formatos.includes(f.valor)) : FORMATOS_DE_DOCUMENTO;
+}
+
+/** Extensiones de un tipo, con los formatos de documento que acepta la campaña. */
+export function extensionesDe(tipo: TipoDeArchivo, formatos?: readonly FormatoDeDocumento[]): string[] {
+  return tipo === "documento" ? formatosPermitidos(formatos).flatMap((f) => f.extensiones) : FORMATOS[tipo].extensiones;
+}
+
+function mimesDe(tipo: TipoDeArchivo, formatos?: readonly FormatoDeDocumento[]): string[] {
+  return tipo === "documento" ? formatosPermitidos(formatos).flatMap((f) => f.mimes) : FORMATOS[tipo].mimes;
+}
+
+/** ¿Esa extensión (".pdf") es de un formato de documento que la campaña acepta? */
+export function documentoPermitido(extension: string, formatos?: readonly FormatoDeDocumento[]): boolean {
+  return extensionesDe("documento", formatos).includes(extension.toLowerCase());
+}
+
+/** "PDF y Word", "PDF, Word, PowerPoint y Excel": para mostrar qué archivos acepta la campaña. */
+export function nombresDeFormatos(formatos?: readonly FormatoDeDocumento[]): string {
+  const nombres = formatosPermitidos(formatos).map((f) => f.nombre);
+  return nombres.length <= 1 ? (nombres[0] ?? "") : `${nombres.slice(0, -1).join(", ")} y ${nombres.at(-1)}`;
+}
+
 /** El mayor de los tamaños permitidos: lo que debe dejar pasar next.config.ts (proxyClientMaxBodySize). */
 export const TAMANO_MAXIMO = Math.max(...ORDEN.map((t) => FORMATOS[t].tamanoMaximo));
 export const LARGO_MAXIMO_DESCRIPCION = 1000;
@@ -71,27 +116,31 @@ export function textoDeTamano(bytes: number): string {
   return `${Math.round(bytes / MB)} MB`;
 }
 
-/** ".jpg, .jpeg, .png, .mp4..." de los tipos dados. */
-export function textoDeExtensiones(tipos: TipoDeArchivo[]): string {
-  return tipos.flatMap((t) => FORMATOS[t].extensiones).join(", ");
+/** ".jpg, .jpeg, .png, .mp4..." de los tipos dados (con los formatos de documento de la campaña). */
+export function textoDeExtensiones(tipos: TipoDeArchivo[], formatos?: readonly FormatoDeDocumento[]): string {
+  return tipos.flatMap((t) => extensionesDe(t, formatos)).join(", ");
 }
 
 /** Valor del atributo accept de <input type="file">. */
-export function acceptDeArchivo(tipos: TipoDeArchivo[]): string {
-  return tipos.flatMap((t) => [...FORMATOS[t].extensiones, ...FORMATOS[t].mimes]).join(",");
+export function acceptDeArchivo(tipos: TipoDeArchivo[], formatos?: readonly FormatoDeDocumento[]): string {
+  return tipos.flatMap((t) => [...extensionesDe(t, formatos), ...mimesDe(t, formatos)]).join(",");
 }
 
 /**
  * Mensaje de error para la persona, o null si el archivo sirve para esta campaña.
  * Sin archivo es válido solo si la campaña acepta texto.
  */
-export function errorDeArchivo(file: FormDataEntryValue | null | undefined, tipos: TipoDeArchivo[]): string | null {
+export function errorDeArchivo(
+  file: FormDataEntryValue | null | undefined,
+  tipos: TipoDeArchivo[],
+  formatos?: readonly FormatoDeDocumento[],
+): string | null {
   if (!(file instanceof File) || file.size === 0) {
     return archivoEsOpcional(tipos) ? null : "El archivo es obligatorio";
   }
   const tipo = tipoPorNombre(file);
-  if (!tipo || !tipos.includes(tipo)) {
-    return `Formato no válido. Esta campaña acepta ${textoDeExtensiones(tipos)}.`;
+  if (!tipo || !tipos.includes(tipo) || (tipo === "documento" && !documentoPermitido(extensionDe(file.name), formatos))) {
+    return `Formato no válido. Esta campaña acepta ${textoDeExtensiones(tipos, formatos)}.`;
   }
   const maximo = FORMATOS[tipo].tamanoMaximo;
   if (file.size > maximo) return `El archivo pesa más de ${textoDeTamano(maximo)}, el máximo para ${NOMBRE_EN_FRASE[tipo]}.`;
