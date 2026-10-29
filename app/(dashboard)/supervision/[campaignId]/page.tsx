@@ -22,6 +22,7 @@ import EstadoDeCampanaSupervisada, { type CambioDeEstado } from "@/components/su
 import type { PausaDeCampana } from "@/lib/campanas/pausa";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 import { repartoSugerido } from "@/lib/campanas/reparto-sugerido";
+import { resumenDeLimites } from "@/lib/campanas/limite-por-tipo";
 import { quienOrganiza } from "@/lib/campanas/organizacion";
 import { textoDelProposito } from "@/lib/campanas/proposito";
 
@@ -41,6 +42,8 @@ type Campaign = {
   approvedContributions?: number;
   participants?: number;
   quotaPerUser?: number;
+  limitePorTipo?: Partial<Record<string, number>>;
+  enviadosPorTipo?: Partial<Record<string, number>>;
   todoElPais?: boolean;
   description?: string;
   dataTypes?: string[];
@@ -338,6 +341,12 @@ export default function CampaignDetailPage() {
                 {repartoSugerido(campaign.quotaPerUser, dataTypes) ? ` (sugerido: ${repartoSugerido(campaign.quotaPerUser, dataTypes)})` : ""}
               </span>
             </div>
+            {resumenDeLimites(dataTypes, campaign.limitePorTipo ?? {}, campaign.enviadosPorTipo ?? {}) && (
+              <div className="flex justify-between gap-3 border-b border-system-200 pb-3 text-[13px]">
+                <span className="text-system-600">Límite por tipo</span>
+                <span className="text-right font-mono">{resumenDeLimites(dataTypes, campaign.limitePorTipo ?? {}, campaign.enviadosPorTipo ?? {})}</span>
+              </div>
+            )}
           </div>
         </div>
 

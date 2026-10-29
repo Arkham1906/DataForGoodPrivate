@@ -13,6 +13,7 @@ import { yaReporto } from "@/lib/reportes/reportes";
 import { inscripcionDe } from "@/lib/campanas/inscripciones";
 import { errorDeOrganizacion } from "@/lib/campanas/organizacion";
 import { normalizarSecciones, seccionesDesdeFila } from "@/lib/campanas/checklist";
+import { enviadosPorTipoDesdeFila, limitePorTipoDesdeFila, normalizarLimitePorTipo } from "@/lib/campanas/limite-por-tipo";
 import { XP_POR_APORTE, errorDeEstadoPedido } from "@/lib/campanas/estado-del-creador";
 import { pausaDesdeFila } from "@/lib/campanas/pausa";
 import { rechazoDesdeFila } from "@/lib/campanas/rechazo";
@@ -105,6 +106,9 @@ function mapCampaign(row: Record<string, unknown>) {
     checklistSecciones: seccionesDesdeFila(row),
     goalContributions: Number(row.goal_contributions ?? 0),
     quotaPerUser: Number(row.quota_per_user ?? 0),
+    // Límite total por tipo de dato (2026-10-28, lib/campanas/limite-por-tipo.ts) y lo enviado de cada uno.
+    limitePorTipo: limitePorTipoDesdeFila(row),
+    enviadosPorTipo: enviadosPorTipoDesdeFila(row),
     currentContributions: Number(row.current_contributions ?? 0),
     approvedContributions: Number(row.approved_contributions ?? 0),
     pendingContributions: Number(row.pending_contributions ?? 0),
@@ -319,7 +323,8 @@ export async function POST(request: Request) {
       (Array.isArray(body.checklistOpciones ?? body.checklist_opciones)
         ? [{ titulo: "Checklist", opciones: normalizeChecklistOpciones(body.checklistOpciones ?? body.checklist_opciones) }]
         : []);
-    const secciones = normalizarSecciones(seccionesEnviadas);
+    // Cada checklist va con su tipo de dato (2026-10-28); los de tipos que no pide se quitan.
+    const secciones = normalizarSecciones(seccionesEnviadas, dataTypes);
     if (!secciones.ok) {
       return NextResponse.json({ error: secciones.error }, { status: 400 });
     }
@@ -330,6 +335,9 @@ export async function POST(request: Request) {
 
     const goalContributions = Number(body.goalContributions ?? body.goal_contributions ?? 0);
     const quotaPerUser = Number(body.quotaPerUser ?? body.quota_per_user ?? 1);
+    // Límite total de aportes por tipo de dato (2026-10-28): opcional, solo de los tipos que pide.
+    const limitePorTipo = normalizarLimitePorTipo(body.limitePorTipo, dataTypes);
+    if (!limitePorTipo.ok) return NextResponse.json({ error: limitePorTipo.error }, { status: 400 });
     // Contadores, XP, "especial" y "revisor asignado" los decide el sistema, no el body:
     // una campaña nueva empieza en cero y sin revisor.
     const currentContributions = 0;
@@ -436,11 +444,12 @@ export async function POST(request: Request) {
           cuota_por_tipo,
           todo_el_pais,
           proposito,
-          proposito_otro
+          proposito_otro,
+          limite_por_tipo
         ) VALUES (
           $1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10::jsonb, $11, $12, $13, $14, $15,
           $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30::jsonb, $31, $32, $33::jsonb, $34::jsonb, $35,
-          $36, $37
+          $36, $37, $38::jsonb
         ) RETURNING *`,
         [
           creatorId,
@@ -480,6 +489,7 @@ export async function POST(request: Request) {
           todoElPais,
           proposito.proposito,
           proposito.otro,
+          limitePorTipo.limite ? JSON.stringify(limitePorTipo.limite) : null,
         ]
       );
       if ("etiquetas" in body) {

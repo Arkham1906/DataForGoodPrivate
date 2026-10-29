@@ -21,11 +21,17 @@
 import { randomBytes } from "node:crypto";
 import type { PoolClient } from "pg";
 import { pool } from "@/lib/db";
-import { LARGO_MAXIMO_DESCRIPCION, errorDeArchivo, guardarArchivoDelAporte, insertarAporteConCuota } from "@/lib/aportes/comun";
+import {
+  LARGO_MAXIMO_DESCRIPCION,
+  errorDeArchivo,
+  guardarArchivoDelAporte,
+  insertarAporteConCuota,
+  tiposConLugarParaElAporte,
+} from "@/lib/aportes/comun";
 import { hashDeDispositivo } from "@/lib/aportes/anonimato";
 import { bloqueoDelDispositivo } from "@/lib/aportes/sanciones-anonimas";
 import { registrarAuditoria } from "@/lib/auditoria";
-import { respuestasValidas } from "@/lib/campanas/checklist";
+import { respuestasValidas, seccionesDelTipo } from "@/lib/campanas/checklist";
 import { buscarEnlacePorToken } from "@/lib/campanas/enlaces";
 import { avisoDePausa } from "@/lib/campanas/pausa";
 
@@ -176,6 +182,9 @@ export async function enviarAporteAnonimo(entrada: {
   }
   const errorArchivo = errorDeArchivo(entrada.archivo, campana.tiposDeArchivo);
   if (errorArchivo) return { ok: false, status: 400, error: errorArchivo };
+  // Límite total por tipo de dato (2026-10-28): aviso antes de subir; solo se aceptan los tipos con lugar.
+  const conLugar = tiposConLugarParaElAporte(entrada.archivo, campana.tiposDeArchivo, campana.limitePorTipo, campana.enviadosPorTipo);
+  if (!conLugar.ok) return { ok: false, status: 400, error: conLugar.error };
 
   // Aviso rápido antes de subir nada; la comprobación que cuenta va dentro de la transacción.
   const MENSAJE_CUOTA = "Ya enviaste todos los aportes que permite esta campaña";
@@ -189,15 +198,16 @@ export async function enviarAporteAnonimo(entrada: {
     if (faltanRed > 0) return { ok: false, status: 429, error: mensajeDeEspera(faltanRed), esperaSegundos: faltanRed };
   }
 
-  // Solo respuestas que existen en los checklists de la campaña ("Título: opción").
-  const caracteristicas = respuestasValidas(entrada.caracteristicas, campana.secciones);
-  const subida = await guardarArchivoDelAporte(entrada.archivo, campana.id, campana.tiposDeArchivo);
+  const subida = await guardarArchivoDelAporte(entrada.archivo, campana.id, conLugar.tipos);
   if (!subida.ok) return { ok: false, status: 400, error: subida.error };
   const { tipo, guardado } = subida.archivo;
+  // Solo respuestas de los checklists del tipo real del archivo ("Título: opción"; 2026-10-28).
+  const caracteristicas = respuestasValidas(entrada.caracteristicas, seccionesDelTipo(campana.secciones, tipo));
 
   const insertado = await insertarAporteConCuota({
     campaignId: campana.id,
     persona: `dispositivo:${anonimoId}`,
+    tipo,
     cuota: campana.cuotaPorPersona,
     archivoSubido: guardado?.relativePath ?? null,
     comprobar: async (client) => {
@@ -243,6 +253,7 @@ export async function enviarAporteAnonimo(entrada: {
     if (insertado.motivo === "espera") {
       return { ok: false, status: 429, error: insertado.error, esperaSegundos: insertado.esperaSegundos };
     }
+    if (insertado.motivo === "tipo_lleno") return { ok: false, status: 400, error: insertado.error };
     return {
       ok: false,
       status: 400,

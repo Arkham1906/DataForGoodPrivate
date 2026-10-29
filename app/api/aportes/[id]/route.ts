@@ -4,7 +4,7 @@
 import { NextResponse } from "next/server";
 import { pool } from "@/lib/db";
 import { getSessionUser } from "@/lib/session";
-import { respuestasValidas, seccionesDesdeFila } from "@/lib/campanas/checklist";
+import { respuestasValidas, seccionesDelTipo, seccionesDesdeFila } from "@/lib/campanas/checklist";
 import { bloqueoEnCampanaDelAporte, marcarInapropiado, quitarMarcaInapropiado } from "@/lib/aportes/sanciones-anonimas";
 import { recalcularContadores } from "@/lib/aportes/comun";
 import { borrarArchivo } from "@/lib/minio";
@@ -284,9 +284,10 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
       checklist_opciones: row.campaign_checklist_opciones,
       collection_mode: row.campaign_collection_mode,
     });
+    // Solo los checklists del tipo de su archivo (2026-10-28).
     const caracteristicas = respuestasValidas(
       Array.isArray(body.caracteristicas) ? body.caracteristicas.map(String) : [],
-      secciones
+      seccionesDelTipo(secciones, String(row.file_type ?? ""))
     );
 
     // status en el WHERE: si lo decidieron mientras editaba, ya no se toca.

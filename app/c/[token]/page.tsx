@@ -21,6 +21,7 @@ import Tag from "@/components/ui/Tag";
 import { buscarEnlacePorToken, registrarVisita, type CampanaDelEnlace } from "@/lib/campanas/enlaces";
 import { porcentajeDeMeta } from "@/lib/campanas/meta";
 import { repartoSugerido } from "@/lib/campanas/reparto-sugerido";
+import { avisoDeTodoLleno, resumenDeLimites, tiposConLugar } from "@/lib/campanas/limite-por-tipo";
 import { avisoDePausa } from "@/lib/campanas/pausa";
 import { COOKIE_ANONIMO, dispositivoValido } from "@/lib/aportes/anonimato";
 import {
@@ -128,6 +129,8 @@ export default async function EnlacePublicoPage({ params }: { params: Promise<{ 
 /** Por qué no se muestra el formulario anónimo, o null si se muestra. El servidor vuelve a comprobarlo al enviar. */
 async function motivoSinFormulario(campana: CampanaDelEnlace, dispositivo: string | null): Promise<string | null> {
   if (!campana.permiteAnonimos) return "Esta campaña solo recibe aportes con cuenta.";
+  const lleno = avisoDeTodoLleno(campana.tiposDeArchivo, campana.limitePorTipo, campana.enviadosPorTipo);
+  if (lleno) return lleno;
   return (await bloqueoParaLaPagina(campana.id, dispositivo)) ? MENSAJE_BLOQUEADO : null;
 }
 
@@ -174,6 +177,9 @@ function Invitacion({
             {numero.format(campana.aportesAprobados)} de {numero.format(campana.meta)} aportes aprobados · hasta{" "}
             {numero.format(campana.cuotaPorPersona)} por persona
             {repartoSugerido(campana.cuotaPorPersona, campana.tiposDeArchivo) ? ` (sugerido: ${repartoSugerido(campana.cuotaPorPersona, campana.tiposDeArchivo)})` : ""}
+            {resumenDeLimites(campana.tiposDeArchivo, campana.limitePorTipo, campana.enviadosPorTipo)
+              ? ` · máximo ${resumenDeLimites(campana.tiposDeArchivo, campana.limitePorTipo, campana.enviadosPorTipo)}`
+              : ""}
             {campana.fechaFin ? ` · cierra el ${fecha.format(new Date(`${campana.fechaFin}T00:00:00Z`))}` : ""}
           </p>
         </div>
@@ -199,7 +205,7 @@ function Invitacion({
               <AporteAnonimo
                 token={token}
                 secciones={campana.secciones}
-                tipos={campana.tiposDeArchivo}
+                tipos={tiposConLugar(campana.tiposDeArchivo, campana.limitePorTipo, campana.enviadosPorTipo)}
                 cuota={campana.cuotaPorPersona}
                 restantesIniciales={restantes}
                 esperaInicial={espera}

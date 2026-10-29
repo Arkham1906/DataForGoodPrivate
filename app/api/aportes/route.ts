@@ -1,10 +1,11 @@
 // /api/aportes — listado y envío de aportes. El archivo se sube a MinIO (lib/minio.ts).
 
+import { enviadosPorTipoDesdeFila, limitePorTipoDesdeFila } from "@/lib/campanas/limite-por-tipo";
 import { NextResponse } from "next/server";
 import { pool } from "@/lib/db";
 import { getSessionUser } from "@/lib/session";
 import { estaBaneadoDeCampana } from "@/lib/campanas/baneos";
-import { respuestasValidas, seccionesDesdeFila } from "@/lib/campanas/checklist";
+import { respuestasValidas, seccionesDelTipo, seccionesDesdeFila } from "@/lib/campanas/checklist";
 import { idDeEnlaceVigente } from "@/lib/campanas/enlaces";
 import {
   LARGO_MAXIMO_DESCRIPCION,
@@ -13,6 +14,7 @@ import {
   errorDeArchivo,
   guardarArchivoDelAporte,
   insertarAporteConCuota,
+  tiposConLugarParaElAporte,
   tiposAceptados,
 } from "@/lib/aportes/comun";
 import { inscripcionDe } from "@/lib/campanas/inscripciones";
@@ -173,8 +175,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Solo se guardan respuestas que existen en los checklists de la campaña ("Título: opción").
-    const caracteristicas = respuestasValidas(rawCaracteristicas, seccionesDesdeFila(campaign));
 
     const existingCountResult = await pool.query(
       `SELECT COUNT(*)::int AS count FROM aportes WHERE campaign_id = $1 AND user_id = $2`,
@@ -189,15 +189,22 @@ export async function POST(request: Request) {
     // vigente de esta campaña. Uno inválido o caducado no bloquea el aporte.
     const enlaceId = tokenDeEnlace ? await idDeEnlaceVigente(tokenDeEnlace, campaignId) : null;
 
+    // Límite total por tipo de dato (2026-10-28): aviso antes de subir; solo se aceptan los tipos con lugar.
+    const conLugar = tiposConLugarParaElAporte(file, tipos, limitePorTipoDesdeFila(campaign), enviadosPorTipoDesdeFila(campaign));
+    if (!conLugar.ok) return NextResponse.json({ error: conLugar.error }, { status: 400 });
+
     // Se comprueba por su contenido y se guarda sin los metadatos que se pueden quitar.
-    const subida = await guardarArchivoDelAporte(file, campaignId, tipos);
+    const subida = await guardarArchivoDelAporte(file, campaignId, conLugar.tipos);
     if (!subida.ok) return NextResponse.json({ error: subida.error }, { status: 400 });
     const { tipo, guardado: saved } = subida.archivo;
+    // Solo respuestas de los checklists del tipo real del archivo ("Título: opción"; 2026-10-28).
+    const caracteristicas = respuestasValidas(rawCaracteristicas, seccionesDelTipo(seccionesDesdeFila(campaign), tipo));
 
     // Cuenta e inserta con candado: dos envíos simultáneos no pasan la cuota.
     const insertado = await insertarAporteConCuota({
       campaignId,
       persona: `usuario:${user.id}`,
+      tipo,
       cuota: Number(campaign.quota_per_user),
       archivoSubido: saved?.relativePath ?? null,
       contar: async (client) => {
@@ -237,6 +244,7 @@ export async function POST(request: Request) {
       },
     });
     if (!insertado.ok) {
+      if (insertado.motivo === "tipo_lleno") return NextResponse.json({ error: insertado.error }, { status: 400 });
       return NextResponse.json({ error: "Ya alcanzaste tu cuota en esta campaña" }, { status: 400 });
     }
 

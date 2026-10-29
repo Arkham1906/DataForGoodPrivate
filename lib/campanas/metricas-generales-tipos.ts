@@ -50,9 +50,14 @@ export type MetricasGenerales = {
     llegaronALaCuota: number;
     participantes: number;
   };
-  /** Respuestas de cada checklist entre los aportes aprobados. */
+  /** Respuestas de cada checklist entre los aportes aprobados (de su tipo, desde el 2026-10-28). */
   checklists: {
     titulo: string;
+    /** Tipo de dato del checklist; null en los generales de campañas anteriores. */
+    tipo: string | null;
+    etiquetaDeTipo: string | null;
+    /** Aportes aprobados sobre los que se calcula: los de su tipo, o todos si es general. */
+    aprobados: number;
     opciones: { opcion: string; aportes: number; porcentaje: number }[];
   }[];
   aprobadosParaChecklists: number;

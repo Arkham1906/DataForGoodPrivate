@@ -87,12 +87,12 @@ export async function obtenerMetricasGenerales(campanaId: string | number): Prom
       `SELECT COUNT(DISTINCT anonimo_id)::int AS n FROM aportes WHERE campaign_id = $1 AND user_id IS NULL AND anonimo_id IS NOT NULL`,
       [campanaId],
     ),
-    pool.query<{ respuesta: string; n: number; aprobados: number }>(
-      `SELECT r.respuesta, COUNT(*)::int AS n,
+    pool.query<{ file_type: string; respuesta: string; n: number; aprobados: number }>(
+      `SELECT a.file_type, r.respuesta, COUNT(*)::int AS n,
               (SELECT COUNT(*)::int FROM aportes WHERE campaign_id = $1 AND status = 'aceptado') AS aprobados
        FROM aportes a, jsonb_array_elements_text(COALESCE(a.caracteristicas, '[]'::jsonb)) AS r(respuesta)
        WHERE a.campaign_id = $1 AND a.status = 'aceptado' AND jsonb_typeof(COALESCE(a.caracteristicas, '[]'::jsonb)) = 'array'
-       GROUP BY r.respuesta`,
+       GROUP BY a.file_type, r.respuesta`,
       [campanaId],
     ),
   ]);
@@ -127,16 +127,26 @@ export async function obtenerMetricasGenerales(campanaId: string | number): Prom
     ? conCuenta.filter((p) => p.estado === estado && (!municipio || p.municipio === municipio)).length
     : null;
 
-  // Checklists: cada opción de cada sección, sobre los aportes aprobados.
-  const respuestasPorEtiqueta = new Map(respuestas.rows.map((f) => [f.respuesta, f.n]));
+  // Checklists: cada opción de cada sección, sobre los aportes aprobados. Desde el 2026-10-28 un
+  // checklist es de un tipo de dato y cuenta solo los aportes aprobados de ese tipo; los generales
+  // (campañas anteriores), todos.
   const aprobadosParaChecklists = respuestas.rows[0]?.aprobados ?? revision.rows[0]?.aprobados ?? 0;
-  const checklists = seccionesDesdeFila(campana).map((s) => ({
-    titulo: s.titulo,
-    opciones: s.opciones.map((opcion) => {
-      const n = respuestasPorEtiqueta.get(etiquetaDeRespuesta(s.titulo, opcion)) ?? 0;
-      return { opcion, aportes: n, porcentaje: porcentaje(n, aprobadosParaChecklists) };
-    }),
-  }));
+  const checklists = seccionesDesdeFila(campana).map((s) => {
+    const aprobados = s.tipo ? porTipo.find((t) => t.tipo === s.tipo)?.aprobados ?? 0 : aprobadosParaChecklists;
+    return {
+      titulo: s.titulo,
+      tipo: s.tipo ?? null,
+      etiquetaDeTipo: s.tipo ? ETIQUETA_DE_TIPO[s.tipo] ?? s.tipo : null,
+      aprobados,
+      opciones: s.opciones.map((opcion) => {
+        const respuesta = etiquetaDeRespuesta(s.titulo, opcion);
+        const n = respuestas.rows
+          .filter((f) => f.respuesta === respuesta && (!s.tipo || f.file_type === s.tipo))
+          .reduce((suma, f) => suma + f.n, 0);
+        return { opcion, aportes: n, porcentaje: porcentaje(n, aprobados) };
+      }),
+    };
+  });
 
   const r = revision.rows[0];
   const decididos = (r?.aprobados ?? 0) + (r?.rechazados ?? 0);

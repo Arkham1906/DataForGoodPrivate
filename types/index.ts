@@ -63,9 +63,14 @@ export interface Campaign {
   /** Solo lectura de campañas viejas: hoy se usa checklistSecciones. */
   checklistOpciones?: string[];
   /** Checklists con título que el participante marca, además de la descripción obligatoria. */
-  checklistSecciones?: { titulo: string; opciones: string[] }[];
+  /** Desde el 2026-10-28 cada uno lleva el tipo de dato al que pertenece; sin tipo, vale para todos. */
+  checklistSecciones?: { titulo: string; opciones: string[]; tipo?: DataType }[];
   goalContributions: number;
   quotaPerUser: number;
+  /** Límite TOTAL de aportes por tipo de dato (2026-10-28, opcional; lib/campanas/limite-por-tipo.ts). */
+  limitePorTipo?: Partial<Record<DataType, number>>;
+  /** Aportes no rechazados de cada tipo (lo que llena el límite). */
+  enviadosPorTipo?: Partial<Record<DataType, number>>;
   currentContributions: number;
   approvedContributions: number;
   pendingContributions: number;

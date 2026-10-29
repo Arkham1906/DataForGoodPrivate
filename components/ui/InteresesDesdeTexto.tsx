@@ -2,8 +2,8 @@
 
 // Intereses a partir de un texto (2026-10-07). La persona escribe qué le gusta y se sacan las
 // temáticas con lib/tematicas/analizar.ts, en el navegador. Desde el 2026-10-27 (a pedido del usuario)
-// el texto y sus temáticas van sincronizados: se analiza solo al dejar de escribir (o con Enter /
-// "Analizar"), y si se borra el fragmento que dio una temática, la temática se quita. Las que la
+// el texto y sus temáticas van sincronizados: se analiza solo al dejar de escribir (o con Enter; el
+// botón "Analizar" se quitó el 2026-10-28 por innecesario), y si se borra el fragmento que dio una temática, la temática se quita. Las que la
 // persona agregó con "Agregar temáticas" se respetan aunque el texto no las mencione. Debajo, las elegidas con × y "Agregar temáticas" (ui/SelectorDeTemas) para
 // corregir. Desde el 2026-10-20 el texto solo da temáticas que ya existen (palabras clave): lo que
 // no reconoce se ignora y no se crean temáticas nuevas. Lo usan /bienvenida (paso 4) y /cuenta
@@ -11,7 +11,6 @@
 // Catálogo: GET /api/tematicas; si falla, las base.
 
 import { useEffect, useId, useRef, useState } from "react";
-import Button from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Input";
 import SelectorDeTemas from "@/components/ui/SelectorDeTemas";
 import { TEMAS_DE_INTERES } from "@/lib/intereses";
@@ -173,12 +172,7 @@ export default function InteresesDesdeTexto({
         placeholder="Por ejemplo: me gusta andar en bici, cuidar a los perritos de la calle y la fotografía."
         className="disabled:cursor-default disabled:bg-system-100"
       />
-      <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[11.5px] text-system-500">Tus temáticas se ajustan solas al texto: si borras algo, se quita su temática.</p>
-        <Button type="button" variant="secondary" size="sm" onClick={() => analizar()} disabled={deshabilitado}>
-          Analizar
-        </Button>
-      </div>
+      <p className="mt-1.5 text-[11.5px] text-system-500">Tus temáticas se ajustan solas al texto: si borras algo, se quita su temática.</p>
       <p aria-live="polite" className="mt-2 min-h-[1lh] text-[12.5px] text-system-600">
         {aviso}
       </p>

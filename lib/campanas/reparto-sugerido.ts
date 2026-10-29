@@ -10,7 +10,8 @@ import type { DataType } from "@/types";
 /** Orden fijo de los tipos (el de los botones del formulario). */
 export const ORDEN_DE_TIPOS: DataType[] = ["texto", "foto", "video", "audio", "documento"];
 
-const PLURALES: Record<DataType, [string, string]> = {
+/** [singular, plural] de cada tipo: "foto"/"fotos". */
+export const PLURALES_DE_TIPO: Record<DataType, [string, string]> = {
   texto: ["texto", "textos"],
   foto: ["foto", "fotos"],
   video: ["video", "videos"],
@@ -20,7 +21,7 @@ const PLURALES: Record<DataType, [string, string]> = {
 
 /** "5 fotos", "1 audio". */
 export function cantidadDeTipo(tipo: DataType, cantidad: number): string {
-  return `${cantidad} ${PLURALES[tipo][cantidad === 1 ? 0 : 1]}`;
+  return `${cantidad} ${PLURALES_DE_TIPO[tipo][cantidad === 1 ? 0 : 1]}`;
 }
 
 /**

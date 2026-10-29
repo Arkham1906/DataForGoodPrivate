@@ -15,7 +15,8 @@ import { Field, Textarea } from "@/components/ui/Input";
 import SelectorDeArchivo from "@/components/ui/SelectorDeArchivo";
 import { LARGO_MAXIMO_DESCRIPCION, archivoEsOpcional, type TipoDeArchivo } from "@/lib/aportes/archivo";
 import { BASE_PATH } from "@/lib/base-path";
-import { etiquetaDeRespuesta, type SeccionDeChecklist } from "@/lib/campanas/checklist";
+import { respuestasValidas, seccionesParaElAporte, type SeccionDeChecklist } from "@/lib/campanas/checklist";
+import ChecklistsDelAporte from "@/components/aportes/ChecklistsDelAporte";
 
 export default function AporteAnonimo({
   token,
@@ -58,6 +59,9 @@ export default function AporteAnonimo({
     return () => clearInterval(intervalo);
   }, [enEspera]);
 
+  // Solo los checklists del tipo de lo que se manda (2026-10-28).
+  const { visibles, faltaArchivo } = seccionesParaElAporte(secciones, tipos, archivo);
+
   function alternar(valor: string) {
     setMarcadas((actual) => (actual.includes(valor) ? actual.filter((v) => v !== valor) : [...actual, valor]));
   }
@@ -71,7 +75,8 @@ export default function AporteAnonimo({
       const datos = new FormData();
       if (archivo) datos.set("file", archivo);
       datos.set("description", descripcion);
-      marcadas.forEach((valor) => datos.append("caracteristicas", valor));
+      // Solo lo marcado en los checklists que se ven (cambiar de archivo puede esconder alguno).
+      respuestasValidas(marcadas, visibles).forEach((valor) => datos.append("caracteristicas", valor));
       agregarAcuerdos(datos, acuerdos);
       const response = await fetch(`${BASE_PATH}/api/c/${encodeURIComponent(token)}/aportes`, { method: "POST", body: datos });
       const payload = await response.json().catch(() => ({}));
@@ -148,20 +153,7 @@ export default function AporteAnonimo({
         {descripcion.length} / {LARGO_MAXIMO_DESCRIPCION}
       </p>
 
-      {secciones.map((seccion, i) => (
-        <fieldset key={seccion.titulo || i} className="mb-4 rounded-lg border border-system-200 bg-white p-3.5">
-          <legend className="px-1 text-[13px] font-medium text-system-900">{seccion.titulo || "Marca lo que aplique"}</legend>
-          {seccion.opciones.map((opcion) => {
-            const valor = etiquetaDeRespuesta(seccion.titulo, opcion);
-            return (
-              <label key={opcion} className="mb-2 flex items-center gap-2 text-[12.5px] text-system-600 last:mb-0">
-                <input type="checkbox" checked={marcadas.includes(valor)} onChange={() => alternar(valor)} />
-                {opcion}
-              </label>
-            );
-          })}
-        </fieldset>
-      ))}
+      <ChecklistsDelAporte visibles={visibles} faltaArchivo={faltaArchivo} marcadas={marcadas} onAlternar={alternar} />
 
       <div className="mb-4 rounded-lg border border-system-200 bg-white p-3.5">
         <CasillasDeAcuerdos acuerdos={acuerdos} onCambio={setAcuerdos} deshabilitado={enviando} proposito={proposito} />

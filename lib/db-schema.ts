@@ -159,6 +159,10 @@ export async function ensureCampanasTable(): Promise<void> {
       -- Reparto de la cuota por tipo de dato (2026-10-21 al 2026-10-27). SIN USO: hoy solo vale la cuota
       -- general y el reparto es una sugerencia (lib/campanas/reparto-sugerido.ts). Se deja la columna con sus datos.
       cuota_por_tipo JSONB,
+      -- Límite TOTAL de aportes por tipo de dato (2026-10-28, opcional): { "foto": 100 } (lib/campanas/limite-por-tipo.ts).
+      limite_por_tipo JSONB,
+      -- Aportes no rechazados de cada tipo; lo recalcula recalcularContadores (lib/aportes/comun.ts).
+      enviados_por_tipo JSONB NOT NULL DEFAULT '{}'::jsonb,
       current_contributions INTEGER NOT NULL DEFAULT 0,
       approved_contributions INTEGER NOT NULL DEFAULT 0,
       pending_contributions INTEGER NOT NULL DEFAULT 0,
@@ -210,6 +214,7 @@ export async function ensureCampanasTable(): Promise<void> {
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS goal_contributions INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS quota_per_user INTEGER NOT NULL DEFAULT 1;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS cuota_por_tipo JSONB;
+    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS limite_por_tipo JSONB;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS current_contributions INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS approved_contributions INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS pending_contributions INTEGER NOT NULL DEFAULT 0;
@@ -489,6 +494,21 @@ export async function ensureAportesTable(): Promise<void> {
     ALTER TABLE aportes ADD COLUMN IF NOT EXISTS reporte_motivo TEXT;
     ALTER TABLE aportes ADD COLUMN IF NOT EXISTS reporte_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL;
     ALTER TABLE aportes ADD COLUMN IF NOT EXISTS reporte_en TIMESTAMPTZ;
+    -- Aportes no rechazados de cada tipo, para el límite por tipo de dato (2026-10-28,
+    -- lib/campanas/limite-por-tipo.ts). Va aquí porque al crear la columna se llena desde aportes.
+    DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                      WHERE table_name = 'campanas' AND column_name = 'enviados_por_tipo') THEN
+        ALTER TABLE campanas ADD COLUMN enviados_por_tipo JSONB NOT NULL DEFAULT '{}'::jsonb;
+        UPDATE campanas c SET enviados_por_tipo = t.enviados
+          FROM (SELECT campaign_id, jsonb_object_agg(file_type, n) AS enviados
+                  FROM (SELECT campaign_id, file_type, COUNT(*)::int AS n FROM aportes
+                         WHERE status <> 'rechazado' GROUP BY campaign_id, file_type) x
+                 GROUP BY campaign_id) t
+         WHERE c.id = t.campaign_id;
+      END IF;
+    END $$;
   `);
 }
 

@@ -143,7 +143,10 @@ export default function VentanaDeCampana({
               <div className="mt-1.5 flex flex-col gap-2">
                 {checklists.map((s, i) => (
                   <div key={`${s.titulo}-${i}`}>
-                    <p className="text-[12.5px] font-semibold text-system-900">{s.titulo}</p>
+                    <p className="text-[12.5px] font-semibold text-system-900">
+                      {s.titulo}
+                      {s.tipo && <span className="font-normal text-system-500"> · {NOMBRE_DE_TIPO[s.tipo as TipoDeDato] ?? s.tipo}</span>}
+                    </p>
                     <p className="text-[12.5px] text-system-600">{s.opciones.join(" · ")}</p>
                   </div>
                 ))}

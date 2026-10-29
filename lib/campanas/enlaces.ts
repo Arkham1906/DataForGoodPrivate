@@ -7,6 +7,7 @@
 // (lib/supervision/decision.ts, lib/campaign-date.ts, PATCH/PUT de campañas).
 // Aquí no se autoriza: cada llamador comprueba antes la sesión y el permiso.
 
+import { enviadosPorTipoDesdeFila, limitePorTipoDesdeFila, type EnviadosPorTipo, type LimitePorTipo } from "@/lib/campanas/limite-por-tipo";
 import { randomInt } from "node:crypto";
 import QRCode from "qrcode";
 import { absoluteUrl } from "@/lib/app-url";
@@ -199,7 +200,9 @@ export type CampanaDelEnlace = {
   /** Los que cuentan para la meta (./meta.ts). */
   aportesAprobados: number;
   cuotaPorPersona: number;
-  /** Reparto de la cuota por tipo de dato; null = solo la cuota general. */
+  /** Límite total de aportes por tipo de dato (2026-10-28, lib/campanas/limite-por-tipo.ts) y lo enviado de cada uno. */
+  limitePorTipo: LimitePorTipo;
+  enviadosPorTipo: EnviadosPorTipo;
   fechaFin: string | null;
   /** Checklists que el participante puede marcar (el formulario anónimo los muestra). */
   secciones: SeccionDeChecklist[];
@@ -225,7 +228,8 @@ export async function buscarEnlacePorToken(token: string): Promise<ResultadoDeTo
             c.name, c.description, c.tematica, c.tag, c.organizer, c.creator_name, c.location_city, c.location_state, c.todo_el_pais,
             c.status, c.goal_contributions, c.approved_contributions, c.quota_per_user, c.end_date,
             c.checklist_secciones, c.checklist_opciones, c.collection_mode, c.permite_anonimos, c.data_types,
-            c.pausa_por, c.pausa_motivo, c.pausada_en, c.proposito, c.proposito_otro
+            c.pausa_por, c.pausa_motivo, c.pausada_en, c.proposito, c.proposito_otro,
+            c.limite_por_tipo, c.enviados_por_tipo
      FROM campana_enlaces e
      JOIN campanas c ON c.id = e.campana_id
      WHERE e.token = $1
@@ -249,6 +253,8 @@ export async function buscarEnlacePorToken(token: string): Promise<ResultadoDeTo
     meta: Number(row.goal_contributions ?? 0),
     aportesAprobados: Number(row.approved_contributions ?? 0),
     cuotaPorPersona: Number(row.quota_per_user ?? 0),
+    limitePorTipo: limitePorTipoDesdeFila(row),
+    enviadosPorTipo: enviadosPorTipoDesdeFila(row),
     fechaFin: normalizeCampaignDate(row.end_date),
     secciones: seccionesDesdeFila(row),
     permiteAnonimos: row.permite_anonimos !== false,

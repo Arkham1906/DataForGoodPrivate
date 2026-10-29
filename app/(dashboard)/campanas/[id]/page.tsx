@@ -28,6 +28,7 @@ import { AvisoNoEncontrado } from "@/components/ui/AvisoNoEncontrado";
 import { InscripcionACampana } from "@/components/ui/AcuerdosDeAporte";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 import { repartoSugerido } from "@/lib/campanas/reparto-sugerido";
+import { resumenDeLimites } from "@/lib/campanas/limite-por-tipo";
 import { quienOrganiza } from "@/lib/campanas/organizacion";
 import { textoDelProposito } from "@/lib/campanas/proposito";
 
@@ -189,8 +190,11 @@ export default function CampaignDetailPage() {
             </p>
           </div>
           {(campaign.checklistSecciones ?? []).map((seccion, i) => (
-            <div key={seccion.titulo || i} className="rounded-lg border border-system-200 bg-white p-4">
+            <div key={`${seccion.tipo ?? ""}-${seccion.titulo || i}`} className="rounded-lg border border-system-200 bg-white p-4">
               <p className="text-[14px] font-bold text-system-900">{seccion.titulo || "Marca lo que aplique"}</p>
+              {seccion.tipo && (
+                <p className="text-[11.5px] font-medium text-brand-600">Al mandar {TIPO_DE_DATO[seccion.tipo]?.titulo.toLowerCase() ?? seccion.tipo}</p>
+              )}
               <p className="mt-1 text-[12px] text-system-500">{seccion.opciones.join(" · ")}</p>
             </div>
           ))}
@@ -212,6 +216,10 @@ export default function CampaignDetailPage() {
             cuota: {campaign.quotaPerUser}
             {/* Solo sugerencia (2026-10-27): la cuota vale para cualquier tipo. */}
             {repartoSugerido(campaign.quotaPerUser, campaign.dataTypes) ? ` (sugerido: ${repartoSugerido(campaign.quotaPerUser, campaign.dataTypes)})` : ""}
+            {/* Límite total por tipo de dato (2026-10-28). */}
+            {resumenDeLimites(campaign.dataTypes, campaign.limitePorTipo ?? {}, campaign.enviadosPorTipo ?? {})
+              ? ` · máximo ${resumenDeLimites(campaign.dataTypes, campaign.limitePorTipo ?? {}, campaign.enviadosPorTipo ?? {})}`
+              : ""}
           </p>
 
           {isCreator ? (

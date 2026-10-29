@@ -16,7 +16,16 @@ export const ESTADOS_QUE_ELIGE_EL_CREADOR = new Set(["borrador", "en_revision"])
 export const ESTADOS_CON_EDICION_COMPLETA = new Set(["borrador", "en_revision", "rechazada"]);
 
 /** Activa y aceptada: solo meta y fecha/hora de fin. */
-export const CAMPOS_DE_EDICION_LIMITADA = new Set(["goalContributions", "goal_contributions", "endDate", "end_date", "endTime", "end_time"]);
+// El límite por tipo de dato (2026-10-28) también: si un tipo se llena, el creador puede subirlo sin pausar.
+export const CAMPOS_DE_EDICION_LIMITADA = new Set([
+  "goalContributions",
+  "goal_contributions",
+  "limitePorTipo",
+  "endDate",
+  "end_date",
+  "endTime",
+  "end_time",
+]);
 
 /**
  * Pausada (2026-10-22, a pedido del usuario): además nombre, descripción, temática, propósito, tipos
@@ -66,6 +75,7 @@ export const COLUMNAS_AVISADAS_EN_PAUSA = [
   "checklist_secciones",
   "goal_contributions",
   "quota_per_user",
+  "limite_por_tipo",
   "start_date",
   "start_time",
   "end_date",

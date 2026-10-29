@@ -14,7 +14,8 @@ import { Field, Textarea } from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import type { Campaign } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
-import { etiquetaDeRespuesta } from "@/lib/campanas/checklist";
+import { respuestasValidas, seccionesParaElAporte } from "@/lib/campanas/checklist";
+import ChecklistsDelAporte from "@/components/aportes/ChecklistsDelAporte";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import { AvisoNoEncontrado } from "@/components/ui/AvisoNoEncontrado";
 import IndicadorDeCarga from "@/components/ui/IndicadorDeCarga";
@@ -22,6 +23,7 @@ import { InscripcionACampana } from "@/components/ui/AcuerdosDeAporte";
 import { textoDelProposito } from "@/lib/campanas/proposito";
 import SelectorDeArchivo from "@/components/ui/SelectorDeArchivo";
 import { archivoEsOpcional, tiposAceptados } from "@/lib/aportes/archivo";
+import { avisoDeTodoLleno, resumenDeLimites, tiposConLugar } from "@/lib/campanas/limite-por-tipo";
 import { repartoSugerido } from "@/lib/campanas/reparto-sugerido";
 
 export default function AportarPage() {
@@ -95,11 +97,17 @@ export default function AportarPage() {
   const quotaReached = submittedCount >= campaign.quotaPerUser;
   // Solo cuota general (2026-10-27): el reparto por tipo es una sugerencia, no un límite.
   const sugerencia = repartoSugerido(campaign.quotaPerUser, campaign.dataTypes);
-  // La API ya convierte las campañas viejas (lista plana) en un checklist sin título.
-  const checklists = campaign.checklistSecciones ?? [];
-
-  // Tipos que acepta la campaña; con "texto", el archivo es opcional.
-  const tipos = tiposAceptados(campaign.dataTypes);
+  // Tipos que acepta la campaña; con "texto", el archivo es opcional. Desde el 2026-10-28 sin los
+  // que ya llegaron a su límite total (lib/campanas/limite-por-tipo.ts); el servidor lo vuelve a revisar.
+  const limitePorTipo = campaign.limitePorTipo ?? {};
+  const enviadosPorTipo = campaign.enviadosPorTipo ?? {};
+  const todosLosTipos = tiposAceptados(campaign.dataTypes);
+  const tipos = tiposConLugar(todosLosTipos, limitePorTipo, enviadosPorTipo);
+  const resumenLimites = resumenDeLimites(todosLosTipos, limitePorTipo, enviadosPorTipo);
+  const todoLleno = avisoDeTodoLleno(todosLosTipos, limitePorTipo, enviadosPorTipo);
+  // La API ya convierte las campañas viejas (lista plana) en un checklist sin título. Solo se
+  // muestran los del tipo de lo que se manda (2026-10-28).
+  const { visibles, faltaArchivo } = seccionesParaElAporte(campaign.checklistSecciones ?? [], tipos, file);
 
   function toggleCaracteristica(value: string) {
     setCaracteristicas((current) =>
@@ -119,7 +127,8 @@ export default function AportarPage() {
       formData.set("campaignId", campaign.id);
       formData.set("description", description);
       if (file) formData.set("file", file);
-      caracteristicas.forEach((item) => formData.append("caracteristicas", item));
+      // Solo lo marcado en los checklists que se ven (cambiar de archivo puede esconder alguno).
+      respuestasValidas(caracteristicas, visibles).forEach((item) => formData.append("caracteristicas", item));
       if (enlace) formData.set("enlace", enlace);
 
       const response = await fetch(`${BASE_PATH}/api/aportes`, { method: "POST", body: formData });
@@ -133,7 +142,7 @@ export default function AportarPage() {
     }
   }
 
-  const canSubmit = inscrito && !quotaReached && (Boolean(file) || archivoEsOpcional(tipos)) && description.trim().length > 0 && description.length <= 1000 && !submitting;
+  const canSubmit = inscrito && !quotaReached && !todoLleno && (Boolean(file) || archivoEsOpcional(tipos)) && description.trim().length > 0 && description.length <= 1000 && !submitting;
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -147,6 +156,15 @@ export default function AportarPage() {
           Puedes mandar cualquier tipo. Para que los datos queden balanceados, te sugerimos{" "}
           <span className="font-semibold text-system-900">{sugerencia}</span>.
         </p>
+      )}
+
+      {resumenLimites && !quotaReached && (
+        <p className="-mt-4 mb-6 text-[12.5px] text-system-600">
+          Esta campaña recibe en total como máximo <span className="font-semibold text-system-900">{resumenLimites}</span>.
+        </p>
+      )}
+      {todoLleno && !quotaReached && (
+        <p className="mb-5 rounded-lg border border-system-300 bg-system-100 p-3 text-[13px] text-system-700">{todoLleno}</p>
       )}
 
       {quotaReached && <p className="mb-5 rounded-lg border border-success-700 bg-success-50 p-3 text-[13px] text-success-700">Alcanzaste tu cuota en esta campaña. La campaña sigue abierta para otras personas, pero ya no puedes enviar más aportes.</p>}
@@ -187,27 +205,12 @@ export default function AportarPage() {
             {description.length} / 1000
           </p>
 
-          {checklists.map((checklist, i) => (
-            <fieldset key={checklist.titulo || i} className="mb-4 rounded-lg border border-system-200 bg-white p-3.5">
-              <legend className="px-1 text-[13px] font-medium text-system-900">
-                {checklist.titulo || "Marca lo que aplique"}
-              </legend>
-              {checklist.opciones.map((opcion) => {
-                // Se guarda como "Título: opción" para saber a qué checklist pertenece.
-                const valor = etiquetaDeRespuesta(checklist.titulo, opcion);
-                return (
-                  <label key={opcion} className="mb-2 flex items-center gap-2 text-[12.5px] text-system-600 last:mb-0">
-                    <input
-                      type="checkbox"
-                      checked={caracteristicas.includes(valor)}
-                      onChange={() => toggleCaracteristica(valor)}
-                    />
-                    {opcion}
-                  </label>
-                );
-              })}
-            </fieldset>
-          ))}
+          <ChecklistsDelAporte
+            visibles={visibles}
+            faltaArchivo={faltaArchivo}
+            marcadas={caracteristicas}
+            onAlternar={toggleCaracteristica}
+          />
 
           {submitError && <p className="mb-3 rounded border border-error-700 bg-error-50 p-2 text-[12px] text-error-700">{submitError}</p>}
 

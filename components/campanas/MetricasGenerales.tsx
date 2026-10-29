@@ -168,8 +168,11 @@ export default function MetricasGenerales({ datos }: { datos: Datos }) {
         </Tarjeta>
 
         {checklists.map((c, i) => (
-          <Tarjeta key={`${c.titulo}-${i}`} titulo={`Checklist: ${c.titulo || "Características"}`}>
-            {datos.aprobadosParaChecklists === 0 ? (
+          <Tarjeta
+            key={`${c.tipo ?? ""}-${c.titulo}-${i}`}
+            titulo={`Checklist${c.etiquetaDeTipo ? ` de ${c.etiquetaDeTipo.toLowerCase()}` : ""}: ${c.titulo || "Características"}`}
+          >
+            {c.aprobados === 0 ? (
               <Vacio>Las respuestas aparecen con los aportes aprobados.</Vacio>
             ) : (
               <>
@@ -177,7 +180,8 @@ export default function MetricasGenerales({ datos }: { datos: Datos }) {
                   <Barra key={o.opcion} etiqueta={o.opcion} valor={o.aportes} porcentaje={o.porcentaje} detalle={`${o.porcentaje}%`} />
                 ))}
                 <p className="text-[11.5px] text-system-500">
-                  Sobre {plural(datos.aprobadosParaChecklists, "aporte aprobado", "aportes aprobados")}; un aporte puede marcar varias.
+                  Sobre {plural(c.aprobados, "aporte aprobado", "aportes aprobados")}
+                  {c.etiquetaDeTipo ? ` de ${c.etiquetaDeTipo.toLowerCase()}` : ""}; un aporte puede marcar varias.
                 </p>
               </>
             )}

@@ -63,7 +63,7 @@ Repite el alta para `QA-CREADOR`, `QA-REVISOR`, `QA-PARTICIPANTE` y `QA-SUP`.
 - [ ] Registra cada cuenta con contraseña válida y acepta términos y privacidad.
 - [ ] Comprueba que la cuenta no puede iniciar sesión antes de verificar el correo.
 - [ ] Verifica el código recibido; comprueba el reenvío si se necesita y que al completar se llega a bienvenida.
-- [ ] Completa los pasos de bienvenida: estado, municipio, especialidad e intereses. Prueba analizar un texto de intereses, quitar/agregar una temática y guardar.
+- [ ] Completa los pasos de bienvenida: estado, municipio, especialidad e intereses. Escribe un texto de intereses (las temáticas se ajustan solas al escribir), quitar/agregar una temática y guardar.
 - [ ] Inicia sesión y cierra sesión. Comprueba que las sesiones de usuario y SuperUsuario son independientes.
 - [ ] Comprueba el acceso con Google si OAuth está configurado para QA.
 - [ ] En `/cuenta`, edita perfil, cambia entre iniciales/íconos y foto, guarda preferencias de comunicación y valida que el cambio se conserve al volver a abrir la página.

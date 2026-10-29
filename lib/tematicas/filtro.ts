@@ -1,5 +1,5 @@
 // Filtro de palabras inapropiadas para los intereses (2026-10-19). Lo usa lib/tematicas/analizar.ts
-// en el navegador (al dar "Analizar") y, por medio de esTematicaNuevaValida, el servidor antes de dar
+// en el navegador (al analizar el texto de gustos) y, por medio de esTematicaNuevaValida, el servidor antes de dar
 // de alta una temática o de ofrecer una que ya existe (lib/tematicas/catalogo.ts). Todo es local.
 //
 // Atrapa las formas de esquivarlo más comunes, porque compara una versión "aplanada" de la palabra:

@@ -32,7 +32,8 @@ import { LARGO_MAXIMO_ORGANIZACION } from "@/lib/campanas/organizacion";
 import CampoDeOrganizacion from "@/components/ui/CampoDeOrganizacion";
 import { ETIQUETA_DE_CAMPANA } from "@/lib/campanas/sistema-opciones";
 import { GuiaDePasos, TarjetaDePaso, type Paso } from "./PasosDeCampana";
-import { repartoSugerido } from "@/lib/campanas/reparto-sugerido";
+import { PLURALES_DE_TIPO, repartoSugerido } from "@/lib/campanas/reparto-sugerido";
+import { LIMITE_MAXIMO_POR_TIPO } from "@/lib/campanas/limite-por-tipo";
 
 /** Campos del formulario que pueden tener un problema al guardar (2026-10-27). "general": nada en particular. */
 type CampoDeCampana =
@@ -46,6 +47,7 @@ type CampoDeCampana =
   | "checklists"
   | "meta"
   | "cuota"
+  | "limites"
   | "inicio"
   | "fin"
   | "estado"
@@ -88,6 +90,7 @@ const PASO_DEL_CAMPO: Record<CampoDeCampana, string | null> = {
   checklists: "paso-recoleccion",
   meta: "paso-meta",
   cuota: "paso-meta",
+  limites: "paso-meta",
   inicio: "paso-vigencia",
   fin: "paso-vigencia",
   estado: "paso-vigencia",
@@ -99,6 +102,7 @@ const PASO_DEL_CAMPO: Record<CampoDeCampana, string | null> = {
 function campoDelMensaje(mensaje: string): CampoDeCampana {
   const m = mensaje.toLowerCase();
   if (m.includes("propósito") || m.includes("proposito")) return "proposito";
+  if (m.includes("límite") || m.includes("limite")) return "limites";
   if (m.includes("checklist") || m.includes("opción")) return "checklists";
   if (m.includes("tipo de dato") || m.includes("tipos de dato")) return "tipos";
   if (m.includes("etiqueta")) return "etiquetas";
@@ -129,10 +133,22 @@ function irAlCampo(campo: string) {
 
 /** Un checklist en edición; las `clave` solo sirven como key de React (el texto de una opción se edita). */
 type OpcionEditable = { clave: number; texto: string };
-type ChecklistEditable = { clave: number; titulo: string; opciones: OpcionEditable[]; nuevaOpcion: string };
+/** `tipo`: el tipo de dato al que pertenece (2026-10-28); "" = de una campaña anterior, vale para todos. */
+type ChecklistEditable = { clave: number; tipo: DataType | ""; titulo: string; opciones: OpcionEditable[]; nuevaOpcion: string };
 let siguienteClave = 0;
-function nuevoChecklist(titulo = "", opciones: string[] = []): ChecklistEditable {
-  return { clave: siguienteClave++, titulo, opciones: opciones.map((texto) => ({ clave: siguienteClave++, texto })), nuevaOpcion: "" };
+function nuevoChecklist(titulo = "", opciones: string[] = [], tipo: DataType | "" = ""): ChecklistEditable {
+  return { clave: siguienteClave++, tipo, titulo, opciones: opciones.map((texto) => ({ clave: siguienteClave++, texto })), nuevaOpcion: "" };
+}
+
+/** Reordena (con el asa ⠿) solo los checklists de un tipo; los demás no se mueven. */
+function moverEnGrupo(lista: ChecklistEditable[], tipo: ChecklistEditable["tipo"], de: number, a: number): ChecklistEditable[] {
+  const posiciones = lista.flatMap((c, i) => (c.tipo === tipo ? [i] : []));
+  const reordenados = moverA(posiciones.map((i) => lista[i]), de, a);
+  const copia = [...lista];
+  posiciones.forEach((p, k) => {
+    copia[p] = reordenados[k];
+  });
+  return copia;
 }
 
 
@@ -148,6 +164,15 @@ const DATA_TYPES: { value: DataType; label: string }[] = [
   { value: "audio", label: "Audio" },
   { value: "documento", label: "Archivo" },
 ];
+
+/** "Solo los ve quien manda una foto": cómo se nombra cada tipo en los checklists. */
+const QUIEN_MANDA: Record<DataType, string> = {
+  texto: "texto",
+  foto: "una foto",
+  video: "un video",
+  audio: "un audio",
+  documento: "un archivo",
+};
 
 // Opción "Todo el estado" del selector de municipio. Solo vive en el formulario:
 // se manda y se guarda como municipio vacío.
@@ -315,7 +340,7 @@ function CampanaFormulario({
   // Sin ejemplos: una campaña nueva empieza sin checklists. Los de campañas
   // viejas (lista plana, sin título) se titulan "Checklist" para poder guardarlos.
   const [checklists, setChecklists] = useState<ChecklistEditable[]>(() =>
-    (editingCampaign?.checklistSecciones ?? []).map((s) => nuevoChecklist(s.titulo || "Checklist", s.opciones))
+    (editingCampaign?.checklistSecciones ?? []).map((s) => nuevoChecklist(s.titulo || "Checklist", s.opciones, s.tipo ?? ""))
   );
   // Un borrador guardado sin meta o sin cuota trae 0: se muestra vacío, no "0".
   const [goal, setGoal] = useState(editingCampaign?.goalContributions ? String(editingCampaign.goalContributions) : "");
@@ -323,6 +348,23 @@ function CampanaFormulario({
   // Sin reparto de la cuota por tipo desde el 2026-10-27 (a pedido del usuario): la cuota vale
   // para cualquier tipo y debajo solo se muestra un reparto sugerido (lib/campanas/reparto-sugerido.ts).
   const sugerencia = repartoSugerido(Number(quota), dataTypes);
+  // Límite TOTAL de aportes de cada tipo (2026-10-28, a pedido del usuario; lib/campanas/limite-por-tipo.ts).
+  // Opcional: vacío = sin límite. Se puede cambiar también con la campaña activa o aceptada, como la meta.
+  const [limites, setLimites] = useState<Partial<Record<DataType, string>>>(() =>
+    Object.fromEntries(Object.entries(editingCampaign?.limitePorTipo ?? {}).map(([tipo, n]) => [tipo, String(n)]))
+  );
+  // Solo de los tipos marcados; los de un tipo que se desmarcó no se guardan.
+  const limitePorTipo = Object.fromEntries(
+    dataTypes.filter((t) => (limites[t] ?? "").trim() !== "").map((t) => [t, Number(limites[t])])
+  );
+  function validarLimites(): string | null {
+    for (const [tipo, n] of Object.entries(limitePorTipo)) {
+      if (!Number.isInteger(n) || n < 1 || n > LIMITE_MAXIMO_POR_TIPO) {
+        return `El límite de ${PLURALES_DE_TIPO[tipo as DataType][1]} debe ser un número entero mayor a 0`;
+      }
+    }
+    return null;
+  }
   const [startDate, setStartDate] = useState(editingCampaign?.startDate ?? "");
   const startTime = editingCampaign?.startTime ?? "";
   const [endDate, setEndDate] = useState(editingCampaign?.endDate ?? "");
@@ -438,15 +480,34 @@ function CampanaFormulario({
     setChecklists((prev) => prev.map((c) => (c.clave === clave ? { ...c, opciones: cambiar(c.opciones) } : c)));
   }
 
+  const gruposDeChecklists: { tipo: ChecklistEditable["tipo"]; nombre: string; titulo: string; detalle: string }[] = [
+    ...(checklists.some((c) => c.tipo === "")
+      ? [{ tipo: "" as const, nombre: "", titulo: "Para cualquier tipo de dato", detalle: "Son de antes de que los checklists fueran por tipo: los ve todo aporte." }]
+      : []),
+    ...DATA_TYPES.filter((d) => dataTypes.includes(d.value)).map((d) => ({
+      tipo: d.value,
+      nombre: d.label.toLowerCase(),
+      titulo: `Checklists de ${d.label.toLowerCase()}`,
+      detalle: `Solo los ve quien manda ${QUIEN_MANDA[d.value]}.`,
+    })),
+  ];
+
+  // Los de un tipo que se desmarcó se conservan en pantalla (vuelven si se marca otra vez), pero no se validan ni se guardan.
+  const checklistsVigentes = checklists.filter((c) => !c.tipo || dataTypes.includes(c.tipo));
+
   function validarChecklists(): string | null {
-    const titulos = new Set<string>();
-    for (const [i, c] of checklists.entries()) {
+    const vistos: ChecklistEditable[] = [];
+    for (const c of checklistsVigentes) {
       const titulo = c.titulo.trim();
-      const nombre = titulo ? `"${titulo}"` : `número ${i + 1}`;
+      const delTipo = c.tipo ? ` de ${(DATA_TYPES.find((d) => d.value === c.tipo)?.label ?? c.tipo).toLowerCase()}` : "";
+      const nombre = titulo ? `"${titulo}"${delTipo}` : `número ${checklists.filter((x) => x.tipo === c.tipo).indexOf(c) + 1}${delTipo}`;
       if (!titulo) return `El checklist ${nombre} necesita un título`;
       if (c.opciones.length === 0) return `El checklist ${nombre} no tiene opciones`;
-      if (titulos.has(titulo.toLowerCase())) return `Hay dos checklists con el título ${nombre}`;
-      titulos.add(titulo.toLowerCase());
+      // Un aporte ve los de su tipo y los generales: ahí no se repiten títulos (las respuestas son "Título: opción").
+      if (vistos.some((v) => v.titulo.trim().toLowerCase() === titulo.toLowerCase() && (!v.tipo || !c.tipo || v.tipo === c.tipo))) {
+        return `Hay dos checklists con el título ${nombre}`;
+      }
+      vistos.push(c);
       // Las opciones ya se editan: ni vacías ni repetidas (el servidor las quitaría sin avisar).
       const opciones = new Set<string>();
       for (const o of c.opciones) {
@@ -535,6 +596,7 @@ function CampanaFormulario({
       agregar("checklists", validarChecklists());
       if (vacio(goal)) agregar("meta", "La meta de aportes debe ser mayor a 0");
       if (vacio(quota)) agregar("cuota", "La cuota por persona debe ser mayor a 0");
+      agregar("limites", validarLimites());
       if (!fechaInicioFormulario) agregar("inicio", "Falta la fecha de inicio");
       else if (inicioMovido) agregar("inicio", errorDeInicioPasado(fechaInicioFormulario));
       if (!fechaFinFormulario) agregar("fin", "Falta la fecha de finalización");
@@ -549,6 +611,7 @@ function CampanaFormulario({
     }
     if (edicionLimitada) {
       if (vacio(goal)) agregar("meta", "La meta de aportes debe ser mayor a 0");
+      agregar("limites", validarLimites());
       if (!fechaFinFormulario) agregar("fin", "Falta la fecha de finalización");
       else agregar("fin", errorDeFinAntesDeInicio(fechaInicioFormulario, fechaFinFormulario));
       return lista;
@@ -559,6 +622,7 @@ function CampanaFormulario({
     if (!description.trim()) agregar("descripcion", "Falta la descripción");
     if (!theme) agregar("tematica", "Elige una temática");
     agregar("checklists", validarChecklists());
+    agregar("limites", validarLimites());
     agregar("inicio", errorDeInicioPasado(fechaInicioFormulario));
     agregar("fin", errorDeFinAntesDeInicio(fechaInicioFormulario, fechaFinFormulario));
     // El propósito se exige al enviar a revisión; en un borrador solo se revisa si se eligió "Otro".
@@ -598,7 +662,11 @@ function CampanaFormulario({
     // lo de CAMPOS_EDITABLES_EN_PAUSA. En los tres el estado no se manda, así la
     // campaña se mantiene en el estado en el que estaba.
     // En el orden en que se ven (↑/↓).
-    const checklistSecciones = checklists.map((c) => ({ titulo: c.titulo.trim(), opciones: c.opciones.map((o) => o.texto.trim()) }));
+    const checklistSecciones = checklistsVigentes.map((c) => ({
+      titulo: c.titulo.trim(),
+      opciones: c.opciones.map((o) => o.texto.trim()),
+      ...(c.tipo ? { tipo: c.tipo } : {}),
+    }));
     const camposEditables = editaEnPausa
       ? {
           status: enviarRevisionAlGuardar ? "en_revision" : undefined,
@@ -614,6 +682,7 @@ function CampanaFormulario({
           checklistSecciones,
           goalContributions: Number(goal),
           quotaPerUser: Number(quota),
+          limitePorTipo,
           startDate: fechaInicioFormulario,
           endDate: fechaFinFormulario,
           todoElPais,
@@ -624,6 +693,7 @@ function CampanaFormulario({
       : edicionLimitada
       ? {
           goalContributions: Number(goal),
+          limitePorTipo,
           endDate: fechaFinFormulario,
         }
       : {
@@ -640,6 +710,7 @@ function CampanaFormulario({
           checklistSecciones,
           goalContributions: Number(goal),
           quotaPerUser: Number(quota),
+          limitePorTipo,
           startDate: fechaInicioFormulario,
           endDate: fechaFinFormulario,
           todoElPais,
@@ -724,19 +795,21 @@ function CampanaFormulario({
   const pasos: Paso[] = (
     [
       { id: "paso-datos", titulo: "Datos básicos", completo: Boolean(name.trim() && description.trim() && theme) },
+      // Orden de los pasos (2026-10-28, a pedido del usuario): vigencia y lugar va 2.º y qué se recolecta 3.º.
+      {
+        id: "paso-vigencia",
+        titulo: "Vigencia y lugar",
+        completo: Boolean(fechaInicioFormulario && fechaFinFormulario && !errorDeFechas && (todoElPais || (locationState && locationCity))),
+      },
       {
         id: "paso-recoleccion",
         titulo: "Qué se recolecta",
         completo: dataTypes.length > 0 && !validarChecklists() && validarProposito(proposito, propositoOtro, true).ok,
       },
       { id: "paso-meta", titulo: "Meta y cuota", completo: Number(goal) > 0 && Number(quota) > 0 },
-      {
-        id: "paso-vigencia",
-        titulo: "Vigencia y lugar",
-        completo: Boolean(fechaInicioFormulario && fechaFinFormulario && !errorDeFechas && (todoElPais || (locationState && locationCity))),
-      },
     ] satisfies Paso[]
   ).map((p) => ({ ...p, conProblemas: pasosConProblemas.has(p.id) }));
+  const paso = (id: string) => pasos.find((p) => p.id === id)!;
   const noEditable = contenidoBloqueado ? "No se puede cambiar" : undefined;
 
   return (
@@ -804,8 +877,8 @@ function CampanaFormulario({
             numero={1}
             titulo="Datos básicos"
             descripcion="Cómo se llama la campaña, de qué trata y quién la impulsa."
-            completo={pasos[0].completo}
-            conProblemas={pasos[0].conProblemas}
+            completo={paso("paso-datos").completo}
+            conProblemas={paso("paso-datos").conProblemas}
             aviso={editaEnPausa ? "La organización no se puede cambiar" : noEditable}
           >
             <div className="grid grid-cols-1 gap-6">
@@ -934,270 +1007,12 @@ function CampanaFormulario({
           </TarjetaDePaso>
 
           <TarjetaDePaso
-            id="paso-recoleccion"
-            numero={2}
-            titulo="Qué se recolecta"
-            descripcion="Qué tipo de aporte se pide y cómo lo describe quien participa."
-            completo={pasos[1].completo}
-            conProblemas={pasos[1].conProblemas}
-            aviso={noEditable}
-          >
-            {/* El propósito se puede actualizar al editar una campaña pausada; el servidor lo valida al guardarlo. */}
-            <div className="mb-6">
-              <Field label="Propósito — ¿Para qué se utilizarán los datos?" required error={errorDe("proposito")}>
-                <select
-                  data-campo="proposito"
-                  value={proposito}
-                  onChange={(e) => setProposito(e.target.value)}
-                  disabled={contenidoBloqueado}
-                  className="w-full rounded border border-system-300 bg-white px-3.5 py-3 text-sm text-system-900 outline-none transition-colors focus:border-brand-600 aria-invalid:border-error-700 aria-invalid:bg-error-50 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <option value="">Elige un propósito</option>
-                  {PROPOSITOS.map((p) => (
-                    <option key={p.valor} value={p.valor}>
-                      {p.etiqueta}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              {proposito === "otro" && (
-                <Input
-                  value={propositoOtro}
-                  onChange={(e) => setPropositoOtro(e.target.value)}
-                  maxLength={LARGO_MAXIMO_PROPOSITO_OTRO}
-                  placeholder="Escribe para qué se utilizarán los datos"
-                  aria-label="Otro propósito"
-                  disabled={contenidoBloqueado}
-                  className="-mt-2"
-                />
-              )}
-              <p className="mt-1.5 text-[11.5px] text-system-500">
-                Se muestra en la campaña, en el acuerdo que acepta quien participa y en los datos abiertos.
-                {contenidoBloqueado && proposito ? " Ya no se cambia: quien participa lo aceptó." : ""}
-              </p>
-            </div>
-
-            <div className="mb-6">
-              <p className="mb-1.5 text-[13px] font-medium text-system-900">
-                Tipo de dato solicitado <span className="text-error-700">*</span>
-              </p>
-              <p className="mb-2.5 text-[12px] text-system-500">Marca uno o varios.</p>
-              <div
-                data-campo="tipos"
-                role="group"
-                aria-label="Tipo de dato solicitado"
-                aria-describedby={errorDe("tipos") ? "error-de-tipos" : undefined}
-                className={`flex flex-wrap gap-2 ${errorDe("tipos") ? "rounded-pill p-1 ring-2 ring-error-700" : ""}`}
-              >
-                {DATA_TYPES.map((dt) => (
-                  <button
-                    key={dt.value}
-                    type="button"
-                    disabled={contenidoBloqueado}
-                    onClick={() => toggleDataType(dt.value)}
-                    aria-pressed={dataTypes.includes(dt.value)}
-                    className={`rounded-pill border px-3 py-1.5 text-[12.5px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                      dataTypes.includes(dt.value)
-                        ? "border-brand-600 bg-brand-600 text-white"
-                        : "border-system-300 bg-white text-system-600 hover:border-brand-600"
-                    }`}
-                  >
-                    {dt.label}
-                  </button>
-                ))}
-              </div>
-              {errorDe("tipos") && <p id="error-de-tipos" className="mt-1.5 text-[12px] font-medium text-error-700">{errorDe("tipos")}</p>}
-            </div>
-
-            <div>
-              <p className="mb-1 text-[13px] font-medium text-system-900">
-                Cómo describe su aporte el participante
-              </p>
-              <p className="mb-2.5 text-[12px] text-system-500">
-                Siempre escribe una descripción con sus palabras. Además puedes agregar
-                checklists con título para que marque lo que aplique: los que necesites, o ninguno.
-                Para cambiar el orden de los checklists y sus opciones, arrástralos desde ⠿.
-              </p>
-              {editaEnPausa && (
-                <p className="mb-2.5 text-[12px] text-system-500">
-                  Los aportes que ya llegaron conservan lo que marcaron, aunque cambies o quites una opción.
-                </p>
-              )}
-
-              {/* data-orden-grupo / data-orden-elemento: lo que reacomoda ui/AsaDeArrastre. Mientras se arrastra,
-                  el elemento lleva data-arrastrando. */}
-              {errorDe("checklists") && (
-                <p className="mb-2.5 rounded-lg border border-error-700 bg-error-50 p-3 text-[12.5px] font-medium text-error-700">
-                  {errorDe("checklists")}
-                </p>
-              )}
-              <div data-orden-grupo data-campo="checklists" className="grid grid-cols-1 gap-3">
-                {checklists.map((c, i) => (
-                  <div
-                    key={c.clave}
-                    data-orden-elemento={i}
-                    className="rounded-lg border border-system-200 bg-system-50 p-3.5 data-[arrastrando]:border-brand-600 data-[arrastrando]:shadow-md"
-                  >
-                    <div className="mb-2.5 flex items-center gap-2">
-                      <AsaDeArrastre
-                        etiqueta={`el checklist ${c.titulo.trim() || i + 1}`}
-                        onMover={(de, a) => setChecklists((prev) => moverA(prev, de, a))}
-                        deshabilitado={contenidoBloqueado}
-                      />
-                      <input
-                        type="text"
-                        value={c.titulo}
-                        onChange={(e) => cambiarChecklist(c.clave, { titulo: e.target.value })}
-                        maxLength={MAX_LARGO_TEXTO}
-                        placeholder="Título del checklist, p. ej. Estado del árbol"
-                        aria-label={`Título del checklist ${i + 1}`}
-                        disabled={contenidoBloqueado}
-                        className="w-full rounded border border-system-300 bg-white px-3 py-2 text-[13px] font-semibold text-system-900 outline-none focus:border-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
-                      />
-                      <button
-                        type="button"
-                        disabled={contenidoBloqueado}
-                        onClick={() => setChecklists((prev) => prev.filter((x) => x.clave !== c.clave))}
-                        className="whitespace-nowrap text-[11.5px] font-medium text-error-700 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        Quitar checklist
-                      </button>
-                    </div>
-
-                    {c.opciones.length === 0 && (
-                      <p className="mb-2 text-[12px] text-system-500">Aún no agregas opciones a este checklist.</p>
-                    )}
-                    <div data-orden-grupo>
-                      {c.opciones.map((opcion, j) => (
-                        <div
-                          key={opcion.clave}
-                          data-orden-elemento={j}
-                          className="mb-2 flex items-center gap-2 rounded text-[12.5px] text-system-600 data-[arrastrando]:bg-brand-50 data-[arrastrando]:ring-1 data-[arrastrando]:ring-brand-600"
-                        >
-                          <AsaDeArrastre
-                            etiqueta={`la opción ${opcion.texto.trim() || j + 1}`}
-                            onMover={(de, a) => cambiarOpciones(c.clave, (ops) => moverA(ops, de, a))}
-                            deshabilitado={contenidoBloqueado}
-                          />
-                          <span className="inline-block h-3.5 w-3.5 shrink-0 rounded-sm border border-system-300 bg-white" aria-hidden />
-                          <input
-                            type="text"
-                            value={opcion.texto}
-                            onChange={(e) =>
-                              cambiarOpciones(c.clave, (ops) => ops.map((o) => (o.clave === opcion.clave ? { ...o, texto: e.target.value } : o)))
-                            }
-                            maxLength={MAX_LARGO_TEXTO}
-                            aria-label={`Opción ${j + 1} del checklist ${c.titulo || i + 1}`}
-                            disabled={contenidoBloqueado}
-                            className="min-w-0 flex-1 rounded border border-transparent bg-transparent px-1.5 py-1 text-[12.5px] text-system-900 outline-none hover:border-system-300 focus:border-brand-600 focus:bg-white disabled:cursor-not-allowed disabled:opacity-50"
-                          />
-                          <button
-                            type="button"
-                            disabled={contenidoBloqueado}
-                            onClick={() => cambiarOpciones(c.clave, (ops) => ops.filter((o) => o.clave !== opcion.clave))}
-                            className="text-[11.5px] font-medium text-error-700 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            Quitar
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="mt-2 flex gap-2">
-                      <input
-                        type="text"
-                        value={c.nuevaOpcion}
-                        onChange={(e) => cambiarChecklist(c.clave, { nuevaOpcion: e.target.value })}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            agregarOpcion(c.clave);
-                          }
-                        }}
-                        maxLength={MAX_LARGO_TEXTO}
-                        placeholder="Nueva opción"
-                        aria-label={`Nueva opción del checklist ${c.titulo || i + 1}`}
-                        disabled={contenidoBloqueado}
-                        className="w-full rounded border border-system-300 bg-white px-3 py-2 text-[12.5px] text-system-900 outline-none focus:border-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => agregarOpcion(c.clave)}
-                        disabled={!c.nuevaOpcion.trim() || contenidoBloqueado}
-                        className="whitespace-nowrap text-[12.5px] font-medium text-brand-600 disabled:opacity-40"
-                      >
-                        + Agregar opción
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className={checklists.length > 0 ? "mt-3" : ""}>
-                <Button
-                  type="button"
-                  size="sm"
-                  disabled={contenidoBloqueado}
-                  onClick={() => setChecklists((prev) => [...prev, nuevoChecklist()])}
-                >
-                  + Agregar checklist
-                </Button>
-              </div>
-            </div>
-          </TarjetaDePaso>
-
-          <TarjetaDePaso
-            id="paso-meta"
-            numero={3}
-            titulo="Meta y cuota"
-            descripcion="Cuántos aportes aprobados busca la campaña y cuántos puede enviar cada persona."
-            completo={pasos[2].completo}
-            conProblemas={pasos[2].conProblemas}
-            aviso={contenidoBloqueado ? "Solo la meta se puede cambiar" : undefined}
-          >
-            <div className="grid max-w-xl grid-cols-1 gap-4">
-              <Field label="Meta total" required hint="Solo cuentan los aportes aprobados." error={errorDe("meta")}>
-                <Input
-                  data-campo="meta"
-                  type="number"
-                  min={1}
-                  value={goal}
-                  onChange={(e) => setGoal(e.target.value)}
-                  placeholder="Ej. 500"
-                  required
-                  className="font-mono"
-                />
-              </Field>
-              <Field label="Cuota por persona" required hint="Máximo de aportes por participante." error={errorDe("cuota")}>
-                <Input
-                  data-campo="cuota"
-                  type="number"
-                  min={1}
-                  value={quota}
-                  onChange={(e) => setQuota(e.target.value)}
-                  placeholder="Ej. 10"
-                  required={!contenidoBloqueado}
-                  disabled={contenidoBloqueado}
-                  className="font-mono disabled:cursor-not-allowed disabled:opacity-50"
-                />
-              </Field>
-            </div>
-
-            {sugerencia && (
-              <p className="mt-1 max-w-xl text-[12px] text-system-500" aria-live="polite">
-                La cuota vale para cualquier tipo de dato. A quien aporte se le sugerirá balancearlos:{" "}
-                <span className="font-medium text-system-700">{sugerencia}</span>.
-              </p>
-            )}
-          </TarjetaDePaso>
-
-          <TarjetaDePaso
             id="paso-vigencia"
-            numero={4}
+            numero={2}
             titulo="Vigencia y lugar"
             descripcion="Cuándo recibe aportes y en qué parte del país."
-            completo={pasos[3].completo}
-            conProblemas={pasos[3].conProblemas}
+            completo={paso("paso-vigencia").completo}
+            conProblemas={paso("paso-vigencia").conProblemas}
             aviso={contenidoBloqueado ? "Solo la finalización se puede cambiar" : undefined}
           >
             <p className="mb-3 text-[12px] text-system-500">
@@ -1332,6 +1147,322 @@ function CampanaFormulario({
                 </Field>
               </div>
             )}
+          </TarjetaDePaso>
+
+          <TarjetaDePaso
+            id="paso-recoleccion"
+            numero={3}
+            titulo="Qué se recolecta"
+            descripcion="Qué tipo de aporte se pide y cómo lo describe quien participa."
+            completo={paso("paso-recoleccion").completo}
+            conProblemas={paso("paso-recoleccion").conProblemas}
+            aviso={noEditable}
+          >
+            {/* El propósito se puede actualizar al editar una campaña pausada; el servidor lo valida al guardarlo. */}
+            <div className="mb-6">
+              <Field label="Propósito — ¿Para qué se utilizarán los datos?" required error={errorDe("proposito")}>
+                <select
+                  data-campo="proposito"
+                  value={proposito}
+                  onChange={(e) => setProposito(e.target.value)}
+                  disabled={contenidoBloqueado}
+                  className="w-full rounded border border-system-300 bg-white px-3.5 py-3 text-sm text-system-900 outline-none transition-colors focus:border-brand-600 aria-invalid:border-error-700 aria-invalid:bg-error-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="">Elige un propósito</option>
+                  {PROPOSITOS.map((p) => (
+                    <option key={p.valor} value={p.valor}>
+                      {p.etiqueta}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              {proposito === "otro" && (
+                <Input
+                  value={propositoOtro}
+                  onChange={(e) => setPropositoOtro(e.target.value)}
+                  maxLength={LARGO_MAXIMO_PROPOSITO_OTRO}
+                  placeholder="Escribe para qué se utilizarán los datos"
+                  aria-label="Otro propósito"
+                  disabled={contenidoBloqueado}
+                  className="-mt-2"
+                />
+              )}
+              <p className="mt-1.5 text-[11.5px] text-system-500">
+                Se muestra en la campaña, en el acuerdo que acepta quien participa y en los datos abiertos.
+                {contenidoBloqueado && proposito ? " Ya no se cambia: quien participa lo aceptó." : ""}
+              </p>
+            </div>
+
+            <div className="mb-6">
+              <p className="mb-1.5 text-[13px] font-medium text-system-900">
+                Tipo de dato solicitado <span className="text-error-700">*</span>
+              </p>
+              <p className="mb-2.5 text-[12px] text-system-500">Marca uno o varios.</p>
+              <div
+                data-campo="tipos"
+                role="group"
+                aria-label="Tipo de dato solicitado"
+                aria-describedby={errorDe("tipos") ? "error-de-tipos" : undefined}
+                className={`flex flex-wrap gap-2 ${errorDe("tipos") ? "rounded-pill p-1 ring-2 ring-error-700" : ""}`}
+              >
+                {DATA_TYPES.map((dt) => (
+                  <button
+                    key={dt.value}
+                    type="button"
+                    disabled={contenidoBloqueado}
+                    onClick={() => toggleDataType(dt.value)}
+                    aria-pressed={dataTypes.includes(dt.value)}
+                    className={`rounded-pill border px-3 py-1.5 text-[12.5px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                      dataTypes.includes(dt.value)
+                        ? "border-brand-600 bg-brand-600 text-white"
+                        : "border-system-300 bg-white text-system-600 hover:border-brand-600"
+                    }`}
+                  >
+                    {dt.label}
+                  </button>
+                ))}
+              </div>
+              {errorDe("tipos") && <p id="error-de-tipos" className="mt-1.5 text-[12px] font-medium text-error-700">{errorDe("tipos")}</p>}
+            </div>
+
+            <div>
+              <p className="mb-1 text-[13px] font-medium text-system-900">
+                Cómo describe su aporte el participante
+              </p>
+              <p className="mb-2.5 text-[12px] text-system-500">
+                Siempre escribe una descripción con sus palabras. Además, para cada tipo de dato que pides
+                puedes agregar checklists con título para que marque lo que aplique: los que necesites, o
+                ninguno. Quien aporta solo ve los del tipo de lo que manda. Para cambiar el orden de los
+                checklists y sus opciones, arrástralos desde ⠿.
+              </p>
+              {editaEnPausa && (
+                <p className="mb-2.5 text-[12px] text-system-500">
+                  Los aportes que ya llegaron conservan lo que marcaron, aunque cambies o quites una opción.
+                </p>
+              )}
+
+              {/* data-orden-grupo / data-orden-elemento: lo que reacomoda ui/AsaDeArrastre. Mientras se arrastra,
+                  el elemento lleva data-arrastrando. */}
+              {errorDe("checklists") && (
+                <p className="mb-2.5 rounded-lg border border-error-700 bg-error-50 p-3 text-[12.5px] font-medium text-error-700">
+                  {errorDe("checklists")}
+                </p>
+              )}
+              {/* Checklists por tipo de dato (2026-10-28, a pedido del usuario): un bloque por cada tipo que pide la
+                  campaña, cada uno con los suyos; quien aporta solo ve los del tipo de su archivo. */}
+              <div data-campo="checklists" className="grid grid-cols-1 gap-4">
+                {gruposDeChecklists.length === 0 && (
+                  <p className="rounded-lg border border-dashed border-system-300 p-3 text-[12px] text-system-500">
+                    Marca arriba los tipos de dato que pides para agregar sus checklists.
+                  </p>
+                )}
+                {gruposDeChecklists.map((grupo) => {
+                  const delGrupo = checklists.filter((c) => c.tipo === grupo.tipo);
+                  return (
+                    <section key={grupo.tipo || "general"} aria-label={grupo.titulo} className="rounded-lg border border-system-200 p-3.5">
+                      <p className="text-[13px] font-semibold text-system-900">{grupo.titulo}</p>
+                      <p className="mb-2.5 text-[11.5px] text-system-500">{grupo.detalle}</p>
+                      <div data-orden-grupo className="grid grid-cols-1 gap-3">
+                        {delGrupo.map((c, i) => (
+                          <div
+                            key={c.clave}
+                            data-orden-elemento={i}
+                            className="rounded-lg border border-system-200 bg-system-50 p-3.5 data-[arrastrando]:border-brand-600 data-[arrastrando]:shadow-md"
+                          >
+                            <div className="mb-2.5 flex items-center gap-2">
+                              <AsaDeArrastre
+                                etiqueta={`el checklist ${c.titulo.trim() || i + 1}`}
+                                onMover={(de, a) => setChecklists((prev) => moverEnGrupo(prev, c.tipo, de, a))}
+                                deshabilitado={contenidoBloqueado}
+                              />
+                              <input
+                                type="text"
+                                value={c.titulo}
+                                onChange={(e) => cambiarChecklist(c.clave, { titulo: e.target.value })}
+                                maxLength={MAX_LARGO_TEXTO}
+                                placeholder="Título del checklist, p. ej. Estado del árbol"
+                                aria-label={`Título del checklist ${i + 1}`}
+                                disabled={contenidoBloqueado}
+                                className="w-full rounded border border-system-300 bg-white px-3 py-2 text-[13px] font-semibold text-system-900 outline-none focus:border-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
+                              />
+                              <button
+                                type="button"
+                                disabled={contenidoBloqueado}
+                                onClick={() => setChecklists((prev) => prev.filter((x) => x.clave !== c.clave))}
+                                className="whitespace-nowrap text-[11.5px] font-medium text-error-700 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                Quitar checklist
+                              </button>
+                            </div>
+
+                            {c.opciones.length === 0 && (
+                              <p className="mb-2 text-[12px] text-system-500">Aún no agregas opciones a este checklist.</p>
+                            )}
+                            <div data-orden-grupo>
+                              {c.opciones.map((opcion, j) => (
+                                <div
+                                  key={opcion.clave}
+                                  data-orden-elemento={j}
+                                  className="mb-2 flex items-center gap-2 rounded text-[12.5px] text-system-600 data-[arrastrando]:bg-brand-50 data-[arrastrando]:ring-1 data-[arrastrando]:ring-brand-600"
+                                >
+                                  <AsaDeArrastre
+                                    etiqueta={`la opción ${opcion.texto.trim() || j + 1}`}
+                                    onMover={(de, a) => cambiarOpciones(c.clave, (ops) => moverA(ops, de, a))}
+                                    deshabilitado={contenidoBloqueado}
+                                  />
+                                  <span className="inline-block h-3.5 w-3.5 shrink-0 rounded-sm border border-system-300 bg-white" aria-hidden />
+                                  <input
+                                    type="text"
+                                    value={opcion.texto}
+                                    onChange={(e) =>
+                                      cambiarOpciones(c.clave, (ops) => ops.map((o) => (o.clave === opcion.clave ? { ...o, texto: e.target.value } : o)))
+                                    }
+                                    maxLength={MAX_LARGO_TEXTO}
+                                    aria-label={`Opción ${j + 1} del checklist ${c.titulo || i + 1}`}
+                                    disabled={contenidoBloqueado}
+                                    className="min-w-0 flex-1 rounded border border-transparent bg-transparent px-1.5 py-1 text-[12.5px] text-system-900 outline-none hover:border-system-300 focus:border-brand-600 focus:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+                                  />
+                                  <button
+                                    type="button"
+                                    disabled={contenidoBloqueado}
+                                    onClick={() => cambiarOpciones(c.clave, (ops) => ops.filter((o) => o.clave !== opcion.clave))}
+                                    className="text-[11.5px] font-medium text-error-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                  >
+                                    Quitar
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+
+                            <div className="mt-2 flex gap-2">
+                              <input
+                                type="text"
+                                value={c.nuevaOpcion}
+                                onChange={(e) => cambiarChecklist(c.clave, { nuevaOpcion: e.target.value })}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    agregarOpcion(c.clave);
+                                  }
+                                }}
+                                maxLength={MAX_LARGO_TEXTO}
+                                placeholder="Nueva opción"
+                                aria-label={`Nueva opción del checklist ${c.titulo || i + 1}`}
+                                disabled={contenidoBloqueado}
+                                className="w-full rounded border border-system-300 bg-white px-3 py-2 text-[12.5px] text-system-900 outline-none focus:border-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => agregarOpcion(c.clave)}
+                                disabled={!c.nuevaOpcion.trim() || contenidoBloqueado}
+                                className="whitespace-nowrap text-[12.5px] font-medium text-brand-600 disabled:opacity-40"
+                              >
+                                + Agregar opción
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      {grupo.tipo && (
+                        <div className={delGrupo.length > 0 ? "mt-3" : ""}>
+                          <Button
+                            type="button"
+                            size="sm"
+                            disabled={contenidoBloqueado}
+                            onClick={() => setChecklists((prev) => [...prev, nuevoChecklist("", [], grupo.tipo)])}
+                          >
+                            + Agregar checklist de {grupo.nombre}
+                          </Button>
+                        </div>
+                      )}
+                    </section>
+                  );
+                })}
+              </div>
+            </div>
+          </TarjetaDePaso>
+
+          <TarjetaDePaso
+            id="paso-meta"
+            numero={4}
+            titulo="Meta y cuota"
+            descripcion="Cuántos aportes aprobados busca la campaña, cuántos puede enviar cada persona y, si quieres, cuántos recibe de cada tipo."
+            completo={paso("paso-meta").completo}
+            conProblemas={paso("paso-meta").conProblemas}
+            aviso={contenidoBloqueado ? "Solo la meta y el límite por tipo se pueden cambiar" : undefined}
+          >
+            <div className="grid max-w-xl grid-cols-1 gap-4">
+              <Field label="Meta total" required hint="Solo cuentan los aportes aprobados." error={errorDe("meta")}>
+                <Input
+                  data-campo="meta"
+                  type="number"
+                  min={1}
+                  value={goal}
+                  onChange={(e) => setGoal(e.target.value)}
+                  placeholder="Ej. 500"
+                  required
+                  className="font-mono"
+                />
+              </Field>
+              <Field label="Cuota por persona" required hint="Máximo de aportes por participante." error={errorDe("cuota")}>
+                <Input
+                  data-campo="cuota"
+                  type="number"
+                  min={1}
+                  value={quota}
+                  onChange={(e) => setQuota(e.target.value)}
+                  placeholder="Ej. 10"
+                  required={!contenidoBloqueado}
+                  disabled={contenidoBloqueado}
+                  className="font-mono disabled:cursor-not-allowed disabled:opacity-50"
+                />
+              </Field>
+            </div>
+
+            {sugerencia && (
+              <p className="mt-1 max-w-xl text-[12px] text-system-500" aria-live="polite">
+                La cuota vale para cualquier tipo de dato. A quien aporte se le sugerirá balancearlos:{" "}
+                <span className="font-medium text-system-700">{sugerencia}</span>.
+              </p>
+            )}
+
+            {/* Límite total por tipo de dato (2026-10-28): un campo por cada tipo marcado en "Qué se recolecta". */}
+            <fieldset data-campo="limites" className="mt-4 max-w-xl">
+              <legend className="text-[13px] font-medium text-system-900">Límite por tipo de dato (opcional)</legend>
+              <p className="mb-2.5 text-[11.5px] text-system-500">
+                Cuántos aportes de cada tipo recibe la campaña en total. Al llegar al límite, nadie puede mandar más de ese
+                tipo; un aporte rechazado libera su lugar. Déjalo vacío para no poner límite.
+              </p>
+              {dataTypes.length === 0 ? (
+                <p className="rounded-lg border border-dashed border-system-300 p-3 text-[12px] text-system-500">
+                  Marca en &quot;Qué se recolecta&quot; los tipos de dato que pides para ponerles límite.
+                </p>
+              ) : (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {DATA_TYPES.filter((d) => dataTypes.includes(d.value)).map((d) => {
+                    const enviados = editingCampaign?.enviadosPorTipo?.[d.value] ?? 0;
+                    return (
+                      <Field
+                        key={d.value}
+                        label={PLURALES_DE_TIPO[d.value][1].replace(/^./, (c) => c.toUpperCase())}
+                        hint={editingCampaign && enviados > 0 ? `Ya recibió ${enviados} (sin contar rechazados).` : undefined}
+                      >
+                        <Input
+                          type="number"
+                          min={1}
+                          value={limites[d.value] ?? ""}
+                          onChange={(e) => setLimites((prev) => ({ ...prev, [d.value]: e.target.value }))}
+                          placeholder="Sin límite"
+                          aria-invalid={errorDe("limites") ? true : undefined}
+                          className="font-mono"
+                        />
+                      </Field>
+                    );
+                  })}
+                </div>
+              )}
+              {errorDe("limites") && <p className="mt-1.5 text-[12px] text-error-700">{errorDe("limites")}</p>}
+            </fieldset>
           </TarjetaDePaso>
 
           {edicionCompleta && (

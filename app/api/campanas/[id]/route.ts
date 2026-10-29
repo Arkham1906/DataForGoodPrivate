@@ -34,6 +34,7 @@ import {
 import { hasRootSession } from "@/lib/rootSession";
 import { validarProposito } from "@/lib/campanas/proposito";
 import { normalizarSecciones, seccionesDesdeFila } from "@/lib/campanas/checklist";
+import { enviadosPorTipoDesdeFila, limitePorTipoDesdeFila, normalizarLimitePorTipo } from "@/lib/campanas/limite-por-tipo";
 import { asegurarEnlaceVigente } from "@/lib/campanas/enlaces";
 import { errorDeOrganizacion } from "@/lib/campanas/organizacion";
 import { activateScheduledCampaigns, calculateCampaignDaysRemaining, errorDeFinAntesDeInicio, errorDeInicioPasado, errorDeReanudarAntesDeInicio, finalizeExpiredCampaigns, hasCampaignEnded, normalizeCampaignDate, normalizeCampaignTime } from "@/lib/campaign-date";
@@ -103,6 +104,9 @@ function mapCampaign(row: Record<string, unknown>) {
     checklistSecciones: seccionesDesdeFila(row),
     goalContributions: Number(row.goal_contributions ?? 0),
     quotaPerUser: Number(row.quota_per_user ?? 0),
+    // Límite total por tipo de dato (2026-10-28, lib/campanas/limite-por-tipo.ts) y lo enviado de cada uno.
+    limitePorTipo: limitePorTipoDesdeFila(row),
+    enviadosPorTipo: enviadosPorTipoDesdeFila(row),
     currentContributions: Number(row.current_contributions ?? 0),
     approvedContributions: Number(row.approved_contributions ?? 0),
     pendingContributions: Number(row.pending_contributions ?? 0),
@@ -459,7 +463,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
               error:
                 currentStatus === "pausada"
                   ? "Con la campaña pausada no se cambia la organización"
-                  : "Con la campaña activa solo puedes editar la meta de aportes y la fecha/hora de finalización. Páusala para editar lo demás",
+                  : "Con la campaña activa solo puedes editar la meta de aportes, el límite por tipo de dato y la fecha/hora de finalización. Páusala para editar lo demás",
             },
             { status: 400 }
           );
@@ -474,7 +478,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       const camposNoPermitidos = Object.keys(body).filter((key) => !CAMPOS_DE_EDICION_LIMITADA.has(key));
       if (camposNoPermitidos.length > 0) {
         return NextResponse.json(
-          { error: "Con la campaña aceptada solo puedes editar la meta de aportes y la fecha/hora de finalización" },
+          { error: "Con la campaña aceptada solo puedes editar la meta de aportes, el límite por tipo de dato y la fecha/hora de finalización" },
           { status: 400 }
         );
       }
@@ -504,7 +508,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       checklistSecciones = normalizarSecciones(
         traeSecciones
           ? body.checklistSecciones ?? body.checklist_secciones
-          : [{ titulo: "Checklist", opciones: normalizeChecklistOpciones(body.checklistOpciones ?? body.checklist_opciones) }]
+          : [{ titulo: "Checklist", opciones: normalizeChecklistOpciones(body.checklistOpciones ?? body.checklist_opciones) }],
+        // Si no cambian los tipos, se quedan todos (al mostrarlos solo salen los de tipos que pide).
+        dataTypes ?? undefined
       );
       if (!checklistSecciones.ok) {
         return NextResponse.json({ error: checklistSecciones.error }, { status: 400 });
@@ -519,6 +525,14 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     // Sin reparto de la cuota por tipo desde el 2026-10-27: al cambiar la cuota o los tipos, el
     // reparto viejo (cuota_por_tipo) se vacía.
     const tocaReparto = quotaPerUser !== null || dataTypes !== null;
+    // Límite total por tipo de dato (2026-10-28): con los tipos que van a quedar.
+    let limitePorTipo: { limite: Record<string, number> | null } | null = null;
+    if ("limitePorTipo" in body) {
+      const tiposQueQuedan = dataTypes ?? (Array.isArray(existing.rows[0].data_types) ? existing.rows[0].data_types.map(String) : []);
+      const validado = normalizarLimitePorTipo(body.limitePorTipo, tiposQueQuedan);
+      if (!validado.ok) return NextResponse.json({ error: validado.error }, { status: 400 });
+      limitePorTipo = validado;
+    }
     const startDate = "startDate" in body || "start_date" in body ? normalizeCampaignDate(body.startDate ?? body.start_date) : undefined;
     const startTime = "startTime" in body || "start_time" in body ? normalizeCampaignTime(body.startTime ?? body.start_time) : undefined;
     const endDate = "endDate" in body || "end_date" in body ? normalizeCampaignDate(body.endDate ?? body.end_date) : undefined;
@@ -660,6 +674,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         todo_el_pais = COALESCE($24::boolean, todo_el_pais),
         proposito = CASE WHEN $25::boolean THEN $26 ELSE proposito END,
         proposito_otro = CASE WHEN $25::boolean THEN $27 ELSE proposito_otro END,
+        limite_por_tipo = CASE WHEN $28::boolean THEN $29::jsonb ELSE limite_por_tipo END,
         -- La pausó el creador (sin motivo). "status" a la derecha es el estado anterior.
         pausa_por = CASE WHEN $5 = 'en_revision' AND status = 'pausada' THEN NULL WHEN $5 = 'pausada' AND status <> 'pausada' THEN 'creador' ELSE pausa_por END,
         pausa_motivo = CASE WHEN $5 = 'en_revision' AND status = 'pausada' THEN NULL WHEN $5 = 'pausada' AND status <> 'pausada' THEN NULL ELSE pausa_motivo END,
@@ -697,6 +712,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         propositoNuevo !== null,
         propositoNuevo?.proposito ?? null,
         propositoNuevo?.otro ?? null,
+        limitePorTipo !== null,
+        limitePorTipo?.limite ? JSON.stringify(limitePorTipo.limite) : null,
       ]
     );
 
@@ -797,7 +814,8 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
       body.checklistSecciones ?? body.checklist_secciones ??
         (Array.isArray(body.checklistOpciones ?? body.checklist_opciones)
           ? [{ titulo: "Checklist", opciones: normalizeChecklistOpciones(body.checklistOpciones ?? body.checklist_opciones) }]
-          : [])
+          : []),
+      dataTypes
     );
     if (!secciones.ok) {
       return NextResponse.json({ error: secciones.error }, { status: 400 });
@@ -807,6 +825,9 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     const checklistOpciones: string[] = [];
     const goalContributions = Number(body.goalContributions ?? body.goal_contributions ?? 0);
     const quotaPerUser = Number(body.quotaPerUser ?? body.quota_per_user ?? 1);
+    // Límite total por tipo de dato (2026-10-28): opcional; sin él, ningún tipo tiene límite.
+    const limitePorTipo = normalizarLimitePorTipo(body.limitePorTipo, dataTypes);
+    if (!limitePorTipo.ok) return NextResponse.json({ error: limitePorTipo.error }, { status: 400 });
     const startDate = normalizeCampaignDate(body.startDate ?? body.start_date);
     const startTime = normalizeCampaignTime(body.startTime ?? body.start_time);
     const endDate = normalizeCampaignDate(body.endDate ?? body.end_date);
@@ -891,6 +912,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
         todo_el_pais = $23,
         proposito = $24,
         proposito_otro = $25,
+        limite_por_tipo = $26::jsonb,
         updated_at = NOW()
       WHERE id = $1
       RETURNING *`,
@@ -920,6 +942,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
         todoElPais,
         proposito.proposito,
         proposito.otro,
+        limitePorTipo.limite ? JSON.stringify(limitePorTipo.limite) : null,
       ]
     );
 
