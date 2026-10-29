@@ -173,7 +173,7 @@ export async function registrarDecisionDeCampana(
       status: 403,
       error: campana.supervisor_id != null || campana.supervisado_por_root
         ? "Esta campaña la supervisa otro supervisor"
-        : "No puedes dictaminar esta campaña",
+        : "Primero toma la campaña con \"Supervisar esta campaña\"",
     };
   }
 
