@@ -227,7 +227,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const body = await request.json().catch(() => ({}));
     const accion = String(body.action ?? body.accion ?? "").trim().toLowerCase();
 
-    // "Supervisar esta campaña": la toma en exclusiva para este supervisor.
+    // Toma explícita en exclusiva. El dictamen también toma una campaña libre si se elige aceptar/rechazar directamente.
     if (accion === "tomar") {
       const roles = Array.isArray(user.role) ? user.role : typeof user.role === "string" ? [user.role] : [];
       if (!roles.includes("supervisor")) {
@@ -263,6 +263,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         accion as AccionDeSupervision,
         { motivoDeLista: body.motivoDeLista, motivo: body.motivo ?? body.reason, sancion: body.sancion },
         { tipo: "usuario", usuarioId: Number(user.id) },
+        { tomarSiEstaLibre: true },
       );
       if (!resultado.ok) {
         return NextResponse.json({ error: resultado.error }, { status: resultado.status });

@@ -391,11 +391,17 @@ function CampanaFormulario({
   const [endDate, setEndDate] = useState(editingCampaign?.endDate ?? "");
   const endTime = editingCampaign?.endTime ?? "";
   const [duracionEnMeses, setDuracionEnMeses] = useState(1);
+  const [modoFinalizacion, setModoFinalizacion] = useState<"mensual" | "personalizada">("mensual");
+  const [fechaFinPersonalizada, setFechaFinPersonalizada] = useState("");
   const hoyLocal = useSyncExternalStore(suscribirSinCambios, fechaLocalActual, fechaEnServidor);
   const [inicioModificado, setInicioModificado] = useState(false);
   const fechaInicioFormulario = startDate || (!editingCampaign && !inicioModificado ? hoyLocal : "");
   const fechaFinFormulario =
-    endDate || (!editingCampaign && fechaInicioFormulario ? sumarMeses(fechaInicioFormulario, duracionEnMeses) : "");
+    editingCampaign
+      ? endDate
+      : modoFinalizacion === "personalizada"
+        ? fechaFinPersonalizada
+        : endDate || (fechaInicioFormulario ? sumarMeses(fechaInicioFormulario, duracionEnMeses) : "");
   const [locationState, setLocationState] = useState(editingCampaign?.locationState ?? "");
   // Una campaña guardada con estado y sin municipio abarca todo el estado.
   const [locationCity, setLocationCity] = useState(
@@ -1049,9 +1055,40 @@ function CampanaFormulario({
             conProblemas={paso("paso-vigencia").conProblemas}
             aviso={contenidoBloqueado ? "Solo la finalización se puede cambiar" : undefined}
           >
-            <p className="mb-3 text-[12px] text-system-500">
-              Solo se eligen fechas: las campañas nuevas usan la hora de creación y al editar se conserva la hora guardada.
-            </p>
+            {!editingCampaign && (
+              <fieldset className="mb-4 max-w-xl">
+                <legend className="mb-2 text-[12px] font-medium text-system-700">
+                  ¿Cómo quieres definir la finalización?
+                </legend>
+                <div className="flex flex-wrap gap-4 text-[13px] text-system-800">
+                  <label className="flex cursor-pointer items-center gap-2">
+                    <input
+                      type="radio"
+                      name="modo-finalizacion"
+                      value="mensual"
+                      checked={modoFinalizacion === "mensual"}
+                      onChange={() => setModoFinalizacion("mensual")}
+                      className="h-4 w-4 accent-brand-600"
+                    />
+                    Por mes
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-2">
+                    <input
+                      type="radio"
+                      name="modo-finalizacion"
+                      value="personalizada"
+                      checked={modoFinalizacion === "personalizada"}
+                      onChange={() => setModoFinalizacion("personalizada")}
+                      className="h-4 w-4 accent-brand-600"
+                    />
+                    Fecha específica (opcional)
+                  </label>
+                </div>
+                <p className="mt-1 text-[12px] text-system-500">
+                  Elige una duración en meses o una fecha exacta para finalizar la campaña.
+                </p>
+              </fieldset>
+            )}
             <div className="mb-2 grid max-w-xl grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="Inicio" required error={errorDe("inicio")}>
                 <div data-campo="inicio" className="flex gap-2">
@@ -1077,32 +1114,44 @@ function CampanaFormulario({
                     />
                   ) : (
                     <>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          aria-label="Restar un mes a la duración"
-                          onClick={() => cambiarDuracion(-1)}
-                          disabled={duracionEnMeses <= 1 || !fechaInicioFormulario}
-                        >
-                          −
-                        </Button>
-                        <p aria-live="polite" className="min-w-0 text-[13px] font-semibold text-system-900">
-                          {duracionEnMeses} {duracionEnMeses === 1 ? "mes" : "meses"}
-                        </p>
-                        <Button
-                          type="button"
-                          size="sm"
-                          aria-label="Sumar un mes a la duración"
-                          onClick={() => cambiarDuracion(1)}
-                          disabled={!fechaInicioFormulario}
-                        >
-                          +
-                        </Button>
-                      </div>
-                      <p className="text-[12px] text-system-600">
-                        {fechaFinFormulario ? `Finaliza el ${fechaDDMMAAAA(fechaFinFormulario)}` : "Selecciona la fecha de inicio"}
-                      </p>
+                      {modoFinalizacion === "mensual" ? (
+                        <>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              aria-label="Restar un mes a la duración"
+                              onClick={() => cambiarDuracion(-1)}
+                              disabled={duracionEnMeses <= 1 || !fechaInicioFormulario}
+                            >
+                              −
+                            </Button>
+                            <p aria-live="polite" className="min-w-0 text-[13px] font-semibold text-system-900">
+                              {duracionEnMeses} {duracionEnMeses === 1 ? "mes" : "meses"}
+                            </p>
+                            <Button
+                              type="button"
+                              size="sm"
+                              aria-label="Sumar un mes a la duración"
+                              onClick={() => cambiarDuracion(1)}
+                              disabled={!fechaInicioFormulario}
+                            >
+                              +
+                            </Button>
+                          </div>
+                          <p className="text-[12px] text-system-600">
+                            {fechaFinFormulario ? `Finaliza el ${fechaDDMMAAAA(fechaFinFormulario)}` : "Selecciona la fecha de inicio"}
+                          </p>
+                        </>
+                      ) : (
+                        <CampoDeFecha
+                          value={fechaFinPersonalizada}
+                          min={fechaInicioFormulario || undefined}
+                          aria-label="Fecha específica de finalización"
+                          onChange={setFechaFinPersonalizada}
+                          required
+                        />
+                      )}
                     </>
                   )}
                 </div>

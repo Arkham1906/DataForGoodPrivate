@@ -48,9 +48,9 @@ export type ResultadoDeDecision =
   | { ok: false; status: 400 | 403 | 404 | 409 | 500; error: string };
 
 /**
- * Una campaña la supervisa un solo supervisor: quien la toma primero con el
- * botón "Supervisar esta campaña". El UPDATE es atómico (solo pasa si sigue en
- * revisión y sin supervisor), así que si dos la toman a la vez, gana uno.
+ * Una campaña la supervisa un solo supervisor: quien la toma primero de forma
+ * explícita o al emitir un dictamen. El UPDATE es atómico (solo pasa si sigue
+ * en revisión y sin supervisor), así que si dos la toman a la vez, gana uno.
  * Una vez tomada se queda con ese supervisor, también si el creador la
  * corrige y la reenvía tras un rechazo.
  */
@@ -138,9 +138,8 @@ export async function registrarDecisionDeCampana(
   entrada: EntradaDeDecision,
   autor: AutorDeDecision,
   /**
-   * El SuperUsuario no tiene "Supervisar esta campaña" (2026-10-22): si nadie la supervisa, la toma
-   * al decidir. La toma va después de validar todo (2026-10-23): antes, un rechazo sin motivo la
-   * dejaba tomada por él y ningún supervisor podía tomarla.
+   * Si está libre, permitir tomarla al dictaminar. La toma va después de validar todo:
+   * un rechazo sin motivo no debe dejar la campaña asignada y bloqueada para otros supervisores.
    */
   opciones: { tomarSiEstaLibre?: boolean } = {},
 ): Promise<ResultadoDeDecision> {

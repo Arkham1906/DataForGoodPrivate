@@ -142,33 +142,6 @@ export default function CampaignDetailPage() {
     }
   }
 
-  // Una campaña la supervisa un solo supervisor: quien la toma primero.
-  async function handleTake() {
-    if (!campaignId) return;
-
-    try {
-      setActionLoading("tomar");
-      setError(null);
-      const response = await fetch(`${BASE_PATH}/api/campanas/${campaignId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "tomar" }),
-      });
-
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(payload?.error ?? "No se pudo tomar la campaña");
-      }
-
-      setCampaign(payload?.data ?? campaign);
-      setIsMySupervision(true);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "No se pudo tomar la campaña");
-    } finally {
-      setActionLoading(null);
-    }
-  }
-
   if (loading) {
     return <PantallaEsqueleto tipo="detalle" etiqueta="Cargando campaña…" className="mx-auto max-w-4xl" />;
   }
@@ -224,16 +197,7 @@ export default function CampaignDetailPage() {
         {isCreator ? (
           // Un supervisor no supervisa sus propias campañas (el PATCH también lo rechaza).
           <Tag>Tu campaña · no puedes supervisarla</Tag>
-        ) : isAvailable ? (
-          <button
-            type="button"
-            onClick={() => void handleTake()}
-            disabled={actionLoading !== null}
-            className="rounded-pill bg-brand-600 px-4 py-2 text-[12.5px] font-bold text-white shadow-sm hover:bg-brand-800 disabled:opacity-60"
-          >
-            {actionLoading === "tomar" ? "Tomando…" : "Supervisar esta campaña"}
-          </button>
-        ) : !isMySupervision ? (
+        ) : !isAvailable && !isMySupervision ? (
           <Tag>La supervisa otro supervisor</Tag>
         ) : (
         <div className="flex flex-wrap gap-2">
@@ -268,7 +232,7 @@ export default function CampaignDetailPage() {
         <div role="alert" className="mb-5 rounded-lg border border-error-700/30 bg-error-50 p-4 text-sm text-error-700">{errorDeDecision}</div>
       )}
 
-      {showRejectForm && isMySupervision && campaign.status === "en_revision" && (
+      {showRejectForm && (isMySupervision || isAvailable) && campaign.status === "en_revision" && (
         <FormularioDeRechazo
           ocupado={actionLoading !== null}
           onCancelar={() => setShowRejectForm(false)}
