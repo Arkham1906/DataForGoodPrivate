@@ -142,12 +142,12 @@ async function enviarResumenes(): Promise<void> {
   const conjuntos = datos.rows[0]?.n ?? 0;
 
   await enTandas(personas, async (persona) => {
-    // reviewed_at es TIMESTAMP en UTC: el mes de Tepic se pasa a UTC para comparar.
+    // El mes de Tepic, como instantes (reviewed_at es TIMESTAMPTZ desde el 2026-10-30).
     const aceptados = await pool.query<{ n: number }>(
       `SELECT COUNT(*)::int AS n FROM aportes
         WHERE user_id = $1 AND status = 'aceptado'
-          AND reviewed_at >= (($2::timestamp AT TIME ZONE $4) AT TIME ZONE 'UTC')
-          AND reviewed_at < (($3::timestamp AT TIME ZONE $4) AT TIME ZONE 'UTC')`,
+          AND reviewed_at >= ($2::timestamp AT TIME ZONE $4)
+          AND reviewed_at < ($3::timestamp AT TIME ZONE $4)`,
       [persona.id, mes.inicio, mes.periodo, ZONA_DE_CAMPANAS],
     );
     const misAceptados = aceptados.rows[0]?.n ?? 0;

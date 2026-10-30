@@ -142,7 +142,9 @@ Reglas al enviar (`POST /api/aportes`): campaña `activa`, no ser el creador, no
 
 - **IDs:** `SERIAL` en la BD, `string` en el frontend.
 - **JSONB** para listas cortas que se leen completas (`intereses`, `metadata`). Los tipos de dato, los roles y los checklists ya no son JSONB: se filtran con `condicionDeTipo()` (`lib/campanas/tipos-de-campana.ts`) y `condicionDeRol()` (`lib/usuarios/tabla-roles.ts`), y las respuestas se cuentan con un JOIN a `aporte_respuestas`.
+- **Valores válidos:** los estados y tipos de texto llevan una regla CHECK (`ensureRestricciones` en `lib/db-schema.ts`, 2026-10-30): estado de campaña y de aporte, `collection_mode`, `pausa_por`, `proposito`, `calificacion`, estado y origen del reporte, tipo de sanción, `avatar` y `baja_destino_aportes`. Un valor nuevo se agrega a esa lista (o a la constante de la que sale) en el mismo cambio.
+- **Índices:** toda llave foránea lleva índice en su columna (`ensureIndicesDeLlaves`); al agregar una, agrégalo a la lista.
 - **Carreras:** resuélvelas con `UPDATE ... WHERE <condición> RETURNING` y revisa `rowCount`, no leyendo y luego escribiendo.
-- **Fechas:** todo instante nuevo debe ser `TIMESTAMPTZ`. Algunas columnas viejas son `TIMESTAMP` sin zona (`created_at` de varias tablas, `aportes.submitted_at`, `aportes.reviewed_at`): cuidado al compararlas con `NOW()`. Las fechas de campaña son `DATE` + `TIME` separados y se interpretan con `lib/campaign-date.ts`.
+- **Fechas:** todo instante es `TIMESTAMPTZ` (las últimas columnas sin zona, como `aportes.submitted_at` y los `created_at`/`updated_at` de `usuarios`, `campanas` y `aportes`, se convirtieron el 2026-10-30 en `ensureFechasConZona`). La hora de Tepic es `col AT TIME ZONE 'America/Mazatlan'`, sin pasar antes por UTC. Las fechas de campaña son `DATE` + `TIME` separados y se interpretan con `lib/campaign-date.ts`.
 - **Páginas prerenderizadas** (`revalidate` o estáticas) que leen la BD deben envolver sus consultas en `try/catch`: el build de Docker corre sin base de datos.
 - **Solo PostgreSQL**, también para pruebas.

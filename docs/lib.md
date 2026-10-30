@@ -13,7 +13,7 @@
 | Archivo | Qué hace | Exporta |
 | --- | --- | --- |
 | `db.ts` | Pool de conexiones a PostgreSQL (se crea en el primer uso) | `pool`, `dbQuery` |
-| `db-schema.ts` | **El esquema completo** de la BD. Lo ejecuta `instrumentation.ts` al arrancar | `ensureCoreSchema`, `ensure<Tabla>Table` |
+| `db-schema.ts` | **El esquema completo** de la BD. Lo ejecuta `instrumentation.ts` al arrancar | `ensureCoreSchema`, `ensure<Tabla>Table`; al final `ensureFechasConZona`, `ensureIndicesDeLlaves` y `ensureRestricciones` (2026-10-30) |
 | `minio.ts` | Cliente de MinIO: guardar, leer (entero o por partes) y borrar archivos | `guardarArchivo`, `readUploadedFile`, `abrirArchivo`, `tamanoDeArchivo`, `borrarArchivo` |
 | `base-path.ts` 🟢 | Prefijo de la app (`/dataforgood` en producción, vacío en `next dev`) | `BASE_PATH` |
 | `app-url.ts` | URL absoluta con `APP_ORIGIN` + `BASE_PATH` (para redirecciones y correos) | `absoluteUrl` |

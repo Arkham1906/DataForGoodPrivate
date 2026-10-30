@@ -204,7 +204,7 @@ export async function buscarAportesPorParticipante(
                 COUNT(*) OVER (PARTITION BY ${CLAVE_DE_GRUPO}) AS total_grupo,
                 ROW_NUMBER() OVER (PARTITION BY ${CLAVE_DE_GRUPO} ORDER BY a.submitted_at DESC, a.id DESC) AS n,
                 a.id, a.user_id, a.participant_name, (a.user_id IS NULL AND a.anonimo_id IS NOT NULL) AS anonimo,
-                to_char((a.submitted_at AT TIME ZONE 'UTC') AT TIME ZONE 'America/Mazatlan', 'YYYY-MM-DD"T"HH24:MI') AS enviado_en,
+                to_char(a.submitted_at AT TIME ZONE 'America/Mazatlan', 'YYYY-MM-DD"T"HH24:MI') AS enviado_en,
                 a.submitted_at, a.campaign_id, c.name AS campana,
                 LEFT(a.description, ${LARGO_DEL_RESUMEN}) AS resumen, char_length(a.description) AS largo,
                 a.file_type, a.status

@@ -4,6 +4,10 @@ import { ESPECIALIDADES, claveDeCatalogo, validarEspecialidad, validarOrganizaci
 import { claveDeTematica } from "@/lib/tematicas/analizar";
 import { ETIQUETAS_BASE } from "@/lib/etiquetas/base";
 import { ensureAvisosDeCambios } from "@/lib/en-vivo-postgres";
+import { CALIFICACIONES_DE_APORTE } from "@/lib/aportes/calificacion";
+import { PROPOSITOS } from "@/lib/campanas/proposito";
+import { TIPOS_DE_SANCION } from "@/lib/sanciones";
+import { DESTINOS_DE_APORTES } from "@/lib/usuarios/baja-opciones";
 
 /**
  * Único lugar donde se define el DDL de cada tabla. Antes estaba duplicado
@@ -53,8 +57,8 @@ export async function ensureUsuariosTable(): Promise<void> {
       avatar VARCHAR(12),
       -- Clave en MinIO de la foto propia (perfiles/<id>/<uuid>.jpg), si la eligió.
       avatar_foto VARCHAR(500),
-      created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `);
 
@@ -197,7 +201,7 @@ export async function ensureSessionsTable(): Promise<void> {
       id SERIAL PRIMARY KEY,
       token_hash VARCHAR(64) NOT NULL UNIQUE,
       usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
-      created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       expires_at TIMESTAMPTZ NOT NULL
     );
   `);
@@ -248,8 +252,8 @@ export async function ensureCampanasTable(): Promise<void> {
       pausa_por VARCHAR(20),
       pausa_motivo TEXT,
       pausada_en TIMESTAMPTZ,
-      created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `);
 
@@ -493,7 +497,7 @@ export async function ensureCampanasGuardadasTable(): Promise<void> {
       id SERIAL PRIMARY KEY,
       usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
       campana_id INTEGER NOT NULL REFERENCES campanas(id) ON DELETE CASCADE,
-      created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       UNIQUE (usuario_id, campana_id)
     );
   `);
@@ -567,10 +571,10 @@ export async function ensureAportesTable(): Promise<void> {
       inapropiado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
       inapropiado_en TIMESTAMPTZ,
       consentimiento_en TIMESTAMPTZ,
-      submitted_at TIMESTAMP NOT NULL DEFAULT NOW(),
-      reviewed_at TIMESTAMP,
-      created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      reviewed_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `);
 
@@ -584,7 +588,7 @@ export async function ensureAportesTable(): Promise<void> {
     -- (cookie anonimo_id). Sirve para la cuota por dispositivo; nunca se guarda el valor.
     ALTER TABLE aportes ADD COLUMN IF NOT EXISTS anonimo_id CHAR(64);
     CREATE INDEX IF NOT EXISTS aportes_anonimo_idx ON aportes (campaign_id, anonimo_id) WHERE anonimo_id IS NOT NULL;
-    ALTER TABLE aportes ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMP;
+    ALTER TABLE aportes ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;
     -- Cuándo aceptó la persona los avisos de "Antes de enviar" (uso del aporte y contenido acorde,
     -- lib/aportes/consentimiento.ts). NULL en los aportes enviados antes del 2026-10-13.
     ALTER TABLE aportes ADD COLUMN IF NOT EXISTS consentimiento_en TIMESTAMPTZ;
@@ -1324,6 +1328,130 @@ export async function ensureMedallasTables(): Promise<void> {
 }
 
 /** Crea (si falta) todo el esquema. Lo llama instrumentation.ts al arrancar. */
+/**
+ * Fechas con zona horaria (2026-10-30, quinta tanda de la rama cambios-bd). Estas columnas nacieron
+ * como TIMESTAMP (sin zona) con la hora UTC del servidor, y cada consulta tenía que decir "esto es UTC"
+ * antes de pasarlo a la hora de Tepic. Como TIMESTAMPTZ son un instante exacto: `col AT TIME ZONE zona`
+ * da la hora de pared. Solo convierte las que siguen sin zona, así que repetirlo es inofensivo.
+ */
+const COLUMNAS_CON_ZONA: ReadonlyArray<[tabla: string, columna: string]> = [
+  ["usuarios", "created_at"],
+  ["usuarios", "updated_at"],
+  ["sessions", "created_at"],
+  ["campanas", "created_at"],
+  ["campanas", "updated_at"],
+  ["campanas_guardadas", "created_at"],
+  ["aportes", "submitted_at"],
+  ["aportes", "reviewed_at"],
+  ["aportes", "created_at"],
+  ["aportes", "updated_at"],
+];
+
+export async function ensureFechasConZona(): Promise<void> {
+  for (const [tabla, columna] of COLUMNAS_CON_ZONA) {
+    const { rowCount } = await pool.query(
+      `SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = $1 AND column_name = $2
+          AND data_type = 'timestamp without time zone'`,
+      [tabla, columna],
+    );
+    if (rowCount) {
+      // Nombres de una lista fija (no vienen del usuario): se pueden interpolar.
+      await pool.query(`ALTER TABLE ${tabla} ALTER COLUMN ${columna} TYPE TIMESTAMPTZ USING ${columna} AT TIME ZONE 'UTC'`);
+    }
+  }
+}
+
+/**
+ * Índices en las llaves foráneas (2026-10-30, quinta tanda). Postgres no los crea solo: sin ellos,
+ * buscar por esa columna ("mis aportes", "mis campañas") o borrar en cascada recorre la tabla entera.
+ * Solo las que no estaban cubiertas por otro índice que empiece con esa columna.
+ */
+const INDICES_DE_LLAVES: ReadonlyArray<[tabla: string, columna: string]> = [
+  ["sessions", "usuario_id"],
+  ["campanas", "creator_id"],
+  ["campanas", "supervisor_id"],
+  ["campana_supervisores", "campana_id"],
+  ["campana_supervisores", "supervisor_id"],
+  ["campana_revisores", "usuario_id"],
+  ["campana_baneados", "usuario_id"],
+  ["campana_baneados", "baneado_por"],
+  ["campana_inscripciones", "usuario_id"],
+  ["campana_enlaces", "creado_por"],
+  ["campanas_guardadas", "campana_id"],
+  ["notificaciones", "campana_id"],
+  ["aportes", "user_id"],
+  ["aportes", "enlace_id"],
+  ["aportes", "first_pass_by_user_id"],
+  ["aportes", "inapropiado_por"],
+  ["sanciones", "usuario_id"],
+  ["reportes", "reportado_id"],
+  ["reportes", "reportado_por"],
+  ["reportes", "sancion_id"],
+  ["lista_negra_correos", "usuario_id"],
+  ["lista_negra_correos", "sancion_id"],
+  ["dispositivos_bloqueados", "campana_id"],
+  ["dispositivos_bloqueados", "aporte_id"],
+  ["dispositivos_bloqueados", "bloqueado_por"],
+  ["audit_log", "actor_id"],
+  ["tematicas", "creada_por"],
+  ["etiquetas", "creada_por"],
+  ["especialidades", "creada_por"],
+  ["organizaciones", "creada_por"],
+];
+
+export async function ensureIndicesDeLlaves(): Promise<void> {
+  await pool.query(
+    INDICES_DE_LLAVES.map(([tabla, columna]) => `CREATE INDEX IF NOT EXISTS ${tabla}_${columna}_idx ON ${tabla} (${columna});`).join("\n"),
+  );
+}
+
+const lista = (valores: Iterable<string>) => Array.from(valores, (v) => `'${v.replace(/'/g, "''")}'`).join(", ");
+
+/**
+ * Valores válidos de las columnas de estado y tipo (2026-10-30, quinta tanda): la base rechaza un
+ * valor mal escrito en vez de guardarlo. Las listas salen de las mismas constantes que usa el código
+ * cuando existen. NULL siempre pasa (las columnas que lo admiten siguen admitiéndolo).
+ * Se vuelven a poner en cada arranque (así siguen a las constantes). Primero NOT VALID, que solo revisa
+ * lo que se escriba de ahí en adelante; luego VALIDATE revisa lo guardado: si una fila vieja no cumple,
+ * la regla se queda sin validar y avisa en el log de Postgres, en vez de impedir que arranque la app.
+ */
+function restricciones(): ReadonlyArray<[tabla: string, nombre: string, condicion: string]> {
+  return [
+    // Estados de la campaña (lib/campanas/sistema-opciones.ts, EstadoDeCampana).
+    ["campanas", "campanas_status_check",
+      `status IN ('borrador', 'en_revision', 'aceptada', 'activa', 'pausada', 'rechazada', 'finalizada')`],
+    ["campanas", "campanas_collection_mode_check", `collection_mode IN ('checklist', 'texto_libre')`],
+    // Quién la pausó (lib/campanas/pausa.ts).
+    ["campanas", "campanas_pausa_por_check", `pausa_por IN ('creador', 'supervision')`],
+    ["campanas", "campanas_proposito_check", `proposito IN (${lista(PROPOSITOS.map((p) => p.valor))})`],
+    // espera_final: campañas de antes del 2026-10-06 (ESTADOS_SIN_DECISION de lib/aportes/decision.ts).
+    ["aportes", "aportes_status_check", `status IN ('pendiente', 'espera_final', 'aceptado', 'rechazado')`],
+    ["aportes", "aportes_calificacion_check", `calificacion IN (${lista(CALIFICACIONES_DE_APORTE.map((c) => c.valor))})`],
+    ["reportes", "reportes_estado_check", `estado IN ('pendiente', 'descartado', 'sancionado')`],
+    ["reportes", "reportes_origen_check", `origen IN ('usuario', 'rechazo', 'supervision')`],
+    ["sanciones", "sanciones_tipo_check", `tipo IN (${lista(TIPOS_DE_SANCION)})`],
+    ["usuarios", "usuarios_avatar_check", `avatar IN ('masculino', 'femenino', 'otro', 'foto')`],
+    ["usuarios", "usuarios_baja_destino_aportes_check",
+      `baja_destino_aportes IN (${lista(DESTINOS_DE_APORTES.map((d) => d.valor))})`],
+  ];
+}
+
+export async function ensureRestricciones(): Promise<void> {
+  for (const [tabla, nombre, condicion] of restricciones()) {
+    await pool.query(`
+      ALTER TABLE ${tabla} DROP CONSTRAINT IF EXISTS ${nombre};
+      ALTER TABLE ${tabla} ADD CONSTRAINT ${nombre} CHECK (${condicion}) NOT VALID;
+      DO $$
+      BEGIN
+        ALTER TABLE ${tabla} VALIDATE CONSTRAINT ${nombre};
+      EXCEPTION WHEN check_violation THEN
+        RAISE WARNING 'Hay filas de ${tabla} que no cumplen ${nombre}: la regla vale solo para lo nuevo';
+      END $$;
+    `);
+  }
+}
+
 export async function ensureCoreSchema(): Promise<void> {
   await ensureUsuariosTable();
   await ensureUsuarioPreferenciasTable(); // después de usuarios: copia sus preferencias y borra esas columnas
@@ -1356,5 +1484,8 @@ export async function ensureCoreSchema(): Promise<void> {
   await ensureEspecialidadesTable(); // después de usuarios: creada_por la referencia
   await ensureOrganizacionesTable(); // después de usuarios y campanas: creada_por y la siembra
   await ensureMedallasTables(); // después de usuarios: medallas_usuario.usuario_id la referencia
+  await ensureFechasConZona(); // después de crear las tablas: TIMESTAMP → TIMESTAMPTZ
+  await ensureIndicesDeLlaves();
+  await ensureRestricciones();
   await ensureAvisosDeCambios(); // al final: pone triggers en las tablas de arriba
 }

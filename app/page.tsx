@@ -164,10 +164,10 @@ function comoHashtag(texto: string): string {
 async function obtenerAportesRecientes(): Promise<AporteReciente[]> {
   try {
     const result = await pool.query(
-      // submitted_at es TIMESTAMP en UTC: sale como ISO con "Z" para no depender de la zona
-      // del proceso (UTC en Docker, la de la máquina en `next dev`).
+      // Sale como ISO en UTC con "Z" para no depender de la zona del proceso (UTC en Docker,
+      // la de la máquina en `next dev`).
       `SELECT a.id, COALESCE(NULLIF(c.tag, ''), c.tematica) AS tag, a.description,
-              to_char(a.submitted_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS submitted_at
+              to_char(a.submitted_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS submitted_at
        FROM aportes a
        JOIN campanas c ON c.id = a.campaign_id
        WHERE a.status = 'aceptado' AND c.status IN ('activa', 'pausada', 'finalizada')
