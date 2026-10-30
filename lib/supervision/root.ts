@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { pool } from "@/lib/db";
+import { columnasCalculadas } from "@/lib/campanas/tipos-de-campana";
 import { activateScheduledCampaigns, finalizeExpiredCampaigns, normalizeCampaignDate } from "@/lib/campaign-date";
 import { hasRootSession } from "@/lib/rootSession";
 import { pausaDesdeFila, type PausaDeCampana } from "@/lib/campanas/pausa";
@@ -124,7 +125,7 @@ export async function listarCampanasParaRoot(): Promise<{
   const [pendientes, supervisadas] = await Promise.all([
     // Por supervisar: las libres y las que ya tomó el SuperUsuario (un solo supervisor por campaña).
     pool.query(
-      `SELECT c.*, sup.supervisor_nombre FROM campanas c ${ULTIMA_ACCION_ROOT}
+      `SELECT c.*, ${columnasCalculadas("c")}, sup.supervisor_nombre FROM campanas c ${ULTIMA_ACCION_ROOT}
        WHERE c.status = 'en_revision'
          AND (c.supervisado_por_root OR c.supervisor_id IS NULL)
        ORDER BY c.created_at DESC`,
@@ -132,7 +133,7 @@ export async function listarCampanasParaRoot(): Promise<{
     // Supervisadas: todas las que ya pasaron la supervisión (las aceptó él o un supervisor) y las
     // que rechazó o reportó cualquiera, para la pestaña de incidencias.
     pool.query(
-      `SELECT c.*, ultima.accion AS latest_supervision_action, sup.supervisor_nombre
+      `SELECT c.*, ${columnasCalculadas("c")}, ultima.accion AS latest_supervision_action, sup.supervisor_nombre
        FROM campanas c ${ULTIMA_ACCION_ROOT}
        WHERE c.status = ANY($1::text[])
           OR (c.status IN ('en_revision', 'rechazada') AND (c.supervisado_por_root OR c.supervisor_id IS NOT NULL))
@@ -150,7 +151,7 @@ export async function obtenerCampanaParaRoot(id: string): Promise<CampanaSupervi
   if (!/^\d+$/.test(id)) return null;
 
   const result = await pool.query(
-    `SELECT c.*, ultima.accion AS latest_supervision_action, sup.supervisor_nombre
+    `SELECT c.*, ${columnasCalculadas("c")}, ultima.accion AS latest_supervision_action, sup.supervisor_nombre
      FROM campanas c ${ULTIMA_ACCION_ROOT}
      WHERE c.id = $1
      LIMIT 1`,

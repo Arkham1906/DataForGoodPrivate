@@ -15,6 +15,7 @@ import { errorDeOrganizacion } from "@/lib/campanas/organizacion";
 import { normalizarSecciones, seccionesDesdeFila } from "@/lib/campanas/checklist";
 import { enviadosPorTipoDesdeFila, limitePorTipoDesdeFila, resolverMetaYLimites } from "@/lib/campanas/limite-por-tipo";
 import { normalizarFormatosDeDocumento } from "@/lib/aportes/archivo";
+import { columnasCalculadas, guardarTiposDeCampana } from "@/lib/campanas/tipos-de-campana";
 import { XP_POR_APORTE, errorDeEstadoPedido } from "@/lib/campanas/estado-del-creador";
 import { pausaDesdeFila } from "@/lib/campanas/pausa";
 import { rechazoDesdeFila } from "@/lib/campanas/rechazo";
@@ -174,7 +175,7 @@ export async function GET(request: Request) {
 
     if (supervised) {
       const result = await pool.query(
-        `SELECT c.*,
+        `SELECT c.*, ${columnasCalculadas("c")},
                 latest_review.accion AS latest_supervision_action
          FROM campanas c
          LEFT JOIN LATERAL (
@@ -195,7 +196,7 @@ export async function GET(request: Request) {
 
     if (campaignId) {
       const visible = await condicionDeVisibilidad(user, "campanas", 2);
-      const result = await pool.query(`SELECT * FROM campanas WHERE id = $1 AND ${visible.sql} LIMIT 1`, [campaignId, ...visible.params]);
+      const result = await pool.query(`SELECT *, ${columnasCalculadas()} FROM campanas WHERE id = $1 AND ${visible.sql} LIMIT 1`, [campaignId, ...visible.params]);
       if (result.rowCount === 0) return NextResponse.json({ error: "Campaña no encontrada" }, { status: 404 });
       await agregarEtiquetas(result.rows, user, await hasRootSession());
       const campaign = conIsSaved(result.rows[0]);
@@ -220,7 +221,7 @@ export async function GET(request: Request) {
       ? await pool.query(
           // Si está rechazada, el motivo, la fecha y la sanción del último rechazo (lib/campanas/rechazo.ts).
           // El reporte con sanción se escribe en la misma transacción que el rechazo: mismo NOW().
-          `SELECT c.*,
+          `SELECT c.*, ${columnasCalculadas("c")},
                   NOT EXISTS (SELECT 1 FROM aportes a WHERE a.campaign_id = c.id) AS can_delete,
                   r.motivo AS rechazo_motivo, r.created_at AS rechazo_en, r.por_superusuario AS rechazo_por_root,
                   s.tipo AS rechazo_sancion_tipo, s.dias AS rechazo_sancion_dias
@@ -244,7 +245,7 @@ export async function GET(request: Request) {
         )
       : available
         ? await pool.query(
-            `SELECT * FROM campanas
+            `SELECT *, ${columnasCalculadas()} FROM campanas
              WHERE creator_id <> $1 AND status = 'activa'
                AND NOT EXISTS (SELECT 1 FROM campana_baneados b WHERE b.campana_id = campanas.id AND b.usuario_id = $1)
              ORDER BY created_at DESC`,
@@ -252,7 +253,7 @@ export async function GET(request: Request) {
           )
         : misAportes
           ? await pool.query(
-              `SELECT campanas.*,
+              `SELECT campanas.*, ${columnasCalculadas()},
                       (SELECT COUNT(*)::int FROM aportes a2 WHERE a2.campaign_id = campanas.id AND a2.user_id = $1) AS mis_aportes_count
                FROM campanas
                -- Las propias solo si las guardó (2026-10-19: el creador guardaba la suya y no la
@@ -263,7 +264,7 @@ export async function GET(request: Request) {
               [user!.id],
             )
           : await condicionDeVisibilidad(user).then((visible) =>
-              pool.query(`SELECT * FROM campanas WHERE ${visible.sql} ORDER BY created_at DESC`, visible.params),
+              pool.query(`SELECT *, ${columnasCalculadas()} FROM campanas WHERE ${visible.sql} ORDER BY created_at DESC`, visible.params),
             );
 
     await agregarEtiquetas(result.rows, user, await hasRootSession());
@@ -352,7 +353,6 @@ export async function POST(request: Request) {
     const participants = 0;
     const xpPerContribution = XP_POR_APORTE;
     const isSpecial = false;
-    const hasReviewerAssigned = false;
 
     const startDate = normalizeCampaignDate(body.startDate ?? body.start_date);
     const endDate = normalizeCampaignDate(body.endDate ?? body.end_date);
@@ -417,7 +417,6 @@ export async function POST(request: Request) {
           tematica,
           tag,
           status,
-          data_types,
           collection_mode,
           checklist_opciones,
           goal_contributions,
@@ -435,20 +434,17 @@ export async function POST(request: Request) {
           organizer,
           xp_per_contribution,
           is_special,
-          has_reviewer_assigned,
           start_time,
           end_time,
           checklist_secciones,
           todo_el_pais,
           proposito,
-          proposito_otro,
-          limite_por_tipo,
-          formatos_de_documento
+          proposito_otro
         ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10::jsonb, $11, $12, $13, $14, $15,
-          $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29::jsonb, $30,
-          $31, $32, $33::jsonb, $34::jsonb
-        ) RETURNING *`,
+          $1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $12, $13, $14, $15,
+          $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27::jsonb, $28,
+          $29, $30
+        ) RETURNING id`,
         [
           creatorId,
           creator,
@@ -457,7 +453,6 @@ export async function POST(request: Request) {
           tematica,
           tag,
           status,
-          JSON.stringify(dataTypes),
           collectionMode,
           JSON.stringify(checklistOpciones),
           goalContributions,
@@ -475,17 +470,20 @@ export async function POST(request: Request) {
           organizer,
           xpPerContribution,
           isSpecial,
-          hasReviewerAssigned,
           horaDeCreacion,
           horaDeCreacion,
           JSON.stringify(checklistSecciones),
           todoElPais,
           proposito.proposito,
           proposito.otro,
-          limitePorTipo.limite ? JSON.stringify(limitePorTipo.limite) : null,
-          JSON.stringify(formatosDeDocumento),
         ]
       );
+      // Tipos de dato con su límite y formatos (tabla campana_tipos, 2026-10-30).
+      await guardarTiposDeCampana(cliente, result.rows[0].id, {
+        tipos: dataTypes,
+        limite: limitePorTipo.limite,
+        formatos: formatosDeDocumento,
+      });
       if ("etiquetas" in body) {
         const errorDeEtiquetas = await guardarEtiquetasDeCampana(cliente, {
           campanaId: Number(result.rows[0].id),
@@ -498,6 +496,9 @@ export async function POST(request: Request) {
           return NextResponse.json({ error: errorDeEtiquetas }, { status: 400 });
         }
       }
+      result = await cliente.query(`SELECT c.*, ${columnasCalculadas("c")} FROM campanas c WHERE c.id = $1`, [
+        result.rows[0].id,
+      ]);
       await cliente.query("COMMIT");
     } catch (error) {
       await cliente.query("ROLLBACK").catch(() => {});

@@ -37,6 +37,7 @@ import { crearPropuestas, revisarTematicaDeCampana } from "@/lib/tematicas/catal
 import { normalizarSecciones, seccionesDesdeFila } from "@/lib/campanas/checklist";
 import { enviadosPorTipoDesdeFila, limitePorTipoDesdeFila, resolverMetaYLimites } from "@/lib/campanas/limite-por-tipo";
 import { normalizarFormatosDeDocumento } from "@/lib/aportes/archivo";
+import { columnasCalculadas, guardarTiposDeCampana } from "@/lib/campanas/tipos-de-campana";
 import { asegurarEnlaceVigente } from "@/lib/campanas/enlaces";
 import { errorDeOrganizacion } from "@/lib/campanas/organizacion";
 import { activateScheduledCampaigns, calculateCampaignDaysRemaining, errorDeFinAntesDeInicio, errorDeInicioPasado, errorDeReanudarAntesDeInicio, finalizeExpiredCampaigns, hasCampaignEnded, normalizeCampaignDate, normalizeCampaignTime } from "@/lib/campaign-date";
@@ -144,7 +145,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     await finalizeExpiredCampaigns();
 
     const visible = await condicionDeVisibilidad(user, "campanas", 2);
-    const result = await pool.query(`SELECT * FROM campanas WHERE id = $1 AND ${visible.sql} LIMIT 1`, [id, ...visible.params]);
+    const result = await pool.query(`SELECT *, ${columnasCalculadas()} FROM campanas WHERE id = $1 AND ${visible.sql} LIMIT 1`, [id, ...visible.params]);
     if (result.rowCount === 0) {
       return NextResponse.json({ error: "Campaña no encontrada" }, { status: 404 });
     }
@@ -236,7 +237,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         return NextResponse.json({ error: resultado.error }, { status: resultado.status });
       }
 
-      const updated = await pool.query(`SELECT * FROM campanas WHERE id = $1 LIMIT 1`, [id]);
+      const updated = await pool.query(`SELECT *, ${columnasCalculadas()} FROM campanas WHERE id = $1 LIMIT 1`, [id]);
       return NextResponse.json({ message: "Ahora supervisas esta campaña", data: mapCampaign(updated.rows[0]) });
     }
 
@@ -266,7 +267,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         return NextResponse.json({ error: resultado.error }, { status: resultado.status });
       }
 
-      const updated = await pool.query(`SELECT * FROM campanas WHERE id = $1 LIMIT 1`, [id]);
+      const updated = await pool.query(`SELECT *, ${columnasCalculadas()} FROM campanas WHERE id = $1 LIMIT 1`, [id]);
       return NextResponse.json({ message: resultado.mensaje, data: mapCampaign(updated.rows[0]) });
     }
 
@@ -285,12 +286,12 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         return NextResponse.json({ error: resultado.error }, { status: resultado.status });
       }
 
-      const updated = await pool.query(`SELECT * FROM campanas WHERE id = $1 LIMIT 1`, [id]);
+      const updated = await pool.query(`SELECT *, ${columnasCalculadas()} FROM campanas WHERE id = $1 LIMIT 1`, [id]);
       return NextResponse.json({ message: resultado.mensaje, data: mapCampaign(updated.rows[0]) });
     }
 
     const existing = await pool.query(
-      `SELECT * FROM campanas WHERE id = $1 LIMIT 1`,
+      `SELECT *, ${columnasCalculadas()} FROM campanas WHERE id = $1 LIMIT 1`,
       [id]
     );
     if (existing.rowCount === 0) {
@@ -560,10 +561,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const organizer = "organizer" in body ? String(body.organizer ?? "").trim() : null;
     const errorOrganizacion = errorDeOrganizacion(organizer);
     if (errorOrganizacion) return NextResponse.json({ error: errorOrganizacion }, { status: 400 });
-    // El XP y "revisor asignado" no los cambia el creador (lib/campanas/estado-del-creador.ts):
-    // has_reviewer_assigned lo pone aceptar la invitación de revisor.
+    // El XP no lo cambia el creador (lib/campanas/estado-del-creador.ts). "Revisor asignado" se calcula
+    // de campana_revisores (columnasCalculadas).
     const xpPerContribution = null;
-    const hasReviewerAssigned = null;
 
     // Igual que en POST/PUT: un borrador puede quedar incompleto, pero si
     // esta edición manda (o deja) la campaña en cualquier otro estado, cada
@@ -667,6 +667,16 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       await quitarEtiquetasDeOtraTematica(pool, Number(id), tematica);
     }
 
+    // Tipos de dato, límite por tipo y formatos de "Archivo" (tabla campana_tipos, 2026-10-30): antes del
+    // UPDATE, como las etiquetas, para que su RETURNING ya los traiga. Lo que no llegó se queda como estaba.
+    if (dataTypes !== null || limitePorTipo !== null || formatosDeDocumento !== null) {
+      await guardarTiposDeCampana(pool, id, {
+        tipos: dataTypes ?? (Array.isArray(existing.rows[0].data_types) ? existing.rows[0].data_types.map(String) : []),
+        limite: limitePorTipo !== null ? limitePorTipo.limite : limitePorTipoDesdeFila(existing.rows[0]),
+        formatos: formatosDeDocumento ?? normalizarFormatosDeDocumento(existing.rows[0].formatos_de_documento),
+      });
+    }
+
     const result = await pool.query(
       `UPDATE campanas SET
         name = COALESCE($2, name),
@@ -674,27 +684,23 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         tematica = COALESCE($4, tematica),
         tag = COALESCE($4, tag),
         status = COALESCE($5, status),
-        data_types = COALESCE($6::jsonb, data_types),
-        goal_contributions = COALESCE($7, goal_contributions),
-        quota_per_user = COALESCE($8, quota_per_user),
-        start_date = COALESCE($9, start_date),
-        end_date = COALESCE($10, end_date),
-        location_city = COALESCE($11, location_city),
-        location_state = COALESCE($12, location_state),
-        location_colonia = COALESCE($13, location_colonia),
-        organizer = COALESCE($14, organizer),
-        xp_per_contribution = COALESCE($15, xp_per_contribution),
-        has_reviewer_assigned = COALESCE($16, has_reviewer_assigned),
-        collection_mode = COALESCE($17, collection_mode),
-        checklist_opciones = COALESCE($18::jsonb, checklist_opciones),
-        start_time = COALESCE($19, start_time),
-        end_time = COALESCE($20, end_time),
-        checklist_secciones = COALESCE($21::jsonb, checklist_secciones),
-        todo_el_pais = COALESCE($22::boolean, todo_el_pais),
-        proposito = CASE WHEN $23::boolean THEN $24 ELSE proposito END,
-        proposito_otro = CASE WHEN $23::boolean THEN $25 ELSE proposito_otro END,
-        limite_por_tipo = CASE WHEN $26::boolean THEN $27::jsonb ELSE limite_por_tipo END,
-        formatos_de_documento = COALESCE($28::jsonb, formatos_de_documento),
+        goal_contributions = COALESCE($6, goal_contributions),
+        quota_per_user = COALESCE($7, quota_per_user),
+        start_date = COALESCE($8, start_date),
+        end_date = COALESCE($9, end_date),
+        location_city = COALESCE($10, location_city),
+        location_state = COALESCE($11, location_state),
+        location_colonia = COALESCE($12, location_colonia),
+        organizer = COALESCE($13, organizer),
+        xp_per_contribution = COALESCE($14, xp_per_contribution),
+        collection_mode = COALESCE($15, collection_mode),
+        checklist_opciones = COALESCE($16::jsonb, checklist_opciones),
+        start_time = COALESCE($17, start_time),
+        end_time = COALESCE($18, end_time),
+        checklist_secciones = COALESCE($19::jsonb, checklist_secciones),
+        todo_el_pais = COALESCE($20::boolean, todo_el_pais),
+        proposito = CASE WHEN $21::boolean THEN $22 ELSE proposito END,
+        proposito_otro = CASE WHEN $21::boolean THEN $23 ELSE proposito_otro END,
         -- La pausó el creador (sin motivo). "status" a la derecha es el estado anterior.
         pausa_por = CASE WHEN $5 = 'en_revision' AND status = 'pausada' THEN NULL WHEN $5 = 'pausada' AND status <> 'pausada' THEN 'creador' ELSE pausa_por END,
         pausa_motivo = CASE WHEN $5 = 'en_revision' AND status = 'pausada' THEN NULL WHEN $5 = 'pausada' AND status <> 'pausada' THEN NULL ELSE pausa_motivo END,
@@ -703,14 +709,13 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         supervisado_por_root = CASE WHEN $5 = 'en_revision' AND status = 'pausada' THEN false ELSE supervisado_por_root END,
         updated_at = NOW()
       WHERE id = $1
-      RETURNING *`,
+      RETURNING *, ${columnasCalculadas()}`,
       [
         id,
         name || null,
         description || null,
         tematica || null,
         status,
-        dataTypes ? JSON.stringify(dataTypes) : null,
         goalContributions,
         quotaPerUser,
         startDate === undefined ? null : startDate,
@@ -720,7 +725,6 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         locationColonia,
         organizer,
         xpPerContribution,
-        hasReviewerAssigned,
         collectionMode,
         checklistOpciones ? JSON.stringify(checklistOpciones) : null,
         startTime === undefined ? null : startTime,
@@ -730,9 +734,6 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         propositoNuevo !== null,
         propositoNuevo?.proposito ?? null,
         propositoNuevo?.otro ?? null,
-        limitePorTipo !== null,
-        limitePorTipo?.limite ? JSON.stringify(limitePorTipo.limite) : null,
-        formatosDeDocumento ? JSON.stringify(formatosDeDocumento) : null,
       ]
     );
 
@@ -860,9 +861,8 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     const organizer = String(body.organizer ?? "").trim();
     const errorOrganizacion = errorDeOrganizacion(organizer);
     if (errorOrganizacion) return NextResponse.json({ error: errorOrganizacion }, { status: 400 });
-    // El XP y "revisor asignado" se conservan: no los decide el creador.
+    // El XP se conserva: no lo decide el creador.
     const xpPerContribution = null;
-    const hasReviewerAssigned = null;
 
     const errorDeInicio = errorDeInicioPasado(startDate) ?? errorDeFinAntesDeInicio(startDate, endDate);
     if (errorDeInicio) {
@@ -914,6 +914,9 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
       await quitarEtiquetasDeOtraTematica(pool, Number(id), tematica);
     }
 
+    // Tipos de dato con su límite y formatos (tabla campana_tipos, 2026-10-30), antes del UPDATE.
+    await guardarTiposDeCampana(pool, id, { tipos: dataTypes, limite: limitePorTipo.limite, formatos: formatosDeDocumento });
+
     const result = await pool.query(
       `UPDATE campanas SET
         name = $2,
@@ -921,37 +924,32 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
         tematica = $4,
         tag = $4,
         status = $5,
-        data_types = $6::jsonb,
-        goal_contributions = $7,
-        quota_per_user = $8,
-        start_date = $9,
-        end_date = $10,
-        location_city = $11,
-        location_state = $12,
-        location_colonia = $13,
-        organizer = $14,
-        xp_per_contribution = COALESCE($15::int, xp_per_contribution),
-        has_reviewer_assigned = COALESCE($16::boolean, has_reviewer_assigned),
-        collection_mode = $17,
-        checklist_opciones = $18::jsonb,
-        start_time = $19,
-        end_time = $20,
-        checklist_secciones = $21::jsonb,
-        todo_el_pais = $22,
-        proposito = $23,
-        proposito_otro = $24,
-        limite_por_tipo = $25::jsonb,
-        formatos_de_documento = $26::jsonb,
+        goal_contributions = $6,
+        quota_per_user = $7,
+        start_date = $8,
+        end_date = $9,
+        location_city = $10,
+        location_state = $11,
+        location_colonia = $12,
+        organizer = $13,
+        xp_per_contribution = COALESCE($14::int, xp_per_contribution),
+        collection_mode = $15,
+        checklist_opciones = $16::jsonb,
+        start_time = $17,
+        end_time = $18,
+        checklist_secciones = $19::jsonb,
+        todo_el_pais = $20,
+        proposito = $21,
+        proposito_otro = $22,
         updated_at = NOW()
       WHERE id = $1
-      RETURNING *`,
+      RETURNING *, ${columnasCalculadas()}`,
       [
         id,
         name,
         description,
         tematica,
         status,
-        JSON.stringify(dataTypes),
         goalContributions,
         quotaPerUser,
         startDate,
@@ -961,7 +959,6 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
         locationColonia,
         organizer,
         xpPerContribution,
-        hasReviewerAssigned,
         collectionMode,
         JSON.stringify(checklistOpciones),
         startTime,
@@ -970,8 +967,6 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
         todoElPais,
         proposito.proposito,
         proposito.otro,
-        limitePorTipo.limite ? JSON.stringify(limitePorTipo.limite) : null,
-        JSON.stringify(formatosDeDocumento),
       ]
     );
 

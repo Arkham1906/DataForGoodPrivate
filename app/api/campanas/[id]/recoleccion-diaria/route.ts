@@ -4,6 +4,7 @@
 import { NextResponse } from "next/server";
 import { ZONA_DE_CAMPANAS, hoyEnTepic } from "@/lib/campaign-date";
 import { pool } from "@/lib/db";
+import { columnaDeTipos } from "@/lib/campanas/tipos-de-campana";
 import { getSessionUser } from "@/lib/session";
 
 const DIAS = 14;
@@ -67,7 +68,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
         `SELECT file_type, COUNT(*) AS n FROM aportes WHERE campaign_id = $1 AND status = 'aceptado' GROUP BY file_type`,
         [id]
       ),
-      pool.query<{ data_types: string[] }>(`SELECT data_types FROM campanas WHERE id = $1 LIMIT 1`, [id]),
+      pool.query<{ data_types: string[] }>(`SELECT ${columnaDeTipos()} FROM campanas WHERE id = $1 LIMIT 1`, [id]),
     ]);
 
     const porDia = new Map(diariaResult.rows.map((r) => [r.dia, Number(r.n)]));

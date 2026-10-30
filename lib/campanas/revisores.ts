@@ -5,7 +5,7 @@
 //     si la persona intenta aceptarla, /api/notificaciones/[id]/aceptar responde 409.
 //   - Revisor aceptado: se borra su fila; si ya no revisa ninguna otra campaña, se le quita "revisor"
 //     de usuarios.role (lib/session.ts lo reconstruye de las filas 'aceptado', así que con la fila
-//     borrada no vuelve). campanas.has_reviewer_assigned se recalcula. Los aportes que ya decidió
+//     borrada no vuelve). "tiene revisor" se recalcula solo (campana_revisores). Los aportes que ya decidió
 //     no cambian (la decisión no se cambia; aportes.first_pass_by_user_id se conserva).
 // Todo en una transacción.
 
@@ -44,11 +44,9 @@ export async function quitarRevisor(campanaId: number, usuarioId: number): Promi
            AND NOT EXISTS (SELECT 1 FROM campana_revisores WHERE usuario_id = $1 AND estado = 'aceptado')`,
         [usuarioId],
       );
+      // "Tiene revisor" se calcula de campana_revisores (2026-10-30); updated_at avisa a las pantallas abiertas.
       await client.query(
-        `UPDATE campanas SET has_reviewer_assigned = EXISTS (
-           SELECT 1 FROM campana_revisores WHERE campana_id = $1 AND estado = 'aceptado'
-         ), updated_at = NOW()
-         WHERE id = $1`,
+        `UPDATE campanas SET updated_at = NOW() WHERE id = $1`,
         [campanaId],
       );
     }

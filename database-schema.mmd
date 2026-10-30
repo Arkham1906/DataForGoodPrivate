@@ -57,7 +57,6 @@ erDiagram
         varchar tematica
         varchar tag
         varchar status
-        jsonb data_types
         varchar collection_mode
         jsonb checklist_opciones
         int goal_contributions
@@ -76,7 +75,6 @@ erDiagram
         varchar organizer
         int xp_per_contribution
         boolean is_special
-        boolean has_reviewer_assigned
         timestamp created_at
         timestamp updated_at
     }
@@ -88,6 +86,15 @@ erDiagram
         varchar accion
         text motivo
         timestamptz created_at
+    }
+
+    CAMPANA_TIPOS {
+        int campana_id PK,FK
+        varchar tipo PK
+        smallint orden
+        int limite
+        int enviados
+        jsonb formatos
     }
 
     CAMPANA_REVISORES {
@@ -169,6 +176,7 @@ erDiagram
     CAMPANAS ||--o{ CAMPANA_SUPERVISORES : "tiene historial"
     USUARIOS ||--o{ CAMPANA_REVISORES : "es revisor"
     CAMPANAS ||--o{ CAMPANA_REVISORES : "asigna revisores"
+    CAMPANAS ||--o{ CAMPANA_TIPOS : "pide tipos de dato"
     USUARIOS ||--o{ CAMPANA_BANEADOS : "es baneado"
     USUARIOS ||--o{ CAMPANA_BANEADOS : "banea"
     CAMPANAS ||--o{ CAMPANA_BANEADOS : "restringe usuarios"

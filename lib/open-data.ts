@@ -1,4 +1,5 @@
 import { pool } from "@/lib/db";
+import { columnaDeTipos } from "@/lib/campanas/tipos-de-campana";
 import type { DataType } from "@/types";
 import { quienOrganiza } from "@/lib/campanas/organizacion";
 import { textoDelProposito } from "@/lib/campanas/proposito";
@@ -111,7 +112,7 @@ export interface OpenDataFilters {
 }
 
 const SELECT = `
-  SELECT c.id, c.name, c.description, c.tematica, c.tag, c.proposito, c.proposito_otro, c.data_types,
+  SELECT c.id, c.name, c.description, c.tematica, c.tag, c.proposito, c.proposito_otro, ${columnaDeTipos("c")},
          c.approved_contributions, c.rejected_contributions,
          c.location_city, c.location_state, c.todo_el_pais, c.organizer, c.creator_name,
          c.end_date, c.supervisor_id, c.supervisado_por_root, c.downloads_count,

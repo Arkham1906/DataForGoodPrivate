@@ -3,7 +3,7 @@
 // a la bandeja de Reportes de la supervisión (tabla `reportes`, tipo `aporte`, contra quien lo envió) y
 // les llega a los supervisores como `reporte_nuevo`. Ahí se da el aviso o se descarta.
 // Solo aportes con cuenta (los anónimos se marcan como inapropiados). Uno por aporte; se puede antes o
-// después de decidirlo. El motivo también queda en el aporte (`aportes.reporte_*`). Desde el 2026-10-19
+// después de decidirlo: es el reporte con `origen = 'supervision'` (hasta el 2026-10-30, `aportes.reporte_*`). Desde el 2026-10-19
 // reportar también rechaza el aporte (rechazarPorReporte). Lo usa POST /api/aportes/[id]/reportar.
 
 import type { PoolClient } from "pg";
@@ -112,23 +112,27 @@ export async function reportarASupervision(entrada: {
   let rechazo: Awaited<ReturnType<typeof rechazarPorReporte>>;
   try {
     await client.query("BEGIN");
-    // reporte_en IS NULL en el WHERE: uno por aporte, aunque dos revisores reporten a la vez.
-    const guardado = await client.query(
-      `UPDATE aportes SET reporte_motivo = $2, reporte_por = $3, reporte_en = NOW(), updated_at = NOW()
-       WHERE id = $1 AND reporte_en IS NULL`,
-      [entrada.aporteId, motivo, entrada.revisor.id]
-    );
+    // A la bandeja, con origen 'supervision'. Uno por aporte aunque dos personas reporten a la vez: lo
+    // cuida el índice único reportes_aporte_uno_a_supervision (23505). Si esta persona ya había usado
+    // "Reportar a quien aportó", ese reporte pasa a ser el de supervisión (conserva su descripción).
+    let guardado;
+    try {
+      guardado = await client.query(
+        `INSERT INTO reportes (tipo, campana_id, aporte_id, reportado_id, reportado_por, descripcion, origen)
+         VALUES ('aporte', $1, $2, $3, $4, $5, 'supervision')
+         ON CONFLICT (aporte_id, reportado_por) WHERE tipo = 'aporte'
+         DO UPDATE SET origen = 'supervision', descripcion = COALESCE(reportes.descripcion, EXCLUDED.descripcion)
+         WHERE reportes.origen <> 'supervision'`,
+        [fila.campaign_id, entrada.aporteId, fila.user_id, entrada.revisor.id, motivo]
+      );
+    } catch (error) {
+      if ((error as { code?: string }).code !== "23505") throw error;
+      guardado = { rowCount: 0 };
+    }
     if (guardado.rowCount === 0) {
       await client.query("ROLLBACK");
       return { ok: false, status: 409, error: "Este aporte ya se reportó a supervisión" };
     }
-    // A la bandeja. Si este revisor ya había usado "Reportar a quien aportó", ese reporte ya está ahí.
-    await client.query(
-      `INSERT INTO reportes (tipo, campana_id, aporte_id, reportado_id, reportado_por, descripcion)
-       VALUES ('aporte', $1, $2, $3, $4, $5)
-       ON CONFLICT (aporte_id, reportado_por) WHERE tipo = 'aporte' DO NOTHING`,
-      [fila.campaign_id, entrada.aporteId, fila.user_id, entrada.revisor.id, motivo]
-    );
     rechazo = await rechazarPorReporte(client, {
       aporteId: entrada.aporteId,
       motivo,

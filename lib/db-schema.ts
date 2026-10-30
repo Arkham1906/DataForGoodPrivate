@@ -184,18 +184,11 @@ export async function ensureCampanasTable(): Promise<void> {
       tematica VARCHAR(120) NOT NULL,
       tag VARCHAR(120) NOT NULL,
       status VARCHAR(50) NOT NULL DEFAULT 'borrador',
-      data_types JSONB NOT NULL DEFAULT '[]'::jsonb,
       collection_mode VARCHAR(20) NOT NULL DEFAULT 'checklist',
       checklist_opciones JSONB NOT NULL DEFAULT '[]'::jsonb,
       checklist_secciones JSONB NOT NULL DEFAULT '[]'::jsonb,
       goal_contributions INTEGER NOT NULL DEFAULT 0,
       quota_per_user INTEGER NOT NULL DEFAULT 1,
-      -- Límite TOTAL de aportes por tipo de dato (2026-10-28, opcional): { "foto": 100 } (lib/campanas/limite-por-tipo.ts).
-      limite_por_tipo JSONB,
-      -- Aportes no rechazados de cada tipo; lo recalcula recalcularContadores (lib/aportes/comun.ts).
-      enviados_por_tipo JSONB NOT NULL DEFAULT '{}'::jsonb,
-      -- Formatos de "Archivo" que acepta (2026-10-28): ["pdf", "word"]; [] = todos (lib/aportes/archivo.ts).
-      formatos_de_documento JSONB NOT NULL DEFAULT '[]'::jsonb,
       current_contributions INTEGER NOT NULL DEFAULT 0,
       approved_contributions INTEGER NOT NULL DEFAULT 0,
       pending_contributions INTEGER NOT NULL DEFAULT 0,
@@ -216,7 +209,6 @@ export async function ensureCampanasTable(): Promise<void> {
       organizer VARCHAR(160),
       xp_per_contribution INTEGER NOT NULL DEFAULT 0,
       is_special BOOLEAN NOT NULL DEFAULT false,
-      has_reviewer_assigned BOOLEAN NOT NULL DEFAULT false,
       downloads_count INTEGER NOT NULL DEFAULT 0,
       permite_anonimos BOOLEAN NOT NULL DEFAULT true,
       pausa_por VARCHAR(20),
@@ -236,14 +228,11 @@ export async function ensureCampanasTable(): Promise<void> {
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS tematica VARCHAR(120);
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS tag VARCHAR(120);
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'borrador';
-    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS data_types JSONB NOT NULL DEFAULT '[]'::jsonb;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS collection_mode VARCHAR(20) NOT NULL DEFAULT 'checklist';
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS checklist_opciones JSONB NOT NULL DEFAULT '[]'::jsonb;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS checklist_secciones JSONB NOT NULL DEFAULT '[]'::jsonb;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS goal_contributions INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS quota_per_user INTEGER NOT NULL DEFAULT 1;
-    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS limite_por_tipo JSONB;
-    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS formatos_de_documento JSONB NOT NULL DEFAULT '[]'::jsonb;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS current_contributions INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS approved_contributions INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS pending_contributions INTEGER NOT NULL DEFAULT 0;
@@ -264,7 +253,6 @@ export async function ensureCampanasTable(): Promise<void> {
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS organizer VARCHAR(160);
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS xp_per_contribution INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS is_special BOOLEAN NOT NULL DEFAULT false;
-    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS has_reviewer_assigned BOOLEAN NOT NULL DEFAULT false;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS downloads_count INTEGER NOT NULL DEFAULT 0;
     -- El SuperUsuario no tiene fila en usuarios: cuando dictamina desde
     -- /supervisar, supervisor_id queda NULL y se marca aquí.
@@ -303,6 +291,10 @@ export async function ensureCampanasTable(): Promise<void> {
     ALTER TABLE campanas DROP COLUMN IF EXISTS share_token;
     ALTER TABLE campanas DROP COLUMN IF EXISTS share_token_expires_at;
     ALTER TABLE campanas DROP COLUMN IF EXISTS aportes;
+    -- has_reviewer_assigned (borrada el 2026-10-30, segunda tanda): se calcula de campana_revisores
+    -- (columnasCalculadas de lib/campanas/tipos-de-campana.ts). data_types, limite_por_tipo,
+    -- enviados_por_tipo y formatos_de_documento pasan a campana_tipos (ensureCampanaTiposTable).
+    ALTER TABLE campanas DROP COLUMN IF EXISTS has_reviewer_assigned;
   `);
 }
 
@@ -483,9 +475,6 @@ export async function ensureAportesTable(): Promise<void> {
       inapropiado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
       inapropiado_en TIMESTAMPTZ,
       archivo_borrado_en TIMESTAMPTZ,
-      reporte_motivo TEXT,
-      reporte_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
-      reporte_en TIMESTAMPTZ,
       consentimiento_en TIMESTAMPTZ,
       submitted_at TIMESTAMP NOT NULL DEFAULT NOW(),
       reviewed_at TIMESTAMP,
@@ -522,24 +511,47 @@ export async function ensureAportesTable(): Promise<void> {
     ALTER TABLE aportes ADD COLUMN IF NOT EXISTS inapropiado_en TIMESTAMPTZ;
     -- El creador borró el archivo de MinIO (ilegal o dañino). La fila se conserva.
     ALTER TABLE aportes ADD COLUMN IF NOT EXISTS archivo_borrado_en TIMESTAMPTZ;
-    -- "Reportar a supervisión" (2026-10-06 como "Reportar al creador"): el revisor reporta el aporte o a
-    -- quien lo envió. Uno por aporte. Desde el 2026-10-15 también entra a reportes y no avisa al creador.
-    ALTER TABLE aportes ADD COLUMN IF NOT EXISTS reporte_motivo TEXT;
-    ALTER TABLE aportes ADD COLUMN IF NOT EXISTS reporte_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL;
-    ALTER TABLE aportes ADD COLUMN IF NOT EXISTS reporte_en TIMESTAMPTZ;
-    -- Aportes no rechazados de cada tipo, para el límite por tipo de dato (2026-10-28,
-    -- lib/campanas/limite-por-tipo.ts). Va aquí porque al crear la columna se llena desde aportes.
+  `);
+}
+
+/**
+ * Tipos de dato de cada campaña (2026-10-30, segunda tanda de la rama cambios-bd; lib/campanas/tipos-de-campana.ts):
+ * una fila por tipo que pide, con su orden en el formulario, el límite TOTAL de aportes de ese tipo
+ * (NULL = sin límite; lib/campanas/limite-por-tipo.ts), los no rechazados que lleva (los recalcula
+ * recalcularContadores) y, solo en "documento", los formatos de "Archivo" que acepta ([] = todos).
+ * Reemplaza a campanas.data_types, limite_por_tipo, enviados_por_tipo y formatos_de_documento: la
+ * primera vez copia lo que tenían (los enviados, contados desde aportes) y borra esas columnas.
+ */
+export async function ensureCampanaTiposTable(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS campana_tipos (
+      campana_id INTEGER NOT NULL REFERENCES campanas(id) ON DELETE CASCADE,
+      tipo VARCHAR(20) NOT NULL CHECK (tipo IN ('texto', 'foto', 'video', 'audio', 'documento')),
+      orden SMALLINT NOT NULL DEFAULT 1,
+      limite INTEGER CHECK (limite > 0),
+      enviados INTEGER NOT NULL DEFAULT 0,
+      formatos JSONB CHECK (tipo = 'documento' OR formatos IS NULL),
+      PRIMARY KEY (campana_id, tipo)
+    );
+    CREATE INDEX IF NOT EXISTS campana_tipos_tipo_idx ON campana_tipos (tipo);
     DO $$
     BEGIN
-      IF NOT EXISTS (SELECT 1 FROM information_schema.columns
-                      WHERE table_name = 'campanas' AND column_name = 'enviados_por_tipo') THEN
-        ALTER TABLE campanas ADD COLUMN enviados_por_tipo JSONB NOT NULL DEFAULT '{}'::jsonb;
-        UPDATE campanas c SET enviados_por_tipo = t.enviados
-          FROM (SELECT campaign_id, jsonb_object_agg(file_type, n) AS enviados
-                  FROM (SELECT campaign_id, file_type, COUNT(*)::int AS n FROM aportes
-                         WHERE status <> 'rechazado' GROUP BY campaign_id, file_type) x
-                 GROUP BY campaign_id) t
-         WHERE c.id = t.campaign_id;
+      IF EXISTS (SELECT 1 FROM information_schema.columns
+                  WHERE table_name = 'campanas' AND column_name = 'data_types') THEN
+        INSERT INTO campana_tipos (campana_id, tipo, orden, limite, formatos)
+        SELECT c.id, t.tipo, t.orden,
+               NULLIF((c.limite_por_tipo ->> t.tipo)::int, 0),
+               CASE WHEN t.tipo = 'documento' THEN COALESCE(c.formatos_de_documento, '[]'::jsonb) END
+        FROM campanas c, jsonb_array_elements_text(c.data_types) WITH ORDINALITY AS t(tipo, orden)
+        WHERE t.tipo IN ('texto', 'foto', 'video', 'audio', 'documento')
+        ON CONFLICT (campana_id, tipo) DO NOTHING;
+        UPDATE campana_tipos ct
+           SET enviados = (SELECT COUNT(*)::int FROM aportes a
+                            WHERE a.campaign_id = ct.campana_id AND a.file_type = ct.tipo AND a.status <> 'rechazado');
+        ALTER TABLE campanas DROP COLUMN data_types;
+        ALTER TABLE campanas DROP COLUMN IF EXISTS limite_por_tipo;
+        ALTER TABLE campanas DROP COLUMN IF EXISTS enviados_por_tipo;
+        ALTER TABLE campanas DROP COLUMN IF EXISTS formatos_de_documento;
       END IF;
     END $$;
   `);
@@ -620,7 +632,8 @@ export async function ensureReportesTable(): Promise<void> {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       -- Lo levantó el SuperUsuario (no tiene fila en usuarios: reportado_por queda NULL).
       por_superusuario BOOLEAN NOT NULL DEFAULT false,
-      -- usuario: lo hizo alguien con "Reportar"; rechazo: lo dejó la supervisión al rechazar la campaña con sanción (2026-10-16).
+      -- usuario: lo hizo alguien con "Reportar"; rechazo: lo dejó la supervisión al rechazar la campaña con sanción (2026-10-16);
+      -- supervision: "Reportar a supervisión" de un aporte (2026-10-30; antes en aportes.reporte_*).
       origen VARCHAR(20) NOT NULL DEFAULT 'usuario',
       CHECK (motivo IS NOT NULL OR descripcion IS NOT NULL),
       CHECK (tipo = 'aporte' OR aporte_id IS NULL)
@@ -631,6 +644,29 @@ export async function ensureReportesTable(): Promise<void> {
       ON reportes (campana_id, reportado_por) WHERE tipo = 'campana';
     CREATE UNIQUE INDEX IF NOT EXISTS reportes_aporte_uno_por_persona
       ON reportes (aporte_id, reportado_por) WHERE tipo = 'aporte';
+    -- "Reportar a supervisión" (lib/aportes/reporte.ts): origen = 'supervision', uno por aporte aunque lo
+    -- intenten dos personas a la vez. Hasta el 2026-10-30 ese candado eran aportes.reporte_motivo,
+    -- reporte_por y reporte_en: la primera vez se marcan sus reportes (o se crean) y se borran las columnas.
+    CREATE UNIQUE INDEX IF NOT EXISTS reportes_aporte_uno_a_supervision
+      ON reportes (aporte_id) WHERE tipo = 'aporte' AND origen = 'supervision';
+    DO $$
+    BEGIN
+      IF EXISTS (SELECT 1 FROM information_schema.columns
+                  WHERE table_name = 'aportes' AND column_name = 'reporte_en') THEN
+        UPDATE reportes r SET origen = 'supervision'
+          FROM aportes a
+         WHERE a.reporte_en IS NOT NULL AND r.tipo = 'aporte' AND r.aporte_id = a.id
+           AND r.reportado_por IS NOT DISTINCT FROM a.reporte_por;
+        INSERT INTO reportes (tipo, campana_id, aporte_id, reportado_id, reportado_por, descripcion, created_at, origen)
+        SELECT 'aporte', a.campaign_id, a.id, a.user_id, a.reporte_por, COALESCE(a.reporte_motivo, 'Sin motivo'), a.reporte_en, 'supervision'
+          FROM aportes a
+         WHERE a.reporte_en IS NOT NULL
+           AND NOT EXISTS (SELECT 1 FROM reportes r WHERE r.tipo = 'aporte' AND r.aporte_id = a.id AND r.origen = 'supervision');
+        ALTER TABLE aportes DROP COLUMN reporte_en;
+        ALTER TABLE aportes DROP COLUMN IF EXISTS reporte_motivo;
+        ALTER TABLE aportes DROP COLUMN IF EXISTS reporte_por;
+      END IF;
+    END $$;
     CREATE INDEX IF NOT EXISTS reportes_estado_idx ON reportes (estado, created_at DESC);
   `);
 }
@@ -980,6 +1016,7 @@ export async function ensureCoreSchema(): Promise<void> {
   await ensureCampanasGuardadasTable();
   await ensureCampanaEnlacesTable(); // antes de aportes: aportes.enlace_id la referencia
   await ensureAportesTable();
+  await ensureCampanaTiposTable(); // después de aportes: cuenta los enviados de cada tipo
   await ensureCampanaInscripcionesTable(); // después de aportes: toma de ahí a quien ya había aceptado
   await ensureDispositivosBloqueadosTable(); // después de aportes: aporte_id la referencia
   await ensureSancionesTable();

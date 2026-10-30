@@ -46,7 +46,8 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
       await client.query(`UPDATE usuarios SET role = $2::jsonb, updated_at = NOW() WHERE id = $1`, [user.id, JSON.stringify(nextRoles)]);
       campana = (
         await client.query(
-          `UPDATE campanas SET has_reviewer_assigned = true, updated_at = NOW() WHERE id = $1 RETURNING creator_id, name`,
+          // "Tiene revisor" se calcula de campana_revisores (2026-10-30); updated_at avisa a las pantallas abiertas.
+          `UPDATE campanas SET updated_at = NOW() WHERE id = $1 RETURNING creator_id, name`,
           [campaignId]
         )
       ).rows[0];

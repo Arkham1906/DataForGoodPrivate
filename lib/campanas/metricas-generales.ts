@@ -6,6 +6,7 @@
 // Privacidad: solo conteos; de las personas, solo el estado de su perfil, agrupado.
 
 import { pool } from "@/lib/db";
+import { columnaDeTipos } from "@/lib/campanas/tipos-de-campana";
 import { etiquetaDeRespuesta, seccionesDesdeFila } from "@/lib/campanas/checklist";
 import { textoDeUbicacion } from "@/lib/campanas/ubicacion";
 import { ORDEN_DE_TIPOS } from "@/lib/campanas/reparto-sugerido";
@@ -26,7 +27,7 @@ const porcentaje = (parte: number, total: number) => (total > 0 ? Math.round((pa
 
 export async function obtenerMetricasGenerales(campanaId: string | number): Promise<MetricasGenerales | null> {
   const campanaResult = await pool.query(
-    `SELECT id, data_types, quota_per_user,
+    `SELECT id, ${columnaDeTipos()}, quota_per_user,
             location_state, location_city, location_colonia, todo_el_pais,
             checklist_secciones, checklist_opciones, collection_mode
      FROM campanas WHERE id = $1`,

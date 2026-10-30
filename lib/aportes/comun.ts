@@ -17,8 +17,8 @@ import {
   type TipoDeArchivo,
 } from "@/lib/aportes/archivo";
 import { avisarAportesRecibidos } from "@/lib/notificaciones/hitos-de-aportes";
+import { actualizarEnviados } from "@/lib/campanas/tipos-de-campana";
 import {
-  limitePorTipoDesdeFila,
   mensajeDeTipoLleno,
   tiposConLugar,
   type EnviadosPorTipo,
@@ -148,12 +148,13 @@ export async function insertarAporteConCuota<T>(entrada: {
     }
     // Límite total del tipo: con la campaña bloqueada (el mismo candado que toma recalcularContadores)
     // y contando en la tabla, no en el contador desnormalizado.
-    const campana = await client.query(
-      `SELECT limite_por_tipo, data_types FROM campanas WHERE id = $1 FOR NO KEY UPDATE`,
-      [entrada.campaignId],
+    await client.query(`SELECT 1 FROM campanas WHERE id = $1 FOR NO KEY UPDATE`, [entrada.campaignId]);
+    const campana = await client.query<{ limite: number | null }>(
+      `SELECT limite FROM campana_tipos WHERE campana_id = $1 AND tipo = $2`,
+      [entrada.campaignId, entrada.tipo],
     );
-    const limite = campana.rows[0] ? limitePorTipoDesdeFila(campana.rows[0]) : {};
-    const delTipo = limite[entrada.tipo];
+    const delTipo = Number(campana.rows[0]?.limite ?? 0);
+    const limite: LimitePorTipo = delTipo ? { [entrada.tipo]: delTipo } : {};
     if (delTipo) {
       const { rows } = await client.query<{ n: number }>(
         `SELECT COUNT(*)::int AS n FROM aportes WHERE campaign_id = $1 AND file_type = $2 AND status <> 'rechazado'`,
@@ -211,12 +212,6 @@ export async function recalcularContadores(
       approved_contributions = a.aceptados,
       rejected_contributions = a.rechazados,
       participants = a.participantes,
-      enviados_por_tipo = COALESCE((
-        SELECT jsonb_object_agg(file_type, n) FROM (
-          SELECT file_type, COUNT(*)::int AS n FROM aportes
-          WHERE campaign_id = $1 AND status <> 'rechazado' GROUP BY file_type
-        ) t
-      ), '{}'::jsonb),
       updated_at = NOW()
     FROM (
       SELECT COUNT(*)::int AS total,
@@ -229,4 +224,6 @@ export async function recalcularContadores(
     WHERE c.id = $1`,
     [campaignId]
   );
+  // No rechazados de cada tipo (campana_tipos.enviados, 2026-10-30; antes campanas.enviados_por_tipo).
+  await actualizarEnviados(client, campaignId);
 }

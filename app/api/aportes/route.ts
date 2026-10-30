@@ -4,6 +4,7 @@ import { enviadosPorTipoDesdeFila, limitePorTipoDesdeFila } from "@/lib/campanas
 import { normalizarFormatosDeDocumento } from "@/lib/aportes/archivo";
 import { NextResponse } from "next/server";
 import { pool } from "@/lib/db";
+import { columnasCalculadas } from "@/lib/campanas/tipos-de-campana";
 import { getSessionUser } from "@/lib/session";
 import { estaBaneadoDeCampana } from "@/lib/campanas/baneos";
 import { respuestasValidas, seccionesDelTipo, seccionesDesdeFila } from "@/lib/campanas/checklist";
@@ -141,7 +142,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "La descripción no puede superar 1000 caracteres" }, { status: 400 });
     }
 
-    const campaignResult = await pool.query(`SELECT * FROM campanas WHERE id = $1 LIMIT 1`, [campaignId]);
+    const campaignResult = await pool.query(`SELECT *, ${columnasCalculadas()} FROM campanas WHERE id = $1 LIMIT 1`, [campaignId]);
     if (campaignResult.rowCount === 0) {
       return NextResponse.json({ error: "Campaña no encontrada" }, { status: 404 });
     }

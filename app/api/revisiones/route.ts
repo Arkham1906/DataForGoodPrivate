@@ -2,6 +2,7 @@
 
 import { NextResponse } from "next/server";
 import { pool } from "@/lib/db";
+import { columnaDeTipos } from "@/lib/campanas/tipos-de-campana";
 import { getSessionUser } from "@/lib/session";
 import { normalizeCampaignDate } from "@/lib/campaign-date";
 
@@ -13,7 +14,7 @@ export async function GET() {
     const result = await pool.query(
       `SELECT c.id, c.name, c.description, c.status, c.tag, c.tematica,
               c.goal_contributions, c.participants, c.current_contributions,
-              c.creator_name, c.data_types, c.end_date,
+              c.creator_name, ${columnaDeTipos("c")}, c.end_date,
               -- Lo que le toca al revisor: solo "pendiente". Los que ya validó (espera_final)
               -- esperan al creador; los aportes propios también quedan fuera del conteo.
               (SELECT COUNT(*)::int FROM aportes a

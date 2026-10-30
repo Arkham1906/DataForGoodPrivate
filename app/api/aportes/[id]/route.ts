@@ -53,10 +53,13 @@ function mapReporte(row: Record<string, unknown>) {
 async function loadAporteWithCampaign(id: string) {
   const result = await pool.query(
     `SELECT a.*, c.creator_id AS campaign_creator_id, c.name AS campaign_name, c.collection_mode AS campaign_collection_mode, c.checklist_opciones AS campaign_checklist_opciones, c.checklist_secciones AS campaign_checklist_secciones,
+            rs.created_at AS reporte_en, COALESCE(rs.descripcion, rs.motivo) AS reporte_motivo,
             TRIM(CONCAT(ru.nombre, ' ', ru.apellidos)) AS reporte_revisor
      FROM aportes a
      JOIN campanas c ON c.id = a.campaign_id
-     LEFT JOIN usuarios ru ON ru.id = a.reporte_por
+     -- "Reportar a supervisión" (2026-10-30: en reportes con origen 'supervision', antes aportes.reporte_*).
+     LEFT JOIN reportes rs ON rs.tipo = 'aporte' AND rs.aporte_id = a.id AND rs.origen = 'supervision'
+     LEFT JOIN usuarios ru ON ru.id = rs.reportado_por
      WHERE a.id = $1
      LIMIT 1`,
     [id]
