@@ -5,6 +5,7 @@
 import { NextResponse } from "next/server";
 import { MENSAJE_CORREO_BLOQUEADO, correoEnListaNegra } from "@/lib/usuarios/lista-negra";
 import { pool } from "@/lib/db";
+import { columnaDeRoles } from "@/lib/usuarios/tabla-roles";
 import { hashPassword } from "@/lib/password";
 import { cumpleReglasDeContrasena } from "@/lib/reglas-contrasena";
 import { isValidEmail } from "@/lib/validation";
@@ -29,8 +30,8 @@ export async function POST(request: Request) {
     const state = String(body.state ?? "").trim();
     const city = String(body.city ?? "").trim();
     const specialty = String(body.specialty ?? "").trim();
-    // Nunca se leen roles del body: antes cualquiera podía registrarse como supervisor.
-    const roles = ["usuario"];
+    // Nunca se leen roles del body: antes cualquiera podía registrarse como supervisor. El rol
+    // "usuario" lo da el trigger de usuario_roles (2026-10-30).
 
     if (!nombre || !apellidos || !email || !password) {
       return NextResponse.json(
@@ -91,10 +92,10 @@ export async function POST(request: Request) {
     const passwordHash = await hashPassword(password);
 
     const result = await pool.query(
-      `INSERT INTO usuarios (nombre, apellidos, email, password_hash, state, city, specialty, intereses, xp_total, level, streak_days, role, organizacion)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, 0, 1, 0, $9::jsonb, $10)
-       RETURNING id, nombre, apellidos, email, state, city, specialty, organizacion, intereses, role, xp_total, level, streak_days, email_verificado`,
-      [nombre, apellidos, email, passwordHash, state, city, especialidad, JSON.stringify(intereses), JSON.stringify(roles), organizacionResuelta.valor]
+      `INSERT INTO usuarios (nombre, apellidos, email, password_hash, state, city, specialty, intereses, xp_total, level, streak_days, organizacion)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, 0, 1, 0, $9)
+       RETURNING id, nombre, apellidos, email, state, city, specialty, organizacion, intereses, ${columnaDeRoles()}, xp_total, level, streak_days, email_verificado`,
+      [nombre, apellidos, email, passwordHash, state, city, especialidad, JSON.stringify(intereses), organizacionResuelta.valor]
     );
 
     const usuario = result.rows[0];
@@ -241,7 +242,7 @@ export async function GET(request: Request) {
       role: string[];
       total: string;
     }>(
-      `SELECT id, nombre, apellidos, email, role, COUNT(*) OVER () AS total
+      `SELECT id, nombre, apellidos, email, ${columnaDeRoles()}, COUNT(*) OVER () AS total
        FROM usuarios
        WHERE email_verificado
          AND baja_solicitada_en IS NULL

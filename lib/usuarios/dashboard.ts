@@ -3,6 +3,7 @@
 
 import type { Pestana } from "@/components/sistema/subtabs";
 import { pool } from "@/lib/db";
+import { condicionDeRol } from "@/lib/usuarios/tabla-roles";
 import { ETIQUETA_DE_ESTADO, RESUMEN_DE_SANCIONES, estadoDesdeSanciones } from "@/lib/usuarios/directorio";
 
 /** Pestañas de la sección Usuarios. Las comparten las cuatro pantallas. Sanciones aquí es solo consulta
@@ -142,14 +143,12 @@ export async function obtenerDashboardDeUsuarios(
       ),
       pool.query<{ supervisores: string; revisores: string; usuario_comun: string }>(
         `SELECT
-           COUNT(*) FILTER (WHERE role @> '["supervisor"]'::jsonb) AS supervisores,
-           COUNT(*) FILTER (WHERE role @> '["revisor"]'::jsonb) AS revisores,
+           COUNT(*) FILTER (WHERE ${condicionDeRol("u", "'supervisor'")}) AS supervisores,
+           COUNT(*) FILTER (WHERE ${condicionDeRol("u", "'revisor'")}) AS revisores,
            COUNT(*) FILTER (
-             WHERE NOT role @> '["supervisor"]'::jsonb
-               AND NOT role @> '["revisor"]'::jsonb
-               AND NOT role @> '["admin"]'::jsonb
+             WHERE NOT EXISTS (SELECT 1 FROM usuario_roles ur WHERE ur.usuario_id = u.id AND ur.rol <> 'usuario')
            ) AS usuario_comun
-         FROM usuarios`,
+         FROM usuarios u`,
       ),
       pool.query<{ n: string }>(`SELECT COUNT(DISTINCT creator_id) AS n FROM campanas`),
       pool.query<{ strikes: string; suspendida: boolean; baneada: boolean; n: string }>(

@@ -33,7 +33,7 @@ export async function ensureUsuariosTable(): Promise<void> {
       intereses JSONB NOT NULL DEFAULT '[]'::jsonb,
       -- Lo que la persona escribió sobre sus gustos; de ahí salen sus intereses (lib/tematicas/analizar.ts).
       intereses_texto VARCHAR(500),
-      role JSONB NOT NULL DEFAULT '["usuario"]'::jsonb,
+      -- Los roles están en usuario_roles desde el 2026-10-30 (ensureUsuarioRolesTable).
       xp_total INTEGER NOT NULL DEFAULT 0,
       level INTEGER NOT NULL DEFAULT 1,
       streak_days INTEGER NOT NULL DEFAULT 0,
@@ -227,8 +227,7 @@ export async function ensureCampanasTable(): Promise<void> {
       tag VARCHAR(120) NOT NULL,
       status VARCHAR(50) NOT NULL DEFAULT 'borrador',
       collection_mode VARCHAR(20) NOT NULL DEFAULT 'checklist',
-      checklist_opciones JSONB NOT NULL DEFAULT '[]'::jsonb,
-      checklist_secciones JSONB NOT NULL DEFAULT '[]'::jsonb,
+      -- Los checklists están en campana_checklists desde el 2026-10-30 (ensureChecklistsTables).
       goal_contributions INTEGER NOT NULL DEFAULT 0,
       quota_per_user INTEGER NOT NULL DEFAULT 1,
       start_date DATE,
@@ -264,8 +263,6 @@ export async function ensureCampanasTable(): Promise<void> {
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS tag VARCHAR(120);
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'borrador';
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS collection_mode VARCHAR(20) NOT NULL DEFAULT 'checklist';
-    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS checklist_opciones JSONB NOT NULL DEFAULT '[]'::jsonb;
-    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS checklist_secciones JSONB NOT NULL DEFAULT '[]'::jsonb;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS goal_contributions INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS quota_per_user INTEGER NOT NULL DEFAULT 1;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS start_date DATE;
@@ -558,7 +555,7 @@ export async function ensureAportesTable(): Promise<void> {
       participant_email VARCHAR(200),
       description TEXT NOT NULL,
       file_type VARCHAR(20) NOT NULL,
-      caracteristicas JSONB NOT NULL DEFAULT '[]'::jsonb,
+      -- Lo que marcó en los checklists está en aporte_respuestas desde el 2026-10-30.
       calificacion VARCHAR(20),
       status VARCHAR(20) NOT NULL DEFAULT 'pendiente',
       rejection_reason TEXT,
@@ -578,7 +575,6 @@ export async function ensureAportesTable(): Promise<void> {
   `);
 
   await pool.query(`
-    ALTER TABLE aportes ADD COLUMN IF NOT EXISTS caracteristicas JSONB NOT NULL DEFAULT '[]'::jsonb;
     ALTER TABLE aportes ADD COLUMN IF NOT EXISTS calificacion VARCHAR(20);
     ALTER TABLE aportes ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
     ALTER TABLE aportes ADD COLUMN IF NOT EXISTS first_pass_by VARCHAR(160);
@@ -700,6 +696,184 @@ export async function ensureCampanaTiposTable(): Promise<void> {
         ALTER TABLE campanas DROP COLUMN IF EXISTS limite_por_tipo;
         ALTER TABLE campanas DROP COLUMN IF EXISTS enviados_por_tipo;
         ALTER TABLE campanas DROP COLUMN IF EXISTS formatos_de_documento;
+      END IF;
+    END $$;
+  `);
+}
+
+/**
+ * Roles de cada persona (2026-10-30, cuarta tanda de la rama cambios-bd; lib/usuarios/tabla-roles.ts):
+ * una fila por rol, con la fecha en que se dio. "usuario" lo pone un trigger al crear la cuenta.
+ * Revisor se da al aceptar una invitación y se quita con la última campaña (lib/campanas/revisores.ts);
+ * supervisor lo da y lo quita el SuperUsuario. Antes era la columna JSONB usuarios.role: la primera
+ * vez se copia y se borra.
+ */
+export async function ensureUsuarioRolesTable(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS usuario_roles (
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+      rol VARCHAR(20) NOT NULL CHECK (rol IN ('usuario', 'supervisor', 'revisor', 'admin')),
+      asignado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (usuario_id, rol)
+    );
+    CREATE INDEX IF NOT EXISTS usuario_roles_rol_idx ON usuario_roles (rol);
+    CREATE OR REPLACE FUNCTION dfg_crear_rol_usuario() RETURNS trigger AS $$
+    BEGIN
+      INSERT INTO usuario_roles (usuario_id, rol) VALUES (NEW.id, 'usuario') ON CONFLICT DO NOTHING;
+      RETURN NULL;
+    END;
+    $$ LANGUAGE plpgsql;
+    CREATE OR REPLACE TRIGGER dfg_crear_rol_usuario AFTER INSERT ON usuarios
+      FOR EACH ROW EXECUTE FUNCTION dfg_crear_rol_usuario();
+    DO $$
+    BEGIN
+      IF EXISTS (SELECT 1 FROM information_schema.columns
+                  WHERE table_name = 'usuarios' AND column_name = 'role') THEN
+        INSERT INTO usuario_roles (usuario_id, rol)
+        SELECT u.id, r.rol
+          FROM usuarios u
+         CROSS JOIN LATERAL jsonb_array_elements_text(
+                CASE WHEN jsonb_typeof(u.role) = 'array' THEN u.role ELSE '[]'::jsonb END) AS r(rol)
+         WHERE r.rol IN ('usuario', 'supervisor', 'revisor', 'admin')
+        ON CONFLICT DO NOTHING;
+        -- El trigger de avisos en vivo mira OLD.role: se quita y ensureAvisosDeCambios lo vuelve a poner sin ella.
+        DROP TRIGGER IF EXISTS dfg_avisar_cambio_visible ON usuarios;
+        ALTER TABLE usuarios DROP COLUMN role;
+      END IF;
+    END $$;
+    -- Toda cuenta es "usuario", aunque su arreglo viejo no lo dijera.
+    INSERT INTO usuario_roles (usuario_id, rol) SELECT id, 'usuario' FROM usuarios ON CONFLICT DO NOTHING;
+  `);
+}
+
+/**
+ * Checklists de campaña y lo que marca cada aporte (2026-10-30, cuarta tanda de la rama cambios-bd;
+ * lib/campanas/tabla-checklists.ts y lib/campanas/checklist.ts):
+ *   - campana_checklists: título, tipo de dato (NULL = vale para todos, campañas anteriores al 2026-10-28)
+ *     y orden. Se reconoce por campaña, tipo y título sin mayúsculas. retirado_en: el creador lo quitó
+ *     pero hay aportes que lo marcaron.
+ *   - checklist_opciones: texto y orden de cada opción; retirada_en igual que arriba.
+ *   - aporte_respuestas: una fila por opción marcada.
+ * Antes eran campanas.checklist_secciones (JSONB), campanas.checklist_opciones (la lista plana de antes de
+ * los títulos) y aportes.caracteristicas (las respuestas como texto "Título: opción"). La primera vez se
+ * copian y se borran; una respuesta que ya no coincide con ninguna opción queda en una opción retirada
+ * con ese texto, para no perderla.
+ */
+export async function ensureChecklistsTables(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS campana_checklists (
+      id SERIAL PRIMARY KEY,
+      campana_id INTEGER NOT NULL REFERENCES campanas(id) ON DELETE CASCADE,
+      titulo VARCHAR(120) NOT NULL DEFAULT '',
+      tipo VARCHAR(20) CHECK (tipo IN ('texto', 'foto', 'video', 'audio', 'documento')),
+      orden SMALLINT NOT NULL DEFAULT 1,
+      retirado_en TIMESTAMPTZ
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS campana_checklists_clave_idx
+      ON campana_checklists (campana_id, (COALESCE(tipo, '')), (lower(titulo)));
+    CREATE TABLE IF NOT EXISTS checklist_opciones (
+      id SERIAL PRIMARY KEY,
+      checklist_id INTEGER NOT NULL REFERENCES campana_checklists(id) ON DELETE CASCADE,
+      -- 255 y no 120: una respuesta vieja sin opción se guarda entera ("Título: opción").
+      texto VARCHAR(255) NOT NULL,
+      orden SMALLINT NOT NULL DEFAULT 1,
+      retirada_en TIMESTAMPTZ,
+      UNIQUE (checklist_id, texto)
+    );
+    CREATE TABLE IF NOT EXISTS aporte_respuestas (
+      aporte_id INTEGER NOT NULL REFERENCES aportes(id) ON DELETE CASCADE,
+      opcion_id INTEGER NOT NULL REFERENCES checklist_opciones(id) ON DELETE CASCADE,
+      PRIMARY KEY (aporte_id, opcion_id)
+    );
+    CREATE INDEX IF NOT EXISTS aporte_respuestas_opcion_idx ON aporte_respuestas (opcion_id);
+    DO $$
+    DECLARE
+      fila RECORD;
+      lista INTEGER;
+      opcion INTEGER;
+    BEGIN
+      IF EXISTS (SELECT 1 FROM information_schema.columns
+                  WHERE table_name = 'campanas' AND column_name = 'checklist_secciones') THEN
+        -- Checklists con título (y tipo desde el 2026-10-28).
+        INSERT INTO campana_checklists (campana_id, titulo, tipo, orden)
+        SELECT c.id, LEFT(TRIM(COALESCE(s.valor ->> 'titulo', '')), 120),
+               CASE WHEN s.valor ->> 'tipo' IN ('texto', 'foto', 'video', 'audio', 'documento') THEN s.valor ->> 'tipo' END,
+               s.n
+          FROM campanas c
+         CROSS JOIN LATERAL jsonb_array_elements(
+                CASE WHEN jsonb_typeof(c.checklist_secciones) = 'array' THEN c.checklist_secciones ELSE '[]'::jsonb END)
+                WITH ORDINALITY AS s(valor, n)
+         WHERE jsonb_typeof(s.valor) = 'object'
+        ON CONFLICT DO NOTHING;
+        INSERT INTO checklist_opciones (checklist_id, texto, orden)
+        SELECT cc.id, LEFT(TRIM(o.texto), 255), o.n
+          FROM campanas c
+         CROSS JOIN LATERAL jsonb_array_elements(
+                CASE WHEN jsonb_typeof(c.checklist_secciones) = 'array' THEN c.checklist_secciones ELSE '[]'::jsonb END)
+                AS s(valor)
+         CROSS JOIN LATERAL jsonb_array_elements_text(
+                CASE WHEN jsonb_typeof(s.valor -> 'opciones') = 'array' THEN s.valor -> 'opciones' ELSE '[]'::jsonb END)
+                WITH ORDINALITY AS o(texto, n)
+          JOIN campana_checklists cc
+            ON cc.campana_id = c.id
+           AND COALESCE(cc.tipo, '') = CASE WHEN s.valor ->> 'tipo' IN ('texto', 'foto', 'video', 'audio', 'documento')
+                                            THEN s.valor ->> 'tipo' ELSE '' END
+           AND lower(cc.titulo) = lower(LEFT(TRIM(COALESCE(s.valor ->> 'titulo', '')), 120))
+         WHERE jsonb_typeof(s.valor) = 'object' AND TRIM(o.texto) <> ''
+        ON CONFLICT DO NOTHING;
+        -- Lista plana de antes de los títulos: un checklist sin título (como lo leía seccionesDesdeFila).
+        INSERT INTO campana_checklists (campana_id, titulo, orden)
+        SELECT c.id, '', 1 FROM campanas c
+         WHERE NOT EXISTS (SELECT 1 FROM campana_checklists cc WHERE cc.campana_id = c.id)
+           AND c.collection_mode <> 'texto_libre'
+           AND jsonb_typeof(c.checklist_opciones) = 'array' AND jsonb_array_length(c.checklist_opciones) > 0
+        ON CONFLICT DO NOTHING;
+        INSERT INTO checklist_opciones (checklist_id, texto, orden)
+        SELECT cc.id, LEFT(TRIM(o.texto), 255), o.n
+          FROM campanas c
+          JOIN campana_checklists cc ON cc.campana_id = c.id AND cc.titulo = '' AND cc.tipo IS NULL
+         CROSS JOIN LATERAL jsonb_array_elements_text(
+                CASE WHEN jsonb_typeof(c.checklist_opciones) = 'array' THEN c.checklist_opciones ELSE '[]'::jsonb END)
+                WITH ORDINALITY AS o(texto, n)
+         WHERE TRIM(o.texto) <> ''
+        ON CONFLICT DO NOTHING;
+        -- Los checklists vacíos no se veían (seccionesDesdeFila los quitaba).
+        DELETE FROM campana_checklists cc WHERE NOT EXISTS (SELECT 1 FROM checklist_opciones o WHERE o.checklist_id = cc.id);
+        ALTER TABLE campanas DROP COLUMN checklist_secciones;
+        ALTER TABLE campanas DROP COLUMN IF EXISTS checklist_opciones;
+      END IF;
+      IF EXISTS (SELECT 1 FROM information_schema.columns
+                  WHERE table_name = 'aportes' AND column_name = 'caracteristicas') THEN
+        -- Cada respuesta va a la opción con la misma etiqueta: primero la del tipo del aporte, luego la general.
+        FOR fila IN
+          SELECT a.id AS aporte_id, a.campaign_id, a.file_type, r.etiqueta
+            FROM aportes a
+           CROSS JOIN LATERAL (SELECT DISTINCT x.e AS etiqueta FROM jsonb_array_elements_text(
+                  CASE WHEN jsonb_typeof(a.caracteristicas) = 'array' THEN a.caracteristicas ELSE '[]'::jsonb END) AS x(e)) r
+           WHERE TRIM(r.etiqueta) <> ''
+        LOOP
+          opcion := NULL;
+          SELECT o.id INTO opcion
+            FROM checklist_opciones o
+            JOIN campana_checklists cc ON cc.id = o.checklist_id
+           WHERE cc.campana_id = fila.campaign_id
+             AND (CASE WHEN cc.titulo = '' THEN o.texto ELSE cc.titulo || ': ' || o.texto END) = fila.etiqueta
+           ORDER BY (cc.tipo = fila.file_type) IS NOT TRUE, cc.tipo IS NOT NULL, cc.orden, o.orden
+           LIMIT 1;
+          IF opcion IS NULL THEN
+            -- Ya no existe esa opción: se guarda retirada, con la etiqueta entera, en un checklist sin título.
+            INSERT INTO campana_checklists (campana_id, titulo, orden, retirado_en)
+            VALUES (fila.campaign_id, '', 0, NOW())
+            ON CONFLICT (campana_id, (COALESCE(tipo, '')), (lower(titulo))) DO UPDATE SET titulo = EXCLUDED.titulo
+            RETURNING id INTO lista;
+            INSERT INTO checklist_opciones (checklist_id, texto, orden, retirada_en)
+            VALUES (lista, LEFT(fila.etiqueta, 255), 0, NOW())
+            ON CONFLICT (checklist_id, texto) DO UPDATE SET texto = EXCLUDED.texto
+            RETURNING id INTO opcion;
+          END IF;
+          INSERT INTO aporte_respuestas (aporte_id, opcion_id) VALUES (fila.aporte_id, opcion) ON CONFLICT DO NOTHING;
+        END LOOP;
+        ALTER TABLE aportes DROP COLUMN caracteristicas;
       END IF;
     END $$;
   `);
@@ -1153,6 +1327,7 @@ export async function ensureMedallasTables(): Promise<void> {
 export async function ensureCoreSchema(): Promise<void> {
   await ensureUsuariosTable();
   await ensureUsuarioPreferenciasTable(); // después de usuarios: copia sus preferencias y borra esas columnas
+  await ensureUsuarioRolesTable(); // después de usuarios: copia sus roles y borra la columna
   await ensureCodigosUsuarioTable(); // después de usuarios: copia sus códigos y borra esas columnas
   await ensureSessionsTable();
   await ensureRootSessionsTable();
@@ -1169,6 +1344,7 @@ export async function ensureCoreSchema(): Promise<void> {
   await ensureAportesTable();
   await ensureArchivosTable(); // después de aportes: copia sus file_* y borra esas columnas
   await ensureCampanaTiposTable(); // después de aportes: cuenta los enviados de cada tipo
+  await ensureChecklistsTables(); // después de campanas y aportes: copia checklists y respuestas y borra esas columnas
   await ensureCampanaInscripcionesTable(); // después de aportes: toma de ahí a quien ya había aceptado
   await ensureDispositivosBloqueadosTable(); // después de aportes: aporte_id la referencia
   await ensureSancionesTable();

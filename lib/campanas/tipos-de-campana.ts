@@ -4,18 +4,21 @@
 // Reemplaza a las columnas JSONB campanas.data_types, limite_por_tipo, enviados_por_tipo y
 // formatos_de_documento. Para no tocar cada pantalla, columnasCalculadas() las vuelve a dar con esos
 // nombres al leer una campaña, junto con has_reviewer_assigned (se calcula de campana_revisores) y,
-// desde la tercera tanda, los contadores (campana_estadisticas) y la campaña especial (campana_especial).
+// desde la tercera tanda, los contadores (campana_estadisticas) y la campaña especial (campana_especial);
+// desde la cuarta, los checklists (campana_checklists, lib/campanas/tabla-checklists.ts).
 // Lo usan los route handlers de campañas, la cuota de aportes (lib/aportes/comun.ts) y las listas.
 
 import type { PoolClient } from "pg";
 import type { LimitePorTipo } from "@/lib/campanas/limite-por-tipo";
+import { columnaDeChecklists } from "@/lib/campanas/tabla-checklists";
 
 /**
  * Columnas que antes estaban en `campanas`, calculadas para la fila `c` (alias de la tabla en la
  * consulta): data_types (arreglo en el orden del creador), limite_por_tipo (NULL sin límites, como
  * antes), enviados_por_tipo, formatos_de_documento ([] = todos), has_reviewer_assigned, los contadores
  * (columnasDeEstadisticas) e is_special con especial_inicio, especial_fin, especial_multiplicador y
- * especial_insignia (lib/campanas/especial.ts los lee con especialDesdeFila).
+ * especial_insignia (lib/campanas/especial.ts los lee con especialDesdeFila) y checklist_secciones
+ * (columnaDeChecklists; lib/campanas/checklist.ts los lee con seccionesDesdeFila).
  * Va en la lista del SELECT o del RETURNING: `SELECT c.*, ${columnasCalculadas("c")} FROM campanas c`.
  */
 export function columnasCalculadas(c = "campanas"): string {
@@ -34,7 +37,8 @@ export function columnasCalculadas(c = "campanas"): string {
           (SELECT ce.inicio FROM campana_especial ce WHERE ce.campana_id = ${c}.id) AS especial_inicio,
           (SELECT ce.fin FROM campana_especial ce WHERE ce.campana_id = ${c}.id) AS especial_fin,
           (SELECT ce.multiplicador FROM campana_especial ce WHERE ce.campana_id = ${c}.id) AS especial_multiplicador,
-          (SELECT ce.insignia FROM campana_especial ce WHERE ce.campana_id = ${c}.id) AS especial_insignia`;
+          (SELECT ce.insignia FROM campana_especial ce WHERE ce.campana_id = ${c}.id) AS especial_insignia,
+          ${columnaDeChecklists(c)}`;
 }
 
 /** Contadores de campana_estadisticas con sus nombres de siempre (0 si faltara la fila). */

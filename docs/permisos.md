@@ -76,12 +76,12 @@ En páginas de servidor de la zona de usuario usa `exigirUsuario()`, no `getSess
 
 ## 4. Roles
 
-`usuarios.role` es un arreglo JSONB con códigos de `lib/roles.ts`. Los nombres para mostrar están en `lib/usuarios/rol-asignable.ts`.
+Los roles están en la tabla `usuario_roles` (una fila por rol, desde el 2026-10-30; antes el arreglo JSONB `usuarios.role`), con códigos de `lib/roles.ts`; `columnaDeRoles()` de `lib/usuarios/tabla-roles.ts` los lee como antes. Los nombres para mostrar están en `lib/usuarios/rol-asignable.ts`.
 
 | Rol | Cómo se obtiene | Qué habilita |
 | --- | --- | --- |
 | `usuario` | Toda cuenta | Explorar, aportar, **crear y administrar sus propias campañas** (no hace falta otro rol) |
-| `revisor` | Por campaña: el creador invita (`POST /api/campanas/[id]/revisores`) y la persona acepta desde sus notificaciones. Se guarda en `campana_revisores`, no en `usuarios.role`; `getSessionUser()` lo agrega al vuelo | `/revisiones` para las campañas donde aceptó |
+| `revisor` | Por campaña: el creador invita (`POST /api/campanas/[id]/revisores`) y la persona acepta desde sus notificaciones. Se guarda en `campana_revisores`, y también da el rol `revisor` en `usuario_roles`; `getSessionUser()` lo agrega al vuelo | `/revisiones` para las campañas donde aceptó |
 | `supervisor` | **Solo el SuperUsuario** lo asigna (`asignarRol`). Al revocarlo, sus campañas `en_revision` quedan libres | `/supervision`: tomar y dictaminar campañas `en_revision` que no sean suyas |
 | `admin` | Existe en el código, sin uso definido | — |
 | SuperUsuario | Credencial raíz (no es un rol de la tabla) | Panel `/sistema`, `/usuarios`, `/supervisar` |

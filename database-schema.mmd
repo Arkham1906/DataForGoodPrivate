@@ -13,7 +13,6 @@ erDiagram
         varchar city
         varchar specialty
         jsonb intereses
-        jsonb role
         int xp_total
         int level
         int streak_days
@@ -23,6 +22,11 @@ erDiagram
         varchar google_id UK
         timestamp created_at
         timestamp updated_at
+    }
+    USUARIO_ROLES {
+        int usuario_id PK,FK
+        varchar rol PK
+        timestamptz asignado_en
     }
     USUARIO_PREFERENCIAS {
         int usuario_id PK,FK
@@ -68,7 +72,6 @@ erDiagram
         varchar tag
         varchar status
         varchar collection_mode
-        jsonb checklist_opciones
         int goal_contributions
         int quota_per_user
         date start_date
@@ -92,6 +95,28 @@ erDiagram
         int participants
         int downloads_count
         smallint ultimo_hito_avisado
+    }
+
+    CAMPANA_CHECKLISTS {
+        int id PK
+        int campana_id FK
+        varchar titulo
+        varchar tipo
+        smallint orden
+        timestamptz retirado_en
+    }
+
+    CHECKLIST_OPCIONES {
+        int id PK
+        int checklist_id FK
+        varchar texto
+        smallint orden
+        timestamptz retirada_en
+    }
+
+    APORTE_RESPUESTAS {
+        int aporte_id PK,FK
+        int opcion_id PK,FK
     }
 
     CAMPANA_ESPECIAL {
@@ -166,7 +191,6 @@ erDiagram
         text description
         varchar file_type
         int archivo_id FK
-        jsonb caracteristicas
         varchar status
         text rejection_reason
         varchar first_pass_by
@@ -201,6 +225,7 @@ erDiagram
     USUARIOS ||--o{ SESSIONS : "inicia sesion"
     USUARIOS ||--o{ CODIGOS_USUARIO : "recibe codigos"
     USUARIOS ||--|| USUARIO_PREFERENCIAS : "tiene preferencias"
+    USUARIOS ||--|{ USUARIO_ROLES : "tiene roles"
     USUARIOS ||--o{ CAMPANAS : "crea"
     USUARIOS o|--o{ CAMPANAS : "supervisa"
     USUARIOS ||--o{ CAMPANA_SUPERVISORES : "realiza acciones"
@@ -220,6 +245,10 @@ erDiagram
     CAMPANAS ||--|| CAMPANA_ESTADISTICAS : "lleva contadores"
     CAMPANAS ||--o| CAMPANA_ESPECIAL : "puede ser especial"
     ARCHIVOS |o--o| APORTES : "guarda el archivo de"
+    CAMPANAS ||--o{ CAMPANA_CHECKLISTS : "pide checklists"
+    CAMPANA_CHECKLISTS ||--o{ CHECKLIST_OPCIONES : "tiene opciones"
+    APORTES ||--o{ APORTE_RESPUESTAS : "marca"
+    CHECKLIST_OPCIONES ||--o{ APORTE_RESPUESTAS : "es marcada en"
     USUARIOS ||--o{ SANCIONES : "recibe sanciones"
 
     %% ROOT_SESSIONS no tiene FK: representa sesiones del SuperUsuario.

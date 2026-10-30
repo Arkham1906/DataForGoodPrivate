@@ -39,8 +39,8 @@ export async function quitarRevisor(campanaId: number, usuarioId: number): Promi
       );
     } else {
       await client.query(
-        `UPDATE usuarios SET role = role - 'revisor', updated_at = NOW()
-         WHERE id = $1 AND role ? 'revisor'
+        `DELETE FROM usuario_roles
+         WHERE usuario_id = $1 AND rol = 'revisor'
            AND NOT EXISTS (SELECT 1 FROM campana_revisores WHERE usuario_id = $1 AND estado = 'aceptado')`,
         [usuarioId],
       );

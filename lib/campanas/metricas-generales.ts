@@ -7,6 +7,7 @@
 
 import { pool } from "@/lib/db";
 import { columnaDeTipos } from "@/lib/campanas/tipos-de-campana";
+import { columnaDeChecklists } from "@/lib/campanas/tabla-checklists";
 import { etiquetaDeRespuesta, seccionesDesdeFila } from "@/lib/campanas/checklist";
 import { textoDeUbicacion } from "@/lib/campanas/ubicacion";
 import { ORDEN_DE_TIPOS } from "@/lib/campanas/reparto-sugerido";
@@ -29,7 +30,7 @@ export async function obtenerMetricasGenerales(campanaId: string | number): Prom
   const campanaResult = await pool.query(
     `SELECT id, ${columnaDeTipos()}, quota_per_user,
             location_state, location_city, location_colonia, todo_el_pais,
-            checklist_secciones, checklist_opciones, collection_mode
+            ${columnaDeChecklists()}, collection_mode
      FROM campanas WHERE id = $1`,
     [campanaId],
   );
@@ -90,11 +91,16 @@ export async function obtenerMetricasGenerales(campanaId: string | number): Prom
       [campanaId],
     ),
     pool.query<{ file_type: string; respuesta: string; n: number; aprobados: number }>(
-      `SELECT a.file_type, r.respuesta, COUNT(*)::int AS n,
+      // Respuestas en aporte_respuestas desde el 2026-10-30, con la etiqueta "Título: opción" de siempre.
+      `SELECT a.file_type, CASE WHEN cc.titulo = '' THEN o.texto ELSE cc.titulo || ': ' || o.texto END AS respuesta,
+              COUNT(*)::int AS n,
               (SELECT COUNT(*)::int FROM aportes WHERE campaign_id = $1 AND status = 'aceptado') AS aprobados
-       FROM aportes a, jsonb_array_elements_text(COALESCE(a.caracteristicas, '[]'::jsonb)) AS r(respuesta)
-       WHERE a.campaign_id = $1 AND a.status = 'aceptado' AND jsonb_typeof(COALESCE(a.caracteristicas, '[]'::jsonb)) = 'array'
-       GROUP BY a.file_type, r.respuesta`,
+       FROM aportes a
+       JOIN aporte_respuestas r ON r.aporte_id = a.id
+       JOIN checklist_opciones o ON o.id = r.opcion_id
+       JOIN campana_checklists cc ON cc.id = o.checklist_id
+       WHERE a.campaign_id = $1 AND a.status = 'aceptado'
+       GROUP BY 1, 2`,
       [campanaId],
     ),
   ]);

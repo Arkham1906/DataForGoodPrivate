@@ -275,7 +275,7 @@ async function ejecutarBaja(usuarioId: number): Promise<void> {
       `UPDATE usuarios
        SET nombre = $2, apellidos = '', email = 'eliminada-' || id || '@cuenta.invalid',
            password_hash = NULL, google_id = NULL, email_verificado = false,
-           state = NULL, city = NULL, specialty = NULL, intereses = '[]'::jsonb, role = '["usuario"]'::jsonb,
+           state = NULL, city = NULL, specialty = NULL, intereses = '[]'::jsonb,
            xp_total = 0, level = 1, streak_days = 0, avatar = NULL, avatar_foto = NULL,
            failed_login_attempts = 0, locked_until = NULL,
            eliminada_en = NOW(), updated_at = NOW()
@@ -283,6 +283,8 @@ async function ejecutarBaja(usuarioId: number): Promise<void> {
       [usuarioId, NOMBRE_CUENTA_ELIMINADA]
     );
     await client.query(`DELETE FROM codigos_usuario WHERE usuario_id = $1`, [usuarioId]);
+    // Solo queda "usuario" (tabla usuario_roles, 2026-10-30).
+    await client.query(`DELETE FROM usuario_roles WHERE usuario_id = $1 AND rol <> 'usuario'`, [usuarioId]);
 
     await client.query("COMMIT");
   } catch (error) {

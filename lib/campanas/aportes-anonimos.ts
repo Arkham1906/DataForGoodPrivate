@@ -30,6 +30,7 @@ import {
 } from "@/lib/aportes/comun";
 import { hashDeDispositivo } from "@/lib/aportes/anonimato";
 import { registrarArchivo } from "@/lib/aportes/tabla-archivos";
+import { guardarRespuestas } from "@/lib/campanas/tabla-checklists";
 import { bloqueoDelDispositivo } from "@/lib/aportes/sanciones-anonimas";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { respuestasValidas, seccionesDelTipo } from "@/lib/campanas/checklist";
@@ -232,19 +233,20 @@ export async function enviarAporteAnonimo(entrada: {
       const { rows } = await client.query<{ id: number }>(
         `INSERT INTO aportes (
           campaign_id, user_id, participant_name, participant_email, description,
-          file_type, archivo_id, caracteristicas, enlace_id, anonimo_id, consentimiento_en
-        ) VALUES ($1, NULL, 'Anónimo', NULL, $2, $7, $3, $4::jsonb, $5, $6, NOW())
+          file_type, archivo_id, enlace_id, anonimo_id, consentimiento_en
+        ) VALUES ($1, NULL, 'Anónimo', NULL, $2, $6, $3, $4, $5, NOW())
         RETURNING id`,
         [
           campana.id,
           descripcion,
           archivoId,
-          JSON.stringify(caracteristicas),
           enlace.id,
           anonimoId,
           tipo,
         ]
       );
+      // Lo que marcó en los checklists (tabla aporte_respuestas, 2026-10-30).
+      await guardarRespuestas(client, { id: rows[0].id, campanaId: campana.id, tipo }, caracteristicas);
       return rows[0].id;
     },
   });

@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import { pool } from "@/lib/db";
 import { columnasCalculadas } from "@/lib/campanas/tipos-de-campana";
 import { columnasDeArchivo, registrarArchivo } from "@/lib/aportes/tabla-archivos";
+import { columnaDeRespuestas, guardarRespuestas } from "@/lib/campanas/tabla-checklists";
 import { getSessionUser } from "@/lib/session";
 import { estaBaneadoDeCampana } from "@/lib/campanas/baneos";
 import { respuestasValidas, seccionesDelTipo, seccionesDesdeFila } from "@/lib/campanas/checklist";
@@ -85,12 +86,12 @@ export async function GET(request: Request) {
 
     const result = mine
       ? await pool.query(
-          `SELECT *, ${columnasDeArchivo()} FROM aportes WHERE campaign_id = $1 AND user_id = $2 ORDER BY submitted_at DESC`,
+          `SELECT *, ${columnasDeArchivo()}, ${columnaDeRespuestas()} FROM aportes WHERE campaign_id = $1 AND user_id = $2 ORDER BY submitted_at DESC`,
           [campaignId, user.id]
         )
       : reviewer
         ? await pool.query(
-            `SELECT *, ${columnasDeArchivo()} FROM aportes
+            `SELECT *, ${columnasDeArchivo()}, ${columnaDeRespuestas()} FROM aportes
              WHERE campaign_id = $1
                AND user_id IS DISTINCT FROM $2
                AND (status = 'pendiente' OR first_pass_by_user_id = $2)
@@ -98,7 +99,7 @@ export async function GET(request: Request) {
             [campaignId, user.id]
           )
       : await pool.query(
-          `SELECT *, ${columnasDeArchivo()} FROM aportes WHERE campaign_id = $1 ORDER BY submitted_at DESC`,
+          `SELECT *, ${columnasDeArchivo()}, ${columnaDeRespuestas()} FROM aportes WHERE campaign_id = $1 ORDER BY submitted_at DESC`,
           [campaignId]
         );
 
@@ -226,8 +227,8 @@ export async function POST(request: Request) {
         const { rows } = await client.query(
           `INSERT INTO aportes (
             campaign_id, user_id, participant_name, participant_email, description,
-            file_type, archivo_id, caracteristicas, enlace_id, consentimiento_en
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9,
+            file_type, archivo_id, enlace_id, consentimiento_en
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8,
             (SELECT aceptada_en FROM campana_inscripciones WHERE campana_id = $1 AND usuario_id = $2))
           RETURNING *, ${columnasDeArchivo()}`,
           [
@@ -238,11 +239,12 @@ export async function POST(request: Request) {
             description,
             tipo,
             archivoId,
-            JSON.stringify(caracteristicas),
             enlaceId,
           ]
         );
-        return rows[0];
+        // Lo que marcó en los checklists (tabla aporte_respuestas, 2026-10-30).
+        await guardarRespuestas(client, { id: rows[0].id, campanaId: campaignId, tipo }, caracteristicas);
+        return { ...rows[0], caracteristicas };
       },
     });
     if (!insertado.ok) {

@@ -16,6 +16,7 @@ import { normalizarSecciones, seccionesDesdeFila } from "@/lib/campanas/checklis
 import { enviadosPorTipoDesdeFila, limitePorTipoDesdeFila, resolverMetaYLimites } from "@/lib/campanas/limite-por-tipo";
 import { normalizarFormatosDeDocumento } from "@/lib/aportes/archivo";
 import { columnasCalculadas, guardarTiposDeCampana } from "@/lib/campanas/tipos-de-campana";
+import { guardarChecklists } from "@/lib/campanas/tabla-checklists";
 import { XP_POR_APORTE, errorDeEstadoPedido } from "@/lib/campanas/estado-del-creador";
 import { pausaDesdeFila } from "@/lib/campanas/pausa";
 import { rechazoDesdeFila } from "@/lib/campanas/rechazo";
@@ -78,7 +79,8 @@ function mapCampaign(row: Record<string, unknown>) {
       ? row.data_types
       : [];
 
-  const checklistOpciones = Array.isArray(row.checklist_opciones) ? row.checklist_opciones : [];
+  // La lista plana de antes de los títulos ya no existe (checklists en tablas desde el 2026-10-30).
+  const checklistOpciones: string[] = [];
 
   return {
     id: String(row.id ?? ""),
@@ -334,9 +336,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: secciones.error }, { status: 400 });
     }
     const checklistSecciones = secciones.secciones;
-    // Columnas anteriores a las secciones: se dejan coherentes para quien aún las lea.
     const collectionMode = checklistSecciones.length > 0 ? "checklist" : "texto_libre";
-    const checklistOpciones: string[] = [];
 
     // Meta por tipo de dato (por defecto: un límite por tipo y la meta es su suma) o meta general
     // (2026-10-28, lib/campanas/limite-por-tipo.ts). Los límites solo de los tipos que pide.
@@ -412,7 +412,6 @@ export async function POST(request: Request) {
           tag,
           status,
           collection_mode,
-          checklist_opciones,
           goal_contributions,
           quota_per_user,
           start_date,
@@ -424,13 +423,12 @@ export async function POST(request: Request) {
           xp_per_contribution,
           start_time,
           end_time,
-          checklist_secciones,
           todo_el_pais,
           proposito,
           proposito_otro
         ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $12, $13, $14, $15,
-          $16, $17, $18, $19, $20, $21::jsonb, $22, $23, $24
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
+          $16, $17, $18, $19, $20, $21, $22
         ) RETURNING id`,
         [
           creatorId,
@@ -441,7 +439,6 @@ export async function POST(request: Request) {
           tag,
           status,
           collectionMode,
-          JSON.stringify(checklistOpciones),
           goalContributions,
           quotaPerUser,
           startDate,
@@ -453,12 +450,13 @@ export async function POST(request: Request) {
           xpPerContribution,
           horaDeCreacion,
           horaDeCreacion,
-          JSON.stringify(checklistSecciones),
           todoElPais,
           proposito.proposito,
           proposito.otro,
         ]
       );
+      // Checklists (tabla campana_checklists, 2026-10-30).
+      await guardarChecklists(cliente, result.rows[0].id, checklistSecciones);
       // Tipos de dato con su límite y formatos (tabla campana_tipos, 2026-10-30).
       await guardarTiposDeCampana(cliente, result.rows[0].id, {
         tipos: dataTypes,

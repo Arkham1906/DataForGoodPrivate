@@ -5,6 +5,7 @@ import { notFound, redirect } from "next/navigation";
 import Tag from "@/components/ui/Tag";
 import { BackLink } from "../../../../../_ui";
 import { pool } from "@/lib/db";
+import { columnaDeRespuestas } from "@/lib/campanas/tabla-checklists";
 import { columnasDeArchivo } from "@/lib/aportes/tabla-archivos";
 import { exigirUsuario } from "@/lib/session";
 import { formatearTamano } from "@/lib/aportes/archivo";
@@ -19,7 +20,7 @@ export default async function SupervisedContributionPage({ params }: { params: P
 
   const result = await pool.query(
     `SELECT a.id, a.user_id, a.participant_name, a.participant_email, a.description,
-            a.file_type, ${columnasDeArchivo("a")}, a.caracteristicas, a.status, a.submitted_at,
+            a.file_type, ${columnasDeArchivo("a")}, ${columnaDeRespuestas("a")}, a.status, a.submitted_at,
             a.rejection_reason, a.first_pass_by, c.name AS campaign_name
      FROM aportes a
      JOIN campanas c ON c.id = a.campaign_id

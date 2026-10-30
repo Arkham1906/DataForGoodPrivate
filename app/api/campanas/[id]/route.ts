@@ -38,6 +38,7 @@ import { normalizarSecciones, seccionesDesdeFila } from "@/lib/campanas/checklis
 import { enviadosPorTipoDesdeFila, limitePorTipoDesdeFila, resolverMetaYLimites } from "@/lib/campanas/limite-por-tipo";
 import { normalizarFormatosDeDocumento } from "@/lib/aportes/archivo";
 import { columnasCalculadas, guardarTiposDeCampana } from "@/lib/campanas/tipos-de-campana";
+import { guardarChecklists } from "@/lib/campanas/tabla-checklists";
 import { asegurarEnlaceVigente } from "@/lib/campanas/enlaces";
 import { errorDeOrganizacion } from "@/lib/campanas/organizacion";
 import { activateScheduledCampaigns, calculateCampaignDaysRemaining, errorDeFinAntesDeInicio, errorDeInicioPasado, errorDeReanudarAntesDeInicio, finalizeExpiredCampaigns, hasCampaignEnded, normalizeCampaignDate, normalizeCampaignTime } from "@/lib/campaign-date";
@@ -82,7 +83,8 @@ function normalizeChecklistOpciones(input: unknown): string[] {
 
 function mapCampaign(row: Record<string, unknown>) {
   const dataTypes = Array.isArray(row.data_types) ? row.data_types : [];
-  const checklistOpciones = Array.isArray(row.checklist_opciones) ? row.checklist_opciones : [];
+  // La lista plana de antes de los títulos ya no existe (checklists en tablas desde el 2026-10-30).
+  const checklistOpciones: string[] = [];
 
   return {
     id: String(row.id ?? ""),
@@ -526,9 +528,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       }
     }
     const seccionesNuevas = checklistSecciones?.ok ? checklistSecciones.secciones : null;
-    // Columnas anteriores a las secciones: se dejan coherentes para quien aún las lea.
     const collectionMode = seccionesNuevas ? (seccionesNuevas.length > 0 ? "checklist" : "texto_libre") : null;
-    const checklistOpciones = seccionesNuevas ? [] : null;
     // Meta por tipo de dato o meta general (2026-10-28, lib/campanas/limite-por-tipo.ts), con los tipos
     // que van a quedar. Por tipo, la meta es la suma de los límites.
     let limitePorTipo: { limite: Record<string, number> | null; metaDeLaSuma: number | null } | null = null;
@@ -677,6 +677,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       });
     }
 
+    // Checklists (tabla campana_checklists, 2026-10-30), antes del UPDATE para que su RETURNING ya los traiga.
+    if (seccionesNuevas) await guardarChecklists(pool, id, seccionesNuevas);
+
     const result = await pool.query(
       `UPDATE campanas SET
         name = COALESCE($2, name),
@@ -694,13 +697,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         organizer = COALESCE($13, organizer),
         xp_per_contribution = COALESCE($14, xp_per_contribution),
         collection_mode = COALESCE($15, collection_mode),
-        checklist_opciones = COALESCE($16::jsonb, checklist_opciones),
-        start_time = COALESCE($17, start_time),
-        end_time = COALESCE($18, end_time),
-        checklist_secciones = COALESCE($19::jsonb, checklist_secciones),
-        todo_el_pais = COALESCE($20::boolean, todo_el_pais),
-        proposito = CASE WHEN $21::boolean THEN $22 ELSE proposito END,
-        proposito_otro = CASE WHEN $21::boolean THEN $23 ELSE proposito_otro END,
+        start_time = COALESCE($16, start_time),
+        end_time = COALESCE($17, end_time),
+        todo_el_pais = COALESCE($18::boolean, todo_el_pais),
+        proposito = CASE WHEN $19::boolean THEN $20 ELSE proposito END,
+        proposito_otro = CASE WHEN $19::boolean THEN $21 ELSE proposito_otro END,
         -- La pausó el creador (sin motivo). "status" a la derecha es el estado anterior.
         pausa_por = CASE WHEN $5 = 'en_revision' AND status = 'pausada' THEN NULL WHEN $5 = 'pausada' AND status <> 'pausada' THEN 'creador' ELSE pausa_por END,
         pausa_motivo = CASE WHEN $5 = 'en_revision' AND status = 'pausada' THEN NULL WHEN $5 = 'pausada' AND status <> 'pausada' THEN NULL ELSE pausa_motivo END,
@@ -726,10 +727,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         organizer,
         xpPerContribution,
         collectionMode,
-        checklistOpciones ? JSON.stringify(checklistOpciones) : null,
         startTime === undefined ? null : startTime,
         endTime === undefined ? null : endTime,
-        seccionesNuevas ? JSON.stringify(seccionesNuevas) : null,
         todoElPais,
         propositoNuevo !== null,
         propositoNuevo?.proposito ?? null,
@@ -843,7 +842,6 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     }
     const checklistSecciones = secciones.secciones;
     const collectionMode = checklistSecciones.length > 0 ? "checklist" : "texto_libre";
-    const checklistOpciones: string[] = [];
     // Meta por tipo de dato o meta general (2026-10-28, lib/campanas/limite-por-tipo.ts).
     const limitePorTipo = resolverMetaYLimites(body, dataTypes, status !== "borrador");
     if (!limitePorTipo.ok) return NextResponse.json({ error: limitePorTipo.error }, { status: 400 });
@@ -916,6 +914,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
 
     // Tipos de dato con su límite y formatos (tabla campana_tipos, 2026-10-30), antes del UPDATE.
     await guardarTiposDeCampana(pool, id, { tipos: dataTypes, limite: limitePorTipo.limite, formatos: formatosDeDocumento });
+    await guardarChecklists(pool, id, checklistSecciones);
 
     const result = await pool.query(
       `UPDATE campanas SET
@@ -934,13 +933,11 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
         organizer = $13,
         xp_per_contribution = COALESCE($14::int, xp_per_contribution),
         collection_mode = $15,
-        checklist_opciones = $16::jsonb,
-        start_time = $17,
-        end_time = $18,
-        checklist_secciones = $19::jsonb,
-        todo_el_pais = $20,
-        proposito = $21,
-        proposito_otro = $22,
+        start_time = $16,
+        end_time = $17,
+        todo_el_pais = $18,
+        proposito = $19,
+        proposito_otro = $20,
         updated_at = NOW()
       WHERE id = $1
       RETURNING *, ${columnasCalculadas()}`,
@@ -960,10 +957,8 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
         organizer,
         xpPerContribution,
         collectionMode,
-        JSON.stringify(checklistOpciones),
         startTime,
         endTime,
-        JSON.stringify(checklistSecciones),
         todoElPais,
         proposito.proposito,
         proposito.otro,

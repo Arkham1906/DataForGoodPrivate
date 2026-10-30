@@ -82,10 +82,10 @@ export function normalizarSecciones(
 }
 
 /**
- * Checklists guardados en una fila de `campanas`. Las campañas anteriores a
- * las secciones solo tienen `checklist_opciones` (una lista plana): se leen
- * como un único checklist sin título. Con `data_types` en la fila, los checklists
- * de un tipo que la campaña ya no pide no salen.
+ * Checklists de una fila de `campanas` leída con columnasCalculadas() o columnaDeChecklists()
+ * (tablas campana_checklists y checklist_opciones desde el 2026-10-30). Una lista plana de antes
+ * de las secciones (`checklist_opciones`) se lee como un único checklist sin título. Con
+ * `data_types` en la fila, los checklists de un tipo que la campaña ya no pide no salen.
  */
 export function seccionesDesdeFila(row: {
   checklist_secciones?: unknown;
@@ -111,7 +111,7 @@ export function seccionesDesdeFila(row: {
   return [{ titulo: "", opciones: legado }];
 }
 
-/** Cómo se guarda una respuesta en `aportes.caracteristicas`: "Estado del árbol: Sano". */
+/** Cómo se lee una respuesta (columnaDeRespuestas, tabla aporte_respuestas): "Estado del árbol: Sano". */
 export function etiquetaDeRespuesta(titulo: string, opcion: string): string {
   return titulo ? `${titulo}: ${opcion}` : opcion;
 }
