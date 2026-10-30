@@ -20,6 +20,9 @@ export default function PublicHeader() {
         <Link href="/explorar" className="hover:text-system-900">
           Campañas
         </Link>
+        <Link href="/leaderboard" className="hover:text-system-900">
+          Líderes
+        </Link>
         <Link href="/datos" className="hover:text-system-900">
           Datos abiertos
         </Link>

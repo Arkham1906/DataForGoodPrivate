@@ -16,7 +16,7 @@ import { activateScheduledCampaigns, finalizeExpiredCampaigns } from "@/lib/camp
 import { porcentajeDeMeta } from "@/lib/campanas/meta";
 import { ZONA_DE_CAMPANAS } from "@/lib/fecha-de-tepic";
 import TablaDeLideres from "@/components/gamificacion/TablaDeLideres";
-import { mostrarTablaDeLideres, obtenerTablaDeLideres } from "@/lib/gamificacion/clasificacion";
+import { obtenerTablaDeLideres, tablaTieneDatos } from "@/lib/gamificacion/clasificacion";
 import { DATA_TYPE_LABELS, buscarConjuntosAbiertos, contarConjuntosPublicados } from "@/lib/open-data";
 
 // Página pública: se regenera cada cinco minutos y el resto del tiempo se
@@ -116,7 +116,7 @@ async function obtenerCampanasDestacadas(): Promise<CampanaDestacada[]> {
     await activateScheduledCampaigns();
     await finalizeExpiredCampaigns();
     const result = await pool.query(
-      `SELECT id, name, COALESCE(NULLIF(tag, ''), tematica) AS tag, approved_contributions, goal_contributions, participants
+      `SELECT id, name, COALESCE(NULLIF(tag, ''), tematica) AS tag, approved_contributions current_contributions, goal_contributions, participants
        FROM campanas
        WHERE status = 'activa'
        ORDER BY participants DESC, current_contributions DESC
@@ -167,17 +167,17 @@ async function obtenerAportesRecientes(): Promise<AporteReciente[]> {
       // del proceso (UTC en Docker, la de la máquina en `next dev`).
       `SELECT a.id, COALESCE(NULLIF(c.tag, ''), c.tematica) AS tag, a.description,
               to_char(a.submitted_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS submitted_at
-       FROM aportes a
-       JOIN campanas c ON c.id = a.campaign_id
-       WHERE a.status = 'aceptado' AND c.status IN ('activa', 'pausada', 'finalizada')
-       ORDER BY a.submitted_at DESC
-       LIMIT 4`
+        FROM aportes a
+        JOIN campanas c ON c.id = a.campaign_id
+        WHERE a.status = 'aceptado' AND c.status IN ('activa', 'pausada', 'finalizada')
+        ORDER BY a.submitted_at DESC
+        LIMIT 4`
     );
     return result.rows.map((row) => ({
       id: String(row.id),
       tag: String(row.tag ?? ""),
       description: String(row.description ?? ""),
-      submittedAt: row.submitted_at ? String(row.submitted_at) : new Date().toISOString(),
+      submittedAt: row.submitted_at ? new Date(String(row.submitted_at)).toISOString() : new Date().toISOString(),
     }));
   } catch {
     return [];
@@ -192,8 +192,9 @@ export default async function LandingPage() {
     obtenerCifras(),
     obtenerCampanasDestacadas(),
   ]);
-  // Tabla de líderes: oculta hasta que lea datos reales (MOSTRAR_TABLA_DE_LIDERES=si para verla).
-  const tablaDeLideres = mostrarTablaDeLideres() ? await obtenerTablaDeLideres() : null;
+  // Tabla de líderes (datos reales de la BD). Sin datos (BD vacía o recién construida), la sección no se pinta.
+  const tabla = await obtenerTablaDeLideres();
+  const tablaDeLideres = tablaTieneDatos(tabla) ? tabla : null;
 
   return (
     <div className="min-h-screen bg-system-50">
@@ -238,7 +239,7 @@ export default async function LandingPage() {
                   <div>
                     <p className="text-[12px] font-medium text-brand-600">{comoHashtag(post.tag)}</p>
                     <p className="font-mono text-[11px] text-system-500">
-                      {new Date(post.submittedAt).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", timeZone: ZONA_DE_CAMPANAS })}
+                      {new Date(post.submittedAt).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}
                     </p>
                   </div>
                   <Tag tone="ok">Aprobado</Tag>
@@ -326,11 +327,16 @@ export default async function LandingPage() {
 
       {tablaDeLideres && (
         <section className="mx-auto max-w-4xl px-6 pb-24" aria-labelledby="tabla-de-lideres">
-          <div className="landing-revelar mb-5">
-            <h2 id="tabla-de-lideres" className="text-2xl font-extrabold text-system-900">Tabla de líderes</h2>
-            <p className="mt-1 max-w-md text-[13.5px] text-system-600">
-              Quienes más aportan a la comunidad. Solo cuentan los aportes aprobados.
-            </p>
+          <div className="landing-revelar mb-5 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 id="tabla-de-lideres" className="text-2xl font-extrabold text-system-900">Tabla de líderes</h2>
+              <p className="mt-1 max-w-md text-[13.5px] text-system-600">
+                Quienes más aportan a la comunidad. Solo cuentan los aportes aprobados.
+              </p>
+            </div>
+            <ButtonLink href="/leaderboard" variant="secondary" size="sm">
+              Ver tabla completa →
+            </ButtonLink>
           </div>
           <div className="landing-revelar">
             <TablaDeLideres tabla={tablaDeLideres} />

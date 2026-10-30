@@ -70,7 +70,9 @@ export default function TablaDeLideres({ tabla }: { tabla: Tabla }) {
 
       {lideres.length === 0 ? (
         <p className="rounded-lg bg-system-100 p-4 text-center text-[13px] text-system-600">
-          Todavía no hay suficientes aportes aprobados para armar esta tabla.
+          {categoria === "nivel"
+            ? "Todavia nadie ha ganado XP para aparecer en esta tabla."
+            : "Todavia no hay aportes aprobados para armar esta tabla."}
         </p>
       ) : (
         <div className="grid gap-6">
