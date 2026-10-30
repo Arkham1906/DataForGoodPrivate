@@ -98,9 +98,6 @@ export interface Campaign {
   rechazo?: RechazoDeCampana | null;
   daysRemaining: number | null;
   hasReviewerAssigned: boolean;
-  shareToken?: string;
-  shareTokenExpiresAt?: string; // ISO datetime
-  contributions?: Contribution[];
   /** Si el usuario en sesión la guardó. Ausente cuando no hay sesión. */
   isSaved?: boolean;
   /** El creador baneó de esta campaña a quien consulta (GET /api/campanas). */

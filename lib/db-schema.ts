@@ -42,14 +42,6 @@ export async function ensureUsuariosTable(): Promise<void> {
       failed_login_attempts INTEGER NOT NULL DEFAULT 0,
       locked_until TIMESTAMPTZ,
       google_id VARCHAR(255) UNIQUE,
-      verification_code_hash VARCHAR(64),
-      verification_code_expires_at TIMESTAMPTZ,
-      verification_attempts INTEGER NOT NULL DEFAULT 0,
-      -- Recuperación de contraseña (lib/usuarios/recuperacion.ts): código de 6 dígitos como hash.
-      recuperacion_codigo_hash VARCHAR(64),
-      recuperacion_vence_en TIMESTAMPTZ,
-      recuperacion_intentos INTEGER NOT NULL DEFAULT 0,
-      recuperacion_enviada_en TIMESTAMPTZ,
       -- Baja voluntaria (lib/usuarios/baja.ts): se pide, corre un plazo de gracia y al
       -- vencer la fila se vacía de datos personales (eliminada_en). Nunca se borra la fila:
       -- campanas.creator_id es ON DELETE CASCADE y se llevaría aportes de otras personas.
@@ -98,20 +90,62 @@ export async function ensureUsuariosTable(): Promise<void> {
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS failed_login_attempts INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ;
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS google_id VARCHAR(255) UNIQUE;
-    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS verification_code_hash VARCHAR(64);
-    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS verification_code_expires_at TIMESTAMPTZ;
-    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS verification_attempts INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE usuarios ALTER COLUMN password_hash DROP NOT NULL;
-    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS recuperacion_codigo_hash VARCHAR(64);
-    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS recuperacion_vence_en TIMESTAMPTZ;
-    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS recuperacion_intentos INTEGER NOT NULL DEFAULT 0;
-    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS recuperacion_enviada_en TIMESTAMPTZ;
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS baja_solicitada_en TIMESTAMPTZ;
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS baja_efectiva_en TIMESTAMPTZ;
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS baja_destino_aportes VARCHAR(20);
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS eliminada_en TIMESTAMPTZ;
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS avatar VARCHAR(12);
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS avatar_foto VARCHAR(500);
+  `);
+}
+
+/**
+ * Códigos de 6 dígitos que se mandan por correo (2026-10-30), guardados como hash: uno vigente
+ * por persona y propósito. 'verificacion' confirma el correo (lib/verification.ts) y 'contrasena'
+ * pone o recupera la contraseña (lib/usuarios/recuperacion.ts). La fila se borra al usarse.
+ * enviado_en marca la espera entre correos. Antes eran 7 columnas de usuarios
+ * (verification_* y recuperacion_*): los códigos vigentes se copian aquí y las columnas se borran.
+ */
+export async function ensureCodigosUsuarioTable(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS codigos_usuario (
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+      proposito VARCHAR(20) NOT NULL CHECK (proposito IN ('verificacion', 'contrasena')),
+      codigo_hash VARCHAR(64) NOT NULL,
+      vence_en TIMESTAMPTZ NOT NULL,
+      intentos INTEGER NOT NULL DEFAULT 0,
+      enviado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (usuario_id, proposito)
+    );
+    DO $$
+    BEGIN
+      IF EXISTS (SELECT 1 FROM information_schema.columns
+                  WHERE table_name = 'usuarios' AND column_name = 'verification_code_hash') THEN
+        INSERT INTO codigos_usuario (usuario_id, proposito, codigo_hash, vence_en, intentos, enviado_en)
+        SELECT id, 'verificacion', verification_code_hash, verification_code_expires_at, verification_attempts,
+               verification_code_expires_at - INTERVAL '15 minutes'
+          FROM usuarios
+         WHERE verification_code_hash IS NOT NULL AND verification_code_expires_at IS NOT NULL
+        ON CONFLICT DO NOTHING;
+        ALTER TABLE usuarios DROP COLUMN verification_code_hash;
+        ALTER TABLE usuarios DROP COLUMN IF EXISTS verification_code_expires_at;
+        ALTER TABLE usuarios DROP COLUMN IF EXISTS verification_attempts;
+      END IF;
+      IF EXISTS (SELECT 1 FROM information_schema.columns
+                  WHERE table_name = 'usuarios' AND column_name = 'recuperacion_codigo_hash') THEN
+        INSERT INTO codigos_usuario (usuario_id, proposito, codigo_hash, vence_en, intentos, enviado_en)
+        SELECT id, 'contrasena', recuperacion_codigo_hash, recuperacion_vence_en, recuperacion_intentos,
+               COALESCE(recuperacion_enviada_en, NOW())
+          FROM usuarios
+         WHERE recuperacion_codigo_hash IS NOT NULL AND recuperacion_vence_en IS NOT NULL
+        ON CONFLICT DO NOTHING;
+        ALTER TABLE usuarios DROP COLUMN recuperacion_codigo_hash;
+        ALTER TABLE usuarios DROP COLUMN IF EXISTS recuperacion_vence_en;
+        ALTER TABLE usuarios DROP COLUMN IF EXISTS recuperacion_intentos;
+        ALTER TABLE usuarios DROP COLUMN IF EXISTS recuperacion_enviada_en;
+      END IF;
+    END $$;
   `);
 }
 
@@ -156,9 +190,6 @@ export async function ensureCampanasTable(): Promise<void> {
       checklist_secciones JSONB NOT NULL DEFAULT '[]'::jsonb,
       goal_contributions INTEGER NOT NULL DEFAULT 0,
       quota_per_user INTEGER NOT NULL DEFAULT 1,
-      -- Reparto de la cuota por tipo de dato (2026-10-21 al 2026-10-27). SIN USO: hoy solo vale la cuota
-      -- general y el reparto es una sugerencia (lib/campanas/reparto-sugerido.ts). Se deja la columna con sus datos.
-      cuota_por_tipo JSONB,
       -- Límite TOTAL de aportes por tipo de dato (2026-10-28, opcional): { "foto": 100 } (lib/campanas/limite-por-tipo.ts).
       limite_por_tipo JSONB,
       -- Aportes no rechazados de cada tipo; lo recalcula recalcularContadores (lib/aportes/comun.ts).
@@ -185,11 +216,7 @@ export async function ensureCampanasTable(): Promise<void> {
       organizer VARCHAR(160),
       xp_per_contribution INTEGER NOT NULL DEFAULT 0,
       is_special BOOLEAN NOT NULL DEFAULT false,
-      days_remaining INTEGER,
       has_reviewer_assigned BOOLEAN NOT NULL DEFAULT false,
-      share_token VARCHAR(80),
-      share_token_expires_at TIMESTAMPTZ,
-      aportes JSONB NOT NULL DEFAULT '[]'::jsonb,
       downloads_count INTEGER NOT NULL DEFAULT 0,
       permite_anonimos BOOLEAN NOT NULL DEFAULT true,
       pausa_por VARCHAR(20),
@@ -215,7 +242,6 @@ export async function ensureCampanasTable(): Promise<void> {
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS checklist_secciones JSONB NOT NULL DEFAULT '[]'::jsonb;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS goal_contributions INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS quota_per_user INTEGER NOT NULL DEFAULT 1;
-    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS cuota_por_tipo JSONB;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS limite_por_tipo JSONB;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS formatos_de_documento JSONB NOT NULL DEFAULT '[]'::jsonb;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS current_contributions INTEGER NOT NULL DEFAULT 0;
@@ -238,11 +264,7 @@ export async function ensureCampanasTable(): Promise<void> {
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS organizer VARCHAR(160);
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS xp_per_contribution INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS is_special BOOLEAN NOT NULL DEFAULT false;
-    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS days_remaining INTEGER;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS has_reviewer_assigned BOOLEAN NOT NULL DEFAULT false;
-    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS share_token VARCHAR(80);
-    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS share_token_expires_at TIMESTAMPTZ;
-    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS aportes JSONB NOT NULL DEFAULT '[]'::jsonb;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS downloads_count INTEGER NOT NULL DEFAULT 0;
     -- El SuperUsuario no tiene fila en usuarios: cuando dictamina desde
     -- /supervisar, supervisor_id queda NULL y se marca aquí.
@@ -273,6 +295,14 @@ export async function ensureCampanasTable(): Promise<void> {
          WHERE goal_contributions > 0;
       END IF;
     END $$;
+    -- Columnas sin uso, borradas el 2026-10-30: cuota_por_tipo (reparto por tipo, quitado el
+    -- 2026-10-27), days_remaining (se calcula de end_date), share_token y share_token_expires_at
+    -- (campana_enlaces) y aportes (la tabla aportes).
+    ALTER TABLE campanas DROP COLUMN IF EXISTS cuota_por_tipo;
+    ALTER TABLE campanas DROP COLUMN IF EXISTS days_remaining;
+    ALTER TABLE campanas DROP COLUMN IF EXISTS share_token;
+    ALTER TABLE campanas DROP COLUMN IF EXISTS share_token_expires_at;
+    ALTER TABLE campanas DROP COLUMN IF EXISTS aportes;
   `);
 }
 
@@ -409,7 +439,7 @@ export async function ensureCampanaInscripcionesTable(): Promise<void> {
  * una fila nueva y marca la anterior como revocada, sin borrarla: así se
  * conserva cuántas visitas y aportes entraron por cada token. Vigente =
  * revocado_en IS NULL y expira_en > NOW(). Reemplaza a las columnas viejas
- * campanas.share_token / share_token_expires_at, que ya no se escriben.
+ * campanas.share_token / share_token_expires_at (borradas el 2026-10-30).
  */
 export async function ensureCampanaEnlacesTable(): Promise<void> {
   await pool.query(`
@@ -938,6 +968,7 @@ export async function ensureMedallasTables(): Promise<void> {
 /** Crea (si falta) todo el esquema. Lo llama instrumentation.ts al arrancar. */
 export async function ensureCoreSchema(): Promise<void> {
   await ensureUsuariosTable();
+  await ensureCodigosUsuarioTable(); // después de usuarios: copia sus códigos y borra esas columnas
   await ensureSessionsTable();
   await ensureRootSessionsTable();
   await ensureCampanasTable();

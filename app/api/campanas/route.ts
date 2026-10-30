@@ -79,12 +79,6 @@ function mapCampaign(row: Record<string, unknown>) {
 
   const checklistOpciones = Array.isArray(row.checklist_opciones) ? row.checklist_opciones : [];
 
-  const aportes = Array.isArray(row.aportes)
-    ? row.aportes
-    : Array.isArray(row.aportes ?? [])
-      ? row.aportes
-      : [];
-
   return {
     id: String(row.id ?? ""),
     creatorId: String(row.creator_id ?? ""),
@@ -136,9 +130,6 @@ function mapCampaign(row: Record<string, unknown>) {
     rechazo: rechazoDesdeFila(row),
     daysRemaining: calculateCampaignDaysRemaining(row.end_date ?? row.endDate),
     hasReviewerAssigned: Boolean(row.has_reviewer_assigned),
-    shareToken: String(row.share_token ?? ""),
-    shareTokenExpiresAt: row.share_token_expires_at ? new Date(row.share_token_expires_at as string).toISOString() : undefined,
-    contributions: aportes,
     myContributionsCount: row.mis_aportes_count != null ? Number(row.mis_aportes_count) : undefined,
     ...(row.can_delete != null ? { canDelete: row.can_delete === true } : {}),
   };
@@ -360,7 +351,6 @@ export async function POST(request: Request) {
     const rejectedContributions = 0;
     const participants = 0;
     const xpPerContribution = XP_POR_APORTE;
-    const daysRemaining = null;
     const isSpecial = false;
     const hasReviewerAssigned = false;
 
@@ -375,9 +365,6 @@ export async function POST(request: Request) {
     const organizer = String(body.organizer ?? "").trim();
     const errorOrganizacion = errorDeOrganizacion(organizer);
     if (errorOrganizacion) return NextResponse.json({ error: errorOrganizacion }, { status: 400 });
-    // Columnas viejas del enlace (ya no se usan: campana_enlaces).
-    const shareToken = "";
-    const shareTokenExpiresAt = null;
 
     // Ni siquiera un borrador empieza antes de hoy (día de Tepic; hoy sí se permite)
     // ni termina antes de empezar.
@@ -412,7 +399,6 @@ export async function POST(request: Request) {
 
     await crearPropuestas(tematicaRevisada.porCrear, creatorId);
 
-    const aportes: unknown[] = [];
     const ahora = ahoraEnZona();
     const horaDeCreacion = `${String(ahora.hour).padStart(2, "0")}:${String(ahora.minute).padStart(2, "0")}`;
 
@@ -449,15 +435,10 @@ export async function POST(request: Request) {
           organizer,
           xp_per_contribution,
           is_special,
-          days_remaining,
           has_reviewer_assigned,
-          share_token,
-          share_token_expires_at,
-          aportes,
           start_time,
           end_time,
           checklist_secciones,
-          cuota_por_tipo,
           todo_el_pais,
           proposito,
           proposito_otro,
@@ -465,8 +446,8 @@ export async function POST(request: Request) {
           formatos_de_documento
         ) VALUES (
           $1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10::jsonb, $11, $12, $13, $14, $15,
-          $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30::jsonb, $31, $32, $33::jsonb, $34::jsonb, $35,
-          $36, $37, $38::jsonb, $39::jsonb
+          $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29::jsonb, $30,
+          $31, $32, $33::jsonb, $34::jsonb
         ) RETURNING *`,
         [
           creatorId,
@@ -494,15 +475,10 @@ export async function POST(request: Request) {
           organizer,
           xpPerContribution,
           isSpecial,
-          daysRemaining,
           hasReviewerAssigned,
-          shareToken,
-          shareTokenExpiresAt,
-          JSON.stringify(aportes),
           horaDeCreacion,
           horaDeCreacion,
           JSON.stringify(checklistSecciones),
-          null, // cuota_por_tipo: sin uso desde el 2026-10-27 (solo cuota general; lib/campanas/reparto-sugerido.ts)
           todoElPais,
           proposito.proposito,
           proposito.otro,

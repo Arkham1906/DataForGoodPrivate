@@ -2,7 +2,7 @@
 // usuario). Solo es una sugerencia para que los aportes queden balanceados entre tipos: la persona
 // puede mandar hasta la cuota general de cualquier tipo (p. ej. con cuota 10, foto y audio: 8 fotos y
 // 2 audios valen). Del 2026-10-21 al 2026-10-27 la cuota se repartía por tipo y se exigía
-// (campanas.cuota_por_tipo, que quedó sin uso); se quitó a pedido del usuario. La meta no se reparte.
+// (campanas.cuota_por_tipo, borrada el 2026-10-30); se quitó a pedido del usuario. La meta no se reparte.
 // Sin imports de servidor: lo usan el formulario de campaña y las pantallas que muestran la cuota.
 
 import type { DataType } from "@/types";

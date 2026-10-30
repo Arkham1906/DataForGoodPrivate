@@ -21,11 +21,16 @@ erDiagram
         int failed_login_attempts
         timestamptz locked_until
         varchar google_id UK
-        varchar verification_code_hash
-        timestamptz verification_code_expires_at
-        int verification_attempts
         timestamp created_at
         timestamp updated_at
+    }
+    CODIGOS_USUARIO {
+        int usuario_id PK, FK
+        varchar proposito PK
+        varchar codigo_hash
+        timestamptz vence_en
+        int intentos
+        timestamptz enviado_en
     }
     SESSIONS {
         int id PK
@@ -71,10 +76,7 @@ erDiagram
         varchar organizer
         int xp_per_contribution
         boolean is_special
-        int days_remaining
         boolean has_reviewer_assigned
-        varchar share_token
-        timestamptz share_token_expires_at
         timestamp created_at
         timestamp updated_at
     }
@@ -160,6 +162,7 @@ erDiagram
     }
 
     USUARIOS ||--o{ SESSIONS : "inicia sesion"
+    USUARIOS ||--o{ CODIGOS_USUARIO : "recibe codigos"
     USUARIOS ||--o{ CAMPANAS : "crea"
     USUARIOS o|--o{ CAMPANAS : "supervisa"
     USUARIOS ||--o{ CAMPANA_SUPERVISORES : "realiza acciones"

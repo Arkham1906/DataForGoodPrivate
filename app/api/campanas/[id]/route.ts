@@ -82,7 +82,6 @@ function normalizeChecklistOpciones(input: unknown): string[] {
 function mapCampaign(row: Record<string, unknown>) {
   const dataTypes = Array.isArray(row.data_types) ? row.data_types : [];
   const checklistOpciones = Array.isArray(row.checklist_opciones) ? row.checklist_opciones : [];
-  const aportes = Array.isArray(row.aportes) ? row.aportes : [];
 
   return {
     id: String(row.id ?? ""),
@@ -131,9 +130,6 @@ function mapCampaign(row: Record<string, unknown>) {
     pausa: pausaDesdeFila(row),
     daysRemaining: calculateCampaignDaysRemaining(row.end_date ?? row.endDate),
     hasReviewerAssigned: Boolean(row.has_reviewer_assigned),
-    shareToken: String(row.share_token ?? ""),
-    shareTokenExpiresAt: row.share_token_expires_at ? new Date(row.share_token_expires_at as string).toISOString() : undefined,
-    contributions: aportes,
   };
 }
 
@@ -545,9 +541,6 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       limitePorTipo?.metaDeLaSuma ??
       ("goalContributions" in body || "goal_contributions" in body ? Number(body.goalContributions ?? body.goal_contributions) : null);
     const quotaPerUser = "quotaPerUser" in body || "quota_per_user" in body ? Number(body.quotaPerUser ?? body.quota_per_user) : null;
-    // Sin reparto de la cuota por tipo desde el 2026-10-27: al cambiar la cuota o los tipos, el
-    // reparto viejo (cuota_por_tipo) se vacía.
-    const tocaReparto = quotaPerUser !== null || dataTypes !== null;
     const startDate = "startDate" in body || "start_date" in body ? normalizeCampaignDate(body.startDate ?? body.start_date) : undefined;
     const startTime = "startTime" in body || "start_time" in body ? normalizeCampaignTime(body.startTime ?? body.start_time) : undefined;
     const endDate = "endDate" in body || "end_date" in body ? normalizeCampaignDate(body.endDate ?? body.end_date) : undefined;
@@ -697,12 +690,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         start_time = COALESCE($19, start_time),
         end_time = COALESCE($20, end_time),
         checklist_secciones = COALESCE($21::jsonb, checklist_secciones),
-        cuota_por_tipo = CASE WHEN $22::boolean THEN $23::jsonb ELSE cuota_por_tipo END,
-        todo_el_pais = COALESCE($24::boolean, todo_el_pais),
-        proposito = CASE WHEN $25::boolean THEN $26 ELSE proposito END,
-        proposito_otro = CASE WHEN $25::boolean THEN $27 ELSE proposito_otro END,
-        limite_por_tipo = CASE WHEN $28::boolean THEN $29::jsonb ELSE limite_por_tipo END,
-        formatos_de_documento = COALESCE($30::jsonb, formatos_de_documento),
+        todo_el_pais = COALESCE($22::boolean, todo_el_pais),
+        proposito = CASE WHEN $23::boolean THEN $24 ELSE proposito END,
+        proposito_otro = CASE WHEN $23::boolean THEN $25 ELSE proposito_otro END,
+        limite_por_tipo = CASE WHEN $26::boolean THEN $27::jsonb ELSE limite_por_tipo END,
+        formatos_de_documento = COALESCE($28::jsonb, formatos_de_documento),
         -- La pausó el creador (sin motivo). "status" a la derecha es el estado anterior.
         pausa_por = CASE WHEN $5 = 'en_revision' AND status = 'pausada' THEN NULL WHEN $5 = 'pausada' AND status <> 'pausada' THEN 'creador' ELSE pausa_por END,
         pausa_motivo = CASE WHEN $5 = 'en_revision' AND status = 'pausada' THEN NULL WHEN $5 = 'pausada' AND status <> 'pausada' THEN NULL ELSE pausa_motivo END,
@@ -734,8 +726,6 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         startTime === undefined ? null : startTime,
         endTime === undefined ? null : endTime,
         seccionesNuevas ? JSON.stringify(seccionesNuevas) : null,
-        tocaReparto,
-        null,
         todoElPais,
         propositoNuevo !== null,
         propositoNuevo?.proposito ?? null,
@@ -947,12 +937,11 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
         start_time = $19,
         end_time = $20,
         checklist_secciones = $21::jsonb,
-        cuota_por_tipo = $22::jsonb,
-        todo_el_pais = $23,
-        proposito = $24,
-        proposito_otro = $25,
-        limite_por_tipo = $26::jsonb,
-        formatos_de_documento = $27::jsonb,
+        todo_el_pais = $22,
+        proposito = $23,
+        proposito_otro = $24,
+        limite_por_tipo = $25::jsonb,
+        formatos_de_documento = $26::jsonb,
         updated_at = NOW()
       WHERE id = $1
       RETURNING *`,
@@ -978,7 +967,6 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
         startTime,
         endTime,
         JSON.stringify(checklistSecciones),
-        null, // cuota_por_tipo: sin uso desde el 2026-10-27 (solo cuota general; lib/campanas/reparto-sugerido.ts)
         todoElPais,
         proposito.proposito,
         proposito.otro,

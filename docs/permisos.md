@@ -104,7 +104,7 @@ No hay una función central: cada handler lo comprueba con SQL. Si agregas una r
 ## 6. Registro, verificación e inicio de sesión
 
 - **Registro** (`POST /api/usuarios`): crea la cuenta con `email_verificado = false` y llama a `startVerification()` (`lib/verification.ts`).
-- **Verificación:** código de 6 dígitos enviado por Gmail (`nodemailer`), guardado como hash. Vence en 15 minutos y admite 3 intentos. La cookie `pending_verification_id` liga la pantalla `/verificar` con la cuenta.
+- **Verificación:** código de 6 dígitos enviado por Gmail (`nodemailer`), guardado como hash en `codigos_usuario`. Vence en 15 minutos y admite 3 intentos. La cookie `pending_verification_id` liga la pantalla `/verificar` con la cuenta.
 - **Login** (`POST /api/auth/login`): bcrypt (`lib/password.ts`, que también reconoce hashes viejos y los migra al vuelo). Tras 5 fallos bloquea la cuenta 15 minutos (`locked_until`). Rechaza cuentas sin verificar.
 - **Google** (`lib/google.ts`): `GET /api/auth/google` guarda un `state` aleatorio en la cookie `google_oauth_state` y redirige. El callback compara el `state`, vincula `google_id` a una cuenta existente con ese correo o crea una nueva ya verificada.
 - **Volver a donde estabas:** el parámetro `?next=` viaja por `/entrar`, `/registro`, `/verificar`, `/bienvenida` y Google. `destinoSeguro()` (`lib/redireccion.ts`) solo acepta rutas internas, para evitar redirecciones abiertas.

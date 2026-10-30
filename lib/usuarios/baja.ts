@@ -275,11 +275,11 @@ async function ejecutarBaja(usuarioId: number): Promise<void> {
            state = NULL, city = NULL, specialty = NULL, intereses = '[]'::jsonb, role = '["usuario"]'::jsonb,
            xp_total = 0, level = 1, streak_days = 0, avatar = NULL, avatar_foto = NULL,
            failed_login_attempts = 0, locked_until = NULL,
-           verification_code_hash = NULL, verification_code_expires_at = NULL, verification_attempts = 0,
            eliminada_en = NOW(), updated_at = NOW()
        WHERE id = $1`,
       [usuarioId, NOMBRE_CUENTA_ELIMINADA]
     );
+    await client.query(`DELETE FROM codigos_usuario WHERE usuario_id = $1`, [usuarioId]);
 
     await client.query("COMMIT");
   } catch (error) {

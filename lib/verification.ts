@@ -1,5 +1,6 @@
 // Verificación del correo: código de 6 dígitos enviado por correo (lib/correo.ts), guardado como hash.
 // Vence en 15 minutos y admite 3 intentos. La cookie pending_verification_id liga /verificar con la cuenta.
+// El código vive en codigos_usuario con proposito 'verificacion' (2026-10-30; antes, columnas verification_*).
 
 import { randomInt, createHash } from "crypto";
 import { cookies } from "next/headers";
@@ -11,16 +12,6 @@ export const PENDING_COOKIE = "pending_verification_id";
 const CODE_LENGTH = 6;
 const CODE_DURATION_MS = 1000 * 60 * 15; // 15 minutos
 const MAX_ATTEMPTS = 3;
-
-// TIMESTAMPTZ, no TIMESTAMP: si Postgres y el servidor de Next corren en
-// husos horarios distintos, un valor sin zona se interpreta con el huso
-// equivocado al leerlo de vuelta y el código nace "expirado" (mismo defecto
-// que root_sessions.expires_at).
-const ensureVerificationColumns = `
-  ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS verification_code_hash VARCHAR(64);
-  ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS verification_code_expires_at TIMESTAMPTZ;
-  ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS verification_attempts INTEGER NOT NULL DEFAULT 0;
-`;
 
 function hashCode(code: string) {
   return createHash("sha256").update(code).digest("hex");
@@ -45,15 +36,14 @@ export async function startVerification(
   nombre: string,
   response?: NextResponse
 ) {
-  await pool.query(ensureVerificationColumns);
-
   const code = randomInt(0, 1_000_000).toString().padStart(CODE_LENGTH, "0");
   const expiresAt = new Date(Date.now() + CODE_DURATION_MS);
 
   await pool.query(
-    `UPDATE usuarios
-     SET verification_code_hash = $2, verification_code_expires_at = $3, verification_attempts = 0
-     WHERE id = $1`,
+    `INSERT INTO codigos_usuario (usuario_id, proposito, codigo_hash, vence_en, intentos, enviado_en)
+     VALUES ($1, 'verificacion', $2, $3, 0, NOW())
+     ON CONFLICT (usuario_id, proposito)
+     DO UPDATE SET codigo_hash = EXCLUDED.codigo_hash, vence_en = EXCLUDED.vence_en, intentos = 0, enviado_en = NOW()`,
     [usuarioId, hashCode(code), expiresAt]
   );
 
@@ -81,8 +71,6 @@ export interface PendingVerification {
 }
 
 export async function getPendingVerification(): Promise<PendingVerification | null> {
-  await pool.query(ensureVerificationColumns);
-
   const cookieStore = await cookies();
   const rawId = cookieStore.get(PENDING_COOKIE)?.value;
 
@@ -91,8 +79,10 @@ export async function getPendingVerification(): Promise<PendingVerification | nu
   }
 
   const result = await pool.query(
-    `SELECT id, nombre, email, email_verificado, verification_code_expires_at, verification_attempts
-     FROM usuarios WHERE id = $1 LIMIT 1`,
+    `SELECT u.id, u.nombre, u.email, u.email_verificado, c.vence_en, c.intentos
+     FROM usuarios u
+     LEFT JOIN codigos_usuario c ON c.usuario_id = u.id AND c.proposito = 'verificacion'
+     WHERE u.id = $1 LIMIT 1`,
     [Number(rawId)]
   );
 
@@ -106,8 +96,8 @@ export async function getPendingVerification(): Promise<PendingVerification | nu
     id: row.id,
     nombre: row.nombre,
     email: row.email,
-    expiresAt: row.verification_code_expires_at,
-    attemptsLeft: Math.max(0, MAX_ATTEMPTS - row.verification_attempts),
+    expiresAt: row.vence_en,
+    attemptsLeft: Math.max(0, MAX_ATTEMPTS - (row.intentos ?? 0)),
   };
 }
 
@@ -126,11 +116,11 @@ export type VerifyCodeResult =
   | { success: false; error: string; attemptsLeft: number };
 
 export async function verifyCode(usuarioId: number, code: string): Promise<VerifyCodeResult> {
-  await pool.query(ensureVerificationColumns);
-
   const result = await pool.query(
-    `SELECT verification_code_hash, verification_code_expires_at, verification_attempts
-     FROM usuarios WHERE id = $1 LIMIT 1`,
+    `SELECT c.codigo_hash, c.vence_en, c.intentos
+     FROM usuarios u
+     LEFT JOIN codigos_usuario c ON c.usuario_id = u.id AND c.proposito = 'verificacion'
+     WHERE u.id = $1 LIMIT 1`,
     [usuarioId]
   );
 
@@ -139,22 +129,22 @@ export async function verifyCode(usuarioId: number, code: string): Promise<Verif
   }
 
   const row = result.rows[0];
-  const attemptsLeft = MAX_ATTEMPTS - row.verification_attempts;
+  const attemptsLeft = MAX_ATTEMPTS - (row.intentos ?? 0);
 
-  if (!row.verification_code_hash || attemptsLeft <= 0) {
+  if (!row.codigo_hash || attemptsLeft <= 0) {
     return { success: false, error: "Solicita un nuevo código", attemptsLeft: 0 };
   }
 
-  if (!row.verification_code_expires_at || new Date(row.verification_code_expires_at) < new Date()) {
+  if (new Date(row.vence_en) < new Date()) {
     return { success: false, error: "El código expiró, solicita uno nuevo", attemptsLeft: 0 };
   }
 
-  if (hashCode(code) !== row.verification_code_hash) {
-    const newAttempts = row.verification_attempts + 1;
-    await pool.query(`UPDATE usuarios SET verification_attempts = $2 WHERE id = $1`, [
-      usuarioId,
-      newAttempts,
-    ]);
+  if (hashCode(code) !== row.codigo_hash) {
+    const newAttempts = row.intentos + 1;
+    await pool.query(
+      `UPDATE codigos_usuario SET intentos = $2 WHERE usuario_id = $1 AND proposito = 'verificacion'`,
+      [usuarioId, newAttempts]
+    );
     return {
       success: false,
       error: "Código incorrecto",
@@ -162,12 +152,8 @@ export async function verifyCode(usuarioId: number, code: string): Promise<Verif
     };
   }
 
-  await pool.query(
-    `UPDATE usuarios
-     SET email_verificado = true, verification_code_hash = NULL, verification_code_expires_at = NULL, verification_attempts = 0
-     WHERE id = $1`,
-    [usuarioId]
-  );
+  await pool.query(`UPDATE usuarios SET email_verificado = true WHERE id = $1`, [usuarioId]);
+  await pool.query(`DELETE FROM codigos_usuario WHERE usuario_id = $1 AND proposito = 'verificacion'`, [usuarioId]);
 
   return { success: true };
 }
