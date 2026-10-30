@@ -344,15 +344,9 @@ export async function POST(request: Request) {
     if (!limitePorTipo.ok) return NextResponse.json({ error: limitePorTipo.error }, { status: 400 });
     const goalContributions = limitePorTipo.metaDeLaSuma ?? Number(body.goalContributions ?? body.goal_contributions ?? 0);
     const quotaPerUser = Number(body.quotaPerUser ?? body.quota_per_user ?? 1);
-    // Contadores, XP, "especial" y "revisor asignado" los decide el sistema, no el body:
-    // una campaña nueva empieza en cero y sin revisor.
-    const currentContributions = 0;
-    const approvedContributions = 0;
-    const pendingContributions = 0;
-    const rejectedContributions = 0;
-    const participants = 0;
+    // XP, contadores, "especial" y "revisor asignado" los decide el sistema, no el body: una campaña
+    // nueva empieza en cero (su fila de campana_estadisticas la crea un trigger), no especial y sin revisor.
     const xpPerContribution = XP_POR_APORTE;
-    const isSpecial = false;
 
     const startDate = normalizeCampaignDate(body.startDate ?? body.start_date);
     const endDate = normalizeCampaignDate(body.endDate ?? body.end_date);
@@ -421,11 +415,6 @@ export async function POST(request: Request) {
           checklist_opciones,
           goal_contributions,
           quota_per_user,
-          current_contributions,
-          approved_contributions,
-          pending_contributions,
-          rejected_contributions,
-          participants,
           start_date,
           end_date,
           location_city,
@@ -433,7 +422,6 @@ export async function POST(request: Request) {
           location_colonia,
           organizer,
           xp_per_contribution,
-          is_special,
           start_time,
           end_time,
           checklist_secciones,
@@ -442,8 +430,7 @@ export async function POST(request: Request) {
           proposito_otro
         ) VALUES (
           $1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $12, $13, $14, $15,
-          $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27::jsonb, $28,
-          $29, $30
+          $16, $17, $18, $19, $20, $21::jsonb, $22, $23, $24
         ) RETURNING id`,
         [
           creatorId,
@@ -457,11 +444,6 @@ export async function POST(request: Request) {
           JSON.stringify(checklistOpciones),
           goalContributions,
           quotaPerUser,
-          currentContributions,
-          approvedContributions,
-          pendingContributions,
-          rejectedContributions,
-          participants,
           startDate,
           endDate,
           locationCity,
@@ -469,7 +451,6 @@ export async function POST(request: Request) {
           locationColonia,
           organizer,
           xpPerContribution,
-          isSpecial,
           horaDeCreacion,
           horaDeCreacion,
           JSON.stringify(checklistSecciones),

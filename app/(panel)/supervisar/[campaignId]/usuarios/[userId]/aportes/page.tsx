@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import Tag from "@/components/ui/Tag";
 import { BackLink } from "../../../../_ui";
 import { pool } from "@/lib/db";
+import { columnasDeArchivo } from "@/lib/aportes/tabla-archivos";
 import { obtenerCampanaSupervisadaPorRoot } from "@/lib/supervision/root";
 import { formatearTamano } from "@/lib/aportes/archivo";
 import type { Metadata } from "next";
@@ -21,7 +22,7 @@ export default async function UserContributionsPage({ params }: { params: Promis
   if (!/^\d+$/.test(userId)) notFound();
 
   const result = await pool.query(
-    `SELECT id, participant_name, participant_email, description, file_type, file_size_bytes,
+    `SELECT id, participant_name, participant_email, description, file_type, ${columnasDeArchivo()},
             caracteristicas, status, submitted_at, rejection_reason, first_pass_by
      FROM aportes
      WHERE campaign_id = $1 AND user_id = $2

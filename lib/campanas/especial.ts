@@ -14,7 +14,7 @@ import {
   type CampanaEspecial,
 } from "@/lib/campanas/especial-reglas";
 
-/** Incentivos guardados en la fila de `campanas` (SELECT *), o null si no es especial. */
+/** Incentivos de la fila de la campaña (is_special y especial_* de columnasCalculadas, tabla campana_especial), o null si no es especial. */
 export function especialDesdeFila(row: Record<string, unknown>): CampanaEspecial | null {
   const inicio = normalizeCampaignDate(row.especial_inicio);
   const fin = normalizeCampaignDate(row.especial_fin);
@@ -65,13 +65,15 @@ export async function guardarEspecial(campanaId: number, usuarioId: number, body
     return { ok: false, status: 400, error: `El nombre de la insignia admite hasta ${LARGO_MAXIMO_DE_INSIGNIA} caracteres` };
   }
 
+  // Tabla campana_especial (2026-10-30): la fila existe mientras la campaña sea especial.
   await pool.query(
-    `UPDATE campanas
-        SET is_special = true, especial_inicio = $2, especial_fin = $3,
-            especial_multiplicador = $4, especial_insignia = $5, updated_at = NOW()
-      WHERE id = $1`,
+    `INSERT INTO campana_especial (campana_id, inicio, fin, multiplicador, insignia)
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT (campana_id) DO UPDATE
+       SET inicio = EXCLUDED.inicio, fin = EXCLUDED.fin, multiplicador = EXCLUDED.multiplicador, insignia = EXCLUDED.insignia`,
     [campanaId, inicio, fin, multiplicador, insignia || null],
   );
+  await pool.query(`UPDATE campanas SET updated_at = NOW() WHERE id = $1`, [campanaId]);
   // A quien participa o tiene su temática; si está pausada, se avisa al reanudarla. Una vez por
   // campaña: editar los incentivos después no vuelve a avisar.
   avisarCampanaEspecial(campanaId);
@@ -81,13 +83,10 @@ export async function guardarEspecial(campanaId: number, usuarioId: number, body
 /** Quita los incentivos (vuelve a ser una campaña normal). Solo el creador. */
 export async function quitarEspecial(campanaId: number, usuarioId: number): Promise<Resultado> {
   const resultado = await pool.query(
-    `UPDATE campanas
-        SET is_special = false, especial_inicio = NULL, especial_fin = NULL,
-            especial_multiplicador = NULL, especial_insignia = NULL, updated_at = NOW()
-      WHERE id = $1 AND creator_id = $2
-      RETURNING id`,
+    `UPDATE campanas SET updated_at = NOW() WHERE id = $1 AND creator_id = $2 RETURNING id`,
     [campanaId, usuarioId],
   );
+  if ((resultado.rowCount ?? 0) > 0) await pool.query(`DELETE FROM campana_especial WHERE campana_id = $1`, [campanaId]);
   if (resultado.rowCount === 0) {
     const existe = await pool.query(`SELECT 1 FROM campanas WHERE id = $1`, [campanaId]);
     return existe.rowCount === 0
@@ -105,8 +104,8 @@ export async function quitarEspecial(campanaId: number, usuarioId: number): Prom
  */
 export async function multiplicadorDeXp(campanaId: number, fecha: string = hoyEnTepic()): Promise<number> {
   const r = await pool.query(
-    `SELECT especial_multiplicador AS m FROM campanas
-      WHERE id = $1 AND is_special AND especial_inicio <= $2::date AND especial_fin >= $2::date`,
+    `SELECT multiplicador AS m FROM campana_especial
+      WHERE campana_id = $1 AND inicio <= $2::date AND fin >= $2::date`,
     [campanaId, fecha],
   );
   return r.rows[0] ? Number(r.rows[0].m) : 1;

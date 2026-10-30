@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import Tag from "@/components/ui/Tag";
 import ArchivoDelAporte from "@/components/ui/ArchivoDelAporte";
 import { pool } from "@/lib/db";
+import { columnasDeArchivo } from "@/lib/aportes/tabla-archivos";
 import { exigirUsuario } from "@/lib/session";
 import { BASE_PATH } from "@/lib/base-path";
 import { formatearTamano } from "@/lib/aportes/archivo";
@@ -19,8 +20,8 @@ export default async function ReviewerContributionDetailPage({ params }: { param
   const reviewer = await exigirUsuario();
 
   const result = await pool.query(
-    `SELECT a.id, a.participant_name, a.participant_email, a.description, a.file_type, a.file_path, a.archivo_borrado_en,
-            a.file_size_bytes, a.caracteristicas, a.calificacion, a.submitted_at, a.reviewed_at,
+    `SELECT a.id, a.participant_name, a.participant_email, a.description, a.file_type, ${columnasDeArchivo("a")},
+            a.caracteristicas, a.calificacion, a.submitted_at, a.reviewed_at,
             c.name AS campaign_name
      FROM aportes a
      JOIN campanas c ON c.id = a.campaign_id

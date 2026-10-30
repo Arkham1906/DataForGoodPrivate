@@ -42,11 +42,12 @@ export async function obtenerMetricasGenerales(campanaId: string | number): Prom
 
   const [tipos, origen, revision, motivos, participacion, ubicacion, sinCuenta, respuestas] = await Promise.all([
     pool.query<{ file_type: string; recibidos: number; aprobados: number; rechazados: number; peso: string | null }>(
-      `SELECT file_type, COUNT(*)::int AS recibidos,
-              COUNT(*) FILTER (WHERE status = 'aceptado')::int AS aprobados,
-              COUNT(*) FILTER (WHERE status = 'rechazado')::int AS rechazados,
-              AVG(file_size_bytes) FILTER (WHERE file_size_bytes > 0) AS peso
-       FROM aportes WHERE campaign_id = $1 GROUP BY file_type`,
+      `SELECT a.file_type, COUNT(*)::int AS recibidos,
+              COUNT(*) FILTER (WHERE a.status = 'aceptado')::int AS aprobados,
+              COUNT(*) FILTER (WHERE a.status = 'rechazado')::int AS rechazados,
+              AVG(ar.tamano_bytes) FILTER (WHERE ar.tamano_bytes > 0) AS peso
+       FROM aportes a LEFT JOIN archivos ar ON ar.id = a.archivo_id
+       WHERE a.campaign_id = $1 GROUP BY a.file_type`,
       [campanaId],
     ),
     pool.query<{ total: number; con_cuenta: number; por_enlace: number }>(

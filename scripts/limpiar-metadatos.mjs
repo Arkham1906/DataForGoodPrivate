@@ -38,9 +38,10 @@ async function leer(clave) {
 }
 
 const { rows } = await pool.query(
-  `SELECT id, file_path, file_mime_type FROM aportes
-   WHERE archivo_borrado_en IS NULL AND file_path <> '' AND file_mime_type IN ('image/jpeg', 'image/png')
-   ORDER BY id`
+  // Tabla archivos desde el 2026-10-30 (antes aportes.file_*).
+  `SELECT ar.id, ar.ruta AS file_path, ar.mime AS file_mime_type FROM aportes a JOIN archivos ar ON ar.id = a.archivo_id
+   WHERE ar.borrado_en IS NULL AND ar.mime IN ('image/jpeg', 'image/png')
+   ORDER BY ar.id`
 );
 console.log(`${rows.length} fotos por revisar${aplicar ? " (modo --aplicar)" : " (solo lista; usa --aplicar para escribir)"}`);
 
@@ -61,7 +62,7 @@ for (const fila of rows) {
     const base = sharp(original, { failOn: "error" }).rotate();
     const limpia = fila.file_mime_type === "image/png" ? await base.png().toBuffer() : await base.jpeg({ quality: 90, mozjpeg: true }).toBuffer();
     await minio.putObject(BUCKET, fila.file_path, limpia, limpia.byteLength, { "Content-Type": fila.file_mime_type });
-    await pool.query(`UPDATE aportes SET file_size_bytes = $2 WHERE id = $1`, [fila.id, limpia.byteLength]);
+    await pool.query(`UPDATE archivos SET tamano_bytes = $2 WHERE id = $1`, [fila.id, limpia.byteLength]);
     limpiadas++;
   } catch (error) {
     fallas++;

@@ -13,7 +13,7 @@ export async function GET() {
 
     const result = await pool.query(
       `SELECT c.id, c.name, c.description, c.status, c.tag, c.tematica,
-              c.goal_contributions, c.participants, c.current_contributions,
+              c.goal_contributions, COALESCE(est.participants, 0) AS participants, COALESCE(est.current_contributions, 0) AS current_contributions,
               c.creator_name, ${columnaDeTipos("c")}, c.end_date,
               -- Lo que le toca al revisor: solo "pendiente". Los que ya validó (espera_final)
               -- esperan al creador; los aportes propios también quedan fuera del conteo.
@@ -23,6 +23,7 @@ export async function GET() {
               cr.aceptado_en
        FROM campana_revisores cr
        JOIN campanas c ON c.id = cr.campana_id
+       LEFT JOIN campana_estadisticas est ON est.campana_id = c.id
        WHERE cr.usuario_id = $1 AND cr.estado = 'aceptado'
        ORDER BY cr.aceptado_en DESC`,
       [user.id]

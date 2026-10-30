@@ -113,21 +113,22 @@ export interface OpenDataFilters {
 
 const SELECT = `
   SELECT c.id, c.name, c.description, c.tematica, c.tag, c.proposito, c.proposito_otro, ${columnaDeTipos("c")},
-         c.approved_contributions, c.rejected_contributions,
+         est.approved_contributions, est.rejected_contributions,
          c.location_city, c.location_state, c.todo_el_pais, c.organizer, c.creator_name,
-         c.end_date, c.supervisor_id, c.supervisado_por_root, c.downloads_count,
+         c.end_date, c.supervisor_id, c.supervisado_por_root, est.downloads_count,
          COALESCE(f.size_bytes, 0) AS size_bytes,
          COALESCE(f.archivos, 0) AS archivos,
          COALESCE(f.formats, ARRAY[]::text[]) AS formats
   FROM campanas c
+  JOIN campana_estadisticas est ON est.campana_id = c.id
   LEFT JOIN LATERAL (
-    SELECT SUM(a.file_size_bytes)::bigint AS size_bytes,
+    SELECT SUM(ar.tamano_bytes)::bigint AS size_bytes,
            COUNT(*)::int AS archivos,
-           array_agg(DISTINCT a.file_mime_type) FILTER (WHERE a.file_mime_type IS NOT NULL) AS formats
+           array_agg(DISTINCT ar.mime) FILTER (WHERE ar.mime IS NOT NULL) AS formats
     FROM aportes a
+    JOIN archivos ar ON ar.id = a.archivo_id
     -- Solo archivos que siguen en MinIO: uno borrado por moderación no entra al ZIP.
-    WHERE a.campaign_id = c.id AND a.status = 'aceptado'
-      AND NULLIF(a.file_path, '') IS NOT NULL AND a.archivo_borrado_en IS NULL
+    WHERE a.campaign_id = c.id AND a.status = 'aceptado' AND ar.borrado_en IS NULL
   ) f ON true
 `;
 
@@ -165,9 +166,9 @@ function mapDataset(row: Record<string, unknown>): OpenDataset {
 
 const ORDER_SQL: Record<OpenDataOrder, string> = {
   recientes: "c.end_date DESC NULLS LAST",
-  cobertura: "c.approved_contributions DESC",
-  descargas: "c.downloads_count DESC",
-  calidad: "(c.approved_contributions::float / NULLIF(c.approved_contributions + c.rejected_contributions, 0)) DESC NULLS LAST",
+  cobertura: "est.approved_contributions DESC",
+  descargas: "est.downloads_count DESC",
+  calidad: "(est.approved_contributions::float / NULLIF(est.approved_contributions + est.rejected_contributions, 0)) DESC NULLS LAST",
 };
 
 // La landing (app/page.tsx) llama estas dos con revalidate = 300, así que se

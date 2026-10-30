@@ -37,7 +37,7 @@ export type OrdenDeCampanas = "participacion" | "recientes" | "cierre";
 const ESTADOS_VISIBLES = "status IN ('activa', 'pausada')";
 
 const ORDER_SQL: Record<OrdenDeCampanas, string> = {
-  participacion: "participants DESC, current_contributions DESC",
+  participacion: "est.participants DESC, est.current_contributions DESC",
   recientes: "created_at DESC",
   cierre: "end_date ASC NULLS LAST",
 };
@@ -114,8 +114,9 @@ export async function buscarCampanasParaExplorar(filtros: FiltrosDeCampanas): Pr
 
     const result = await pool.query(
       `SELECT id, name, description, tematica, organizer, creator_name, location_city, location_state, todo_el_pais, ${columnaDeTipos()},
-              approved_contributions, goal_contributions, participants, end_date, status
+              est.approved_contributions, goal_contributions, est.participants, end_date, status
        FROM campanas
+       JOIN campana_estadisticas est ON est.campana_id = campanas.id
        WHERE ${condiciones.join(" AND ")}
        ORDER BY (status = 'pausada'), ${ORDER_SQL[filtros.orden ?? "participacion"]}`,
       valores

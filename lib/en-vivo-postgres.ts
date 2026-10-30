@@ -15,6 +15,9 @@ const CANAL = "dfg_cambios";
 /** Tablas cuyo contenido se ve en alguna pantalla. No van las de sesiones, bitácora ni notificaciones. */
 const TABLAS_CON_AVISO = [
   "campanas",
+  "campana_estadisticas",
+  "campana_especial",
+  "campana_tipos",
   "aportes",
   "campana_revisores",
   "campana_supervisores",

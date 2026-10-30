@@ -74,18 +74,8 @@ export async function ensureUsuariosTable(): Promise<void> {
     UPDATE usuarios SET bienvenida_vista = true WHERE bienvenida_vista IS NULL;
     ALTER TABLE usuarios ALTER COLUMN bienvenida_vista SET DEFAULT false;
     ALTER TABLE usuarios ALTER COLUMN bienvenida_vista SET NOT NULL;
-    -- Preferencias de /cuenta: "Campañas nuevas" (avisos por temática y ubicación, 2026-10-14).
-    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS avisos_campanas_nuevas BOOLEAN NOT NULL DEFAULT true;
-    -- El resto de Preferencias (lib/usuarios/preferencias-opciones.ts) y el último envío de los
-    -- avisos periódicos (lib/notificaciones/periodicas.ts), para mandar uno por semana o por mes.
-    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS avisos_aportes BOOLEAN NOT NULL DEFAULT true;
-    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS recordatorio_semanal BOOLEAN NOT NULL DEFAULT false;
-    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS resumen_mensual BOOLEAN NOT NULL DEFAULT true;
-    -- Interruptor general "Notificaciones" de Preferencias (2026-10-19): apagado, notificar() no crea ninguna
-    -- salvo las de la cuenta (rol, sanciones, invitación de revisor; NOTIFICACIONES_ESENCIALES).
-    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS notificaciones_activas BOOLEAN NOT NULL DEFAULT true;
-    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS ultimo_recordatorio DATE;
-    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS ultimo_resumen DATE;
+    -- Las Preferencias de /cuenta y el último envío de los avisos periódicos están en
+    -- usuario_preferencias desde el 2026-10-30 (ensureUsuarioPreferenciasTable).
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS email_verificado BOOLEAN NOT NULL DEFAULT false;
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS failed_login_attempts INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ;
@@ -97,6 +87,58 @@ export async function ensureUsuariosTable(): Promise<void> {
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS eliminada_en TIMESTAMPTZ;
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS avatar VARCHAR(12);
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS avatar_foto VARCHAR(500);
+  `);
+}
+
+/**
+ * Preferencias de /cuenta (2026-10-30, tercera tanda de la rama cambios-bd; lib/usuarios/preferencias-opciones.ts):
+ * una fila por usuario, que crea un trigger al insertar en usuarios. "Campañas nuevas" (2026-10-14),
+ * "Aportes", "Recordatorios" (apagado por defecto) y "Newsletter", más el interruptor general
+ * "Notificaciones" (2026-10-19: apagado, notificar() solo deja pasar NOTIFICACIONES_ESENCIALES).
+ * ultimo_recordatorio y ultimo_resumen son el estado de lib/notificaciones/periodicas.ts (último envío).
+ * Antes eran columnas de usuarios: la primera vez se copian y se borran.
+ */
+export async function ensureUsuarioPreferenciasTable(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS usuario_preferencias (
+      usuario_id INTEGER PRIMARY KEY REFERENCES usuarios(id) ON DELETE CASCADE,
+      avisos_campanas_nuevas BOOLEAN NOT NULL DEFAULT true,
+      avisos_aportes BOOLEAN NOT NULL DEFAULT true,
+      recordatorio_semanal BOOLEAN NOT NULL DEFAULT false,
+      resumen_mensual BOOLEAN NOT NULL DEFAULT true,
+      notificaciones_activas BOOLEAN NOT NULL DEFAULT true,
+      ultimo_recordatorio DATE,
+      ultimo_resumen DATE
+    );
+    CREATE OR REPLACE FUNCTION dfg_crear_preferencias() RETURNS trigger AS $$
+    BEGIN
+      INSERT INTO usuario_preferencias (usuario_id) VALUES (NEW.id) ON CONFLICT DO NOTHING;
+      RETURN NULL;
+    END;
+    $$ LANGUAGE plpgsql;
+    CREATE OR REPLACE TRIGGER dfg_crear_preferencias AFTER INSERT ON usuarios
+      FOR EACH ROW EXECUTE FUNCTION dfg_crear_preferencias();
+    DO $$
+    BEGIN
+      IF EXISTS (SELECT 1 FROM information_schema.columns
+                  WHERE table_name = 'usuarios' AND column_name = 'avisos_campanas_nuevas') THEN
+        INSERT INTO usuario_preferencias (usuario_id, avisos_campanas_nuevas, avisos_aportes, recordatorio_semanal,
+                                          resumen_mensual, notificaciones_activas, ultimo_recordatorio, ultimo_resumen)
+        SELECT id, avisos_campanas_nuevas, avisos_aportes, recordatorio_semanal,
+               resumen_mensual, notificaciones_activas, ultimo_recordatorio, ultimo_resumen
+          FROM usuarios
+        ON CONFLICT (usuario_id) DO NOTHING;
+        ALTER TABLE usuarios DROP COLUMN avisos_campanas_nuevas;
+        ALTER TABLE usuarios DROP COLUMN IF EXISTS avisos_aportes;
+        ALTER TABLE usuarios DROP COLUMN IF EXISTS recordatorio_semanal;
+        ALTER TABLE usuarios DROP COLUMN IF EXISTS resumen_mensual;
+        ALTER TABLE usuarios DROP COLUMN IF EXISTS notificaciones_activas;
+        ALTER TABLE usuarios DROP COLUMN IF EXISTS ultimo_recordatorio;
+        ALTER TABLE usuarios DROP COLUMN IF EXISTS ultimo_resumen;
+      END IF;
+    END $$;
+    -- Por si una cuenta se creó sin el trigger.
+    INSERT INTO usuario_preferencias (usuario_id) SELECT id FROM usuarios ON CONFLICT DO NOTHING;
   `);
 }
 
@@ -189,11 +231,6 @@ export async function ensureCampanasTable(): Promise<void> {
       checklist_secciones JSONB NOT NULL DEFAULT '[]'::jsonb,
       goal_contributions INTEGER NOT NULL DEFAULT 0,
       quota_per_user INTEGER NOT NULL DEFAULT 1,
-      current_contributions INTEGER NOT NULL DEFAULT 0,
-      approved_contributions INTEGER NOT NULL DEFAULT 0,
-      pending_contributions INTEGER NOT NULL DEFAULT 0,
-      rejected_contributions INTEGER NOT NULL DEFAULT 0,
-      participants INTEGER NOT NULL DEFAULT 0,
       start_date DATE,
       start_time TIME,
       end_date DATE,
@@ -208,8 +245,6 @@ export async function ensureCampanasTable(): Promise<void> {
       proposito_otro VARCHAR(80),
       organizer VARCHAR(160),
       xp_per_contribution INTEGER NOT NULL DEFAULT 0,
-      is_special BOOLEAN NOT NULL DEFAULT false,
-      downloads_count INTEGER NOT NULL DEFAULT 0,
       permite_anonimos BOOLEAN NOT NULL DEFAULT true,
       pausa_por VARCHAR(20),
       pausa_motivo TEXT,
@@ -233,11 +268,6 @@ export async function ensureCampanasTable(): Promise<void> {
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS checklist_secciones JSONB NOT NULL DEFAULT '[]'::jsonb;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS goal_contributions INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS quota_per_user INTEGER NOT NULL DEFAULT 1;
-    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS current_contributions INTEGER NOT NULL DEFAULT 0;
-    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS approved_contributions INTEGER NOT NULL DEFAULT 0;
-    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS pending_contributions INTEGER NOT NULL DEFAULT 0;
-    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS rejected_contributions INTEGER NOT NULL DEFAULT 0;
-    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS participants INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS start_date DATE;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS start_time TIME;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS end_date DATE;
@@ -252,17 +282,9 @@ export async function ensureCampanasTable(): Promise<void> {
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS proposito_otro VARCHAR(80);
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS organizer VARCHAR(160);
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS xp_per_contribution INTEGER NOT NULL DEFAULT 0;
-    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS is_special BOOLEAN NOT NULL DEFAULT false;
-    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS downloads_count INTEGER NOT NULL DEFAULT 0;
     -- El SuperUsuario no tiene fila en usuarios: cuando dictamina desde
     -- /supervisar, supervisor_id queda NULL y se marca aquí.
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS supervisado_por_root BOOLEAN NOT NULL DEFAULT false;
-    -- Campaña especial (2026-10-14, lib/campanas/especial.ts): periodo, multiplicador de XP
-    -- (1 a 3) e insignia opcional. is_special dice si los tiene; al quitarlos vuelven a NULL.
-    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS especial_inicio DATE;
-    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS especial_fin DATE;
-    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS especial_multiplicador SMALLINT;
-    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS especial_insignia VARCHAR(40);
     -- Interruptor del creador: si es false, /c/[token] no acepta aportes sin cuenta.
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS permite_anonimos BOOLEAN NOT NULL DEFAULT true;
     -- Quién la pausó y por qué (2026-10-15, lib/campanas/pausa.ts): 'creador' (sin motivo) o
@@ -271,18 +293,6 @@ export async function ensureCampanasTable(): Promise<void> {
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS pausa_por VARCHAR(20);
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS pausa_motivo TEXT;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS pausada_en TIMESTAMPTZ;
-    -- Último hito de la meta (25, 50, 75 o 100 %) avisado a quienes participan (2026-10-28,
-    -- lib/notificaciones/socializacion.ts). Al crear la columna, las campañas que ya existían
-    -- arrancan en el hito que ya alcanzaron: no reciben avisos atrasados.
-    DO $$
-    BEGIN
-      IF NOT EXISTS (SELECT 1 FROM information_schema.columns
-                      WHERE table_name = 'campanas' AND column_name = 'ultimo_hito_avisado') THEN
-        ALTER TABLE campanas ADD COLUMN ultimo_hito_avisado SMALLINT NOT NULL DEFAULT 0;
-        UPDATE campanas SET ultimo_hito_avisado = LEAST(100, approved_contributions * 100 / goal_contributions / 25 * 25)
-         WHERE goal_contributions > 0;
-      END IF;
-    END $$;
     -- Columnas sin uso, borradas el 2026-10-30: cuota_por_tipo (reparto por tipo, quitado el
     -- 2026-10-27), days_remaining (se calcula de end_date), share_token y share_token_expires_at
     -- (campana_enlaces) y aportes (la tabla aportes).
@@ -295,6 +305,95 @@ export async function ensureCampanasTable(): Promise<void> {
     -- (columnasCalculadas de lib/campanas/tipos-de-campana.ts). data_types, limite_por_tipo,
     -- enviados_por_tipo y formatos_de_documento pasan a campana_tipos (ensureCampanaTiposTable).
     ALTER TABLE campanas DROP COLUMN IF EXISTS has_reviewer_assigned;
+    -- Contadores, descargas y último hito avisado pasan a campana_estadisticas, y los incentivos de
+    -- campaña especial a campana_especial (2026-10-30, tercera tanda): ver esas dos funciones.
+  `);
+}
+
+/**
+ * Contadores de cada campaña (2026-10-30, tercera tanda de la rama cambios-bd): una fila por campaña,
+ * que crea un trigger al insertar en campanas. Cambian con cada aporte (los recalcula
+ * recalcularContadores, lib/aportes/comun.ts) y con cada descarga, mientras que la campaña casi no
+ * cambia: así cada aporte ya no reescribe la fila de campanas. Mismos nombres que tenían en campanas;
+ * al leer una campaña llegan con columnasCalculadas() de lib/campanas/tipos-de-campana.ts.
+ * ultimo_hito_avisado: último 25/50/75/100 % avisado a quienes participan (lib/notificaciones/socializacion.ts).
+ * La primera vez copia los valores de campanas y borra esas columnas.
+ */
+export async function ensureCampanaEstadisticasTable(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS campana_estadisticas (
+      campana_id INTEGER PRIMARY KEY REFERENCES campanas(id) ON DELETE CASCADE,
+      current_contributions INTEGER NOT NULL DEFAULT 0,
+      approved_contributions INTEGER NOT NULL DEFAULT 0,
+      pending_contributions INTEGER NOT NULL DEFAULT 0,
+      rejected_contributions INTEGER NOT NULL DEFAULT 0,
+      participants INTEGER NOT NULL DEFAULT 0,
+      downloads_count INTEGER NOT NULL DEFAULT 0,
+      ultimo_hito_avisado SMALLINT NOT NULL DEFAULT 0
+    );
+    CREATE OR REPLACE FUNCTION dfg_crear_estadisticas() RETURNS trigger AS $$
+    BEGIN
+      INSERT INTO campana_estadisticas (campana_id) VALUES (NEW.id) ON CONFLICT DO NOTHING;
+      RETURN NULL;
+    END;
+    $$ LANGUAGE plpgsql;
+    CREATE OR REPLACE TRIGGER dfg_crear_estadisticas AFTER INSERT ON campanas
+      FOR EACH ROW EXECUTE FUNCTION dfg_crear_estadisticas();
+    DO $$
+    BEGIN
+      IF EXISTS (SELECT 1 FROM information_schema.columns
+                  WHERE table_name = 'campanas' AND column_name = 'current_contributions') THEN
+        INSERT INTO campana_estadisticas (campana_id, current_contributions, approved_contributions, pending_contributions,
+                                          rejected_contributions, participants, downloads_count, ultimo_hito_avisado)
+        SELECT id, current_contributions, approved_contributions, pending_contributions,
+               rejected_contributions, participants, downloads_count, COALESCE(ultimo_hito_avisado, 0)
+          FROM campanas
+        ON CONFLICT (campana_id) DO NOTHING;
+        ALTER TABLE campanas DROP COLUMN current_contributions;
+        ALTER TABLE campanas DROP COLUMN IF EXISTS approved_contributions;
+        ALTER TABLE campanas DROP COLUMN IF EXISTS pending_contributions;
+        ALTER TABLE campanas DROP COLUMN IF EXISTS rejected_contributions;
+        ALTER TABLE campanas DROP COLUMN IF EXISTS participants;
+        ALTER TABLE campanas DROP COLUMN IF EXISTS downloads_count;
+        ALTER TABLE campanas DROP COLUMN IF EXISTS ultimo_hito_avisado;
+      END IF;
+    END $$;
+    -- Por si una campaña se creó sin el trigger.
+    INSERT INTO campana_estadisticas (campana_id) SELECT id FROM campanas ON CONFLICT DO NOTHING;
+  `);
+}
+
+/**
+ * Campaña especial (2026-10-14, SCR-WEB-13; tabla propia desde el 2026-10-30, lib/campanas/especial.ts):
+ * 0 o 1 fila por campaña con el periodo, el multiplicador de XP (1 a 3) y la insignia opcional.
+ * Si la fila existe, la campaña es especial (antes campanas.is_special); quitar los incentivos la borra.
+ * La primera vez copia las especiales de campanas y borra is_special y especial_*.
+ */
+export async function ensureCampanaEspecialTable(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS campana_especial (
+      campana_id INTEGER PRIMARY KEY REFERENCES campanas(id) ON DELETE CASCADE,
+      inicio DATE NOT NULL,
+      fin DATE NOT NULL CHECK (fin >= inicio),
+      multiplicador SMALLINT NOT NULL CHECK (multiplicador BETWEEN 1 AND 3),
+      insignia VARCHAR(40)
+    );
+    DO $$
+    BEGIN
+      IF EXISTS (SELECT 1 FROM information_schema.columns
+                  WHERE table_name = 'campanas' AND column_name = 'is_special') THEN
+        INSERT INTO campana_especial (campana_id, inicio, fin, multiplicador, insignia)
+        SELECT id, especial_inicio, especial_fin, COALESCE(especial_multiplicador, 1), especial_insignia
+          FROM campanas
+         WHERE is_special AND especial_inicio IS NOT NULL AND especial_fin IS NOT NULL
+        ON CONFLICT (campana_id) DO NOTHING;
+        ALTER TABLE campanas DROP COLUMN is_special;
+        ALTER TABLE campanas DROP COLUMN IF EXISTS especial_inicio;
+        ALTER TABLE campanas DROP COLUMN IF EXISTS especial_fin;
+        ALTER TABLE campanas DROP COLUMN IF EXISTS especial_multiplicador;
+        ALTER TABLE campanas DROP COLUMN IF EXISTS especial_insignia;
+      END IF;
+    END $$;
   `);
 }
 
@@ -459,10 +558,6 @@ export async function ensureAportesTable(): Promise<void> {
       participant_email VARCHAR(200),
       description TEXT NOT NULL,
       file_type VARCHAR(20) NOT NULL,
-      file_path VARCHAR(500) NOT NULL,
-      file_original_name VARCHAR(255),
-      file_mime_type VARCHAR(100),
-      file_size_bytes INTEGER,
       caracteristicas JSONB NOT NULL DEFAULT '[]'::jsonb,
       calificacion VARCHAR(20),
       status VARCHAR(20) NOT NULL DEFAULT 'pendiente',
@@ -474,7 +569,6 @@ export async function ensureAportesTable(): Promise<void> {
       inapropiado BOOLEAN NOT NULL DEFAULT false,
       inapropiado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
       inapropiado_en TIMESTAMPTZ,
-      archivo_borrado_en TIMESTAMPTZ,
       consentimiento_en TIMESTAMPTZ,
       submitted_at TIMESTAMP NOT NULL DEFAULT NOW(),
       reviewed_at TIMESTAMP,
@@ -509,8 +603,62 @@ export async function ensureAportesTable(): Promise<void> {
     ALTER TABLE aportes ADD COLUMN IF NOT EXISTS inapropiado BOOLEAN NOT NULL DEFAULT false;
     ALTER TABLE aportes ADD COLUMN IF NOT EXISTS inapropiado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL;
     ALTER TABLE aportes ADD COLUMN IF NOT EXISTS inapropiado_en TIMESTAMPTZ;
-    -- El creador borró el archivo de MinIO (ilegal o dañino). La fila se conserva.
-    ALTER TABLE aportes ADD COLUMN IF NOT EXISTS archivo_borrado_en TIMESTAMPTZ;
+    -- El archivo (ruta en MinIO, MIME, tamaño y si se borró) está en la tabla archivos desde el
+    -- 2026-10-30 (ensureArchivosTable): archivo_id NULL = aporte de solo texto.
+  `);
+}
+
+/**
+ * Archivos subidos a MinIO (2026-10-30, tercera tanda de la rama cambios-bd; lib/aportes/tabla-archivos.ts):
+ * ruta (clave en MinIO), nombre original (los aportes no lo guardan: puede traer datos personales), MIME,
+ * tamaño y borrado_en (el creador o la moderación lo borró de MinIO; la fila se conserva). Hoy solo los
+ * aportes apuntan aquí (aportes.archivo_id); las medallas siguen con sus columnas file_* (gamificación).
+ * Un trigger borra la fila al borrarse el aporte. La primera vez copia los file_* de aportes y los borra.
+ */
+export async function ensureArchivosTable(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS archivos (
+      id SERIAL PRIMARY KEY,
+      ruta VARCHAR(500) NOT NULL,
+      nombre_original VARCHAR(255),
+      mime VARCHAR(100),
+      tamano_bytes INTEGER,
+      borrado_en TIMESTAMPTZ,
+      creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    ALTER TABLE aportes ADD COLUMN IF NOT EXISTS archivo_id INTEGER REFERENCES archivos(id) ON DELETE SET NULL;
+    CREATE UNIQUE INDEX IF NOT EXISTS aportes_archivo_idx ON aportes (archivo_id) WHERE archivo_id IS NOT NULL;
+    CREATE OR REPLACE FUNCTION dfg_borrar_archivo_del_aporte() RETURNS trigger AS $$
+    BEGIN
+      IF OLD.archivo_id IS NOT NULL THEN
+        DELETE FROM archivos WHERE id = OLD.archivo_id;
+      END IF;
+      RETURN NULL;
+    END;
+    $$ LANGUAGE plpgsql;
+    CREATE OR REPLACE TRIGGER dfg_borrar_archivo_del_aporte AFTER DELETE ON aportes
+      FOR EACH ROW EXECUTE FUNCTION dfg_borrar_archivo_del_aporte();
+    DO $$
+    DECLARE
+      fila RECORD;
+      nuevo INTEGER;
+    BEGIN
+      IF EXISTS (SELECT 1 FROM information_schema.columns
+                  WHERE table_name = 'aportes' AND column_name = 'file_path') THEN
+        FOR fila IN SELECT id, file_path, file_original_name, file_mime_type, file_size_bytes, archivo_borrado_en
+                      FROM aportes WHERE COALESCE(file_path, '') <> '' AND archivo_id IS NULL LOOP
+          INSERT INTO archivos (ruta, nombre_original, mime, tamano_bytes, borrado_en)
+          VALUES (fila.file_path, fila.file_original_name, fila.file_mime_type, fila.file_size_bytes, fila.archivo_borrado_en)
+          RETURNING id INTO nuevo;
+          UPDATE aportes SET archivo_id = nuevo WHERE id = fila.id;
+        END LOOP;
+        ALTER TABLE aportes DROP COLUMN file_path;
+        ALTER TABLE aportes DROP COLUMN IF EXISTS file_original_name;
+        ALTER TABLE aportes DROP COLUMN IF EXISTS file_mime_type;
+        ALTER TABLE aportes DROP COLUMN IF EXISTS file_size_bytes;
+        ALTER TABLE aportes DROP COLUMN IF EXISTS archivo_borrado_en;
+      END IF;
+    END $$;
   `);
 }
 
@@ -1004,10 +1152,13 @@ export async function ensureMedallasTables(): Promise<void> {
 /** Crea (si falta) todo el esquema. Lo llama instrumentation.ts al arrancar. */
 export async function ensureCoreSchema(): Promise<void> {
   await ensureUsuariosTable();
+  await ensureUsuarioPreferenciasTable(); // después de usuarios: copia sus preferencias y borra esas columnas
   await ensureCodigosUsuarioTable(); // después de usuarios: copia sus códigos y borra esas columnas
   await ensureSessionsTable();
   await ensureRootSessionsTable();
   await ensureCampanasTable();
+  await ensureCampanaEstadisticasTable(); // después de campanas: copia sus contadores y borra esas columnas
+  await ensureCampanaEspecialTable();
   await ensureCampanaSupervisoresTable();
   await ensureCampanaRevisoresTable();
   await ensureCampanaBaneadosTable();
@@ -1016,6 +1167,7 @@ export async function ensureCoreSchema(): Promise<void> {
   await ensureCampanasGuardadasTable();
   await ensureCampanaEnlacesTable(); // antes de aportes: aportes.enlace_id la referencia
   await ensureAportesTable();
+  await ensureArchivosTable(); // después de aportes: copia sus file_* y borra esas columnas
   await ensureCampanaTiposTable(); // después de aportes: cuenta los enviados de cada tipo
   await ensureCampanaInscripcionesTable(); // después de aportes: toma de ahí a quien ya había aceptado
   await ensureDispositivosBloqueadosTable(); // después de aportes: aporte_id la referencia

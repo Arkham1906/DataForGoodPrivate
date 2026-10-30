@@ -6,7 +6,7 @@
 //     anterior: sus aportes aceptados, campañas nuevas de sus temáticas en su zona y conjuntos de
 //     datos abiertos publicados. Si todo es cero no se manda.
 // No hay cron: instrumentation-node.ts llama a enviarAvisosPeriodicos() al arrancar y cada hora.
-// usuarios.ultimo_recordatorio / ultimo_resumen guardan el periodo ya enviado; se marcan con un
+// usuario_preferencias.ultimo_recordatorio / ultimo_resumen (2026-10-30; antes en usuarios) guardan el periodo ya enviado; se marcan con un
 // UPDATE ... RETURNING antes de enviar, así cada persona recibe uno por periodo aunque la tarea
 // corra dos veces. Si el servidor estuvo apagado, el recordatorio sale en cuanto arranca (esa
 // semana) y el resumen solo hasta el día 3 (después ya no tiene sentido).
@@ -65,9 +65,10 @@ async function enviarRecordatorios(): Promise<void> {
   const a = ahoraEnZona();
   const enUnaSemana = fecha(a.year, a.month, a.day + 7);
   const { rows: personas } = await pool.query<{ id: number }>(
-    `UPDATE usuarios u SET ultimo_recordatorio = $1
-      WHERE u.recordatorio_semanal AND ${CUENTA_ACTIVA}
-        AND u.ultimo_recordatorio IS DISTINCT FROM $1::date
+    `UPDATE usuario_preferencias up SET ultimo_recordatorio = $1
+       FROM usuarios u
+      WHERE u.id = up.usuario_id AND up.recordatorio_semanal AND ${CUENTA_ACTIVA}
+        AND up.ultimo_recordatorio IS DISTINCT FROM $1::date
       RETURNING u.id`,
     [semana],
   );
@@ -117,9 +118,10 @@ async function enviarResumenes(): Promise<void> {
   const mes = mesDelResumen();
   if (!mes) return;
   const { rows: personas } = await pool.query<{ id: number; intereses: unknown; state: string | null; city: string | null }>(
-    `UPDATE usuarios u SET ultimo_resumen = $1
-      WHERE u.resumen_mensual AND ${CUENTA_ACTIVA}
-        AND u.ultimo_resumen IS DISTINCT FROM $1::date
+    `UPDATE usuario_preferencias up SET ultimo_resumen = $1
+       FROM usuarios u
+      WHERE u.id = up.usuario_id AND up.resumen_mensual AND ${CUENTA_ACTIVA}
+        AND up.ultimo_resumen IS DISTINCT FROM $1::date
       RETURNING u.id, u.intereses, u.state, u.city`,
     [mes.periodo],
   );

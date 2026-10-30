@@ -3,6 +3,7 @@
 
 import { NextResponse } from "next/server";
 import { pool } from "@/lib/db";
+import { columnasDeArchivo } from "@/lib/aportes/tabla-archivos";
 import { getSessionUser } from "@/lib/session";
 import { respuestasValidas, seccionesDelTipo, seccionesDesdeFila } from "@/lib/campanas/checklist";
 import { bloqueoEnCampanaDelAporte, marcarInapropiado, quitarMarcaInapropiado } from "@/lib/aportes/sanciones-anonimas";
@@ -52,7 +53,7 @@ function mapReporte(row: Record<string, unknown>) {
 
 async function loadAporteWithCampaign(id: string) {
   const result = await pool.query(
-    `SELECT a.*, c.creator_id AS campaign_creator_id, c.name AS campaign_name, c.collection_mode AS campaign_collection_mode, c.checklist_opciones AS campaign_checklist_opciones, c.checklist_secciones AS campaign_checklist_secciones,
+    `SELECT a.*, ${columnasDeArchivo("a")}, c.creator_id AS campaign_creator_id, c.name AS campaign_name, c.collection_mode AS campaign_collection_mode, c.checklist_opciones AS campaign_checklist_opciones, c.checklist_secciones AS campaign_checklist_secciones,
             rs.created_at AS reporte_en, COALESCE(rs.descripcion, rs.motivo) AS reporte_motivo,
             TRIM(CONCAT(ru.nombre, ' ', ru.apellidos)) AS reporte_revisor
      FROM aportes a
@@ -185,7 +186,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
           reviewed_at = NOW(),
           updated_at = NOW()
         WHERE id = $1 AND status = ANY($7::text[])
-        RETURNING *`,
+        RETURNING *, ${columnasDeArchivo()}`,
         [
           id,
           nuevoEstado,
@@ -296,7 +297,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     // status en el WHERE: si lo decidieron mientras editaba, ya no se toca.
     const result = await pool.query(
       `UPDATE aportes SET description = $2, caracteristicas = $3::jsonb, updated_at = NOW()
-       WHERE id = $1 AND status = 'pendiente' RETURNING *`,
+       WHERE id = $1 AND status = 'pendiente' RETURNING *, ${columnasDeArchivo()}`,
       [id, description, JSON.stringify(caracteristicas)]
     );
     if (result.rowCount === 0) {

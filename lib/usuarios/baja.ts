@@ -230,7 +230,10 @@ async function ejecutarBaja(usuarioId: number): Promise<void> {
          WHERE c.id = a.campaign_id
            AND a.user_id = $1
            AND NOT (a.status = 'aceptado' AND c.status = 'finalizada')
-         RETURNING a.campaign_id, a.file_path, a.archivo_borrado_en`,
+         -- El trigger borra su fila de archivos al final de la sentencia; aquí todavía se lee.
+         RETURNING a.campaign_id,
+                   (SELECT ar.ruta FROM archivos ar WHERE ar.id = a.archivo_id) AS file_path,
+                   (SELECT ar.borrado_en FROM archivos ar WHERE ar.id = a.archivo_id) AS archivo_borrado_en`,
         [usuarioId]
       );
       aportesBorrados = borrados.rowCount ?? 0;

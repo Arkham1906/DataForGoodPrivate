@@ -24,6 +24,16 @@ erDiagram
         timestamp created_at
         timestamp updated_at
     }
+    USUARIO_PREFERENCIAS {
+        int usuario_id PK,FK
+        boolean avisos_campanas_nuevas
+        boolean avisos_aportes
+        boolean recordatorio_semanal
+        boolean resumen_mensual
+        boolean notificaciones_activas
+        date ultimo_recordatorio
+        date ultimo_resumen
+    }
     CODIGOS_USUARIO {
         int usuario_id PK, FK
         varchar proposito PK
@@ -61,11 +71,6 @@ erDiagram
         jsonb checklist_opciones
         int goal_contributions
         int quota_per_user
-        int current_contributions
-        int approved_contributions
-        int pending_contributions
-        int rejected_contributions
-        int participants
         date start_date
         time start_time
         date end_date
@@ -74,9 +79,27 @@ erDiagram
         varchar location_state
         varchar organizer
         int xp_per_contribution
-        boolean is_special
         timestamp created_at
         timestamp updated_at
+    }
+
+    CAMPANA_ESTADISTICAS {
+        int campana_id PK,FK
+        int current_contributions
+        int approved_contributions
+        int pending_contributions
+        int rejected_contributions
+        int participants
+        int downloads_count
+        smallint ultimo_hito_avisado
+    }
+
+    CAMPANA_ESPECIAL {
+        int campana_id PK,FK
+        date inicio
+        date fin
+        smallint multiplicador
+        varchar insignia
     }
 
     CAMPANA_SUPERVISORES {
@@ -142,10 +165,7 @@ erDiagram
         varchar participant_email
         text description
         varchar file_type
-        varchar file_path
-        varchar file_original_name
-        varchar file_mime_type
-        int file_size_bytes
+        int archivo_id FK
         jsonb caracteristicas
         varchar status
         text rejection_reason
@@ -154,6 +174,16 @@ erDiagram
         timestamp reviewed_at
         timestamp created_at
         timestamp updated_at
+    }
+
+    ARCHIVOS {
+        int id PK
+        varchar ruta
+        varchar nombre_original
+        varchar mime
+        int tamano_bytes
+        timestamptz borrado_en
+        timestamptz creado_en
     }
 
     SANCIONES {
@@ -170,6 +200,7 @@ erDiagram
 
     USUARIOS ||--o{ SESSIONS : "inicia sesion"
     USUARIOS ||--o{ CODIGOS_USUARIO : "recibe codigos"
+    USUARIOS ||--|| USUARIO_PREFERENCIAS : "tiene preferencias"
     USUARIOS ||--o{ CAMPANAS : "crea"
     USUARIOS o|--o{ CAMPANAS : "supervisa"
     USUARIOS ||--o{ CAMPANA_SUPERVISORES : "realiza acciones"
@@ -186,6 +217,9 @@ erDiagram
     CAMPANAS ||--o{ CAMPANAS_GUARDADAS : "es guardada"
     USUARIOS o|--o{ APORTES : "envia"
     CAMPANAS ||--o{ APORTES : "recibe"
+    CAMPANAS ||--|| CAMPANA_ESTADISTICAS : "lleva contadores"
+    CAMPANAS ||--o| CAMPANA_ESPECIAL : "puede ser especial"
+    ARCHIVOS |o--o| APORTES : "guarda el archivo de"
     USUARIOS ||--o{ SANCIONES : "recibe sanciones"
 
     %% ROOT_SESSIONS no tiene FK: representa sesiones del SuperUsuario.

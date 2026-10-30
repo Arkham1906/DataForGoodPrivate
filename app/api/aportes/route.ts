@@ -5,6 +5,7 @@ import { normalizarFormatosDeDocumento } from "@/lib/aportes/archivo";
 import { NextResponse } from "next/server";
 import { pool } from "@/lib/db";
 import { columnasCalculadas } from "@/lib/campanas/tipos-de-campana";
+import { columnasDeArchivo, registrarArchivo } from "@/lib/aportes/tabla-archivos";
 import { getSessionUser } from "@/lib/session";
 import { estaBaneadoDeCampana } from "@/lib/campanas/baneos";
 import { respuestasValidas, seccionesDelTipo, seccionesDesdeFila } from "@/lib/campanas/checklist";
@@ -84,12 +85,12 @@ export async function GET(request: Request) {
 
     const result = mine
       ? await pool.query(
-          `SELECT * FROM aportes WHERE campaign_id = $1 AND user_id = $2 ORDER BY submitted_at DESC`,
+          `SELECT *, ${columnasDeArchivo()} FROM aportes WHERE campaign_id = $1 AND user_id = $2 ORDER BY submitted_at DESC`,
           [campaignId, user.id]
         )
       : reviewer
         ? await pool.query(
-            `SELECT * FROM aportes
+            `SELECT *, ${columnasDeArchivo()} FROM aportes
              WHERE campaign_id = $1
                AND user_id IS DISTINCT FROM $2
                AND (status = 'pendiente' OR first_pass_by_user_id = $2)
@@ -97,7 +98,7 @@ export async function GET(request: Request) {
             [campaignId, user.id]
           )
       : await pool.query(
-          `SELECT * FROM aportes WHERE campaign_id = $1 ORDER BY submitted_at DESC`,
+          `SELECT *, ${columnasDeArchivo()} FROM aportes WHERE campaign_id = $1 ORDER BY submitted_at DESC`,
           [campaignId]
         );
 
@@ -219,14 +220,16 @@ export async function POST(request: Request) {
         return Number(rows[0]?.count ?? 0);
       },
       insertar: async (client) => {
+        // El archivo va a la tabla archivos (2026-10-30). Sin nombre original: el del teléfono puede
+        // traer nombres o fechas, y nadie lo usa. Aporte de solo texto: sin archivo (archivo_id NULL).
+        const archivoId = await registrarArchivo(client, saved);
         const { rows } = await client.query(
           `INSERT INTO aportes (
             campaign_id, user_id, participant_name, participant_email, description,
-            file_type, file_path, file_original_name, file_mime_type, file_size_bytes, caracteristicas, enlace_id,
-            consentimiento_en
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12,
+            file_type, archivo_id, caracteristicas, enlace_id, consentimiento_en
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9,
             (SELECT aceptada_en FROM campana_inscripciones WHERE campana_id = $1 AND usuario_id = $2))
-          RETURNING *`,
+          RETURNING *, ${columnasDeArchivo()}`,
           [
             campaignId,
             user.id,
@@ -234,12 +237,7 @@ export async function POST(request: Request) {
             user.email,
             description,
             tipo,
-            // Aporte de solo texto: sin archivo ('', como ya lo leen los datos abiertos).
-            saved?.relativePath ?? "",
-            // Sin nombre original: el del teléfono puede traer nombres o fechas, y nadie lo usa.
-            null,
-            saved?.mimeType ?? null,
-            saved?.sizeBytes ?? null,
+            archivoId,
             JSON.stringify(caracteristicas),
             enlaceId,
           ]
