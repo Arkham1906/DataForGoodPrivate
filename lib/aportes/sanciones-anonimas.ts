@@ -239,8 +239,10 @@ export async function borrarArchivoDeAporteAnonimo(
   let campanaId: number;
   try {
     await client.query("BEGIN");
-    const { rows } = await client.query<{ file_path: string; archivo_borrado_en: Date | null; campaign_id: number; status: string }>(
-      `SELECT file_path, archivo_borrado_en, campaign_id, status FROM aportes WHERE id = $1 AND user_id IS NULL FOR UPDATE`,
+    const { rows } = await client.query<{ archivo_id: number | null; file_path: string | null; archivo_borrado_en: Date | null; campaign_id: number; status: string }>(
+      `SELECT a.archivo_id, ar.ruta AS file_path, ar.borrado_en AS archivo_borrado_en, a.campaign_id, a.status
+         FROM aportes a LEFT JOIN archivos ar ON ar.id = a.archivo_id
+        WHERE a.id = $1 AND a.user_id IS NULL FOR UPDATE OF a`,
       [aporteId]
     );
     const fila = rows[0];
@@ -250,8 +252,10 @@ export async function borrarArchivoDeAporteAnonimo(
       return impedimento;
     }
 
-    await borrarArchivo(fila.file_path);
-    await client.query(`UPDATE aportes SET archivo_borrado_en = NOW(), updated_at = NOW() WHERE id = $1`, [aporteId]);
+    if (fila.file_path) await borrarArchivo(fila.file_path);
+    // La fila del archivo se conserva con borrado_en (tabla archivos, 2026-10-30); updated_at avisa a las pantallas.
+    await client.query(`UPDATE archivos SET borrado_en = NOW() WHERE id = $1`, [fila.archivo_id]);
+    await client.query(`UPDATE aportes SET updated_at = NOW() WHERE id = $1`, [aporteId]);
     await client.query("COMMIT");
     campanaId = fila.campaign_id;
   } catch (error) {

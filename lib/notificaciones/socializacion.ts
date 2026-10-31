@@ -71,7 +71,9 @@ async function enTandas<T>(lista: T[], aviso: (elemento: T) => Promise<void>): P
 
 async function enviarAvance(campanaId: number): Promise<void> {
   const leida = await pool.query<{ aceptados: number; meta: number }>(
-    `SELECT approved_contributions AS aceptados, goal_contributions AS meta FROM campanas WHERE id = $1 AND status = 'activa'`,
+    `SELECT est.approved_contributions AS aceptados, c.goal_contributions AS meta
+       FROM campanas c JOIN campana_estadisticas est ON est.campana_id = c.id
+      WHERE c.id = $1 AND c.status = 'activa'`,
     [campanaId],
   );
   const fila = leida.rows[0];
@@ -81,7 +83,10 @@ async function enviarAvance(campanaId: number): Promise<void> {
 
   // Se marca antes de enviar: solo quien lo cambia avisa.
   const marcada = await pool.query<{ name: string; creator_id: number }>(
-    `UPDATE campanas SET ultimo_hito_avisado = $2 WHERE id = $1 AND ultimo_hito_avisado < $2 RETURNING name, creator_id`,
+    `UPDATE campana_estadisticas est SET ultimo_hito_avisado = $2
+       FROM campanas c
+      WHERE est.campana_id = $1 AND c.id = est.campana_id AND est.ultimo_hito_avisado < $2
+      RETURNING c.name, c.creator_id`,
     [campanaId, hito],
   );
   const campana = marcada.rows[0];
@@ -136,9 +141,10 @@ async function enviarRelacionada(campanaId: number): Promise<void> {
        JOIN campanas x ON x.id = cx.campana_id AND x.status IN ('activa', 'pausada')
        JOIN ${PARTICIPANTES} p ON p.campana_id = x.id
        JOIN usuarios u ON u.id = p.usuario_id
+       JOIN usuario_preferencias up ON up.usuario_id = u.id
       WHERE cy.campana_id = $1
         AND u.id <> $2
-        AND u.avisos_campanas_nuevas
+        AND up.avisos_campanas_nuevas
         AND ${PUEDE_RECIBIR}
         AND NOT EXISTS (SELECT 1 FROM ${PARTICIPANTES} ya WHERE ya.campana_id = $1 AND ya.usuario_id = u.id)
         AND NOT EXISTS (SELECT 1 FROM notificaciones n WHERE n.usuario_id = u.id AND n.campana_id = $1

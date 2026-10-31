@@ -4,7 +4,7 @@
 import { NextResponse } from "next/server";
 import { pool } from "@/lib/db";
 import { getSessionUser } from "@/lib/session";
-import { normalizeRoles } from "@/lib/roles";
+import { agregarRol } from "@/lib/usuarios/tabla-roles";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { notificar } from "@/lib/notificaciones/notificaciones";
 
@@ -41,12 +41,11 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
         return NextResponse.json({ error: "La invitación ya no está disponible" }, { status: 409 });
       }
 
-      const roles = Array.isArray(user.role) ? user.role : [];
-      const nextRoles = normalizeRoles([...roles, "revisor"]);
-      await client.query(`UPDATE usuarios SET role = $2::jsonb, updated_at = NOW() WHERE id = $1`, [user.id, JSON.stringify(nextRoles)]);
+      await agregarRol(client, Number(user.id), "revisor");
       campana = (
         await client.query(
-          `UPDATE campanas SET has_reviewer_assigned = true, updated_at = NOW() WHERE id = $1 RETURNING creator_id, name`,
+          // "Tiene revisor" se calcula de campana_revisores (2026-10-30); updated_at avisa a las pantallas abiertas.
+          `UPDATE campanas SET updated_at = NOW() WHERE id = $1 RETURNING creator_id, name`,
           [campaignId]
         )
       ).rows[0];

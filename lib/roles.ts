@@ -1,4 +1,5 @@
-// Códigos de rol válidos en usuarios.role (JSONB): usuario, supervisor, revisor, admin.
+// Códigos de rol válidos (tabla usuario_roles desde el 2026-10-30, lib/usuarios/tabla-roles.ts): usuario,
+// supervisor, revisor, admin.
 // Los nombres para mostrar están en lib/usuarios/rol-asignable.ts.
 
 export const VALID_ROLES = new Set(["usuario", "supervisor", "revisor", "admin"]);

@@ -29,7 +29,7 @@ async function contarFilas(sql: string): Promise<number> {
 async function haySupervisoresActivos(): Promise<boolean> {
   try {
     const { rows } = await pool.query(
-      `SELECT EXISTS (SELECT 1 FROM usuarios WHERE role @> '["supervisor"]'::jsonb) AS existe`
+      `SELECT EXISTS (SELECT 1 FROM usuario_roles WHERE rol = 'supervisor') AS existe`
     );
     return Boolean(rows[0]?.existe);
   } catch {

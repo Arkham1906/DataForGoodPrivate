@@ -15,10 +15,10 @@ export async function avisarAportesRecibidos(campanaId: number | string, total: 
   if (total <= 0 || total % APORTES_POR_AVISO !== 0) return;
   try {
     const { rows } = await pool.query<{ creator_id: number; name: string; pendientes: number; ultimo: number | null }>(
-      `SELECT c.creator_id, c.name, c.pending_contributions AS pendientes,
+      `SELECT c.creator_id, c.name, est.pending_contributions AS pendientes,
               (SELECT MAX((n.metadata->>'total')::int) FROM notificaciones n
                WHERE n.usuario_id = c.creator_id AND n.campana_id = c.id AND n.tipo = 'aportes_recibidos') AS ultimo
-       FROM campanas c WHERE c.id = $1`,
+       FROM campanas c JOIN campana_estadisticas est ON est.campana_id = c.id WHERE c.id = $1`,
       [campanaId],
     );
     const campana = rows[0];

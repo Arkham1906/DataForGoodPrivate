@@ -55,10 +55,11 @@ export async function GET(request: Request) {
         return NextResponse.redirect(absoluteUrl(conDestino("/entrar?error=correo_bloqueado", destino)));
       }
       const inserted = await pool.query(
-        `INSERT INTO usuarios (nombre, apellidos, email, password_hash, google_id, email_verificado, role, xp_total, level, streak_days)
-         VALUES ($1, $2, $3, NULL, $4, true, $5::jsonb, 0, 1, 0)
+        `INSERT INTO usuarios (nombre, apellidos, email, password_hash, google_id, email_verificado, xp_total, level, streak_days)
+         VALUES ($1, $2, $3, NULL, $4, true, 0, 1, 0)
          RETURNING id`,
-        [profile.givenName, profile.familyName, profile.email, profile.googleId, JSON.stringify(["usuario"])]
+        // El rol "usuario" lo da el trigger de usuario_roles (2026-10-30).
+        [profile.givenName, profile.familyName, profile.email, profile.googleId]
       );
       usuarioId = inserted.rows[0].id;
     }

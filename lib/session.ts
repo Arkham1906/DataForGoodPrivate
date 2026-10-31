@@ -8,6 +8,7 @@ import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { pool } from "@/lib/db";
+import { columnaDeRoles } from "@/lib/usuarios/tabla-roles";
 import {
   SQL_SANCION_BLOQUEANTE,
   contarSanciones,
@@ -87,8 +88,12 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
 
   const result = await pool.query(
     `SELECT u.id, u.nombre, u.apellidos, u.email, u.state, u.city, u.specialty, u.organizacion,
-            u.intereses, u.intereses_texto, u.role, u.xp_total, u.level, u.streak_days, u.bienvenida_vista, u.email_verificado,
-            u.avatar, u.avatar_foto, u.avisos_campanas_nuevas, u.avisos_aportes, u.recordatorio_semanal, u.resumen_mensual, u.notificaciones_activas,
+            u.intereses, u.intereses_texto, ${columnaDeRoles("u")}, u.xp_total, u.level, u.streak_days, u.bienvenida_vista, u.email_verificado,
+            u.avatar, u.avatar_foto,
+            -- Preferencias de /cuenta (usuario_preferencias desde el 2026-10-30; los valores por defecto si faltara la fila).
+            COALESCE(up.avisos_campanas_nuevas, true) AS avisos_campanas_nuevas, COALESCE(up.avisos_aportes, true) AS avisos_aportes,
+            COALESCE(up.recordatorio_semanal, false) AS recordatorio_semanal, COALESCE(up.resumen_mensual, true) AS resumen_mensual,
+            COALESCE(up.notificaciones_activas, true) AS notificaciones_activas,
           (u.password_hash IS NOT NULL) AS tiene_contrasena,
           EXISTS (
             SELECT 1 FROM campana_revisores cr
@@ -96,6 +101,7 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
           ) AS tiene_asignacion_revisor
      FROM sessions s
      JOIN usuarios u ON u.id = s.usuario_id
+     LEFT JOIN usuario_preferencias up ON up.usuario_id = u.id
      WHERE s.token_hash = $1 AND s.expires_at > NOW()
        -- Una cuenta suspendida o baneada deja de tener sesión válida.
        AND NOT ${SQL_SANCION_BLOQUEANTE}

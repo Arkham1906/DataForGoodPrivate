@@ -3,6 +3,8 @@
 
 import { NextResponse } from "next/server";
 import { pool } from "@/lib/db";
+import { columnasDeArchivo } from "@/lib/aportes/tabla-archivos";
+import { columnaDeChecklists, columnaDeRespuestas, guardarRespuestas } from "@/lib/campanas/tabla-checklists";
 import { getSessionUser } from "@/lib/session";
 import { respuestasValidas, seccionesDelTipo, seccionesDesdeFila } from "@/lib/campanas/checklist";
 import { bloqueoEnCampanaDelAporte, marcarInapropiado, quitarMarcaInapropiado } from "@/lib/aportes/sanciones-anonimas";
@@ -52,11 +54,14 @@ function mapReporte(row: Record<string, unknown>) {
 
 async function loadAporteWithCampaign(id: string) {
   const result = await pool.query(
-    `SELECT a.*, c.creator_id AS campaign_creator_id, c.name AS campaign_name, c.collection_mode AS campaign_collection_mode, c.checklist_opciones AS campaign_checklist_opciones, c.checklist_secciones AS campaign_checklist_secciones,
-            TRIM(CONCAT(ru.nombre, ' ', ru.apellidos)) AS reporte_revisor
+    `SELECT a.*, ${columnasDeArchivo("a")}, ${columnaDeRespuestas("a")}, c.creator_id AS campaign_creator_id, c.name AS campaign_name, c.collection_mode AS campaign_collection_mode, ${columnaDeChecklists("c", "campaign_checklist_secciones")},
+            rs.created_at AS reporte_en, COALESCE(rs.descripcion, rs.motivo) AS reporte_motivo,
+            TRIM(CONCAT(ru.nombre, ' ', ru.apellidos)) AS reporte_revisor, rs.reportado_por AS reporte_por_id
      FROM aportes a
      JOIN campanas c ON c.id = a.campaign_id
-     LEFT JOIN usuarios ru ON ru.id = a.reporte_por
+     -- "Reportar a supervisión" (2026-10-30: en reportes con origen 'supervision', antes aportes.reporte_*).
+     LEFT JOIN reportes rs ON rs.tipo = 'aporte' AND rs.aporte_id = a.id AND rs.origen = 'supervision'
+     LEFT JOIN usuarios ru ON ru.id = rs.reportado_por
      WHERE a.id = $1
      LIMIT 1`,
     [id]
@@ -98,8 +103,11 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
         canReview,
         ...(isOwner || isCampaignCreator ? { participantEmail } : {}),
         ...(isCampaignCreator ? { dispositivoBloqueadoId: bloqueoId != null ? String(bloqueoId) : null } : {}),
-        // "Reportar a supervisión" del revisor: desde el 2026-10-15 el creador no lo ve, solo los revisores.
-        ...(isReviewer ? { reporte: mapReporte(row) } : {}),
+        // "Reportar a supervisión": el revisor lo ve siempre; el creador, solo si lo hizo él (2026-10-30). El
+        // de un revisor no se lo muestra (2026-10-15).
+        ...(isReviewer || (isCampaignCreator && Number(row.reporte_por_id) === Number(user.id))
+          ? { reporte: mapReporte(row) }
+          : {}),
         // Ya reportó a quien aportó a la plataforma (POST /api/aportes/[id]/reportar-participante).
         ...(isCampaignCreator || isReviewer
           ? { participanteReportado: await yaReporto({ tipo: "aporte", id: Number(row.id) }, Number(user.id)) }
@@ -182,7 +190,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
           reviewed_at = NOW(),
           updated_at = NOW()
         WHERE id = $1 AND status = ANY($7::text[])
-        RETURNING *`,
+        RETURNING *, ${columnasDeArchivo()}, ${columnaDeRespuestas()}`,
         [
           id,
           nuevoEstado,
@@ -281,7 +289,6 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
 
     const secciones = seccionesDesdeFila({
       checklist_secciones: row.campaign_checklist_secciones,
-      checklist_opciones: row.campaign_checklist_opciones,
       collection_mode: row.campaign_collection_mode,
     });
     // Solo los checklists del tipo de su archivo (2026-10-28).
@@ -292,13 +299,16 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
 
     // status en el WHERE: si lo decidieron mientras editaba, ya no se toca.
     const result = await pool.query(
-      `UPDATE aportes SET description = $2, caracteristicas = $3::jsonb, updated_at = NOW()
-       WHERE id = $1 AND status = 'pendiente' RETURNING *`,
-      [id, description, JSON.stringify(caracteristicas)]
+      `UPDATE aportes SET description = $2, updated_at = NOW()
+       WHERE id = $1 AND status = 'pendiente' RETURNING *, ${columnasDeArchivo()}`,
+      [id, description]
     );
     if (result.rowCount === 0) {
       return NextResponse.json({ error: "Ya no puedes editar un aporte que entró a revisión" }, { status: 400 });
     }
+    // Lo que marcó en los checklists (tabla aporte_respuestas, 2026-10-30).
+    await guardarRespuestas(pool, { id, campanaId: row.campaign_id, tipo: String(row.file_type ?? "") }, caracteristicas);
+    result.rows[0].caracteristicas = caracteristicas;
 
     return NextResponse.json({ message: "Aporte actualizado", data: mapAporte(result.rows[0]) });
   } catch (error) {

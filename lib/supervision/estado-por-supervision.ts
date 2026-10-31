@@ -37,7 +37,8 @@ export async function cambiarEstadoPorSupervision(
   autor: AutorDeDecision,
 ): Promise<ResultadoDeCambioDeEstado> {
   const existente = await pool.query(
-    `SELECT id, status, creator_id, name, supervisor_id, supervisado_por_root, start_date, start_time, end_date, end_time, pausa_por, is_special
+    `SELECT id, status, creator_id, name, supervisor_id, supervisado_por_root, start_date, start_time, end_date, end_time, pausa_por,
+            EXISTS (SELECT 1 FROM campana_especial ce WHERE ce.campana_id = campanas.id) AS is_special
      FROM campanas WHERE id = $1 LIMIT 1`,
     [campanaId],
   );

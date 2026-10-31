@@ -35,11 +35,10 @@ const SERIE_POR_RANGO: Record<RangoDeFechas, { unidad: "day" | "week" | "month";
   "12m": { unidad: "month", cubetas: 12, titulo: "Recolección mensual · últimos 12 meses" },
 };
 
-// submitted_at es TIMESTAMP en UTC (TimeZone del servidor de Postgres). Para
-// agrupar por día se pasa a la hora de Tepic: un aporte de las 8 p. m. no debe
-// caer en el día siguiente.
+// submitted_at es TIMESTAMPTZ (desde el 2026-10-30). Para agrupar por día se pasa
+// a la hora de Tepic: un aporte de las 8 p. m. no debe caer en el día siguiente.
 const ZONA = "America/Mazatlan";
-const FECHA_LOCAL = `((a.submitted_at AT TIME ZONE 'UTC') AT TIME ZONE '${ZONA}')`;
+const FECHA_LOCAL = `(a.submitted_at AT TIME ZONE '${ZONA}')`;
 
 // Las etiquetas salen de "YYYY-MM-DD" ya en hora local: se formatean en UTC
 // para no correrlas un día.

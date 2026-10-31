@@ -26,9 +26,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       );
     }
 
-    // Las columnas salen de la lista fija, nunca del body.
+    // Las columnas salen de la lista fija, nunca del body. Tabla usuario_preferencias desde el 2026-10-30.
     const asignaciones = cambios.map((o, i) => `${o.columna} = $${i + 2}`).join(", ");
-    await pool.query(`UPDATE usuarios SET ${asignaciones}, updated_at = NOW() WHERE id = $1`, [
+    await pool.query(`UPDATE usuario_preferencias SET ${asignaciones} WHERE usuario_id = $1`, [
       user.id,
       ...cambios.map((o) => body[o.clave] as boolean),
     ]);

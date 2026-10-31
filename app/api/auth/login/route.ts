@@ -3,6 +3,7 @@
 
 import { NextResponse } from "next/server";
 import { pool } from "@/lib/db";
+import { columnaDeRoles } from "@/lib/usuarios/tabla-roles";
 import { createSession } from "@/lib/session";
 import { cancelarBajaSiPendiente } from "@/lib/usuarios/baja";
 import { verifyPassword, hashPassword, wasLegacyHash, MAX_FAILED_ATTEMPTS, LOCK_DURATION_MS } from "@/lib/password";
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
     }
 
     const result = await pool.query(
-      `SELECT id, nombre, apellidos, email, password_hash, state, city, specialty, intereses, role,
+      `SELECT id, nombre, apellidos, email, password_hash, state, city, specialty, intereses, ${columnaDeRoles()},
               xp_total, level, streak_days, email_verificado, failed_login_attempts, locked_until
        FROM usuarios
        WHERE email = $1

@@ -785,11 +785,7 @@ function CampanaFormulario({
               participants: 0,
               xpPerContribution: 50,
               isSpecial: false,
-              daysRemaining: null,
               hasReviewerAssigned: false,
-              shareToken: "",
-              shareTokenExpiresAt: null,
-              aportes: [],
             }),
           });
 

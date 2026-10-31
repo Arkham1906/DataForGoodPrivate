@@ -4,6 +4,7 @@
  */
 
 import { pool } from "@/lib/db";
+import { condicionDeRol } from "@/lib/usuarios/tabla-roles";
 
 export type TipoDeAccion =
   // Lo que hoy hace un supervisor (supervision.tomar / supervision.dictaminar en audit_log).
@@ -330,7 +331,7 @@ const ACCIONES_DE_SUPERVISOR = `('supervision.tomar', 'supervision.dictaminar')`
 
 // Tiene el rol, o lo tuvo y dejó rastro. `u` es la fila de usuarios.
 const ES_O_FUE_SUPERVISOR = `(
-  u.role @> '["supervisor"]'::jsonb
+  ${condicionDeRol("u", "'supervisor'")}
   OR EXISTS (SELECT 1 FROM campanas c WHERE c.supervisor_id = u.id)
   OR EXISTS (SELECT 1 FROM audit_log a
     WHERE a.actor_tipo = 'usuario' AND a.actor_id = u.id AND a.accion IN ${ACCIONES_DE_SUPERVISOR})
@@ -353,7 +354,7 @@ type FilaSupervisorDB = {
 // Datos de cada supervisor en una sola consulta; `u` es la fila de usuarios.
 const COLUMNAS_DE_SUPERVISOR = `
   u.id, u.nombre, u.apellidos, u.email,
-  u.role @> '["supervisor"]'::jsonb AS con_rol,
+  ${condicionDeRol("u", "'supervisor'")} AS con_rol,
   (SELECT MAX(a.created_at) FROM audit_log a
     WHERE a.accion = 'rol.asignar' AND a.objetivo_tipo = 'usuario'
       AND a.objetivo_id = u.id::text AND a.detalle->>'rol' = 'SUPERVISOR') AS desde,
@@ -391,7 +392,7 @@ export async function obtenerResumenDeSupervisores(): Promise<ResumenDeSuperviso
     // "Con rol activo" son quienes lo tienen hoy; lo demás incluye a quienes lo tuvieron.
     const result = await pool.query<{ con_rol: string; campanas: string; acciones: string; revertidas: string }>(
       `SELECT
-         (SELECT COUNT(*) FROM usuarios WHERE role @> '["supervisor"]'::jsonb) AS con_rol,
+         (SELECT COUNT(*) FROM usuario_roles WHERE rol = 'supervisor') AS con_rol,
          (SELECT COUNT(*) FROM campanas WHERE supervisor_id IS NOT NULL) AS campanas,
          (SELECT COUNT(*) FROM audit_log
            WHERE actor_tipo = 'usuario' AND accion IN ${ACCIONES_DE_SUPERVISOR}

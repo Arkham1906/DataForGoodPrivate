@@ -1,4 +1,5 @@
 import { pool } from "@/lib/db";
+import { columnaDeTipos, condicionDeTipo } from "@/lib/campanas/tipos-de-campana";
 import { activateScheduledCampaigns, finalizeExpiredCampaigns, normalizeCampaignDate } from "@/lib/campaign-date";
 import { hasRootSession } from "@/lib/rootSession";
 import {
@@ -42,7 +43,7 @@ async function prepararLectura(): Promise<void> {
  */
 const CAMPANAS_CON_CONTEOS = `
   SELECT c.id, c.name, COALESCE(NULLIF(c.tematica, ''), c.tag, '') AS tematica, c.creator_name,
-         c.data_types, c.status, c.goal_contributions, c.start_date, c.end_date, c.created_at,
+         ${columnaDeTipos("c")}, c.status, c.goal_contributions, c.start_date, c.end_date, c.created_at,
          COALESCE(a.aportes, 0)::int AS aportes,
          COALESCE(a.aprobados, 0)::int AS aprobados,
          COALESCE(a.participantes, 0)::int AS participantes
@@ -118,7 +119,7 @@ export async function buscarCampanas(f: FiltrosDeCampanas): Promise<{ filas: Fil
                WHERE ce.campana_id = base.id AND e.aprobada AND e.nombre = ${param(f.etiqueta)})`,
     );
   }
-  if (f.tipo) condiciones.push(`data_types ? ${param(f.tipo)}`);
+  if (f.tipo) condiciones.push(condicionDeTipo("base", param(f.tipo)));
   if (f.vigencia === "7d" || f.vigencia === "30d" || f.vigencia === "mas30") {
     const hoy = param(hoyLocal());
     condiciones.push(

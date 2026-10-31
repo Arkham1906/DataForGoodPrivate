@@ -40,6 +40,9 @@ export const CAMPOS_EDITABLES_EN_PAUSA = new Set([
   "name",
   "description",
   "tematica",
+  // Acompaña a `tematica` cuando el creador propone una nueva (2026-10-29); sin él, el formulario no
+  // podía guardar ninguna pausada (lo manda siempre, true o false).
+  "tematicaNueva",
   "tag",
   "proposito",
   "propositoOtro",

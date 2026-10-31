@@ -9,11 +9,11 @@ import { DIAS_PARA_NOTIFICACION_VIEJA, type Notificacion, type PaginaDeNotificac
 import { enviarPush } from "./push";
 import { publicarAviso } from "@/lib/en-vivo";
 
-/** Avisos que se apagan con la preferencia "Aportes" (usuarios.avisos_aportes). */
+/** Avisos que se apagan con la preferencia "Aportes" (usuario_preferencias.avisos_aportes). */
 const TIPOS_DE_APORTES: ReadonlySet<TipoDeNotificacion> = new Set(["aporte_aceptado", "aporte_rechazado"]);
 
 /**
- * Las que llegan aunque la persona apague "Notificaciones" (usuarios.notificaciones_activas, 2026-10-19):
+ * Las que llegan aunque la persona apague "Notificaciones" (usuario_preferencias.notificaciones_activas, 2026-10-19):
  * cambian lo que puede hacer en su cuenta, y la invitación de revisor solo se acepta desde la notificación.
  */
 export const NOTIFICACIONES_ESENCIALES: ReadonlySet<TipoDeNotificacion> = new Set([
@@ -49,7 +49,7 @@ export async function notificar(n: NuevaNotificacion): Promise<void> {
     // "Aportes" apagado, no se avisa del estado de sus aportes.
     if (!NOTIFICACIONES_ESENCIALES.has(n.tipo)) {
       const { rows } = await pool.query<{ todas: boolean; aportes: boolean }>(
-        `SELECT notificaciones_activas AS todas, avisos_aportes AS aportes FROM usuarios WHERE id = $1`,
+        `SELECT notificaciones_activas AS todas, avisos_aportes AS aportes FROM usuario_preferencias WHERE usuario_id = $1`,
         [n.usuarioId],
       );
       if (rows[0] && !rows[0].todas) return;

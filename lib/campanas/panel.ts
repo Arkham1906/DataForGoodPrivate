@@ -1,4 +1,5 @@
 import { pool } from "@/lib/db";
+import { columnaDeTipos } from "@/lib/campanas/tipos-de-campana";
 import { ZONA_DE_CAMPANAS, calculateCampaignDaysRemaining, hoyEnTepic, normalizeCampaignDate } from "@/lib/campaign-date";
 
 /*
@@ -62,7 +63,7 @@ function diasRecientes(dias: number): { clave: string; etiqueta: string }[] {
 
 export async function obtenerPanelDeCampana(campanaId: string | number): Promise<PanelDeCampana | null> {
   const campanaResult = await pool.query(
-    `SELECT id, name, status, start_date, end_date, goal_contributions, data_types FROM campanas WHERE id = $1 LIMIT 1`,
+    `SELECT id, name, status, start_date, end_date, goal_contributions, ${columnaDeTipos()} FROM campanas WHERE id = $1 LIMIT 1`,
     [campanaId],
   );
   if (campanaResult.rowCount === 0) return null;
@@ -81,12 +82,12 @@ export async function obtenerPanelDeCampana(campanaId: string | number): Promise
        FROM aportes WHERE campaign_id = $1`,
       [campanaId],
     ),
-    // submitted_at se guarda en UTC; el día se cuenta en la hora de Tepic (antes, desde las
-    // 17:00 de Tepic los aportes caían en el día siguiente).
+    // El día se cuenta en la hora de Tepic (antes, desde las 17:00 de Tepic los aportes caían en el
+    // día siguiente). submitted_at es TIMESTAMPTZ desde el 2026-10-30.
     pool.query<{ dia: string; n: string }>(
-      `SELECT to_char((submitted_at AT TIME ZONE 'UTC') AT TIME ZONE $3, 'YYYY-MM-DD') AS dia, COUNT(*) AS n
+      `SELECT to_char(submitted_at AT TIME ZONE $3, 'YYYY-MM-DD') AS dia, COUNT(*) AS n
        FROM aportes
-       WHERE campaign_id = $1 AND submitted_at >= ($2::date::timestamp AT TIME ZONE $3) AT TIME ZONE 'UTC'
+       WHERE campaign_id = $1 AND submitted_at >= ($2::date::timestamp AT TIME ZONE $3)
        GROUP BY 1`,
       [campanaId, desde, ZONA_DE_CAMPANAS],
     ),

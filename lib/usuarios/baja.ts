@@ -230,7 +230,10 @@ async function ejecutarBaja(usuarioId: number): Promise<void> {
          WHERE c.id = a.campaign_id
            AND a.user_id = $1
            AND NOT (a.status = 'aceptado' AND c.status = 'finalizada')
-         RETURNING a.campaign_id, a.file_path, a.archivo_borrado_en`,
+         -- El trigger borra su fila de archivos al final de la sentencia; aquí todavía se lee.
+         RETURNING a.campaign_id,
+                   (SELECT ar.ruta FROM archivos ar WHERE ar.id = a.archivo_id) AS file_path,
+                   (SELECT ar.borrado_en FROM archivos ar WHERE ar.id = a.archivo_id) AS archivo_borrado_en`,
         [usuarioId]
       );
       aportesBorrados = borrados.rowCount ?? 0;
@@ -272,14 +275,16 @@ async function ejecutarBaja(usuarioId: number): Promise<void> {
       `UPDATE usuarios
        SET nombre = $2, apellidos = '', email = 'eliminada-' || id || '@cuenta.invalid',
            password_hash = NULL, google_id = NULL, email_verificado = false,
-           state = NULL, city = NULL, specialty = NULL, intereses = '[]'::jsonb, role = '["usuario"]'::jsonb,
+           state = NULL, city = NULL, specialty = NULL, intereses = '[]'::jsonb,
            xp_total = 0, level = 1, streak_days = 0, avatar = NULL, avatar_foto = NULL,
            failed_login_attempts = 0, locked_until = NULL,
-           verification_code_hash = NULL, verification_code_expires_at = NULL, verification_attempts = 0,
            eliminada_en = NOW(), updated_at = NOW()
        WHERE id = $1`,
       [usuarioId, NOMBRE_CUENTA_ELIMINADA]
     );
+    await client.query(`DELETE FROM codigos_usuario WHERE usuario_id = $1`, [usuarioId]);
+    // Solo queda "usuario" (tabla usuario_roles, 2026-10-30).
+    await client.query(`DELETE FROM usuario_roles WHERE usuario_id = $1 AND rol <> 'usuario'`, [usuarioId]);
 
     await client.query("COMMIT");
   } catch (error) {

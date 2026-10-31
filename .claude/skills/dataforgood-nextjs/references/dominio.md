@@ -183,7 +183,7 @@ Fuente: pantalla de compartir del prototipo; hoy es el cuadro "Compartir" de `/c
     2. **Campaña:** el creador bloquea el dispositivo en su campaña ("Bloquear este dispositivo", misma API que el baneo). Solo por dispositivo, sin vencimiento; se quita desde "Participantes baneados".
     3. **Enlace:** regenerar el token y el interruptor "Permitir aportes sin cuenta" del cuadro Compartir (`campanas.permite_anonimos`). Apagado, `/c/[token]` solo invita a entrar o registrarse.
     4. **Plataforma:** 3 aportes inapropiados del mismo dispositivo en 30 días lo bloquean 30 días en todas las campañas (solo el dispositivo). El SuperUsuario lo ve y lo quita en `/usuarios/sanciones`. Todo queda en `audit_log`.
-  - Las columnas viejas `campanas.share_token`/`share_token_expires_at` ya no se usan.
+  - Las columnas viejas `campanas.share_token`/`share_token_expires_at` se borraron el 2026-10-30.
 
 ## 7. Experiencia (XP) y campañas especiales
 

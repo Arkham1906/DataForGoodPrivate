@@ -13,7 +13,6 @@ erDiagram
         varchar city
         varchar specialty
         jsonb intereses
-        jsonb role
         int xp_total
         int level
         int streak_days
@@ -21,11 +20,31 @@ erDiagram
         int failed_login_attempts
         timestamptz locked_until
         varchar google_id UK
-        varchar verification_code_hash
-        timestamptz verification_code_expires_at
-        int verification_attempts
         timestamp created_at
         timestamp updated_at
+    }
+    USUARIO_ROLES {
+        int usuario_id PK,FK
+        varchar rol PK
+        timestamptz asignado_en
+    }
+    USUARIO_PREFERENCIAS {
+        int usuario_id PK,FK
+        boolean avisos_campanas_nuevas
+        boolean avisos_aportes
+        boolean recordatorio_semanal
+        boolean resumen_mensual
+        boolean notificaciones_activas
+        date ultimo_recordatorio
+        date ultimo_resumen
+    }
+    CODIGOS_USUARIO {
+        int usuario_id PK, FK
+        varchar proposito PK
+        varchar codigo_hash
+        timestamptz vence_en
+        int intentos
+        timestamptz enviado_en
     }
     SESSIONS {
         int id PK
@@ -52,16 +71,9 @@ erDiagram
         varchar tematica
         varchar tag
         varchar status
-        jsonb data_types
         varchar collection_mode
-        jsonb checklist_opciones
         int goal_contributions
         int quota_per_user
-        int current_contributions
-        int approved_contributions
-        int pending_contributions
-        int rejected_contributions
-        int participants
         date start_date
         time start_time
         date end_date
@@ -70,13 +82,49 @@ erDiagram
         varchar location_state
         varchar organizer
         int xp_per_contribution
-        boolean is_special
-        int days_remaining
-        boolean has_reviewer_assigned
-        varchar share_token
-        timestamptz share_token_expires_at
         timestamp created_at
         timestamp updated_at
+    }
+
+    CAMPANA_ESTADISTICAS {
+        int campana_id PK,FK
+        int current_contributions
+        int approved_contributions
+        int pending_contributions
+        int rejected_contributions
+        int participants
+        int downloads_count
+        smallint ultimo_hito_avisado
+    }
+
+    CAMPANA_CHECKLISTS {
+        int id PK
+        int campana_id FK
+        varchar titulo
+        varchar tipo
+        smallint orden
+        timestamptz retirado_en
+    }
+
+    CHECKLIST_OPCIONES {
+        int id PK
+        int checklist_id FK
+        varchar texto
+        smallint orden
+        timestamptz retirada_en
+    }
+
+    APORTE_RESPUESTAS {
+        int aporte_id PK,FK
+        int opcion_id PK,FK
+    }
+
+    CAMPANA_ESPECIAL {
+        int campana_id PK,FK
+        date inicio
+        date fin
+        smallint multiplicador
+        varchar insignia
     }
 
     CAMPANA_SUPERVISORES {
@@ -86,6 +134,15 @@ erDiagram
         varchar accion
         text motivo
         timestamptz created_at
+    }
+
+    CAMPANA_TIPOS {
+        int campana_id PK,FK
+        varchar tipo PK
+        smallint orden
+        int limite
+        int enviados
+        jsonb formatos
     }
 
     CAMPANA_REVISORES {
@@ -133,11 +190,7 @@ erDiagram
         varchar participant_email
         text description
         varchar file_type
-        varchar file_path
-        varchar file_original_name
-        varchar file_mime_type
-        int file_size_bytes
-        jsonb caracteristicas
+        int archivo_id FK
         varchar status
         text rejection_reason
         varchar first_pass_by
@@ -145,6 +198,16 @@ erDiagram
         timestamp reviewed_at
         timestamp created_at
         timestamp updated_at
+    }
+
+    ARCHIVOS {
+        int id PK
+        varchar ruta
+        varchar nombre_original
+        varchar mime
+        int tamano_bytes
+        timestamptz borrado_en
+        timestamptz creado_en
     }
 
     SANCIONES {
@@ -160,12 +223,16 @@ erDiagram
     }
 
     USUARIOS ||--o{ SESSIONS : "inicia sesion"
+    USUARIOS ||--o{ CODIGOS_USUARIO : "recibe codigos"
+    USUARIOS ||--|| USUARIO_PREFERENCIAS : "tiene preferencias"
+    USUARIOS ||--|{ USUARIO_ROLES : "tiene roles"
     USUARIOS ||--o{ CAMPANAS : "crea"
     USUARIOS o|--o{ CAMPANAS : "supervisa"
     USUARIOS ||--o{ CAMPANA_SUPERVISORES : "realiza acciones"
     CAMPANAS ||--o{ CAMPANA_SUPERVISORES : "tiene historial"
     USUARIOS ||--o{ CAMPANA_REVISORES : "es revisor"
     CAMPANAS ||--o{ CAMPANA_REVISORES : "asigna revisores"
+    CAMPANAS ||--o{ CAMPANA_TIPOS : "pide tipos de dato"
     USUARIOS ||--o{ CAMPANA_BANEADOS : "es baneado"
     USUARIOS ||--o{ CAMPANA_BANEADOS : "banea"
     CAMPANAS ||--o{ CAMPANA_BANEADOS : "restringe usuarios"
@@ -175,6 +242,13 @@ erDiagram
     CAMPANAS ||--o{ CAMPANAS_GUARDADAS : "es guardada"
     USUARIOS o|--o{ APORTES : "envia"
     CAMPANAS ||--o{ APORTES : "recibe"
+    CAMPANAS ||--|| CAMPANA_ESTADISTICAS : "lleva contadores"
+    CAMPANAS ||--o| CAMPANA_ESPECIAL : "puede ser especial"
+    ARCHIVOS |o--o| APORTES : "guarda el archivo de"
+    CAMPANAS ||--o{ CAMPANA_CHECKLISTS : "pide checklists"
+    CAMPANA_CHECKLISTS ||--o{ CHECKLIST_OPCIONES : "tiene opciones"
+    APORTES ||--o{ APORTE_RESPUESTAS : "marca"
+    CHECKLIST_OPCIONES ||--o{ APORTE_RESPUESTAS : "es marcada en"
     USUARIOS ||--o{ SANCIONES : "recibe sanciones"
 
     %% ROOT_SESSIONS no tiene FK: representa sesiones del SuperUsuario.

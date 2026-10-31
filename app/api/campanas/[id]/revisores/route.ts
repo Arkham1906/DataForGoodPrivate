@@ -11,7 +11,7 @@ import { notificar } from "@/lib/notificaciones/notificaciones";
 import { quitarRevisor } from "@/lib/campanas/revisores";
 
 // La invitación a revisor es por campaña (campana_revisores), no por el rol
-// global en usuarios.role: esta lista es lo que debe usar la pantalla de
+// global en usuario_roles: esta lista es lo que debe usar la pantalla de
 // "Agregar revisor" para saber a quién ya se invitó/aceptó en ESTA campaña,
 // en vez del rol global (eso bloqueaba invitar a alguien que ya es revisor
 // de OTRA campaña, o que tiene el rol por una asignación vieja).
@@ -89,7 +89,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       return NextResponse.json({ error: "No puedes invitar al creador de la campaña" }, { status: 400 });
     }
 
-    const candidate = await pool.query(`SELECT id, nombre, apellidos, role FROM usuarios WHERE id = $1 LIMIT 1`, [usuarioId]);
+    const candidate = await pool.query(`SELECT id, nombre, apellidos FROM usuarios WHERE id = $1 LIMIT 1`, [usuarioId]);
     if (candidate.rowCount === 0) return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
 
     const existing = await pool.query(

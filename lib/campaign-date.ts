@@ -185,7 +185,8 @@ export async function activateScheduledCampaigns(): Promise<void> {
        FROM listas l LEFT JOIN activas a ON a.creator_id = l.creator_id
        WHERE c.id = l.id
          AND (l.creator_id IS NULL OR COALESCE(a.n, 0) + l.turno <= $2)
-       RETURNING c.id, c.creator_id, c.name, c.is_special`,
+       RETURNING c.id, c.creator_id, c.name,
+                 EXISTS (SELECT 1 FROM campana_especial ce WHERE ce.campana_id = c.id) AS is_special`,
       [ahora, MAX_CAMPANAS_ACTIVAS]
     ));
     // Las que llegaron a su inicio sin lugar y todavía no tienen el aviso.

@@ -32,13 +32,14 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     const c = campana.rows[0];
 
     const aportes = await pool.query(
-      `SELECT id, user_id, anonimo_id, participant_name, description, file_type,
-              CASE WHEN archivo_borrado_en IS NULL THEN NULLIF(file_path, '') END AS file_path,
-              archivo_borrado_en IS NOT NULL AS archivo_borrado,
-              file_mime_type
-       FROM aportes
-       WHERE campaign_id = $1 AND status = 'aceptado'
-       ORDER BY id`,
+      `SELECT a.id, a.user_id, a.anonimo_id, a.participant_name, a.description, a.file_type,
+              CASE WHEN ar.borrado_en IS NULL THEN ar.ruta END AS file_path,
+              ar.borrado_en IS NOT NULL AS archivo_borrado,
+              ar.mime AS file_mime_type
+       FROM aportes a
+       LEFT JOIN archivos ar ON ar.id = a.archivo_id
+       WHERE a.campaign_id = $1 AND a.status = 'aceptado'
+       ORDER BY a.id`,
       [id]
     );
     if (aportes.rowCount === 0) {
@@ -103,7 +104,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     await archive.finalize();
     await finished;
 
-    await pool.query(`UPDATE campanas SET downloads_count = downloads_count + 1 WHERE id = $1`, [id]);
+    await pool.query(`UPDATE campana_estadisticas SET downloads_count = downloads_count + 1 WHERE campana_id = $1`, [id]);
     // Las páginas que muestran las descargas se guardan en caché 5 minutos: que la siguiente
     // visita ya traiga el número nuevo.
     revalidatePath(`/datos/${id}`);
