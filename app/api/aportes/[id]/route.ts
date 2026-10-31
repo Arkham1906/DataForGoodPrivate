@@ -56,7 +56,7 @@ async function loadAporteWithCampaign(id: string) {
   const result = await pool.query(
     `SELECT a.*, ${columnasDeArchivo("a")}, ${columnaDeRespuestas("a")}, c.creator_id AS campaign_creator_id, c.name AS campaign_name, c.collection_mode AS campaign_collection_mode, ${columnaDeChecklists("c", "campaign_checklist_secciones")},
             rs.created_at AS reporte_en, COALESCE(rs.descripcion, rs.motivo) AS reporte_motivo,
-            TRIM(CONCAT(ru.nombre, ' ', ru.apellidos)) AS reporte_revisor
+            TRIM(CONCAT(ru.nombre, ' ', ru.apellidos)) AS reporte_revisor, rs.reportado_por AS reporte_por_id
      FROM aportes a
      JOIN campanas c ON c.id = a.campaign_id
      -- "Reportar a supervisión" (2026-10-30: en reportes con origen 'supervision', antes aportes.reporte_*).
@@ -103,8 +103,11 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
         canReview,
         ...(isOwner || isCampaignCreator ? { participantEmail } : {}),
         ...(isCampaignCreator ? { dispositivoBloqueadoId: bloqueoId != null ? String(bloqueoId) : null } : {}),
-        // "Reportar a supervisión" del revisor: desde el 2026-10-15 el creador no lo ve, solo los revisores.
-        ...(isReviewer ? { reporte: mapReporte(row) } : {}),
+        // "Reportar a supervisión": el revisor lo ve siempre; el creador, solo si lo hizo él (2026-10-30). El
+        // de un revisor no se lo muestra (2026-10-15).
+        ...(isReviewer || (isCampaignCreator && Number(row.reporte_por_id) === Number(user.id))
+          ? { reporte: mapReporte(row) }
+          : {}),
         // Ya reportó a quien aportó a la plataforma (POST /api/aportes/[id]/reportar-participante).
         ...(isCampaignCreator || isReviewer
           ? { participanteReportado: await yaReporto({ tipo: "aporte", id: Number(row.id) }, Number(user.id)) }

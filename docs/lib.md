@@ -64,7 +64,7 @@
 | `limpiar-archivo.ts` | `limpiarArchivo(file, tipos)`: el tipo lo decide la firma del contenido y debe coincidir con la extensión. Fotos con `imagen.ts`; PDF sin Info ni XMP (`pdf-lib`; rechaza cifrados); .docx, .pptx y .xlsx sin propiedades ni autores (`jszip`; rechaza macros); .xls se comprueba y va tal cual (2026-10-26); .txt a UTF-8; video y audio tal cual | `comun.ts` |
 | `imagen.ts` | `limpiarImagen()`: comprueba la firma JPG/PNG y vuelve a codificar con `sharp`, quitando EXIF (GPS), ICC y XMP | `limpiar-archivo.ts` |
 | `anonimato.ts` | Cookie `anonimo_id` y `hashDeDispositivo()` | Aporte anónimo, `/c/[token]`, sanciones |
-| `reporte.ts` | "Reportar a supervisión" (`reportarASupervision`): el revisor reporta a quien envió el aporte; guarda el motivo en el aporte, lo agrega a la bandeja de Reportes y avisa solo a los supervisores. No banea | `POST /api/aportes/[id]/reportar` |
+| `reporte.ts` | "Reportar a supervisión" (`reportarASupervision`): el revisor o el creador reportan a quien envió el aporte; guarda el motivo en `reportes` (`origen = 'supervision'`), rechaza el aporte, lo agrega a la bandeja de Reportes y avisa solo a los supervisores. No banea | `POST /api/aportes/[id]/reportar` |
 | `decision.ts` | Sin `pg`: `tieneDecision()` y `ESTADOS_SIN_DECISION`, la regla de que una decisión no se cambia | API de aportes, `sanciones-anonimas.ts`, pantallas |
 | `motivos-de-rechazo.ts` | Sin `pg`: listas de motivos para rechazar y para reportar | Pantallas del creador y del revisor |
 | `sanciones-anonimas.ts` | Sanciones a personas sin cuenta: marcar inapropiado, bloqueo por campaña, bloqueo global automático (3 inapropiados en 30 días → 30 días), borrar archivo, listar y quitar bloqueos | API de aportes y de baneos, `/usuarios/sanciones` |

@@ -1,7 +1,7 @@
 // /api/aportes/[id]/reportar — "Reportar a supervisión": el revisor o el creador (2026-10-19) reportan a quien
 // envió un aporte. Entra a la bandeja de Reportes y avisa a los supervisores, no al creador de la campaña
 // (2026-10-15). Desde el 2026-10-19 rechaza el aporte (salvo en una campaña ya finalizada); no banea.
-// Lo usa /revisiones/[aporteId]. Reglas en lib/aportes/reporte.ts.
+// Lo usan /revisiones/[aporteId] y, desde el 2026-10-30, /mis-campanas/[id]/aportes/[aporteId]. Reglas en lib/aportes/reporte.ts.
 
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/session";
