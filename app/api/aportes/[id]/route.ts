@@ -54,7 +54,7 @@ function mapReporte(row: Record<string, unknown>) {
 
 async function loadAporteWithCampaign(id: string) {
   const result = await pool.query(
-    `SELECT a.*, ${columnasDeArchivo("a")}, ${columnaDeRespuestas("a")}, c.creator_id AS campaign_creator_id, c.name AS campaign_name, c.collection_mode AS campaign_collection_mode, ${columnaDeChecklists("c", "campaign_checklist_secciones")},
+    `SELECT a.*, ${columnasDeArchivo("a")}, ${columnaDeRespuestas("a")}, c.creator_id AS campaign_creator_id, c.name AS campaign_name, c.collection_mode AS campaign_collection_mode, c.status AS campaign_status, ${columnaDeChecklists("c", "campaign_checklist_secciones")},
             rs.created_at AS reporte_en, COALESCE(rs.descripcion, rs.motivo) AS reporte_motivo,
             TRIM(CONCAT(ru.nombre, ' ', ru.apellidos)) AS reporte_revisor, rs.reportado_por AS reporte_por_id
      FROM aportes a
@@ -108,6 +108,13 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
         ...(isReviewer || (isCampaignCreator && Number(row.reporte_por_id) === Number(user.id))
           ? { reporte: mapReporte(row) }
           : {}),
+        // Si lo reportó un revisor, el creador solo sabe que ya está reportado (sin quién ni por qué), para
+        // no ofrecerle un botón que termina en 409 (2026-10-31).
+        ...(isCampaignCreator && !isReviewer
+          ? { reportadoASupervision: row.reporte_en != null && Number(row.reporte_por_id) !== Number(user.id) }
+          : {}),
+        // Con la campaña finalizada, reportar ya no rechaza el aporte (rechazarPorReporte).
+        ...(canReview ? { campanaFinalizada: row.campaign_status === "finalizada" } : {}),
         // Ya reportó a quien aportó a la plataforma (POST /api/aportes/[id]/reportar-participante).
         ...(isCampaignCreator || isReviewer
           ? { participanteReportado: await yaReporto({ tipo: "aporte", id: Number(row.id) }, Number(user.id)) }

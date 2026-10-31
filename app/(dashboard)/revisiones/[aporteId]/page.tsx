@@ -311,8 +311,15 @@ export default function RevisionAportePage() {
           </p>
           <p className="mb-3 mt-1 text-[11.5px] text-system-500">
             Si el contenido es inapropiado o quien lo envió abusa de la campaña, avisa a los supervisores: lo
-            revisan y deciden si le dan un aviso. <strong className="text-system-900">Al reportarlo, el aporte se rechaza</strong>{" "}
-            (aunque ya estuviera aceptado). Quien creó la campaña no recibe este reporte.
+            revisan y deciden si le dan un aviso.{" "}
+            {item.campanaFinalizada ? (
+              "La campaña ya finalizó: el aporte no cambia, solo queda el reporte."
+            ) : (
+              <>
+                <strong className="text-system-900">Al reportarlo, el aporte se rechaza</strong> (aunque ya estuviera aceptado).
+              </>
+            )}{" "}
+            Quien creó la campaña no recibe este reporte.
           </p>
           <select
             value={motivoDeReporte}
@@ -388,7 +395,7 @@ export default function RevisionAportePage() {
             url={`/api/aportes/${item.id}/reportar-participante`}
             motivos={MOTIVOS_DE_REPORTE_DE_APORTE}
             titulo="Reportar a quien aportó"
-            explicacion="Para faltas graves de la cuenta (acoso, contenido ilegal, abuso repetido). Lo revisa la supervisión, que decide si le da un aviso. Al reportarlo, este aporte se rechaza. Esa persona no sabrá quién la reportó."
+            explicacion={`Para faltas graves de la cuenta (acoso, contenido ilegal, abuso repetido). Lo revisa la supervisión, que decide si le da un aviso. ${item.campanaFinalizada ? "La campaña ya finalizó, así que este aporte no cambia." : "Al reportarlo, este aporte se rechaza."} Esa persona no sabrá quién la reportó.`}
             placeholder="Qué hizo quien envió el aporte"
             yaReportado={Boolean(item.participanteReportado)}
             textoYaReportado="Ya reportaste a quien envió este aporte. La supervisión lo está revisando."

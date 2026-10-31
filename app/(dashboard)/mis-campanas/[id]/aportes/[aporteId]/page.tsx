@@ -419,6 +419,10 @@ export default function RevisionAportePage() {
             <p className="mb-4 rounded border border-warning-500 bg-warning-50 p-3 text-[12.5px] text-warning-800">
               Reportado a supervisión · {item.reporte.motivo}
             </p>
+          ) : item.reportadoASupervision ? (
+            <p className="mb-4 rounded border border-warning-500 bg-warning-50 p-3 text-[12.5px] text-warning-800">
+              Este aporte ya se reportó a supervisión.
+            </p>
           ) : reportando ? (
             <form ref={llevarALaVista} onSubmit={(e) => void confirmarReporte(e)} className="mb-4 rounded-lg border border-warning-500 p-4">
               <p className="text-[13px] font-medium text-system-900">
@@ -426,8 +430,15 @@ export default function RevisionAportePage() {
               </p>
               <p className="mb-3 mt-1 text-[11.5px] text-system-500">
                 Si el contenido es inapropiado o quien lo envió abusa de la campaña, avisa a los supervisores: lo
-                revisan y deciden si le dan un aviso. <strong className="text-system-900">Al reportarlo, el aporte se rechaza</strong>{" "}
-                (aunque ya estuviera aceptado). Esa persona no sabrá quién la reportó.
+                revisan y deciden si le dan un aviso.{" "}
+                {item.campanaFinalizada ? (
+                  "La campaña ya finalizó: el aporte no cambia, solo queda el reporte."
+                ) : (
+                  <>
+                    <strong className="text-system-900">Al reportarlo, el aporte se rechaza</strong> (aunque ya estuviera aceptado).
+                  </>
+                )}{" "}
+                Esa persona no sabrá quién la reportó.
               </p>
               <select
                 value={motivoDeReporte}
@@ -560,7 +571,7 @@ export default function RevisionAportePage() {
         )}
         {item.userId && (
           <div className="order-2 mt-4 flex w-full flex-col items-center gap-3 sm:order-2 sm:col-start-2 sm:row-start-2 sm:mt-0 sm:justify-self-center">
-            {!item.reporte && (
+            {!item.reporte && !item.reportadoASupervision && (
               <Button variant="ghost" disabled={submitting || reportando} onClick={() => setReportando(true)}>
                 Reportar a supervisión
               </Button>
@@ -569,7 +580,7 @@ export default function RevisionAportePage() {
               url={`/api/aportes/${item.id}/reportar-participante`}
               motivos={MOTIVOS_DE_REPORTE_DE_APORTE}
               titulo="Reportar a quien aportó"
-              explicacion="Para contenido inapropiado o faltas de quien lo envió (acoso, contenido ilegal, abuso repetido). Al reportarlo, el aporte se rechaza (aunque ya estuviera aceptado) y la supervisión decide si da un aviso a la cuenta. Esa persona no sabrá quién la reportó. Para sacarla solo de tu campaña, banéala."
+              explicacion={`Para contenido inapropiado o faltas de quien lo envió (acoso, contenido ilegal, abuso repetido). ${item.campanaFinalizada ? "La campaña ya finalizó, así que el aporte no cambia" : "Al reportarlo, el aporte se rechaza (aunque ya estuviera aceptado)"} y la supervisión decide si da un aviso a la cuenta. Esa persona no sabrá quién la reportó. Para sacarla solo de tu campaña, banéala.`}
               placeholder="Qué hizo quien envió el aporte"
               yaReportado={Boolean(item.participanteReportado)}
               textoYaReportado="Ya reportaste a quien envió este aporte. La supervisión lo está revisando."

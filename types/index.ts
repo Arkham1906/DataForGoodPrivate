@@ -132,6 +132,10 @@ export interface Contribution {
   archivoBorrado?: boolean; // el creador borró el archivo de MinIO
   // Reporte del revisor a supervisión ("Reportar a supervisión"). Solo lo ven los revisores.
   reporte?: { motivo: string; revisor: string; en: string } | null;
+  /** Solo al creador: un revisor ya lo reportó a supervisión; no se dice quién ni por qué (2026-10-31). */
+  reportadoASupervision?: boolean;
+  /** Solo al creador y a los revisores: la campaña finalizó, así que reportar ya no rechaza el aporte (2026-10-31). */
+  campanaFinalizada?: boolean;
   /** Solo para el creador y los revisores: ya reportaste a quien aportó a la plataforma (2026-10-12). */
   participanteReportado?: boolean;
   dispositivoBloqueadoId?: string | null; // solo al creador: bloqueo en la campaña del dispositivo anónimo
