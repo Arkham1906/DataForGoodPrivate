@@ -185,6 +185,7 @@ export default function RevisionAportePage() {
   const statusTone = item.status === "aceptado" ? "ok" : item.status === "rechazado" ? "danger" : "warn";
   const submittedAt = new Date(item.submittedAt);
   const calificacionMostrada = item.calificacion != null;
+  const calificacionVisual = !item.canReview && item.status !== "aceptado" ? null : item.calificacion;
   const puedeEliminar = !item.canReview && (item.status === "pendiente" || item.status === "espera_final");
 
   return (
@@ -274,9 +275,9 @@ export default function RevisionAportePage() {
             <dl className="space-y-2 border-t border-system-200 pt-4 text-[13px]">
               <div className="flex justify-between gap-4"><dt className="text-system-600">Enviado</dt><dd className="font-mono text-right text-system-900">{submittedAt.toLocaleDateString("es-MX", { day: "numeric", month: "short" })} · {submittedAt.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}</dd></div>
               <div className="flex justify-between gap-4"><dt className="text-system-600">Tipo</dt><dd className="text-system-900">{item.fileType}</dd></div>
-              {calificacionMostrada && <div className="flex justify-between gap-4"><dt className="text-system-600">Calificación</dt><dd className="text-[16px]"><EstrellasDeCalificacion valor={item.calificacion} /></dd></div>}
+              {(calificacionMostrada || !item.canReview) && <div className="flex justify-between gap-4"><dt className="text-system-600">Calificación</dt><dd className="text-[16px]"><EstrellasDeCalificacion valor={calificacionVisual} mostrarVacias={!item.canReview} /></dd></div>}
             </dl>
-            {!yaDecidido && (
+            {item.canReview && !yaDecidido && (
               <div className="border-t border-system-200 pt-4 text-center">
                 <p className="mb-2 text-[12.5px] font-semibold text-system-900">
                   Calificación del aporte <span className="text-error-700">*</span>

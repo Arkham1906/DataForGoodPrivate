@@ -68,6 +68,12 @@ export default function CampaignCard({ campaign, onAbrir }: { campaign: Campaign
       <div>
         <h3 className="text-base font-bold text-system-900 max-md:text-[15px]">{campaign.name}</h3>
         <p className="mt-1 text-[13px] text-system-600 max-md:text-[12px] max-md:leading-5">{campaign.description}</p>
+        <p className="mt-1.5 truncate text-[12px] text-system-600 max-md:text-[11px]" title={campaign.creatorName || "Sin especificar"}>
+          <span className="font-semibold text-system-700">Creado por:</span> {campaign.creatorName || "Sin especificar"}
+        </p>
+        <p className="mt-0.5 truncate text-[12px] text-system-600 max-md:text-[11px]" title={campaign.organizer || "Sin organización"}>
+          <span className="font-semibold text-system-700">Organización:</span> {campaign.organizer || "Sin organización"}
+        </p>
         <p className="mt-1.5 font-mono text-[11px] text-system-600 max-md:text-[10.5px]">
           {formatDateRange(campaign.startDate, campaign.endDate)}
         </p>

@@ -3,7 +3,6 @@
 // Datos: lib/campanas/publicas.ts. Al abrir una campaña va a /campanas/[id], que sí pide sesión.
 
 import { textoDeUbicacion } from "@/lib/campanas/ubicacion";
-import { quienOrganiza } from "@/lib/campanas/organizacion";
 import Link from "next/link";
 import { BASE_PATH } from "@/lib/base-path";
 import { entradaDeTarjeta, retraso } from "@/lib/animaciones";
@@ -296,10 +295,15 @@ export default async function ExplorarCampanasPage({
                             <Tag tone={ETIQUETA_DE_CAMPANA[c.status].tono}>{ETIQUETA_DE_CAMPANA[c.status].texto}</Tag>
                           </span>
                         </div>
-                        <p className="truncate text-[12.5px] text-system-600" title={`${quienOrganiza(c)}${lugar ? ` · ${lugar}` : ""}`}>
-                          {quienOrganiza(c)}
-                          {lugar ? ` · ${lugar}` : ""}
-                        </p>
+                        <div className="mt-1 space-y-0.5 text-[12.5px] text-system-600">
+                          <p className="truncate" title={c.creatorName || "Sin especificar"}>
+                            <span className="font-semibold text-system-700">Creado por:</span> {c.creatorName || "Sin especificar"}
+                          </p>
+                          <p className="truncate" title={`${c.organizer || "Sin organización"}${lugar ? ` · ${lugar}` : ""}`}>
+                            <span className="font-semibold text-system-700">Organización:</span> {c.organizer || "Sin organización"}
+                            {lugar ? ` · ${lugar}` : ""}
+                          </p>
+                        </div>
                         <RutaDeTematica tematica={c.tematica} etiquetas={c.etiquetas} className="mt-2" />
                         <p className="mt-2 line-clamp-3 break-words text-[13px] leading-snug text-system-600">
                           {c.description.length > 140 ? `${c.description.slice(0, 140)}…` : c.description}

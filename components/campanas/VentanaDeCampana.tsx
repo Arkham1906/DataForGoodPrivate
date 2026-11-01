@@ -13,7 +13,6 @@ import RutaDeTematica from "@/components/ui/RutaDeTematica";
 import ProgressBar from "@/components/ui/ProgressBar";
 import Tag from "@/components/ui/Tag";
 import { porcentajeDeMeta } from "@/lib/campanas/meta";
-import { quienOrganiza } from "@/lib/campanas/organizacion";
 import { textoDelProposito } from "@/lib/campanas/proposito";
 import { ETIQUETA_DE_CAMPANA, NOMBRE_DE_TIPO, type TipoDeDato } from "@/lib/campanas/sistema-opciones";
 import { textoDeUbicacion } from "@/lib/campanas/ubicacion";
@@ -113,7 +112,8 @@ export default function VentanaDeCampana({
           </div>
 
           <dl className="grid grid-cols-2 gap-x-4 gap-y-3 max-sm:grid-cols-1">
-            <Dato titulo="Organiza">{quienOrganiza(campana)}</Dato>
+            <Dato titulo="Creador">{campana.creatorName || "Sin especificar"}</Dato>
+            <Dato titulo="Organización">{campana.organizer || "Sin organización"}</Dato>
             <Dato titulo="Propósito">{textoDelProposito(campana.proposito, campana.propositoOtro) ?? "Sin definir"}</Dato>
             <Dato titulo="Lugar">{lugar}</Dato>
             <Dato titulo="Inicio">{fechaYHora(campana.startDate, campana.startTime)}</Dato>

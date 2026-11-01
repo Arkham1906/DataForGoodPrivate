@@ -30,7 +30,6 @@ import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 import { repartoSugerido } from "@/lib/campanas/reparto-sugerido";
 import { resumenDeCuotaPorTipo } from "@/lib/campanas/cuota-por-tipo";
 import { resumenDeLimites } from "@/lib/campanas/limite-por-tipo";
-import { quienOrganiza } from "@/lib/campanas/organizacion";
 import { textoDelProposito } from "@/lib/campanas/proposito";
 
 export default function CampaignDetailPage() {
@@ -259,11 +258,16 @@ export default function CampaignDetailPage() {
         <div className="rounded-lg border border-system-200 bg-white p-5">
           <h3 className="mb-3 text-[15px] font-bold text-system-900">Detalles de la campaña</h3>
           <dl className="flex flex-col gap-2.5 text-[13px]">
-            <div className="flex justify-between">
-              <dt className="text-system-600">Organiza</dt>
-              {/* La organización que puso; si no puso ninguna, el nombre de quien la creó (2026-10-22). */}
+            <div className="flex justify-between gap-4">
+              <dt className="text-system-600">Creador</dt>
               <dd className="min-w-0 break-words text-right font-medium text-system-900">
-                {quienOrganiza(campaign)}
+                {campaign.creatorName || "Sin especificar"}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-system-600">Organización</dt>
+              <dd className="min-w-0 break-words text-right font-medium text-system-900">
+                {campaign.organizer || "Sin organización"}
               </dd>
             </div>
             {/* Para qué se usarán los datos (2026-10-27). */}
