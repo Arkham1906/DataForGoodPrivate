@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import Tag from "@/components/ui/Tag";
 import { BASE_PATH } from "@/lib/base-path";
+import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
 
 type UserCandidate = {
@@ -53,6 +54,9 @@ export default function AgregarRevisorPage() {
   // disponible para esta.
   const [estadoPorUsuario, setEstadoPorUsuario] = useState<Map<number, string>>(new Map());
 
+  // En vivo (2026-10-31): el estado de cada invitación (pendiente/aceptado) cambia sin recargar. La
+  // lista de candidatos no: es paginada y volver a pedirla regresaría a la primera página.
+  const recarga = useRecargaEnVivo();
   useEffect(() => {
     async function loadData() {
       const [campaignResponse, revisoresResponse] = await Promise.all([
@@ -71,7 +75,7 @@ export default function AgregarRevisorPage() {
     }
 
     if (params.id) loadData();
-  }, [params.id]);
+  }, [params.id, recarga]);
 
   function pedirCandidatos(texto: string, numero: number, signal?: AbortSignal): Promise<PaginaDeCandidatos> {
     const consulta = new URLSearchParams({ campanaId: params.id, q: texto, pagina: String(numero) });
@@ -182,6 +186,19 @@ export default function AgregarRevisorPage() {
         <p className="mt-1 text-[13px] text-system-600">{campaign.name}</p>
       </div>
 
+      {/* Texto aclarado el 2026-10-31 (a pedido del usuario): quien crea la campaña es su revisor principal. */}
+      <div className="mb-5 rounded-lg border-l-4 border-brand-600 bg-system-100 p-3.5 text-[12.5px] text-system-600">
+        <p>
+          <b className="text-system-900">Tú eres el revisor principal de esta campaña:</b> todos los aportes llegan a ti
+          y puedes aceptarlos o rechazarlos.
+        </p>
+        <p className="mt-1">
+          Si quieres ayuda, invita a otras personas como revisores. Cuando acepten, podrán aceptar o rechazar aportes
+          igual que tú, solo en esta campaña. La primera decisión sobre cada aporte, tuya o de un revisor, es la que
+          vale.
+        </p>
+      </div>
+
       <div className="mb-4">
         <label htmlFor={idDelBuscador} className="mb-1.5 block text-[13px] font-medium text-system-900">
           Buscar usuario
@@ -211,7 +228,7 @@ export default function AgregarRevisorPage() {
 
       {invitedName && (
         <div className="mb-5 rounded-lg border-l-4 border-brand-600 bg-system-100 p-3.5 text-[12.5px] text-system-600">
-          Invitaste a {invitedName} como revisor de aportes. Queda pendiente hasta que la acepte.
+          Invitaste a {invitedName} a revisar aportes contigo. Podrá revisar en cuanto acepte la invitación.
         </div>
       )}
 
@@ -230,7 +247,7 @@ export default function AgregarRevisorPage() {
           <thead className="bg-system-100 text-[11px] uppercase tracking-wide text-system-500">
             <tr>
               <th className="px-3 py-2.5">Usuario</th>
-              <th className="px-3 py-2.5">Rol actual</th>
+              <th className="px-3 py-2.5">Rol</th>
               <th className="px-3 py-2.5 text-right"><span className="sr-only">Acciones</span></th>
             </tr>
           </thead>
@@ -246,7 +263,7 @@ export default function AgregarRevisorPage() {
               const isInvited = candidate.id === invitedId || estadoAqui === "invitado";
               const yaAceptado = estadoAqui === "aceptado";
               const currentRole = yaAceptado
-                ? "Revisor de esta campaña"
+                ? "Ya revisa esta campaña"
                 : isSupervisor
                   ? "Supervisor"
                   : "Usuario común";
@@ -268,7 +285,7 @@ export default function AgregarRevisorPage() {
                       disabled={isInvited || yaAceptado}
                       onClick={() => void invite(candidate)}
                     >
-                      {isInvited ? "Invitado" : yaAceptado ? "Ya es revisor" : "Invitar para revisar"}
+                      {isInvited ? "Invitado" : yaAceptado ? "Ya es revisor" : "Invitar como revisor"}
                     </Button>
                   </td>
                 </tr>
@@ -287,8 +304,8 @@ export default function AgregarRevisorPage() {
       ) : null}
 
       <p className="mt-4 text-[12.5px] text-system-600">
-        La persona invitada recibe una notificación; el rol de Revisor de aportes se
-        aplica solo dentro de esta campaña.
+        La persona invitada recibe una notificación y decide si acepta. Solo revisará los aportes de esta campaña:
+        su rol en el resto de la plataforma no cambia.
       </p>
     </div>
   );

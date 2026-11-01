@@ -24,6 +24,13 @@ import {
   type EnviadosPorTipo,
   type LimitePorTipo,
 } from "@/lib/campanas/limite-por-tipo";
+import {
+  mapaPorTipo,
+  mensajeDeCuotaDelTipo,
+  tiposDentroDeSuCuota,
+  type CuotaPorTipo,
+  type MiosPorTipo,
+} from "@/lib/campanas/cuota-por-tipo";
 
 export { LARGO_MAXIMO_DESCRIPCION, TAMANO_MAXIMO, errorDeArchivo, tiposAceptados } from "@/lib/aportes/archivo";
 
@@ -57,6 +64,44 @@ export function tiposConLugarParaElAporte(
     return { ok: false, error: mensajeDeTipoLleno(declarado, limite) };
   }
   return { ok: true, tipos: conLugar };
+}
+
+/**
+ * Aviso rápido del tope por persona de cada tipo (2026-10-31), antes de subir nada: como
+ * tiposConLugarParaElAporte, pero con lo que ya mandó la persona. Recibe los tipos que ya pasaron el
+ * límite total. La comprobación que cuenta va en insertarAporteConCuota.
+ */
+export function tiposDentroDeLaCuotaParaElAporte(
+  archivo: FormDataEntryValue | null,
+  tipos: TipoDeArchivo[],
+  todosLosTipos: TipoDeArchivo[],
+  cuota: CuotaPorTipo,
+  mios: MiosPorTipo,
+): { ok: true; tipos: TipoDeArchivo[] } | { ok: false; error: string } {
+  const dentro = tiposDentroDeSuCuota(tipos, cuota, mios);
+  if (dentro.length === 0) return { ok: false, error: "Ya enviaste el máximo de cada tipo que permite esta campaña." };
+  const tieneArchivo = archivo instanceof File && archivo.size > 0;
+  const declarado = tieneArchivo ? tipoPorNombre(archivo) : archivoEsOpcional(todosLosTipos) ? "texto" : null;
+  if (declarado && tipos.includes(declarado) && !dentro.includes(declarado)) {
+    return { ok: false, error: mensajeDeCuotaDelTipo(declarado, cuota) };
+  }
+  return { ok: true, tipos: dentro };
+}
+
+/** Cuántos aportes de cada tipo lleva una persona (cuenta o dispositivo anónimo) en la campaña. */
+export async function aportesDeLaPersonaPorTipo(
+  campaignId: string | number,
+  persona: { usuarioId: string | number } | { anonimoId: string },
+  client: Pick<PoolClient, "query"> = pool,
+): Promise<MiosPorTipo> {
+  const [columna, valor] = "usuarioId" in persona ? ["user_id", persona.usuarioId] : ["anonimo_id", persona.anonimoId];
+  const { rows } = await client.query<{ porTipo: unknown }>(
+    `SELECT COALESCE(jsonb_object_agg(file_type, n), '{}'::jsonb) AS "porTipo"
+       FROM (SELECT file_type, COUNT(*)::int AS n FROM aportes
+              WHERE campaign_id = $1 AND ${columna} = $2 GROUP BY file_type) t`,
+    [campaignId, valor],
+  );
+  return mapaPorTipo(rows[0]?.porTipo);
 }
 
 /** Lo que se guarda en las columnas file_* de `aportes`. Sin archivo: texto, con file_path ''. */
@@ -119,6 +164,8 @@ export async function insertarAporteConCuota<T>(entrada: {
   cuota: number;
   /** Cuántos aportes tiene ya esta persona en la campaña. */
   contar: (client: PoolClient) => Promise<number>;
+  /** Cuántos aportes de `tipo` tiene ya esta persona, para el tope por persona del tipo (2026-10-31). */
+  contarDelTipo: (client: PoolClient) => Promise<number>;
   insertar: (client: PoolClient) => Promise<T>;
   comprobar?: (client: PoolClient) => Promise<{ error: string; esperaSegundos: number } | null>;
   /** Clave en MinIO del archivo ya subido, para borrarlo si no se inserta (null: aporte sin archivo). */
@@ -127,6 +174,7 @@ export async function insertarAporteConCuota<T>(entrada: {
   | { ok: true; fila: T; yaEnviados: number }
   | { ok: false; motivo: "cuota" }
   | { ok: false; motivo: "tipo_lleno"; error: string }
+  | { ok: false; motivo: "cuota_del_tipo"; error: string }
   | { ok: false; motivo: "espera"; error: string; esperaSegundos: number }
 > {
   const client = await pool.connect();
@@ -149,10 +197,16 @@ export async function insertarAporteConCuota<T>(entrada: {
     // Límite total del tipo: con la campaña bloqueada (el mismo candado que toma recalcularContadores)
     // y contando en la tabla, no en el contador desnormalizado.
     await client.query(`SELECT 1 FROM campanas WHERE id = $1 FOR NO KEY UPDATE`, [entrada.campaignId]);
-    const campana = await client.query<{ limite: number | null }>(
-      `SELECT limite FROM campana_tipos WHERE campana_id = $1 AND tipo = $2`,
+    const campana = await client.query<{ limite: number | null; cuota_por_persona: number | null }>(
+      `SELECT limite, cuota_por_persona FROM campana_tipos WHERE campana_id = $1 AND tipo = $2`,
       [entrada.campaignId, entrada.tipo],
     );
+    // Tope por persona del tipo (2026-10-31, lib/campanas/cuota-por-tipo.ts), dentro del mismo candado.
+    const topeDelTipo = Number(campana.rows[0]?.cuota_por_persona ?? 0);
+    if (topeDelTipo && (await entrada.contarDelTipo(client)) >= topeDelTipo) {
+      await client.query("ROLLBACK");
+      return { ok: false, motivo: "cuota_del_tipo", error: mensajeDeCuotaDelTipo(entrada.tipo, { [entrada.tipo]: topeDelTipo }) };
+    }
     const delTipo = Number(campana.rows[0]?.limite ?? 0);
     const limite: LimitePorTipo = delTipo ? { [entrada.tipo]: delTipo } : {};
     if (delTipo) {

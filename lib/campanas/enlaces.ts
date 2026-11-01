@@ -8,6 +8,7 @@
 // Aquí no se autoriza: cada llamador comprueba antes la sesión y el permiso.
 
 import { enviadosPorTipoDesdeFila, limitePorTipoDesdeFila, type EnviadosPorTipo, type LimitePorTipo } from "@/lib/campanas/limite-por-tipo";
+import { cuotaPorTipoDesdeFila, type CuotaPorTipo } from "@/lib/campanas/cuota-por-tipo";
 import { randomInt } from "node:crypto";
 import QRCode from "qrcode";
 import { absoluteUrl } from "@/lib/app-url";
@@ -203,6 +204,8 @@ export type CampanaDelEnlace = {
   cuotaPorPersona: number;
   /** Límite total de aportes por tipo de dato (2026-10-28, lib/campanas/limite-por-tipo.ts) y lo enviado de cada uno. */
   limitePorTipo: LimitePorTipo;
+  /** Tope por persona de cada tipo (2026-10-31). */
+  cuotaPorTipo: CuotaPorTipo;
   enviadosPorTipo: EnviadosPorTipo;
   fechaFin: string | null;
   /** Checklists que el participante puede marcar (el formulario anónimo los muestra). */
@@ -257,6 +260,7 @@ export async function buscarEnlacePorToken(token: string): Promise<ResultadoDeTo
     aportesAprobados: Number(row.approved_contributions ?? 0),
     cuotaPorPersona: Number(row.quota_per_user ?? 0),
     limitePorTipo: limitePorTipoDesdeFila(row),
+    cuotaPorTipo: cuotaPorTipoDesdeFila(row),
     enviadosPorTipo: enviadosPorTipoDesdeFila(row),
     fechaFin: normalizeCampaignDate(row.end_date),
     secciones: seccionesDesdeFila(row),

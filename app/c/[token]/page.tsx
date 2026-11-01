@@ -13,6 +13,7 @@ import { textoDeUbicacion } from "@/lib/campanas/ubicacion";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import PublicFooter from "@/components/layout/PublicFooter";
+import ActualizacionEnVivo from "@/components/layout/ActualizacionEnVivo";
 import PublicHeader from "@/components/layout/PublicHeader";
 import ButtonLink from "@/components/ui/ButtonLink";
 import Card from "@/components/ui/Card";
@@ -23,7 +24,9 @@ import { porcentajeDeMeta } from "@/lib/campanas/meta";
 import { repartoSugerido } from "@/lib/campanas/reparto-sugerido";
 import { avisoDeTodoLleno, resumenDeLimites, tiposConLugar } from "@/lib/campanas/limite-por-tipo";
 import { avisoDePausa } from "@/lib/campanas/pausa";
-import { COOKIE_ANONIMO, dispositivoValido } from "@/lib/aportes/anonimato";
+import { COOKIE_ANONIMO, dispositivoValido, hashDeDispositivo } from "@/lib/aportes/anonimato";
+import { aportesDeLaPersonaPorTipo } from "@/lib/aportes/comun";
+import { resumenDeCuotaPorTipo, tiposDentroDeSuCuota, type MiosPorTipo } from "@/lib/campanas/cuota-por-tipo";
 import {
   MENSAJE_BLOQUEADO,
   aportesDelDispositivo,
@@ -103,6 +106,9 @@ export default async function EnlacePublicoPage({ params }: { params: Promise<{ 
     // Sin sesión: cuántos aportes le quedan a este dispositivo (cookie anónima).
     const dispositivo = dispositivoValido((await cookies()).get(COOKIE_ANONIMO)?.value);
     const usados = usuario ? 0 : await aportesDelDispositivo(resultado.campana.id, dispositivo);
+    // Y de cada tipo, para el máximo por persona de cada tipo (2026-10-31).
+    const misPorTipo: MiosPorTipo =
+      usuario || !dispositivo ? {} : await aportesDeLaPersonaPorTipo(resultado.campana.id, { anonimoId: hashDeDispositivo(dispositivo) });
     // Si recarga justo después de aportar, el formulario arranca con la cuenta regresiva.
     const espera = usuario ? 0 : await esperaDelDispositivo(dispositivo);
     contenido = (
@@ -111,8 +117,9 @@ export default async function EnlacePublicoPage({ params }: { params: Promise<{ 
         token={resultado.enlace.token}
         conSesion={usuario !== null}
         restantes={Math.max(0, resultado.campana.cuotaPorPersona - usados)}
+        misPorTipo={misPorTipo}
         espera={espera}
-        sinFormulario={usuario ? null : await motivoSinFormulario(resultado.campana, dispositivo)}
+        sinFormulario={usuario ? null : await motivoSinFormulario(resultado.campana, dispositivo, misPorTipo)}
       />
     );
   }
@@ -121,16 +128,21 @@ export default async function EnlacePublicoPage({ params }: { params: Promise<{ 
     <div className="min-h-screen bg-system-50">
       <PublicHeader />
       <main id="contenido" className="mx-auto max-w-xl px-6 pb-24 pt-14 max-md:px-4 max-md:pt-8">{contenido}</main>
+      <ActualizacionEnVivo />
       <PublicFooter />
     </div>
   );
 }
 
 /** Por qué no se muestra el formulario anónimo, o null si se muestra. El servidor vuelve a comprobarlo al enviar. */
-async function motivoSinFormulario(campana: CampanaDelEnlace, dispositivo: string | null): Promise<string | null> {
+async function motivoSinFormulario(campana: CampanaDelEnlace, dispositivo: string | null, misPorTipo: MiosPorTipo): Promise<string | null> {
   if (!campana.permiteAnonimos) return "Esta campaña solo recibe aportes con cuenta.";
   const lleno = avisoDeTodoLleno(campana.tiposDeArchivo, campana.limitePorTipo, campana.enviadosPorTipo);
   if (lleno) return lleno;
+  const conLugar = tiposConLugar(campana.tiposDeArchivo, campana.limitePorTipo, campana.enviadosPorTipo);
+  if (tiposDentroDeSuCuota(conLugar, campana.cuotaPorTipo, misPorTipo).length === 0) {
+    return "Ya enviaste el máximo de cada tipo que permite esta campaña desde este dispositivo.";
+  }
   return (await bloqueoParaLaPagina(campana.id, dispositivo)) ? MENSAJE_BLOQUEADO : null;
 }
 
@@ -139,6 +151,7 @@ function Invitacion({
   token,
   conSesion,
   restantes,
+  misPorTipo,
   espera,
   sinFormulario,
 }: {
@@ -146,6 +159,7 @@ function Invitacion({
   token: string;
   conSesion: boolean;
   restantes: number;
+  misPorTipo: MiosPorTipo;
   espera: number;
   sinFormulario: string | null;
 }) {
@@ -176,7 +190,11 @@ function Invitacion({
           <p className="mt-2 font-mono text-[11px] text-system-500">
             {numero.format(campana.aportesAprobados)} de {numero.format(campana.meta)} aportes aprobados · hasta{" "}
             {numero.format(campana.cuotaPorPersona)} por persona
-            {repartoSugerido(campana.cuotaPorPersona, campana.tiposDeArchivo) ? ` (sugerido: ${repartoSugerido(campana.cuotaPorPersona, campana.tiposDeArchivo)})` : ""}
+            {resumenDeCuotaPorTipo(campana.tiposDeArchivo, campana.cuotaPorTipo)
+              ? ` (${resumenDeCuotaPorTipo(campana.tiposDeArchivo, campana.cuotaPorTipo)})`
+              : repartoSugerido(campana.cuotaPorPersona, campana.tiposDeArchivo)
+                ? ` (sugerido: ${repartoSugerido(campana.cuotaPorPersona, campana.tiposDeArchivo)})`
+                : ""}
             {resumenDeLimites(campana.tiposDeArchivo, campana.limitePorTipo, campana.enviadosPorTipo)
               ? ` · máximo ${resumenDeLimites(campana.tiposDeArchivo, campana.limitePorTipo, campana.enviadosPorTipo)}`
               : ""}
@@ -205,7 +223,11 @@ function Invitacion({
               <AporteAnonimo
                 token={token}
                 secciones={campana.secciones}
-                tipos={tiposConLugar(campana.tiposDeArchivo, campana.limitePorTipo, campana.enviadosPorTipo)}
+                tipos={tiposDentroDeSuCuota(
+                  tiposConLugar(campana.tiposDeArchivo, campana.limitePorTipo, campana.enviadosPorTipo),
+                  campana.cuotaPorTipo,
+                  misPorTipo,
+                )}
                 formatosDeDocumento={campana.formatosDeDocumento}
                 cuota={campana.cuotaPorPersona}
                 restantesIniciales={restantes}

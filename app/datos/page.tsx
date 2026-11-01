@@ -8,6 +8,7 @@ import { entradaDeTarjeta, retraso } from "@/lib/animaciones";
 import type { Metadata } from "next";
 import PublicHeader from "@/components/layout/PublicHeader";
 import PublicFooter from "@/components/layout/PublicFooter";
+import ActualizacionEnVivo from "@/components/layout/ActualizacionEnVivo";
 import ButtonLink from "@/components/ui/ButtonLink";
 import Card from "@/components/ui/Card";
 import Tag from "@/components/ui/Tag";
@@ -27,8 +28,8 @@ export const metadata: Metadata = {
     "Conjuntos de datos abiertos generados por campañas ciudadanas: solo aportes aprobados de campañas ya cerradas.",
 };
 
-// Página pública: se regenera cada cinco minutos, igual que la portada.
-export const revalidate = 300;
+// En vivo (2026-10-31): se arma en cada visita, sin la caché de cinco minutos de antes.
+export const dynamic = "force-dynamic";
 
 const nf = new Intl.NumberFormat("es-MX");
 
@@ -239,6 +240,7 @@ export default async function CatalogoDeDatosPage({
         </div>
       </main>
 
+      <ActualizacionEnVivo />
       <PublicFooter />
     </div>
   );

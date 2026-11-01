@@ -17,10 +17,13 @@ import {
   cuerpoDemasiadoGrande,
   errorDeArchivo,
   guardarArchivoDelAporte,
+  aportesDeLaPersonaPorTipo,
   insertarAporteConCuota,
   tiposConLugarParaElAporte,
+  tiposDentroDeLaCuotaParaElAporte,
   tiposAceptados,
 } from "@/lib/aportes/comun";
+import { cuotaPorTipoDesdeFila } from "@/lib/campanas/cuota-por-tipo";
 import { inscripcionDe } from "@/lib/campanas/inscripciones";
 import { avisoDePausa, pausaDesdeFila } from "@/lib/campanas/pausa";
 
@@ -198,9 +201,18 @@ export async function POST(request: Request) {
     // Límite total por tipo de dato (2026-10-28): aviso antes de subir; solo se aceptan los tipos con lugar.
     const conLugar = tiposConLugarParaElAporte(file, tipos, limitePorTipoDesdeFila(campaign), enviadosPorTipoDesdeFila(campaign));
     if (!conLugar.ok) return NextResponse.json({ error: conLugar.error }, { status: 400 });
+    // Tope por persona de cada tipo (2026-10-31): solo los tipos en los que aún no llega a su máximo.
+    const dentroDeSuCuota = tiposDentroDeLaCuotaParaElAporte(
+      file,
+      conLugar.tipos,
+      tipos,
+      cuotaPorTipoDesdeFila(campaign),
+      await aportesDeLaPersonaPorTipo(campaignId, { usuarioId: user.id }),
+    );
+    if (!dentroDeSuCuota.ok) return NextResponse.json({ error: dentroDeSuCuota.error }, { status: 400 });
 
     // Se comprueba por su contenido y se guarda sin los metadatos que se pueden quitar.
-    const subida = await guardarArchivoDelAporte(file, campaignId, conLugar.tipos, formatosDeDocumento);
+    const subida = await guardarArchivoDelAporte(file, campaignId, dentroDeSuCuota.tipos, formatosDeDocumento);
     if (!subida.ok) return NextResponse.json({ error: subida.error }, { status: 400 });
     const { tipo, guardado: saved } = subida.archivo;
     // Solo respuestas de los checklists del tipo real del archivo ("Título: opción"; 2026-10-28).
@@ -220,6 +232,7 @@ export async function POST(request: Request) {
         );
         return Number(rows[0]?.count ?? 0);
       },
+      contarDelTipo: async (client) => (await aportesDeLaPersonaPorTipo(campaignId, { usuarioId: user.id }, client))[tipo] ?? 0,
       insertar: async (client) => {
         // El archivo va a la tabla archivos (2026-10-30). Sin nombre original: el del teléfono puede
         // traer nombres o fechas, y nadie lo usa. Aporte de solo texto: sin archivo (archivo_id NULL).
@@ -248,7 +261,9 @@ export async function POST(request: Request) {
       },
     });
     if (!insertado.ok) {
-      if (insertado.motivo === "tipo_lleno") return NextResponse.json({ error: insertado.error }, { status: 400 });
+      if (insertado.motivo === "tipo_lleno" || insertado.motivo === "cuota_del_tipo") {
+        return NextResponse.json({ error: insertado.error }, { status: 400 });
+      }
       return NextResponse.json({ error: "Ya alcanzaste tu cuota en esta campaña" }, { status: 400 });
     }
 

@@ -10,9 +10,14 @@
 // (campanas/BarraDeFiltros, sin temática ni tipo: esos se eligen con los botones).
 // Tipo de dato (2026-10-28, a pedido del usuario): fila de botones siempre visible con los tipos que
 // piden las campañas de la lista; se combina con temática, etiqueta y búsqueda.
+// Ubicación real (2026-10-31, a pedido del usuario; lib/ubicacion/): si la persona activó "Usar mi ubicación"
+// (components/campanas/AvisoDeUbicacion), "Tu localidad" pasa a "Cerca de ti": su municipio detectado (GET
+// /api/ubicacion), todo su estado y todo el país, y la lista abre con ese filtro. Sin zona, sigue el estado del perfil.
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import AvisoDeUbicacion from "@/components/campanas/AvisoDeUbicacion";
+import { EVENTO_ZONA, type ZonaDetectada } from "@/lib/ubicacion/en-el-navegador";
 import CampaignCard from "@/components/cards/CampaignCard";
 import CampaignCardSkeleton from "@/components/cards/CampaignCardSkeleton";
 import BarraDeFiltros, { type ValoresDeFiltros } from "@/components/campanas/BarraDeFiltros";
@@ -61,9 +66,14 @@ export default function CampanasPage() {
   // Campaña cuya ventana de detalle está abierta (2026-10-27): clic en su tarjeta.
   const [abierta, setAbierta] = useState<Campaign | null>(null);
   const [activeTag, setActiveTag] = useState("Todas");
+  // Zona detectada por GPS (null: no la compartió). Al conocerla, la lista abre en "Cerca de ti" si la
+  // persona todavía no eligió otro filtro.
+  const [zona, setZona] = useState<ZonaDetectada | null>(null);
+  const eligioFiltro = useRef(false);
   // Subtemática dentro de la temática elegida (2026-10-27); "" = todas. Cambiar de filtro la quita.
   const [etiquetaActiva, setEtiquetaActiva] = useState("");
   function elegirFiltro(filtro: string) {
+    eligioFiltro.current = true;
     setActiveTag(filtro);
     setEtiquetaActiva("");
   }
@@ -82,11 +92,16 @@ export default function CampanasPage() {
   useEffect(() => {
     async function cargarCampanas() {
       try {
-        const [response, sesionRes, paraTiRes] = await Promise.all([
+        const [response, sesionRes, paraTiRes, zonaRes] = await Promise.all([
           fetch(`${BASE_PATH}/api/campanas`, { cache: "no-store" }),
           fetch(`${BASE_PATH}/api/auth/sesion`, { cache: "no-store" }),
           fetch(`${BASE_PATH}/api/campanas?paraTi=true`, { cache: "no-store" }),
+          fetch(`${BASE_PATH}/api/ubicacion`, { cache: "no-store" }),
         ]);
+        const zonaBody = await zonaRes.json().catch(() => ({}));
+        const zonaGuardada = zonaRes.ok && zonaBody.zona ? (zonaBody.zona as ZonaDetectada) : null;
+        setZona(zonaGuardada);
+        if (zonaGuardada && !eligioFiltro.current) setActiveTag(TU_LOCALIDAD);
         // Si falla, la sección no sale; la lista sigue.
         const paraTiBody = await paraTiRes.json().catch(() => ({}));
         setParaTi(paraTiRes.ok && Array.isArray(paraTiBody.data) ? (paraTiBody.data as CampanaParaTi[]) : []);
@@ -115,9 +130,31 @@ export default function CampanasPage() {
     void cargarCampanas();
   }, [recarga]);
 
-  const enMiEstado = miEstado
-    ? campaigns.filter((c) => c.todoElPais || normalizarEstado(c.locationState) === normalizarEstado(miEstado))
-    : [];
+  // La zona cambia sola (DetectorDeUbicacion) o con el aviso: se pone al día sin recargar.
+  useEffect(() => {
+    const alCambiar = (evento: Event) => {
+      const nueva = (evento as CustomEvent<ZonaDetectada | null>).detail ?? null;
+      setZona(nueva);
+      // Si el filtro lo puso la zona (la persona no eligió otro), sigue a la zona: con ella "Cerca de ti",
+      // sin ella "Todas".
+      if (!eligioFiltro.current) setActiveTag(nueva ? TU_LOCALIDAD : "Todas");
+    };
+    window.addEventListener(EVENTO_ZONA, alCambiar);
+    return () => window.removeEventListener(EVENTO_ZONA, alCambiar);
+  }, []);
+
+  // Con zona detectada: su municipio, todo su estado y todo el país. Sin ella: el estado del perfil.
+  const enMiEstado = zona
+    ? campaigns.filter(
+        (c) =>
+          c.todoElPais ||
+          (normalizarEstado(c.locationState) === normalizarEstado(zona.estado) &&
+            (!c.locationCity || normalizarEstado(c.locationCity) === normalizarEstado(zona.municipio)))
+      )
+    : miEstado
+      ? campaigns.filter((c) => c.todoElPais || normalizarEstado(c.locationState) === normalizarEstado(miEstado))
+      : [];
+  const lugarDelFiltro = zona ? `${zona.municipio}, ${zona.estado}` : miEstado;
 
   const esDeMisIntereses = (tema: string) => misIntereses.has(claveDeTematica(tema));
 
@@ -191,6 +228,8 @@ export default function CampanasPage() {
 
       {!cargando && !error && <CampanasParaTi id="campanas-para-ti" campanas={paraTi} className="mb-8 max-md:mb-6" />}
 
+      {!cargando && !error && <AvisoDeUbicacion zona={zona} />}
+
       <div className="dashboard-nav mb-6 mt-4 flex w-full min-w-0 flex-nowrap gap-2 overflow-x-auto overscroll-x-contain pb-2 [-webkit-overflow-scrolling:touch] max-md:mb-4 max-md:gap-1.5 md:flex-wrap md:overflow-visible md:pb-0" role="group" aria-label="Filtrar campañas">
         {filtros.map((filtro) => {
           const active = filtro === activeTag;
@@ -201,7 +240,7 @@ export default function CampanasPage() {
               : filtro === "Guardadas"
                 ? campaigns.filter((c) => c.isSaved).length
                 : filtro === TU_LOCALIDAD
-                  ? miEstado
+                  ? lugarDelFiltro
                     ? enMiEstado.length
                     : null
                   : (porTema.get(filtro) ?? null);
@@ -212,8 +251,8 @@ export default function CampanasPage() {
               onClick={() => elegirFiltro(filtro)}
               aria-pressed={active}
               title={
-                filtro === TU_LOCALIDAD && miEstado
-                  ? `Campañas en ${miEstado}`
+                filtro === TU_LOCALIDAD && lugarDelFiltro
+                  ? `Campañas en ${lugarDelFiltro}`
                   : deMisIntereses
                     ? "Está entre tus intereses"
                     : undefined
@@ -225,7 +264,7 @@ export default function CampanasPage() {
                   ★
                 </span>
               )}
-              {filtro}
+              {filtro === TU_LOCALIDAD && zona ? "Cerca de ti" : filtro}
               {deMisIntereses && <span className="sr-only"> (de tus intereses)</span>}
               {cargando && filtro !== TU_LOCALIDAD ? (
                 <Skeleton enLinea className="ml-1.5 h-3 w-3 align-[-1px]" />
@@ -314,7 +353,7 @@ export default function CampanasPage() {
             <CampaignCardSkeleton key={i} />
           ))}
         </div>
-      ) : activeTag === TU_LOCALIDAD && !miEstado ? (
+      ) : activeTag === TU_LOCALIDAD && !lugarDelFiltro ? (
         <p className="text-sm text-system-600">
           Aún no indicas en qué estado vives.{" "}
           <Link href="/cuenta" className="font-semibold text-brand-600 hover:underline">
@@ -331,7 +370,7 @@ export default function CampanasPage() {
             : activeTag === "Guardadas"
               ? "Todavía no has guardado ninguna campaña."
               : activeTag === TU_LOCALIDAD
-                ? `Por ahora no hay campañas activas en ${miEstado}.`
+                ? `Por ahora no hay campañas activas en ${lugarDelFiltro}.`
                 : "No hay campañas aprobadas para esta temática todavía."}
         </p>
       ) : (

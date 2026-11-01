@@ -56,6 +56,8 @@ export const CAMPOS_EDITABLES_EN_PAUSA = new Set([
   "checklist_opciones",
   "quotaPerUser",
   "quota_per_user",
+  // Tope por persona de cada tipo (2026-10-31): va con la cuota.
+  "cuotaPorTipo",
   "startDate",
   "start_date",
   "startTime",
@@ -81,6 +83,7 @@ export const COLUMNAS_AVISADAS_EN_PAUSA = [
   "checklist_secciones",
   "goal_contributions",
   "quota_per_user",
+  "cuota_por_tipo",
   "limite_por_tipo",
   "start_date",
   "start_time",

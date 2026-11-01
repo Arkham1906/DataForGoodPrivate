@@ -22,6 +22,7 @@ const TABLAS_CON_AVISO = [
   "checklist_opciones",
   "aporte_respuestas",
   "aportes",
+  "archivos",
   "campana_revisores",
   "campana_supervisores",
   "campana_inscripciones",
@@ -33,10 +34,13 @@ const TABLAS_CON_AVISO = [
   "dispositivos_bloqueados",
   "lista_negra_correos",
   "tematicas",
+  "especialidades",
+  "organizaciones",
   "etiquetas",
   "campana_etiquetas",
   "usuario_etiquetas",
   "usuario_roles",
+  "medallas",
   "medallas_usuario",
 ];
 

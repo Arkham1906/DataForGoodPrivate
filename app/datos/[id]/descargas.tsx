@@ -1,9 +1,9 @@
 "use client";
 
-// Contador de descargas y botón "Descargar ZIP" de /datos/[id]. La página se guarda en caché
-// (revalidate = 300) y la descarga no navega, así que la tarjeta "Descargas" se quedaba en el
-// número de antes. El botón avisa con EVENTO_DESCARGA y el contador suma 1 en el momento;
-// GET /api/datos/[id]/descarga sube downloads_count e invalida la página para la siguiente visita.
+// Contador de descargas y botón "Descargar ZIP" de /datos/[id]. La descarga no navega: el botón avisa
+// con EVENTO_DESCARGA y el contador suma 1 en el momento. GET /api/datos/[id]/descarga sube
+// downloads_count y la actualización en vivo trae el número nuevo (la página usa key = inicial, así que
+// el contador vuelve a empezar desde el número del servidor, también con las descargas de otras personas).
 
 import { useEffect, useState } from "react";
 import { buttonClasses } from "@/components/ui/Button";

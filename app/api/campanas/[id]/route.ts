@@ -36,6 +36,7 @@ import { validarProposito } from "@/lib/campanas/proposito";
 import { crearPropuestas, revisarTematicaDeCampana } from "@/lib/tematicas/catalogo";
 import { normalizarSecciones, seccionesDesdeFila } from "@/lib/campanas/checklist";
 import { enviadosPorTipoDesdeFila, limitePorTipoDesdeFila, resolverMetaYLimites } from "@/lib/campanas/limite-por-tipo";
+import { cuotaPorTipoDesdeFila, resolverCuotaYMaximos, type CuotaPorTipo } from "@/lib/campanas/cuota-por-tipo";
 import { normalizarFormatosDeDocumento } from "@/lib/aportes/archivo";
 import { columnasCalculadas, guardarTiposDeCampana } from "@/lib/campanas/tipos-de-campana";
 import { guardarChecklists } from "@/lib/campanas/tabla-checklists";
@@ -112,6 +113,7 @@ function mapCampaign(row: Record<string, unknown>) {
     quotaPerUser: Number(row.quota_per_user ?? 0),
     // Límite total por tipo de dato (2026-10-28, lib/campanas/limite-por-tipo.ts) y lo enviado de cada uno.
     limitePorTipo: limitePorTipoDesdeFila(row),
+    cuotaPorTipo: cuotaPorTipoDesdeFila(row),
     enviadosPorTipo: enviadosPorTipoDesdeFila(row),
     currentContributions: Number(row.current_contributions ?? 0),
     approvedContributions: Number(row.approved_contributions ?? 0),
@@ -519,7 +521,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       checklistSecciones = normalizarSecciones(
         traeSecciones
           ? body.checklistSecciones ?? body.checklist_secciones
-          : [{ titulo: "Checklist", opciones: normalizeChecklistOpciones(body.checklistOpciones ?? body.checklist_opciones) }],
+          : [{ titulo: "Características", opciones: normalizeChecklistOpciones(body.checklistOpciones ?? body.checklist_opciones) }],
         // Si no cambian los tipos, se quedan todos (al mostrarlos solo salen los de tipos que pide).
         dataTypes ?? undefined
       );
@@ -541,7 +543,25 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const goalContributions =
       limitePorTipo?.metaDeLaSuma ??
       ("goalContributions" in body || "goal_contributions" in body ? Number(body.goalContributions ?? body.goal_contributions) : null);
-    const quotaPerUser = "quotaPerUser" in body || "quota_per_user" in body ? Number(body.quotaPerUser ?? body.quota_per_user) : null;
+    let quotaPerUser = "quotaPerUser" in body || "quota_per_user" in body ? Number(body.quotaPerUser ?? body.quota_per_user) : null;
+    // Máximo por persona de cada tipo (2026-10-31, lib/campanas/cuota-por-tipo.ts), con los tipos y la cuota
+    // que van a quedar. Con meta por tipo y los máximos en el body, la cuota es su suma; con meta general
+    // (metaPorTipo: false) no hay máximos y se borran. Sin ninguno de los dos, los máximos no cambian (una
+    // activa manda metaPorTipo con los límites, pero no la cuota).
+    let cuotaPorTipo: CuotaPorTipo | null | undefined; // undefined = no cambia
+    if ("cuotaPorTipo" in body || body.metaPorTipo === false) {
+      const porTipo = body.metaPorTipo === true && "cuotaPorTipo" in body;
+      const validado = resolverCuotaYMaximos({
+        porTipo,
+        maximos: "cuotaPorTipo" in body ? body.cuotaPorTipo : cuotaPorTipoDesdeFila(existing.rows[0]),
+        tipos: dataTypes ?? (Array.isArray(existing.rows[0].data_types) ? existing.rows[0].data_types.map(String) : []),
+        cuotaEscrita: quotaPerUser ?? Number(existing.rows[0].quota_per_user ?? 0),
+        exigirCompleto: (status ?? currentStatus) !== "borrador",
+      });
+      if (!validado.ok) return NextResponse.json({ error: validado.error }, { status: 400 });
+      cuotaPorTipo = validado.maximos;
+      if (porTipo) quotaPerUser = validado.cuota;
+    }
     const startDate = "startDate" in body || "start_date" in body ? normalizeCampaignDate(body.startDate ?? body.start_date) : undefined;
     const startTime = "startTime" in body || "start_time" in body ? normalizeCampaignTime(body.startTime ?? body.start_time) : undefined;
     const endDate = "endDate" in body || "end_date" in body ? normalizeCampaignDate(body.endDate ?? body.end_date) : undefined;
@@ -669,10 +689,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
     // Tipos de dato, límite por tipo y formatos de "Archivo" (tabla campana_tipos, 2026-10-30): antes del
     // UPDATE, como las etiquetas, para que su RETURNING ya los traiga. Lo que no llegó se queda como estaba.
-    if (dataTypes !== null || limitePorTipo !== null || formatosDeDocumento !== null) {
+    if (dataTypes !== null || limitePorTipo !== null || formatosDeDocumento !== null || cuotaPorTipo !== undefined) {
       await guardarTiposDeCampana(pool, id, {
         tipos: dataTypes ?? (Array.isArray(existing.rows[0].data_types) ? existing.rows[0].data_types.map(String) : []),
         limite: limitePorTipo !== null ? limitePorTipo.limite : limitePorTipoDesdeFila(existing.rows[0]),
+        cuota: cuotaPorTipo !== undefined ? cuotaPorTipo : cuotaPorTipoDesdeFila(existing.rows[0]),
         formatos: formatosDeDocumento ?? normalizarFormatosDeDocumento(existing.rows[0].formatos_de_documento),
       });
     }
@@ -833,7 +854,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     const secciones = normalizarSecciones(
       body.checklistSecciones ?? body.checklist_secciones ??
         (Array.isArray(body.checklistOpciones ?? body.checklist_opciones)
-          ? [{ titulo: "Checklist", opciones: normalizeChecklistOpciones(body.checklistOpciones ?? body.checklist_opciones) }]
+          ? [{ titulo: "Características", opciones: normalizeChecklistOpciones(body.checklistOpciones ?? body.checklist_opciones) }]
           : []),
       dataTypes
     );
@@ -846,7 +867,16 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     const limitePorTipo = resolverMetaYLimites(body, dataTypes, status !== "borrador");
     if (!limitePorTipo.ok) return NextResponse.json({ error: limitePorTipo.error }, { status: 400 });
     const goalContributions = limitePorTipo.metaDeLaSuma ?? Number(body.goalContributions ?? body.goal_contributions ?? 0);
-    const quotaPerUser = Number(body.quotaPerUser ?? body.quota_per_user ?? 1);
+    // Máximo por persona de cada tipo (2026-10-31): con meta por tipo, la cuota es la suma de los máximos.
+    const cuotaPorTipo = resolverCuotaYMaximos({
+      porTipo: body.metaPorTipo === true && "cuotaPorTipo" in body,
+      maximos: body.cuotaPorTipo,
+      tipos: dataTypes,
+      cuotaEscrita: Number(body.quotaPerUser ?? body.quota_per_user ?? 1),
+      exigirCompleto: status !== "borrador",
+    });
+    if (!cuotaPorTipo.ok) return NextResponse.json({ error: cuotaPorTipo.error }, { status: 400 });
+    const quotaPerUser = cuotaPorTipo.cuota;
     const startDate = normalizeCampaignDate(body.startDate ?? body.start_date);
     const startTime = normalizeCampaignTime(body.startTime ?? body.start_time);
     const endDate = normalizeCampaignDate(body.endDate ?? body.end_date);
@@ -913,7 +943,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     }
 
     // Tipos de dato con su límite y formatos (tabla campana_tipos, 2026-10-30), antes del UPDATE.
-    await guardarTiposDeCampana(pool, id, { tipos: dataTypes, limite: limitePorTipo.limite, formatos: formatosDeDocumento });
+    await guardarTiposDeCampana(pool, id, { tipos: dataTypes, limite: limitePorTipo.limite, cuota: cuotaPorTipo.maximos, formatos: formatosDeDocumento });
     await guardarChecklists(pool, id, checklistSecciones);
 
     const result = await pool.query(

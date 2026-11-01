@@ -9,12 +9,14 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import PublicHeader from "@/components/layout/PublicHeader";
 import PublicFooter from "@/components/layout/PublicFooter";
+import ActualizacionEnVivo from "@/components/layout/ActualizacionEnVivo";
 import Card from "@/components/ui/Card";
 import Tag from "@/components/ui/Tag";
 import { DATA_TYPE_LABELS, obtenerConjuntoAbierto } from "@/lib/open-data";
 import { BotonDeDescarga, ContadorDeDescargas } from "./descargas";
 
-export const revalidate = 300;
+// En vivo (2026-10-31): se arma en cada visita, sin la caché de cinco minutos de antes.
+export const dynamic = "force-dynamic";
 
 const nf = new Intl.NumberFormat("es-MX");
 
@@ -103,7 +105,7 @@ export default async function ConjuntoAbiertoPage({
           <Card>
             <p className="text-[11px] text-system-600">Descargas</p>
             <p className="font-mono text-[15px] font-bold text-system-900">
-              <ContadorDeDescargas conjuntoId={conjunto.id} inicial={conjunto.downloads} />
+              <ContadorDeDescargas key={conjunto.downloads} conjuntoId={conjunto.id} inicial={conjunto.downloads} />
             </p>
             <p className="mt-0.5 text-[11px] text-system-500">Veces que se bajó el ZIP</p>
           </Card>
@@ -167,6 +169,7 @@ export default async function ConjuntoAbiertoPage({
         </Card>
       </main>
 
+      <ActualizacionEnVivo />
       <PublicFooter />
     </div>
   );

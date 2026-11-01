@@ -45,6 +45,8 @@ export type TipoDeNotificacion =
   // meta, o se activó otra con alguna de sus etiquetas.
   | "campana_avance"
   | "campana_relacionada"
+  // La persona llegó a otro municipio según el GPS del navegador (lib/ubicacion/zona-detectada.ts, 2026-10-31).
+  | "ubicacion_nueva"
   // Una temática nueva coincide con lo que escribió sobre sus gustos (./tematica-nueva.ts, 2026-10-26).
   | "tematica_nueva"
   // El SuperUsuario revisó una etiqueta que la persona propuso en su perfil o su campaña (2026-10-28).
@@ -143,6 +145,7 @@ export function categoriaDeNotificacion(tipo: string): CategoriaDeNotificacion {
     case "campana_nueva":
     case "campana_especial":
     case "campana_relacionada":
+    case "ubicacion_nueva":
     case "tematica_nueva":
     case "recordatorio_semanal":
     case "resumen_mensual":

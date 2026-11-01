@@ -187,3 +187,5 @@ Cuando un formulario no se puede guardar, la app lo explica sin depender del nav
 - `Field` (`components/ui/Input` → `CampoEtiquetado`) acepta `error`: motivo en rojo debajo, `aria-invalid` en el control (borde rojo con la variante `aria-invalid:` de `Input`, `Textarea` y los `<select>` que la lleven) o contorno rojo si es un grupo; el motivo entra en `aria-describedby`.
 - `ui/VentanaDeProblemas`: `<dialog>` con la lista de problemas; cada uno lleva a su campo (`data-campo` en el control o su contenedor) después de cerrarse.
 - Se recalcula mientras se corrige. Ejemplo completo: `NuevaCampanaForm` (`problemasDe`, `errorDe`, `campoDelMensaje`, pasos con `conProblemas`).
+
+- **Hover de las notificaciones (2026-10-31, a pedido del usuario):** en la campana y en `/notificaciones` el renglón se pone gris (`hover:bg-system-200`) tanto en leídas como en no leídas (`bg-brand-50`); antes era `system-100`, casi blanco, y sobre una no leída parecía que se marcaba como leída. El título en `/notificaciones` se subraya en vez de volverse azul.

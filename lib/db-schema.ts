@@ -491,6 +491,30 @@ export async function ensurePushSuscripcionesTable(): Promise<void> {
   `);
 }
 
+/**
+ * Zona donde está la persona según el GPS del navegador (2026-10-31, a pedido del usuario;
+ * lib/ubicacion/zona-detectada.ts). Solo estado y municipio: las coordenadas no se guardan.
+ * - usuario_zona_detectada: la última zona (una fila por persona). Sin fila, no compartió su ubicación.
+ * - usuario_avisos_de_zona: cuándo se le avisó de cada zona, para no repetir la misma en 24 horas.
+ */
+export async function ensureZonaDetectadaTables(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS usuario_zona_detectada (
+      usuario_id INTEGER PRIMARY KEY REFERENCES usuarios(id) ON DELETE CASCADE,
+      estado VARCHAR(80) NOT NULL,
+      municipio VARCHAR(120) NOT NULL,
+      detectada_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS usuario_avisos_de_zona (
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+      estado VARCHAR(80) NOT NULL,
+      municipio VARCHAR(120) NOT NULL,
+      avisado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (usuario_id, estado, municipio)
+    );
+  `);
+}
+
 export async function ensureCampanasGuardadasTable(): Promise<void> {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS campanas_guardadas (
@@ -665,7 +689,8 @@ export async function ensureArchivosTable(): Promise<void> {
 /**
  * Tipos de dato de cada campaña (2026-10-30, segunda tanda de la rama cambios-bd; lib/campanas/tipos-de-campana.ts):
  * una fila por tipo que pide, con su orden en el formulario, el límite TOTAL de aportes de ese tipo
- * (NULL = sin límite; lib/campanas/limite-por-tipo.ts), los no rechazados que lleva (los recalcula
+ * (NULL = sin límite; lib/campanas/limite-por-tipo.ts), el tope POR PERSONA (cuota_por_persona,
+ * 2026-10-31; lib/campanas/cuota-por-tipo.ts), los no rechazados que lleva (los recalcula
  * recalcularContadores) y, solo en "documento", los formatos de "Archivo" que acepta ([] = todos).
  * Reemplaza a campanas.data_types, limite_por_tipo, enviados_por_tipo y formatos_de_documento: la
  * primera vez copia lo que tenían (los enviados, contados desde aportes) y borra esas columnas.
@@ -682,6 +707,9 @@ export async function ensureCampanaTiposTable(): Promise<void> {
       PRIMARY KEY (campana_id, tipo)
     );
     CREATE INDEX IF NOT EXISTS campana_tipos_tipo_idx ON campana_tipos (tipo);
+    -- Tope por persona de este tipo (2026-10-31, a pedido del usuario; lib/campanas/cuota-por-tipo.ts):
+    -- además de la cuota general, cuántos aportes de este tipo puede mandar cada persona. NULL = sin tope.
+    ALTER TABLE campana_tipos ADD COLUMN IF NOT EXISTS cuota_por_persona INTEGER CHECK (cuota_por_persona > 0);
     DO $$
     BEGIN
       IF EXISTS (SELECT 1 FROM information_schema.columns
@@ -1467,6 +1495,7 @@ export async function ensureCoreSchema(): Promise<void> {
   await ensureCampanaBaneadosTable();
   await ensureNotificacionesTable();
   await ensurePushSuscripcionesTable();
+  await ensureZonaDetectadaTables();
   await ensureCampanasGuardadasTable();
   await ensureCampanaEnlacesTable(); // antes de aportes: aportes.enlace_id la referencia
   await ensureAportesTable();

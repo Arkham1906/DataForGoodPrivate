@@ -111,8 +111,9 @@ export default function RevisoresDeCampanaPage() {
       </div>
 
       <p className="mb-4 text-[12.5px] text-system-600">
-        Puedes tener los revisores que necesites. Cada uno acepta o rechaza aportes igual que tú, y la
-        primera decisión sobre un aporte es la que vale.
+        Tú eres el revisor principal de esta campaña. Los revisores que invites te ayudan: aceptan o rechazan
+        aportes igual que tú, y la primera decisión sobre cada aporte, tuya o de un revisor, es la que vale. Puedes
+        invitar a los que necesites.
         <span className="mt-1 block font-mono">
           {aceptados} {aceptados === 1 ? "revisor" : "revisores"} · {pendientes} {pendientes === 1 ? "invitación pendiente" : "invitaciones pendientes"}
         </span>
@@ -120,7 +121,7 @@ export default function RevisoresDeCampanaPage() {
 
       {revisores.length === 0 ? (
         <p className="rounded-lg border border-dashed border-system-300 p-6 text-sm text-system-600">
-          Aún no invitas a nadie a revisar los aportes de esta campaña.
+          Aún no invitas a nadie: por ahora solo tú revisas los aportes de esta campaña.
         </p>
       ) : (
         <ul className="divide-y divide-system-200 rounded-lg border border-system-200 bg-white">

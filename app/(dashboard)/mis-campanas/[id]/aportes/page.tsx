@@ -104,8 +104,8 @@ export default function BandejaAportesPage() {
       {campaign.hasReviewerAssigned ? (
         <div className="mb-5 flex flex-wrap items-start justify-between gap-3 rounded-lg border-l-4 border-brand-600 bg-system-100 p-3.5 text-[12.5px] text-system-600">
           <span>
-            Esta campaña tiene revisores: cada uno puede aceptar o rechazar aportes igual que tú, y su
-            decisión es final. Puedes agregar los que necesites.
+            Tú eres el revisor principal y además tienes revisores que te ayudan: aceptan o rechazan aportes igual
+            que tú. La primera decisión sobre cada aporte, tuya o de un revisor, es la que vale.
           </span>
           <div className="flex flex-wrap gap-2">
             <ButtonLink href={`/mis-campanas/${campaign.id}/aportes/revisores`} size="sm">
@@ -119,8 +119,8 @@ export default function BandejaAportesPage() {
       ) : (
         <div className="mb-5 flex flex-wrap items-start justify-between gap-3 rounded-lg bg-warning-50 p-4 text-[12.5px] text-warning-800">
           <span>
-            Esta campaña no tiene revisor de aportes asignado. Todos los envíos llegan
-            sin filtro previo y tú decides en una sola instancia.
+            Tú eres el revisor de esta campaña: decides si cada aporte se acepta o se rechaza. Si quieres ayuda,
+            invita a otras personas como revisores.
           </span>
           <div className="flex flex-wrap gap-2">
             {/* Con invitaciones pendientes también hay a quién ver. */}

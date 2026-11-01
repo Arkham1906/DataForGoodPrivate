@@ -258,6 +258,9 @@ async function ejecutarBaja(usuarioId: number): Promise<void> {
 
     await client.query(`DELETE FROM notificaciones WHERE usuario_id = $1`, [usuarioId]);
     await client.query(`DELETE FROM push_suscripciones WHERE usuario_id = $1`, [usuarioId]);
+    // Dónde estuvo (2026-10-31): estado y municipio detectados por GPS y sus avisos.
+    await client.query(`DELETE FROM usuario_zona_detectada WHERE usuario_id = $1`, [usuarioId]);
+    await client.query(`DELETE FROM usuario_avisos_de_zona WHERE usuario_id = $1`, [usuarioId]);
     await client.query(`DELETE FROM campanas_guardadas WHERE usuario_id = $1`, [usuarioId]);
     await client.query(`DELETE FROM sessions WHERE usuario_id = $1`, [usuarioId]);
     // Sus campañas (finalizadas) se quedan, pero sin su nombre: creator_name es una copia.

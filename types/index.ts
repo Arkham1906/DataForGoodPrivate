@@ -71,6 +71,8 @@ export interface Campaign {
   quotaPerUser: number;
   /** Límite TOTAL de aportes por tipo de dato (2026-10-28, opcional; lib/campanas/limite-por-tipo.ts). */
   limitePorTipo?: Partial<Record<DataType, number>>;
+  /** Tope por persona de cada tipo, aparte de quotaPerUser (2026-10-31, lib/campanas/cuota-por-tipo.ts). */
+  cuotaPorTipo?: Partial<Record<DataType, number>>;
   /** Aportes no rechazados de cada tipo (lo que llena el límite). */
   enviadosPorTipo?: Partial<Record<DataType, number>>;
   currentContributions: number;

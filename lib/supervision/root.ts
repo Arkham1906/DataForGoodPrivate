@@ -7,6 +7,7 @@ import { hasRootSession } from "@/lib/rootSession";
 import { pausaDesdeFila, type PausaDeCampana } from "@/lib/campanas/pausa";
 import { agregarEtiquetas } from "@/lib/etiquetas/catalogo";
 import type { EtiquetaDeCampana } from "@/lib/etiquetas/reglas";
+import { cuotaPorTipoDesdeFila, type CuotaPorTipo } from "@/lib/campanas/cuota-por-tipo";
 
 /*
  * Datos del modo supervisor del SuperUsuario (/supervisar, dentro de
@@ -46,7 +47,8 @@ export type CampanaSupervisable = {
   goalContributions: number;
   participants: number;
   quotaPerUser: number;
-  /** Reparto de la cuota por tipo de dato; null = solo la cuota general. */
+  /** Máximo por persona de cada tipo (2026-10-31, lib/campanas/cuota-por-tipo.ts); {} = sin máximos. */
+  cuotaPorTipo: CuotaPorTipo;
   description: string;
   organizer: string;
   /** ¿Para qué se usarán los datos? (2026-10-27, lib/campanas/proposito.ts). */
@@ -84,6 +86,7 @@ function mapear(row: Record<string, unknown>): CampanaSupervisable {
     goalContributions: Number(row.goal_contributions ?? 0),
     participants: Number(row.participants ?? 0),
     quotaPerUser: Number(row.quota_per_user ?? 0),
+    cuotaPorTipo: cuotaPorTipoDesdeFila(row),
     description: String(row.description ?? ""),
     organizer: String(row.organizer ?? ""),
     proposito: row.proposito ? String(row.proposito) : null,

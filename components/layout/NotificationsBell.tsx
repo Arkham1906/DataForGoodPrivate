@@ -184,7 +184,9 @@ export default function NotificationsBell() {
                   <button
                     type="button"
                     onClick={() => void abrir(item)}
-                    className="flex w-full gap-2.5 px-3 py-2.5 text-left hover:bg-system-100"
+                    // Hover gris (2026-10-31, a pedido del usuario): el mismo en leídas y no leídas, y más oscuro
+                    // que el azul de las no leídas, para que pasar el cursor no parezca marcarla como leída.
+                    className="flex w-full gap-2.5 px-3 py-2.5 text-left hover:bg-system-200"
                   >
                     <span
                       aria-hidden

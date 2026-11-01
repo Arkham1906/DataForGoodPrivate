@@ -28,6 +28,7 @@ import { AvisoNoEncontrado } from "@/components/ui/AvisoNoEncontrado";
 import { InscripcionACampana } from "@/components/ui/AcuerdosDeAporte";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 import { repartoSugerido } from "@/lib/campanas/reparto-sugerido";
+import { resumenDeCuotaPorTipo } from "@/lib/campanas/cuota-por-tipo";
 import { resumenDeLimites } from "@/lib/campanas/limite-por-tipo";
 import { quienOrganiza } from "@/lib/campanas/organizacion";
 import { textoDelProposito } from "@/lib/campanas/proposito";
@@ -219,7 +220,9 @@ export default function CampaignDetailPage() {
             {campaign.approvedContributions} de {campaign.goalContributions} aportes aprobados · tu
             cuota: {campaign.quotaPerUser}
             {/* Solo sugerencia (2026-10-27): la cuota vale para cualquier tipo. */}
-            {repartoSugerido(campaign.quotaPerUser, campaign.dataTypes) ? ` (sugerido: ${repartoSugerido(campaign.quotaPerUser, campaign.dataTypes)})` : ""}
+            {resumenDeCuotaPorTipo(campaign.dataTypes, campaign.cuotaPorTipo ?? {})
+              ? ` (${resumenDeCuotaPorTipo(campaign.dataTypes, campaign.cuotaPorTipo ?? {})})`
+              : repartoSugerido(campaign.quotaPerUser, campaign.dataTypes) ? ` (sugerido: ${repartoSugerido(campaign.quotaPerUser, campaign.dataTypes)})` : ""}
             {/* Límite total por tipo de dato (2026-10-28). */}
             {resumenDeLimites(campaign.dataTypes, campaign.limitePorTipo ?? {}, campaign.enviadosPorTipo ?? {})
               ? ` · máximo ${resumenDeLimites(campaign.dataTypes, campaign.limitePorTipo ?? {}, campaign.enviadosPorTipo ?? {})}`

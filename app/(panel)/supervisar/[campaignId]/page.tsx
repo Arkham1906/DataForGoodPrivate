@@ -9,6 +9,7 @@ import { notFound } from "next/navigation";
 import Tag from "@/components/ui/Tag";
 import { obtenerCampanaParaRoot } from "@/lib/supervision/root";
 import { repartoSugerido } from "@/lib/campanas/reparto-sugerido";
+import { resumenDeCuotaPorTipo } from "@/lib/campanas/cuota-por-tipo";
 import { BackLink } from "../_ui";
 import { quienOrganiza } from "@/lib/campanas/organizacion";
 import { textoDelProposito } from "@/lib/campanas/proposito";
@@ -66,7 +67,9 @@ export default async function SupervisarCampanaPage({ params }: { params: Promis
         "Cuota por usuario",
         <span key="q" className="font-mono">
           {campaign.quotaPerUser}
-          {repartoSugerido(campaign.quotaPerUser, campaign.dataTypes) ? ` (sugerido: ${repartoSugerido(campaign.quotaPerUser, campaign.dataTypes)})` : ""}
+          {resumenDeCuotaPorTipo(campaign.dataTypes, campaign.cuotaPorTipo)
+            ? ` (${resumenDeCuotaPorTipo(campaign.dataTypes, campaign.cuotaPorTipo)})`
+            : repartoSugerido(campaign.quotaPerUser, campaign.dataTypes) ? ` (sugerido: ${repartoSugerido(campaign.quotaPerUser, campaign.dataTypes)})` : ""}
         </span>,
       ],
     ],

@@ -11,6 +11,7 @@ import { porcentajeDeMeta } from "@/lib/campanas/meta";
 import type { Metadata } from "next";
 import PublicHeader from "@/components/layout/PublicHeader";
 import PublicFooter from "@/components/layout/PublicFooter";
+import ActualizacionEnVivo from "@/components/layout/ActualizacionEnVivo";
 import ButtonLink from "@/components/ui/ButtonLink";
 import Card from "@/components/ui/Card";
 import ProgressBar from "@/components/ui/ProgressBar";
@@ -325,6 +326,7 @@ export default async function ExplorarCampanasPage({
         </div>
       </main>
 
+      <ActualizacionEnVivo />
       <PublicFooter />
     </div>
   );

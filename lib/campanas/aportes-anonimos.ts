@@ -27,6 +27,8 @@ import {
   guardarArchivoDelAporte,
   insertarAporteConCuota,
   tiposConLugarParaElAporte,
+  tiposDentroDeLaCuotaParaElAporte,
+  aportesDeLaPersonaPorTipo,
 } from "@/lib/aportes/comun";
 import { hashDeDispositivo } from "@/lib/aportes/anonimato";
 import { registrarArchivo } from "@/lib/aportes/tabla-archivos";
@@ -200,7 +202,17 @@ export async function enviarAporteAnonimo(entrada: {
     if (faltanRed > 0) return { ok: false, status: 429, error: mensajeDeEspera(faltanRed), esperaSegundos: faltanRed };
   }
 
-  const subida = await guardarArchivoDelAporte(entrada.archivo, campana.id, conLugar.tipos, campana.formatosDeDocumento);
+  // Tope por persona de cada tipo (2026-10-31), contado por dispositivo como la cuota general.
+  const dentroDeSuCuota = tiposDentroDeLaCuotaParaElAporte(
+    entrada.archivo,
+    conLugar.tipos,
+    campana.tiposDeArchivo,
+    campana.cuotaPorTipo,
+    await aportesDeLaPersonaPorTipo(campana.id, { anonimoId }),
+  );
+  if (!dentroDeSuCuota.ok) return { ok: false, status: 400, error: dentroDeSuCuota.error };
+
+  const subida = await guardarArchivoDelAporte(entrada.archivo, campana.id, dentroDeSuCuota.tipos, campana.formatosDeDocumento);
   if (!subida.ok) return { ok: false, status: 400, error: subida.error };
   const { tipo, guardado } = subida.archivo;
   // Solo respuestas de los checklists del tipo real del archivo ("Título: opción"; 2026-10-28).
@@ -226,6 +238,7 @@ export async function enviarAporteAnonimo(entrada: {
       );
       return Number(rows[0]?.n ?? 0);
     },
+    contarDelTipo: async (client) => (await aportesDeLaPersonaPorTipo(campana.id, { anonimoId }, client))[tipo] ?? 0,
     insertar: async (client) => {
       // El archivo va a la tabla archivos (2026-10-30), sin nombre original: puede traer datos
       // personales. Sin archivo (solo texto): archivo_id NULL.
@@ -254,7 +267,7 @@ export async function enviarAporteAnonimo(entrada: {
     if (insertado.motivo === "espera") {
       return { ok: false, status: 429, error: insertado.error, esperaSegundos: insertado.esperaSegundos };
     }
-    if (insertado.motivo === "tipo_lleno") return { ok: false, status: 400, error: insertado.error };
+    if (insertado.motivo === "tipo_lleno" || insertado.motivo === "cuota_del_tipo") return { ok: false, status: 400, error: insertado.error };
     return {
       ok: false,
       status: 400,
