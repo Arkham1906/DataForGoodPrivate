@@ -3,6 +3,7 @@
 
 import Tag from "@/components/ui/Tag";
 import Card from "@/components/ui/Card";
+import type { KeyboardEvent, MouseEvent } from "react";
 import type { Contribution } from "@/types";
 import { formatearTamano } from "@/lib/aportes/archivo";
 import { etiquetaDeCalificacion } from "@/lib/aportes/calificacion";
@@ -23,13 +24,41 @@ function formatDateTime(iso: string) {
   return `${date} · ${time}`;
 }
 
-export default function ContributionCard({ contribution }: { contribution: Contribution }) {
+export default function ContributionCard({
+  contribution,
+  mostrarCampana = true,
+  onAbrir,
+}: {
+  contribution: Contribution;
+  mostrarCampana?: boolean;
+  onAbrir?: () => void;
+}) {
   const status = STATUS_TONE[contribution.status];
 
+  function abrirConTeclado(event: KeyboardEvent<HTMLDivElement>) {
+    if (onAbrir && (event.key === "Enter" || event.key === " ")) {
+      event.preventDefault();
+      onAbrir();
+    }
+  }
+
+  function abrirConClick(event: MouseEvent<HTMLDivElement>) {
+    if (onAbrir && !(event.target as HTMLElement).closest("a,button,input,select,textarea,video,audio")) {
+      onAbrir();
+    }
+  }
+
   return (
-    <Card className="flex items-start justify-between gap-4">
+    <Card
+      className={`flex items-start justify-between gap-4 ${onAbrir ? "cursor-pointer transition-colors hover:border-brand-600" : ""}`}
+      onClick={abrirConClick}
+      onKeyDown={abrirConTeclado}
+      role={onAbrir ? "link" : undefined}
+      tabIndex={onAbrir ? 0 : undefined}
+      aria-label={onAbrir ? `Abrir aporte ${contribution.id}` : undefined}
+    >
       <div className="min-w-0">
-        <p className="text-[14px] font-bold text-system-900">{contribution.campaignName}</p>
+        {mostrarCampana && <p className="text-[14px] font-bold text-system-900">{contribution.campaignName}</p>}
         <p className="mt-1 text-[13px] text-system-600">{contribution.description}</p>
         <div className="mt-3 max-w-2xl">
           {contribution.archivoBorrado ? (

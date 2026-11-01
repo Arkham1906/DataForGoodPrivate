@@ -114,6 +114,7 @@ export interface Contribution {
   id: string;
   campaignId: string;
   campaignName: string;
+  campaignTematica?: string;
   userId: string | null; // null = aporte anónimo
   participantName: string; // "Anónimo" cuando userId es null
   participantEmail?: string;

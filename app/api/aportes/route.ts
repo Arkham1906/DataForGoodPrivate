@@ -31,6 +31,8 @@ function mapAporte(row: Record<string, unknown>) {
   return {
     id: String(row.id ?? ""),
     campaignId: String(row.campaign_id ?? ""),
+    campaignName: String(row.campaign_name ?? ""),
+    campaignTematica: row.campaign_tematica != null ? String(row.campaign_tematica) : undefined,
     userId: row.user_id != null ? String(row.user_id) : null,
     participantName: String(row.participant_name ?? "Anónimo"),
     participantEmail: row.participant_email ? String(row.participant_email) : undefined,
@@ -58,7 +60,7 @@ export async function GET(request: Request) {
     const mine = url.searchParams.get("mine") === "true";
     const reviewer = url.searchParams.get("reviewer") === "true";
 
-    if (!campaignId) {
+    if (!campaignId && !mine) {
       return NextResponse.json({ error: "campaignId es obligatorio" }, { status: 400 });
     }
 
@@ -67,7 +69,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Debes iniciar sesion" }, { status: 401 });
     }
 
-    if (!mine) {
+    if (!mine && campaignId) {
       const campaignResult = await pool.query(
         `SELECT c.creator_id,
                 EXISTS (
@@ -87,24 +89,45 @@ export async function GET(request: Request) {
       }
     }
 
-    const result = mine
+    const result = mine && !campaignId
       ? await pool.query(
-          `SELECT *, ${columnasDeArchivo()}, ${columnaDeRespuestas()} FROM aportes WHERE campaign_id = $1 AND user_id = $2 ORDER BY submitted_at DESC`,
-          [campaignId, user.id]
+          `SELECT a.*, c.name AS campaign_name,
+                  COALESCE(NULLIF(c.tematica, ''), c.tag, '') AS campaign_tematica,
+                  ${columnasDeArchivo("a")}, ${columnaDeRespuestas("a")}
+           FROM aportes a JOIN campanas c ON c.id = a.campaign_id
+           WHERE a.user_id = $1 ORDER BY a.submitted_at DESC`,
+          [user.id]
         )
-      : reviewer
+      : mine
         ? await pool.query(
-            `SELECT *, ${columnasDeArchivo()}, ${columnaDeRespuestas()} FROM aportes
-             WHERE campaign_id = $1
-               AND user_id IS DISTINCT FROM $2
-               AND (status = 'pendiente' OR first_pass_by_user_id = $2)
-             ORDER BY submitted_at DESC`,
+            `SELECT a.*, c.name AS campaign_name,
+                    COALESCE(NULLIF(c.tematica, ''), c.tag, '') AS campaign_tematica,
+                    ${columnasDeArchivo("a")}, ${columnaDeRespuestas("a")}
+             FROM aportes a JOIN campanas c ON c.id = a.campaign_id
+             WHERE a.campaign_id = $1 AND a.user_id = $2
+             ORDER BY a.submitted_at DESC`,
             [campaignId, user.id]
           )
-      : await pool.query(
-          `SELECT *, ${columnasDeArchivo()}, ${columnaDeRespuestas()} FROM aportes WHERE campaign_id = $1 ORDER BY submitted_at DESC`,
-          [campaignId]
-        );
+        : reviewer
+          ? await pool.query(
+              `SELECT a.*, c.name AS campaign_name,
+                      COALESCE(NULLIF(c.tematica, ''), c.tag, '') AS campaign_tematica,
+                      ${columnasDeArchivo("a")}, ${columnaDeRespuestas("a")}
+               FROM aportes a JOIN campanas c ON c.id = a.campaign_id
+               WHERE a.campaign_id = $1
+                 AND a.user_id IS DISTINCT FROM $2
+                 AND (a.status = 'pendiente' OR a.first_pass_by_user_id = $2)
+               ORDER BY a.submitted_at DESC`,
+              [campaignId, user.id]
+            )
+          : await pool.query(
+              `SELECT a.*, c.name AS campaign_name,
+                      COALESCE(NULLIF(c.tematica, ''), c.tag, '') AS campaign_tematica,
+                      ${columnasDeArchivo("a")}, ${columnaDeRespuestas("a")}
+               FROM aportes a JOIN campanas c ON c.id = a.campaign_id
+               WHERE a.campaign_id = $1 ORDER BY a.submitted_at DESC`,
+              [campaignId]
+            );
 
     // El revisor solo necesita el contenido: el correo del participante no le corresponde.
     const aportes = result.rows.map(mapAporte);

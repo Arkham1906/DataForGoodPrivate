@@ -14,6 +14,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
+import { buttonClasses } from "@/components/ui/Button";
 import { Field, Textarea } from "@/components/ui/Input";
 import Tag from "@/components/ui/Tag";
 import type { Contribution } from "@/types";
@@ -27,6 +28,7 @@ import ArchivoDelAporte from "@/components/ui/ArchivoDelAporte";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 import SelectorDeCalificacion from "@/components/aportes/SelectorDeCalificacion";
 import { etiquetaDeCalificacion, type CalificacionDeAporte } from "@/lib/aportes/calificacion";
+import VentanaDeConfirmacion from "@/components/ui/VentanaDeConfirmacion";
 
 const STATUS_LABELS: Record<string, string> = {
   pendiente: "Sin revisar",
@@ -50,6 +52,8 @@ export default function RevisionAportePage() {
   const [aviso, setAviso] = useState<string | null>(null);
   const [inapropiado, setInapropiado] = useState(false);
   const [calificacion, setCalificacion] = useState<CalificacionDeAporte | "">("");
+  const [confirmarEliminacion, setConfirmarEliminacion] = useState(false);
+  const [eliminando, setEliminando] = useState(false);
 
   // Vuelve a leer cuando algo cambia en la base (actualización en vivo).
   const recarga = useRecargaEnVivo();
@@ -133,6 +137,22 @@ export default function RevisionAportePage() {
     }
   }
 
+  async function eliminarAporte() {
+    setEliminando(true);
+    setError(null);
+    try {
+      const response = await fetch(`${BASE_PATH}/api/aportes/${aporteId}`, { method: "DELETE" });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error ?? "No se pudo eliminar el aporte");
+      router.push(`/mis-aportes/${item?.campaignId ?? ""}`);
+      router.refresh();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No se pudo eliminar el aporte");
+      setEliminando(false);
+      setConfirmarEliminacion(false);
+    }
+  }
+
   function confirmarRechazo(e: React.FormEvent) {
     e.preventDefault();
     void decidir("rechazado", motivoPropio.trim() || motivo);
@@ -154,6 +174,7 @@ export default function RevisionAportePage() {
   const statusTone = item.status === "aceptado" ? "ok" : item.status === "rechazado" ? "danger" : "warn";
   const submittedAt = new Date(item.submittedAt);
   const calificacionMostrada = etiquetaDeCalificacion(item.calificacion);
+  const puedeEliminar = !item.canReview && (item.status === "pendiente" || item.status === "espera_final");
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -178,6 +199,19 @@ export default function RevisionAportePage() {
           <Tag tone={statusTone}>{STATUS_LABELS[item.status] ?? item.status}</Tag>
         </div>
       </div>
+
+      {!item.canReview && (
+        <div className="mb-6 flex flex-wrap gap-2">
+          <Link href={`/mis-aportes/${item.campaignId}`} className={buttonClasses("secondary", "sm")}>
+            Historial de aportes de la campaña
+          </Link>
+          {puedeEliminar && (
+            <Button variant="danger" size="sm" onClick={() => setConfirmarEliminacion(true)} disabled={eliminando}>
+              Eliminar aporte
+            </Button>
+          )}
+        </div>
+      )}
 
       {error && <p className="mb-4 rounded border border-error-700 bg-error-50 p-3 text-[12.5px] text-error-700">{error}</p>}
 
@@ -403,6 +437,19 @@ export default function RevisionAportePage() {
           />
         </div>
       )}
+
+      <VentanaDeConfirmacion
+        abierto={confirmarEliminacion}
+        titulo="¿Eliminar este aporte?"
+        textoConfirmar="Sí, eliminar aporte"
+        textoOcupado="Eliminando…"
+        ocupado={eliminando}
+        peligro
+        onCancelar={() => setConfirmarEliminacion(false)}
+        onConfirmar={() => void eliminarAporte()}
+      >
+        <p>El aporte se eliminará permanentemente y ya no aparecerá en el historial de esta campaña.</p>
+      </VentanaDeConfirmacion>
     </div>
   );
 }

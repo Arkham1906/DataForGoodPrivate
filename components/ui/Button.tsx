@@ -24,7 +24,7 @@ const sizeClasses: Record<Size, string> = {
 };
 
 export function buttonClasses(variant: Variant = "secondary", size: Size = "md", className = "") {
-  return `inline-flex items-center justify-center gap-2 rounded-pill border font-bold transition-[color,background-color,border-color,scale,filter] disabled:opacity-45 disabled:cursor-not-allowed ${variantClasses[variant]} ${sizeClasses[size]} ${className}`;
+  return `inline-flex items-center justify-center gap-2 rounded-pill border font-bold transition-[color,background-color,border-color,scale,filter] active:scale-[0.97] active:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:opacity-45 disabled:cursor-not-allowed ${variantClasses[variant]} ${sizeClasses[size]} ${className}`;
 }
 
 export default function Button({

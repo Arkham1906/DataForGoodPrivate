@@ -22,6 +22,7 @@ function mapAporte(row: Record<string, unknown>) {
   return {
     id: String(row.id ?? ""),
     campaignId: String(row.campaign_id ?? ""),
+    campaignName: String(row.campaign_name ?? ""),
     userId: row.user_id != null ? String(row.user_id) : null,
     participantName: String(row.participant_name ?? "Anónimo"),
     participantEmail: row.participant_email ? String(row.participant_email) : undefined,
