@@ -5,8 +5,11 @@
 // Acciones secundarias en "Más", con PATCH /api/campanas/[id] { status }: "Pausar" (activa → pausada),
 // "Reanudar" (pausada → activa; no si la pausó la supervisión, que se muestra con su motivo)
 // y "Finalizar" (activa o pausada). Pausar y Finalizar se confirman en una ventana emergente
-// (ui/VentanaDeConfirmacion). "Eliminar" aparece si no tiene aportes, confirma antes de borrar
-// y llama DELETE /api/campanas/[id]. "Compartir" (activa, 2026-10-19) abre el mismo cuadro de
+// (ui/VentanaDeConfirmacion). "Activar campaña" (2026-10-31): una aceptada por la supervisión espera a que el
+// creador la active (esperaActivacion); con PATCH { status: "activa" } se activa o, con inicio futuro, se programa.
+// "Eliminar" (canDelete): sin aportes, siempre; con aportes (2026-10-31), en
+// cualquier estado menos finalizada, diciendo cuántos se borran; siempre pide escribir el nombre de la campaña;
+// llama DELETE /api/campanas/[id] { confirmacion } (lib/campanas/eliminar.ts). "Compartir" (activa, 2026-10-19) abre el mismo cuadro de
 // /campanas/[id] (enlace, redes sociales y QR; campanas/[id]/compartir.tsx). Solo el creador las ve:
 // la lista viene de mine=true y el servidor revisa creator_id.
 
@@ -56,6 +59,12 @@ const FILTROS: { valor: Filtro; etiqueta: string; fijo?: boolean }[] = [
 ];
 
 type CampanaDeMisCampanas = Campaign & { canDelete: boolean };
+
+/** El nombre escrito para confirmar el borrado coincide con el de la campaña (sin mayúsculas ni espacios de más). */
+function mismoNombre(escrito: string, nombre: string): boolean {
+  const normalizar = (t: string) => t.split(" ").filter(Boolean).join(" ").toLowerCase();
+  return normalizar(escrito) === normalizar(nombre);
+}
 
 type TipoDeIconoDeAccion = "compartir" | "editar" | "pausar" | "reanudar" | "finalizar";
 
@@ -129,6 +138,7 @@ function mapCampaign(row: Record<string, unknown>): CampanaDeMisCampanas {
     pausa: (row.pausa as Campaign["pausa"]) ?? null,
     rechazo: (row.rechazo as Campaign["rechazo"]) ?? null,
     canDelete: row.canDelete === true,
+    esperaActivacion: row.esperaActivacion === true,
   };
 }
 
@@ -144,9 +154,12 @@ export default function MisCampanasPage() {
   const [porCompartir, setPorCompartir] = useState<Campaign | null>(null);
   // Campaña cuya ventana de "Finalizar" está abierta (2026-10-16; antes window.confirm).
   const [porFinalizar, setPorFinalizar] = useState<Campaign | null>(null);
+  const [porActivar, setPorActivar] = useState<Campaign | null>(null);
   // Campaña cuya ventana de detalle está abierta (2026-10-27): clic en su tarjeta.
   const [abierta, setAbierta] = useState<Campaign | null>(null);
   const [porEliminar, setPorEliminar] = useState<CampanaDeMisCampanas | null>(null);
+  // Nombre que escribe para confirmar que borra una campaña con aportes.
+  const [nombreParaEliminar, setNombreParaEliminar] = useState("");
   const [cargando, setCargando] = useState(true);
   const [filtro, setFiltro] = useState<Filtro>("todas");
 
@@ -207,11 +220,37 @@ export default function MisCampanasPage() {
     }
   }
 
+  // Activa (o programa) la campaña que aprobó la supervisión; el servidor decide según su fecha de inicio.
+  async function activarCampana(campaign: Campaign) {
+    setCambiandoId(campaign.id);
+    setCambioError((prev) => ({ ...prev, [campaign.id]: "" }));
+    try {
+      const response = await fetch(`${BASE_PATH}/api/campanas/${campaign.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "activa" }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error ?? "No se pudo activar la campaña");
+      const status = String(payload.data?.status ?? "aceptada") as CampaignStatus;
+      setCampaigns((prev) => prev.map((c) => (c.id === campaign.id ? { ...c, status, esperaActivacion: false } : c)));
+      setPorActivar(null);
+    } catch (cause) {
+      setCambioError((prev) => ({ ...prev, [campaign.id]: cause instanceof Error ? cause.message : "No se pudo activar la campaña" }));
+    } finally {
+      setCambiandoId(null);
+    }
+  }
+
   async function eliminarCampana(campaign: CampanaDeMisCampanas) {
     setCambiandoId(campaign.id);
     setCambioError((prev) => ({ ...prev, [campaign.id]: "" }));
     try {
-      const response = await fetch(`${BASE_PATH}/api/campanas/${campaign.id}`, { method: "DELETE" });
+      const response = await fetch(`${BASE_PATH}/api/campanas/${campaign.id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmacion: nombreParaEliminar }),
+      });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error ?? "No se pudo eliminar la campaña");
       setCampaigns((prev) => prev.filter((item) => item.id !== campaign.id));
@@ -371,6 +410,16 @@ export default function MisCampanasPage() {
                     )}
                   </>
                 )}
+                {campaign.status === "aceptada" && campaign.esperaActivacion ? (
+                  <div className="mb-2.5 rounded-lg border border-success-700 bg-success-50 p-2.5 text-[11.5px] text-system-900">
+                    <p className="font-semibold">La supervisión aprobó tu campaña</p>
+                    <p className="mt-0.5 text-system-600">Actívala cuando quieras empezar a recibir aportes; hasta entonces nadie la ve.</p>
+                  </div>
+                ) : campaign.status === "aceptada" ? (
+                  <p className="mb-2.5 text-[11.5px] text-system-600">
+                    Programada: se activa sola el {campaign.startDate ? fechaDDMMAAAA(campaign.startDate) : "día de inicio"}.
+                  </p>
+                ) : null}
                 {campaign.status === "pausada" && campaign.pausa?.por === "supervision" ? (
                   <div className="mb-2.5 rounded-lg border border-warning-200 bg-warning-50 p-2.5 text-[11.5px] text-system-900">
                     <p className="font-semibold">La supervisión pausó esta campaña</p>
@@ -387,6 +436,10 @@ export default function MisCampanasPage() {
                     <ButtonLink href={`/mis-campanas/nueva?edit=${campaign.id}`} variant="primary" size="sm" className="max-md:px-2 max-md:py-1.5 max-md:text-[11px]">
                       Corregir y reenviar
                     </ButtonLink>
+                  ) : campaign.status === "aceptada" && campaign.esperaActivacion ? (
+                    <Button variant="primary" size="sm" className="max-md:px-2 max-md:py-1.5 max-md:text-[11px]" onClick={() => setPorActivar(campaign)} disabled={cambiando}>
+                      {inicioEnElFuturo(campaign.startDate, campaign.startTime) ? "Programar campaña" : "Activar campaña"}
+                    </Button>
                   ) : (
                     <ButtonLink href={`/mis-campanas/${campaign.id}/aportes`} variant="primary" size="sm" className="max-md:px-2 max-md:py-1.5 max-md:text-[11px]">
                       Revisar aportes
@@ -438,7 +491,10 @@ export default function MisCampanasPage() {
                       variant="danger"
                       size="sm"
                       className="max-md:px-2 max-md:py-1.5 max-md:text-[11px]"
-                      onClick={() => setPorEliminar(campaign)}
+                      onClick={() => {
+                        setNombreParaEliminar("");
+                        setPorEliminar(campaign);
+                      }}
                       disabled={cambiando}
                     >
                       Eliminar
@@ -539,6 +595,28 @@ export default function MisCampanasPage() {
       </VentanaDeConfirmacion>
 
       <VentanaDeConfirmacion
+        abierto={porActivar !== null}
+        titulo={porActivar && inicioEnElFuturo(porActivar.startDate, porActivar.startTime) ? "¿Programar esta campaña?" : "¿Activar esta campaña?"}
+        textoConfirmar={porActivar && inicioEnElFuturo(porActivar.startDate, porActivar.startTime) ? "Programar campaña" : "Activar campaña"}
+        textoOcupado="Activando…"
+        ocupado={porActivar !== null && cambiandoId === porActivar.id}
+        onCancelar={() => setPorActivar(null)}
+        onConfirmar={() => {
+          if (porActivar) void activarCampana(porActivar);
+        }}
+      >
+        {porActivar && <p className="mb-3 font-semibold text-system-900">{porActivar.name}</p>}
+        <p>
+          {porActivar && inicioEnElFuturo(porActivar.startDate, porActivar.startTime)
+            ? `Empieza el ${porActivar.startDate ? fechaDDMMAAAA(porActivar.startDate) : "día de inicio"}: quedará programada y se activará sola ese día.`
+            : "Empezará a recibir aportes en cuanto la actives y aparecerá en Campañas para que la gente participe."}
+        </p>
+        {porActivar && cambioError[porActivar.id] && (
+          <p role="alert" className="mt-3 text-error-700">{cambioError[porActivar.id]}</p>
+        )}
+      </VentanaDeConfirmacion>
+
+      <VentanaDeConfirmacion
         abierto={porFinalizar !== null}
         titulo="¿Finalizar esta campaña?"
         textoConfirmar="Finalizar campaña"
@@ -567,6 +645,7 @@ export default function MisCampanasPage() {
         textoOcupado="Eliminando…"
         peligro
         ocupado={porEliminar !== null && cambiandoId === porEliminar.id}
+        confirmarDeshabilitado={porEliminar !== null && !mismoNombre(nombreParaEliminar, porEliminar.name)}
         onCancelar={() => setPorEliminar(null)}
         onConfirmar={() => {
           if (!porEliminar) return;
@@ -574,9 +653,24 @@ export default function MisCampanasPage() {
         }}
       >
         {porEliminar && <p className="mb-3 font-semibold text-system-900">{porEliminar.name}</p>}
-        <p>
-          Advertencia: la campaña se eliminará permanentemente y no se podrá recuperar. Solo puedes eliminar campañas que aún no hayan recibido aportes.
-        </p>
+        <p>Advertencia: la campaña se eliminará permanentemente y no se podrá recuperar.</p>
+        {porEliminar && porEliminar.currentContributions > 0 && (
+          <p className="mt-2 rounded border border-error-700 bg-error-50 p-2.5 text-error-700">
+            Tiene {porEliminar.currentContributions} {porEliminar.currentContributions === 1 ? "aporte" : "aportes"}: se
+            borrarán junto con sus archivos y quienes aportaron recibirán un aviso.
+          </p>
+        )}
+        {/* Siempre se escribe el nombre para confirmar, tenga aportes o no (2026-10-31, a pedido del usuario). */}
+        <label className="mt-3 block text-[12.5px] text-system-600">
+          Para confirmar, escribe el nombre de la campaña:
+          <input
+            type="text"
+            value={nombreParaEliminar}
+            onChange={(e) => setNombreParaEliminar(e.target.value)}
+            autoComplete="off"
+            className="mt-1.5 w-full rounded border border-system-300 bg-white px-3 py-2 text-[13px] text-system-900 outline-none focus:border-brand-600"
+          />
+        </label>
         {porEliminar && cambioError[porEliminar.id] && (
           <p role="alert" className="mt-3 text-error-700">{cambioError[porEliminar.id]}</p>
         )}

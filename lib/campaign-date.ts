@@ -155,6 +155,9 @@ function nowLocalTimestampParam(): string {
  * se activan las que caben en MAX_CAMPANAS_ACTIVAS (por creador, en orden de inicio); las demás
  * siguen "aceptada", se activan en cuanto se libera un lugar y el creador recibe una vez
  * campana_en_espera. El candado evita que dos corridas a la vez cuenten las mismas activas.
+ *
+ * Las que esperan a que su creador las active (espera_activacion, 2026-10-31) no se tocan: al aprobarlas
+ * la supervisión, decide el creador desde /mis-campanas, y al activarlas vuelven a pasar por aquí.
  */
 export async function activateScheduledCampaigns(): Promise<void> {
   const ahora = nowLocalTimestampParam();
@@ -178,7 +181,7 @@ export async function activateScheduledCampaigns(): Promise<void> {
          SELECT id, creator_id,
                 ROW_NUMBER() OVER (PARTITION BY creator_id ORDER BY start_date, start_time NULLS FIRST, id) AS turno
          FROM campanas
-         WHERE status = 'aceptada'
+         WHERE status = 'aceptada' AND NOT espera_activacion
            AND (start_date::timestamp + COALESCE(start_time, TIME '00:00:00')) <= $1::timestamp
        )
        UPDATE campanas c SET status = 'activa', updated_at = NOW()
@@ -192,7 +195,7 @@ export async function activateScheduledCampaigns(): Promise<void> {
     // Las que llegaron a su inicio sin lugar y todavía no tienen el aviso.
     ({ rows: enEspera } = await client.query<{ id: number; creator_id: number; name: string }>(
       `SELECT c.id, c.creator_id, c.name FROM campanas c
-       WHERE c.status = 'aceptada' AND c.creator_id IS NOT NULL
+       WHERE c.status = 'aceptada' AND NOT c.espera_activacion AND c.creator_id IS NOT NULL
          AND (c.start_date::timestamp + COALESCE(c.start_time, TIME '00:00:00')) <= $1::timestamp
          AND NOT EXISTS (
            SELECT 1 FROM notificaciones n

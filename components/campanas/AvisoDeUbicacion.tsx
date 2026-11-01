@@ -92,8 +92,7 @@ export default function AvisoDeUbicacion({ zona }: { zona: ZonaDetectada | null 
   return (
     <div className="mb-5 rounded-lg border-l-4 border-brand-600 bg-system-100 p-3.5 text-[12.5px] text-system-600">
       <p>
-        <b className="text-system-900">¿Ver primero las campañas de donde estás?</b> Usamos tu ubicación solo para saber tu
-        municipio: no guardamos las coordenadas. Si viajas a otro municipio, te avisamos de sus campañas activas.
+        Aún no compartes tu ubicación. Actívala para recomendarte las campañas más cercanas a ti.
       </p>
       {error && <p className="mt-1.5 text-error-700">{error}</p>}
       <div className="mt-2.5 flex flex-wrap gap-2">

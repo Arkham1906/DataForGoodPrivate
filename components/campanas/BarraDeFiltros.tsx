@@ -3,6 +3,7 @@
 // Barra de filtros de campañas: búsqueda, temática, etiqueta (subtemática de la temática elegida,
 // 2026-10-27; solo si quien la usa pasa `etiquetasPorTematica`), tipo de dato, vigencia (opcional) y orden.
 // Quien la usa vacía la etiqueta cuando cambia la temática.
+// Con `vistas` (2026-10-31, solo /campanas) va primero un select "Mostrar" (todas, guardadas, cerca de ti...).
 // Solo dibuja y avisa de los cambios; quien la usa decide qué hacer con ellos:
 // /sistema/campanas los escribe en la URL y /supervision, /supervisar y /campanas filtran en el navegador.
 // Constantes de lib/campanas/sistema-opciones.ts (sin imports de servidor).
@@ -18,6 +19,8 @@ const CLASE_SELECT =
 
 export type ValoresDeFiltros = {
   q: string;
+  /** Lista que se muestra (solo con `vistas`). */
+  vista?: string;
   tematica: string;
   etiqueta?: string;
   tipo: string;
@@ -34,6 +37,7 @@ export default function BarraDeFiltros({
   conTematica = true,
   conTipo = true,
   etiquetasPorTematica,
+  vistas,
 }: {
   valores: ValoresDeFiltros;
   tematicas: string[];
@@ -46,12 +50,15 @@ export default function BarraDeFiltros({
   colapsableEnMovil?: boolean;
   /** false: sin el select de temática (/campanas, donde la temática se elige con botones). */
   conTematica?: boolean;
-  /** false: sin el select de tipo de dato (/campanas, donde el tipo se elige con botones, 2026-10-28). */
+  /** false: sin el select de tipo de dato. */
   conTipo?: boolean;
+  /** Select "Mostrar" con estas listas (p. ej. Todas / Guardadas / Cerca de ti); sin él no sale. */
+  vistas?: { valor: string; etiqueta: string }[];
 }) {
   const [texto, setTexto] = useState(valores.q);
   const [panelAbierto, setPanelAbierto] = useState(false);
   const [filtrosBorrador, setFiltrosBorrador] = useState({
+    vista: valores.vista ?? "",
     tematica: valores.tematica,
     etiqueta: valores.etiqueta ?? "",
     tipo: valores.tipo,
@@ -60,6 +67,7 @@ export default function BarraDeFiltros({
   });
 
   const idQ = useId();
+  const idVista = useId();
   const idPanel = useId();
   const idTema = useId();
   const idEtiqueta = useId();
@@ -107,6 +115,26 @@ export default function BarraDeFiltros({
 
     return (
       <>
+        {vistas && (
+          <div className="min-w-0 flex-1">
+            <label className="sr-only" htmlFor={`${idVista}-${sufijo}`}>
+              Qué campañas mostrar
+            </label>
+            <select
+              id={`${idVista}-${sufijo}`}
+              className={CLASE_SELECT}
+              value={filtros.vista ?? ""}
+              onChange={(e) => cambiar("vista", e.target.value)}
+            >
+              {vistas.map((v) => (
+                <option key={v.valor} value={v.valor}>
+                  {v.etiqueta}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {conTematica && (
           <div className="min-w-0 flex-1">
             <label className="sr-only" htmlFor={`${idTema}-${sufijo}`}>
@@ -216,6 +244,7 @@ export default function BarraDeFiltros({
   function alternarPanel() {
     if (!panelAbierto) {
       setFiltrosBorrador({
+        vista: valores.vista ?? "",
         tematica: valores.tematica,
         etiqueta: valores.etiqueta ?? "",
         tipo: valores.tipo,
@@ -227,6 +256,7 @@ export default function BarraDeFiltros({
   }
 
   function aplicarPanel() {
+    if (vistas) onCambiar("vista", filtrosBorrador.vista);
     if (conTematica) onCambiar("tematica", filtrosBorrador.tematica);
     if (conTematica && etiquetasPorTematica) onCambiar("etiqueta", filtrosBorrador.etiqueta);
     if (conTipo) onCambiar("tipo", filtrosBorrador.tipo);

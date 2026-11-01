@@ -6,7 +6,7 @@ import Card from "@/components/ui/Card";
 import type { KeyboardEvent, MouseEvent } from "react";
 import type { Contribution } from "@/types";
 import { formatearTamano } from "@/lib/aportes/archivo";
-import { etiquetaDeCalificacion } from "@/lib/aportes/calificacion";
+import EstrellasDeCalificacion from "@/components/aportes/EstrellasDeCalificacion";
 import ArchivoDelAporte from "@/components/ui/ArchivoDelAporte";
 
 const STATUS_TONE: Record<Contribution["status"], { label: string; tone: "ok" | "warn" | "danger" | "default" }> = {
@@ -80,9 +80,9 @@ export default function ContributionCard({
           <span>{contribution.fileType}</span>
           <span>{formatearTamano(contribution.fileSizeBytes)}</span>
         </div>
-        {etiquetaDeCalificacion(contribution.calificacion) && (
-          <p className="mt-2 text-[12px] text-system-600">
-            <span className="font-semibold">Calificación:</span> {etiquetaDeCalificacion(contribution.calificacion)}
+        {contribution.calificacion != null && (
+          <p className="mt-2 flex items-center gap-1.5 text-[12px] text-system-600">
+            <span className="font-semibold">Calificación:</span> <EstrellasDeCalificacion valor={contribution.calificacion} className="text-[14px]" />
           </p>
         )}
         {contribution.status === "rechazado" && contribution.rejectionReason && (

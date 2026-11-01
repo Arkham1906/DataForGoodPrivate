@@ -73,6 +73,8 @@ export interface Campaign {
   limitePorTipo?: Partial<Record<DataType, number>>;
   /** Tope por persona de cada tipo, aparte de quotaPerUser (2026-10-31, lib/campanas/cuota-por-tipo.ts). */
   cuotaPorTipo?: Partial<Record<DataType, number>>;
+  /** "aceptada" que espera a que su creador la active (2026-10-31); false si ya la activó o programó. */
+  esperaActivacion?: boolean;
   /** Aportes no rechazados de cada tipo (lo que llena el límite). */
   enviadosPorTipo?: Partial<Record<DataType, number>>;
   currentContributions: number;
@@ -123,7 +125,7 @@ export interface Contribution {
   fileSizeBytes?: number;
   sinArchivo?: boolean; // aporte de solo texto: la descripción es el dato (2026-10-14)
   caracteristicas?: string[];
-  calificacion?: "bien" | "muy_bueno" | "excelente";
+  calificacion?: number; // estrellas, de 1 a 5 (2026-10-31; lib/aportes/calificacion.ts)
   status: ContributionStatus;
   /** Indica si la sesión actual puede revisar este aporte (no es quien lo envió). */
   canReview?: boolean;

@@ -4,7 +4,7 @@ import { ESPECIALIDADES, claveDeCatalogo, validarEspecialidad, validarOrganizaci
 import { claveDeTematica } from "@/lib/tematicas/analizar";
 import { ETIQUETAS_BASE } from "@/lib/etiquetas/base";
 import { ensureAvisosDeCambios } from "@/lib/en-vivo-postgres";
-import { CALIFICACIONES_DE_APORTE } from "@/lib/aportes/calificacion";
+import { ESTRELLAS_MAXIMAS } from "@/lib/aportes/calificacion";
 import { PROPOSITOS } from "@/lib/campanas/proposito";
 import { TIPOS_DE_SANCION } from "@/lib/sanciones";
 import { DESTINOS_DE_APORTES } from "@/lib/usuarios/baja-opciones";
@@ -294,6 +294,9 @@ export async function ensureCampanasTable(): Promise<void> {
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS pausa_por VARCHAR(20);
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS pausa_motivo TEXT;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS pausada_en TIMESTAMPTZ;
+    -- Aprobada por la supervisión y esperando a que el creador la active (2026-10-31, a pedido del usuario):
+    -- mientras sea true, una "aceptada" no se activa sola (activateScheduledCampaigns). Las de antes, false.
+    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS espera_activacion BOOLEAN NOT NULL DEFAULT false;
     -- Columnas sin uso, borradas el 2026-10-30: cuota_por_tipo (reparto por tipo, quitado el
     -- 2026-10-27), days_remaining (se calcula de end_date), share_token y share_token_expires_at
     -- (campana_enlaces) y aportes (la tabla aportes).
@@ -584,7 +587,7 @@ export async function ensureAportesTable(): Promise<void> {
       description TEXT NOT NULL,
       file_type VARCHAR(20) NOT NULL,
       -- Lo que marcó en los checklists está en aporte_respuestas desde el 2026-10-30.
-      calificacion VARCHAR(20),
+      calificacion SMALLINT,
       status VARCHAR(20) NOT NULL DEFAULT 'pendiente',
       rejection_reason TEXT,
       first_pass_by VARCHAR(160),
@@ -603,7 +606,7 @@ export async function ensureAportesTable(): Promise<void> {
   `);
 
   await pool.query(`
-    ALTER TABLE aportes ADD COLUMN IF NOT EXISTS calificacion VARCHAR(20);
+    ALTER TABLE aportes ADD COLUMN IF NOT EXISTS calificacion SMALLINT;
     ALTER TABLE aportes ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
     ALTER TABLE aportes ADD COLUMN IF NOT EXISTS first_pass_by VARCHAR(160);
     ALTER TABLE aportes ADD COLUMN IF NOT EXISTS first_pass_by_user_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL;
@@ -629,6 +632,21 @@ export async function ensureAportesTable(): Promise<void> {
     ALTER TABLE aportes ADD COLUMN IF NOT EXISTS inapropiado_en TIMESTAMPTZ;
     -- El archivo (ruta en MinIO, MIME, tamaño y si se borró) está en la tabla archivos desde el
     -- 2026-10-30 (ensureArchivosTable): archivo_id NULL = aporte de solo texto.
+  `);
+
+  // Calificación en estrellas (2026-10-31, lib/aportes/calificacion.ts): la columna de texto pasa a número
+  // una sola vez (bien → 3, muy_bueno → 4, excelente → 5). Antes se quita la regla CHECK de los textos;
+  // ensureRestricciones pone la nueva (1 a 5).
+  await pool.query(`
+    DO $$
+    BEGIN
+      IF (SELECT data_type FROM information_schema.columns
+           WHERE table_name = 'aportes' AND column_name = 'calificacion') <> 'smallint' THEN
+        ALTER TABLE aportes DROP CONSTRAINT IF EXISTS aportes_calificacion_check;
+        ALTER TABLE aportes ALTER COLUMN calificacion TYPE SMALLINT USING
+          CASE calificacion WHEN 'bien' THEN 3 WHEN 'muy_bueno' THEN 4 WHEN 'excelente' THEN 5 END;
+      END IF;
+    END $$;
   `);
 }
 
@@ -1455,7 +1473,8 @@ function restricciones(): ReadonlyArray<[tabla: string, nombre: string, condicio
     ["campanas", "campanas_proposito_check", `proposito IN (${lista(PROPOSITOS.map((p) => p.valor))})`],
     // espera_final: campañas de antes del 2026-10-06 (ESTADOS_SIN_DECISION de lib/aportes/decision.ts).
     ["aportes", "aportes_status_check", `status IN ('pendiente', 'espera_final', 'aceptado', 'rechazado')`],
-    ["aportes", "aportes_calificacion_check", `calificacion IN (${lista(CALIFICACIONES_DE_APORTE.map((c) => c.valor))})`],
+    // Estrellas de 1 a 5 (2026-10-31, lib/aportes/calificacion.ts).
+    ["aportes", "aportes_calificacion_check", `calificacion BETWEEN 1 AND ${ESTRELLAS_MAXIMAS}`],
     ["reportes", "reportes_estado_check", `estado IN ('pendiente', 'descartado', 'sancionado')`],
     ["reportes", "reportes_origen_check", `origen IN ('usuario', 'rechazo', 'supervision')`],
     ["sanciones", "sanciones_tipo_check", `tipo IN (${lista(TIPOS_DE_SANCION)})`],

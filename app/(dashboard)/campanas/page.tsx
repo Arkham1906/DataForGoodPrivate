@@ -1,18 +1,14 @@
 "use client";
 
-// Pantalla /campanas: campañas activas para participar, con filtros por temática y "Tu localidad".
-// Componente cliente. Datos: GET /api/campanas y GET /api/auth/sesion; arriba, "Campañas para ti" como en
-// /inicio (GET /api/campanas?paraTi=true, components/campanas/CampanasParaTi; 2026-10-27). Mientras llegan, tarjetas esqueleto
-// (cards/CampaignCardSkeleton) en vez de la lista vacía.
-// Pocas opciones a la vez (Ley de Hick, 2026-10-07): la fila muestra hasta MAXIMO_DE_TEMAS_VISIBLES
-// temáticas, primero las de los intereses de la persona, y el resto va en "Más temáticas"
-// (campanas/MasTematicas). Con más de UMBRAL_DE_BUSQUEDA campañas aparece la búsqueda con tipo y orden
-// (campanas/BarraDeFiltros, sin temática ni tipo: esos se eligen con los botones).
-// Tipo de dato (2026-10-28, a pedido del usuario): fila de botones siempre visible con los tipos que
-// piden las campañas de la lista; se combina con temática, etiqueta y búsqueda.
-// Ubicación real (2026-10-31, a pedido del usuario; lib/ubicacion/): si la persona activó "Usar mi ubicación"
+// Pantalla /campanas: campañas activas para participar. Componente cliente. Datos: GET /api/campanas y
+// GET /api/auth/sesion; arriba, "Campañas para ti" como en /inicio (GET /api/campanas?paraTi=true,
+// components/campanas/CampanasParaTi; 2026-10-27). Mientras llegan, tarjetas esqueleto (cards/CampaignCardSkeleton).
+// Filtros (2026-10-31, a pedido del usuario): solo la barra de /sistema/campanas (campanas/BarraDeFiltros):
+// "Mostrar" (todas, guardadas, tu localidad o cerca de ti), búsqueda, temática (las de tus intereses primero),
+// subtemática, tipo de dato y orden; sin vigencia. Antes había filas de botones de temática, etiqueta y tipo.
+// Ubicación real (2026-10-31; lib/ubicacion/): si la persona activó "Usar mi ubicación"
 // (components/campanas/AvisoDeUbicacion), "Tu localidad" pasa a "Cerca de ti": su municipio detectado (GET
-// /api/ubicacion), todo su estado y todo el país, y la lista abre con ese filtro. Sin zona, sigue el estado del perfil.
+// /api/ubicacion), todo su estado y todo el país, y la lista abre así. Sin zona, sigue el estado del perfil.
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -21,10 +17,8 @@ import { EVENTO_ZONA, type ZonaDetectada } from "@/lib/ubicacion/en-el-navegador
 import CampaignCard from "@/components/cards/CampaignCard";
 import CampaignCardSkeleton from "@/components/cards/CampaignCardSkeleton";
 import BarraDeFiltros, { type ValoresDeFiltros } from "@/components/campanas/BarraDeFiltros";
-import MasTematicas from "@/components/campanas/MasTematicas";
 import CampanasParaTi from "@/components/campanas/CampanasParaTi";
 import type { CampanaParaTi } from "@/lib/usuarios/inicio";
-import Skeleton from "@/components/ui/Skeleton";
 import Button from "@/components/ui/Button";
 import ButtonLink from "@/components/ui/ButtonLink";
 import VentanaDeCampana from "@/components/campanas/VentanaDeCampana";
@@ -35,24 +29,12 @@ import { NOMBRE_DE_TIPO, type TipoDeDato } from "@/lib/campanas/sistema-opciones
 import { claveDeTematica } from "@/lib/tematicas/analizar";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 
-const TU_LOCALIDAD = "Tu localidad";
-// Después de estos van las temáticas que tienen las campañas activas (ver temasConCampanas).
-const FILTROS_FIJOS = ["Todas", "Guardadas", TU_LOCALIDAD];
-// Temáticas que se muestran como botón; las demás, en "Más temáticas".
-const MAXIMO_DE_TEMAS_VISIBLES = 5;
-// Con más campañas que esto, se muestran la búsqueda, el tipo de dato y el orden.
-const UMBRAL_DE_BUSQUEDA = 9;
+// Qué lista se muestra (select "Mostrar"): todas, las guardadas o las de su localidad / cerca de ti.
+const TODAS = "";
+const GUARDADAS = "guardadas";
+const TU_LOCALIDAD = "localidad";
 // Tarjetas esqueleto mientras cargan: dos filas en escritorio (3 columnas), suficientes en móvil.
 const TARJETAS_DE_CARGA = 6;
-// Botones de temática esqueleto mientras cargan: reservan el lugar para que la fila no cambie.
-const TEMAS_DE_CARGA = 3;
-
-const CLASE_DEL_FILTRO =
-  "shrink-0 whitespace-nowrap rounded-pill border px-3.5 py-1.5 text-[13px] font-semibold transition-colors max-md:px-2.5 max-md:py-1 max-md:text-[12px]";
-const CLASE_INACTIVO = "border-system-300 bg-white text-system-600 hover:border-brand-600";
-const CLASE_ACTIVO = "border-brand-600 bg-brand-600 text-white";
-// Orden de los botones de tipo de dato: el mismo del formulario de campaña.
-const TIPOS_DE_DATO = Object.keys(NOMBRE_DE_TIPO) as TipoDeDato[];
 
 /** "Estado de México" y "estado de mexico" cuentan como el mismo estado. */
 function normalizarEstado(valor: string | null | undefined): string {
@@ -65,26 +47,22 @@ export default function CampanasPage() {
   const [paraTi, setParaTi] = useState<CampanaParaTi[]>([]);
   // Campaña cuya ventana de detalle está abierta (2026-10-27): clic en su tarjeta.
   const [abierta, setAbierta] = useState<Campaign | null>(null);
-  const [activeTag, setActiveTag] = useState("Todas");
-  // Zona detectada por GPS (null: no la compartió). Al conocerla, la lista abre en "Cerca de ti" si la
-  // persona todavía no eligió otro filtro.
-  const [zona, setZona] = useState<ZonaDetectada | null>(null);
-  const eligioFiltro = useRef(false);
-  // Subtemática dentro de la temática elegida (2026-10-27); "" = todas. Cambiar de filtro la quita.
+  const [vista, setVista] = useState(TODAS);
+  // Temática elegida ("" = todas) y su subtemática (2026-10-27; "" = todas). Otra temática quita la subtemática.
+  const [temaActivo, setTemaActivo] = useState("");
   const [etiquetaActiva, setEtiquetaActiva] = useState("");
-  function elegirFiltro(filtro: string) {
-    eligioFiltro.current = true;
-    setActiveTag(filtro);
-    setEtiquetaActiva("");
-  }
+  // Zona detectada por GPS (null: no la compartió). Al conocerla, la lista abre en "Cerca de ti" si la
+  // persona todavía no eligió qué mostrar.
+  const [zona, setZona] = useState<ZonaDetectada | null>(null);
+  const eligioVista = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(true);
   // Estado declarado en el perfil (Mi cuenta); vacío si no lo ha indicado.
   const [miEstado, setMiEstado] = useState("");
-  // Intereses del perfil (por clave, sin acentos): sus temáticas van primero en la fila.
+  // Intereses del perfil (por clave, sin acentos): sus temáticas van primero en el select.
   const [misIntereses, setMisIntereses] = useState<Set<string>>(new Set());
   const [busqueda, setBusqueda] = useState<FiltrosLocales>(FILTROS_VACIOS);
-  // Tipo de dato elegido con los botones; "" = todos. Se conserva al cambiar de temática.
+  // Tipo de dato elegido; "" = todos. Se conserva al cambiar de temática.
   const [tipoActivo, setTipoActivo] = useState("");
 
   // Vuelve a leer cuando algo cambia en la base (actualización en vivo).
@@ -101,7 +79,7 @@ export default function CampanasPage() {
         const zonaBody = await zonaRes.json().catch(() => ({}));
         const zonaGuardada = zonaRes.ok && zonaBody.zona ? (zonaBody.zona as ZonaDetectada) : null;
         setZona(zonaGuardada);
-        if (zonaGuardada && !eligioFiltro.current) setActiveTag(TU_LOCALIDAD);
+        if (zonaGuardada && !eligioVista.current) setVista(TU_LOCALIDAD);
         // Si falla, la sección no sale; la lista sigue.
         const paraTiBody = await paraTiRes.json().catch(() => ({}));
         setParaTi(paraTiRes.ok && Array.isArray(paraTiBody.data) ? (paraTiBody.data as CampanaParaTi[]) : []);
@@ -135,9 +113,9 @@ export default function CampanasPage() {
     const alCambiar = (evento: Event) => {
       const nueva = (evento as CustomEvent<ZonaDetectada | null>).detail ?? null;
       setZona(nueva);
-      // Si el filtro lo puso la zona (la persona no eligió otro), sigue a la zona: con ella "Cerca de ti",
+      // Si la lista la puso la zona (la persona no eligió otra), sigue a la zona: con ella "Cerca de ti",
       // sin ella "Todas".
-      if (!eligioFiltro.current) setActiveTag(nueva ? TU_LOCALIDAD : "Todas");
+      if (!eligioVista.current) setVista(nueva ? TU_LOCALIDAD : TODAS);
     };
     window.addEventListener(EVENTO_ZONA, alCambiar);
     return () => window.removeEventListener(EVENTO_ZONA, alCambiar);
@@ -155,59 +133,60 @@ export default function CampanasPage() {
       ? campaigns.filter((c) => c.todoElPais || normalizarEstado(c.locationState) === normalizarEstado(miEstado))
       : [];
   const lugarDelFiltro = zona ? `${zona.municipio}, ${zona.estado}` : miEstado;
+  const guardadas = campaigns.filter((c) => c.isSaved);
+
+  const vistas = [
+    { valor: TODAS, etiqueta: `Mostrar: todas (${campaigns.length})` },
+    { valor: GUARDADAS, etiqueta: `Guardadas (${guardadas.length})` },
+    {
+      valor: TU_LOCALIDAD,
+      etiqueta: zona
+        ? `Cerca de ti: ${zona.municipio} (${enMiEstado.length})`
+        : miEstado
+          ? `Tu localidad: ${miEstado} (${enMiEstado.length})`
+          : "Tu localidad",
+    },
+  ];
+
+  const porVista = vista === GUARDADAS ? guardadas : vista === TU_LOCALIDAD ? enMiEstado : campaigns;
 
   const esDeMisIntereses = (tema: string) => misIntereses.has(claveDeTematica(tema));
 
-  // Temáticas de las campañas que se muestran (así nunca aparece un filtro sin resultados):
-  // primero las de los intereses de la persona, luego de la más frecuente a la menos.
+  // Temáticas de las campañas (así nunca aparece una opción sin resultados): primero las de los
+  // intereses de la persona, luego de la más frecuente a la menos.
   const temasConCampanas = Array.from(
     campaigns.reduce((conteo, c) => (c.tag ? conteo.set(c.tag, (conteo.get(c.tag) ?? 0) + 1) : conteo), new Map<string, number>())
   ).sort(
     (a, b) =>
       Number(esDeMisIntereses(b[0])) - Number(esDeMisIntereses(a[0])) || b[1] - a[1] || a[0].localeCompare(b[0], "es")
   );
-  const temasVisibles = temasConCampanas.slice(0, MAXIMO_DE_TEMAS_VISIBLES).map(([tema]) => tema);
-  const temasOcultos = temasConCampanas.slice(MAXIMO_DE_TEMAS_VISIBLES);
-  // Una temática elegida desde "Más temáticas" se ve como botón activo para poder quitarla.
-  if (temasOcultos.some(([tema]) => tema === activeTag)) temasVisibles.push(activeTag);
-  const filtros = [...FILTROS_FIJOS, ...temasVisibles];
-  const porTema = new Map(temasConCampanas);
 
-  const porFiltro =
-    activeTag === "Todas"
-      ? campaigns
-      : activeTag === "Guardadas"
-        ? campaigns.filter((c) => c.isSaved)
-        : activeTag === TU_LOCALIDAD
-          ? enMiEstado
-          : campaigns.filter((c) => c.tag === activeTag);
-
-  // Etiquetas de la temática elegida, con cuántas campañas de la lista tiene cada una (así nunca
-  // sale un filtro sin resultados). Solo cuando el filtro activo es una temática.
-  const esTematica = !FILTROS_FIJOS.includes(activeTag);
-  const etiquetasDelTema = esTematica
-    ? Array.from(
-        porFiltro.reduce((conteo, c) => {
-          for (const e of c.etiquetas ?? []) if (!e.pendiente) conteo.set(e.nombre, (conteo.get(e.nombre) ?? 0) + 1);
-          return conteo;
-        }, new Map<string, number>())
-      ).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "es"))
-    : [];
+  const porTema = temaActivo ? porVista.filter((c) => c.tag === temaActivo) : porVista;
   const porEtiqueta =
-    esTematica && etiquetaActiva ? porFiltro.filter((c) => (c.etiquetas ?? []).some((e) => e.nombre === etiquetaActiva)) : porFiltro;
+    temaActivo && etiquetaActiva ? porTema.filter((c) => (c.etiquetas ?? []).some((e) => e.nombre === etiquetaActiva)) : porTema;
 
-  // Tipos de dato de la lista ya filtrada por temática y etiqueta, con cuántas campañas lo piden
-  // (así nunca sale un botón sin resultados); el elegido sigue visible aunque quede en 0, para poder quitarlo.
-  const tiposDeLaLista = TIPOS_DE_DATO.map((tipo) => [tipo, porEtiqueta.filter((c) => (c.dataTypes ?? []).includes(tipo)).length] as const).filter(
-    ([tipo, total]) => total > 0 || tipo === tipoActivo
-  );
+  const buscando = tipoActivo !== "" || busqueda.q.trim() !== "" || busqueda.orden !== "";
+  const filtered = filtrarCampanas(porEtiqueta, { ...busqueda, tipo: tipoActivo }, (c) => c.tag);
 
-  const conBusqueda = campaigns.length > UMBRAL_DE_BUSQUEDA;
-  const buscando = tipoActivo !== "" || (conBusqueda && (busqueda.q.trim() !== "" || busqueda.orden !== ""));
-  const filtered = filtrarCampanas(porEtiqueta, { ...(conBusqueda ? busqueda : FILTROS_VACIOS), tipo: tipoActivo }, (c) => c.tag);
+  // Subtemáticas (aprobadas) de cada temática de la lista, para el select de la barra.
+  const etiquetasPorTema: Record<string, string[]> = {};
+  for (const c of campaigns) {
+    if (!c.tag) continue;
+    const nombres = new Set(etiquetasPorTema[c.tag] ?? []);
+    for (const e of c.etiquetas ?? []) if (!e.pendiente) nombres.add(e.nombre);
+    etiquetasPorTema[c.tag] = [...nombres].sort((a, b) => a.localeCompare(b, "es"));
+  }
 
   function cambiarBusqueda(clave: keyof ValoresDeFiltros, valor: string) {
     if (clave === "q" || clave === "orden") setBusqueda((actual) => ({ ...actual, [clave]: valor }));
+    else if (clave === "vista") {
+      eligioVista.current = true;
+      setVista(valor);
+    } else if (clave === "tematica") {
+      setTemaActivo(valor);
+      setEtiquetaActiva("");
+    } else if (clave === "etiqueta") setEtiquetaActiva(valor);
+    else if (clave === "tipo") setTipoActivo(valor);
   }
 
   return (
@@ -230,116 +209,13 @@ export default function CampanasPage() {
 
       {!cargando && !error && <AvisoDeUbicacion zona={zona} />}
 
-      <div className="dashboard-nav mb-6 mt-4 flex w-full min-w-0 flex-nowrap gap-2 overflow-x-auto overscroll-x-contain pb-2 [-webkit-overflow-scrolling:touch] max-md:mb-4 max-md:gap-1.5 md:flex-wrap md:overflow-visible md:pb-0" role="group" aria-label="Filtrar campañas">
-        {filtros.map((filtro) => {
-          const active = filtro === activeTag;
-          const deMisIntereses = !FILTROS_FIJOS.includes(filtro) && esDeMisIntereses(filtro);
-          const contador =
-            filtro === "Todas"
-              ? campaigns.length
-              : filtro === "Guardadas"
-                ? campaigns.filter((c) => c.isSaved).length
-                : filtro === TU_LOCALIDAD
-                  ? lugarDelFiltro
-                    ? enMiEstado.length
-                    : null
-                  : (porTema.get(filtro) ?? null);
-          return (
-            <button
-              key={filtro}
-              type="button"
-              onClick={() => elegirFiltro(filtro)}
-              aria-pressed={active}
-              title={
-                filtro === TU_LOCALIDAD && lugarDelFiltro
-                  ? `Campañas en ${lugarDelFiltro}`
-                  : deMisIntereses
-                    ? "Está entre tus intereses"
-                    : undefined
-              }
-              className={`${CLASE_DEL_FILTRO} ${active ? CLASE_ACTIVO : CLASE_INACTIVO}`}
-            >
-              {deMisIntereses && (
-                <span aria-hidden="true" className={`mr-1 ${active ? "text-white" : "text-brand-600"}`}>
-                  ★
-                </span>
-              )}
-              {filtro === TU_LOCALIDAD && zona ? "Cerca de ti" : filtro}
-              {deMisIntereses && <span className="sr-only"> (de tus intereses)</span>}
-              {cargando && filtro !== TU_LOCALIDAD ? (
-                <Skeleton enLinea className="ml-1.5 h-3 w-3 align-[-1px]" />
-              ) : (
-                contador !== null && <span className="ml-1.5 font-mono">{contador}</span>
-              )}
-            </button>
-          );
-        })}
-        {cargando &&
-          Array.from({ length: TEMAS_DE_CARGA }, (_, i) => (
-            <Skeleton key={i} className="h-[33px] w-28 shrink-0 rounded-pill max-md:h-[27px] max-md:w-24" />
-          ))}
-        {temasOcultos.length > 0 && (
-          <MasTematicas temas={temasOcultos} onElegir={elegirFiltro} claseDelBoton={`${CLASE_DEL_FILTRO} ${CLASE_INACTIVO}`} />
-        )}
-      </div>
-
-      {etiquetasDelTema.length > 0 && (
-        <div
-          className="dashboard-nav -mt-3 mb-6 flex w-full min-w-0 flex-nowrap items-center gap-1.5 overflow-x-auto overscroll-x-contain pb-2 [-webkit-overflow-scrolling:touch] max-md:-mt-2 max-md:mb-4 md:flex-wrap md:overflow-visible md:pb-0"
-          role="group"
-          aria-label={`Etiquetas de ${activeTag}`}
-        >
-          <span className="mr-1 shrink-0 text-[12px] text-system-500">Etiquetas:</span>
-          {etiquetasDelTema.map(([nombre, total]) => {
-            const activa = etiquetaActiva === nombre;
-            return (
-              <button
-                key={nombre}
-                type="button"
-                aria-pressed={activa}
-                onClick={() => setEtiquetaActiva(activa ? "" : nombre)}
-                className={`shrink-0 whitespace-nowrap rounded-pill border px-2.5 py-1 text-[12px] font-semibold transition-colors ${activa ? CLASE_ACTIVO : CLASE_INACTIVO}`}
-              >
-                #{nombre}
-                <span className="ml-1.5 font-mono">{total}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      {!cargando && !error && tiposDeLaLista.length > 0 && (
-        <div
-          className="dashboard-nav -mt-3 mb-6 flex w-full min-w-0 flex-nowrap items-center gap-1.5 overflow-x-auto overscroll-x-contain pb-2 [-webkit-overflow-scrolling:touch] max-md:-mt-2 max-md:mb-4 md:flex-wrap md:overflow-visible md:pb-0"
-          role="group"
-          aria-label="Filtrar por tipo de dato"
-        >
-          <span className="mr-1 shrink-0 text-[12px] text-system-500">Tipo de dato:</span>
-          {tiposDeLaLista.map(([tipo, total]) => {
-            const activo = tipoActivo === tipo;
-            return (
-              <button
-                key={tipo}
-                type="button"
-                aria-pressed={activo}
-                onClick={() => setTipoActivo(activo ? "" : tipo)}
-                className={`shrink-0 whitespace-nowrap rounded-pill border px-2.5 py-1 text-[12px] font-semibold transition-colors ${activo ? CLASE_ACTIVO : CLASE_INACTIVO}`}
-              >
-                {NOMBRE_DE_TIPO[tipo]}
-                <span className="ml-1.5 font-mono">{total}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      {conBusqueda && !cargando && !error && (
+      {!cargando && !error && (
         <BarraDeFiltros
-          valores={{ ...busqueda, tematica: "", tipo: "" }}
-          tematicas={[]}
+          valores={{ vista, q: busqueda.q, orden: busqueda.orden, tematica: temaActivo, etiqueta: etiquetaActiva, tipo: tipoActivo }}
+          vistas={vistas}
+          tematicas={temasConCampanas.map(([tema]) => tema)}
+          etiquetasPorTematica={etiquetasPorTema}
           onCambiar={cambiarBusqueda}
-          conTematica={false}
-          conTipo={false}
           colapsableEnMovil
         />
       )}
@@ -353,25 +229,27 @@ export default function CampanasPage() {
             <CampaignCardSkeleton key={i} />
           ))}
         </div>
-      ) : activeTag === TU_LOCALIDAD && !lugarDelFiltro ? (
+      ) : vista === TU_LOCALIDAD && !lugarDelFiltro ? (
         <p className="text-sm text-system-600">
           Aún no indicas en qué estado vives.{" "}
           <Link href="/cuenta" className="font-semibold text-brand-600 hover:underline">
             Agrégalo en Mi cuenta
           </Link>{" "}
-          para ver las campañas de tu localidad.
+          o usa tu ubicación para ver las campañas de tu localidad.
         </p>
       ) : filtered.length === 0 ? (
         <p className="text-sm text-system-600">
           {buscando && porEtiqueta.length > 0
-            ? tipoActivo && !(conBusqueda && busqueda.q.trim())
+            ? tipoActivo && !busqueda.q.trim()
               ? `Ninguna campaña de esta lista pide ${NOMBRE_DE_TIPO[tipoActivo as TipoDeDato].toLowerCase()}.`
               : "Ninguna campaña coincide con la búsqueda."
-            : activeTag === "Guardadas"
-              ? "Todavía no has guardado ninguna campaña."
-              : activeTag === TU_LOCALIDAD
-                ? `Por ahora no hay campañas activas en ${lugarDelFiltro}.`
-                : "No hay campañas aprobadas para esta temática todavía."}
+            : temaActivo
+              ? "No hay campañas de esta temática en esta lista."
+              : vista === GUARDADAS
+                ? "Todavía no has guardado ninguna campaña."
+                : vista === TU_LOCALIDAD
+                  ? `Por ahora no hay campañas activas en ${lugarDelFiltro}.`
+                  : "Todavía no hay campañas activas."}
         </p>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

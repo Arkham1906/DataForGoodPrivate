@@ -28,6 +28,8 @@ export type AccionAuditada =
   | "supervision.finalizar"
   | "campana.banear"
   | "campana.eliminar"
+  // El creador activó (o programó) su campaña aprobada (2026-10-31).
+  | "campana.activar"
   // El creador pausó su campaña activa (PATCH /api/campanas/[id], 2026-10-24; antes no quedaba registro).
   | "campana.pausar"
   // El creador editó su campaña pausada (PATCH /api/campanas/[id]); detalle.campos dice qué cambió.

@@ -111,6 +111,8 @@ function mapCampaign(row: Record<string, unknown>) {
     // Límite total por tipo de dato (2026-10-28, lib/campanas/limite-por-tipo.ts) y lo enviado de cada uno.
     limitePorTipo: limitePorTipoDesdeFila(row),
     cuotaPorTipo: cuotaPorTipoDesdeFila(row),
+    // Aprobada y esperando a que su creador la active (2026-10-31).
+    esperaActivacion: row.espera_activacion === true,
     enviadosPorTipo: enviadosPorTipoDesdeFila(row),
     currentContributions: Number(row.current_contributions ?? 0),
     approvedContributions: Number(row.approved_contributions ?? 0),
@@ -226,7 +228,8 @@ export async function GET(request: Request) {
           // Si está rechazada, el motivo, la fecha y la sanción del último rechazo (lib/campanas/rechazo.ts).
           // El reporte con sanción se escribe en la misma transacción que el rechazo: mismo NOW().
           `SELECT c.*, ${columnasCalculadas("c")},
-                  NOT EXISTS (SELECT 1 FROM aportes a WHERE a.campaign_id = c.id) AS can_delete,
+                  -- Eliminar (2026-10-31): sin aportes, siempre; con aportes, menos una finalizada (ya publicó datos abiertos).
+                  (c.status <> 'finalizada' OR NOT EXISTS (SELECT 1 FROM aportes a WHERE a.campaign_id = c.id)) AS can_delete,
                   r.motivo AS rechazo_motivo, r.created_at AS rechazo_en, r.por_superusuario AS rechazo_por_root,
                   s.tipo AS rechazo_sancion_tipo, s.dias AS rechazo_sancion_dias
            FROM campanas c

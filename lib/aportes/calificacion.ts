@@ -1,12 +1,35 @@
-/** Calificación que quien revisa asigna al aporte al tomar una decisión. */
-export const CALIFICACIONES_DE_APORTE = [
-  { valor: "bien", etiqueta: "Bien" },
-  { valor: "muy_bueno", etiqueta: "Muy bueno" },
-  { valor: "excelente", etiqueta: "Excelente" },
-] as const;
+// Calificación que quien revisa asigna al aporte al tomar una decisión (obligatoria al aceptar y al
+// rechazar). Desde el 2026-10-31 (a pedido del usuario) es un rating de 1 a 5 estrellas, guardado como
+// SMALLINT en aportes.calificacion; antes eran tres textos, que se pasaron así: bien → 3,
+// muy_bueno → 4, excelente → 5 (ensureAportesTable). Sin imports de servidor.
 
-export type CalificacionDeAporte = (typeof CALIFICACIONES_DE_APORTE)[number]["valor"];
+export const ESTRELLAS_MAXIMAS = 5;
 
-export function etiquetaDeCalificacion(valor: string | null | undefined): string | null {
-  return CALIFICACIONES_DE_APORTE.find((calificacion) => calificacion.valor === valor)?.etiqueta ?? null;
+export type CalificacionDeAporte = 1 | 2 | 3 | 4 | 5;
+
+/** Nombre de cada número de estrellas (para el lector de pantalla y el título al pasar el cursor). */
+export const NOMBRES_DE_ESTRELLAS: Record<CalificacionDeAporte, string> = {
+  1: "Malo",
+  2: "Regular",
+  3: "Bien",
+  4: "Muy bueno",
+  5: "Excelente",
+};
+
+export function esCalificacion(valor: unknown): valor is CalificacionDeAporte {
+  return Number.isInteger(valor) && Number(valor) >= 1 && Number(valor) <= ESTRELLAS_MAXIMAS;
+}
+
+/** La calificación de una fila o del body (número o texto "4"); null si no hay o no es válida. */
+export function calificacionDesde(valor: unknown): CalificacionDeAporte | null {
+  if (valor === null || valor === undefined || valor === "") return null;
+  const n = Number(valor);
+  return esCalificacion(n) ? n : null;
+}
+
+/** "4 de 5 estrellas (Muy bueno)", o null sin calificación. */
+export function textoDeCalificacion(valor: unknown): string | null {
+  const n = calificacionDesde(valor);
+  if (n === null) return null;
+  return `${n} de ${ESTRELLAS_MAXIMAS} ${n === 1 ? "estrella" : "estrellas"} (${NOMBRES_DE_ESTRELLAS[n]})`;
 }

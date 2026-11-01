@@ -26,6 +26,7 @@ import {
 import { cuotaPorTipoDesdeFila } from "@/lib/campanas/cuota-por-tipo";
 import { inscripcionDe } from "@/lib/campanas/inscripciones";
 import { avisoDePausa, pausaDesdeFila } from "@/lib/campanas/pausa";
+import { calificacionDesde } from "@/lib/aportes/calificacion";
 
 function mapAporte(row: Record<string, unknown>) {
   return {
@@ -42,7 +43,7 @@ function mapAporte(row: Record<string, unknown>) {
     sinArchivo: !row.file_path,
     archivoBorrado: row.archivo_borrado_en != null,
     caracteristicas: Array.isArray(row.caracteristicas) ? row.caracteristicas : [],
-    calificacion: row.calificacion ? String(row.calificacion) : undefined,
+    calificacion: calificacionDesde(row.calificacion) ?? undefined,
     status: String(row.status ?? "pendiente"),
     submittedAt: row.submitted_at ? new Date(String(row.submitted_at)).toISOString() : new Date().toISOString(),
     rejectionReason: row.rejection_reason ? String(row.rejection_reason) : undefined,

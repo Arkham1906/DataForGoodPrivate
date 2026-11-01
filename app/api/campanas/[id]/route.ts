@@ -6,7 +6,6 @@
 
 import { NextResponse } from "next/server";
 import { especialDesdeFila } from "@/lib/campanas/especial";
-import type { PoolClient } from "pg";
 import { avisarCampanaEspecial } from "@/lib/notificaciones/campanas-por-interes";
 import { avisarCampanaPorRevisar } from "@/lib/notificaciones/avisos-a-supervisores";
 import {
@@ -19,6 +18,7 @@ import {
 } from "@/lib/campanas/estado-del-creador";
 import { avisarEdicionEnPausa } from "@/lib/notificaciones/avisos-a-supervisores";
 import { registrarAuditoria } from "@/lib/auditoria";
+import { eliminarCampana } from "@/lib/campanas/eliminar";
 import { pool } from "@/lib/db";
 import { getSessionUser } from "@/lib/session";
 import { ACCIONES_DE_SUPERVISION, registrarDecisionDeCampana, tomarCampanaParaSupervisar, type AccionDeSupervision } from "@/lib/supervision/decision";
@@ -114,6 +114,8 @@ function mapCampaign(row: Record<string, unknown>) {
     // Límite total por tipo de dato (2026-10-28, lib/campanas/limite-por-tipo.ts) y lo enviado de cada uno.
     limitePorTipo: limitePorTipoDesdeFila(row),
     cuotaPorTipo: cuotaPorTipoDesdeFila(row),
+    // Aprobada y esperando a que su creador la active (2026-10-31).
+    esperaActivacion: row.espera_activacion === true,
     enviadosPorTipo: enviadosPorTipoDesdeFila(row),
     currentContributions: Number(row.current_contributions ?? 0),
     approvedContributions: Number(row.approved_contributions ?? 0),
@@ -163,9 +165,9 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   }
 }
 
-// DELETE: el creador puede eliminar la campaña solo si todavía no tiene aportes.
-export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }) {
-  let client: PoolClient | null = null;
+// DELETE: el creador elimina su campaña (lib/campanas/eliminar.ts), siempre con body { confirmacion: "<nombre>" }.
+// Sin aportes, en cualquier estado; con aportes (2026-10-31), en cualquiera menos finalizada.
+export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
     if (!/^[1-9]\d{0,8}$/.test(id)) {
@@ -175,47 +177,13 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
     const user = await getSessionUser();
     if (!user) return NextResponse.json({ error: "Debes iniciar sesión" }, { status: 401 });
 
-    client = await pool.connect();
-    await client.query("BEGIN");
-
-    const campaign = await client.query<{ status: string }>(
-      `SELECT status FROM campanas WHERE id = $1 AND creator_id = $2 FOR UPDATE`,
-      [id, user.id],
-    );
-    if (campaign.rowCount === 0) {
-      await client.query("ROLLBACK");
-      return NextResponse.json({ error: "Campaña no encontrada" }, { status: 404 });
-    }
-
-    const aportes = await client.query(
-      `SELECT 1 FROM aportes WHERE campaign_id = $1 LIMIT 1`,
-      [id],
-    );
-    if (aportes.rowCount !== 0) {
-      await client.query("ROLLBACK");
-      return NextResponse.json(
-        { error: "No puedes eliminar una campaña que ya recibió aportes." },
-        { status: 409 },
-      );
-    }
-
-    await client.query(`DELETE FROM campanas WHERE id = $1 AND creator_id = $2`, [id, user.id]);
-    await client.query("COMMIT");
-
-    await registrarAuditoria({
-      actor: { tipo: "usuario", id: Number(user.id) },
-      accion: "campana.eliminar",
-      objetivo: { tipo: "campana", id },
-      detalle: { estado: campaign.rows[0].status },
-    });
-
-    return NextResponse.json({ message: "Campaña eliminada" });
+    const body = await request.json().catch(() => ({}));
+    const resultado = await eliminarCampana({ campanaId: id, usuarioId: Number(user.id), confirmacion: body?.confirmacion });
+    if (!resultado.ok) return NextResponse.json({ error: resultado.error }, { status: resultado.status });
+    return NextResponse.json({ message: "Campaña eliminada", aportes: resultado.aportes });
   } catch (error) {
-    if (client) await client.query("ROLLBACK").catch(() => undefined);
     console.error("Error eliminando campaña", error);
     return NextResponse.json({ error: "No se pudo eliminar la campaña" }, { status: 500 });
-  } finally {
-    client?.release();
   }
 }
 
@@ -475,6 +443,44 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
           );
         }
       }
+    }
+
+    // Activar la aprobada (2026-10-31, a pedido del usuario): la supervisión la aceptó y la decisión de
+    // empezar es del creador. PATCH { status: "activa" } quita la espera; si su inicio ya llegó se activa
+    // ahora (con su enlace y los avisos de campaña nueva) y si es futuro queda programada y se activa sola.
+    if (currentStatus === "aceptada" && existing.rows[0].espera_activacion === true && Object.keys(body).length === 1 && normalizeCampaignStatus(body.status) === "activa") {
+      if (hasCampaignEnded(normalizeCampaignDate(existing.rows[0].end_date), normalizeCampaignTime(existing.rows[0].end_time))) {
+        return NextResponse.json(
+          { error: "La fecha de cierre ya pasó. Edita la fecha de finalización antes de activarla" },
+          { status: 400 }
+        );
+      }
+      const yaEmpieza = !errorDeReanudarAntesDeInicio(existing.rows[0].start_date, existing.rows[0].start_time);
+      if (yaEmpieza) {
+        const activas = await pool.query(
+          `SELECT COUNT(*)::int AS count FROM campanas WHERE creator_id = $1 AND status = 'activa'`,
+          [user.id]
+        );
+        if (Number(activas.rows[0].count) >= MAX_ACTIVE_CAMPAIGNS) {
+          return NextResponse.json(
+            { error: `Ya tienes ${MAX_ACTIVE_CAMPAIGNS} campañas activas; pausa o finaliza otra antes de activar esta` },
+            { status: 400 }
+          );
+        }
+      }
+      await pool.query(`UPDATE campanas SET espera_activacion = false, updated_at = NOW() WHERE id = $1`, [id]);
+      await activateScheduledCampaigns();
+      await registrarAuditoria({
+        actor: { tipo: "usuario", id: Number(user.id) },
+        accion: "campana.activar",
+        objetivo: { tipo: "campana", id },
+        detalle: { programada: !yaEmpieza },
+      });
+      const activada = await pool.query(`SELECT *, ${columnasCalculadas()} FROM campanas WHERE id = $1 LIMIT 1`, [id]);
+      return NextResponse.json({
+        message: yaEmpieza ? "Campaña activada" : "Campaña programada: se activará sola en su fecha de inicio",
+        data: mapCampaign(activada.rows[0]),
+      });
     }
 
     if (currentStatus === "aceptada") {

@@ -27,7 +27,8 @@ import VentanaDeConfirmacion from "@/components/ui/VentanaDeConfirmacion";
 import { MOTIVOS_DE_REPORTE_DE_APORTE } from "@/lib/reportes/motivos";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 import SelectorDeCalificacion from "@/components/aportes/SelectorDeCalificacion";
-import { etiquetaDeCalificacion, type CalificacionDeAporte } from "@/lib/aportes/calificacion";
+import type { CalificacionDeAporte } from "@/lib/aportes/calificacion";
+import EstrellasDeCalificacion from "@/components/aportes/EstrellasDeCalificacion";
 
 
 /**
@@ -57,7 +58,7 @@ export default function RevisionAportePage() {
   const [banReason, setBanReason] = useState("");
   // Si el autor ya está baneado de la campaña se ofrece quitar el baneo en vez de banearlo otra vez.
   const [autorBaneado, setAutorBaneado] = useState(false);
-  const [calificacion, setCalificacion] = useState<CalificacionDeAporte | "">("");
+  const [calificacion, setCalificacion] = useState<CalificacionDeAporte | 0>(0);
   const [reportando, setReportando] = useState(false);
   const [motivoDeReporte, setMotivoDeReporte] = useState("");
   const [detalleDeReporte, setDetalleDeReporte] = useState("");
@@ -95,7 +96,7 @@ export default function RevisionAportePage() {
 
   async function review(status: "aceptado" | "rechazado", rejectionReason?: string) {
     if (!calificacion) {
-      setActionError("Selecciona una calificación antes de guardar la decisión");
+      setActionError("Califica el aporte de 1 a 5 estrellas antes de guardar la decisión");
       return;
     }
     setSubmitting(true);
@@ -247,7 +248,7 @@ export default function RevisionAportePage() {
   const canReject = Boolean(reason) || customReason.trim().length > 0;
   const alreadyReviewed = item.status === "aceptado" || item.status === "rechazado";
   const esAnonimo = item.userId === null;
-  const calificacionMostrada = etiquetaDeCalificacion(item.calificacion);
+  const calificacionMostrada = item.calificacion != null;
   const puedeReportar =
     (Boolean(motivoDeReporte) || detalleDeReporte.trim().length > 0) &&
     motivoDeReporte.length + detalleDeReporte.trim().length + 3 <= MAXIMO_MOTIVO_DE_REPORTE;
@@ -336,7 +337,7 @@ export default function RevisionAportePage() {
             {calificacionMostrada && (
               <div className="flex justify-between">
                 <dt className="text-system-600">Calificación</dt>
-                <dd className="font-semibold text-system-900">{calificacionMostrada}</dd>
+                <dd className="text-[16px]"><EstrellasDeCalificacion valor={item.calificacion} /></dd>
               </div>
             )}
             {item.status === "rechazado" && item.rejectionReason && (

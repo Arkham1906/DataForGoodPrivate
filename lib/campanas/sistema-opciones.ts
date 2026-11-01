@@ -30,8 +30,9 @@ type TonoDeEtiqueta = "default" | "ok" | "warn" | "danger";
 
 export const ETIQUETA_DE_CAMPANA: Record<EstadoDeCampana, { texto: string; tono: TonoDeEtiqueta }> = {
   activa: { texto: "Activa", tono: "ok" },
-  // Aceptada por el supervisor con fecha de inicio futura: se activa sola ese día.
-  aceptada: { texto: "Programada", tono: "ok" },
+  // Aceptada por la supervisión: espera a que el creador la active o, ya programada, a su fecha de inicio
+  // (2026-10-31; antes decía "Programada", porque solo la había con inicio futuro).
+  aceptada: { texto: "Aceptada", tono: "ok" },
   pausada: { texto: "Pausada", tono: "warn" },
   en_revision: { texto: "En revisión", tono: "warn" },
   borrador: { texto: "Borrador", tono: "default" },

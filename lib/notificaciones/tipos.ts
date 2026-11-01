@@ -16,6 +16,8 @@ export type TipoDeNotificacion =
   // Llegó su inicio, pero el creador ya tiene el máximo de activas (lib/campaign-date.ts, 2026-10-27).
   | "campana_en_espera"
   | "campana_finalizada"
+  // Quien la organizaba borró una campaña con tus aportes (lib/campanas/eliminar.ts, 2026-10-31).
+  | "campana_eliminada"
   // La supervisión la pausó o la reanudó (lib/supervision/estado-por-supervision.ts).
   | "campana_pausada"
   | "campana_reanudada"
