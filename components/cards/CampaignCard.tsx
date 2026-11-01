@@ -27,7 +27,7 @@ function formatDateRange(start: string | null, end: string | null) {
   return `${s} – ${e}`;
 }
 
-export default function CampaignCard({ campaign, onAbrir }: { campaign: Campaign; onAbrir?: () => void }) {
+export default function CampaignCard({ campaign, onAbrir, compact = false, mobileCompact = false }: { campaign: Campaign; onAbrir?: () => void; compact?: boolean; mobileCompact?: boolean }) {
   const remainingDays = Number.isFinite(campaign.daysRemaining) ? Math.max(0, Number(campaign.daysRemaining)) : 0;
   const pct = porcentajeDeMeta(campaign.approvedContributions, campaign.goalContributions);
   const isActive = campaign.status === "activa";
@@ -40,7 +40,7 @@ export default function CampaignCard({ campaign, onAbrir }: { campaign: Campaign
   }) : "Sin fecha";
 
   return (
-    <Card className={`flex flex-col gap-3 max-md:gap-2.5 max-md:p-3.5 ${onAbrir ? "relative cursor-pointer transition-colors hover:border-brand-600" : ""}`}>
+    <Card className={`flex flex-col ${compact ? "gap-2 p-3 max-md:gap-1.5 max-md:p-2.5" : "gap-3 max-md:gap-2.5 max-md:p-3.5"} ${mobileCompact ? "max-sm:gap-2 max-sm:p-2.5" : ""} ${onAbrir ? "relative cursor-pointer transition-colors hover:border-brand-600" : ""}`}>
       {onAbrir && (
         <button
           type="button"
@@ -50,9 +50,11 @@ export default function CampaignCard({ campaign, onAbrir }: { campaign: Campaign
           className="absolute inset-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
         />
       )}
-      <div className="flex items-center justify-between gap-2">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
         {/* Temática › etiquetas (2026-10-27). */}
-        <RutaDeTematica tematica={campaign.tematica || campaign.tag} etiquetas={campaign.etiquetas} />
+        <div className="min-w-0">
+          <RutaDeTematica tematica={campaign.tematica || campaign.tag} etiquetas={campaign.etiquetas} />
+        </div>
         <div className="flex flex-wrap justify-end gap-1.5">
           {campaign.especial?.etapa === "vigente" && <Tag tone="warn">★ Especial ×{campaign.especial.multiplicador}</Tag>}
           {campaign.isBanned ? (
@@ -66,41 +68,41 @@ export default function CampaignCard({ campaign, onAbrir }: { campaign: Campaign
       </div>
 
       <div>
-        <h3 className="text-base font-bold text-system-900 max-md:text-[15px]">{campaign.name}</h3>
-        <p className="mt-1 text-[13px] text-system-600 max-md:text-[12px] max-md:leading-5">{campaign.description}</p>
-        <p className="mt-1.5 truncate text-[12px] text-system-600 max-md:text-[11px]" title={campaign.creatorName || "Sin especificar"}>
+        <h3 className={`font-bold text-system-900 ${compact ? "text-[15px] max-md:text-[14px]" : "text-base max-md:text-[15px]"}`}>{campaign.name}</h3>
+        <p className={`${compact || mobileCompact ? "hidden" : "mt-0.5 text-[12px] max-md:text-[11px]"} text-system-600`}>{campaign.description}</p>
+        <p className={`${compact ? "hidden" : `mt-1.5 truncate text-[12px] max-md:text-[11px]${mobileCompact ? " max-sm:hidden" : ""}`} text-system-600`} title={campaign.creatorName || "Sin especificar"}>
           <span className="font-semibold text-system-700">Creado por:</span> {campaign.creatorName || "Sin especificar"}
         </p>
-        <p className="mt-0.5 truncate text-[12px] text-system-600 max-md:text-[11px]" title={campaign.organizer || "Sin organización"}>
+        <p className={`${compact ? "hidden" : `mt-0.5 truncate text-[12px] max-md:text-[11px]${mobileCompact ? " max-sm:hidden" : ""}`} text-system-600`} title={campaign.organizer || "Sin organización"}>
           <span className="font-semibold text-system-700">Organización:</span> {campaign.organizer || "Sin organización"}
         </p>
-        <p className="mt-1.5 font-mono text-[11px] text-system-600 max-md:text-[10.5px]">
+        <p className={`${compact ? "mt-1 font-mono text-[10px]" : `mt-1.5 font-mono text-[11px] max-md:text-[10.5px]${mobileCompact ? " max-sm:hidden" : ""}`} text-system-600`}>
           {formatDateRange(campaign.startDate, campaign.endDate)}
         </p>
-        <p className="mt-1 font-mono text-[11px] text-system-600 max-md:text-[10.5px]">
+        <p className={`${compact ? "mt-0.5 font-mono text-[10px]" : `mt-1 font-mono text-[11px] max-md:text-[10.5px]${mobileCompact ? " max-sm:hidden" : ""}`} text-system-600`}>
           Cierre: {closeDate} · {remainingDays} días restantes
         </p>
       </div>
 
       <ProgressBar pct={isActive || isPaused ? pct : 0} />
 
-      <div className="flex gap-6 max-md:gap-5">
+      <div className={`flex ${compact ? "gap-5" : "gap-6 max-md:gap-5"}`}>
         <div>
-          <p className="font-mono text-[15px] font-bold text-system-900 max-md:text-[14px]">
+          <p className={`font-mono font-bold text-system-900 ${compact ? "text-[14px]" : "text-[15px] max-md:text-[14px]"}`}>
             {campaign.approvedContributions}/{campaign.goalContributions}
           </p>
-          <p className="text-[11px] text-system-500 max-md:text-[10px]">aprobados</p>
+          <p className={`text-system-500 ${compact ? "text-[10px]" : "text-[11px] max-md:text-[10px]"}`}>aprobados</p>
         </div>
         <div>
-          <p className="font-mono text-[15px] font-bold text-system-900 max-md:text-[14px]">
+          <p className={`font-mono font-bold text-system-900 ${compact ? "text-[14px]" : "text-[15px] max-md:text-[14px]"}`}>
             {remainingDays}
           </p>
-          <p className="text-[11px] text-system-500 max-md:text-[10px]">días restantes</p>
+          <p className={`text-system-500 ${compact ? "text-[10px]" : "text-[11px] max-md:text-[10px]"}`}>días restantes</p>
         </div>
       </div>
 
-      <Link href={`/campanas/${campaign.id}`} className="relative z-10">
-        <Button className="w-full">Ver detalles</Button>
+      <Link href={`/campanas/${campaign.id}`} className="relative z-10 mt-auto">
+        <Button size={compact ? "sm" : undefined} className="w-full">Ver detalles</Button>
       </Link>
     </Card>
   );

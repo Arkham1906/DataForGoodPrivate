@@ -1569,7 +1569,7 @@ function CampanaFormulario({
                             disabled={contenidoBloqueado}
                             onClick={() => setChecklists((prev) => [...prev, nuevoChecklist("", [], grupo.tipo)])}
                           >
-                            + Agregar característica de {grupo.nombre}
+                                + Agregar característica de {grupo.nombre}
                           </Button>
                         </div>
                       )}

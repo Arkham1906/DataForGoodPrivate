@@ -157,6 +157,7 @@ export default function MisCampanasPage() {
   const [porActivar, setPorActivar] = useState<Campaign | null>(null);
   // Campaña cuya ventana de detalle está abierta (2026-10-27): clic en su tarjeta.
   const [abierta, setAbierta] = useState<Campaign | null>(null);
+  const [vistaCuadricula, setVistaCuadricula] = useState(true);
   const [porEliminar, setPorEliminar] = useState<CampanaDeMisCampanas | null>(null);
   // Nombre que escribe para confirmar que borra una campaña con aportes.
   const [nombreParaEliminar, setNombreParaEliminar] = useState("");
@@ -294,14 +295,38 @@ export default function MisCampanasPage() {
           <h1 className="text-2xl font-extrabold text-system-900 max-md:text-xl max-md:leading-tight">Mis campañas</h1>
           <p className="mt-1 text-[13px] text-system-600 max-md:text-[12px] max-md:leading-5">Administra las campañas que has creado.</p>
         </div>
-        <ButtonLink
-          href="/mis-campanas/nueva"
-          variant="primary"
-          size="sm"
-          className="whitespace-nowrap max-md:max-w-[126px] max-md:px-2.5 max-md:py-1.5 max-md:text-[11.5px] max-md:leading-4"
-        >
-          Nueva campaña
-        </ButtonLink>
+        <div className="flex shrink-0 items-center gap-2">
+          <ButtonLink
+            href="/mis-campanas/nueva"
+            variant="primary"
+            size="sm"
+            className="whitespace-nowrap max-md:max-w-[126px] max-md:px-2.5 max-md:py-1.5 max-md:text-[11.5px] max-md:leading-4"
+          >
+            Nueva campaña
+          </ButtonLink>
+          <Button
+            type="button"
+            size="sm"
+            className="!size-[42px] !shrink-0 !rounded-lg !p-0"
+            onClick={() => setVistaCuadricula((actual) => !actual)}
+            aria-label={vistaCuadricula ? "Cambiar a vista de lista" : "Cambiar a vista cuadriculada"}
+            aria-pressed={vistaCuadricula}
+            title={vistaCuadricula ? "Vista de lista" : "Vista cuadriculada"}
+          >
+            {vistaCuadricula ? (
+              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" />
+              </svg>
+            ) : (
+              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
+                <rect x="4" y="4" width="6" height="6" rx="1" />
+                <rect x="14" y="4" width="6" height="6" rx="1" />
+                <rect x="4" y="14" width="6" height="6" rx="1" />
+                <rect x="14" y="14" width="6" height="6" rx="1" />
+              </svg>
+            )}
+          </Button>
+        </div>
       </div>
 
       <div
@@ -342,7 +367,7 @@ export default function MisCampanasPage() {
           {filtro === "proximas" ? "No tienes campañas próximas a finalizar." : "No tienes campañas en este estado."}
         </p>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className={vistaCuadricula ? "grid grid-cols-1 gap-3 sm:grid-cols-2" : "flex flex-col gap-3"}>
           {visibles.map((campaign) => {
             const pct = porcentajeDeMeta(campaign.approvedContributions, campaign.goalContributions);
             const puedeFinalizar = campaign.status === "activa" || campaign.status === "pausada";

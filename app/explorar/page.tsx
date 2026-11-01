@@ -16,6 +16,7 @@ import Card from "@/components/ui/Card";
 import ProgressBar from "@/components/ui/ProgressBar";
 import Tag from "@/components/ui/Tag";
 import RutaDeTematica from "@/components/ui/RutaDeTematica";
+import SelectorDeVistaCampanas from "@/components/campanas/SelectorDeVistaCampanas";
 import { Input } from "@/components/ui/Input";
 import {
   buscarCampanasParaExplorar,
@@ -264,11 +265,6 @@ export default async function ExplorarCampanasPage({
               ))}
             </nav>
 
-            <p className="mb-4 font-mono text-[12px] text-system-600">
-              {nf.format(campanas.length)} {campanas.length === 1 ? "campaña" : "campañas"}
-              {activos > 0 ? ` · ${activos} ${activos === 1 ? "filtro activo" : "filtros activos"}` : ""}
-            </p>
-
             {campanas.length === 0 ? (
               <p className="rounded-lg bg-system-100 p-4 text-sm text-system-600">
                 {visibles === 0
@@ -276,7 +272,14 @@ export default async function ExplorarCampanasPage({
                   : "Ninguna campaña coincide con estos filtros. Prueba quitando alguno o buscando por otro término."}
               </p>
             ) : (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <SelectorDeVistaCampanas
+                toolbar={
+                  <p className="font-mono text-[12px] text-system-600">
+                    {nf.format(campanas.length)} {campanas.length === 1 ? "campaña" : "campañas"}
+                    {activos > 0 ? ` · ${activos} ${activos === 1 ? "filtro activo" : "filtros activos"}` : ""}
+                  </p>
+                }
+              >
                 {campanas.map((c, i) => {
                   const pct = porcentajeDeMeta(c.approvedContributions, c.goalContributions);
                   const lugar = textoDeUbicacion({ todoElPais: c.todoElPais, municipio: c.locationCity, estado: c.locationState });
@@ -324,7 +327,7 @@ export default async function ExplorarCampanasPage({
                     </Link>
                   );
                 })}
-              </div>
+              </SelectorDeVistaCampanas>
             )}
           </div>
         </div>

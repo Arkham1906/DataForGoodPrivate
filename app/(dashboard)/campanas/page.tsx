@@ -41,12 +41,40 @@ function normalizarEstado(valor: string | null | undefined): string {
   return (valor ?? "").normalize("NFD").replace(/\p{Diacritic}/gu, "").trim().toLowerCase();
 }
 
+function BotonCambiarVista({ vistaCuadricula, onCambiar, className = "" }: { vistaCuadricula: boolean; onCambiar: () => void; className?: string }) {
+  return (
+    <Button
+      type="button"
+      size="sm"
+      className={`!size-[42px] !shrink-0 !rounded-lg !p-0 ${className}`}
+      onClick={onCambiar}
+      aria-label={vistaCuadricula ? "Cambiar a vista de lista" : "Cambiar a vista cuadriculada"}
+      aria-pressed={vistaCuadricula}
+      title={vistaCuadricula ? "Vista de lista" : "Vista cuadriculada"}
+    >
+      {vistaCuadricula ? (
+        <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" />
+        </svg>
+      ) : (
+        <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
+          <rect x="4" y="4" width="6" height="6" rx="1" />
+          <rect x="14" y="4" width="6" height="6" rx="1" />
+          <rect x="4" y="14" width="6" height="6" rx="1" />
+          <rect x="14" y="14" width="6" height="6" rx="1" />
+        </svg>
+      )}
+    </Button>
+  );
+}
+
 export default function CampanasPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   // "Campañas para ti" (2026-10-27): las mismas de /inicio, arriba de los filtros.
   const [paraTi, setParaTi] = useState<CampanaParaTi[]>([]);
   // Campaña cuya ventana de detalle está abierta (2026-10-27): clic en su tarjeta.
   const [abierta, setAbierta] = useState<Campaign | null>(null);
+  const [vistaCuadricula, setVistaCuadricula] = useState(true);
   const [vista, setVista] = useState(TODAS);
   // Temática elegida ("" = todas) y su subtemática (2026-10-27; "" = todas). Otra temática quita la subtemática.
   const [temaActivo, setTemaActivo] = useState("");
@@ -205,19 +233,31 @@ export default function CampanasPage() {
         </Link>
       </div>
 
-      {!cargando && !error && <CampanasParaTi id="campanas-para-ti" campanas={paraTi} className="mb-8 max-md:mb-6" />}
+      {!cargando && !error && (
+        <CampanasParaTi
+          id="campanas-para-ti"
+          campanas={paraTi}
+          className="mb-8 max-md:mb-6"
+          accion={<BotonCambiarVista vistaCuadricula={vistaCuadricula} onCambiar={() => setVistaCuadricula((actual) => !actual)} className="md:hidden" />}
+        />
+      )}
 
       {!cargando && !error && <AvisoDeUbicacion zona={zona} />}
 
       {!cargando && !error && (
-        <BarraDeFiltros
-          valores={{ vista, q: busqueda.q, orden: busqueda.orden, tematica: temaActivo, etiqueta: etiquetaActiva, tipo: tipoActivo }}
-          vistas={vistas}
-          tematicas={temasConCampanas.map(([tema]) => tema)}
-          etiquetasPorTematica={etiquetasPorTema}
-          onCambiar={cambiarBusqueda}
-          colapsableEnMovil
-        />
+        <div className="flex items-start gap-2">
+          <div className="min-w-0 flex-1">
+            <BarraDeFiltros
+              valores={{ vista, q: busqueda.q, orden: busqueda.orden, tematica: temaActivo, etiqueta: etiquetaActiva, tipo: tipoActivo }}
+              vistas={vistas}
+              tematicas={temasConCampanas.map(([tema]) => tema)}
+              etiquetasPorTematica={etiquetasPorTema}
+              onCambiar={cambiarBusqueda}
+              colapsableEnMovil
+            />
+          </div>
+          <BotonCambiarVista vistaCuadricula={vistaCuadricula} onCambiar={() => setVistaCuadricula((actual) => !actual)} className="max-md:hidden" />
+        </div>
       )}
 
       {error ? (
@@ -252,11 +292,11 @@ export default function CampanasPage() {
                   : "Todavía no hay campañas activas."}
         </p>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className={vistaCuadricula ? "grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-3" : "flex flex-col gap-3"}>
           {/* Las tarjetas usan h3: este h2 evita saltar del h1 al h3. */}
           <h2 className="sr-only">Lista de campañas</h2>
           {filtered.map((campaign) => (
-            <CampaignCard key={campaign.id} campaign={campaign} onAbrir={() => setAbierta(campaign)} />
+            <CampaignCard key={campaign.id} campaign={campaign} compact={!vistaCuadricula} mobileCompact={vistaCuadricula} onAbrir={() => setAbierta(campaign)} />
           ))}
         </div>
       )}

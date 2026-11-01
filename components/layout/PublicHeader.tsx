@@ -24,9 +24,14 @@ export default function PublicHeader() {
           Datos abiertos
         </Link>
       </nav>
-      <ButtonLink href="/entrar" variant="primary" size="sm">
-        Iniciar sesión
-      </ButtonLink>
+      <div className="flex shrink-0 items-center gap-2">
+        <ButtonLink href="/entrar" variant="primary" size="sm">
+          Iniciar sesión
+        </ButtonLink>
+        <ButtonLink href="/registro" variant="secondary" size="sm">
+          Registrarse
+        </ButtonLink>
+      </div>
     </header>
   );
 }
