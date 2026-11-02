@@ -18,6 +18,8 @@ import {
 } from "@/lib/aportes/archivo";
 import { avisarAportesRecibidos } from "@/lib/notificaciones/hitos-de-aportes";
 import { actualizarEnviados } from "@/lib/campanas/tipos-de-campana";
+import { PORCENTAJE_MINIMO, explicacionDeFallida, sqlEstadoAlTerminar } from "@/lib/campanas/fallida";
+import { notificar } from "@/lib/notificaciones/notificaciones";
 import {
   mensajeDeTipoLleno,
   tiposConLugar,
@@ -279,4 +281,37 @@ export async function recalcularContadores(
   );
   // No rechazados de cada tipo (campana_tipos.enviados, 2026-10-30; antes campanas.enviados_por_tipo).
   await actualizarEnviados(client, campaignId);
+  await revisarEstadoDeTerminada(campaignId, client);
+}
+
+/**
+ * Una campaña ya terminada sigue la regla de fallida al cambiar sus aprobados (2026-11-01, decisión del
+ * usuario, sujeta a cambios): si se aprueban pendientes y llega al 25% de la meta pasa de "fallida" a
+ * "finalizada" (y publica datos abiertos); si pierde aprobados y baja del 25%, al revés. Avisa al creador.
+ */
+async function revisarEstadoDeTerminada(campaignId: string | number, client: Pick<PoolClient, "query">): Promise<void> {
+  const { rows } = await client.query<{ id: number; creator_id: number | null; name: string; status: string }>(
+    `UPDATE campanas SET status = ${sqlEstadoAlTerminar("campanas")}, updated_at = NOW()
+     WHERE id = $1 AND status IN ('finalizada', 'fallida') AND status <> ${sqlEstadoAlTerminar("campanas")}
+     RETURNING id, creator_id, name, status`,
+    [campaignId]
+  );
+  const campana = rows[0];
+  if (!campana?.creator_id) return;
+  // Sin esperar: el aviso no debe frenar ni tumbar la decisión sobre el aporte.
+  void notificar({
+    usuarioId: campana.creator_id,
+    tipo: "campana_finalizada",
+    campanaId: campana.id,
+    enlace: `/mis-campanas/${campana.id}/panel`,
+    ...(campana.status === "finalizada"
+      ? {
+          titulo: "Tu campaña ya no está incompleta",
+          mensaje: `"${campana.name}" llegó al ${PORCENTAJE_MINIMO}% de su meta en aportes aprobados: ahora está finalizada y publica sus datos abiertos.`,
+        }
+      : {
+          titulo: "Tu campaña quedó incompleta",
+          mensaje: `"${campana.name}" ${explicacionDeFallida()}`,
+        }),
+  }).catch((error) => console.error("No se pudo avisar el cambio de estado de la campaña", error));
 }

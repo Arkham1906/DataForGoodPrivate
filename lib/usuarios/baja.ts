@@ -20,6 +20,7 @@ import { registrarAuditoria } from "@/lib/auditoria";
 import { recalcularContadores } from "@/lib/aportes/comun";
 import { retirarComoRevisorDeTodasLasCampanas } from "@/lib/usuarios/revisor";
 import { MINUTOS_DE_GRACIA, type DestinoDeAportes } from "@/lib/usuarios/baja-opciones";
+import { sqlEstadoAlTerminar } from "@/lib/campanas/fallida";
 
 /** Nombre con el que quedan los aportes anonimizados. */
 const NOMBRE_ANONIMO = "Anónimo";
@@ -129,7 +130,8 @@ export async function solicitarBaja(usuarioId: number, destino: DestinoDeAportes
       [usuarioId]
     );
     const finalizadas = await client.query(
-      `UPDATE campanas SET status = 'finalizada', updated_at = NOW()
+      // Con menos del 25% de la meta en aprobados quedan "fallida" (2026-11-01, lib/campanas/fallida.ts).
+      `UPDATE campanas SET status = ${sqlEstadoAlTerminar("campanas")}, updated_at = NOW()
        WHERE creator_id = $1 AND status IN ('activa', 'pausada')`,
       [usuarioId]
     );

@@ -264,7 +264,7 @@ export function puedeRevertirse(
     case "RECHAZO_CAMPANA": {
       if (!campana.sigueASuCargo) return no("Ya no está a su cargo");
       if (campana.huboDictamenDespues) return no("Hubo un dictamen después");
-      if (campana.status === "finalizada") return no("La campaña ya terminó");
+      if (campana.status === "finalizada" || campana.status === "fallida") return no("La campaña ya terminó");
       const esperado = tipo === "ACEPTO_CAMPANA" ? ["activa", "aceptada"] : ["rechazada"];
       if (!esperado.includes(campana.status ?? "")) return no("La campaña cambió de estado");
       return { reversible: true };

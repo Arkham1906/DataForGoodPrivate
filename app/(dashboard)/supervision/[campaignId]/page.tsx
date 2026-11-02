@@ -164,6 +164,7 @@ export default function CampaignDetailPage() {
     rechazada: { label: "Rechazada", tone: "danger" },
     borrador: { label: "Borrador", tone: "default" },
     finalizada: { label: "Finalizada", tone: "default" },
+    fallida: { label: "Incompleta", tone: "warn" },
     pausada: { label: "Pausada", tone: "default" },
   } as const;
 
@@ -319,7 +320,7 @@ export default function CampaignDetailPage() {
         </div>
 
         <div className="mt-5 flex flex-wrap gap-3">
-          {(campaign.status === "activa" || campaign.status === "pausada" || campaign.status === "finalizada") && (
+          {(campaign.status === "activa" || campaign.status === "pausada" || campaign.status === "finalizada" || campaign.status === "fallida") && (
             <Link href={`/supervision/${campaign.id}/usuarios`} className="rounded-pill bg-brand-600 px-5 py-3 text-[12.5px] font-bold text-white shadow-sm hover:bg-brand-800">
               Ver participantes
             </Link>

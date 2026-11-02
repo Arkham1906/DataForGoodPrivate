@@ -11,6 +11,7 @@ import { registrarAuditoria } from "@/lib/auditoria";
 import { asegurarEnlaceVigente } from "@/lib/campanas/enlaces";
 import { MAX_CAMPANAS_ACTIVAS, contarActivas } from "@/lib/campanas/estado-del-creador";
 import { MAXIMO_MOTIVO_DE_SUPERVISION } from "@/lib/campanas/pausa";
+import { explicacionDeFallida, sqlEstadoAlTerminar } from "@/lib/campanas/fallida";
 import { notificar } from "@/lib/notificaciones/notificaciones";
 import { avisarCampanaEspecial } from "@/lib/notificaciones/campanas-por-interes";
 import type { AutorDeDecision } from "@/lib/supervision/decision";
@@ -101,20 +102,23 @@ export async function cambiarEstadoPorSupervision(
   }
 
   // Condicional al estado leído: si cambió mientras tanto (el creador la pausó, se finalizó...), no se aplica.
-  const actualizada = await pool.query(
+  // Al finalizar, con menos del 25% de la meta en aprobados queda "fallida" (2026-11-01, lib/campanas/fallida.ts).
+  const actualizada = await pool.query<{ status: string }>(
     `UPDATE campanas
-     SET status = $2::text,
+     SET status = CASE WHEN $2::text = 'finalizada' THEN ${sqlEstadoAlTerminar("campanas")} ELSE $2::text END,
          pausa_por = CASE WHEN $2::text = 'pausada' THEN 'supervision' ELSE pausa_por END,
          pausa_motivo = CASE WHEN $2::text = 'pausada' THEN $3::text ELSE pausa_motivo END,
          pausada_en = CASE WHEN $2::text = 'pausada' THEN NOW() ELSE pausada_en END,
          updated_at = NOW()
      WHERE id = $1 AND status = $4
-     RETURNING id`,
+     RETURNING id, status`,
     [campanaId, hacia, motivo || null, estado],
   );
   if (actualizada.rowCount === 0) {
     return { ok: false, status: 409, error: "La campaña cambió mientras tanto. Vuelve a cargar la página" };
   }
+  const estadoNuevo = String(actualizada.rows[0].status);
+  const fallida = estadoNuevo === "fallida";
 
   if (hacia === "activa") {
     await asegurarEnlaceVigente(Number(campanaId));
@@ -126,7 +130,7 @@ export async function cambiarEstadoPorSupervision(
     actor: autor.tipo === "root" ? { tipo: "superusuario" } : { tipo: "usuario", id: autor.usuarioId },
     accion: cambio === "pausar" ? "supervision.pausar" : cambio === "reanudar" ? "supervision.reanudar" : "supervision.finalizar",
     objetivo: { tipo: "campana", id: campanaId },
-    detalle: { motivo: motivo || null, estadoAnterior: estado, estadoNuevo: hacia },
+    detalle: { motivo: motivo || null, estadoAnterior: estado, estadoNuevo },
   });
 
   const nombre = String(campana.name ?? "");
@@ -150,12 +154,18 @@ export async function cambiarEstadoPorSupervision(
           }
         : {
             tipo: "campana_finalizada" as const,
-            titulo: "La supervisión finalizó tu campaña",
-            mensaje: `"${nombre}" ya no recibe aportes. Motivo: ${motivo}`,
+            titulo: fallida ? "La supervisión finalizó tu campaña: quedó incompleta" : "La supervisión finalizó tu campaña",
+            mensaje: fallida
+              ? `"${nombre}" ya no recibe aportes y ${explicacionDeFallida()} Motivo: ${motivo}`
+              : `"${nombre}" ya no recibe aportes. Motivo: ${motivo}`,
             enlace: `/mis-campanas/${campanaId}/panel`,
           }),
   });
 
-  const mensaje = { pausar: "Campaña pausada", reanudar: "Campaña reanudada", finalizar: "Campaña finalizada" }[cambio];
-  return { ok: true, nextStatus: hacia, mensaje };
+  const mensaje = {
+    pausar: "Campaña pausada",
+    reanudar: "Campaña reanudada",
+    finalizar: fallida ? "Campaña finalizada: quedó incompleta porque juntó menos del 25% de su meta" : "Campaña finalizada",
+  }[cambio];
+  return { ok: true, nextStatus: estadoNuevo, mensaje };
 }

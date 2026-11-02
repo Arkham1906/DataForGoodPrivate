@@ -4,6 +4,7 @@
 // El listado general y ?id= solo devuelven lo que quien consulta puede ver (lib/campanas/visibilidad.ts).
 
 import { NextResponse } from "next/server";
+import { sqlPuedeEliminar } from "@/lib/campanas/eliminar";
 import { especialDesdeFila } from "@/lib/campanas/especial";
 import { pool } from "@/lib/db";
 import { avisarCampanaPorRevisar } from "@/lib/notificaciones/avisos-a-supervisores";
@@ -228,8 +229,8 @@ export async function GET(request: Request) {
           // Si está rechazada, el motivo, la fecha y la sanción del último rechazo (lib/campanas/rechazo.ts).
           // El reporte con sanción se escribe en la misma transacción que el rechazo: mismo NOW().
           `SELECT c.*, ${columnasCalculadas("c")},
-                  -- Eliminar (2026-10-31): sin aportes, siempre; con aportes, menos una finalizada (ya publicó datos abiertos).
-                  (c.status <> 'finalizada' OR NOT EXISTS (SELECT 1 FROM aportes a WHERE a.campaign_id = c.id)) AS can_delete,
+                  -- Eliminar (2026-11-01): borrador, sin aportes o todos en revisión; nunca finalizada (lib/campanas/eliminar.ts).
+                  ${sqlPuedeEliminar("c")} AS can_delete,
                   r.motivo AS rechazo_motivo, r.created_at AS rechazo_en, r.por_superusuario AS rechazo_por_root,
                   s.tipo AS rechazo_sancion_tipo, s.dias AS rechazo_sancion_dias
            FROM campanas c

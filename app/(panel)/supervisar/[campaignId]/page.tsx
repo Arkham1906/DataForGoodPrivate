@@ -26,6 +26,7 @@ const statusMap = {
   rechazada: { label: "Rechazada", tone: "danger" },
   borrador: { label: "Borrador", tone: "default" },
   finalizada: { label: "Finalizada", tone: "default" },
+  fallida: { label: "Incompleta", tone: "warn" },
   pausada: { label: "Pausada", tone: "default" },
 } as const;
 
@@ -44,7 +45,7 @@ export default async function SupervisarCampanaPage({ params }: { params: Promis
 
   const currentStatus = statusMap[campaign.status as keyof typeof statusMap] ?? { label: "En revisión", tone: "warn" };
   const dataTypes = campaign.dataTypes.length > 0 ? campaign.dataTypes : ["texto"];
-  const yaRecolecta = campaign.status === "activa" || campaign.status === "pausada" || campaign.status === "finalizada";
+  const yaRecolecta = campaign.status === "activa" || campaign.status === "pausada" || campaign.status === "finalizada" || campaign.status === "fallida";
   const location = textoDeUbicacion({ todoElPais: campaign.todoElPais, colonia: campaign.locationColonia, municipio: campaign.locationCity, estado: campaign.locationState }, "Sin ubicación");
 
   const filas: [string, React.ReactNode][][] = [

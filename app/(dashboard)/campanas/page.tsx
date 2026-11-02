@@ -263,7 +263,7 @@ export default function CampanasPage() {
       {error ? (
         <p className="rounded-lg bg-error-50 p-4 text-sm text-error-700">{error}</p>
       ) : cargando ? (
-        <div role="status" aria-live="polite" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div role="status" aria-live="polite" className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-3">
           <span className="sr-only">Cargando campañas…</span>
           {Array.from({ length: TARJETAS_DE_CARGA }, (_, i) => (
             <CampaignCardSkeleton key={i} />

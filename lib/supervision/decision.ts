@@ -181,16 +181,16 @@ export async function registrarDecisionDeCampana(
     if (!tomada.ok) return tomada;
   }
 
-  // Aceptada (2026-10-31, a pedido del usuario): ya no se activa al instante ni sola en su fecha. Queda
-  // "aceptada" con espera_activacion y el creador decide cuándo activarla en /mis-campanas (PATCH
-  // { status: "activa" }); entonces se activa, o se programa si su inicio es futuro, con el enlace
-  // público y los avisos de campaña nueva (activateScheduledCampaigns).
+  // Aceptada (2026-11-01, a pedido del usuario): se activa sola al llegar su fecha de inicio
+  // (activateScheduledCampaigns, con el enlace público y los avisos de campaña nueva) y su creador puede
+  // activarla antes desde /mis-campanas (PATCH { status: "activa" }). Del 2026-10-31 al 2026-11-01
+  // esperaba a que el creador la activara (espera_activacion, ya sin uso).
   const nextStatus = "aceptada";
   const supervisorId = autor.tipo === "usuario" ? autor.usuarioId : null;
   const porRoot = autor.tipo === "root";
 
   await pool.query(
-    `UPDATE campanas SET status = $2, espera_activacion = true, updated_at = NOW() WHERE id = $1`,
+    `UPDATE campanas SET status = $2, espera_activacion = false, updated_at = NOW() WHERE id = $1`,
     [campanaId, nextStatus],
   );
 
@@ -213,14 +213,18 @@ export async function registrarDecisionDeCampana(
     metadata: {},
     tipo: "campana_aceptada",
     titulo: "Campaña aceptada",
-    mensaje: `Tu campaña "${campana.name}" fue aceptada. Actívala desde Mis campañas cuando quieras empezar a recibir aportes.`,
+    mensaje: `Tu campaña "${campana.name}" fue aceptada. Se activará sola en su fecha de inicio; si quieres empezar antes, actívala desde Mis campañas.`,
     enlace: "/mis-campanas",
   });
+
+  // Si su inicio ya llegó, se activa ahora. Import dinámico: lib/campaign-date importa notificaciones.
+  const { activateScheduledCampaigns } = await import("@/lib/campaign-date");
+  await activateScheduledCampaigns();
 
   return {
     ok: true,
     nextStatus,
-    mensaje: "Campaña aceptada; quien la creó decide cuándo activarla",
+    mensaje: "Campaña aceptada; se activará sola en su fecha de inicio",
   };
 }
 

@@ -5,8 +5,8 @@
 // Acciones secundarias en "Más", con PATCH /api/campanas/[id] { status }: "Pausar" (activa → pausada),
 // "Reanudar" (pausada → activa; no si la pausó la supervisión, que se muestra con su motivo)
 // y "Finalizar" (activa o pausada). Pausar y Finalizar se confirman en una ventana emergente
-// (ui/VentanaDeConfirmacion). "Activar campaña" (2026-10-31): una aceptada por la supervisión espera a que el
-// creador la active (esperaActivacion); con PATCH { status: "activa" } se activa o, con inicio futuro, se programa.
+// (ui/VentanaDeConfirmacion). "Activar campaña" (2026-11-01): una aceptada por la supervisión se activa sola en su inicio y el
+// creador puede activarla antes con PATCH { status: "activa" } (su inicio se adelanta a ahora).
 // "Eliminar" (canDelete): sin aportes, siempre; con aportes (2026-10-31), en
 // cualquier estado menos finalizada, diciendo cuántos se borran; siempre pide escribir el nombre de la campaña;
 // llama DELETE /api/campanas/[id] { confirmacion } (lib/campanas/eliminar.ts). "Compartir" (activa, 2026-10-19) abre el mismo cuadro de
@@ -28,6 +28,7 @@ import VentanaDeConfirmacion from "@/components/ui/VentanaDeConfirmacion";
 import CompartirCampana from "@/app/(dashboard)/campanas/[id]/compartir";
 import { resumenDeIncentivos, textoDelPeriodo } from "@/lib/campanas/especial-reglas";
 import { porcentajeDeMeta } from "@/lib/campanas/meta";
+import { PORCENTAJE_MINIMO, terminariaFallida } from "@/lib/campanas/fallida";
 import { fechaDDMMAAAA, inicioEnElFuturo, ZONA_DE_CAMPANAS } from "@/lib/fecha-de-tepic";
 import { ETIQUETA_DE_CAMPANA } from "@/lib/campanas/sistema-opciones";
 
@@ -41,6 +42,7 @@ const labels: Record<CampaignStatus, string> = {
   activa: "Activa",
   pausada: "Pausada",
   finalizada: "Finalizada",
+  fallida: "Incompleta",
   rechazada: "Rechazada",
 };
 
@@ -54,6 +56,8 @@ const FILTROS: { valor: Filtro; etiqueta: string; fijo?: boolean }[] = [
   { valor: "activa", etiqueta: "Activas", fijo: true },
   { valor: "pausada", etiqueta: "Pausadas" },
   { valor: "finalizada", etiqueta: "Finalizadas", fijo: true },
+  // Terminaron con menos del 25% de su meta (2026-11-01, lib/campanas/fallida.ts).
+  { valor: "fallida", etiqueta: "Incompletas" },
   { valor: "rechazada", etiqueta: "Rechazadas" },
   { valor: "borrador", etiqueta: "Borradores" },
 ];
@@ -119,7 +123,7 @@ function mapCampaign(row: Record<string, unknown>): CampanaDeMisCampanas {
     participants: Number(row.participants ?? 0),
     startDate: row.startDate as string | null,
     // Horas, checklists, colonia, "todo el país" y organización: la ventana de detalle (2026-10-27).
-    // startTime también decide entre "Reanudar" y "Programar" (antes no llegaba y se tomaba 00:00).
+    // startTime también decide entre "Reanudar" y "Activar campaña" (antes no llegaba y se tomaba 00:00).
     startTime: (row.startTime as string | null) ?? null,
     endDate: row.endDate as string | null,
     endTime: (row.endTime as string | null) ?? null,
@@ -194,14 +198,14 @@ export default function MisCampanasPage() {
 
   // Solo el creador ve esta pantalla (viene de mine=true): no hace falta
   // revisar rol ni dueño aparte, ya está filtrado por sesión.
-  async function cambiarEstado(id: string, nuevo: "pausada" | "activa" | "aceptada" | "finalizada") {
+  async function cambiarEstado(id: string, nuevo: "pausada" | "activa" | "aceptada" | "finalizada"): Promise<boolean> {
     // "Pausar" y "Finalizar" ya se confirmaron en su ventana emergente (VentanaDeConfirmacion).
 
     const fallo = {
       finalizada: "No se pudo finalizar la campaña",
       pausada: "No se pudo pausar la campaña",
       activa: "No se pudo reanudar la campaña",
-      aceptada: "No se pudo programar la campaña",
+      aceptada: "No se pudo programar la campaña", // pausada con inicio futuro que se deja programada
     }[nuevo];
     setCambiandoId(id);
     setCambioError((prev) => ({ ...prev, [id]: "" }));
@@ -213,9 +217,13 @@ export default function MisCampanasPage() {
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error ?? fallo);
-      setCampaigns((prev) => prev.map((c) => (c.id === id ? { ...c, status: nuevo } : c)));
+      // Al finalizar, el servidor decide si queda finalizada o fallida (2026-11-01).
+      const estadoNuevo: CampaignStatus = payload.data?.status ?? nuevo;
+      setCampaigns((prev) => prev.map((c) => (c.id === id ? { ...c, status: estadoNuevo } : c)));
+      return true;
     } catch (cause) {
       setCambioError((prev) => ({ ...prev, [id]: cause instanceof Error ? cause.message : fallo }));
+      return false;
     } finally {
       setCambiandoId(null);
     }
@@ -234,7 +242,7 @@ export default function MisCampanasPage() {
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error ?? "No se pudo activar la campaña");
       const status = String(payload.data?.status ?? "aceptada") as CampaignStatus;
-      setCampaigns((prev) => prev.map((c) => (c.id === campaign.id ? { ...c, status, esperaActivacion: false } : c)));
+      setCampaigns((prev) => prev.map((c) => (c.id === campaign.id ? { ...c, status, esperaActivacion: false, startDate: payload.data?.startDate ?? c.startDate, startTime: payload.data?.startTime ?? c.startTime } : c)));
       setPorActivar(null);
     } catch (cause) {
       setCambioError((prev) => ({ ...prev, [campaign.id]: cause instanceof Error ? cause.message : "No se pudo activar la campaña" }));
@@ -425,26 +433,31 @@ export default function MisCampanasPage() {
                       {campaign.startDate ? fechaDDMMAAAA(campaign.startDate) : "Sin fecha"} al{" "}
                       {campaign.endDate ? fechaDDMMAAAA(campaign.endDate) : "Sin fecha"}
                     </p>
-                    <ProgressBar pct={pct} tone={campaign.status === "finalizada" ? "ok" : "accent"} />
-                    <p className="my-2.5 font-mono text-[12px] text-system-600 max-md:text-[11px]">
-                      {campaign.approvedContributions} / {campaign.goalContributions} aprobados · {campaign.pendingContributions} aportes pendientes
-                      {campaign.especial && <> · {textoDelPeriodo(campaign.especial)}</>}
-                    </p>
+                    {/* En revisión no hay barra ni cifras (2026-11-01, a pedido del usuario): todavía no recibe aportes. */}
+                    {!sinAportesTodavia(campaign.status) && (
+                      <>
+                        <ProgressBar pct={pct} tone={campaign.status === "finalizada" ? "ok" : "accent"} />
+                        <p className="my-2.5 font-mono text-[12px] text-system-600 max-md:text-[11px]">
+                          {campaign.approvedContributions} / {campaign.goalContributions} aprobados · {campaign.pendingContributions} aportes pendientes
+                          {campaign.especial && <> · {textoDelPeriodo(campaign.especial)}</>}
+                        </p>
+                      </>
+                    )}
                     {campaign.especial && (
                       <p className="-mt-1 mb-2.5 text-[12px] text-system-600 max-md:text-[11px]">{resumenDeIncentivos(campaign.especial)}</p>
                     )}
                   </>
                 )}
-                {campaign.status === "aceptada" && campaign.esperaActivacion ? (
+                {/* Aceptada (2026-11-01): se activa sola en su inicio y el creador puede activarla antes. */}
+                {campaign.status === "aceptada" && (
                   <div className="mb-2.5 rounded-lg border border-success-700 bg-success-50 p-2.5 text-[11.5px] text-system-900">
                     <p className="font-semibold">La supervisión aprobó tu campaña</p>
-                    <p className="mt-0.5 text-system-600">Actívala cuando quieras empezar a recibir aportes; hasta entonces nadie la ve.</p>
+                    <p className="mt-0.5 text-system-600">
+                      Se activará sola el {campaign.startDate ? fechaDDMMAAAA(campaign.startDate) : "día de inicio"}
+                      {campaign.startTime ? ` a las ${campaign.startTime.slice(0, 5)}` : ""}. Si quieres empezar antes, actívala ahora.
+                    </p>
                   </div>
-                ) : campaign.status === "aceptada" ? (
-                  <p className="mb-2.5 text-[11.5px] text-system-600">
-                    Programada: se activa sola el {campaign.startDate ? fechaDDMMAAAA(campaign.startDate) : "día de inicio"}.
-                  </p>
-                ) : null}
+                )}
                 {campaign.status === "pausada" && campaign.pausa?.por === "supervision" ? (
                   <div className="mb-2.5 rounded-lg border border-warning-200 bg-warning-50 p-2.5 text-[11.5px] text-system-900">
                     <p className="font-semibold">La supervisión pausó esta campaña</p>
@@ -454,24 +467,32 @@ export default function MisCampanasPage() {
                 ) : campaign.status === "pausada" && (
                   <p className="mb-2.5 text-[11.5px] text-system-600">Pausada: no recibe aportes ni aparece en Campañas hasta que la reanudes.</p>
                 )}
+                {campaign.status === "fallida" && (
+                  <p className="mb-2.5 text-[11.5px] text-warning-800">
+                    Terminó con menos del {PORCENTAJE_MINIMO}% de su meta: no publica datos abiertos. Puedes extenderla con una nueva fecha de cierre desde Editar.
+                  </p>
+                )}
                 {/* Una acción principal y "Panel" a la vista; lo demás en "Más" (Ley de Hick, 2026-10-07).
-                    Rechazada: la principal es corregirla (no tiene aportes que revisar). */}
+                    Rechazada: la principal es corregirla (no tiene aportes que revisar). En revisión y rechazada
+                    no hay "Revisar aportes" ni "Panel" (2026-11-01, a pedido del usuario): todavía no recibe aportes. */}
                 <div className="relative z-10 mt-auto flex flex-wrap items-center gap-1.5 border-t border-system-100 pt-3 max-md:gap-1">
                   {campaign.status === "rechazada" ? (
                     <ButtonLink href={`/mis-campanas/nueva?edit=${campaign.id}`} variant="primary" size="sm" className="max-md:px-2 max-md:py-1.5 max-md:text-[11px]">
                       Corregir y reenviar
                     </ButtonLink>
-                  ) : campaign.status === "aceptada" && campaign.esperaActivacion ? (
+                  ) : campaign.status === "aceptada" ? (
                     <Button variant="primary" size="sm" className="max-md:px-2 max-md:py-1.5 max-md:text-[11px]" onClick={() => setPorActivar(campaign)} disabled={cambiando}>
-                      {inicioEnElFuturo(campaign.startDate, campaign.startTime) ? "Programar campaña" : "Activar campaña"}
+                      Activar campaña
                     </Button>
-                  ) : (
+                  ) : campaign.status !== "en_revision" && (
                     <ButtonLink href={`/mis-campanas/${campaign.id}/aportes`} variant="primary" size="sm" className="max-md:px-2 max-md:py-1.5 max-md:text-[11px]">
                       Revisar aportes
                       {campaign.pendingContributions > 0 && <span className="font-mono">({campaign.pendingContributions})</span>}
                     </ButtonLink>
                   )}
-                  <ButtonLink href={`/mis-campanas/${campaign.id}/panel`} size="sm" className="max-md:px-2 max-md:py-1.5 max-md:text-[11px]">Panel</ButtonLink>
+                  {!sinAportesTodavia(campaign.status) && (
+                    <ButtonLink href={`/mis-campanas/${campaign.id}/panel`} size="sm" className="max-md:px-2 max-md:py-1.5 max-md:text-[11px]">Panel</ButtonLink>
+                  )}
                   <div className="ml-auto flex w-fit items-center gap-1 rounded-lg border border-system-200 bg-system-50 p-1 max-md:mx-auto">
                   {campaign.status === "activa" && (
                     <Button type="button" variant="secondary" size="sm" className="!size-9 !rounded-md !p-0" aria-label={`Compartir ${campaign.name}`} title="Compartir" onClick={() => setPorCompartir(campaign)}>
@@ -483,7 +504,7 @@ export default function MisCampanasPage() {
                       <IconoDeAccion tipo="editar" />
                     </Button>
                   ) : (
-                    <ButtonLink href={`/mis-campanas/nueva?edit=${campaign.id}`} variant="secondary" size="sm" className="!size-9 !rounded-md !p-0" aria-label={`Editar ${campaign.name}`} title="Editar">
+                    <ButtonLink href={`/mis-campanas/nueva?edit=${campaign.id}`} variant="secondary" size="sm" className="!size-9 !rounded-md !p-0" aria-label={campaign.status === "fallida" ? `Extender ${campaign.name}` : `Editar ${campaign.name}`} title={campaign.status === "fallida" ? "Extender campaña" : "Editar"}>
                       <IconoDeAccion tipo="editar" />
                     </ButtonLink>
                   )}
@@ -498,9 +519,10 @@ export default function MisCampanasPage() {
                       variant="secondary"
                       size="sm"
                       className="!size-9 !rounded-md !p-0"
-                      aria-label={inicioEnElFuturo(campaign.startDate, campaign.startTime) ? `Programar ${campaign.name}` : `Reanudar ${campaign.name}`}
-                      title={inicioEnElFuturo(campaign.startDate, campaign.startTime) ? "Programar campaña" : "Reanudar campaña"}
-                      onClick={() => void cambiarEstado(campaign.id, inicioEnElFuturo(campaign.startDate, campaign.startTime) ? "aceptada" : "activa")}
+                      aria-label={inicioEnElFuturo(campaign.startDate, campaign.startTime) ? `Activar ${campaign.name}` : `Reanudar ${campaign.name}`}
+                      title={inicioEnElFuturo(campaign.startDate, campaign.startTime) ? "Activar campaña" : "Reanudar campaña"}
+                      // Con el inicio movido al futuro (2026-11-01): "Activar campaña" abre la misma ventana que la aceptada.
+                      onClick={() => (inicioEnElFuturo(campaign.startDate, campaign.startTime) ? setPorActivar(campaign) : void cambiarEstado(campaign.id, "activa"))}
                       disabled={cambiando}
                     >
                       <IconoDeAccion tipo="reanudar" />
@@ -544,7 +566,7 @@ export default function MisCampanasPage() {
                         ? [
                             // Con el inicio movido al futuro se programa en vez de reanudarse (2026-10-27).
                             inicioEnElFuturo(campaign.startDate, campaign.startTime)
-                              ? { etiqueta: "Programar campaña", alElegir: () => void cambiarEstado(campaign.id, "aceptada"), deshabilitado: cambiando }
+                              ? { etiqueta: "Activar campaña", alElegir: () => setPorActivar(campaign), deshabilitado: cambiando }
                               : { etiqueta: "Reanudar campaña", alElegir: () => void cambiarEstado(campaign.id, "activa"), deshabilitado: cambiando },
                           ]
                         : []),
@@ -621,8 +643,8 @@ export default function MisCampanasPage() {
 
       <VentanaDeConfirmacion
         abierto={porActivar !== null}
-        titulo={porActivar && inicioEnElFuturo(porActivar.startDate, porActivar.startTime) ? "¿Programar esta campaña?" : "¿Activar esta campaña?"}
-        textoConfirmar={porActivar && inicioEnElFuturo(porActivar.startDate, porActivar.startTime) ? "Programar campaña" : "Activar campaña"}
+        titulo="¿Activar esta campaña?"
+        textoConfirmar="Activar campaña"
         textoOcupado="Activando…"
         ocupado={porActivar !== null && cambiandoId === porActivar.id}
         onCancelar={() => setPorActivar(null)}
@@ -633,9 +655,25 @@ export default function MisCampanasPage() {
         {porActivar && <p className="mb-3 font-semibold text-system-900">{porActivar.name}</p>}
         <p>
           {porActivar && inicioEnElFuturo(porActivar.startDate, porActivar.startTime)
-            ? `Empieza el ${porActivar.startDate ? fechaDDMMAAAA(porActivar.startDate) : "día de inicio"}: quedará programada y se activará sola ese día.`
+            ? `${porActivar.status === "pausada" ? "Está pausada y empieza" : "Iba a empezar"} el ${porActivar.startDate ? fechaDDMMAAAA(porActivar.startDate) : "día de inicio"}${porActivar.startTime ? ` a las ${porActivar.startTime.slice(0, 5)}` : ""}: si la activas ahora, empieza hoy y su fecha de inicio cambia a hoy. ${porActivar.status === "pausada" ? "Si prefieres esperar, déjala programada y se activará sola ese día." : "Si no haces nada, se activará sola ese día."}`
             : "Empezará a recibir aportes en cuanto la actives y aparecerá en Campañas para que la gente participe."}
         </p>
+        {/* La pausada no se activa sola: aquí se programa para su fecha de inicio (vuelve a "aceptada"). */}
+        {porActivar?.status === "pausada" && inicioEnElFuturo(porActivar.startDate, porActivar.startTime) && (
+          <button
+            type="button"
+            className="mt-3 text-sm font-semibold text-brand-600 underline underline-offset-2 hover:text-brand-800 disabled:opacity-50"
+            disabled={cambiandoId === porActivar.id}
+            onClick={() => {
+              const campana = porActivar;
+              void cambiarEstado(campana.id, "aceptada").then((ok) => {
+                if (ok) setPorActivar((actual) => (actual?.id === campana.id ? null : actual));
+              });
+            }}
+          >
+            Dejarla programada para el {porActivar.startDate ? fechaDDMMAAAA(porActivar.startDate) : "día de inicio"}
+          </button>
+        )}
         {porActivar && cambioError[porActivar.id] && (
           <p role="alert" className="mt-3 text-error-700">{cambioError[porActivar.id]}</p>
         )}
@@ -655,10 +693,20 @@ export default function MisCampanasPage() {
         }}
       >
         {porFinalizar && <p className="mb-3 font-semibold text-system-900">{porFinalizar.name}</p>}
+        {/* Con menos del 25% de la meta en aprobados terminará fallida (2026-11-01, lib/campanas/fallida.ts). */}
+        {porFinalizar && terminariaFallida(porFinalizar.approvedContributions, porFinalizar.goalContributions) && (
+          <p className="mb-3 rounded border border-warning-200 bg-warning-50 p-2.5 text-system-900">
+            Lleva {porFinalizar.approvedContributions} de {porFinalizar.goalContributions} aportes aprobados, menos
+            del {PORCENTAJE_MINIMO}% de su meta: si la finalizas ahora quedará <strong>incompleta</strong> y no
+            publicará datos abiertos.
+          </p>
+        )}
         <ul className="flex list-disc flex-col gap-1.5 pl-5">
           <li>Dejará de recibir aportes nuevos, ni de personas con cuenta ni por su enlace público.</li>
           <li>Dejará de aparecer en Campañas y en Explorar.</li>
-          <li>Sus aportes aprobados se publicarán en Datos abiertos.</li>
+          {!(porFinalizar && terminariaFallida(porFinalizar.approvedContributions, porFinalizar.goalContributions)) && (
+            <li>Sus aportes aprobados se publicarán en Datos abiertos.</li>
+          )}
         </ul>
         <p className="mt-3">Para volver a abrirla tendrás que editarla y ponerle una fecha de cierre nueva.</p>
       </VentanaDeConfirmacion>
@@ -681,7 +729,7 @@ export default function MisCampanasPage() {
         <p>Advertencia: la campaña se eliminará permanentemente y no se podrá recuperar.</p>
         {porEliminar && porEliminar.currentContributions > 0 && (
           <p className="mt-2 rounded border border-error-700 bg-error-50 p-2.5 text-error-700">
-            Tiene {porEliminar.currentContributions} {porEliminar.currentContributions === 1 ? "aporte" : "aportes"}: se
+            Tiene {porEliminar.currentContributions} {porEliminar.currentContributions === 1 ? "aporte" : "aportes"} en revisión: se
             borrarán junto con sus archivos y quienes aportaron recibirán un aviso.
           </p>
         )}
@@ -706,10 +754,12 @@ export default function MisCampanasPage() {
           key={abierta.id}
           campana={abierta}
           onCerrar={() => setAbierta(null)}
-          extra={<DatosDelCreador campana={abierta} />}
+          sinAvance={sinAportesTodavia(abierta.status)}
+          // En revisión no queda nada "solo para ti" (sin cifras ni motivo): sin el bloque.
+          extra={abierta.status === "en_revision" ? undefined : <DatosDelCreador campana={abierta} />}
           acciones={
             <>
-              {["activa", "pausada", "finalizada"].includes(abierta.status) && (
+              {["activa", "pausada", "finalizada", "fallida"].includes(abierta.status) && (
                 <ButtonLink href={`/campanas/${abierta.id}`} size="sm">
                   Verla como participante
                 </ButtonLink>
@@ -723,14 +773,16 @@ export default function MisCampanasPage() {
                   Editar
                 </ButtonLink>
               )}
-              <ButtonLink href={`/mis-campanas/${abierta.id}/panel`} size="sm">
-                Panel
-              </ButtonLink>
+              {!sinAportesTodavia(abierta.status) && (
+                <ButtonLink href={`/mis-campanas/${abierta.id}/panel`} size="sm">
+                  Panel
+                </ButtonLink>
+              )}
               {abierta.status === "rechazada" ? (
                 <ButtonLink href={`/mis-campanas/nueva?edit=${abierta.id}`} variant="primary" size="sm">
                   Corregir y reenviar
                 </ButtonLink>
-              ) : (
+              ) : abierta.status !== "en_revision" && (
                 <ButtonLink href={`/mis-campanas/${abierta.id}/aportes`} variant="primary" size="sm">
                   Revisar aportes{abierta.pendingContributions > 0 && <span className="font-mono"> ({abierta.pendingContributions})</span>}
                 </ButtonLink>
@@ -741,6 +793,11 @@ export default function MisCampanasPage() {
       )}
     </div>
   );
+}
+
+/** En revisión o rechazada todavía no recibe aportes: sin "Revisar aportes" ni "Panel" (2026-11-01). */
+function sinAportesTodavia(estado: string) {
+  return estado === "en_revision" || estado === "rechazada";
 }
 
 /** Lo que solo ve el creador en la ventana de detalle (2026-10-27): estado, motivos, aportes y revisión. */
@@ -773,6 +830,9 @@ function DatosDelCreador({ campana }: { campana: Campaign }) {
           )}
         </div>
       )}
+      {/* En revisión o rechazada, sin cifras ni revisor (2026-11-01): todavía no recibe aportes. */}
+      {!sinAportesTodavia(campana.status) && (
+      <>
       <dl className="grid grid-cols-4 gap-2 max-sm:grid-cols-2">
         {cifras.map((c) => (
           // Título primero (dt antes de dd); se ve debajo del número con flex-col-reverse.
@@ -786,6 +846,8 @@ function DatosDelCreador({ campana }: { campana: Campaign }) {
         {campana.hasReviewerAssigned ? "Tiene revisor de aportes asignado." : "Todavía no tiene revisor de aportes: los revisas tú."}
         {campana.especial && <> {resumenDeIncentivos(campana.especial)} ({textoDelPeriodo(campana.especial)}).</>}
       </p>
+      </>
+      )}
     </div>
   );
 }

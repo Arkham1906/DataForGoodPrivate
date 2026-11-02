@@ -42,7 +42,8 @@ import { columnasCalculadas, guardarTiposDeCampana } from "@/lib/campanas/tipos-
 import { guardarChecklists } from "@/lib/campanas/tabla-checklists";
 import { asegurarEnlaceVigente } from "@/lib/campanas/enlaces";
 import { errorDeOrganizacion } from "@/lib/campanas/organizacion";
-import { activateScheduledCampaigns, calculateCampaignDaysRemaining, errorDeFinAntesDeInicio, errorDeInicioPasado, errorDeReanudarAntesDeInicio, finalizeExpiredCampaigns, hasCampaignEnded, normalizeCampaignDate, normalizeCampaignTime } from "@/lib/campaign-date";
+import { estaTerminada, sqlEstadoAlTerminar } from "@/lib/campanas/fallida";
+import { activateScheduledCampaigns, ahoraEnZona, hoyEnTepic, calculateCampaignDaysRemaining, errorDeFinAntesDeInicio, errorDeInicioPasado, errorDeReanudarAntesDeInicio, finalizeExpiredCampaigns, hasCampaignEnded, normalizeCampaignDate, normalizeCampaignTime } from "@/lib/campaign-date";
 
 function normalizeDataTypes(input: unknown): string[] {
   if (!Array.isArray(input)) {
@@ -276,16 +277,22 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const currentStatus = String(existing.rows[0].status ?? "borrador");
     const estadoSolicitado = "status" in body ? normalizeCampaignStatus(body.status) : null;
     const enviarRevisionDesdePausa = currentStatus === "pausada" && estadoSolicitado === "en_revision";
+    // Pausada con inicio futuro que el creador activa ya (2026-11-01): su inicio se adelanta a ahora (Tepic).
+    let inicioAdelantado: { fecha: string; hora: string } | null = null;
 
     // Reglas de edición por estado: una finalizada es de solo lectura salvo
     // para reactivarla (status: "activa", con cupo libre de campañas activas);
     // activa y aceptada solo dejan tocar meta y fecha de fin (sin cambiar su
     // estado); pausada además casi todo (CAMPOS_EDITABLES_EN_PAUSA, sigue
     // pausada); borrador, en_revision y rechazada se editan por completo.
-    if (currentStatus === "finalizada") {
+    // Una fallida (2026-11-01, lib/campanas/fallida.ts) igual: extenderla es reactivarla con un fin nuevo.
+    if (estaTerminada(currentStatus)) {
       const reactiva = normalizeCampaignStatus(body.status) === "activa";
       if (!reactiva) {
-        return NextResponse.json({ error: "Una campaña finalizada es de solo lectura y no se puede editar" }, { status: 403 });
+        return NextResponse.json(
+          { error: `Una campaña ${currentStatus === "fallida" ? "fallida" : "finalizada"} es de solo lectura y no se puede editar` },
+          { status: 403 }
+        );
       }
 
       const camposPermitidos = new Set(["status", "endDate", "end_date", "endTime", "end_time"]);
@@ -407,10 +414,14 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
             { status: 400 }
           );
         }
-        // Editándola en pausa pudo quedar con inicio futuro: no se activa antes de empezar
-        // (se programa), y la que ya empezó se reanuda, no se programa.
+        // Editándola en pausa pudo quedar con inicio futuro: "Activar campaña" (2026-11-01) la activa ya
+        // y adelanta su inicio a ahora; "aceptada" la programa para que empiece sola ese día. La que ya
+        // empezó se reanuda, no se programa.
         const errorDeInicio = errorDeReanudarAntesDeInicio(existing.rows[0].start_date, existing.rows[0].start_time);
-        if (pedido === "activa" && errorDeInicio) return NextResponse.json({ error: errorDeInicio }, { status: 400 });
+        if (pedido === "activa" && errorDeInicio) {
+          const ahora = ahoraEnZona();
+          inicioAdelantado = { fecha: hoyEnTepic(), hora: `${String(ahora.hour).padStart(2, "0")}:${String(ahora.minute).padStart(2, "0")}` };
+        }
         if (pedido === "aceptada" && !errorDeInicio) {
           return NextResponse.json({ error: "La campaña ya llegó a su fecha de inicio: reanúdala en vez de programarla" }, { status: 400 });
         }
@@ -445,40 +456,49 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       }
     }
 
-    // Activar la aprobada (2026-10-31, a pedido del usuario): la supervisión la aceptó y la decisión de
-    // empezar es del creador. PATCH { status: "activa" } quita la espera; si su inicio ya llegó se activa
-    // ahora (con su enlace y los avisos de campaña nueva) y si es futuro queda programada y se activa sola.
-    if (currentStatus === "aceptada" && existing.rows[0].espera_activacion === true && Object.keys(body).length === 1 && normalizeCampaignStatus(body.status) === "activa") {
+    // Activar la aceptada (2026-11-01, a pedido del usuario): se activa sola al llegar su fecha de inicio
+    // (activateScheduledCampaigns), pero el creador puede activarla antes. PATCH { status: "activa" } la
+    // activa ya: si su inicio era futuro, se adelanta a ahora (hora de Tepic). Antes (2026-10-31) esperaba
+    // a que el creador la activara (espera_activacion) y, con inicio futuro, solo se programaba.
+    if (currentStatus === "aceptada" && Object.keys(body).length === 1 && normalizeCampaignStatus(body.status) === "activa") {
       if (hasCampaignEnded(normalizeCampaignDate(existing.rows[0].end_date), normalizeCampaignTime(existing.rows[0].end_time))) {
         return NextResponse.json(
           { error: "La fecha de cierre ya pasó. Edita la fecha de finalización antes de activarla" },
           { status: 400 }
         );
       }
-      const yaEmpieza = !errorDeReanudarAntesDeInicio(existing.rows[0].start_date, existing.rows[0].start_time);
-      if (yaEmpieza) {
-        const activas = await pool.query(
-          `SELECT COUNT(*)::int AS count FROM campanas WHERE creator_id = $1 AND status = 'activa'`,
-          [user.id]
+      const activas = await pool.query(
+        `SELECT COUNT(*)::int AS count FROM campanas WHERE creator_id = $1 AND status = 'activa'`,
+        [user.id]
+      );
+      if (Number(activas.rows[0].count) >= MAX_ACTIVE_CAMPAIGNS) {
+        return NextResponse.json(
+          { error: `Ya tienes ${MAX_ACTIVE_CAMPAIGNS} campañas activas; pausa o finaliza otra antes de activar esta` },
+          { status: 400 }
         );
-        if (Number(activas.rows[0].count) >= MAX_ACTIVE_CAMPAIGNS) {
-          return NextResponse.json(
-            { error: `Ya tienes ${MAX_ACTIVE_CAMPAIGNS} campañas activas; pausa o finaliza otra antes de activar esta` },
-            { status: 400 }
-          );
-        }
       }
-      await pool.query(`UPDATE campanas SET espera_activacion = false, updated_at = NOW() WHERE id = $1`, [id]);
+      const adelantada = !!errorDeReanudarAntesDeInicio(existing.rows[0].start_date, existing.rows[0].start_time);
+      const ahora = ahoraEnZona();
+      const horaDeAhora = `${String(ahora.hour).padStart(2, "0")}:${String(ahora.minute).padStart(2, "0")}`;
+      await pool.query(
+        `UPDATE campanas
+         SET espera_activacion = false,
+             start_date = CASE WHEN $2 THEN $3::date ELSE start_date END,
+             start_time = CASE WHEN $2 THEN $4::time ELSE start_time END,
+             updated_at = NOW()
+         WHERE id = $1`,
+        [id, adelantada, hoyEnTepic(), horaDeAhora]
+      );
       await activateScheduledCampaigns();
       await registrarAuditoria({
         actor: { tipo: "usuario", id: Number(user.id) },
         accion: "campana.activar",
         objetivo: { tipo: "campana", id },
-        detalle: { programada: !yaEmpieza },
+        detalle: { adelantada, inicioAnterior: adelantada ? normalizeCampaignDate(existing.rows[0].start_date) : undefined },
       });
       const activada = await pool.query(`SELECT *, ${columnasCalculadas()} FROM campanas WHERE id = $1 LIMIT 1`, [id]);
       return NextResponse.json({
-        message: yaEmpieza ? "Campaña activada" : "Campaña programada: se activará sola en su fecha de inicio",
+        message: activada.rows[0].status === "activa" ? "Campaña activada" : "No se pudo activar la campaña por ahora",
         data: mapCampaign(activada.rows[0]),
       });
     }
@@ -509,7 +529,15 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const name = "name" in body ? String(body.name ?? "").trim() : null;
     const description = "description" in body ? String(body.description ?? "").trim() : null;
     let tematica = "tematica" in body || "tag" in body ? String(body.tematica ?? body.tag ?? "").trim() : null;
-    const status = "status" in body ? normalizeCampaignStatus(body.status) : null;
+    let status = "status" in body ? normalizeCampaignStatus(body.status) : null;
+    // El creador la finaliza: con menos del 25% de la meta en aprobados queda "fallida" (2026-11-01).
+    if (status === "finalizada" && (currentStatus === "activa" || currentStatus === "pausada")) {
+      const alTerminar = await pool.query<{ estado: string }>(
+        `SELECT ${sqlEstadoAlTerminar("c")} AS estado FROM campanas c WHERE c.id = $1`,
+        [id]
+      );
+      status = alTerminar.rows[0]?.estado ?? "finalizada";
+    }
     const dataTypes = "dataTypes" in body || "data_types" in body ? normalizeDataTypes(body.dataTypes ?? body.data_types) : null;
     // Formatos de "Archivo" (2026-10-28): si llegan o cambian los tipos; sin "documento", [].
     const formatosDeDocumento =
@@ -568,8 +596,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       cuotaPorTipo = validado.maximos;
       if (porTipo) quotaPerUser = validado.cuota;
     }
-    const startDate = "startDate" in body || "start_date" in body ? normalizeCampaignDate(body.startDate ?? body.start_date) : undefined;
-    const startTime = "startTime" in body || "start_time" in body ? normalizeCampaignTime(body.startTime ?? body.start_time) : undefined;
+    const startDate = inicioAdelantado ? inicioAdelantado.fecha : "startDate" in body || "start_date" in body ? normalizeCampaignDate(body.startDate ?? body.start_date) : undefined;
+    const startTime = inicioAdelantado ? inicioAdelantado.hora : "startTime" in body || "start_time" in body ? normalizeCampaignTime(body.startTime ?? body.start_time) : undefined;
     const endDate = "endDate" in body || "end_date" in body ? normalizeCampaignDate(body.endDate ?? body.end_date) : undefined;
     const endTime = "endTime" in body || "end_time" in body ? normalizeCampaignTime(body.endTime ?? body.end_time) : undefined;
     // Para todo el país: vacía estado, municipio y colonia (lib/campanas/ubicacion.ts).
@@ -806,7 +834,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     }
 
     await agregarEtiquetas(result.rows, user);
-    return NextResponse.json({ message: "Campaña actualizada", data: mapCampaign(result.rows[0]) });
+    const terminoFallida = result.rows[0].status === "fallida" && currentStatus !== "fallida";
+    return NextResponse.json({
+      message: terminoFallida ? "Campaña finalizada: quedó incompleta porque juntó menos del 25% de su meta" : "Campaña actualizada",
+      data: mapCampaign(result.rows[0]),
+    });
   } catch (error) {
     console.error("Error actualizando campaña", error);
     return NextResponse.json({ error: "No se pudo actualizar la campaña" }, { status: 500 });

@@ -8,6 +8,7 @@ import { listarCampanasParaRoot } from "@/lib/supervision/root";
 import PestanasDeModeracion from "@/components/moderacion/PestanasDeModeracion";
 import PestanasDeSupervision from "./pestanas";
 import { exigirSesionRoot } from "@/lib/supervision/root";
+import { estaTerminada } from "@/lib/campanas/fallida";
 
 export const metadata: Metadata = { title: "Modo supervisor" };
 
@@ -21,7 +22,7 @@ export default async function SupervisarPage() {
     <PestanasDeSupervision
       pendientes={pendientes}
       supervisadas={supervisadas.filter((c) => c.status === "activa" || c.status === "aceptada" || c.status === "pausada")}
-      finalizadas={supervisadas.filter((c) => c.status === "finalizada")}
+      finalizadas={supervisadas.filter((c) => estaTerminada(c.status))}
       conIncidencia={supervisadas.filter(
         (c) => c.latestSupervisionAction === "reportada" || c.status === "rechazada",
       )}

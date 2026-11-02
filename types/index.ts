@@ -13,6 +13,7 @@ export type CampaignStatus =
   | "activa"
   | "pausada"
   | "finalizada"
+  | "fallida" // terminó con menos del 25% de la meta en aprobados (lib/campanas/fallida.ts)
   | "rechazada";
 
 export type DataType = "texto" | "foto" | "video" | "audio" | "documento";

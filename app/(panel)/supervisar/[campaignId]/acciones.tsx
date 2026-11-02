@@ -86,7 +86,7 @@ export default function AccionesDeSupervision({
 
         {supervision === "otro" && status === "en_revision" ? (
           <Tag>La supervisa otro supervisor</Tag>
-        ) : supervision !== "mia" && (status === "finalizada" || status === "rechazada") ? (
+        ) : supervision !== "mia" && (status === "finalizada" || status === "fallida" || status === "rechazada") ? (
           <Tag>{supervision === "otro" ? "La supervisa otro supervisor" : "Sin supervisor"}</Tag>
         ) : puedeDictaminar ? (
           <div className="flex flex-wrap gap-2">

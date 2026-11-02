@@ -1,7 +1,7 @@
 // Qué campañas puede leer cada quien con GET /api/campanas y GET /api/campanas/[id]
 // (decisión del usuario, 2026-10-20). Antes los dos devolvían cualquier campaña, en cualquier
 // estado, sin sesión.
-//   - Cualquiera, con o sin sesión: activa, pausada y finalizada.
+//   - Cualquiera, con o sin sesión: activa, pausada, finalizada y fallida.
 //   - El creador: las suyas, en cualquier estado.
 //   - El supervisor (rol): además las que están en revisión (para tomarlas) y las que supervisa.
 //   - El revisor aceptado de una campaña: esa campaña.
@@ -11,7 +11,8 @@
 import { hasRootSession } from "@/lib/rootSession";
 import type { SessionUser } from "@/lib/session";
 
-export const ESTADOS_PUBLICOS = ["activa", "pausada", "finalizada"] as const;
+// La fallida (2026-11-01) se sigue viendo como la finalizada, aunque no publique datos abiertos.
+export const ESTADOS_PUBLICOS = ["activa", "pausada", "finalizada", "fallida"] as const;
 
 /**
  * Condición SQL para la tabla `campanas` (con el alias que se pase) y sus parámetros, numerados

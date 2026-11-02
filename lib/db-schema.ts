@@ -8,6 +8,7 @@ import { ESTRELLAS_MAXIMAS } from "@/lib/aportes/calificacion";
 import { PROPOSITOS } from "@/lib/campanas/proposito";
 import { TIPOS_DE_SANCION } from "@/lib/sanciones";
 import { DESTINOS_DE_APORTES } from "@/lib/usuarios/baja-opciones";
+import { sqlEstadoAlTerminar } from "@/lib/campanas/fallida";
 
 /**
  * Único lugar donde se define el DDL de cada tabla. Antes estaba duplicado
@@ -1466,7 +1467,7 @@ function restricciones(): ReadonlyArray<[tabla: string, nombre: string, condicio
   return [
     // Estados de la campaña (lib/campanas/sistema-opciones.ts, EstadoDeCampana).
     ["campanas", "campanas_status_check",
-      `status IN ('borrador', 'en_revision', 'aceptada', 'activa', 'pausada', 'rechazada', 'finalizada')`],
+      `status IN ('borrador', 'en_revision', 'aceptada', 'activa', 'pausada', 'rechazada', 'finalizada', 'fallida')`],
     ["campanas", "campanas_collection_mode_check", `collection_mode IN ('checklist', 'texto_libre')`],
     // Quién la pausó (lib/campanas/pausa.ts).
     ["campanas", "campanas_pausa_por_check", `pausa_por IN ('creador', 'supervision')`],
@@ -1497,6 +1498,19 @@ export async function ensureRestricciones(): Promise<void> {
       END $$;
     `);
   }
+}
+
+/**
+ * Cada campaña terminada con el estado que le toca por la regla de fallida (2026-11-01, decisión del
+ * usuario; lib/campanas/fallida.ts): las finalizadas de antes con menos del 25% de su meta en aprobados
+ * pasan a "fallida", y al revés. Sin avisos. Después de ensureRestricciones, que ya admite 'fallida'.
+ */
+export async function ensureEstadoDeTerminadas(): Promise<void> {
+  const { rowCount } = await pool.query(
+    `UPDATE campanas SET status = ${sqlEstadoAlTerminar("campanas")}
+     WHERE status IN ('finalizada', 'fallida') AND status <> ${sqlEstadoAlTerminar("campanas")}`
+  );
+  if (rowCount) console.log(`Campañas terminadas que cambiaron entre finalizada y fallida: ${rowCount}`);
 }
 
 export async function ensureCoreSchema(): Promise<void> {
@@ -1535,5 +1549,6 @@ export async function ensureCoreSchema(): Promise<void> {
   await ensureFechasConZona(); // después de crear las tablas: TIMESTAMP → TIMESTAMPTZ
   await ensureIndicesDeLlaves();
   await ensureRestricciones();
+  await ensureEstadoDeTerminadas(); // después de las reglas: el CHECK ya admite 'fallida'
   await ensureAvisosDeCambios(); // al final: pone triggers en las tablas de arriba
 }

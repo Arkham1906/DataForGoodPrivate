@@ -40,6 +40,7 @@ export default function VentanaDeCampana({
   onCerrar,
   extra,
   acciones,
+  sinAvance = false,
 }: {
   campana: Campaign;
   onCerrar: () => void;
@@ -47,6 +48,8 @@ export default function VentanaDeCampana({
   extra?: ReactNode;
   /** Botones al pie. */
   acciones?: ReactNode;
+  /** Sin barra de avance ni participantes: en revisión o rechazada todavía no recibe aportes (2026-11-01). */
+  sinAvance?: boolean;
 }) {
   const dialogo = useRef<HTMLDialogElement>(null);
   const idTitulo = useId();
@@ -104,12 +107,14 @@ export default function VentanaDeCampana({
             <p className="mb-4 whitespace-pre-line break-words text-[13.5px] leading-relaxed text-system-600">{campana.description}</p>
           )}
 
+          {!sinAvance && (
           <div className="mb-4">
             <ProgressBar pct={pct} tone="ok" />
             <p className="mt-1.5 font-mono text-[11.5px] text-system-600">
               {nf.format(campana.approvedContributions)} de {nf.format(campana.goalContributions)} aportes aprobados · {pct}% de la meta
             </p>
           </div>
+          )}
 
           <dl className="grid grid-cols-2 gap-x-4 gap-y-3 max-sm:grid-cols-1">
             <Dato titulo="Creador">{campana.creatorName || "Sin especificar"}</Dato>
@@ -127,7 +132,7 @@ export default function VentanaDeCampana({
             <Dato titulo="Cuota por persona">
               {campana.quotaPerUser > 0 ? `${nf.format(campana.quotaPerUser)} ${campana.quotaPerUser === 1 ? "aporte" : "aportes"}` : "Sin definir"}
             </Dato>
-            <Dato titulo="Participantes">{nf.format(campana.participants)}</Dato>
+            {!sinAvance && <Dato titulo="Participantes">{nf.format(campana.participants)}</Dato>}
             {campana.especial && (
               <Dato titulo="Campaña especial">
                 ×{campana.especial.multiplicador} de XP

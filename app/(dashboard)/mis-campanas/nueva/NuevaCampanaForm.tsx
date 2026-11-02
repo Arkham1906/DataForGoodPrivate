@@ -37,6 +37,7 @@ import { PLURALES_DE_TIPO, repartoSugerido } from "@/lib/campanas/reparto-sugeri
 import { maximosDesdeLaCuota } from "@/lib/campanas/cuota-por-tipo";
 import { LIMITE_MAXIMO_POR_TIPO } from "@/lib/campanas/limite-por-tipo";
 import { FORMATOS_DE_DOCUMENTO, type FormatoDeDocumento } from "@/lib/aportes/archivo";
+import { PORCENTAJE_MINIMO } from "@/lib/campanas/fallida";
 
 /** Campos del formulario que pueden tener un problema al guardar (2026-10-27). "general": nada en particular. */
 type CampoDeCampana =
@@ -198,6 +199,7 @@ const TODO_EL_ESTADO = "__todo_el_estado__";
 
 const MAX_ACTIVE_CAMPAIGNS = 5;
 
+
 const ESTADO_LABELS: Record<string, string> = {
   borrador: "Borrador",
   en_revision: "En revisión",
@@ -205,6 +207,7 @@ const ESTADO_LABELS: Record<string, string> = {
   activa: "Activa",
   pausada: "Pausada",
   finalizada: "Finalizada",
+  fallida: "Incompleta",
   rechazada: "Rechazada",
 };
 
@@ -280,9 +283,10 @@ function CampanaFormulario({
   // meta y fecha de finalización, sin tocar su estado; pausada permite casi
   // todo (2026-10-22: no la organización) y normalmente sigue pausada. El
   // flujo de edición iniciado desde una activa la envía a revisión al guardar;
-  // finalizada queda en solo lectura.
+  // finalizada queda en solo lectura. La fallida (2026-11-01) igual: solo se extiende con un fin nuevo.
   const status = editingCampaign?.status;
-  const soloLectura = status === "finalizada";
+  const soloLectura = status === "finalizada" || status === "fallida";
+  const esFallida = status === "fallida";
   const edicionLimitada = status === "activa" || status === "pausada" || status === "aceptada";
   const edicionCompleta = !edicionLimitada && !soloLectura;
   const editaEnPausa = status === "pausada";
@@ -614,11 +618,12 @@ function CampanaFormulario({
           <div>
             <h1 className="text-xl font-extrabold text-system-900">{name}</h1>
             <p className="mt-1 text-[13px] text-system-600">
-              Esta campaña ya finalizó y queda en solo lectura: no se puede editar. Para
-              reactivarla, primero define una nueva fecha de finalización.
+              {esFallida
+                ? `Esta campaña terminó incompleta: juntó menos del ${PORCENTAJE_MINIMO}% de su meta en aportes aprobados y no publicó datos abiertos. Para extenderla y seguir recibiendo aportes, define una nueva fecha de finalización.`
+                : "Esta campaña ya finalizó y queda en solo lectura: no se puede editar. Para reactivarla, primero define una nueva fecha de finalización."}
             </p>
           </div>
-          <Tag>Finalizada</Tag>
+          <Tag tone={esFallida ? "warn" : undefined}>{esFallida ? "Incompleta" : "Finalizada"}</Tag>
         </div>
 
         {limiteActivasAlcanzado && (
@@ -658,7 +663,7 @@ function CampanaFormulario({
             onClick={handleReactivar}
             disabled={limiteActivasAlcanzado || reactivando || !endDate}
           >
-            {reactivando ? "Reactivando..." : "Reactivar campaña"}
+            {reactivando ? (esFallida ? "Extendiendo..." : "Reactivando...") : esFallida ? "Extender campaña" : "Reactivar campaña"}
           </Button>
         </div>
       </div>

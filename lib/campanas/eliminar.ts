@@ -1,6 +1,9 @@
 // Eliminar una campaña (DELETE /api/campanas/[id]). Desde el 2026-10-27 el creador podía borrarla solo sin
 // aportes; desde el 2026-10-31 (a pedido del usuario) también con aportes, con estas decisiones del usuario:
 // - Con aportes, en cualquier estado menos finalizada: una finalizada ya publicó sus datos abiertos (/datos).
+// Desde el 2026-11-01 (decisiones del usuario) se puede borrar si está en borrador, si no tiene aportes o si
+// todos sus aportes siguen en revisión (pendiente o espera_final; ninguno aprobado ni rechazado), y nunca una
+// finalizada, aunque no tenga aportes. La regla vive en sqlPuedeEliminar (lista y servidor usan la misma).
 // - Hay que escribir el nombre de la campaña para confirmar, tenga aportes o no (la pantalla y el servidor lo revisan).
 // - Quienes aportaron con cuenta reciben `campana_eliminada` (sin enlace: la campaña ya no existe).
 // Se borran la campaña y, en cascada, sus aportes (con sus filas de `archivos`, por el trigger), respuestas,
@@ -15,6 +18,15 @@ import { notificar } from "@/lib/notificaciones/notificaciones";
 export type ResultadoDeEliminar =
   | { ok: true; aportes: number }
   | { ok: false; status: 400 | 404 | 409; error: string };
+
+/** Aportes que ya se revisaron: con uno solo, la campaña no se borra (salvo en borrador). */
+const ESTADOS_REVISADOS = "'aceptado', 'rechazado'";
+
+/** Condición SQL de "el creador puede eliminar esta campaña" (alias de la tabla campanas). */
+export function sqlPuedeEliminar(alias = "c"): string {
+  return `(${alias}.status <> 'finalizada' AND (${alias}.status = 'borrador' OR NOT EXISTS (
+            SELECT 1 FROM aportes a_e WHERE a_e.campaign_id = ${alias}.id AND a_e.status IN (${ESTADOS_REVISADOS}))))`;
+}
 
 const clave = (t: string) => t.normalize("NFC").replace(/\s+/g, " ").trim().toLowerCase();
 
@@ -32,8 +44,8 @@ export async function eliminarCampana(entrada: {
   let estado = "";
   try {
     await client.query("BEGIN");
-    const campana = await client.query<{ status: string; name: string }>(
-      `SELECT status, name FROM campanas WHERE id = $1 AND creator_id = $2 FOR UPDATE`,
+    const campana = await client.query<{ status: string; name: string; puede: boolean }>(
+      `SELECT c.status, c.name, ${sqlPuedeEliminar("c")} AS puede FROM campanas c WHERE c.id = $1 AND c.creator_id = $2 FOR UPDATE`,
       [entrada.campanaId, entrada.usuarioId],
     );
     if (campana.rowCount === 0) {
@@ -54,12 +66,15 @@ export async function eliminarCampana(entrada: {
     participantes = (datos.rows[0]?.participantes ?? []).map(Number);
     rutas = datos.rows[0]?.rutas ?? [];
 
-    if (aportes > 0 && estado === "finalizada") {
+    if (!campana.rows[0].puede) {
       await client.query("ROLLBACK");
       return {
         ok: false,
         status: 409,
-        error: "Esta campaña ya finalizó y sus datos abiertos están publicados: no se puede eliminar.",
+        error:
+          estado === "finalizada"
+            ? "Esta campaña ya finalizó y sus datos abiertos están publicados: no se puede eliminar."
+            : "Esta campaña ya tiene aportes aprobados o rechazados: no se puede eliminar.",
       };
     }
     // El nombre se pide siempre, tenga aportes o no (2026-10-31, a pedido del usuario).

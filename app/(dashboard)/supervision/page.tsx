@@ -16,6 +16,7 @@ import { FILTROS_VACIOS, avisoSinResultados, conFiltro, etiquetasPorTematica, fi
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import PestanasDeModeracion from "@/components/moderacion/PestanasDeModeracion";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
+import { estaTerminada } from "@/lib/campanas/fallida";
 
 type CampaignApiItem = {
   id: string;
@@ -92,7 +93,7 @@ export default function SupervisionPage() {
           const status = String(campaign.status ?? "");
           return status === "activa" || status === "aceptada";
         }));
-        setFinishedCampaigns(supervised.filter((campaign) => String(campaign.status ?? "") === "finalizada"));
+        setFinishedCampaigns(supervised.filter((campaign) => estaTerminada(String(campaign.status ?? ""))));
         setFlaggedCampaigns(supervised.filter((campaign) =>
           campaign.latestSupervisionAction === "reportada" || String(campaign.status ?? "") === "rechazada"
         ));

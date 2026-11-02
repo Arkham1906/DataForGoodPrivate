@@ -115,7 +115,7 @@ export default function CampaignContributionsPage() {
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-extrabold text-system-900">{campaign.name}</h1>
-          <p className="text-[13px] text-system-600">{campaign.tag} · campaña {isActive ? "activa" : "finalizada"}</p>
+          <p className="text-[13px] text-system-600">{campaign.tag} · campaña {isActive ? "activa" : campaign.status === "fallida" ? "incompleta" : "finalizada"}</p>
         </div>
         <div className="flex gap-2">
           <Link href={`/campanas/${campaign.id}`}><Button size="sm">Ver campaña</Button></Link>

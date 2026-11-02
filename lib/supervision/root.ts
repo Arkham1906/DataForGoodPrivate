@@ -21,7 +21,7 @@ import { cuotaPorTipoDesdeFila, type CuotaPorTipo } from "@/lib/campanas/cuota-p
  */
 
 /** Estados de una campaña que ya pasó la supervisión (la aceptó alguien). */
-export const ESTADOS_SUPERVISADOS = ["aceptada", "activa", "pausada", "finalizada"];
+export const ESTADOS_SUPERVISADOS = ["aceptada", "activa", "pausada", "finalizada", "fallida"];
 
 /** Guardia de cada página: el layout de (panel) ya la aplica, pero no basta solo. */
 export async function exigirSesionRoot(): Promise<void> {
@@ -172,7 +172,7 @@ export async function obtenerCampanaSupervisadaPorRoot(id: string): Promise<{ id
 
   const result = await pool.query<{ id: number; name: string }>(
     `SELECT id, name FROM campanas
-     WHERE id = $1 AND status IN ('activa', 'pausada', 'finalizada')
+     WHERE id = $1 AND status IN ('activa', 'pausada', 'finalizada', 'fallida')
      LIMIT 1`,
     [id],
   );
