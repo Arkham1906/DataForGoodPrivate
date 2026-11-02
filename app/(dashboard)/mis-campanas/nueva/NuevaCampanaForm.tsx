@@ -5,7 +5,7 @@
 // Editar: carga con GET /api/campanas?mine=true y guarda con PATCH /api/campanas/[id].
 // Qué campos se pueden editar depende del estado; la regla real está en el PATCH (ver docs/datos.md § 3).
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Field, Input, Textarea } from "@/components/ui/Input";
@@ -34,6 +34,9 @@ import { LARGO_MAXIMO_ORGANIZACION } from "@/lib/campanas/organizacion";
 import CampoDeOrganizacion from "@/components/ui/CampoDeOrganizacion";
 import { ETIQUETA_DE_CAMPANA } from "@/lib/campanas/sistema-opciones";
 import { GuiaDePasos, TarjetaDePaso, type Paso } from "./PasosDeCampana";
+import PedirUbicacion, { type ControlDeUbicacion } from "./PedirUbicacion";
+import AvisoSinTematicas from "@/components/campanas/AvisoSinTematicas";
+import type { ZonaDetectada } from "@/lib/ubicacion/en-el-navegador";
 import { PLURALES_DE_TIPO, repartoSugerido } from "@/lib/campanas/reparto-sugerido";
 import { maximosDesdeLaCuota } from "@/lib/campanas/cuota-por-tipo";
 import { LIMITE_MAXIMO_POR_TIPO } from "@/lib/campanas/limite-por-tipo";
@@ -216,6 +219,9 @@ function labelEstado(status: string | undefined) {
   return status ? ESTADO_LABELS[status] ?? status : "Borrador";
 }
 
+/** Sin temáticas de interés (ventana al abrir) y estado/municipio del perfil (botón de "Vigencia y lugar"). */
+type DatosDelPerfil = { sinTematicas: boolean; zona: ZonaDetectada | null };
+
 export default function NuevaCampanaForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -224,6 +230,8 @@ export default function NuevaCampanaForm() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [cargando, setCargando] = useState(true);
   const [organizacionPerfil, setOrganizacionPerfil] = useState<string | undefined>(undefined);
+  // Lo demás del perfil que usa el formulario (2026-11-02), de la misma consulta a la sesión.
+  const [perfil, setPerfil] = useState<DatosDelPerfil>({ sinTematicas: false, zona: null });
   const [errorCarga, setErrorCarga] = useState("");
 
   useEffect(() => {
@@ -244,6 +252,18 @@ export default function NuevaCampanaForm() {
           ? sesion.data.organizacion.trim()
           : "";
         if (activo) setOrganizacionPerfil(organizacion);
+        const intereses: unknown = sesion.data?.intereses;
+        const estado: unknown = sesion.data?.state;
+        const municipio: unknown = sesion.data?.city;
+        if (activo) {
+          setPerfil({
+            sinTematicas: Array.isArray(intereses) && intereses.length === 0,
+            zona:
+              typeof estado === "string" && estado.trim()
+                ? { estado, municipio: typeof municipio === "string" ? municipio : "" }
+                : null,
+          });
+        }
       } catch (error) {
         if (activo) setErrorCarga(error instanceof Error ? error.message : "No se pudo cargar el formulario.");
       } finally {
@@ -292,6 +312,7 @@ export default function NuevaCampanaForm() {
       key={editingCampaign?.id ?? "nueva"}
       editingCampaign={editingCampaign}
       organizacionPerfil={organizacionPerfil}
+      perfil={perfil}
       activeCampaigns={activeCampaigns.length}
       limitReached={limitReached}
       solicitarRevisionAlGuardar={solicitarRevisionAlGuardar}
@@ -302,12 +323,14 @@ export default function NuevaCampanaForm() {
 function CampanaFormulario({
   editingCampaign,
   organizacionPerfil,
+  perfil,
   activeCampaigns,
   limitReached,
   solicitarRevisionAlGuardar,
 }: {
   editingCampaign: Campaign | undefined;
   organizacionPerfil: string;
+  perfil: DatosDelPerfil;
   activeCampaigns: number;
   limitReached: boolean;
   solicitarRevisionAlGuardar: boolean;
@@ -498,6 +521,17 @@ function CampanaFormulario({
   // Para todo el país (2026-10-21, a pedido del usuario): sin estado ni municipio. Una
   // campaña nueva empieza marcada (2026-10-31, a pedido del usuario); al editar, se respeta la suya.
   const [todoElPais, setTodoElPais] = useState(editingCampaign ? Boolean(editingCampaign.todoElPais) : true);
+  // Campaña nueva (2026-11-02, a pedido del usuario): al abrir, si no tiene temáticas de interés, la ventana
+  // campanas/AvisoSinTematicas; al llegar a "Vigencia y lugar", PedirUbicacion pide su ubicación y con ella
+  // llena estado y municipio si están vacíos (zonaDelCreador: para avisarlo bajo "Para todo el país").
+  const sinTematicas = !editingCampaign && perfil.sinTematicas;
+  const [zonaDelCreador, setZonaDelCreador] = useState<ZonaDetectada | null>(null);
+  // Botón "Usar mi estado y municipio" (2026-11-02, a pedido del usuario): el estado y municipio de su perfil
+  // (/cuenta); si no tiene, pide su ubicación (PedirUbicacion); si la rechaza, los elige a mano.
+  const zonaDelPerfil = perfil.zona;
+  const [buscandoZona, setBuscandoZona] = useState(false);
+  const [avisoDeZona, setAvisoDeZona] = useState<{ ok: boolean; texto: string } | null>(null);
+  const ubicacion = useRef<ControlDeUbicacion>(null);
   const [reactivando, setReactivando] = useState(false);
   const [reactivarError, setReactivarError] = useState<string | null>(null);
   // Por qué no se puede guardar (2026-10-27, a pedido del usuario): al intentar guardar se juntan
@@ -566,6 +600,58 @@ function CampanaFormulario({
 
   function cambiarMunicipio(nuevoMunicipio: string) {
     setLocationCity(nuevoMunicipio);
+  }
+
+  // Zona con los nombres del catálogo (lib/mexico-geo), sin importar acentos ni mayúsculas; null si el
+  // estado no está en el catálogo (municipio "" si el municipio no está).
+  function zonaDelCatalogo(zona: ZonaDetectada): ZonaDetectada | null {
+    const clave = (t: string) => t.normalize("NFD").replace(/\p{Diacritic}/gu, "").trim().toLowerCase();
+    const estado = NOMBRES_DE_ESTADOS.find((e) => clave(e) === clave(zona.estado));
+    if (!estado) return null;
+    const municipio = municipiosDe(estado).find((m) => clave(m) === clave(zona.municipio));
+    return { estado, municipio: municipio ?? "" };
+  }
+
+  // Pone la zona en la campaña (quita "Para todo el país"); sin municipio, "Todo el estado".
+  function ponerZona(zona: ZonaDetectada, origen: string) {
+    setTodoElPais(false);
+    setLocationState(zona.estado);
+    setLocationCity(zona.municipio || TODO_EL_ESTADO);
+    setAvisoDeZona({
+      ok: true,
+      texto: `Usamos ${origen}: ${zona.municipio ? `${zona.municipio}, ` : "todo el estado de "}${zona.estado}. Puedes cambiarlo.`,
+    });
+  }
+
+  function usarMiEstadoYMunicipio() {
+    setAvisoDeZona(null);
+    const delPerfil = zonaDelPerfil && zonaDelCatalogo(zonaDelPerfil);
+    if (delPerfil) ponerZona(delPerfil, "el estado y municipio de tu perfil");
+    else ubicacion.current?.pedir();
+  }
+
+  // Zona de la persona (PedirUbicacion). Sola: llena estado y municipio solo si siguen vacíos. Con el botón:
+  // los pone aunque ya hubiera otros. Si el estado no está en el catálogo, no llena nada.
+  function usarZonaDelCreador(zonaDetectada: ZonaDetectada, porBoton: boolean) {
+    const zona = zonaDelCatalogo(zonaDetectada);
+    if (!zona) {
+      if (porBoton) avisoSinUbicacion("No reconocimos tu ubicación.");
+      return;
+    }
+    setZonaDelCreador(zona);
+    if (porBoton) {
+      ponerZona(zona, "tu ubicación");
+      return;
+    }
+    if (locationState) return;
+    setLocationState(zona.estado);
+    setLocationCity(zona.municipio || TODO_EL_ESTADO);
+  }
+
+  // Sin perfil ni ubicación: a mano (quita "Para todo el país" para que vea los campos).
+  function avisoSinUbicacion(motivo: string) {
+    setTodoElPais(false);
+    setAvisoDeZona({ ok: false, texto: `${motivo} Elige el estado y el municipio a mano.` });
   }
 
   function toggleDataType(type: DataType) {
@@ -1260,7 +1346,26 @@ function CampanaFormulario({
               <p className="-mt-2 mb-4 text-[12px] text-error-700">{errorDeFechas}</p>
             )}
 
-            <p className="mb-2 text-[13px] font-medium text-system-900">¿Dónde aplica la campaña?</p>
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-[13px] font-medium text-system-900">¿Dónde aplica la campaña?</p>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={usarMiEstadoYMunicipio}
+                disabled={contenidoBloqueado || buscandoZona}
+              >
+                {buscandoZona ? "Buscando tu ubicación…" : "Usar mi estado y municipio"}
+              </Button>
+            </div>
+            {avisoDeZona && (
+              <p
+                role={avisoDeZona.ok ? "status" : "alert"}
+                className={`mb-3 text-[12px] ${avisoDeZona.ok ? "text-system-600" : "text-error-700"}`}
+              >
+                {avisoDeZona.texto}
+              </p>
+            )}
             <label className="mb-4 flex cursor-pointer items-start gap-2.5 rounded-lg border border-system-200 bg-system-50 p-3.5 has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50">
               <input
                 type="checkbox"
@@ -1279,6 +1384,12 @@ function CampanaFormulario({
                 </span>
               </span>
             </label>
+            {todoElPais && zonaDelCreador && !editingCampaign && (
+              <p className="-mt-2 mb-4 text-[12px] text-system-600">
+                Estás en {zonaDelCreador.municipio ? `${zonaDelCreador.municipio}, ` : ""}
+                {zonaDelCreador.estado}: si quitas la marca, la campaña ya queda en tu {zonaDelCreador.municipio ? "municipio" : "estado"}.
+              </p>
+            )}
 
             {!todoElPais && (
               // "Vigencia y lugar" es la única sección con campos lado a lado (2026-10-28, a pedido del usuario;
@@ -1888,6 +1999,23 @@ function CampanaFormulario({
         problemas={ventanaDeProblemas ?? []}
         onCerrar={() => setVentanaDeProblemas(null)}
         alIr={irAlCampo}
+      />
+
+      {!editingCampaign && (
+        <AvisoSinTematicas sinTematicas={sinTematicas} clave="dfg:aviso-sin-tematicas-al-crear">
+          <p>
+            Al crear tu cuenta no elegiste temáticas. Con ellas te mostramos primero las campañas que te interesan
+            y te avisamos cuando se abra una nueva. Si las agregas ahora, vuelve después a crear tu campaña.
+          </p>
+        </AvisoSinTematicas>
+      )}
+      <PedirUbicacion
+        ref={ubicacion}
+        activo={!editingCampaign}
+        idDelPaso="paso-vigencia"
+        onZona={usarZonaDelCreador}
+        onSinUbicacion={avisoSinUbicacion}
+        onOcupado={setBuscandoZona}
       />
     </div>
   );

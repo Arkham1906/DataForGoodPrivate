@@ -302,7 +302,8 @@ export default function PerfilForm({
 
         {children}
 
-        <section className="rounded-lg border border-system-200 bg-white p-5 md:col-span-2">
+        {/* id: destino del aviso "Agrega tus temáticas" de /campanas (2026-11-02). */}
+        <section id="mis-intereses" className="scroll-mt-24 rounded-lg border border-system-200 bg-white p-5 md:col-span-2">
           <div className="mb-4">
             <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-system-500">
               Mis intereses
