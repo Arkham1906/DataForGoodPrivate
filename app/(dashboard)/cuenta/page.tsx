@@ -3,7 +3,7 @@
 // personales y los intereses, que se editan directamente (2026-10-20), y guarda con PATCH /api/usuarios/[id].
 // La contraseña se cambia (o, en una cuenta de Google, se crea) en CambiarContrasena.tsx con un
 // código enviado al correo de la cuenta; no se pide la actual.
-// "Eliminar cuenta" (hasta abajo) lleva a /cuenta/eliminar (baja voluntaria, SCR-WEB-31).
+// La tarjeta "Eliminar cuenta" (hasta abajo) lleva a /cuenta/eliminar (baja voluntaria, SCR-WEB-31).
 // El lápiz sobre el avatar (EditarAvatar.tsx, 2026-10-13; siempre visible desde el 2026-10-20): iniciales,
 // ícono predefinido o foto propia (PUT /api/usuarios/[id]/avatar); el ícono se pinta con components/ui/Avatar.
 // Experimental (2026-10-07): al llegar con "Ver perfil" de la barra superior, el avatar y el
@@ -13,6 +13,7 @@
 
 import { ViewTransition } from "react";
 import ButtonLink from "@/components/ui/ButtonLink";
+import Card from "@/components/ui/Card";
 import { exigirUsuario } from "@/lib/session";
 import { etiquetasDelUsuario } from "@/lib/etiquetas/catalogo";
 import PerfilForm from "./PerfilForm";
@@ -185,11 +186,19 @@ export default async function CuentaPage() {
         </div>
       </section>
 
-      <div className="flex justify-end">
-        <ButtonLink href="/cuenta/eliminar" variant="danger" size="sm">
-          Eliminar cuenta
-        </ButtonLink>
-      </div>
+      <Card>
+        <div className="space-y-3">
+          <div>
+            <h2 className="text-sm font-bold text-system-900">Eliminar cuenta</h2>
+            <p className="mt-1 text-[12.5px] text-system-600">
+              Solicita la eliminación de tu cuenta y revisa qué pasará con tus aportes.
+            </p>
+          </div>
+          <ButtonLink href="/cuenta/eliminar" variant="danger" size="sm">
+            Eliminar cuenta
+          </ButtonLink>
+        </div>
+      </Card>
     </div>
     </ViewTransition>
   );

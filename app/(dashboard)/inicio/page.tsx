@@ -6,7 +6,6 @@
 
 import Link from "next/link";
 import type { Metadata } from "next";
-import ButtonLink from "@/components/ui/ButtonLink";
 import Card from "@/components/ui/Card";
 import MetricCard from "@/components/ui/MetricCard";
 import Tag from "@/components/ui/Tag";
@@ -15,6 +14,7 @@ import { ahoraEnZona, ZONA_DE_CAMPANAS } from "@/lib/fecha-de-tepic";
 import { fechaDeNotificacion, tonoDeNotificacion } from "@/lib/notificaciones/tipos";
 import { obtenerResumenDeInicio } from "@/lib/usuarios/inicio";
 import CampanasParaTi from "@/components/campanas/CampanasParaTi";
+import BotonCrearCampana from "@/components/campanas/BotonCrearCampana";
 
 export const metadata: Metadata = { title: "Inicio" };
 
@@ -95,9 +95,9 @@ export default async function InicioPage() {
         vacio={
           <Card>
             <p className="text-[13px] text-system-600">Por ahora no hay campañas activas para participar.</p>
-            <ButtonLink href="/mis-campanas/nueva" variant="secondary" size="sm" className="mt-3">
+            <BotonCrearCampana variant="secondary" size="sm" className="mt-3">
               Crear una campaña
-            </ButtonLink>
+            </BotonCrearCampana>
           </Card>
         }
       />

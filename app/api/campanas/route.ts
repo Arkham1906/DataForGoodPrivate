@@ -1,6 +1,7 @@
 // /api/campanas — listado y creación de campañas. Lo usa casi toda la zona de usuario.
 // Antes de leer, activa las campañas aceptadas cuya fecha llegó y finaliza las vencidas (lib/campaign-date.ts).
-// El POST exige sesión y solo crea borradores o campañas en revisión (lib/campanas/estado-del-creador.ts).
+// El POST exige sesión y organización de perfil, y solo crea borradores o campañas en revisión
+// (lib/campanas/estado-del-creador.ts).
 // El listado general y ?id= solo devuelven lo que quien consulta puede ver (lib/campanas/visibilidad.ts).
 
 import { NextResponse } from "next/server";
@@ -283,12 +284,18 @@ export async function GET(request: Request) {
   }
 }
 
-// POST: crea una campaña. Valida campos obligatorios salvo en borrador.
+// POST: crea una campaña. Exige organización en el perfil y valida campos obligatorios salvo en borrador.
 export async function POST(request: Request) {
   try {
     // La campaña siempre es de quien tiene la sesión: nunca se toma el creador del body.
     const sessionUser = await getSessionUser();
     if (!sessionUser) return NextResponse.json({ error: "Debes iniciar sesión" }, { status: 401 });
+    if (!sessionUser.organizacion?.trim()) {
+      return NextResponse.json(
+        { error: "Debes pertenecer a una organización para crear una campaña. Agrégala en Mi cuenta." },
+        { status: 403 }
+      );
+    }
     const body = await request.json().catch(() => ({}));
 
     const name = String(body.name ?? "").trim();

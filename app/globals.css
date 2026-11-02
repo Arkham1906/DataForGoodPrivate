@@ -87,6 +87,20 @@
   box-sizing: border-box;
 }
 
+#organizacion:target,
+#organizacion.organizacion-resaltada {
+  border-radius: var(--r);
+  outline: 2px solid var(--color-error-700);
+  outline-offset: 3px;
+  background: var(--color-error-50);
+}
+
+#organizacion:target input,
+#organizacion.organizacion-resaltada input {
+  border-color: var(--color-error-700);
+  background: var(--color-error-50);
+}
+
 body {
   margin: 0;
   background: var(--color-system-50);

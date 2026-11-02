@@ -2,7 +2,7 @@
 
 // Listado global de los aportes del usuario común, sin agruparlos por campaña.
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 import ButtonLink from "@/components/ui/ButtonLink";
@@ -18,6 +18,37 @@ const TIPOS: { value: DataType; label: string }[] = [
 const ESTADOS = [
   { value: "aceptado", label: "Aceptados" }, { value: "pendiente", label: "En revisión" }, { value: "rechazado", label: "Rechazados" },
 ];
+const CLAVE_VISTA_MIS_APORTES = "dfg:mis-aportes:vista";
+const EVENTO_VISTA_MIS_APORTES = "dfg:mis-aportes:vista-cambio";
+let vistaMisAportesEnMemoria = false;
+
+function leerVistaDeMisAportes(): boolean {
+  try {
+    return window.localStorage.getItem(CLAVE_VISTA_MIS_APORTES) === "cuadricula";
+  } catch {
+    return vistaMisAportesEnMemoria;
+  }
+}
+
+function suscribirVistaDeMisAportes(alCambiar: () => void): () => void {
+  const alCambiarVista = () => alCambiar();
+  window.addEventListener("storage", alCambiarVista);
+  window.addEventListener(EVENTO_VISTA_MIS_APORTES, alCambiarVista);
+  return () => {
+    window.removeEventListener("storage", alCambiarVista);
+    window.removeEventListener(EVENTO_VISTA_MIS_APORTES, alCambiarVista);
+  };
+}
+
+function guardarVistaDeMisAportes(vistaCuadricula: boolean): void {
+  vistaMisAportesEnMemoria = vistaCuadricula;
+  try {
+    window.localStorage.setItem(CLAVE_VISTA_MIS_APORTES, vistaCuadricula ? "cuadricula" : "lista");
+  } catch {
+    // Si el navegador bloquea el almacenamiento, la selección dura mientras la página siga abierta.
+  }
+  window.dispatchEvent(new Event(EVENTO_VISTA_MIS_APORTES));
+}
 
 function fechaDelDia(valor: string): { inicio: number; fin: number } | null {
   if (!valor) return null;
@@ -58,7 +89,7 @@ export default function MisAportesPage() {
   const [estado, setEstado] = useState("");
   const [fecha, setFecha] = useState("");
   const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
-  const [vistaCuadricula, setVistaCuadricula] = useState(false);
+  const vistaCuadricula = useSyncExternalStore(suscribirVistaDeMisAportes, leerVistaDeMisAportes, () => false);
   const recarga = useRecargaEnVivo();
   const router = useRouter();
 
@@ -108,12 +139,12 @@ export default function MisAportesPage() {
           <div className="grid grid-cols-5 items-end gap-2"><CamposDeFiltros {...propsDeFiltros} /></div>
           {hayFiltros && <div className="mt-2 flex items-center justify-between gap-3"><p className="text-[12px] text-system-500">{filtrados.length} de {items.length} aportes</p><Button size="sm" onClick={limpiarFiltros}>Limpiar filtros</Button></div>}
         </div>
-        <Button type="button" size="sm" className="!size-10 !rounded-lg !p-0" onClick={() => setVistaCuadricula((actual) => !actual)} aria-label={vistaCuadricula ? "Cambiar a vista de lista" : "Cambiar a vista cuadriculada"} title={vistaCuadricula ? "Vista de lista" : "Vista cuadriculada"}>
+        <Button type="button" size="sm" className="!size-10 !rounded-lg !p-0" onClick={() => guardarVistaDeMisAportes(!vistaCuadricula)} aria-label={vistaCuadricula ? "Cambiar a vista de lista" : "Cambiar a vista cuadriculada"} title={vistaCuadricula ? "Vista de lista" : "Vista cuadriculada"}>
           {vistaCuadricula ? <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" /></svg> : <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor"><rect x="4" y="4" width="6" height="6" rx="1" /><rect x="14" y="4" width="6" height="6" rx="1" /><rect x="4" y="14" width="6" height="6" rx="1" /><rect x="14" y="14" width="6" height="6" rx="1" /></svg>}
         </Button>
       </div>
 
-      <div className="mb-5 flex gap-2 lg:hidden"><Button type="button" size="sm" onClick={() => setFiltrosAbiertos(true)} aria-haspopup="dialog" aria-expanded={filtrosAbiertos}><svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 6h16M7 12h10M10 18h4" strokeLinecap="round" /></svg>Filtros{hayFiltros ? ` (${filtrados.length})` : ""}</Button><Button type="button" size="sm" className="!size-10 !rounded-lg !p-0" onClick={() => setVistaCuadricula((actual) => !actual)} aria-label={vistaCuadricula ? "Cambiar a vista de lista" : "Cambiar a vista cuadriculada"} title={vistaCuadricula ? "Vista de lista" : "Vista cuadriculada"}>{vistaCuadricula ? <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" strokeLinecap="round" strokeLinejoin="round" /></svg> : <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="4" width="6" height="6" rx="1" /><rect x="14" y="4" width="6" height="6" rx="1" /><rect x="4" y="14" width="6" height="6" rx="1" /><rect x="14" y="14" width="6" height="6" rx="1" /></svg>}</Button></div>
+      <div className="mb-5 flex gap-2 lg:hidden"><Button type="button" size="sm" onClick={() => setFiltrosAbiertos(true)} aria-haspopup="dialog" aria-expanded={filtrosAbiertos}><svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 6h16M7 12h10M10 18h4" strokeLinecap="round" /></svg>Filtros{hayFiltros ? ` (${filtrados.length})` : ""}</Button><Button type="button" size="sm" className="!size-10 !rounded-lg !p-0" onClick={() => guardarVistaDeMisAportes(!vistaCuadricula)} aria-label={vistaCuadricula ? "Cambiar a vista de lista" : "Cambiar a vista cuadriculada"} title={vistaCuadricula ? "Vista de lista" : "Vista cuadriculada"}>{vistaCuadricula ? <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" strokeLinecap="round" strokeLinejoin="round" /></svg> : <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="4" width="6" height="6" rx="1" /><rect x="14" y="4" width="6" height="6" rx="1" /><rect x="4" y="14" width="6" height="6" rx="1" /><rect x="14" y="14" width="6" height="6" rx="1" /></svg>}</Button></div>
 
       {filtrosAbiertos && <div className="fixed inset-0 z-50 flex items-end bg-system-900/40 p-3 lg:hidden" role="dialog" aria-modal="true" aria-labelledby="titulo-filtros"><div className="max-h-[90vh] w-full overflow-y-auto rounded-xl bg-white p-4 shadow-xl"><div className="mb-4 flex items-center justify-between gap-3"><h2 id="titulo-filtros" className="text-base font-extrabold text-system-900">Filtrar mis aportes</h2><button type="button" onClick={() => setFiltrosAbiertos(false)} className="rounded-full p-2 text-xl leading-none text-system-600 hover:bg-system-100" aria-label="Cerrar filtros">×</button></div><div className="grid gap-3 sm:grid-cols-2"><CamposDeFiltros {...propsDeFiltros} /></div><div className="mt-5 flex items-center justify-between gap-3 border-t border-system-200 pt-4"><p className="text-[12px] text-system-500">{hayFiltros ? `${filtrados.length} de ${items.length} aportes` : "Sin filtros"}</p><div className="flex gap-2"><Button size="sm" onClick={limpiarFiltros}>Limpiar</Button><Button variant="primary" size="sm" onClick={() => setFiltrosAbiertos(false)}>Aplicar</Button></div></div></div></div>}
 

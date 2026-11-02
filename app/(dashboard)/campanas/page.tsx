@@ -11,7 +11,7 @@
 // /api/ubicacion), todo su estado y todo el país, y la lista abre así. Sin zona, sigue el estado del perfil.
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import AvisoDeUbicacion from "@/components/campanas/AvisoDeUbicacion";
 import { EVENTO_ZONA, type ZonaDetectada } from "@/lib/ubicacion/en-el-navegador";
 import CampaignCard from "@/components/cards/CampaignCard";
@@ -28,6 +28,7 @@ import { FILTROS_VACIOS, filtrarCampanas, type FiltrosLocales } from "@/lib/camp
 import { NOMBRE_DE_TIPO, type TipoDeDato } from "@/lib/campanas/sistema-opciones";
 import { claveDeTematica } from "@/lib/tematicas/analizar";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
+import BotonCrearCampana from "@/components/campanas/BotonCrearCampana";
 
 // Qué lista se muestra (select "Mostrar"): todas, las guardadas o las de su localidad / cerca de ti.
 const TODAS = "";
@@ -35,6 +36,37 @@ const GUARDADAS = "guardadas";
 const TU_LOCALIDAD = "localidad";
 // Tarjetas esqueleto mientras cargan: dos filas en escritorio (3 columnas), suficientes en móvil.
 const TARJETAS_DE_CARGA = 6;
+const CLAVE_VISTA_CAMPANAS = "dfg:campanas:vista";
+const EVENTO_VISTA_CAMPANAS = "dfg:campanas:vista-cambio";
+let vistaCampanasEnMemoria = true;
+
+function leerVistaDeCampanas(): boolean {
+  try {
+    return window.localStorage.getItem(CLAVE_VISTA_CAMPANAS) !== "lista";
+  } catch {
+    return vistaCampanasEnMemoria;
+  }
+}
+
+function suscribirVistaDeCampanas(alCambiar: () => void): () => void {
+  const alCambiarVista = () => alCambiar();
+  window.addEventListener("storage", alCambiarVista);
+  window.addEventListener(EVENTO_VISTA_CAMPANAS, alCambiarVista);
+  return () => {
+    window.removeEventListener("storage", alCambiarVista);
+    window.removeEventListener(EVENTO_VISTA_CAMPANAS, alCambiarVista);
+  };
+}
+
+function guardarVistaDeCampanas(vistaCuadricula: boolean): void {
+  vistaCampanasEnMemoria = vistaCuadricula;
+  try {
+    window.localStorage.setItem(CLAVE_VISTA_CAMPANAS, vistaCuadricula ? "cuadricula" : "lista");
+  } catch {
+    // Si el navegador bloquea el almacenamiento, la selección dura mientras la página siga abierta.
+  }
+  window.dispatchEvent(new Event(EVENTO_VISTA_CAMPANAS));
+}
 
 /** "Estado de México" y "estado de mexico" cuentan como el mismo estado. */
 function normalizarEstado(valor: string | null | undefined): string {
@@ -74,7 +106,7 @@ export default function CampanasPage() {
   const [paraTi, setParaTi] = useState<CampanaParaTi[]>([]);
   // Campaña cuya ventana de detalle está abierta (2026-10-27): clic en su tarjeta.
   const [abierta, setAbierta] = useState<Campaign | null>(null);
-  const [vistaCuadricula, setVistaCuadricula] = useState(true);
+  const vistaCuadricula = useSyncExternalStore(suscribirVistaDeCampanas, leerVistaDeCampanas, () => true);
   const [vista, setVista] = useState(TODAS);
   // Temática elegida ("" = todas) y su subtemática (2026-10-27; "" = todas). Otra temática quita la subtemática.
   const [temaActivo, setTemaActivo] = useState("");
@@ -226,11 +258,9 @@ export default function CampanasPage() {
             Descubre proyectos con impacto social cerca de ti.
           </p>
         </div>
-        <Link href="/mis-campanas/nueva">
-          <Button variant="primary" size="sm" className="whitespace-nowrap max-md:max-w-[126px] max-md:px-2.5 max-md:py-1.5 max-md:text-[11.5px] max-md:leading-4">
-            Crear campaña
-          </Button>
-        </Link>
+        <BotonCrearCampana variant="primary" size="sm" className="whitespace-nowrap max-md:max-w-[126px] max-md:px-2.5 max-md:py-1.5 max-md:text-[11.5px] max-md:leading-4">
+          Crear campaña
+        </BotonCrearCampana>
       </div>
 
       {!cargando && !error && (
@@ -238,7 +268,7 @@ export default function CampanasPage() {
           id="campanas-para-ti"
           campanas={paraTi}
           className="mb-8 max-md:mb-6"
-          accion={<BotonCambiarVista vistaCuadricula={vistaCuadricula} onCambiar={() => setVistaCuadricula((actual) => !actual)} className="md:hidden" />}
+          accion={<BotonCambiarVista vistaCuadricula={vistaCuadricula} onCambiar={() => guardarVistaDeCampanas(!vistaCuadricula)} className="md:hidden" />}
         />
       )}
 
@@ -256,7 +286,7 @@ export default function CampanasPage() {
               colapsableEnMovil
             />
           </div>
-          <BotonCambiarVista vistaCuadricula={vistaCuadricula} onCambiar={() => setVistaCuadricula((actual) => !actual)} className="max-md:hidden" />
+          <BotonCambiarVista vistaCuadricula={vistaCuadricula} onCambiar={() => guardarVistaDeCampanas(!vistaCuadricula)} className="max-md:hidden" />
         </div>
       )}
 

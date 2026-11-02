@@ -26,6 +26,7 @@ import { TEMAS_DE_INTERES } from "@/lib/intereses";
 import { BASE_PATH } from "@/lib/base-path";
 import { MAX_LARGO_TEXTO, claveDeTexto } from "@/lib/campanas/checklist";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
+import VentanaDeOrganizacionRequerida from "@/components/campanas/VentanaDeOrganizacionRequerida";
 import CampoDeFecha from "@/components/ui/CampoDeFecha";
 import AsaDeArrastre, { moverA } from "@/components/ui/AsaDeArrastre";
 import { errorDeFinAntesDeInicio, errorDeInicioPasado, fechaDDMMAAAA, hoyEnTepic, inicioEnElFuturo } from "@/lib/fecha-de-tepic";
@@ -217,20 +218,34 @@ function labelEstado(status: string | undefined) {
 
 export default function NuevaCampanaForm() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const editId = searchParams.get("edit");
   const solicitarRevisionAlGuardar = searchParams.get("enviarRevision") === "true";
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [cargando, setCargando] = useState(true);
+  const [organizacionPerfil, setOrganizacionPerfil] = useState<string | undefined>(undefined);
+  const [errorCarga, setErrorCarga] = useState("");
 
   useEffect(() => {
     let activo = true;
 
     async function loadCampaigns() {
       try {
-        const response = await fetch(`${BASE_PATH}/api/campanas?mine=true`);
-        if (!response.ok) return;
+        const [response, sesionResponse] = await Promise.all([
+          fetch(`${BASE_PATH}/api/campanas?mine=true`, { cache: "no-store" }),
+          fetch(`${BASE_PATH}/api/auth/sesion`, { cache: "no-store" }),
+        ]);
+        if (!response.ok) throw new Error("No se pudieron cargar tus campañas.");
         const body = await response.json();
         if (activo) setCampaigns(Array.isArray(body.data) ? body.data : []);
+        if (!sesionResponse.ok) throw new Error("No se pudo verificar la organización de tu perfil.");
+        const sesion = await sesionResponse.json();
+        const organizacion = typeof sesion.data?.organizacion === "string"
+          ? sesion.data.organizacion.trim()
+          : "";
+        if (activo) setOrganizacionPerfil(organizacion);
+      } catch (error) {
+        if (activo) setErrorCarga(error instanceof Error ? error.message : "No se pudo cargar el formulario.");
       } finally {
         if (activo) setCargando(false);
       }
@@ -240,7 +255,7 @@ export default function NuevaCampanaForm() {
     return () => {
       activo = false;
     };
-  }, []);
+  }, [editId]);
 
   const editingCampaign = editId ? campaigns.find((campaign) => campaign.id === editId) : undefined;
   const activeCampaigns = campaigns.filter((c) => c.status === "activa");
@@ -249,14 +264,34 @@ export default function NuevaCampanaForm() {
   // Mientras carga, no se monta el formulario: sus campos leen
   // editingCampaign una sola vez, al montar (ver CampanaFormulario). Si se
   // montara antes de que llegue la campaña a editar, abriría en blanco.
-  if (cargando) {
+  if (errorCarga) {
+    return (
+      <div role="alert" className="rounded-lg border border-error-200 bg-error-50 p-5 text-sm text-error-700">
+        <p>{errorCarga}</p>
+        <ButtonLink href="/mis-campanas" size="sm" className="mt-3">Volver a Mis campañas</ButtonLink>
+      </div>
+    );
+  }
+
+  if (cargando || organizacionPerfil === undefined) {
     return <PantallaEsqueleto tipo="formulario" etiqueta="Cargando el formulario…" />;
+  }
+
+  if (!editingCampaign && !organizacionPerfil) {
+    return (
+      <VentanaDeOrganizacionRequerida
+        abierto
+        onCancelar={() => router.push("/mis-campanas")}
+        onAgregar={() => router.push("/cuenta?resaltarOrganizacion=1#organizacion")}
+      />
+    );
   }
 
   return (
     <CampanaFormulario
       key={editingCampaign?.id ?? "nueva"}
       editingCampaign={editingCampaign}
+      organizacionPerfil={organizacionPerfil}
       activeCampaigns={activeCampaigns.length}
       limitReached={limitReached}
       solicitarRevisionAlGuardar={solicitarRevisionAlGuardar}
@@ -266,11 +301,13 @@ export default function NuevaCampanaForm() {
 
 function CampanaFormulario({
   editingCampaign,
+  organizacionPerfil,
   activeCampaigns,
   limitReached,
   solicitarRevisionAlGuardar,
 }: {
   editingCampaign: Campaign | undefined;
+  organizacionPerfil: string;
   activeCampaigns: number;
   limitReached: boolean;
   solicitarRevisionAlGuardar: boolean;
@@ -297,27 +334,10 @@ function CampanaFormulario({
 
   const [name, setName] = useState(editingCampaign?.name ?? "");
   const [description, setDescription] = useState(editingCampaign?.description ?? "");
-  const [organizer, setOrganizer] = useState(editingCampaign?.organizer ?? "");
+  const [organizer, setOrganizer] = useState(editingCampaign?.organizer ?? organizacionPerfil);
   // Propósito: ¿para qué se usarán los datos? (2026-10-27). Uno de la lista u "Otro" con una frase.
   const [proposito, setProposito] = useState(editingCampaign?.proposito ?? "");
   const [propositoOtro, setPropositoOtro] = useState(editingCampaign?.propositoOtro ?? "");
-  // Campaña nueva: se propone la organización del perfil (2026-10-26, a pedido del usuario); el
-  // creador puede cambiarla o borrarla. Al editar, se queda la que tiene la campaña.
-  useEffect(() => {
-    if (editingCampaign) return;
-    let vigente = true;
-    fetch(`${BASE_PATH}/api/auth/sesion`, { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((body) => {
-        const delPerfil = typeof body?.data?.organizacion === "string" ? (body.data.organizacion as string) : "";
-        // Solo si el creador todavía no escribió nada.
-        if (vigente && delPerfil) setOrganizer((actual) => actual || delPerfil);
-      })
-      .catch(() => {});
-    return () => {
-      vigente = false;
-    };
-  }, [editingCampaign]);
   // Una campaña nueva empieza sin temática, sin tipos de dato y con meta y cuota vacías
   // (2026-10-21, a pedido del usuario; antes venían "Medio ambiente", Foto, 500 y 10).
   const [theme, setTheme] = useState(editingCampaign?.tag ?? "");

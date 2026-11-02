@@ -689,7 +689,8 @@ paths:
       tags: [Campañas]
       summary: Crear campaña
       description: |
-        Exige sesión: la campaña es de quien la crea. `status` solo `borrador` (por defecto) o
+        Exige sesión y una organización no vacía en el perfil; sin ella responde 403, incluso al
+        crear borradores. La campaña es de quien la crea. `status` solo `borrador` (por defecto) o
         `en_revision`; con 5 campañas activas, solo `borrador`. Contadores, XP, `isSpecial` y
         `hasReviewerAssigned` del body se ignoran. La fecha de inicio y la de fin usan la hora de
         Tepic del momento de creación; `startTime` y `endTime` enviados por clientes anteriores se ignoran.
@@ -702,6 +703,7 @@ paths:
         "201": { $ref: "#/components/responses/CampaignResult" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
 
   /api/campanas/{id}:
     parameters:
