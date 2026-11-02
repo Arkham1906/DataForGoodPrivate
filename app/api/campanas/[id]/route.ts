@@ -384,7 +384,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
           (key) => key !== "status" && !CAMPOS_EDITABLES_EN_PAUSA.has(key)
         );
         if (camposNoPermitidos.length > 0) {
-          return NextResponse.json({ error: "Con la campaña pausada no se cambia la organización" }, { status: 400 });
+          return NextResponse.json({ error: "Con la campaña pausada hay campos que no se pueden modificar" }, { status: 400 });
         }
       }
       // El creador puede finalizarla, pausarla (activa) o reanudarla (pausada)
@@ -447,7 +447,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
             {
               error:
                 currentStatus === "pausada"
-                  ? "Con la campaña pausada no se cambia la organización"
+                  ? "Con la campaña pausada hay campos que no se pueden modificar"
                   : "Con la campaña activa solo puedes editar la meta de aportes, el límite por tipo de dato y la fecha/hora de finalización. Páusala para editar lo demás",
             },
             { status: 400 }

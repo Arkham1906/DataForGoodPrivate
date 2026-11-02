@@ -318,7 +318,7 @@ function CampanaFormulario({
   // rechazada se puede editar por completo y reenviar; activa, pausada o
   // aceptada (aprobada, esperando su fecha de inicio) solo permiten ajustar
   // meta y fecha de finalización, sin tocar su estado; pausada permite casi
-  // todo (2026-10-22: no la organización) y normalmente sigue pausada. El
+  // todo y normalmente sigue pausada. El
   // flujo de edición iniciado desde una activa la envía a revisión al guardar;
   // finalizada queda en solo lectura. La fallida (2026-11-01) igual: solo se extiende con un fin nuevo.
   const status = editingCampaign?.status;
@@ -794,6 +794,7 @@ function CampanaFormulario({
             : {}),
           name,
           description,
+          organizer: organizer.trim(),
           tematica: theme,
           tematicaNueva: esTematicaNueva,
           tag: theme,
@@ -1011,7 +1012,7 @@ function CampanaFormulario({
             descripcion="Cómo se llama la campaña, de qué trata y quién la impulsa."
             completo={paso("paso-datos").completo}
             conProblemas={paso("paso-datos").conProblemas}
-            aviso={editaEnPausa ? "La organización no se puede cambiar" : noEditable}
+            aviso={noEditable}
           >
             <div className="grid grid-cols-1 gap-6">
               <div>
@@ -1136,7 +1137,7 @@ function CampanaFormulario({
                     onChange={setOrganizer}
                     maxLength={LARGO_MAXIMO_ORGANIZACION}
                     placeholder="Ej. Colectivo Ambiental de Tepic"
-                    disabled={edicionLimitada}
+                    disabled={contenidoBloqueado}
                     className="disabled:cursor-not-allowed disabled:opacity-50"
                   />
                 </Field>

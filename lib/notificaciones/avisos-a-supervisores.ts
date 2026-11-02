@@ -107,6 +107,7 @@ export function avisarCampanaPorRevisar(campana: { id: number; creadorId: number
 const NOMBRES_DE_CAMPOS: Record<string, string> = {
   name: "nombre",
   description: "descripción",
+  organizer: "organización",
   tematica: "temática",
   proposito: "propósito",
   proposito_otro: "propósito",
