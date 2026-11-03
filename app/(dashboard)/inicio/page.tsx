@@ -2,6 +2,8 @@
 // Server Component. Acceso: sesión de usuario (exigirUsuario). Datos: obtenerResumenDeInicio() de
 // lib/usuarios/inicio.ts. Muestra el resumen de sus aportes y campañas, hasta 3 campañas activas para él (de sus
 // intereses, de su estado o las más concurridas), sus últimos aportes y sus notificaciones sin leer.
+// Sin temáticas de interés ni ubicación (zona por GPS o estado del perfil) no sale "Campañas para ti"
+// (2026-11-03, a pedido del usuario; igual que en /campanas).
 // Solo lectura: cada bloque enlaza a la pantalla donde se actúa. Se actualiza solo con ActualizacionEnVivo.
 
 import Link from "next/link";
@@ -13,6 +15,7 @@ import { exigirUsuario, marcarBienvenidaVista } from "@/lib/session";
 import { ahoraEnZona, ZONA_DE_CAMPANAS } from "@/lib/fecha-de-tepic";
 import { fechaDeNotificacion, tonoDeNotificacion } from "@/lib/notificaciones/tipos";
 import { obtenerResumenDeInicio } from "@/lib/usuarios/inicio";
+import { zonaDetectadaDe } from "@/lib/ubicacion/zona-detectada";
 import CampanasParaTi from "@/components/campanas/CampanasParaTi";
 import BotonCrearCampana from "@/components/campanas/BotonCrearCampana";
 
@@ -48,7 +51,8 @@ function saludoDeInicio(): string {
 export default async function InicioPage() {
   const usuario = await exigirUsuario();
   const mostrarBienvenida = !usuario.bienvenida_vista && (await marcarBienvenidaVista(usuario.id));
-  const resumen = await obtenerResumenDeInicio(usuario);
+  const [resumen, zona] = await Promise.all([obtenerResumenDeInicio(usuario), zonaDetectadaDe(Number(usuario.id)).catch(() => null)]);
+  const conParaTi = usuario.intereses.length > 0 || Boolean(usuario.state?.trim()) || zona !== null;
   const { aportes, campanas } = resumen;
 
   return (
@@ -84,23 +88,25 @@ export default async function InicioPage() {
         )}
       </section>
 
-      <CampanasParaTi
-        id="inicio-para-ti"
-        campanas={resumen.paraTi}
-        accion={
-          <Link href="/campanas" className="text-[13px] font-semibold text-brand-600 hover:underline">
-            Ver todas →
-          </Link>
-        }
-        vacio={
-          <Card>
-            <p className="text-[13px] text-system-600">Por ahora no hay campañas activas para participar.</p>
-            <BotonCrearCampana variant="secondary" size="sm" className="mt-3">
-              Crear una campaña
-            </BotonCrearCampana>
-          </Card>
-        }
-      />
+      {conParaTi && (
+        <CampanasParaTi
+          id="inicio-para-ti"
+          campanas={resumen.paraTi}
+          accion={
+            <Link href="/campanas" className="text-[13px] font-semibold text-brand-600 hover:underline">
+              Ver todas →
+            </Link>
+          }
+          vacio={
+            <Card>
+              <p className="text-[13px] text-system-600">Por ahora no hay campañas activas para participar.</p>
+              <BotonCrearCampana variant="secondary" size="sm" className="mt-3">
+                Crear una campaña
+              </BotonCrearCampana>
+            </Card>
+          }
+        />
+      )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <section aria-labelledby="inicio-aportes">
