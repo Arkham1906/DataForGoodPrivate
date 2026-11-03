@@ -277,19 +277,23 @@ export default function CampanasPage() {
   // Filas de botones de "Campañas para ti" (2026-11-02): trabajan sobre las recomendadas (en su orden), con
   // los datos completos de cada una (temática, etiquetas, tipos, guardada, lugar) tomados de la lista.
   // Todas y Tu localidad quitan la temática; una temática vuelve a "todas".
+  // Solo las de sus temáticas de interés o de su ubicación (2026-11-03, a pedido del usuario): las
+  // "populares" de otras temáticas que agrega el servidor ya no entran, y los botones de temática son solo
+  // los de sus intereses.
   const porId = new Map(campaigns.map((c) => [String(c.id), c]));
+  const idsDeMiLocalidad = new Set(enMiEstado.map((c) => String(c.id)));
   const recomendadas = paraTi.flatMap((p) => {
     const c = porId.get(String(p.id));
-    return c ? [{ p, c }] : [];
+    return c && ((c.tag && esDeMisIntereses(c.tag)) || idsDeMiLocalidad.has(String(c.id))) ? [{ p, c }] : [];
   });
   const ptCampanas = recomendadas.map((r) => r.c);
   const ptEnMiLocalidad = deMiLocalidad(ptCampanas);
   const ptTemas = Array.from(
-    ptCampanas.reduce((conteo, c) => (c.tag ? conteo.set(c.tag, (conteo.get(c.tag) ?? 0) + 1) : conteo), new Map<string, number>())
-  ).sort(
-    (a, b) =>
-      Number(esDeMisIntereses(b[0])) - Number(esDeMisIntereses(a[0])) || b[1] - a[1] || a[0].localeCompare(b[0], "es")
-  );
+    ptCampanas.reduce(
+      (conteo, c) => (c.tag && esDeMisIntereses(c.tag) ? conteo.set(c.tag, (conteo.get(c.tag) ?? 0) + 1) : conteo),
+      new Map<string, number>()
+    )
+  ).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "es"));
   const ptPorVista = ptVista === TU_LOCALIDAD ? ptEnMiLocalidad : ptCampanas;
   const ptPorTema = ptTema ? ptPorVista.filter((c) => c.tag === ptTema) : ptPorVista;
   const ptPorEtiqueta =
@@ -470,7 +474,9 @@ export default function CampanasPage() {
                   ? "Aún no indicas en qué estado vives: agrégalo en Mi cuenta o usa tu ubicación."
                   : "Ninguna campaña recomendada para ti coincide con este filtro."}
               </p>
-            ) : undefined
+            ) : (
+              <p className="text-sm text-system-600">Por ahora no hay campañas activas de tus temáticas de interés ni de tu zona.</p>
+            )
           }
           vistaCuadricula={vistaCuadricula}
           className="mb-8 max-md:mb-6"
