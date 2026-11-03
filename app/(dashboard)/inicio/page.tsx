@@ -3,7 +3,8 @@
 // lib/usuarios/inicio.ts. Muestra el resumen de sus aportes y campañas, hasta 3 campañas activas para él (de sus
 // intereses, de su estado o las más concurridas), sus últimos aportes y sus notificaciones sin leer.
 // Sin temáticas de interés ni ubicación (zona por GPS o estado del perfil) no sale "Campañas para ti"
-// (2026-11-03, a pedido del usuario; igual que en /campanas).
+// (2026-11-03, a pedido del usuario; igual que en /campanas). Sin temáticas sale además el recuadro
+// campanas/AvisoSinTematicas, con el mismo texto que en /campanas.
 // Solo lectura: cada bloque enlaza a la pantalla donde se actúa. Se actualiza solo con ActualizacionEnVivo.
 
 import Link from "next/link";
@@ -18,6 +19,7 @@ import { obtenerResumenDeInicio } from "@/lib/usuarios/inicio";
 import { zonaDetectadaDe } from "@/lib/ubicacion/zona-detectada";
 import CampanasParaTi from "@/components/campanas/CampanasParaTi";
 import BotonCrearCampana from "@/components/campanas/BotonCrearCampana";
+import AvisoSinTematicas from "@/components/campanas/AvisoSinTematicas";
 
 export const metadata: Metadata = { title: "Inicio" };
 
@@ -87,6 +89,13 @@ export default async function InicioPage() {
           </p>
         )}
       </section>
+
+      <AvisoSinTematicas sinTematicas={usuario.intereses.length === 0} clave="dfg:aviso-sin-tematicas-inicio">
+        <p>
+          Aún no eliges temáticas de interés. Agrégalas para mostrarte primero las campañas que te interesan y
+          avisarte cuando se abra una nueva.
+        </p>
+      </AvisoSinTematicas>
 
       {conParaTi && (
         <CampanasParaTi

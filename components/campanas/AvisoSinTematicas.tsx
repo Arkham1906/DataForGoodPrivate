@@ -5,9 +5,10 @@
 // una campaña nueva. Es un recuadro dentro de la página con el mismo estilo que AvisoDeUbicacion (antes era
 // una ventana emergente; se cambió a pedido del usuario porque resultaba molesta). "Agregar mis temáticas"
 // lleva a /cuenta#mis-intereses; "Ahora no" lo oculta en esa pantalla durante la sesión del navegador
-// (sessionStorage con la `clave` de quien la usa).
+// (sessionStorage con la `clave` de quien la usa). Desde el 2026-11-03 también en /inicio (Server Component):
+// sessionStorage se lee con useSyncExternalStore para que el HTML del servidor y la hidratación coincidan.
 
-import { useState, type ReactNode } from "react";
+import { useState, useSyncExternalStore, type ReactNode } from "react";
 import Link from "next/link";
 import Button from "@/components/ui/Button";
 
@@ -27,6 +28,8 @@ function ocultar(clave: string) {
   }
 }
 
+const sinSuscripcion = () => () => {};
+
 export default function AvisoSinTematicas({
   sinTematicas,
   clave,
@@ -40,8 +43,10 @@ export default function AvisoSinTematicas({
   children: ReactNode;
 }) {
   const [cerrado, setCerrado] = useState(false);
-  // sinTematicas solo es true en el navegador (llega de un fetch), así que aquí sessionStorage ya existe.
-  if (!sinTematicas || cerrado || yaSeOculto(clave)) return null;
+  // En el servidor (y al hidratar) cuenta como oculto, para no mostrarlo y quitarlo en seguida si ya se
+  // dijo "Ahora no"; después se lee sessionStorage y aparece si toca.
+  const oculto = useSyncExternalStore(sinSuscripcion, () => yaSeOculto(clave), () => true);
+  if (!sinTematicas || cerrado || oculto) return null;
 
   function cerrar() {
     ocultar(clave);
