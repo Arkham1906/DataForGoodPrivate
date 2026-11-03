@@ -1,8 +1,12 @@
 // Pantalla /inicio (2026-10-24, a pedido del usuario): la primera pantalla del usuario común al iniciar sesión.
+// Rediseñada el 2026-11-02 según el diseño v9 «Inicio simplificado» (SRS v1.1): arriba el rango y el avance hacia el
+// siguiente (ResumenDeRango), luego «Hoy» (potenciador, misiones de hoy y racha: ResumenDeHoy), y después lo que ya
+// tenía: resumen de aportes y campañas, campañas para ti, últimos aportes (con su calidad) y notificaciones.
+// El mapa de aportes pasa a Mis aportes (decisión del diseño v9).
 // Server Component. Acceso: sesión de usuario (exigirUsuario). Datos: obtenerResumenDeInicio() de
-// lib/usuarios/inicio.ts. Muestra el resumen de sus aportes y campañas, hasta 3 campañas activas para él (de sus
-// intereses, de su estado o las más concurridas), sus últimos aportes y sus notificaciones sin leer.
-// Solo lectura: cada bloque enlaza a la pantalla donde se actúa. Se actualiza solo con ActualizacionEnVivo.
+// lib/usuarios/inicio.ts y obtenerResumenDeProgreso() de lib/gamificacion/progreso.ts (null si aún no hay datos de
+// progreso: entonces se omiten esos dos bloques). Solo lectura: cada bloque enlaza a la pantalla donde se actúa.
+// Se actualiza solo con ActualizacionEnVivo.
 
 import Link from "next/link";
 import type { Metadata } from "next";
@@ -14,7 +18,10 @@ import { exigirUsuario, marcarBienvenidaVista } from "@/lib/session";
 import { ahoraEnZona, ZONA_DE_CAMPANAS } from "@/lib/fecha-de-tepic";
 import { fechaDeNotificacion, tonoDeNotificacion } from "@/lib/notificaciones/tipos";
 import { obtenerResumenDeInicio } from "@/lib/usuarios/inicio";
+import { obtenerResumenDeProgreso } from "@/lib/gamificacion/progreso";
 import CampanasParaTi from "@/components/campanas/CampanasParaTi";
+import ResumenDeRango from "@/components/gamificacion/ResumenDeRango";
+import ResumenDeHoy from "@/components/gamificacion/ResumenDeHoy";
 
 export const metadata: Metadata = { title: "Inicio" };
 
@@ -35,6 +42,13 @@ const ESTADO_DE_APORTE: Record<string, { texto: string; tono: "default" | "ok" |
   rechazado: { texto: "Rechazado", tono: "danger" },
 };
 
+/** Calidad de un aporte aceptado (RF-GAM-09). */
+const CALIDAD_DE_APORTE: Record<string, string> = {
+  buena: "Buena",
+  excelente: "Excelente",
+  excepcional: "Excepcional",
+};
+
 /** Como Card, pero sin relleno: las filas de la lista llevan el suyo. */
 const CAJA_DE_LISTA = "overflow-hidden rounded-lg border border-system-200 bg-white shadow-sm";
 
@@ -48,17 +62,27 @@ function saludoDeInicio(): string {
 export default async function InicioPage() {
   const usuario = await exigirUsuario();
   const mostrarBienvenida = !usuario.bienvenida_vista && (await marcarBienvenidaVista(usuario.id));
-  const resumen = await obtenerResumenDeInicio(usuario);
+  const [resumen, progreso] = await Promise.all([obtenerResumenDeInicio(usuario), obtenerResumenDeProgreso(usuario.id)]);
   const { aportes, campanas } = resumen;
 
   return (
     <div className="space-y-8 max-md:space-y-6">
-      <div>
-        <h1 className="text-2xl font-extrabold text-system-900 max-md:text-xl max-md:leading-tight">
-          {mostrarBienvenida ? `¡Bienvenido a DataForGood, ${usuario.nombre}!` : `${saludoDeInicio()}, ${usuario.nombre}`}
-        </h1>
-        <p className="mt-1 text-[13px] text-system-600">Esto es lo que pasa con tus aportes y tus campañas.</p>
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+        <div>
+          <h1 className="text-2xl font-extrabold text-system-900 max-md:text-xl max-md:leading-tight">
+            {mostrarBienvenida ? `¡Bienvenido a DataForGood, ${usuario.nombre}!` : `${saludoDeInicio()}, ${usuario.nombre}`}
+          </h1>
+          <p className="mt-1 text-[13px] text-system-600">Esto es lo que pasa con tu progreso, tus aportes y tus campañas.</p>
+        </div>
+        <ButtonLink href="/campanas">Aportar a una campaña</ButtonLink>
       </div>
+
+      {progreso && (
+        <>
+          <ResumenDeRango progreso={progreso} enlaces={{ trayectoria: "/progreso" }} idDelTitulo="inicio-rango" />
+          <ResumenDeHoy progreso={progreso} />
+        </>
+      )}
 
       <section aria-labelledby="inicio-resumen">
         <h2 id="inicio-resumen" className="sr-only">
@@ -102,7 +126,7 @@ export default async function InicioPage() {
         }
       />
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="space-y-8 max-md:space-y-6">
         <section aria-labelledby="inicio-aportes">
           <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
             <h2 id="inicio-aportes" className="text-lg font-extrabold text-system-900">
@@ -129,7 +153,10 @@ export default async function InicioPage() {
                             {a.descripcion ? ` · ${a.descripcion}` : ""}
                           </span>
                         </span>
-                        <span className="shrink-0">
+                        <span className="flex shrink-0 flex-wrap justify-end gap-1.5">
+                          {a.estado === "aceptado" && a.calidad && CALIDAD_DE_APORTE[a.calidad] && (
+                            <Tag tone="default">{CALIDAD_DE_APORTE[a.calidad]}</Tag>
+                          )}
                           <Tag tone={estado.tono}>{estado.texto}</Tag>
                         </span>
                       </Link>

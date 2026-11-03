@@ -71,11 +71,16 @@ export async function ensureUsuariosTable(): Promise<void> {
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS city VARCHAR(100);
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS specialty VARCHAR(150);
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS organizacion VARCHAR(160);
+    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS role JSONB NOT NULL DEFAULT '["usuario"]'::jsonb;
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS intereses JSONB NOT NULL DEFAULT '[]'::jsonb;
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS intereses_texto VARCHAR(500);
     -- Solo las cuentas nuevas muestran la bienvenida en /inicio la primera vez.
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS bienvenida_vista BOOLEAN;
     UPDATE usuarios SET bienvenida_vista = true WHERE bienvenida_vista IS NULL;
+    UPDATE usuarios u
+    SET role = COALESCE(
+      (SELECT jsonb_agg(r.rol ORDER BY r.rol) FROM usuario_roles r WHERE r.usuario_id = u.id),
+      '["usuario"]'::jsonb);
     ALTER TABLE usuarios ALTER COLUMN bienvenida_vista SET DEFAULT false;
     ALTER TABLE usuarios ALTER COLUMN bienvenida_vista SET NOT NULL;
     -- Las Preferencias de /cuenta y el último envío de los avisos periódicos están en
@@ -741,8 +746,8 @@ export async function ensureUsuarioRolesTable(): Promise<void> {
          WHERE r.rol IN ('usuario', 'supervisor', 'revisor', 'admin')
         ON CONFLICT DO NOTHING;
         -- El trigger de avisos en vivo mira OLD.role: se quita y ensureAvisosDeCambios lo vuelve a poner sin ella.
-        DROP TRIGGER IF EXISTS dfg_avisar_cambio_visible ON usuarios;
-        ALTER TABLE usuarios DROP COLUMN role;
+        --DROP TRIGGER IF EXISTS dfg_avisar_cambio_visible ON usuarios;
+        --ALTER TABLE usuarios DROP COLUMN role;
       END IF;
     END $$;
     -- Toda cuenta es "usuario", aunque su arreglo viejo no lo dijera.

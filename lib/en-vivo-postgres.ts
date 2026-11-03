@@ -31,11 +31,18 @@ const TABLAS_CON_AVISO = [
   "campana_etiquetas",
   "usuario_etiquetas",
   "medallas_usuario",
+  // Los roles viven en usuario_roles desde el 2026-10-30 (usuarios.role ya no existe).
+  "usuario_roles",
+  // Gamificación (2026-11-02): lo que muestran /inicio y /progreso.
+  "usuario_progreso",
+  "potenciadores",
+  "racha_dias",
+  "mision_instancias",
 ];
 
 /**
  * Función y triggers que avisan de los cambios. En `usuarios` solo avisan los cambios que se ven
- * (nombre, rol, ubicación, ícono, XP, baja): no cada inicio de sesión ni cada código enviado.
+ * (nombre, ubicación, ícono, XP, baja; los roles avisan desde usuario_roles): no cada inicio de sesión ni cada código enviado.
  * Lo llama ensureCoreSchema() después de crear todas las tablas.
  */
 export async function ensureAvisosDeCambios(): Promise<void> {
@@ -59,7 +66,7 @@ export async function ensureAvisosDeCambios(): Promise<void> {
     CREATE OR REPLACE TRIGGER dfg_avisar_cambio_visible AFTER UPDATE ON usuarios
       FOR EACH ROW WHEN (
         OLD.nombre IS DISTINCT FROM NEW.nombre OR OLD.apellidos IS DISTINCT FROM NEW.apellidos
-        OR OLD.role IS DISTINCT FROM NEW.role OR OLD.state IS DISTINCT FROM NEW.state
+        OR OLD.state IS DISTINCT FROM NEW.state
         OR OLD.city IS DISTINCT FROM NEW.city OR OLD.avatar IS DISTINCT FROM NEW.avatar
         OR OLD.avatar_foto IS DISTINCT FROM NEW.avatar_foto OR OLD.xp_total IS DISTINCT FROM NEW.xp_total
         OR OLD.level IS DISTINCT FROM NEW.level OR OLD.email_verificado IS DISTINCT FROM NEW.email_verificado
