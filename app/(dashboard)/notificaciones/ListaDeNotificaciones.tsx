@@ -163,7 +163,8 @@ export default function ListaDeNotificaciones({
         // el último renglón, para que el fondo de las no leídas no se salga del borde.
         <ul className="divide-y divide-system-200 rounded-lg border border-system-200 bg-white">
           {items.map((item) => (
-            <li key={item.id} className={`flex gap-3 px-4 py-3.5 first:rounded-t-lg last:rounded-b-lg ${item.readAt ? "" : "bg-brand-50"}`}>
+            // Hover gris en todo el renglón (2026-10-31, a pedido del usuario), igual que en la campana.
+            <li key={item.id} className={`flex gap-3 px-4 py-3.5 first:rounded-t-lg last:rounded-b-lg hover:bg-system-200 ${item.readAt ? "" : "bg-brand-50"}`}>
               <span
                 aria-hidden
                 title={CATEGORIAS_DE_NOTIFICACION[categoriaDeNotificacion(item.type)].nombre}
@@ -175,7 +176,7 @@ export default function ListaDeNotificaciones({
                     type="button"
                     onClick={() => void abrir(item)}
                     disabled={ocupado === item.id}
-                    className={`text-left text-[14px] text-system-900 hover:text-brand-600 ${item.readAt ? "font-semibold" : "font-bold"}`}
+                    className={`text-left text-[14px] text-system-900 hover:underline ${item.readAt ? "font-semibold" : "font-bold"}`}
                   >
                     {item.title}
                     {!item.readAt && <span className="sr-only"> (sin leer)</span>}

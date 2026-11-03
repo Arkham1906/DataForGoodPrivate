@@ -5,11 +5,12 @@
 // Editar: carga con GET /api/campanas?mine=true y guarda con PATCH /api/campanas/[id].
 // Qué campos se pueden editar depende del estado; la regla real está en el PATCH (ver docs/datos.md § 3).
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Field, Input, Textarea } from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
+import VentanaDeConfirmacion from "@/components/ui/VentanaDeConfirmacion";
 import ButtonLink from "@/components/ui/ButtonLink";
 import Tag from "@/components/ui/Tag";
 import VentanaDeProblemas, { type ProblemaDeFormulario } from "@/components/ui/VentanaDeProblemas";
@@ -23,8 +24,9 @@ import { municipiosDe, NOMBRES_DE_ESTADOS } from "@/lib/mexico-geo";
 import { opcionesCon } from "@/lib/perfil-opciones";
 import { TEMAS_DE_INTERES } from "@/lib/intereses";
 import { BASE_PATH } from "@/lib/base-path";
-import { MAX_LARGO_TEXTO } from "@/lib/campanas/checklist";
+import { MAX_LARGO_TEXTO, claveDeTexto } from "@/lib/campanas/checklist";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
+import VentanaDeOrganizacionRequerida from "@/components/campanas/VentanaDeOrganizacionRequerida";
 import CampoDeFecha from "@/components/ui/CampoDeFecha";
 import AsaDeArrastre, { moverA } from "@/components/ui/AsaDeArrastre";
 import { errorDeFinAntesDeInicio, errorDeInicioPasado, fechaDDMMAAAA, hoyEnTepic, inicioEnElFuturo } from "@/lib/fecha-de-tepic";
@@ -32,9 +34,14 @@ import { LARGO_MAXIMO_ORGANIZACION } from "@/lib/campanas/organizacion";
 import CampoDeOrganizacion from "@/components/ui/CampoDeOrganizacion";
 import { ETIQUETA_DE_CAMPANA } from "@/lib/campanas/sistema-opciones";
 import { GuiaDePasos, TarjetaDePaso, type Paso } from "./PasosDeCampana";
+import PedirUbicacion, { type ControlDeUbicacion } from "./PedirUbicacion";
+import AvisoSinTematicas from "@/components/campanas/AvisoSinTematicas";
+import type { ZonaDetectada } from "@/lib/ubicacion/en-el-navegador";
 import { PLURALES_DE_TIPO, repartoSugerido } from "@/lib/campanas/reparto-sugerido";
+import { maximosDesdeLaCuota } from "@/lib/campanas/cuota-por-tipo";
 import { LIMITE_MAXIMO_POR_TIPO } from "@/lib/campanas/limite-por-tipo";
 import { FORMATOS_DE_DOCUMENTO, type FormatoDeDocumento } from "@/lib/aportes/archivo";
+import { PORCENTAJE_MINIMO } from "@/lib/campanas/fallida";
 
 /** Campos del formulario que pueden tener un problema al guardar (2026-10-27). "general": nada en particular. */
 type CampoDeCampana =
@@ -48,6 +55,7 @@ type CampoDeCampana =
   | "checklists"
   | "meta"
   | "cuota"
+  | "cuotaPorTipo"
   | "limites"
   | "inicio"
   | "fin"
@@ -91,6 +99,7 @@ const PASO_DEL_CAMPO: Record<CampoDeCampana, string | null> = {
   checklists: "paso-recoleccion",
   meta: "paso-meta",
   cuota: "paso-meta",
+  cuotaPorTipo: "paso-meta",
   limites: "paso-meta",
   inicio: "paso-vigencia",
   fin: "paso-vigencia",
@@ -103,8 +112,9 @@ const PASO_DEL_CAMPO: Record<CampoDeCampana, string | null> = {
 function campoDelMensaje(mensaje: string): CampoDeCampana {
   const m = mensaje.toLowerCase();
   if (m.includes("propósito") || m.includes("proposito")) return "proposito";
+  if (m.includes("por persona") && m.includes("máximo de")) return "cuotaPorTipo";
   if (m.includes("límite") || m.includes("limite")) return "limites";
-  if (m.includes("checklist") || m.includes("opción")) return "checklists";
+  if (m.includes("característica") || m.includes("checklist") || m.includes("opción")) return "checklists";
   if (m.includes("tipo de dato") || m.includes("tipos de dato")) return "tipos";
   if (m.includes("etiqueta")) return "etiquetas";
   if (m.includes("temática") || m.includes("tematica")) return "tematica";
@@ -136,6 +146,18 @@ function irAlCampo(campo: string) {
 type OpcionEditable = { clave: number; texto: string };
 /** `tipo`: el tipo de dato al que pertenece (2026-10-28); "" = de una campaña anterior, vale para todos. */
 type ChecklistEditable = { clave: number; tipo: DataType | ""; titulo: string; opciones: OpcionEditable[]; nuevaOpcion: string };
+
+/** Otra opción de la característica ya dice lo mismo (claveDeTexto: sin mayúsculas, acentos ni espacios de más). */
+function opcionYaExiste(c: ChecklistEditable, texto: string, salvo?: number): boolean {
+  const clave = claveDeTexto(texto);
+  return clave !== "" && c.opciones.some((o) => o.clave !== salvo && claveDeTexto(o.texto) === clave);
+}
+
+/** Una opción está repetida si otra de antes en la lista dice lo mismo: se marca la segunda, no la primera. */
+function opcionRepetida(c: ChecklistEditable, j: number): boolean {
+  const clave = claveDeTexto(c.opciones[j].texto);
+  return clave !== "" && c.opciones.slice(0, j).some((o) => claveDeTexto(o.texto) === clave);
+}
 let siguienteClave = 0;
 function nuevoChecklist(titulo = "", opciones: string[] = [], tipo: DataType | "" = ""): ChecklistEditable {
   return { clave: siguienteClave++, tipo, titulo, opciones: opciones.map((texto) => ({ clave: siguienteClave++, texto })), nuevaOpcion: "" };
@@ -181,6 +203,7 @@ const TODO_EL_ESTADO = "__todo_el_estado__";
 
 const MAX_ACTIVE_CAMPAIGNS = 5;
 
+
 const ESTADO_LABELS: Record<string, string> = {
   borrador: "Borrador",
   en_revision: "En revisión",
@@ -188,6 +211,7 @@ const ESTADO_LABELS: Record<string, string> = {
   activa: "Activa",
   pausada: "Pausada",
   finalizada: "Finalizada",
+  fallida: "Incompleta",
   rechazada: "Rechazada",
 };
 
@@ -195,22 +219,53 @@ function labelEstado(status: string | undefined) {
   return status ? ESTADO_LABELS[status] ?? status : "Borrador";
 }
 
+/** Sin temáticas de interés (ventana al abrir) y estado/municipio del perfil (botón de "Vigencia y lugar"). */
+type DatosDelPerfil = { sinTematicas: boolean; zona: ZonaDetectada | null };
+
 export default function NuevaCampanaForm() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const editId = searchParams.get("edit");
   const solicitarRevisionAlGuardar = searchParams.get("enviarRevision") === "true";
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [cargando, setCargando] = useState(true);
+  const [organizacionPerfil, setOrganizacionPerfil] = useState<string | undefined>(undefined);
+  // Lo demás del perfil que usa el formulario (2026-11-02), de la misma consulta a la sesión.
+  const [perfil, setPerfil] = useState<DatosDelPerfil>({ sinTematicas: false, zona: null });
+  const [errorCarga, setErrorCarga] = useState("");
 
   useEffect(() => {
     let activo = true;
 
     async function loadCampaigns() {
       try {
-        const response = await fetch(`${BASE_PATH}/api/campanas?mine=true`);
-        if (!response.ok) return;
+        const [response, sesionResponse] = await Promise.all([
+          fetch(`${BASE_PATH}/api/campanas?mine=true`, { cache: "no-store" }),
+          fetch(`${BASE_PATH}/api/auth/sesion`, { cache: "no-store" }),
+        ]);
+        if (!response.ok) throw new Error("No se pudieron cargar tus campañas.");
         const body = await response.json();
         if (activo) setCampaigns(Array.isArray(body.data) ? body.data : []);
+        if (!sesionResponse.ok) throw new Error("No se pudo verificar la organización de tu perfil.");
+        const sesion = await sesionResponse.json();
+        const organizacion = typeof sesion.data?.organizacion === "string"
+          ? sesion.data.organizacion.trim()
+          : "";
+        if (activo) setOrganizacionPerfil(organizacion);
+        const intereses: unknown = sesion.data?.intereses;
+        const estado: unknown = sesion.data?.state;
+        const municipio: unknown = sesion.data?.city;
+        if (activo) {
+          setPerfil({
+            sinTematicas: Array.isArray(intereses) && intereses.length === 0,
+            zona:
+              typeof estado === "string" && estado.trim()
+                ? { estado, municipio: typeof municipio === "string" ? municipio : "" }
+                : null,
+          });
+        }
+      } catch (error) {
+        if (activo) setErrorCarga(error instanceof Error ? error.message : "No se pudo cargar el formulario.");
       } finally {
         if (activo) setCargando(false);
       }
@@ -220,7 +275,7 @@ export default function NuevaCampanaForm() {
     return () => {
       activo = false;
     };
-  }, []);
+  }, [editId]);
 
   const editingCampaign = editId ? campaigns.find((campaign) => campaign.id === editId) : undefined;
   const activeCampaigns = campaigns.filter((c) => c.status === "activa");
@@ -229,14 +284,35 @@ export default function NuevaCampanaForm() {
   // Mientras carga, no se monta el formulario: sus campos leen
   // editingCampaign una sola vez, al montar (ver CampanaFormulario). Si se
   // montara antes de que llegue la campaña a editar, abriría en blanco.
-  if (cargando) {
+  if (errorCarga) {
+    return (
+      <div role="alert" className="rounded-lg border border-error-200 bg-error-50 p-5 text-sm text-error-700">
+        <p>{errorCarga}</p>
+        <ButtonLink href="/mis-campanas" size="sm" className="mt-3">Volver a Mis campañas</ButtonLink>
+      </div>
+    );
+  }
+
+  if (cargando || organizacionPerfil === undefined) {
     return <PantallaEsqueleto tipo="formulario" etiqueta="Cargando el formulario…" />;
+  }
+
+  if (!editingCampaign && !organizacionPerfil) {
+    return (
+      <VentanaDeOrganizacionRequerida
+        abierto
+        onCancelar={() => router.push("/mis-campanas")}
+        onAgregar={() => router.push("/cuenta?resaltarOrganizacion=1#organizacion")}
+      />
+    );
   }
 
   return (
     <CampanaFormulario
       key={editingCampaign?.id ?? "nueva"}
       editingCampaign={editingCampaign}
+      organizacionPerfil={organizacionPerfil}
+      perfil={perfil}
       activeCampaigns={activeCampaigns.length}
       limitReached={limitReached}
       solicitarRevisionAlGuardar={solicitarRevisionAlGuardar}
@@ -246,11 +322,15 @@ export default function NuevaCampanaForm() {
 
 function CampanaFormulario({
   editingCampaign,
+  organizacionPerfil,
+  perfil,
   activeCampaigns,
   limitReached,
   solicitarRevisionAlGuardar,
 }: {
   editingCampaign: Campaign | undefined;
+  organizacionPerfil: string;
+  perfil: DatosDelPerfil;
   activeCampaigns: number;
   limitReached: boolean;
   solicitarRevisionAlGuardar: boolean;
@@ -261,11 +341,12 @@ function CampanaFormulario({
   // rechazada se puede editar por completo y reenviar; activa, pausada o
   // aceptada (aprobada, esperando su fecha de inicio) solo permiten ajustar
   // meta y fecha de finalización, sin tocar su estado; pausada permite casi
-  // todo (2026-10-22: no la organización) y normalmente sigue pausada. El
+  // todo y normalmente sigue pausada. El
   // flujo de edición iniciado desde una activa la envía a revisión al guardar;
-  // finalizada queda en solo lectura.
+  // finalizada queda en solo lectura. La fallida (2026-11-01) igual: solo se extiende con un fin nuevo.
   const status = editingCampaign?.status;
-  const soloLectura = status === "finalizada";
+  const soloLectura = status === "finalizada" || status === "fallida";
+  const esFallida = status === "fallida";
   const edicionLimitada = status === "activa" || status === "pausada" || status === "aceptada";
   const edicionCompleta = !edicionLimitada && !soloLectura;
   const editaEnPausa = status === "pausada";
@@ -276,27 +357,10 @@ function CampanaFormulario({
 
   const [name, setName] = useState(editingCampaign?.name ?? "");
   const [description, setDescription] = useState(editingCampaign?.description ?? "");
-  const [organizer, setOrganizer] = useState(editingCampaign?.organizer ?? "");
+  const [organizer, setOrganizer] = useState(editingCampaign?.organizer ?? organizacionPerfil);
   // Propósito: ¿para qué se usarán los datos? (2026-10-27). Uno de la lista u "Otro" con una frase.
   const [proposito, setProposito] = useState(editingCampaign?.proposito ?? "");
   const [propositoOtro, setPropositoOtro] = useState(editingCampaign?.propositoOtro ?? "");
-  // Campaña nueva: se propone la organización del perfil (2026-10-26, a pedido del usuario); el
-  // creador puede cambiarla o borrarla. Al editar, se queda la que tiene la campaña.
-  useEffect(() => {
-    if (editingCampaign) return;
-    let vigente = true;
-    fetch(`${BASE_PATH}/api/auth/sesion`, { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((body) => {
-        const delPerfil = typeof body?.data?.organizacion === "string" ? (body.data.organizacion as string) : "";
-        // Solo si el creador todavía no escribió nada.
-        if (vigente && delPerfil) setOrganizer((actual) => actual || delPerfil);
-      })
-      .catch(() => {});
-    return () => {
-      vigente = false;
-    };
-  }, [editingCampaign]);
   // Una campaña nueva empieza sin temática, sin tipos de dato y con meta y cuota vacías
   // (2026-10-21, a pedido del usuario; antes venían "Medio ambiente", Foto, 500 y 10).
   const [theme, setTheme] = useState(editingCampaign?.tag ?? "");
@@ -355,7 +419,7 @@ function CampanaFormulario({
   // Sin ejemplos: una campaña nueva empieza sin checklists. Los de campañas
   // viejas (lista plana, sin título) se titulan "Checklist" para poder guardarlos.
   const [checklists, setChecklists] = useState<ChecklistEditable[]>(() =>
-    (editingCampaign?.checklistSecciones ?? []).map((s) => nuevoChecklist(s.titulo || "Checklist", s.opciones, s.tipo ?? ""))
+    (editingCampaign?.checklistSecciones ?? []).map((s) => nuevoChecklist(s.titulo || "Características", s.opciones, s.tipo ?? ""))
   );
   // Un borrador guardado sin meta o sin cuota trae 0: se muestra vacío, no "0".
   const [goal, setGoal] = useState(editingCampaign?.goalContributions ? String(editingCampaign.goalContributions) : "");
@@ -378,6 +442,46 @@ function CampanaFormulario({
     ? Object.fromEntries(dataTypes.filter((t) => (limites[t] ?? "").trim() !== "").map((t) => [t, Number(limites[t])]))
     : {};
   const sumaDeLimites = Object.values(limitePorTipo).reduce((total, n) => total + (Number.isInteger(n) && n > 0 ? n : 0), 0);
+  // Máximo por persona de cada tipo (2026-10-31, a pedido del usuario; lib/campanas/cuota-por-tipo.ts).
+  // Con meta POR TIPO no hay campo de cuota: cada tipo lleva su máximo (obligatorio, también con un solo
+  // tipo) y la cuota por persona es la suma. Con META GENERAL no hay máximos por tipo, solo la cuota escrita
+  // (a pedido del usuario, el mismo día). Lo escrito en los máximos se conserva si se vuelve a "Por tipo".
+  // Una campaña con meta por tipo guardada antes de los máximos abre con su cuota repartida entre sus tipos
+  // (la suma da la misma cuota); si no, al editarla pedía "Falta el máximo de fotos por persona".
+  const [topes, setTopes] = useState<Partial<Record<DataType, string>>>(() => {
+    const guardados = editingCampaign?.cuotaPorTipo ?? {};
+    const iniciales =
+      editingCampaign && metaPorTipo && Object.keys(guardados).length === 0
+        ? maximosDesdeLaCuota(editingCampaign.dataTypes, editingCampaign.quotaPerUser)
+        : guardados;
+    return Object.fromEntries(Object.entries(iniciales).map(([tipo, n]) => [tipo, String(n)]));
+  });
+  const cuotaPorTipo: Partial<Record<DataType, number>> = metaPorTipo
+    ? Object.fromEntries(dataTypes.filter((t) => (topes[t] ?? "").trim() !== "").map((t) => [t, Number(topes[t])]))
+    : {};
+  const sumaDeMaximos = Object.values(cuotaPorTipo).reduce((total, n) => total + (Number.isInteger(n) && n > 0 ? n : 0), 0);
+  /** La cuota que se guarda: la suma de los máximos (por tipo) o la que escribió (general). */
+  const cuotaFinal = metaPorTipo ? sumaDeMaximos : Number(quota);
+  function validarTopes(): string | null {
+    for (const [tipo, n] of Object.entries(cuotaPorTipo)) {
+      const plural = PLURALES_DE_TIPO[tipo as DataType][1];
+      if (!Number.isInteger(n) || n < 1) return `El máximo de ${plural} por persona debe ser un número entero mayor a 0`;
+    }
+    return null;
+  }
+  function faltaMaximo(): string | null {
+    const falta = DATA_TYPES.find((d) => dataTypes.includes(d.value) && !cuotaPorTipo[d.value]);
+    return falta ? `Falta el máximo de ${PLURALES_DE_TIPO[falta.value][1]} por persona` : null;
+  }
+  /** Cuota completa: por tipo, cada tipo con su máximo; general, la cuota escrita. */
+  function errorDeCuota(): { campo: CampoDeCampana; mensaje: string } | null {
+    if (metaPorTipo) {
+      const error = validarTopes() ?? faltaMaximo();
+      return error ? { campo: "cuotaPorTipo", mensaje: error } : null;
+    }
+    if (!Number(quota) || Number(quota) <= 0) return { campo: "cuota", mensaje: "La cuota por persona debe ser mayor a 0" };
+    return null;
+  }
   /** La meta que se guarda: la suma de los límites (por tipo) o la que escribió (general). */
   const metaFinal = metaPorTipo ? sumaDeLimites : Number(goal);
   function faltaLimite(): string | null {
@@ -414,9 +518,20 @@ function CampanaFormulario({
     editingCampaign?.locationCity || (editingCampaign?.locationState ? TODO_EL_ESTADO : "")
   );
   const municipioReal = locationCity === TODO_EL_ESTADO ? "" : locationCity;
-  const [locationColonia, setLocationColonia] = useState(editingCampaign?.locationColonia ?? "");
-  // Para todo el país (2026-10-21, a pedido del usuario): sin estado, municipio ni colonia.
-  const [todoElPais, setTodoElPais] = useState(editingCampaign?.todoElPais ?? false);
+  // Para todo el país (2026-10-21, a pedido del usuario): sin estado ni municipio. Una
+  // campaña nueva empieza marcada (2026-10-31, a pedido del usuario); al editar, se respeta la suya.
+  const [todoElPais, setTodoElPais] = useState(editingCampaign ? Boolean(editingCampaign.todoElPais) : true);
+  // Campaña nueva (2026-11-02, a pedido del usuario): si no tiene temáticas de interés, el recuadro
+  // campanas/AvisoSinTematicas arriba del formulario; al llegar a "Vigencia y lugar", PedirUbicacion pide su ubicación y con ella
+  // llena estado y municipio si están vacíos (zonaDelCreador: para avisarlo bajo "Para todo el país").
+  const sinTematicas = !editingCampaign && perfil.sinTematicas;
+  const [zonaDelCreador, setZonaDelCreador] = useState<ZonaDetectada | null>(null);
+  // Botón "Usar mi estado y municipio" (2026-11-02, a pedido del usuario): el estado y municipio de su perfil
+  // (/cuenta); si no tiene, pide su ubicación (PedirUbicacion); si la rechaza, los elige a mano.
+  const zonaDelPerfil = perfil.zona;
+  const [buscandoZona, setBuscandoZona] = useState(false);
+  const [avisoDeZona, setAvisoDeZona] = useState<{ ok: boolean; texto: string } | null>(null);
+  const ubicacion = useRef<ControlDeUbicacion>(null);
   const [reactivando, setReactivando] = useState(false);
   const [reactivarError, setReactivarError] = useState<string | null>(null);
   // Por qué no se puede guardar (2026-10-27, a pedido del usuario): al intentar guardar se juntan
@@ -426,6 +541,7 @@ function CampanaFormulario({
   const [intento, setIntento] = useState<"borrador" | "revision" | null>(null);
   const [problemasDelServidor, setProblemasDelServidor] = useState<Problema[]>([]);
   const [ventanaDeProblemas, setVentanaDeProblemas] = useState<Problema[] | null>(null);
+  const [confirmarCancelar, setConfirmarCancelar] = useState(false);
   // Pausada (2026-10-27): "Guardar y reanudar" (o "Guardar y programar" si el inicio quedó en el
   // futuro) o "Guardar y dejar pausada". Si se guardó pero no se pudo reanudar, aquí va el motivo.
   const [sinReanudar, setSinReanudar] = useState<string | null>(null);
@@ -478,16 +594,64 @@ function CampanaFormulario({
 
   function cambiarEstado(nuevoEstado: string) {
     setLocationState(nuevoEstado);
-    // El municipio (y la colonia, que depende del municipio) pertenecen al
-    // estado anterior: no tiene sentido conservarlos.
+    // El municipio pertenece al estado anterior: no tiene sentido conservarlo.
     setLocationCity("");
-    setLocationColonia("");
   }
 
   function cambiarMunicipio(nuevoMunicipio: string) {
     setLocationCity(nuevoMunicipio);
-    // Con "Todo el estado" la colonia no tiene a qué pertenecer.
-    if (!nuevoMunicipio || nuevoMunicipio === TODO_EL_ESTADO) setLocationColonia("");
+  }
+
+  // Zona con los nombres del catálogo (lib/mexico-geo), sin importar acentos ni mayúsculas; null si el
+  // estado no está en el catálogo (municipio "" si el municipio no está).
+  function zonaDelCatalogo(zona: ZonaDetectada): ZonaDetectada | null {
+    const clave = (t: string) => t.normalize("NFD").replace(/\p{Diacritic}/gu, "").trim().toLowerCase();
+    const estado = NOMBRES_DE_ESTADOS.find((e) => clave(e) === clave(zona.estado));
+    if (!estado) return null;
+    const municipio = municipiosDe(estado).find((m) => clave(m) === clave(zona.municipio));
+    return { estado, municipio: municipio ?? "" };
+  }
+
+  // Pone la zona en la campaña (quita "Para todo el país"); sin municipio, "Todo el estado".
+  function ponerZona(zona: ZonaDetectada, origen: string) {
+    setTodoElPais(false);
+    setLocationState(zona.estado);
+    setLocationCity(zona.municipio || TODO_EL_ESTADO);
+    setAvisoDeZona({
+      ok: true,
+      texto: `Usamos ${origen}: ${zona.municipio ? `${zona.municipio}, ` : "todo el estado de "}${zona.estado}. Puedes cambiarlo.`,
+    });
+  }
+
+  function usarMiEstadoYMunicipio() {
+    setAvisoDeZona(null);
+    const delPerfil = zonaDelPerfil && zonaDelCatalogo(zonaDelPerfil);
+    if (delPerfil) ponerZona(delPerfil, "el estado y municipio de tu perfil");
+    else ubicacion.current?.pedir();
+  }
+
+  // Zona de la persona (PedirUbicacion). Sola: llena estado y municipio solo si siguen vacíos. Con el botón:
+  // los pone aunque ya hubiera otros. Si el estado no está en el catálogo, no llena nada.
+  function usarZonaDelCreador(zonaDetectada: ZonaDetectada, porBoton: boolean) {
+    const zona = zonaDelCatalogo(zonaDetectada);
+    if (!zona) {
+      if (porBoton) avisoSinUbicacion("No reconocimos tu ubicación.");
+      return;
+    }
+    setZonaDelCreador(zona);
+    if (porBoton) {
+      ponerZona(zona, "tu ubicación");
+      return;
+    }
+    if (locationState) return;
+    setLocationState(zona.estado);
+    setLocationCity(zona.municipio || TODO_EL_ESTADO);
+  }
+
+  // Sin perfil ni ubicación: a mano (quita "Para todo el país" para que vea los campos).
+  function avisoSinUbicacion(motivo: string) {
+    setTodoElPais(false);
+    setAvisoDeZona({ ok: false, texto: `${motivo} Elige el estado y el municipio a mano.` });
   }
 
   function toggleDataType(type: DataType) {
@@ -503,7 +667,7 @@ function CampanaFormulario({
     setChecklists((prev) =>
       prev.map((c) => {
         const valor = c.nuevaOpcion.trim();
-        if (c.clave !== clave || !valor || c.opciones.some((o) => o.texto.trim() === valor)) return c;
+        if (c.clave !== clave || !valor || opcionYaExiste(c, valor)) return c;
         return { ...c, opciones: [...c.opciones, { clave: siguienteClave++, texto: valor }], nuevaOpcion: "" };
       })
     );
@@ -515,12 +679,12 @@ function CampanaFormulario({
 
   const gruposDeChecklists: { tipo: ChecklistEditable["tipo"]; nombre: string; titulo: string; detalle: string }[] = [
     ...(checklists.some((c) => c.tipo === "")
-      ? [{ tipo: "" as const, nombre: "", titulo: "Para cualquier tipo de dato", detalle: "Son de antes de que los checklists fueran por tipo: los ve todo aporte." }]
+      ? [{ tipo: "" as const, nombre: "", titulo: "Para cualquier tipo de dato", detalle: "Son de antes de que las características fueran por tipo: las ve todo aporte." }]
       : []),
     ...DATA_TYPES.filter((d) => dataTypes.includes(d.value)).map((d) => ({
       tipo: d.value,
       nombre: d.label.toLowerCase(),
-      titulo: `Checklists de ${d.label.toLowerCase()}`,
+      titulo: `Características de ${d.label.toLowerCase()}`,
       detalle: `Solo los ve quien manda ${QUIEN_MANDA[d.value]}.`,
     })),
   ];
@@ -534,20 +698,20 @@ function CampanaFormulario({
       const titulo = c.titulo.trim();
       const delTipo = c.tipo ? ` de ${(DATA_TYPES.find((d) => d.value === c.tipo)?.label ?? c.tipo).toLowerCase()}` : "";
       const nombre = titulo ? `"${titulo}"${delTipo}` : `número ${checklists.filter((x) => x.tipo === c.tipo).indexOf(c) + 1}${delTipo}`;
-      if (!titulo) return `El checklist ${nombre} necesita un título`;
-      if (c.opciones.length === 0) return `El checklist ${nombre} no tiene opciones`;
+      if (!titulo) return `La característica ${nombre} necesita un título`;
+      if (c.opciones.length === 0) return `La característica ${nombre} no tiene opciones`;
       // Un aporte ve los de su tipo y los generales: ahí no se repiten títulos (las respuestas son "Título: opción").
-      if (vistos.some((v) => v.titulo.trim().toLowerCase() === titulo.toLowerCase() && (!v.tipo || !c.tipo || v.tipo === c.tipo))) {
-        return `Hay dos checklists con el título ${nombre}`;
+      if (vistos.some((v) => claveDeTexto(v.titulo) === claveDeTexto(titulo) && (!v.tipo || !c.tipo || v.tipo === c.tipo))) {
+        return `Hay dos características con el título ${nombre}`;
       }
       vistos.push(c);
       // Las opciones ya se editan: ni vacías ni repetidas (el servidor las quitaría sin avisar).
       const opciones = new Set<string>();
       for (const o of c.opciones) {
         const texto = o.texto.trim();
-        if (!texto) return `El checklist ${nombre} tiene una opción vacía: escríbela o quítala`;
-        if (opciones.has(texto.toLowerCase())) return `El checklist ${nombre} repite la opción "${texto}"`;
-        opciones.add(texto.toLowerCase());
+        if (!texto) return `La característica ${nombre} tiene una opción vacía: escríbela o quítala`;
+        if (opciones.has(claveDeTexto(texto))) return `La característica ${nombre} repite la opción "${texto}"`;
+        opciones.add(claveDeTexto(texto));
       }
     }
     return null;
@@ -560,11 +724,12 @@ function CampanaFormulario({
           <div>
             <h1 className="text-xl font-extrabold text-system-900">{name}</h1>
             <p className="mt-1 text-[13px] text-system-600">
-              Esta campaña ya finalizó y queda en solo lectura: no se puede editar. Para
-              reactivarla, primero define una nueva fecha de finalización.
+              {esFallida
+                ? `Esta campaña terminó incompleta: juntó menos del ${PORCENTAJE_MINIMO}% de su meta en aportes aprobados y no publicó datos abiertos. Para extenderla y seguir recibiendo aportes, define una nueva fecha de finalización.`
+                : "Esta campaña ya finalizó y queda en solo lectura: no se puede editar. Para reactivarla, primero define una nueva fecha de finalización."}
             </p>
           </div>
-          <Tag>Finalizada</Tag>
+          <Tag tone={esFallida ? "warn" : undefined}>{esFallida ? "Incompleta" : "Finalizada"}</Tag>
         </div>
 
         {limiteActivasAlcanzado && (
@@ -604,7 +769,7 @@ function CampanaFormulario({
             onClick={handleReactivar}
             disabled={limiteActivasAlcanzado || reactivando || !endDate}
           >
-            {reactivando ? "Reactivando..." : "Reactivar campaña"}
+            {reactivando ? (esFallida ? "Extendiendo..." : "Reactivando...") : esFallida ? "Extender campaña" : "Reactivar campaña"}
           </Button>
         </div>
       </div>
@@ -633,7 +798,8 @@ function CampanaFormulario({
       if (dataTypes.length === 0) agregar("tipos", "Selecciona al menos un tipo de dato");
       agregar("checklists", validarChecklists());
       revisarMeta();
-      if (vacio(quota)) agregar("cuota", "La cuota por persona debe ser mayor a 0");
+      const cuotaIncompleta = errorDeCuota();
+      if (cuotaIncompleta) agregar(cuotaIncompleta.campo, cuotaIncompleta.mensaje);
       if (!fechaInicioFormulario) agregar("inicio", "Falta la fecha de inicio");
       else if (inicioMovido) agregar("inicio", errorDeInicioPasado(fechaInicioFormulario));
       if (!fechaFinFormulario) agregar("fin", "Falta la fecha de finalización");
@@ -660,6 +826,7 @@ function CampanaFormulario({
     agregar("checklists", validarChecklists());
     // En borrador solo se revisa que los límites escritos sean números válidos.
     if (asDraft && metaPorTipo) agregar("limites", validarLimites());
+    agregar("cuotaPorTipo", validarTopes());
     agregar("inicio", errorDeInicioPasado(fechaInicioFormulario));
     agregar("fin", errorDeFinAntesDeInicio(fechaInicioFormulario, fechaFinFormulario));
     // El propósito se exige al enviar a revisión; en un borrador solo se revisa si se eligió "Otro".
@@ -672,7 +839,8 @@ function CampanaFormulario({
     }
     if (dataTypes.length === 0) agregar("tipos", "Selecciona al menos un tipo de dato");
     revisarMeta();
-    if (vacio(quota)) agregar("cuota", "La cuota por persona debe ser mayor a 0");
+    const cuotaIncompleta = errorDeCuota();
+    if (cuotaIncompleta) agregar(cuotaIncompleta.campo, cuotaIncompleta.mensaje);
     if (!fechaInicioFormulario) agregar("inicio", "Falta la fecha de inicio");
     if (!fechaFinFormulario) agregar("fin", "Falta la fecha de finalización");
     if (!todoElPais && !locationState) agregar("estado", "Selecciona un estado o marca que la campaña es para todo el país");
@@ -712,6 +880,7 @@ function CampanaFormulario({
             : {}),
           name,
           description,
+          organizer: organizer.trim(),
           tematica: theme,
           tematicaNueva: esTematicaNueva,
           tag: theme,
@@ -720,7 +889,8 @@ function CampanaFormulario({
           formatosDeDocumento: dataTypes.includes("documento") ? formatosDeDocumento : [],
           checklistSecciones,
           goalContributions: metaFinal,
-          quotaPerUser: Number(quota),
+          quotaPerUser: cuotaFinal,
+          cuotaPorTipo,
           metaPorTipo,
           limitePorTipo,
           startDate: fechaInicioFormulario,
@@ -728,7 +898,9 @@ function CampanaFormulario({
           todoElPais,
           locationCity: todoElPais ? "" : municipioReal,
           locationState: todoElPais ? "" : locationState,
-          locationColonia: todoElPais ? "" : locationColonia,
+          // Sin campo de colonia desde el 2026-10-31 (a pedido del usuario: irrelevante): va vacía, y al
+          // editar una campaña vieja también se le quita.
+          locationColonia: "",
         }
       : edicionLimitada
       ? {
@@ -752,7 +924,8 @@ function CampanaFormulario({
           formatosDeDocumento: dataTypes.includes("documento") ? formatosDeDocumento : [],
           checklistSecciones,
           goalContributions: metaFinal,
-          quotaPerUser: Number(quota),
+          quotaPerUser: cuotaFinal,
+          cuotaPorTipo,
           metaPorTipo,
           limitePorTipo,
           startDate: fechaInicioFormulario,
@@ -760,7 +933,9 @@ function CampanaFormulario({
           todoElPais,
           locationCity: todoElPais ? "" : municipioReal,
           locationState: todoElPais ? "" : locationState,
-          locationColonia: todoElPais ? "" : locationColonia,
+          // Sin campo de colonia desde el 2026-10-31 (a pedido del usuario: irrelevante): va vacía, y al
+          // editar una campaña vieja también se le quita.
+          locationColonia: "",
         };
 
     try {
@@ -849,7 +1024,7 @@ function CampanaFormulario({
       {
         id: "paso-meta",
         titulo: "Meta y cuota",
-        completo: (metaPorTipo ? !validarLimites() && !faltaLimite() && sumaDeLimites > 0 : Number(goal) > 0) && Number(quota) > 0,
+        completo: (metaPorTipo ? !validarLimites() && !faltaLimite() && sumaDeLimites > 0 : Number(goal) > 0) && !errorDeCuota(),
       },
     ] satisfies Paso[]
   ).map((p) => ({ ...p, conProblemas: pasosConProblemas.has(p.id) }));
@@ -879,6 +1054,15 @@ function CampanaFormulario({
           {limitReached ? "Límite alcanzado" : editingCampaign ? labelEstado(status) : "Borrador"}
         </Tag>
       </div>
+
+      {!editingCampaign && (
+        <AvisoSinTematicas sinTematicas={sinTematicas} clave="dfg:aviso-sin-tematicas-al-crear">
+          <p>
+            Aún no eliges temáticas de interés. Agrégalas para mostrarte primero las campañas que te interesan y
+            avisarte cuando se abra una nueva. Si vas ahora, lo que llevas de esta campaña no se guarda.
+          </p>
+        </AvisoSinTematicas>
+      )}
 
       {/* Al corregir una rechazada, el motivo a la vista (2026-10-22, lib/campanas/rechazo.ts). */}
       {status === "rechazada" && (
@@ -923,7 +1107,7 @@ function CampanaFormulario({
             descripcion="Cómo se llama la campaña, de qué trata y quién la impulsa."
             completo={paso("paso-datos").completo}
             conProblemas={paso("paso-datos").conProblemas}
-            aviso={editaEnPausa ? "La organización no se puede cambiar" : noEditable}
+            aviso={noEditable}
           >
             <div className="grid grid-cols-1 gap-6">
               <div>
@@ -1048,7 +1232,7 @@ function CampanaFormulario({
                     onChange={setOrganizer}
                     maxLength={LARGO_MAXIMO_ORGANIZACION}
                     placeholder="Ej. Colectivo Ambiental de Tepic"
-                    disabled={edicionLimitada}
+                    disabled={contenidoBloqueado}
                     className="disabled:cursor-not-allowed disabled:opacity-50"
                   />
                 </Field>
@@ -1171,7 +1355,26 @@ function CampanaFormulario({
               <p className="-mt-2 mb-4 text-[12px] text-error-700">{errorDeFechas}</p>
             )}
 
-            <p className="mb-2 text-[13px] font-medium text-system-900">¿Dónde aplica la campaña?</p>
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-[13px] font-medium text-system-900">¿Dónde aplica la campaña?</p>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={usarMiEstadoYMunicipio}
+                disabled={contenidoBloqueado || buscandoZona}
+              >
+                {buscandoZona ? "Buscando tu ubicación…" : "Usar mi estado y municipio"}
+              </Button>
+            </div>
+            {avisoDeZona && (
+              <p
+                role={avisoDeZona.ok ? "status" : "alert"}
+                className={`mb-3 text-[12px] ${avisoDeZona.ok ? "text-system-600" : "text-error-700"}`}
+              >
+                {avisoDeZona.texto}
+              </p>
+            )}
             <label className="mb-4 flex cursor-pointer items-start gap-2.5 rounded-lg border border-system-200 bg-system-50 p-3.5 has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50">
               <input
                 type="checkbox"
@@ -1190,11 +1393,17 @@ function CampanaFormulario({
                 </span>
               </span>
             </label>
+            {todoElPais && zonaDelCreador && !editingCampaign && (
+              <p className="-mt-2 mb-4 text-[12px] text-system-600">
+                Estás en {zonaDelCreador.municipio ? `${zonaDelCreador.municipio}, ` : ""}
+                {zonaDelCreador.estado}: si quitas la marca, la campaña ya queda en tu {zonaDelCreador.municipio ? "municipio" : "estado"}.
+              </p>
+            )}
 
             {!todoElPais && (
               // "Vigencia y lugar" es la única sección con campos lado a lado (2026-10-28, a pedido del usuario;
               // el resto del formulario va en una columna). En móvil, en columna.
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Field label="Estado" required error={errorDe("estado")}>
                   <select
                     data-campo="estado"
@@ -1227,16 +1436,6 @@ function CampanaFormulario({
                       <option key={opcion}>{opcion}</option>
                     ))}
                   </select>
-                </Field>
-                <Field label="Colonia (opcional)" hint="Para segmentar la campaña dentro del municipio.">
-                  <Input
-                    value={locationColonia}
-                    onChange={(e) => setLocationColonia(e.target.value)}
-                    maxLength={150}
-                    placeholder={municipioReal ? "p. ej. Centro" : "Primero selecciona un municipio"}
-                    disabled={!municipioReal || contenidoBloqueado}
-                    className="disabled:cursor-not-allowed disabled:opacity-50"
-                  />
                 </Field>
               </div>
             )}
@@ -1362,9 +1561,9 @@ function CampanaFormulario({
               </p>
               <p className="mb-2.5 text-[12px] text-system-500">
                 Siempre escribe una descripción con sus palabras. Además, para cada tipo de dato que pides
-                puedes agregar checklists con título para que marque lo que aplique: los que necesites, o
-                ninguno. Quien aporta solo ve los del tipo de lo que manda. Para cambiar el orden de los
-                checklists y sus opciones, arrástralos desde ⠿.
+                puedes agregar características con título para que marque lo que aplique: las que necesites, o
+                ninguna. Quien aporta solo ve las del tipo de lo que manda. Para cambiar el orden de las
+                características y sus opciones, arrástralas desde ⠿.
               </p>
               {editaEnPausa && (
                 <p className="mb-2.5 text-[12px] text-system-500">
@@ -1384,7 +1583,7 @@ function CampanaFormulario({
               <div data-campo="checklists" className="grid grid-cols-1 gap-4">
                 {gruposDeChecklists.length === 0 && (
                   <p className="rounded-lg border border-dashed border-system-300 p-3 text-[12px] text-system-500">
-                    Marca arriba los tipos de dato que pides para agregar sus checklists.
+                    Marca arriba los tipos de dato que pides para agregar sus características.
                   </p>
                 )}
                 {gruposDeChecklists.map((grupo) => {
@@ -1402,7 +1601,7 @@ function CampanaFormulario({
                           >
                             <div className="mb-2.5 flex items-center gap-2">
                               <AsaDeArrastre
-                                etiqueta={`el checklist ${c.titulo.trim() || i + 1}`}
+                                etiqueta={`la característica ${c.titulo.trim() || i + 1}`}
                                 onMover={(de, a) => setChecklists((prev) => moverEnGrupo(prev, c.tipo, de, a))}
                                 deshabilitado={contenidoBloqueado}
                               />
@@ -1411,8 +1610,8 @@ function CampanaFormulario({
                                 value={c.titulo}
                                 onChange={(e) => cambiarChecklist(c.clave, { titulo: e.target.value })}
                                 maxLength={MAX_LARGO_TEXTO}
-                                placeholder="Título del checklist, p. ej. Estado del árbol"
-                                aria-label={`Título del checklist ${i + 1}`}
+                                placeholder="Título de la característica, p. ej. Estado del árbol"
+                                aria-label={`Título de la característica ${i + 1}`}
                                 disabled={contenidoBloqueado}
                                 className="w-full rounded border border-system-300 bg-white px-3 py-2 text-[13px] font-semibold text-system-900 outline-none focus:border-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
                               />
@@ -1422,12 +1621,12 @@ function CampanaFormulario({
                                 onClick={() => setChecklists((prev) => prev.filter((x) => x.clave !== c.clave))}
                                 className="whitespace-nowrap text-[11.5px] font-medium text-error-700 disabled:cursor-not-allowed disabled:opacity-50"
                               >
-                                Quitar checklist
+                                Quitar característica
                               </button>
                             </div>
 
                             {c.opciones.length === 0 && (
-                              <p className="mb-2 text-[12px] text-system-500">Aún no agregas opciones a este checklist.</p>
+                              <p className="mb-2 text-[12px] text-system-500">Aún no agregas opciones a esta característica.</p>
                             )}
                             <div data-orden-grupo>
                               {c.opciones.map((opcion, j) => (
@@ -1449,9 +1648,11 @@ function CampanaFormulario({
                                       cambiarOpciones(c.clave, (ops) => ops.map((o) => (o.clave === opcion.clave ? { ...o, texto: e.target.value } : o)))
                                     }
                                     maxLength={MAX_LARGO_TEXTO}
-                                    aria-label={`Opción ${j + 1} del checklist ${c.titulo || i + 1}`}
+                                    aria-label={`Opción ${j + 1} de la característica ${c.titulo || i + 1}`}
+                                    aria-invalid={opcionRepetida(c, j) || undefined}
+                                    title={opcionRepetida(c, j) ? "Esta opción está repetida" : undefined}
                                     disabled={contenidoBloqueado}
-                                    className="min-w-0 flex-1 rounded border border-transparent bg-transparent px-1.5 py-1 text-[12.5px] text-system-900 outline-none hover:border-system-300 focus:border-brand-600 focus:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+                                    className="min-w-0 flex-1 rounded border border-transparent bg-transparent px-1.5 py-1 text-[12.5px] text-system-900 outline-none hover:border-system-300 focus:border-brand-600 focus:bg-white aria-invalid:border-error-700 aria-invalid:bg-error-50 disabled:cursor-not-allowed disabled:opacity-50"
                                   />
                                   <button
                                     type="button"
@@ -1464,11 +1665,18 @@ function CampanaFormulario({
                                 </div>
                               ))}
                             </div>
+                            {/* Repetidas al momento (2026-10-31, a pedido del usuario), no solo al enviar. */}
+                            {c.opciones.some((_, j) => opcionRepetida(c, j)) && (
+                              <p className="mb-2 text-[11.5px] font-medium text-error-700">
+                                Hay opciones repetidas: cada opción debe ser distinta. Cambia o quita la marcada en rojo.
+                              </p>
+                            )}
 
                             <div className="mt-2 flex gap-2">
                               <input
                                 type="text"
                                 value={c.nuevaOpcion}
+                                aria-invalid={opcionYaExiste(c, c.nuevaOpcion) || undefined}
                                 onChange={(e) => cambiarChecklist(c.clave, { nuevaOpcion: e.target.value })}
                                 onKeyDown={(e) => {
                                   if (e.key === "Enter") {
@@ -1478,19 +1686,24 @@ function CampanaFormulario({
                                 }}
                                 maxLength={MAX_LARGO_TEXTO}
                                 placeholder="Nueva opción"
-                                aria-label={`Nueva opción del checklist ${c.titulo || i + 1}`}
+                                aria-label={`Nueva opción de la característica ${c.titulo || i + 1}`}
                                 disabled={contenidoBloqueado}
-                                className="w-full rounded border border-system-300 bg-white px-3 py-2 text-[12.5px] text-system-900 outline-none focus:border-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
+                                className="w-full rounded border border-system-300 bg-white px-3 py-2 text-[12.5px] text-system-900 outline-none focus:border-brand-600 aria-invalid:border-error-700 aria-invalid:bg-error-50 disabled:cursor-not-allowed disabled:opacity-50"
                               />
                               <button
                                 type="button"
                                 onClick={() => agregarOpcion(c.clave)}
-                                disabled={!c.nuevaOpcion.trim() || contenidoBloqueado}
+                                disabled={!c.nuevaOpcion.trim() || opcionYaExiste(c, c.nuevaOpcion) || contenidoBloqueado}
                                 className="whitespace-nowrap text-[12.5px] font-medium text-brand-600 disabled:opacity-40"
                               >
                                 + Agregar opción
                               </button>
                             </div>
+                            {opcionYaExiste(c, c.nuevaOpcion) && (
+                              <p className="mt-1 text-[11.5px] font-medium text-error-700">
+                                Ya existe la opción &quot;{c.nuevaOpcion.trim()}&quot; en esta característica.
+                              </p>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -1502,7 +1715,7 @@ function CampanaFormulario({
                             disabled={contenidoBloqueado}
                             onClick={() => setChecklists((prev) => [...prev, nuevoChecklist("", [], grupo.tipo)])}
                           >
-                            + Agregar checklist de {grupo.nombre}
+                                + Agregar característica de {grupo.nombre}
                           </Button>
                         </div>
                       )}
@@ -1619,8 +1832,10 @@ function CampanaFormulario({
               </div>
             )}
 
+            {/* Con meta por tipo no hay cuota que escribir: es la suma de los máximos de cada tipo (2026-10-31). */}
+            {!metaPorTipo && (
             <div className="mt-4 grid max-w-xl grid-cols-1 gap-4">
-              <Field label="Cuota por persona" required hint="Máximo de aportes por participante, de cualquier tipo." error={errorDe("cuota")}>
+              <Field label="Cuota por persona" required hint="Máximo de aportes por participante en total, de cualquier tipo." error={errorDe("cuota")}>
                 <Input
                   data-campo="cuota"
                   type="number"
@@ -1634,8 +1849,50 @@ function CampanaFormulario({
                 />
               </Field>
             </div>
+            )}
 
-            {sugerencia && (
+            {metaPorTipo && (
+              <fieldset data-campo="cuotaPorTipo" className="mt-4 max-w-xl">
+                <legend className="text-[13px] font-medium text-system-900">
+                  Máximo por persona de cada tipo <span className="text-error-700">*</span>
+                </legend>
+                <p className="mb-2.5 text-[11.5px] text-system-500">
+                  Cuántos aportes de cada tipo puede mandar cada persona. La cuota por persona es la suma.
+                </p>
+                {dataTypes.length === 0 && (
+                  <p className="rounded-lg border border-dashed border-system-300 p-3 text-[12px] text-system-500">
+                    Marca en &quot;Qué se recolecta&quot; los tipos de dato que pides para ponerles un máximo.
+                  </p>
+                )}
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {DATA_TYPES.filter((d) => dataTypes.includes(d.value)).map((d) => (
+                    <Field key={d.value} label={`Máximo de ${PLURALES_DE_TIPO[d.value][1]}`} required>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={topes[d.value] ?? ""}
+                        onChange={(e) => setTopes((prev) => ({ ...prev, [d.value]: e.target.value }))}
+                        placeholder="Ej. 5"
+                        aria-invalid={errorDe("cuotaPorTipo") ? true : undefined}
+                        disabled={contenidoBloqueado}
+                        className="font-mono disabled:cursor-not-allowed disabled:opacity-50"
+                      />
+                    </Field>
+                  ))}
+                </div>
+                {(errorDe("cuotaPorTipo") ?? validarTopes()) && (
+                  <p className="mt-1.5 text-[12px] text-error-700">{errorDe("cuotaPorTipo") ?? validarTopes()}</p>
+                )}
+                {sumaDeMaximos > 0 && (
+                  <p className="mt-2 text-[12.5px] text-system-600" aria-live="polite">
+                    Cuota por persona: <span className="font-mono font-semibold text-system-900">{sumaDeMaximos}</span> aportes
+                    (la suma de los máximos).
+                  </p>
+                )}
+              </fieldset>
+            )}
+
+            {!metaPorTipo && sugerencia && (
               <p className="mt-1 max-w-xl text-[12px] text-system-500" aria-live="polite">
                 La cuota vale para cualquier tipo de dato. A quien aporte se le sugerirá balancearlos:{" "}
                 <span className="font-medium text-system-700">{sugerencia}</span>.
@@ -1699,6 +1956,12 @@ function CampanaFormulario({
               {activeCampaigns} de {MAX_ACTIVE_CAMPAIGNS} campañas activas usadas
             </p>
             <div className="flex flex-wrap gap-2.5">
+              {/* Cancelar cambios (2026-10-31, a pedido del usuario): solo al editar; sale sin guardar. */}
+              {editingCampaign && (
+                <Button type="button" variant="ghost" onClick={() => setConfirmarCancelar(true)}>
+                  Cancelar cambios
+                </Button>
+              )}
               {!edicionLimitada && !enviarRevisionAlGuardar && (
                 <Button type="submit" onClick={(e) => handleSubmit(e, true)}>
                   Guardar borrador
@@ -1724,12 +1987,36 @@ function CampanaFormulario({
         </form>
       </div>
 
+      <VentanaDeConfirmacion
+        abierto={confirmarCancelar}
+        titulo="¿Cancelar los cambios?"
+        textoConfirmar="Sí, descartar cambios"
+        textoOcupado="Saliendo…"
+        peligro
+        onCancelar={() => setConfirmarCancelar(false)}
+        onConfirmar={() => router.push("/mis-campanas")}
+      >
+        <p>
+          Lo que cambiaste y no guardaste se pierde; la campaña queda como estaba.
+          {editaEnPausa ? " Sigue pausada: puedes reanudarla desde Mis campañas." : ""}
+        </p>
+      </VentanaDeConfirmacion>
+
       <VentanaDeProblemas
         abierto={ventanaDeProblemas !== null}
         titulo={editingCampaign ? "No se pudo guardar la campaña" : "Todavía no se puede guardar la campaña"}
         problemas={ventanaDeProblemas ?? []}
         onCerrar={() => setVentanaDeProblemas(null)}
         alIr={irAlCampo}
+      />
+
+      <PedirUbicacion
+        ref={ubicacion}
+        activo={!editingCampaign}
+        idDelPaso="paso-vigencia"
+        onZona={usarZonaDelCreador}
+        onSinUbicacion={avisoSinUbicacion}
+        onOcupado={setBuscandoZona}
       />
     </div>
   );

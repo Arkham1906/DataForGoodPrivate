@@ -9,11 +9,15 @@
 // "Reportar a supervisión" (POST /api/aportes/[id]/reportar, con motivo; desde el 2026-10-19 rechaza el aporte): entra a
 // la bandeja de Reportes y avisa solo a los supervisores (2026-10-15). Solo aportes con cuenta. Uno por
 // aporte, antes o después de decidirlo.
+// Quien aportó ve su aporte en /mis-aportes/[campanaId]/[aporteId] (2026-10-31, a pedido del usuario: desde Mis
+// aportes caía aquí y el menú marcaba Revisión de aportes): esa ruta reutiliza esta pantalla con el menú y el
+// regreso de Mis aportes, y si quien aportó abre /revisiones/[aporteId] se le lleva allá.
 
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
+import { buttonClasses } from "@/components/ui/Button";
 import { Field, Textarea } from "@/components/ui/Input";
 import Tag from "@/components/ui/Tag";
 import type { Contribution } from "@/types";
@@ -26,7 +30,9 @@ import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import ArchivoDelAporte from "@/components/ui/ArchivoDelAporte";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 import SelectorDeCalificacion from "@/components/aportes/SelectorDeCalificacion";
-import { etiquetaDeCalificacion, type CalificacionDeAporte } from "@/lib/aportes/calificacion";
+import type { CalificacionDeAporte } from "@/lib/aportes/calificacion";
+import EstrellasDeCalificacion from "@/components/aportes/EstrellasDeCalificacion";
+import VentanaDeConfirmacion from "@/components/ui/VentanaDeConfirmacion";
 
 const STATUS_LABELS: Record<string, string> = {
   pendiente: "Sin revisar",
@@ -38,6 +44,7 @@ const STATUS_LABELS: Record<string, string> = {
 export default function RevisionAportePage() {
   const { aporteId } = useParams<{ aporteId: string }>();
   const router = useRouter();
+  const desdeMisAportes = usePathname().startsWith("/mis-aportes");
   const [item, setItem] = useState<Contribution | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -49,7 +56,9 @@ export default function RevisionAportePage() {
   const [detalleDeReporte, setDetalleDeReporte] = useState("");
   const [aviso, setAviso] = useState<string | null>(null);
   const [inapropiado, setInapropiado] = useState(false);
-  const [calificacion, setCalificacion] = useState<CalificacionDeAporte | "">("");
+  const [calificacion, setCalificacion] = useState<CalificacionDeAporte | 0>(0);
+  const [confirmarEliminacion, setConfirmarEliminacion] = useState(false);
+  const [eliminando, setEliminando] = useState(false);
 
   // Vuelve a leer cuando algo cambia en la base (actualización en vivo).
   const recarga = useRecargaEnVivo();
@@ -59,18 +68,24 @@ export default function RevisionAportePage() {
         const response = await fetch(`${BASE_PATH}/api/aportes/${aporteId}`, { cache: "no-store" });
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(payload.error ?? "No se pudo cargar el aporte");
-        setItem(payload.data as Contribution);
+        const aporte = payload.data as Contribution;
+        // Su propio aporte (no lo revisa): se ve desde Mis aportes, no desde Revisión de aportes.
+        if (!desdeMisAportes && !aporte.canReview) {
+          router.replace(`/mis-aportes/${aporte.campaignId}/${aporte.id}`);
+          return;
+        }
+        setItem(aporte);
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : "No se pudo cargar el aporte");
       }
     }
 
     void load();
-  }, [aporteId, recarga]);
+  }, [aporteId, recarga, desdeMisAportes, router]);
 
   async function decidir(status: "aceptado" | "rechazado", rejectionReason?: string) {
     if (!calificacion) {
-      setError("Selecciona una calificación antes de guardar la decisión");
+      setError("Califica el aporte de 1 a 5 estrellas antes de guardar la decisión");
       return;
     }
     setSubmitting(true);
@@ -133,6 +148,22 @@ export default function RevisionAportePage() {
     }
   }
 
+  async function eliminarAporte() {
+    setEliminando(true);
+    setError(null);
+    try {
+      const response = await fetch(`${BASE_PATH}/api/aportes/${aporteId}`, { method: "DELETE" });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error ?? "No se pudo eliminar el aporte");
+      router.push(`/mis-aportes/${item?.campaignId ?? ""}`);
+      router.refresh();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No se pudo eliminar el aporte");
+      setEliminando(false);
+      setConfirmarEliminacion(false);
+    }
+  }
+
   function confirmarRechazo(e: React.FormEvent) {
     e.preventDefault();
     void decidir("rechazado", motivoPropio.trim() || motivo);
@@ -153,13 +184,21 @@ export default function RevisionAportePage() {
     motivoDeReporte.length + detalleDeReporte.trim().length + 3 <= MAXIMO_MOTIVO_DE_REPORTE;
   const statusTone = item.status === "aceptado" ? "ok" : item.status === "rechazado" ? "danger" : "warn";
   const submittedAt = new Date(item.submittedAt);
-  const calificacionMostrada = etiquetaDeCalificacion(item.calificacion);
+  const calificacionMostrada = item.calificacion != null;
+  const calificacionVisual = !item.canReview && item.status !== "aceptado" ? null : item.calificacion;
+  const puedeEliminar = !item.canReview && (item.status === "pendiente" || item.status === "espera_final");
 
   return (
     <div className="mx-auto max-w-4xl">
-      <Link href="/revisiones" className="mb-5 inline-block text-[13px] text-system-600 hover:text-system-900">
-        ← Volver a revisiones
-      </Link>
+      {desdeMisAportes ? (
+        <Link href={`/mis-aportes/${item.campaignId}`} className="mb-5 inline-block text-[13px] text-system-600 hover:text-system-900">
+          ← Volver a mis aportes
+        </Link>
+      ) : (
+        <Link href="/revisiones" className="mb-5 inline-block text-[13px] text-system-600 hover:text-system-900">
+          ← Volver a revisiones
+        </Link>
+      )}
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -178,6 +217,19 @@ export default function RevisionAportePage() {
           <Tag tone={statusTone}>{STATUS_LABELS[item.status] ?? item.status}</Tag>
         </div>
       </div>
+
+      {!item.canReview && (
+        <div className="mb-6 flex flex-wrap gap-2">
+          <Link href={`/mis-aportes/${item.campaignId}`} className={buttonClasses("secondary", "sm")}>
+            Historial de aportes de la campaña
+          </Link>
+          {puedeEliminar && (
+            <Button variant="danger" size="sm" onClick={() => setConfirmarEliminacion(true)} disabled={eliminando}>
+              Eliminar aporte
+            </Button>
+          )}
+        </div>
+      )}
 
       {error && <p className="mb-4 rounded border border-error-700 bg-error-50 p-3 text-[12.5px] text-error-700">{error}</p>}
 
@@ -223,9 +275,9 @@ export default function RevisionAportePage() {
             <dl className="space-y-2 border-t border-system-200 pt-4 text-[13px]">
               <div className="flex justify-between gap-4"><dt className="text-system-600">Enviado</dt><dd className="font-mono text-right text-system-900">{submittedAt.toLocaleDateString("es-MX", { day: "numeric", month: "short" })} · {submittedAt.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}</dd></div>
               <div className="flex justify-between gap-4"><dt className="text-system-600">Tipo</dt><dd className="text-system-900">{item.fileType}</dd></div>
-              {calificacionMostrada && <div className="flex justify-between gap-4"><dt className="text-system-600">Calificación</dt><dd className="font-semibold text-system-900">{calificacionMostrada}</dd></div>}
+              {(calificacionMostrada || !item.canReview) && <div className="flex justify-between gap-4"><dt className="text-system-600">Calificación</dt><dd className="text-[16px]"><EstrellasDeCalificacion valor={calificacionVisual} mostrarVacias={!item.canReview} /></dd></div>}
             </dl>
-            {!yaDecidido && (
+            {item.canReview && !yaDecidido && (
               <div className="border-t border-system-200 pt-4 text-center">
                 <p className="mb-2 text-[12.5px] font-semibold text-system-900">
                   Calificación del aporte <span className="text-error-700">*</span>
@@ -311,8 +363,15 @@ export default function RevisionAportePage() {
           </p>
           <p className="mb-3 mt-1 text-[11.5px] text-system-500">
             Si el contenido es inapropiado o quien lo envió abusa de la campaña, avisa a los supervisores: lo
-            revisan y deciden si le dan un aviso. <strong className="text-system-900">Al reportarlo, el aporte se rechaza</strong>{" "}
-            (aunque ya estuviera aceptado). Quien creó la campaña no recibe este reporte.
+            revisan y deciden si le dan un aviso.{" "}
+            {item.campanaFinalizada ? (
+              "La campaña ya finalizó: el aporte no cambia, solo queda el reporte."
+            ) : (
+              <>
+                <strong className="text-system-900">Al reportarlo, el aporte se rechaza</strong> (aunque ya estuviera aceptado).
+              </>
+            )}{" "}
+            Quien creó la campaña no recibe este reporte.
           </p>
           <select
             value={motivoDeReporte}
@@ -388,7 +447,7 @@ export default function RevisionAportePage() {
             url={`/api/aportes/${item.id}/reportar-participante`}
             motivos={MOTIVOS_DE_REPORTE_DE_APORTE}
             titulo="Reportar a quien aportó"
-            explicacion="Para faltas graves de la cuenta (acoso, contenido ilegal, abuso repetido). Lo revisa la supervisión, que decide si le da un aviso. Al reportarlo, este aporte se rechaza. Esa persona no sabrá quién la reportó."
+            explicacion={`Para faltas graves de la cuenta (acoso, contenido ilegal, abuso repetido). Lo revisa la supervisión, que decide si le da un aviso. ${item.campanaFinalizada ? "La campaña ya finalizó, así que este aporte no cambia." : "Al reportarlo, este aporte se rechaza."} Esa persona no sabrá quién la reportó.`}
             placeholder="Qué hizo quien envió el aporte"
             yaReportado={Boolean(item.participanteReportado)}
             textoYaReportado="Ya reportaste a quien envió este aporte. La supervisión lo está revisando."
@@ -396,6 +455,19 @@ export default function RevisionAportePage() {
           />
         </div>
       )}
+
+      <VentanaDeConfirmacion
+        abierto={confirmarEliminacion}
+        titulo="¿Eliminar este aporte?"
+        textoConfirmar="Sí, eliminar aporte"
+        textoOcupado="Eliminando…"
+        ocupado={eliminando}
+        peligro
+        onCancelar={() => setConfirmarEliminacion(false)}
+        onConfirmar={() => void eliminarAporte()}
+      >
+        <p>El aporte se eliminará permanentemente y ya no aparecerá en el historial de esta campaña.</p>
+      </VentanaDeConfirmacion>
     </div>
   );
 }

@@ -6,11 +6,8 @@
 import { revalidatePath } from "next/cache";
 
 import { pool } from "@/lib/db";
-import { hasCampaignStarted } from "@/lib/campaign-date";
 import { registrarAuditoria, type ActorDeAuditoria } from "@/lib/auditoria";
-import { asegurarEnlaceVigente } from "@/lib/campanas/enlaces";
 import { notificar } from "@/lib/notificaciones/notificaciones";
-import { avisarCampanaNueva } from "@/lib/notificaciones/campanas-por-interes";
 import {
   avisarSancion,
   detalleDeAuditoria,
@@ -184,22 +181,18 @@ export async function registrarDecisionDeCampana(
     if (!tomada.ok) return tomada;
   }
 
-  // Aceptada con fecha/hora de inicio futura: el estado de la campaña
-  // queda "aceptada" (en_revision -> aceptada -> activa) y se activa sola
-  // cuando lleguen (activateScheduledCampaigns); sin fecha definida se
-  // activa de inmediato igual que antes.
-  const nextStatus = hasCampaignStarted(campana.start_date, campana.start_time) ? "activa" : "aceptada";
+  // Aceptada (2026-11-01, a pedido del usuario): se activa sola al llegar su fecha de inicio
+  // (activateScheduledCampaigns, con el enlace público y los avisos de campaña nueva) y su creador puede
+  // activarla antes desde /mis-campanas (PATCH { status: "activa" }). Del 2026-10-31 al 2026-11-01
+  // esperaba a que el creador la activara (espera_activacion, ya sin uso).
+  const nextStatus = "aceptada";
   const supervisorId = autor.tipo === "usuario" ? autor.usuarioId : null;
   const porRoot = autor.tipo === "root";
 
-  await pool.query(`UPDATE campanas SET status = $2, updated_at = NOW() WHERE id = $1`, [campanaId, nextStatus]);
-  // Aceptada y ya empezó: queda activa con su enlace público listo para compartir.
-  // Si queda "aceptada" (inicio futuro), el enlace se crea al activarse (lib/campaign-date.ts).
-  if (nextStatus === "activa") {
-    await asegurarEnlaceVigente(Number(campanaId));
-    // A quien tiene su temática y vive donde se hace (en segundo plano).
-    avisarCampanaNueva(Number(campanaId));
-  }
+  await pool.query(
+    `UPDATE campanas SET status = $2, espera_activacion = false, updated_at = NOW() WHERE id = $1`,
+    [campanaId, nextStatus],
+  );
 
   await pool.query(
     `INSERT INTO campana_supervisores (campana_id, supervisor_id, por_superusuario, accion, motivo, created_at)
@@ -220,18 +213,18 @@ export async function registrarDecisionDeCampana(
     metadata: {},
     tipo: "campana_aceptada",
     titulo: "Campaña aceptada",
-    mensaje: nextStatus === "activa"
-      ? `Tu campaña "${campana.name}" fue aceptada y ya está activa.`
-      : `Tu campaña "${campana.name}" fue aceptada. Se activará en su fecha de inicio.`,
-    enlace: nextStatus === "activa" ? `/mis-campanas/${campanaId}/panel` : "/mis-campanas",
+    mensaje: `Tu campaña "${campana.name}" fue aceptada. Se activará sola en su fecha de inicio; si quieres empezar antes, actívala desde Mis campañas.`,
+    enlace: "/mis-campanas",
   });
+
+  // Si su inicio ya llegó, se activa ahora. Import dinámico: lib/campaign-date importa notificaciones.
+  const { activateScheduledCampaigns } = await import("@/lib/campaign-date");
+  await activateScheduledCampaigns();
 
   return {
     ok: true,
     nextStatus,
-    mensaje: nextStatus === "activa"
-      ? "Campaña aceptada y puesta en activo"
-      : "Campaña aceptada; se activará el día de su fecha de inicio",
+    mensaje: "Campaña aceptada; se activará sola en su fecha de inicio",
   };
 }
 

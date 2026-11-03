@@ -12,7 +12,7 @@ import { exigirUsuario } from "@/lib/session";
 import { BASE_PATH } from "@/lib/base-path";
 import { formatearTamano } from "@/lib/aportes/archivo";
 import type { Metadata } from "next";
-import { etiquetaDeCalificacion } from "@/lib/aportes/calificacion";
+import EstrellasDeCalificacion from "@/components/aportes/EstrellasDeCalificacion";
 
 export const metadata: Metadata = { title: "Aporte revisado" };
 
@@ -38,7 +38,7 @@ export default async function ReviewerContributionDetailPage({ params }: { param
   const contribution = result.rows[0];
   const features = Array.isArray(contribution.caracteristicas) ? contribution.caracteristicas : [];
   const fileSize = contribution.file_size_bytes ? ` · ${formatearTamano(Number(contribution.file_size_bytes))}` : "";
-  const calificacion = etiquetaDeCalificacion(contribution.calificacion);
+  const calificacion = contribution.calificacion != null;
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -86,7 +86,7 @@ export default async function ReviewerContributionDetailPage({ params }: { param
             <div className="border-b border-system-200 pb-3"><dt className="text-system-600">Descripción</dt><dd className="mt-1 leading-6 text-system-900">{contribution.description}</dd></div>
             <div className="border-b border-system-200 pb-3"><dt className="text-system-600">Características</dt><dd className="mt-2 flex flex-wrap gap-1.5">{features.length > 0 ? features.map((item: string) => <Tag key={item}>{item}</Tag>) : "Sin características"}</dd></div>
             <div className="flex justify-between gap-4 border-b border-system-200 pb-3"><dt className="text-system-600">Enviado</dt><dd className="text-right font-mono">{new Date(contribution.submitted_at).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" })}</dd></div>
-            {calificacion && <div className="flex justify-between gap-4 border-b border-system-200 pb-3"><dt className="text-system-600">Calificación</dt><dd className="text-right font-semibold">{calificacion}</dd></div>}
+            {calificacion && <div className="flex justify-between gap-4 border-b border-system-200 pb-3"><dt className="text-system-600">Calificación</dt><dd className="text-right text-[16px]"><EstrellasDeCalificacion valor={contribution.calificacion} /></dd></div>}
             <div className="flex justify-between gap-4"><dt className="text-system-600">Aceptado</dt><dd className="text-right font-mono">{contribution.reviewed_at ? new Date(contribution.reviewed_at).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" }) : "Sin dato"}</dd></div>
           </dl>
         </section>

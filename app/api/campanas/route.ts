@@ -1,9 +1,11 @@
 // /api/campanas — listado y creación de campañas. Lo usa casi toda la zona de usuario.
 // Antes de leer, activa las campañas aceptadas cuya fecha llegó y finaliza las vencidas (lib/campaign-date.ts).
-// El POST exige sesión y solo crea borradores o campañas en revisión (lib/campanas/estado-del-creador.ts).
+// El POST exige sesión y organización de perfil, y solo crea borradores o campañas en revisión
+// (lib/campanas/estado-del-creador.ts).
 // El listado general y ?id= solo devuelven lo que quien consulta puede ver (lib/campanas/visibilidad.ts).
 
 import { NextResponse } from "next/server";
+import { sqlPuedeEliminar } from "@/lib/campanas/eliminar";
 import { especialDesdeFila } from "@/lib/campanas/especial";
 import { pool } from "@/lib/db";
 import { avisarCampanaPorRevisar } from "@/lib/notificaciones/avisos-a-supervisores";
@@ -14,6 +16,7 @@ import { inscripcionDe } from "@/lib/campanas/inscripciones";
 import { errorDeOrganizacion } from "@/lib/campanas/organizacion";
 import { normalizarSecciones, seccionesDesdeFila } from "@/lib/campanas/checklist";
 import { enviadosPorTipoDesdeFila, limitePorTipoDesdeFila, resolverMetaYLimites } from "@/lib/campanas/limite-por-tipo";
+import { cuotaPorTipoDesdeFila, resolverCuotaYMaximos } from "@/lib/campanas/cuota-por-tipo";
 import { normalizarFormatosDeDocumento } from "@/lib/aportes/archivo";
 import { columnasCalculadas, guardarTiposDeCampana } from "@/lib/campanas/tipos-de-campana";
 import { guardarChecklists } from "@/lib/campanas/tabla-checklists";
@@ -109,6 +112,9 @@ function mapCampaign(row: Record<string, unknown>) {
     quotaPerUser: Number(row.quota_per_user ?? 0),
     // Límite total por tipo de dato (2026-10-28, lib/campanas/limite-por-tipo.ts) y lo enviado de cada uno.
     limitePorTipo: limitePorTipoDesdeFila(row),
+    cuotaPorTipo: cuotaPorTipoDesdeFila(row),
+    // Aprobada y esperando a que su creador la active (2026-10-31).
+    esperaActivacion: row.espera_activacion === true,
     enviadosPorTipo: enviadosPorTipoDesdeFila(row),
     currentContributions: Number(row.current_contributions ?? 0),
     approvedContributions: Number(row.approved_contributions ?? 0),
@@ -140,7 +146,8 @@ function mapCampaign(row: Record<string, unknown>) {
 
 // GET: campañas. Modos por query: ?id= (una, con bloque viewer), ?mine=true (creadas por ti),
 // ?misAportes=true (aportaste o guardaste), ?available=true (puedes aportar), ?supervised=true (supervisas),
-// ?paraTi=true ("Campañas para ti": hasta 3, como en /inicio; otra forma, CampanaParaTi de lib/usuarios/inicio.ts).
+// ?paraTi=true ("Campañas para ti": hasta 3, como en /inicio; otra forma, CampanaParaTi de lib/usuarios/inicio.ts);
+// con &todas=true, todas en el orden de recomendación (/campanas las filtra y muestra 3; 2026-11-02).
 // Sin parámetros: activas, sin sesión.
 export async function GET(request: Request) {
   try {
@@ -162,7 +169,10 @@ export async function GET(request: Request) {
     if ((mine || available || misAportes || supervised || paraTi) && !user) {
       return NextResponse.json({ error: "Debes iniciar sesion" }, { status: 401 });
     }
-    if (paraTi) return NextResponse.json({ data: await campanasParaTi(user!) });
+    if (paraTi) {
+      const todas = url.searchParams.get("todas") === "true";
+      return NextResponse.json({ data: await campanasParaTi(user!, todas ? null : undefined) });
+    }
 
     const [savedIds, bannedIds] = user
       ? await Promise.all([obtenerIdsGuardados(user.id), idsDeCampanasConBaneo(user.id)])
@@ -224,7 +234,8 @@ export async function GET(request: Request) {
           // Si está rechazada, el motivo, la fecha y la sanción del último rechazo (lib/campanas/rechazo.ts).
           // El reporte con sanción se escribe en la misma transacción que el rechazo: mismo NOW().
           `SELECT c.*, ${columnasCalculadas("c")},
-                  NOT EXISTS (SELECT 1 FROM aportes a WHERE a.campaign_id = c.id) AS can_delete,
+                  -- Eliminar (2026-11-01): borrador, sin aportes o todos en revisión; nunca finalizada (lib/campanas/eliminar.ts).
+                  ${sqlPuedeEliminar("c")} AS can_delete,
                   r.motivo AS rechazo_motivo, r.created_at AS rechazo_en, r.por_superusuario AS rechazo_por_root,
                   s.tipo AS rechazo_sancion_tipo, s.dias AS rechazo_sancion_dias
            FROM campanas c
@@ -277,12 +288,18 @@ export async function GET(request: Request) {
   }
 }
 
-// POST: crea una campaña. Valida campos obligatorios salvo en borrador.
+// POST: crea una campaña. Exige organización en el perfil y valida campos obligatorios salvo en borrador.
 export async function POST(request: Request) {
   try {
     // La campaña siempre es de quien tiene la sesión: nunca se toma el creador del body.
     const sessionUser = await getSessionUser();
     if (!sessionUser) return NextResponse.json({ error: "Debes iniciar sesión" }, { status: 401 });
+    if (!sessionUser.organizacion?.trim()) {
+      return NextResponse.json(
+        { error: "Debes pertenecer a una organización para crear una campaña. Agrégala en Mi cuenta." },
+        { status: 403 }
+      );
+    }
     const body = await request.json().catch(() => ({}));
 
     const name = String(body.name ?? "").trim();
@@ -328,7 +345,7 @@ export async function POST(request: Request) {
     const seccionesEnviadas =
       body.checklistSecciones ?? body.checklist_secciones ??
       (Array.isArray(body.checklistOpciones ?? body.checklist_opciones)
-        ? [{ titulo: "Checklist", opciones: normalizeChecklistOpciones(body.checklistOpciones ?? body.checklist_opciones) }]
+        ? [{ titulo: "Características", opciones: normalizeChecklistOpciones(body.checklistOpciones ?? body.checklist_opciones) }]
         : []);
     // Cada checklist va con su tipo de dato (2026-10-28); los de tipos que no pide se quitan.
     const secciones = normalizarSecciones(seccionesEnviadas, dataTypes);
@@ -343,7 +360,17 @@ export async function POST(request: Request) {
     const limitePorTipo = resolverMetaYLimites(body, dataTypes, status !== "borrador");
     if (!limitePorTipo.ok) return NextResponse.json({ error: limitePorTipo.error }, { status: 400 });
     const goalContributions = limitePorTipo.metaDeLaSuma ?? Number(body.goalContributions ?? body.goal_contributions ?? 0);
-    const quotaPerUser = Number(body.quotaPerUser ?? body.quota_per_user ?? 1);
+    // Máximo por persona de cada tipo (2026-10-31, lib/campanas/cuota-por-tipo.ts): con meta por tipo, la
+    // cuota es la suma de los máximos; con meta general, la escrita y máximos opcionales.
+    const cuotaPorTipo = resolverCuotaYMaximos({
+      porTipo: body.metaPorTipo === true && "cuotaPorTipo" in body,
+      maximos: body.cuotaPorTipo,
+      tipos: dataTypes,
+      cuotaEscrita: Number(body.quotaPerUser ?? body.quota_per_user ?? 1),
+      exigirCompleto: status !== "borrador",
+    });
+    if (!cuotaPorTipo.ok) return NextResponse.json({ error: cuotaPorTipo.error }, { status: 400 });
+    const quotaPerUser = cuotaPorTipo.cuota;
     // XP, contadores, "especial" y "revisor asignado" los decide el sistema, no el body: una campaña
     // nueva empieza en cero (su fila de campana_estadisticas la crea un trigger), no especial y sin revisor.
     const xpPerContribution = XP_POR_APORTE;
@@ -461,6 +488,7 @@ export async function POST(request: Request) {
       await guardarTiposDeCampana(cliente, result.rows[0].id, {
         tipos: dataTypes,
         limite: limitePorTipo.limite,
+        cuota: cuotaPorTipo.maximos,
         formatos: formatosDeDocumento,
       });
       if ("etiquetas" in body) {

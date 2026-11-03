@@ -15,6 +15,7 @@ const ESTADO: Record<string, string> = {
   activa: "activa",
   pausada: "pausada",
   finalizada: "finalizada",
+  fallida: "incompleta",
   rechazada: "rechazada",
   borrador: "borrador",
 };
@@ -58,7 +59,7 @@ export default function PanelDeCampanaSupervisor({
   ];
 
   let mensajeRitmo: string;
-  if (panel.status === "finalizada") {
+  if (panel.status === "finalizada" || panel.status === "fallida") {
     mensajeRitmo = `La campaña cerró el ${formatearFecha(panel.fechaFin)} con ${panel.metricas.recibidos} de ${panel.meta} aportes (${panel.porcentajeMeta}% de la meta).`;
   } else if (panel.status !== "activa" && panel.status !== "pausada") {
     mensajeRitmo = "La campaña todavía no recolecta aportes: la proyección aparece cuando esté activa.";
@@ -151,7 +152,7 @@ export default function PanelDeCampanaSupervisor({
           </div>
           <div className="mt-2 flex justify-between font-mono text-[11px] text-system-500">
             <span>{panel.metricas.recibidos} de {panel.meta} aportes</span>
-            {panel.diasRestantes !== null && panel.status !== "finalizada" && <span>{panel.diasRestantes} días restantes</span>}
+            {panel.diasRestantes !== null && panel.status !== "finalizada" && panel.status !== "fallida" && <span>{panel.diasRestantes} días restantes</span>}
           </div>
           <p className="mt-2 text-[11.5px] text-system-500">
             {panel.metricas.aprobados} aprobados · {panel.metricas.pendientes} pendientes · {panel.metricas.rechazados} rechazados

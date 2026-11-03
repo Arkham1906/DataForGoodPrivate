@@ -1,4 +1,5 @@
-// Layout de la zona de usuario (dashboard): ShellDeUsuario (TopBar + SidebarNav + VigilanteDeSesion + ActualizacionEnVivo).
+// Layout de la zona de usuario (dashboard): ShellDeUsuario (TopBar + SidebarNav + VigilanteDeSesion + ActualizacionEnVivo +
+// DetectorDeUbicacion, 2026-10-31: zona por GPS, solo si la persona la activó en /campanas).
 // Guardia: exigirUsuario() → sin sesión a /entrar, cuenta sancionada a /cuenta-bloqueada.
 // No basta por sí solo: cada página y cada endpoint vuelven a verificar (ver docs/permisos.md).
 

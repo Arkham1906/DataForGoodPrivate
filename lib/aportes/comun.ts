@@ -18,12 +18,21 @@ import {
 } from "@/lib/aportes/archivo";
 import { avisarAportesRecibidos } from "@/lib/notificaciones/hitos-de-aportes";
 import { actualizarEnviados } from "@/lib/campanas/tipos-de-campana";
+import { PORCENTAJE_MINIMO, explicacionDeFallida, sqlEstadoAlTerminar } from "@/lib/campanas/fallida";
+import { notificar } from "@/lib/notificaciones/notificaciones";
 import {
   mensajeDeTipoLleno,
   tiposConLugar,
   type EnviadosPorTipo,
   type LimitePorTipo,
 } from "@/lib/campanas/limite-por-tipo";
+import {
+  mapaPorTipo,
+  mensajeDeCuotaDelTipo,
+  tiposDentroDeSuCuota,
+  type CuotaPorTipo,
+  type MiosPorTipo,
+} from "@/lib/campanas/cuota-por-tipo";
 
 export { LARGO_MAXIMO_DESCRIPCION, TAMANO_MAXIMO, errorDeArchivo, tiposAceptados } from "@/lib/aportes/archivo";
 
@@ -57,6 +66,44 @@ export function tiposConLugarParaElAporte(
     return { ok: false, error: mensajeDeTipoLleno(declarado, limite) };
   }
   return { ok: true, tipos: conLugar };
+}
+
+/**
+ * Aviso rápido del tope por persona de cada tipo (2026-10-31), antes de subir nada: como
+ * tiposConLugarParaElAporte, pero con lo que ya mandó la persona. Recibe los tipos que ya pasaron el
+ * límite total. La comprobación que cuenta va en insertarAporteConCuota.
+ */
+export function tiposDentroDeLaCuotaParaElAporte(
+  archivo: FormDataEntryValue | null,
+  tipos: TipoDeArchivo[],
+  todosLosTipos: TipoDeArchivo[],
+  cuota: CuotaPorTipo,
+  mios: MiosPorTipo,
+): { ok: true; tipos: TipoDeArchivo[] } | { ok: false; error: string } {
+  const dentro = tiposDentroDeSuCuota(tipos, cuota, mios);
+  if (dentro.length === 0) return { ok: false, error: "Ya enviaste el máximo de cada tipo que permite esta campaña." };
+  const tieneArchivo = archivo instanceof File && archivo.size > 0;
+  const declarado = tieneArchivo ? tipoPorNombre(archivo) : archivoEsOpcional(todosLosTipos) ? "texto" : null;
+  if (declarado && tipos.includes(declarado) && !dentro.includes(declarado)) {
+    return { ok: false, error: mensajeDeCuotaDelTipo(declarado, cuota) };
+  }
+  return { ok: true, tipos: dentro };
+}
+
+/** Cuántos aportes de cada tipo lleva una persona (cuenta o dispositivo anónimo) en la campaña. */
+export async function aportesDeLaPersonaPorTipo(
+  campaignId: string | number,
+  persona: { usuarioId: string | number } | { anonimoId: string },
+  client: Pick<PoolClient, "query"> = pool,
+): Promise<MiosPorTipo> {
+  const [columna, valor] = "usuarioId" in persona ? ["user_id", persona.usuarioId] : ["anonimo_id", persona.anonimoId];
+  const { rows } = await client.query<{ porTipo: unknown }>(
+    `SELECT COALESCE(jsonb_object_agg(file_type, n), '{}'::jsonb) AS "porTipo"
+       FROM (SELECT file_type, COUNT(*)::int AS n FROM aportes
+              WHERE campaign_id = $1 AND ${columna} = $2 GROUP BY file_type) t`,
+    [campaignId, valor],
+  );
+  return mapaPorTipo(rows[0]?.porTipo);
 }
 
 /** Lo que se guarda en las columnas file_* de `aportes`. Sin archivo: texto, con file_path ''. */
@@ -119,6 +166,8 @@ export async function insertarAporteConCuota<T>(entrada: {
   cuota: number;
   /** Cuántos aportes tiene ya esta persona en la campaña. */
   contar: (client: PoolClient) => Promise<number>;
+  /** Cuántos aportes de `tipo` tiene ya esta persona, para el tope por persona del tipo (2026-10-31). */
+  contarDelTipo: (client: PoolClient) => Promise<number>;
   insertar: (client: PoolClient) => Promise<T>;
   comprobar?: (client: PoolClient) => Promise<{ error: string; esperaSegundos: number } | null>;
   /** Clave en MinIO del archivo ya subido, para borrarlo si no se inserta (null: aporte sin archivo). */
@@ -127,6 +176,7 @@ export async function insertarAporteConCuota<T>(entrada: {
   | { ok: true; fila: T; yaEnviados: number }
   | { ok: false; motivo: "cuota" }
   | { ok: false; motivo: "tipo_lleno"; error: string }
+  | { ok: false; motivo: "cuota_del_tipo"; error: string }
   | { ok: false; motivo: "espera"; error: string; esperaSegundos: number }
 > {
   const client = await pool.connect();
@@ -149,10 +199,16 @@ export async function insertarAporteConCuota<T>(entrada: {
     // Límite total del tipo: con la campaña bloqueada (el mismo candado que toma recalcularContadores)
     // y contando en la tabla, no en el contador desnormalizado.
     await client.query(`SELECT 1 FROM campanas WHERE id = $1 FOR NO KEY UPDATE`, [entrada.campaignId]);
-    const campana = await client.query<{ limite: number | null }>(
-      `SELECT limite FROM campana_tipos WHERE campana_id = $1 AND tipo = $2`,
+    const campana = await client.query<{ limite: number | null; cuota_por_persona: number | null }>(
+      `SELECT limite, cuota_por_persona FROM campana_tipos WHERE campana_id = $1 AND tipo = $2`,
       [entrada.campaignId, entrada.tipo],
     );
+    // Tope por persona del tipo (2026-10-31, lib/campanas/cuota-por-tipo.ts), dentro del mismo candado.
+    const topeDelTipo = Number(campana.rows[0]?.cuota_por_persona ?? 0);
+    if (topeDelTipo && (await entrada.contarDelTipo(client)) >= topeDelTipo) {
+      await client.query("ROLLBACK");
+      return { ok: false, motivo: "cuota_del_tipo", error: mensajeDeCuotaDelTipo(entrada.tipo, { [entrada.tipo]: topeDelTipo }) };
+    }
     const delTipo = Number(campana.rows[0]?.limite ?? 0);
     const limite: LimitePorTipo = delTipo ? { [entrada.tipo]: delTipo } : {};
     if (delTipo) {
@@ -225,4 +281,37 @@ export async function recalcularContadores(
   );
   // No rechazados de cada tipo (campana_tipos.enviados, 2026-10-30; antes campanas.enviados_por_tipo).
   await actualizarEnviados(client, campaignId);
+  await revisarEstadoDeTerminada(campaignId, client);
+}
+
+/**
+ * Una campaña ya terminada sigue la regla de fallida al cambiar sus aprobados (2026-11-01, decisión del
+ * usuario, sujeta a cambios): si se aprueban pendientes y llega al 25% de la meta pasa de "fallida" a
+ * "finalizada" (y publica datos abiertos); si pierde aprobados y baja del 25%, al revés. Avisa al creador.
+ */
+async function revisarEstadoDeTerminada(campaignId: string | number, client: Pick<PoolClient, "query">): Promise<void> {
+  const { rows } = await client.query<{ id: number; creator_id: number | null; name: string; status: string }>(
+    `UPDATE campanas SET status = ${sqlEstadoAlTerminar("campanas")}, updated_at = NOW()
+     WHERE id = $1 AND status IN ('finalizada', 'fallida') AND status <> ${sqlEstadoAlTerminar("campanas")}
+     RETURNING id, creator_id, name, status`,
+    [campaignId]
+  );
+  const campana = rows[0];
+  if (!campana?.creator_id) return;
+  // Sin esperar: el aviso no debe frenar ni tumbar la decisión sobre el aporte.
+  void notificar({
+    usuarioId: campana.creator_id,
+    tipo: "campana_finalizada",
+    campanaId: campana.id,
+    enlace: `/mis-campanas/${campana.id}/panel`,
+    ...(campana.status === "finalizada"
+      ? {
+          titulo: "Tu campaña ya no está incompleta",
+          mensaje: `"${campana.name}" llegó al ${PORCENTAJE_MINIMO}% de su meta en aportes aprobados: ahora está finalizada y publica sus datos abiertos.`,
+        }
+      : {
+          titulo: "Tu campaña quedó incompleta",
+          mensaje: `"${campana.name}" ${explicacionDeFallida()}`,
+        }),
+  }).catch((error) => console.error("No se pudo avisar el cambio de estado de la campaña", error));
 }

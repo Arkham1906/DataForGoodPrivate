@@ -5,8 +5,12 @@
 // El mapa de aportes pasa a Mis aportes (decisión del diseño v9).
 // Server Component. Acceso: sesión de usuario (exigirUsuario). Datos: obtenerResumenDeInicio() de
 // lib/usuarios/inicio.ts y obtenerResumenDeProgreso() de lib/gamificacion/progreso.ts (null si aún no hay datos de
-// progreso: entonces se omiten esos dos bloques). Solo lectura: cada bloque enlaza a la pantalla donde se actúa.
-// Se actualiza solo con ActualizacionEnVivo.
+// progreso: entonces se omiten esos dos bloques). Hasta 3 campañas activas para él, de sus temáticas de interés o de
+// su ubicación. Sin temáticas de interés ni ubicación (zona por GPS o estado del perfil) no sale "Campañas para ti"
+// (2026-11-03, a pedido del usuario; igual que en /campanas), y la sección solo trae campañas de sus temáticas
+// o de su ubicación, sin las "populares" de otras temáticas. Sin temáticas sale además el recuadro
+// campanas/AvisoSinTematicas, con el mismo texto que en /campanas.
+// Solo lectura: cada bloque enlaza a la pantalla donde se actúa. Se actualiza solo con ActualizacionEnVivo.
 
 import Link from "next/link";
 import type { Metadata } from "next";
@@ -19,7 +23,10 @@ import { ahoraEnZona, ZONA_DE_CAMPANAS } from "@/lib/fecha-de-tepic";
 import { fechaDeNotificacion, tonoDeNotificacion } from "@/lib/notificaciones/tipos";
 import { obtenerResumenDeInicio } from "@/lib/usuarios/inicio";
 import { obtenerResumenDeProgreso } from "@/lib/gamificacion/progreso";
+import { zonaDetectadaDe } from "@/lib/ubicacion/zona-detectada";
 import CampanasParaTi from "@/components/campanas/CampanasParaTi";
+import BotonCrearCampana from "@/components/campanas/BotonCrearCampana";
+import AvisoSinTematicas from "@/components/campanas/AvisoSinTematicas";
 import ResumenDeRango from "@/components/gamificacion/ResumenDeRango";
 import ResumenDeHoy from "@/components/gamificacion/ResumenDeHoy";
 
@@ -62,7 +69,9 @@ function saludoDeInicio(): string {
 export default async function InicioPage() {
   const usuario = await exigirUsuario();
   const mostrarBienvenida = !usuario.bienvenida_vista && (await marcarBienvenidaVista(usuario.id));
-  const [resumen, progreso] = await Promise.all([obtenerResumenDeInicio(usuario), obtenerResumenDeProgreso(usuario.id)]);
+  const zona = await zonaDetectadaDe(Number(usuario.id)).catch(() => null);
+  const [resumen, progreso] = await Promise.all([obtenerResumenDeInicio(usuario, zona), obtenerResumenDeProgreso(usuario.id)]);
+  const conParaTi = usuario.intereses.length > 0 || Boolean(usuario.state?.trim()) || zona !== null;
   const { aportes, campanas } = resumen;
 
   return (
@@ -108,23 +117,32 @@ export default async function InicioPage() {
         )}
       </section>
 
-      <CampanasParaTi
-        id="inicio-para-ti"
-        campanas={resumen.paraTi}
-        accion={
-          <Link href="/campanas" className="text-[13px] font-semibold text-brand-600 hover:underline">
-            Ver todas →
-          </Link>
-        }
-        vacio={
-          <Card>
-            <p className="text-[13px] text-system-600">Por ahora no hay campañas activas para participar.</p>
-            <ButtonLink href="/mis-campanas/nueva" variant="secondary" size="sm" className="mt-3">
-              Crear una campaña
-            </ButtonLink>
-          </Card>
-        }
-      />
+      <AvisoSinTematicas sinTematicas={usuario.intereses.length === 0} clave="dfg:aviso-sin-tematicas-inicio">
+        <p>
+          Aún no eliges temáticas de interés. Agrégalas para mostrarte primero las campañas que te interesan y
+          avisarte cuando se abra una nueva.
+        </p>
+      </AvisoSinTematicas>
+
+      {conParaTi && (
+        <CampanasParaTi
+          id="inicio-para-ti"
+          campanas={resumen.paraTi}
+          accion={
+            <Link href="/campanas" className="text-[13px] font-semibold text-brand-600 hover:underline">
+              Ver todas →
+            </Link>
+          }
+          vacio={
+            <Card>
+              <p className="text-[13px] text-system-600">Por ahora no hay campañas activas de tus temáticas de interés ni de tu zona.</p>
+              <BotonCrearCampana variant="secondary" size="sm" className="mt-3">
+                Crear una campaña
+              </BotonCrearCampana>
+            </Card>
+          }
+        />
+      )}
 
       <div className="space-y-8 max-md:space-y-6">
         <section aria-labelledby="inicio-aportes">

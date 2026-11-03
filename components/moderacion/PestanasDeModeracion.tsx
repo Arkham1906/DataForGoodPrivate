@@ -6,5 +6,5 @@ import Subtabs from "@/components/sistema/subtabs";
 import { pestanasDeModeracion, type ZonaDeModeracion } from "@/lib/moderacion/rutas";
 
 export default function PestanasDeModeracion({ zona }: { zona: ZonaDeModeracion }) {
-  return <Subtabs pestanas={pestanasDeModeracion(zona)} etiquetaAria="Secciones de supervisión" />;
+  return <Subtabs pestanas={pestanasDeModeracion(zona)} etiquetaAria="Secciones de supervisión" unaFilaEnMovil />;
 }

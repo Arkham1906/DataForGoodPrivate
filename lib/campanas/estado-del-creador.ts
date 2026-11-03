@@ -30,15 +30,17 @@ export const CAMPOS_DE_EDICION_LIMITADA = new Set([
 
 /**
  * Pausada (2026-10-22, a pedido del usuario): además nombre, descripción, temática, propósito, tipos
- * de dato (con la cuota, que depende de ellos), checklists (texto y orden), inicio y ubicación.
+ * de dato (con la cuota, que depende de ellos), checklists (texto y orden), inicio y ubicación;
+ * la organización se puede cambiar desde el 2026-11-02.
  * La edición normal sigue pausada y avisa a quien la supervisa; desde Editar en una activa,
- * se pausa antes y se puede enviar a revisión al guardar. La organización no cambia.
+ * se pausa antes y se puede enviar a revisión al guardar.
  */
 export const CAMPOS_EDITABLES_EN_PAUSA = new Set([
   ...CAMPOS_DE_EDICION_LIMITADA,
   "etiquetas",
   "name",
   "description",
+  "organizer",
   "tematica",
   // Acompaña a `tematica` cuando el creador propone una nueva (2026-10-29); sin él, el formulario no
   // podía guardar ninguna pausada (lo manda siempre, true o false).
@@ -56,6 +58,8 @@ export const CAMPOS_EDITABLES_EN_PAUSA = new Set([
   "checklist_opciones",
   "quotaPerUser",
   "quota_per_user",
+  // Tope por persona de cada tipo (2026-10-31): va con la cuota.
+  "cuotaPorTipo",
   "startDate",
   "start_date",
   "startTime",
@@ -73,6 +77,7 @@ export const CAMPOS_EDITABLES_EN_PAUSA = new Set([
 export const COLUMNAS_AVISADAS_EN_PAUSA = [
   "name",
   "description",
+  "organizer",
   "tematica",
   "proposito",
   "proposito_otro",
@@ -81,6 +86,7 @@ export const COLUMNAS_AVISADAS_EN_PAUSA = [
   "checklist_secciones",
   "goal_contributions",
   "quota_per_user",
+  "cuota_por_tipo",
   "limite_por_tipo",
   "start_date",
   "start_time",

@@ -115,7 +115,7 @@ export default function CampaignContributionsPage() {
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-extrabold text-system-900">{campaign.name}</h1>
-          <p className="text-[13px] text-system-600">{campaign.tag} · campaña {isActive ? "activa" : "finalizada"}</p>
+          <p className="text-[13px] text-system-600">{campaign.tag} · campaña {isActive ? "activa" : campaign.status === "fallida" ? "incompleta" : "finalizada"}</p>
         </div>
         <div className="flex gap-2">
           <Link href={`/campanas/${campaign.id}`}><Button size="sm">Ver campaña</Button></Link>
@@ -135,17 +135,6 @@ export default function CampaignContributionsPage() {
         </div>
       </div>
 
-      <p className="mb-2 text-[12.5px] font-semibold text-system-900">Filtrar historial</p>
-      <div className="mb-5 flex flex-wrap gap-2">
-        <select className="rounded border border-system-300 bg-white px-3 py-2 text-[13px] text-system-900" aria-label="Filtrar por estado" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-          <option value="todos">Todos los estados</option>
-          <option value="aceptados">Aceptados</option>
-          <option value="revision">En revisión</option>
-          <option value="rechazados">Rechazados</option>
-        </select>
-        <Button size="sm" onClick={() => setStatusFilter("todos")}>Limpiar</Button>
-      </div>
-
       <div className="mb-4 flex flex-wrap gap-2">
         {[{ id: "todos", label: "Todos", count: visible.length }, { id: "aceptados", label: "Aceptados", count: accepted.length }, { id: "revision", label: "En revisión", count: pending.length }, { id: "rechazados", label: "Rechazados", count: rejected.length }].map((filter) => (
           <button key={filter.id} type="button" onClick={() => setStatusFilter(filter.id)} className={`rounded-pill border px-3 py-1.5 text-[12.5px] font-semibold ${statusFilter === filter.id ? "border-brand-600 bg-brand-600 text-white" : "border-system-300 bg-white text-system-600"}`}>
@@ -163,9 +152,9 @@ export default function CampaignContributionsPage() {
               <ContributionCard contribution={item} />
               {(item.status === "pendiente" || item.status === "espera_final") && isActive && (
                 <div className="-mt-2 rounded-b-lg border border-t-0 border-warning-500 bg-warning-50 px-4 pb-3 pt-4">
-                  <button type="button" className="text-[12px] font-bold text-error-700 underline disabled:cursor-not-allowed disabled:opacity-50" disabled={deletingId === item.id} onClick={() => setPorEliminar(item)}>
+                  <Button type="button" variant="danger" size="sm" disabled={deletingId === item.id} onClick={() => setPorEliminar(item)}>
                     Eliminar aporte
-                  </button>
+                  </Button>
                   <span className="ml-3 text-[11.5px] text-system-600">Solo puedes eliminar aportes en revisión.</span>
                 </div>
               )}

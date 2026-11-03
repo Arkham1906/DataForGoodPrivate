@@ -12,6 +12,7 @@ export default function Subtabs({
   etiquetaAria,
   listaEnMovil = false,
   distribuidasEnMovil = false,
+  unaFilaEnMovil = false,
   volverAlMenuEnMovil = false,
   menuInicialMovil = false,
 }: {
@@ -19,6 +20,7 @@ export default function Subtabs({
   etiquetaAria: string;
   listaEnMovil?: boolean;
   distribuidasEnMovil?: boolean;
+  unaFilaEnMovil?: boolean;
   volverAlMenuEnMovil?: boolean;
   menuInicialMovil?: boolean;
 }) {
@@ -42,7 +44,9 @@ export default function Subtabs({
             ? "hidden md:flex md:flex-wrap md:gap-1 md:border-b md:border-system-200"
             : listaEnMovil
               ? "grid min-h-[65svh] grid-cols-1 grid-rows-4 gap-3 md:min-h-0 md:grid-rows-none md:flex md:flex-wrap md:gap-1 md:border-b md:border-system-200"
-              : distribuidasEnMovil
+              : unaFilaEnMovil
+                ? "grid grid-cols-3 gap-1 md:flex md:flex-wrap md:gap-1 md:border-b md:border-system-200"
+                : distribuidasEnMovil
                 ? "grid grid-cols-2 gap-2 md:flex md:flex-wrap md:gap-1 md:border-b md:border-system-200"
               : "flex flex-wrap gap-1 border-b border-system-200"
         }`}
@@ -62,6 +66,12 @@ export default function Subtabs({
                     : `flex items-center rounded-lg border px-5 py-5 text-base font-medium transition-colors md:-mb-px md:rounded-none md:border-0 md:border-b-2 md:px-4 md:py-2.5 md:text-[13px] ${
                         activa
                           ? "border-brand-600 bg-brand-600 text-white md:bg-transparent md:font-bold md:text-brand-600"
+                          : "border-system-200 bg-white text-system-600 hover:bg-system-100 hover:text-system-900 md:border-transparent"
+                      }`
+                  : unaFilaEnMovil
+                    ? `flex min-w-0 items-center justify-center whitespace-nowrap rounded-lg border px-1 py-3 text-center text-[12px] font-medium transition-colors md:-mb-px md:flex-none md:rounded-none md:border-0 md:border-b-2 md:px-4 md:py-2.5 md:text-[13px] ${
+                        activa
+                          ? "border-brand-600 bg-brand-600 font-bold text-white md:bg-transparent md:text-brand-600"
                           : "border-system-200 bg-white text-system-600 hover:bg-system-100 hover:text-system-900 md:border-transparent"
                       }`
                   : distribuidasEnMovil

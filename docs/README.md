@@ -173,7 +173,7 @@ return <BotonesDeRol usuario={usuario} />;          // botones-de-rol.tsx (clien
 await asignarRol(id, "supervisor");                // lib/usuarios/acciones-usuarios.ts ("use server")
 ```
 
-**3. Páginas públicas y algunas de supervisión/revisión: Server Component con SQL o `lib/`.** Por ejemplo, `/explorar`, `/datos` y `/supervision/[id]/usuarios`. La landing `/` usa `revalidate = 300`, así que se prerenderiza en el build sin base de datos: sus consultas van en `try/catch`.
+**3. Páginas públicas y algunas de supervisión/revisión: Server Component con SQL o `lib/`.** Por ejemplo, `/explorar`, `/datos` y `/supervision/[id]/usuarios`. Desde el 2026-10-31 las públicas se arman en cada visita (`force-dynamic`) y se actualizan en vivo con `ActualizacionEnVivo`; las consultas de la landing siguen en `try/catch`.
 
 Para una **pantalla nueva**, se prefiere el patrón 2: Server Component que lee de `lib/`, con un componente cliente aparte para la interacción.
 

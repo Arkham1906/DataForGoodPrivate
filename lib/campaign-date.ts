@@ -12,6 +12,7 @@ import { pool } from "@/lib/db";
 import { notificar } from "@/lib/notificaciones/notificaciones";
 import { ahoraEnZona, fechaDDMMAAAA } from "@/lib/fecha-de-tepic";
 import { MAX_CAMPANAS_ACTIVAS } from "@/lib/campanas/estado-del-creador";
+import { explicacionDeFallida, sqlEstadoAlTerminar } from "@/lib/campanas/fallida";
 
 // Viven en lib/fecha-de-tepic.ts para que el navegador también las use.
 export { ZONA_DE_CAMPANAS, ahoraEnZona, hoyEnTepic, errorDeInicioPasado, errorDeFinAntesDeInicio } from "@/lib/fecha-de-tepic";
@@ -155,6 +156,9 @@ function nowLocalTimestampParam(): string {
  * se activan las que caben en MAX_CAMPANAS_ACTIVAS (por creador, en orden de inicio); las demás
  * siguen "aceptada", se activan en cuanto se libera un lugar y el creador recibe una vez
  * campana_en_espera. El candado evita que dos corridas a la vez cuenten las mismas activas.
+ *
+ * Desde el 2026-11-01 (a pedido del usuario) toda aceptada se activa sola al llegar su inicio; el creador
+ * puede activarla antes desde /mis-campanas. espera_activacion (2026-10-31: esperaban al creador) ya no cuenta.
  */
 export async function activateScheduledCampaigns(): Promise<void> {
   const ahora = nowLocalTimestampParam();
@@ -256,20 +260,24 @@ export async function activateScheduledCampaigns(): Promise<void> {
  * 00:00 (mismo comportamiento que antes de agregar la hora).
  */
 export async function finalizeExpiredCampaigns(): Promise<void> {
-  const { rows } = await pool.query<{ id: number; creator_id: number; name: string }>(
-    `UPDATE campanas SET status = 'finalizada', updated_at = NOW()
+  // Con menos del 25% de la meta en aprobados queda "fallida" (2026-11-01, lib/campanas/fallida.ts).
+  const { rows } = await pool.query<{ id: number; creator_id: number; name: string; status: string }>(
+    `UPDATE campanas SET status = ${sqlEstadoAlTerminar("campanas")}, updated_at = NOW()
      WHERE status = 'activa'
        AND end_date IS NOT NULL
        AND (end_date::timestamp + COALESCE(end_time, TIME '00:00:00')) <= $1::timestamp
-     RETURNING id, creator_id, name`,
+     RETURNING id, creator_id, name, status`,
     [nowLocalTimestampParam()]
   );
-  for (const { id, creator_id, name } of rows) {
+  for (const { id, creator_id, name, status } of rows) {
     await notificar({
       usuarioId: creator_id,
       tipo: "campana_finalizada",
-      titulo: "Tu campaña terminó",
-      mensaje: `"${name}" llegó a su fecha de fin y ya no recibe aportes.`,
+      titulo: status === "fallida" ? "Tu campaña terminó incompleta" : "Tu campaña terminó",
+      mensaje:
+        status === "fallida"
+          ? `"${name}" llegó a su fecha de fin y ${explicacionDeFallida()}`
+          : `"${name}" llegó a su fecha de fin y ya no recibe aportes.`,
       campanaId: id,
       enlace: `/mis-campanas/${id}/panel`,
     });

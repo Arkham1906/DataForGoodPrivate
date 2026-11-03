@@ -22,7 +22,9 @@ export type EstadoDeCampana =
   | "en_revision"
   | "borrador"
   | "rechazada"
-  | "finalizada";
+  | "finalizada"
+  // Terminó con menos del 25% de su meta en aprobados (2026-11-01, lib/campanas/fallida.ts).
+  | "fallida";
 
 export type TipoDeDato = "foto" | "video" | "audio" | "documento" | "texto";
 
@@ -30,13 +32,15 @@ type TonoDeEtiqueta = "default" | "ok" | "warn" | "danger";
 
 export const ETIQUETA_DE_CAMPANA: Record<EstadoDeCampana, { texto: string; tono: TonoDeEtiqueta }> = {
   activa: { texto: "Activa", tono: "ok" },
-  // Aceptada por el supervisor con fecha de inicio futura: se activa sola ese día.
-  aceptada: { texto: "Programada", tono: "ok" },
+  // Aceptada por la supervisión: espera a que el creador la active o, ya programada, a su fecha de inicio
+  // (2026-10-31; antes decía "Programada", porque solo la había con inicio futuro).
+  aceptada: { texto: "Aceptada", tono: "ok" },
   pausada: { texto: "Pausada", tono: "warn" },
   en_revision: { texto: "En revisión", tono: "warn" },
   borrador: { texto: "Borrador", tono: "default" },
   rechazada: { texto: "Rechazada", tono: "danger" },
   finalizada: { texto: "Finalizada", tono: "default" },
+  fallida: { texto: "Incompleta", tono: "warn" },
 };
 
 export const ORDEN_DE_ESTADOS: EstadoDeCampana[] = [
@@ -47,6 +51,7 @@ export const ORDEN_DE_ESTADOS: EstadoDeCampana[] = [
   "borrador",
   "rechazada",
   "finalizada",
+  "fallida",
 ];
 
 export const NOMBRE_DE_TIPO: Record<TipoDeDato, string> = {

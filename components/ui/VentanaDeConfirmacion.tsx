@@ -18,6 +18,7 @@ export default function VentanaDeConfirmacion({
   ocupado = false,
   peligro = false,
   confirmarDeshabilitado = false,
+  textoCancelar = "Cancelar",
   onCancelar,
   onConfirmar,
 }: {
@@ -31,6 +32,8 @@ export default function VentanaDeConfirmacion({
   peligro?: boolean;
   /** Deshabilita el botón de la acción (p. ej. falta llenar un campo del contenido). */
   confirmarDeshabilitado?: boolean;
+  /** Texto del botón para cerrar sin hacer nada (p. ej. "Ahora no" en un aviso). */
+  textoCancelar?: string;
   onCancelar: () => void;
   onConfirmar: () => void;
 }) {
@@ -74,7 +77,7 @@ export default function VentanaDeConfirmacion({
 
         <div className="flex flex-wrap justify-end gap-2 border-t border-system-200 p-4">
           <Button type="button" variant="ghost" size="sm" onClick={cancelar} disabled={ocupado}>
-            Cancelar
+            {textoCancelar}
           </Button>
           <Button type="button" variant={peligro ? "danger" : "primary"} size="sm" onClick={onConfirmar} disabled={ocupado || confirmarDeshabilitado}>
             {ocupado ? (

@@ -37,8 +37,9 @@ const nextConfig: NextConfig = {
           { key: "X-Content-Type-Options", value: "nosniff" },
           // Las URLs con token (/c/[token]) no se filtran completas a otros sitios.
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-          // La app no usa GPS ni cámara/micrófono del navegador (las fotos van por <input type="file">).
-          { key: "Permissions-Policy", value: "geolocation=(), camera=(), microphone=()" },
+          // Ni cámara ni micrófono (las fotos van por <input type="file">). GPS solo para el propio sitio
+          // (2026-10-31: zona por ubicación, lib/ubicacion/); nunca para un iframe ni otro origen.
+          { key: "Permissions-Policy", value: "geolocation=(self), camera=(), microphone=()" },
         ],
       },
       {

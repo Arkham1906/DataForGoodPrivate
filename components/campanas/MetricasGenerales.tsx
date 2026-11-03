@@ -57,7 +57,7 @@ export default function MetricasGenerales({ datos }: { datos: Datos }) {
   return (
     <div className="mt-8">
       <h2 className="mb-1 text-[15px] font-extrabold text-system-900">Métricas generales</h2>
-      <p className="mb-4 text-[12.5px] text-system-600">Según los tipos de dato, la ubicación y los checklists de la campaña.</p>
+      <p className="mb-4 text-[12.5px] text-system-600">Según los tipos de dato, la ubicación y las características de la campaña.</p>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Tarjeta titulo="Tipos de dato">
@@ -170,7 +170,7 @@ export default function MetricasGenerales({ datos }: { datos: Datos }) {
         {checklists.map((c, i) => (
           <Tarjeta
             key={`${c.tipo ?? ""}-${c.titulo}-${i}`}
-            titulo={`Checklist${c.etiquetaDeTipo ? ` de ${c.etiquetaDeTipo.toLowerCase()}` : ""}: ${c.titulo || "Características"}`}
+            titulo={`Característica${c.etiquetaDeTipo ? ` de ${c.etiquetaDeTipo.toLowerCase()}` : ""}: ${c.titulo || "Características"}`}
           >
             {c.aprobados === 0 ? (
               <Vacio>Las respuestas aparecen con los aportes aprobados.</Vacio>

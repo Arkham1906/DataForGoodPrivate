@@ -4,10 +4,11 @@ import { ESPECIALIDADES, claveDeCatalogo, validarEspecialidad, validarOrganizaci
 import { claveDeTematica } from "@/lib/tematicas/analizar";
 import { ETIQUETAS_BASE } from "@/lib/etiquetas/base";
 import { ensureAvisosDeCambios } from "@/lib/en-vivo-postgres";
-import { CALIFICACIONES_DE_APORTE } from "@/lib/aportes/calificacion";
+import { ESTRELLAS_MAXIMAS } from "@/lib/aportes/calificacion";
 import { PROPOSITOS } from "@/lib/campanas/proposito";
 import { TIPOS_DE_SANCION } from "@/lib/sanciones";
 import { DESTINOS_DE_APORTES } from "@/lib/usuarios/baja-opciones";
+import { sqlEstadoAlTerminar } from "@/lib/campanas/fallida";
 
 /**
  * Único lugar donde se define el DDL de cada tabla. Antes estaba duplicado
@@ -294,6 +295,9 @@ export async function ensureCampanasTable(): Promise<void> {
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS pausa_por VARCHAR(20);
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS pausa_motivo TEXT;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS pausada_en TIMESTAMPTZ;
+    -- Aprobada por la supervisión y esperando a que el creador la active (2026-10-31, a pedido del usuario):
+    -- mientras sea true, una "aceptada" no se activa sola (activateScheduledCampaigns). Las de antes, false.
+    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS espera_activacion BOOLEAN NOT NULL DEFAULT false;
     -- Columnas sin uso, borradas el 2026-10-30: cuota_por_tipo (reparto por tipo, quitado el
     -- 2026-10-27), days_remaining (se calcula de end_date), share_token y share_token_expires_at
     -- (campana_enlaces) y aportes (la tabla aportes).
@@ -491,6 +495,30 @@ export async function ensurePushSuscripcionesTable(): Promise<void> {
   `);
 }
 
+/**
+ * Zona donde está la persona según el GPS del navegador (2026-10-31, a pedido del usuario;
+ * lib/ubicacion/zona-detectada.ts). Solo estado y municipio: las coordenadas no se guardan.
+ * - usuario_zona_detectada: la última zona (una fila por persona). Sin fila, no compartió su ubicación.
+ * - usuario_avisos_de_zona: cuándo se le avisó de cada zona, para no repetir la misma en 24 horas.
+ */
+export async function ensureZonaDetectadaTables(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS usuario_zona_detectada (
+      usuario_id INTEGER PRIMARY KEY REFERENCES usuarios(id) ON DELETE CASCADE,
+      estado VARCHAR(80) NOT NULL,
+      municipio VARCHAR(120) NOT NULL,
+      detectada_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS usuario_avisos_de_zona (
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+      estado VARCHAR(80) NOT NULL,
+      municipio VARCHAR(120) NOT NULL,
+      avisado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (usuario_id, estado, municipio)
+    );
+  `);
+}
+
 export async function ensureCampanasGuardadasTable(): Promise<void> {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS campanas_guardadas (
@@ -560,7 +588,7 @@ export async function ensureAportesTable(): Promise<void> {
       description TEXT NOT NULL,
       file_type VARCHAR(20) NOT NULL,
       -- Lo que marcó en los checklists está en aporte_respuestas desde el 2026-10-30.
-      calificacion VARCHAR(20),
+      calificacion SMALLINT,
       status VARCHAR(20) NOT NULL DEFAULT 'pendiente',
       rejection_reason TEXT,
       first_pass_by VARCHAR(160),
@@ -579,7 +607,7 @@ export async function ensureAportesTable(): Promise<void> {
   `);
 
   await pool.query(`
-    ALTER TABLE aportes ADD COLUMN IF NOT EXISTS calificacion VARCHAR(20);
+    ALTER TABLE aportes ADD COLUMN IF NOT EXISTS calificacion SMALLINT;
     ALTER TABLE aportes ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
     ALTER TABLE aportes ADD COLUMN IF NOT EXISTS first_pass_by VARCHAR(160);
     ALTER TABLE aportes ADD COLUMN IF NOT EXISTS first_pass_by_user_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL;
@@ -605,6 +633,21 @@ export async function ensureAportesTable(): Promise<void> {
     ALTER TABLE aportes ADD COLUMN IF NOT EXISTS inapropiado_en TIMESTAMPTZ;
     -- El archivo (ruta en MinIO, MIME, tamaño y si se borró) está en la tabla archivos desde el
     -- 2026-10-30 (ensureArchivosTable): archivo_id NULL = aporte de solo texto.
+  `);
+
+  // Calificación en estrellas (2026-10-31, lib/aportes/calificacion.ts): la columna de texto pasa a número
+  // una sola vez (bien → 3, muy_bueno → 4, excelente → 5). Antes se quita la regla CHECK de los textos;
+  // ensureRestricciones pone la nueva (1 a 5).
+  await pool.query(`
+    DO $$
+    BEGIN
+      IF (SELECT data_type FROM information_schema.columns
+           WHERE table_name = 'aportes' AND column_name = 'calificacion') <> 'smallint' THEN
+        ALTER TABLE aportes DROP CONSTRAINT IF EXISTS aportes_calificacion_check;
+        ALTER TABLE aportes ALTER COLUMN calificacion TYPE SMALLINT USING
+          CASE calificacion WHEN 'bien' THEN 3 WHEN 'muy_bueno' THEN 4 WHEN 'excelente' THEN 5 END;
+      END IF;
+    END $$;
   `);
 }
 
@@ -665,7 +708,8 @@ export async function ensureArchivosTable(): Promise<void> {
 /**
  * Tipos de dato de cada campaña (2026-10-30, segunda tanda de la rama cambios-bd; lib/campanas/tipos-de-campana.ts):
  * una fila por tipo que pide, con su orden en el formulario, el límite TOTAL de aportes de ese tipo
- * (NULL = sin límite; lib/campanas/limite-por-tipo.ts), los no rechazados que lleva (los recalcula
+ * (NULL = sin límite; lib/campanas/limite-por-tipo.ts), el tope POR PERSONA (cuota_por_persona,
+ * 2026-10-31; lib/campanas/cuota-por-tipo.ts), los no rechazados que lleva (los recalcula
  * recalcularContadores) y, solo en "documento", los formatos de "Archivo" que acepta ([] = todos).
  * Reemplaza a campanas.data_types, limite_por_tipo, enviados_por_tipo y formatos_de_documento: la
  * primera vez copia lo que tenían (los enviados, contados desde aportes) y borra esas columnas.
@@ -682,6 +726,9 @@ export async function ensureCampanaTiposTable(): Promise<void> {
       PRIMARY KEY (campana_id, tipo)
     );
     CREATE INDEX IF NOT EXISTS campana_tipos_tipo_idx ON campana_tipos (tipo);
+    -- Tope por persona de este tipo (2026-10-31, a pedido del usuario; lib/campanas/cuota-por-tipo.ts):
+    -- además de la cuota general, cuántos aportes de este tipo puede mandar cada persona. NULL = sin tope.
+    ALTER TABLE campana_tipos ADD COLUMN IF NOT EXISTS cuota_por_persona INTEGER CHECK (cuota_por_persona > 0);
     DO $$
     BEGIN
       IF EXISTS (SELECT 1 FROM information_schema.columns
@@ -1547,8 +1594,8 @@ const MEDALLAS_BASE: ReadonlyArray<MedallaBase> = [
  *   - usuario_preferencias.avisos_gamificacion: un booleano por tipo de aviso (RF-GAM-61, RA-GAM-08);
  *     '{}' = todos con su valor por defecto. oculto_en_lideres: RF-GAM-95.
  *   - aportes.calidad: buena | excelente | excepcional (RF-GAM-09). Es una columna aparte de
- *     calificacion (bien | muy_bueno | excelente) porque "excelente" no significa lo mismo en las
- *     dos escalas; calificacion queda como histórico (RN-GAM-27: no hay EXP retroactiva).
+ *     calificacion (1 a 5 estrellas desde el 2026-10-31) porque son escalas distintas: las
+ *     estrellas no dan EXP; calificacion queda como histórico (RN-GAM-27: no hay EXP retroactiva).
  *     Quien aprobó es first_pass_by_user_id (solo lo escribe un REV; con el creador queda NULL).
  *   - aportes.invalidado_en y invalidacion_motivo (RF-GAM-53): columnas propias y no un valor nuevo
  *     de status, para no cambiar los conteos de campaña ni las pantallas de revisión.
@@ -2140,14 +2187,15 @@ function restricciones(): ReadonlyArray<[tabla: string, nombre: string, condicio
   return [
     // Estados de la campaña (lib/campanas/sistema-opciones.ts, EstadoDeCampana).
     ["campanas", "campanas_status_check",
-      `status IN ('borrador', 'en_revision', 'aceptada', 'activa', 'pausada', 'rechazada', 'finalizada')`],
+      `status IN ('borrador', 'en_revision', 'aceptada', 'activa', 'pausada', 'rechazada', 'finalizada', 'fallida')`],
     ["campanas", "campanas_collection_mode_check", `collection_mode IN ('checklist', 'texto_libre')`],
     // Quién la pausó (lib/campanas/pausa.ts).
     ["campanas", "campanas_pausa_por_check", `pausa_por IN ('creador', 'supervision')`],
     ["campanas", "campanas_proposito_check", `proposito IN (${lista(PROPOSITOS.map((p) => p.valor))})`],
     // espera_final: campañas de antes del 2026-10-06 (ESTADOS_SIN_DECISION de lib/aportes/decision.ts).
     ["aportes", "aportes_status_check", `status IN ('pendiente', 'espera_final', 'aceptado', 'rechazado')`],
-    ["aportes", "aportes_calificacion_check", `calificacion IN (${lista(CALIFICACIONES_DE_APORTE.map((c) => c.valor))})`],
+    // Estrellas de 1 a 5 (2026-10-31, lib/aportes/calificacion.ts).
+    ["aportes", "aportes_calificacion_check", `calificacion BETWEEN 1 AND ${ESTRELLAS_MAXIMAS}`],
     ["reportes", "reportes_estado_check", `estado IN ('pendiente', 'descartado', 'sancionado')`],
     ["reportes", "reportes_origen_check", `origen IN ('usuario', 'rechazo', 'supervision')`],
     ["sanciones", "sanciones_tipo_check", `tipo IN (${lista(TIPOS_DE_SANCION)})`],
@@ -2172,6 +2220,19 @@ export async function ensureRestricciones(): Promise<void> {
   }
 }
 
+/**
+ * Cada campaña terminada con el estado que le toca por la regla de fallida (2026-11-01, decisión del
+ * usuario; lib/campanas/fallida.ts): las finalizadas de antes con menos del 25% de su meta en aprobados
+ * pasan a "fallida", y al revés. Sin avisos. Después de ensureRestricciones, que ya admite 'fallida'.
+ */
+export async function ensureEstadoDeTerminadas(): Promise<void> {
+  const { rowCount } = await pool.query(
+    `UPDATE campanas SET status = ${sqlEstadoAlTerminar("campanas")}
+     WHERE status IN ('finalizada', 'fallida') AND status <> ${sqlEstadoAlTerminar("campanas")}`
+  );
+  if (rowCount) console.log(`Campañas terminadas que cambiaron entre finalizada y fallida: ${rowCount}`);
+}
+
 export async function ensureCoreSchema(): Promise<void> {
   await ensureUsuariosTable();
   await ensureUsuarioPreferenciasTable(); // después de usuarios: copia sus preferencias y borra esas columnas
@@ -2187,6 +2248,7 @@ export async function ensureCoreSchema(): Promise<void> {
   await ensureCampanaBaneadosTable();
   await ensureNotificacionesTable();
   await ensurePushSuscripcionesTable();
+  await ensureZonaDetectadaTables();
   await ensureCampanasGuardadasTable();
   await ensureCampanaEnlacesTable(); // antes de aportes: aportes.enlace_id la referencia
   await ensureAportesTable();
@@ -2208,5 +2270,6 @@ export async function ensureCoreSchema(): Promise<void> {
   await ensureFechasConZona(); // después de crear las tablas: TIMESTAMP → TIMESTAMPTZ
   await ensureIndicesDeLlaves();
   await ensureRestricciones();
+  await ensureEstadoDeTerminadas(); // después de las reglas: el CHECK ya admite 'fallida'
   await ensureAvisosDeCambios(); // al final: pone triggers en las tablas de arriba
 }

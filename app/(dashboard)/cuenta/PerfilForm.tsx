@@ -80,6 +80,17 @@ export default function PerfilForm({
   const [error, setError] = useState("");
   const [avisoVisible, setAvisoVisible] = useState(false);
 
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("resaltarOrganizacion") !== "1") return;
+    const apartado = document.getElementById("organizacion");
+    if (!apartado) return;
+
+    apartado.classList.add("organizacion-resaltada");
+    apartado.scrollIntoView({ behavior: "smooth", block: "center" });
+
+    return () => apartado.classList.remove("organizacion-resaltada");
+  }, []);
+
   // Los valores guardados: a ellos vuelve "Descartar cambios".
   const [guardado, setGuardado] = useState({
     nombre: usuario.nombre,
@@ -278,18 +289,21 @@ export default function PerfilForm({
               <CampoDeEspecialidad value={specialty} onChange={setSpecialty} />
             </Field>
 
-            <Field
-              label="¿Perteneces a alguna organización?"
-              hint="Opcional. Elige una de la lista o escribe la tuya. Se propone como organizadora al crear una campaña."
-            >
-              <CampoDeOrganizacion value={organizacion} onChange={setOrganizacion} />
-            </Field>
+            <div id="organizacion" className="scroll-mt-24 p-3 -m-3">
+              <Field
+                label="¿Perteneces a alguna organización?"
+                hint="Opcional para tu perfil, pero necesaria para crear campañas. Elige una de la lista o escribe la tuya."
+              >
+                <CampoDeOrganizacion value={organizacion} onChange={setOrganizacion} />
+              </Field>
+            </div>
           </div>
         </section>
 
         {children}
 
-        <section className="rounded-lg border border-system-200 bg-white p-5 md:col-span-2">
+        {/* id: destino del aviso "Agrega tus temáticas" de /campanas (2026-11-02). */}
+        <section id="mis-intereses" className="scroll-mt-24 rounded-lg border border-system-200 bg-white p-5 md:col-span-2">
           <div className="mb-4">
             <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-system-500">
               Mis intereses

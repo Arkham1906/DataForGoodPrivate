@@ -1,6 +1,7 @@
 // /api/eventos — actualización en vivo (long polling, 2026-10-19; lib/en-vivo.ts).
-// Lo llama components/layout/ActualizacionEnVivo en bucle, en la zona de usuario y en el panel del
-// SuperUsuario. La petición se queda esperando en el servidor hasta que hay algo nuevo o pasan
+// Lo llama components/layout/ActualizacionEnVivo en bucle, en la zona de usuario, en el panel del
+// SuperUsuario y, desde el 2026-10-31, en las páginas públicas (/, /explorar, /datos, /datos/[id] y
+// /c/[token]): sin sesión solo recibe `version`, nunca notificaciones. La petición se queda esperando en el servidor hasta que hay algo nuevo o pasan
 // ESPERA_MS, y entonces responde:
 //  - `tipos`: notificaciones nuevas de la persona (solo con sesión de usuario).
 //  - `version`: sube con cada cambio de contenido en la base; si cambió, las pantallas recargan.
@@ -10,7 +11,6 @@
 import { NextResponse } from "next/server";
 import { pool } from "@/lib/db";
 import { getSessionUser } from "@/lib/session";
-import { hasRootSession } from "@/lib/rootSession";
 import { escucharAvisos, escucharCambios, versionDeCambios } from "@/lib/en-vivo";
 
 /** Cuánto espera una petición sin novedades (menos que el corte por inactividad de los proxies). */
@@ -38,10 +38,8 @@ function entero(valor: string | null): number | null | "invalido" {
 // sea distinta de `version`; si no, a los 25 s sin novedades.
 export async function GET(request: Request) {
   try {
+    // Sin sesión (páginas públicas) también responde, pero solo con la versión de cambios.
     const user = await getSessionUser();
-    if (!user && !(await hasRootSession())) {
-      return NextResponse.json({ error: "Debes iniciar sesion" }, { status: 401 });
-    }
     const usuarioId = user ? Number(user.id) : null;
     const sinCache = { headers: { "Cache-Control": "no-store" } };
 

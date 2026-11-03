@@ -14,6 +14,7 @@ import { Field, Textarea } from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import type { Campaign } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
+import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 import { respuestasValidas, seccionesParaElAporte } from "@/lib/campanas/checklist";
 import ChecklistsDelAporte from "@/components/aportes/ChecklistsDelAporte";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
@@ -25,6 +26,7 @@ import SelectorDeArchivo from "@/components/ui/SelectorDeArchivo";
 import { archivoEsOpcional, tiposAceptados } from "@/lib/aportes/archivo";
 import { avisoDeTodoLleno, resumenDeLimites, tiposConLugar } from "@/lib/campanas/limite-por-tipo";
 import { repartoSugerido } from "@/lib/campanas/reparto-sugerido";
+import { mapaPorTipo, resumenDeLoQueQueda, tiposDentroDeSuCuota, type MiosPorTipo } from "@/lib/campanas/cuota-por-tipo";
 
 export default function AportarPage() {
   const params = useParams<{ id: string }>();
@@ -36,6 +38,8 @@ export default function AportarPage() {
   const [baneado, setBaneado] = useState(false);
   const [motivoDeBaneo, setMotivoDeBaneo] = useState<string | null>(null);
   const [submittedCount, setSubmittedCount] = useState(0);
+  // Cuántos lleva de cada tipo, para el máximo por persona de cada tipo (2026-10-31).
+  const [misPorTipo, setMisPorTipo] = useState<MiosPorTipo>({});
   // Tipo de cada aporte ya enviado, para lo que queda de cada tipo (cuota por tipo).
   const [loadError, setLoadError] = useState<string | null>(null);
   // 404: no existe o no la puede ver (lib/campanas/visibilidad.ts).
@@ -48,6 +52,9 @@ export default function AportarPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // En vivo (2026-10-31): si la campaña se pausa, finaliza o se llena, o banean a la persona, la
+  // pantalla lo muestra sin recargar. Solo vuelve a leer la campaña y la cuota: lo escrito no se pierde.
+  const recarga = useRecargaEnVivo();
   useEffect(() => {
     async function loadCampaign() {
       try {
@@ -72,13 +79,19 @@ export default function AportarPage() {
         if (aportesRes.ok) {
           const enviados: unknown[] = Array.isArray(aportesPayload.data) ? aportesPayload.data : [];
           setSubmittedCount(enviados.length);
+          const porTipo: Record<string, number> = {};
+          for (const aporte of enviados as { fileType?: string }[]) {
+            const tipo = String(aporte.fileType ?? "");
+            porTipo[tipo] = (porTipo[tipo] ?? 0) + 1;
+          }
+          setMisPorTipo(mapaPorTipo(porTipo));
         }
       } catch (cause) {
         setLoadError(cause instanceof Error ? cause.message : "No se pudo cargar la campaña");
       }
     }
     void loadCampaign();
-  }, [params.id]);
+  }, [params.id, recarga]);
 
   if (noEncontrada) return <AvisoNoEncontrado volverA="/campanas" textoVolver="Volver a campañas" />;
   if (loadError) return <p className="text-sm text-error-700">{loadError}</p>;
@@ -102,7 +115,12 @@ export default function AportarPage() {
   const limitePorTipo = campaign.limitePorTipo ?? {};
   const enviadosPorTipo = campaign.enviadosPorTipo ?? {};
   const todosLosTipos = tiposAceptados(campaign.dataTypes);
-  const tipos = tiposConLugar(todosLosTipos, limitePorTipo, enviadosPorTipo);
+  // Y sin los que ya llegaron a su máximo por persona (2026-10-31, lib/campanas/cuota-por-tipo.ts).
+  const cuotaPorTipo = campaign.cuotaPorTipo ?? {};
+  const tiposConEspacio = tiposConLugar(todosLosTipos, limitePorTipo, enviadosPorTipo);
+  const tipos = tiposDentroDeSuCuota(tiposConEspacio, cuotaPorTipo, misPorTipo);
+  const loQueQueda = resumenDeLoQueQueda(todosLosTipos, cuotaPorTipo, misPorTipo);
+  const sinTiposPropios = tiposConEspacio.length > 0 && tipos.length === 0;
   const resumenLimites = resumenDeLimites(todosLosTipos, limitePorTipo, enviadosPorTipo);
   const todoLleno = avisoDeTodoLleno(todosLosTipos, limitePorTipo, enviadosPorTipo);
   // La API ya convierte las campañas viejas (lista plana) en un checklist sin título. Solo se
@@ -142,7 +160,7 @@ export default function AportarPage() {
     }
   }
 
-  const canSubmit = inscrito && !quotaReached && !todoLleno && (Boolean(file) || archivoEsOpcional(tipos)) && description.trim().length > 0 && description.length <= 1000 && !submitting;
+  const canSubmit = inscrito && !quotaReached && !todoLleno && !sinTiposPropios && (Boolean(file) || archivoEsOpcional(tipos)) && description.trim().length > 0 && description.length <= 1000 && !submitting;
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -151,7 +169,17 @@ export default function AportarPage() {
         {campaign.name} · aporte {Math.min(submittedCount + 1, campaign.quotaPerUser)}{" "}
         de tu cuota de {campaign.quotaPerUser}
       </p>
-      {sugerencia && !quotaReached && (
+      {loQueQueda && !quotaReached && (
+        <p className="-mt-4 mb-6 text-[12.5px] text-system-600">
+          Máximo por persona de cada tipo. Te quedan <span className="font-semibold text-system-900">{loQueQueda}</span>.
+        </p>
+      )}
+      {sinTiposPropios && !quotaReached && !todoLleno && (
+        <p className="mb-5 rounded-lg border border-system-300 bg-system-100 p-3 text-[13px] text-system-700">
+          Ya enviaste el máximo de cada tipo que permite esta campaña.
+        </p>
+      )}
+      {sugerencia && !loQueQueda && !quotaReached && (
         <p className="-mt-4 mb-6 text-[12.5px] text-system-600">
           Puedes mandar cualquier tipo. Para que los datos queden balanceados, te sugerimos{" "}
           <span className="font-semibold text-system-900">{sugerencia}</span>.

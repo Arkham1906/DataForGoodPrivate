@@ -20,6 +20,7 @@ import { registrarAuditoria } from "@/lib/auditoria";
 import { recalcularContadores } from "@/lib/aportes/comun";
 import { retirarComoRevisorDeTodasLasCampanas } from "@/lib/usuarios/revisor";
 import { MINUTOS_DE_GRACIA, type DestinoDeAportes } from "@/lib/usuarios/baja-opciones";
+import { sqlEstadoAlTerminar } from "@/lib/campanas/fallida";
 
 /** Nombre con el que quedan los aportes anonimizados. */
 const NOMBRE_ANONIMO = "Anónimo";
@@ -129,7 +130,8 @@ export async function solicitarBaja(usuarioId: number, destino: DestinoDeAportes
       [usuarioId]
     );
     const finalizadas = await client.query(
-      `UPDATE campanas SET status = 'finalizada', updated_at = NOW()
+      // Con menos del 25% de la meta en aprobados quedan "fallida" (2026-11-01, lib/campanas/fallida.ts).
+      `UPDATE campanas SET status = ${sqlEstadoAlTerminar("campanas")}, updated_at = NOW()
        WHERE creator_id = $1 AND status IN ('activa', 'pausada')`,
       [usuarioId]
     );
@@ -258,6 +260,9 @@ async function ejecutarBaja(usuarioId: number): Promise<void> {
 
     await client.query(`DELETE FROM notificaciones WHERE usuario_id = $1`, [usuarioId]);
     await client.query(`DELETE FROM push_suscripciones WHERE usuario_id = $1`, [usuarioId]);
+    // Dónde estuvo (2026-10-31): estado y municipio detectados por GPS y sus avisos.
+    await client.query(`DELETE FROM usuario_zona_detectada WHERE usuario_id = $1`, [usuarioId]);
+    await client.query(`DELETE FROM usuario_avisos_de_zona WHERE usuario_id = $1`, [usuarioId]);
     await client.query(`DELETE FROM campanas_guardadas WHERE usuario_id = $1`, [usuarioId]);
     await client.query(`DELETE FROM sessions WHERE usuario_id = $1`, [usuarioId]);
     // Sus campañas (finalizadas) se quedan, pero sin su nombre: creator_name es una copia.

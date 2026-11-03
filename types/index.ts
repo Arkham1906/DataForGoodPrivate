@@ -13,6 +13,7 @@ export type CampaignStatus =
   | "activa"
   | "pausada"
   | "finalizada"
+  | "fallida" // terminó con menos del 25% de la meta en aprobados (lib/campanas/fallida.ts)
   | "rechazada";
 
 export type DataType = "texto" | "foto" | "video" | "audio" | "documento";
@@ -71,6 +72,10 @@ export interface Campaign {
   quotaPerUser: number;
   /** Límite TOTAL de aportes por tipo de dato (2026-10-28, opcional; lib/campanas/limite-por-tipo.ts). */
   limitePorTipo?: Partial<Record<DataType, number>>;
+  /** Tope por persona de cada tipo, aparte de quotaPerUser (2026-10-31, lib/campanas/cuota-por-tipo.ts). */
+  cuotaPorTipo?: Partial<Record<DataType, number>>;
+  /** "aceptada" que espera a que su creador la active (2026-10-31); false si ya la activó o programó. */
+  esperaActivacion?: boolean;
   /** Aportes no rechazados de cada tipo (lo que llena el límite). */
   enviadosPorTipo?: Partial<Record<DataType, number>>;
   currentContributions: number;
@@ -112,6 +117,7 @@ export interface Contribution {
   id: string;
   campaignId: string;
   campaignName: string;
+  campaignTematica?: string;
   userId: string | null; // null = aporte anónimo
   participantName: string; // "Anónimo" cuando userId es null
   participantEmail?: string;
@@ -120,7 +126,7 @@ export interface Contribution {
   fileSizeBytes?: number;
   sinArchivo?: boolean; // aporte de solo texto: la descripción es el dato (2026-10-14)
   caracteristicas?: string[];
-  calificacion?: "bien" | "muy_bueno" | "excelente";
+  calificacion?: number; // estrellas, de 1 a 5 (2026-10-31; lib/aportes/calificacion.ts)
   status: ContributionStatus;
   /** Indica si la sesión actual puede revisar este aporte (no es quien lo envió). */
   canReview?: boolean;
@@ -132,6 +138,10 @@ export interface Contribution {
   archivoBorrado?: boolean; // el creador borró el archivo de MinIO
   // Reporte del revisor a supervisión ("Reportar a supervisión"). Solo lo ven los revisores.
   reporte?: { motivo: string; revisor: string; en: string } | null;
+  /** Solo al creador: un revisor ya lo reportó a supervisión; no se dice quién ni por qué (2026-10-31). */
+  reportadoASupervision?: boolean;
+  /** Solo al creador y a los revisores: la campaña finalizó, así que reportar ya no rechaza el aporte (2026-10-31). */
+  campanaFinalizada?: boolean;
   /** Solo para el creador y los revisores: ya reportaste a quien aportó a la plataforma (2026-10-12). */
   participanteReportado?: boolean;
   dispositivoBloqueadoId?: string | null; // solo al creador: bloqueo en la campaña del dispositivo anónimo

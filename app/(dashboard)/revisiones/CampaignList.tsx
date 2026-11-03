@@ -13,6 +13,7 @@ import { BASE_PATH } from "@/lib/base-path";
 import { FILTROS_VACIOS, avisoSinResultados, filtrarCampanas, opcionesDeTematica, type FiltrosLocales } from "@/lib/campanas/filtro-local";
 import { EsqueletoDeFilas } from "@/components/ui/Esqueletos";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
+import { estaTerminada } from "@/lib/campanas/fallida";
 
 type ReviewCampaign = {
   id: string;
@@ -58,10 +59,10 @@ export default function CampaignList({ completed = false }: { completed?: boolea
 
   const activeTab = completed ? "finalizadas" : "curso";
   const title = completed ? "Campañas finalizadas" : "Campañas en curso";
-  const currentCount = campaigns.filter((campaign) => campaign.status !== "finalizada").length;
-  const completedCount = campaigns.filter((campaign) => campaign.status === "finalizada").length;
+  const currentCount = campaigns.filter((campaign) => !estaTerminada(campaign.status)).length;
+  const completedCount = campaigns.filter((campaign) => estaTerminada(campaign.status)).length;
   const tabCampaigns = useMemo(
-    () => campaigns.filter((campaign) => completed ? campaign.status === "finalizada" : campaign.status !== "finalizada"),
+    () => campaigns.filter((campaign) => completed ? estaTerminada(campaign.status) : !estaTerminada(campaign.status)),
     [campaigns, completed]
   );
   const visibleCampaigns = useMemo(() => filtrarCampanas(tabCampaigns, filtros, tematicaDe), [tabCampaigns, filtros]);

@@ -17,17 +17,23 @@ import {
   cuerpoDemasiadoGrande,
   errorDeArchivo,
   guardarArchivoDelAporte,
+  aportesDeLaPersonaPorTipo,
   insertarAporteConCuota,
   tiposConLugarParaElAporte,
+  tiposDentroDeLaCuotaParaElAporte,
   tiposAceptados,
 } from "@/lib/aportes/comun";
+import { cuotaPorTipoDesdeFila } from "@/lib/campanas/cuota-por-tipo";
 import { inscripcionDe } from "@/lib/campanas/inscripciones";
 import { avisoDePausa, pausaDesdeFila } from "@/lib/campanas/pausa";
+import { calificacionDesde } from "@/lib/aportes/calificacion";
 
 function mapAporte(row: Record<string, unknown>) {
   return {
     id: String(row.id ?? ""),
     campaignId: String(row.campaign_id ?? ""),
+    campaignName: String(row.campaign_name ?? ""),
+    campaignTematica: row.campaign_tematica != null ? String(row.campaign_tematica) : undefined,
     userId: row.user_id != null ? String(row.user_id) : null,
     participantName: String(row.participant_name ?? "Anónimo"),
     participantEmail: row.participant_email ? String(row.participant_email) : undefined,
@@ -37,7 +43,7 @@ function mapAporte(row: Record<string, unknown>) {
     sinArchivo: !row.file_path,
     archivoBorrado: row.archivo_borrado_en != null,
     caracteristicas: Array.isArray(row.caracteristicas) ? row.caracteristicas : [],
-    calificacion: row.calificacion ? String(row.calificacion) : undefined,
+    calificacion: calificacionDesde(row.calificacion) ?? undefined,
     status: String(row.status ?? "pendiente"),
     submittedAt: row.submitted_at ? new Date(String(row.submitted_at)).toISOString() : new Date().toISOString(),
     rejectionReason: row.rejection_reason ? String(row.rejection_reason) : undefined,
@@ -55,7 +61,7 @@ export async function GET(request: Request) {
     const mine = url.searchParams.get("mine") === "true";
     const reviewer = url.searchParams.get("reviewer") === "true";
 
-    if (!campaignId) {
+    if (!campaignId && !mine) {
       return NextResponse.json({ error: "campaignId es obligatorio" }, { status: 400 });
     }
 
@@ -64,7 +70,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Debes iniciar sesion" }, { status: 401 });
     }
 
-    if (!mine) {
+    if (!mine && campaignId) {
       const campaignResult = await pool.query(
         `SELECT c.creator_id,
                 EXISTS (
@@ -84,24 +90,45 @@ export async function GET(request: Request) {
       }
     }
 
-    const result = mine
+    const result = mine && !campaignId
       ? await pool.query(
-          `SELECT *, ${columnasDeArchivo()}, ${columnaDeRespuestas()} FROM aportes WHERE campaign_id = $1 AND user_id = $2 ORDER BY submitted_at DESC`,
-          [campaignId, user.id]
+          `SELECT a.*, c.name AS campaign_name,
+                  COALESCE(NULLIF(c.tematica, ''), c.tag, '') AS campaign_tematica,
+                  ${columnasDeArchivo("a")}, ${columnaDeRespuestas("a")}
+           FROM aportes a JOIN campanas c ON c.id = a.campaign_id
+           WHERE a.user_id = $1 ORDER BY a.submitted_at DESC`,
+          [user.id]
         )
-      : reviewer
+      : mine
         ? await pool.query(
-            `SELECT *, ${columnasDeArchivo()}, ${columnaDeRespuestas()} FROM aportes
-             WHERE campaign_id = $1
-               AND user_id IS DISTINCT FROM $2
-               AND (status = 'pendiente' OR first_pass_by_user_id = $2)
-             ORDER BY submitted_at DESC`,
+            `SELECT a.*, c.name AS campaign_name,
+                    COALESCE(NULLIF(c.tematica, ''), c.tag, '') AS campaign_tematica,
+                    ${columnasDeArchivo("a")}, ${columnaDeRespuestas("a")}
+             FROM aportes a JOIN campanas c ON c.id = a.campaign_id
+             WHERE a.campaign_id = $1 AND a.user_id = $2
+             ORDER BY a.submitted_at DESC`,
             [campaignId, user.id]
           )
-      : await pool.query(
-          `SELECT *, ${columnasDeArchivo()}, ${columnaDeRespuestas()} FROM aportes WHERE campaign_id = $1 ORDER BY submitted_at DESC`,
-          [campaignId]
-        );
+        : reviewer
+          ? await pool.query(
+              `SELECT a.*, c.name AS campaign_name,
+                      COALESCE(NULLIF(c.tematica, ''), c.tag, '') AS campaign_tematica,
+                      ${columnasDeArchivo("a")}, ${columnaDeRespuestas("a")}
+               FROM aportes a JOIN campanas c ON c.id = a.campaign_id
+               WHERE a.campaign_id = $1
+                 AND a.user_id IS DISTINCT FROM $2
+                 AND (a.status = 'pendiente' OR a.first_pass_by_user_id = $2)
+               ORDER BY a.submitted_at DESC`,
+              [campaignId, user.id]
+            )
+          : await pool.query(
+              `SELECT a.*, c.name AS campaign_name,
+                      COALESCE(NULLIF(c.tematica, ''), c.tag, '') AS campaign_tematica,
+                      ${columnasDeArchivo("a")}, ${columnaDeRespuestas("a")}
+               FROM aportes a JOIN campanas c ON c.id = a.campaign_id
+               WHERE a.campaign_id = $1 ORDER BY a.submitted_at DESC`,
+              [campaignId]
+            );
 
     // El revisor solo necesita el contenido: el correo del participante no le corresponde.
     const aportes = result.rows.map(mapAporte);
@@ -198,9 +225,18 @@ export async function POST(request: Request) {
     // Límite total por tipo de dato (2026-10-28): aviso antes de subir; solo se aceptan los tipos con lugar.
     const conLugar = tiposConLugarParaElAporte(file, tipos, limitePorTipoDesdeFila(campaign), enviadosPorTipoDesdeFila(campaign));
     if (!conLugar.ok) return NextResponse.json({ error: conLugar.error }, { status: 400 });
+    // Tope por persona de cada tipo (2026-10-31): solo los tipos en los que aún no llega a su máximo.
+    const dentroDeSuCuota = tiposDentroDeLaCuotaParaElAporte(
+      file,
+      conLugar.tipos,
+      tipos,
+      cuotaPorTipoDesdeFila(campaign),
+      await aportesDeLaPersonaPorTipo(campaignId, { usuarioId: user.id }),
+    );
+    if (!dentroDeSuCuota.ok) return NextResponse.json({ error: dentroDeSuCuota.error }, { status: 400 });
 
     // Se comprueba por su contenido y se guarda sin los metadatos que se pueden quitar.
-    const subida = await guardarArchivoDelAporte(file, campaignId, conLugar.tipos, formatosDeDocumento);
+    const subida = await guardarArchivoDelAporte(file, campaignId, dentroDeSuCuota.tipos, formatosDeDocumento);
     if (!subida.ok) return NextResponse.json({ error: subida.error }, { status: 400 });
     const { tipo, guardado: saved } = subida.archivo;
     // Solo respuestas de los checklists del tipo real del archivo ("Título: opción"; 2026-10-28).
@@ -220,6 +256,7 @@ export async function POST(request: Request) {
         );
         return Number(rows[0]?.count ?? 0);
       },
+      contarDelTipo: async (client) => (await aportesDeLaPersonaPorTipo(campaignId, { usuarioId: user.id }, client))[tipo] ?? 0,
       insertar: async (client) => {
         // El archivo va a la tabla archivos (2026-10-30). Sin nombre original: el del teléfono puede
         // traer nombres o fechas, y nadie lo usa. Aporte de solo texto: sin archivo (archivo_id NULL).
@@ -248,7 +285,9 @@ export async function POST(request: Request) {
       },
     });
     if (!insertado.ok) {
-      if (insertado.motivo === "tipo_lleno") return NextResponse.json({ error: insertado.error }, { status: 400 });
+      if (insertado.motivo === "tipo_lleno" || insertado.motivo === "cuota_del_tipo") {
+        return NextResponse.json({ error: insertado.error }, { status: 400 });
+      }
       return NextResponse.json({ error: "Ya alcanzaste tu cuota en esta campaña" }, { status: 400 });
     }
 

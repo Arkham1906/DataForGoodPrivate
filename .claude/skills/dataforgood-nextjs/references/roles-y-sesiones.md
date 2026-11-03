@@ -34,7 +34,7 @@ Las reglas de negocio y los puntos abiertos están en `dominio.md`, secciones 1,
 
 ## 3. Roles
 
-`usuarios.role` es JSONB con códigos de `lib/roles.ts`: `usuario` (siempre), `supervisor`, `revisor` y `admin` (sin uso definido).
+Los roles viven en la tabla `usuario_roles` (desde el 2026-10-30; antes `usuarios.role` JSONB), una fila por rol con los códigos de `lib/roles.ts`: `usuario` (siempre: lo da un trigger al crear la cuenta), `supervisor`, `revisor` y `admin` (sin uso definido). Se leen con `columnaDeRoles("u")`, que devuelve `role` como antes (`["usuario", "supervisor"]`); se filtra con `condicionDeRol("u", "'supervisor'")` y se cambian con `agregarRol`/`quitarRol` (`lib/usuarios/tabla-roles.ts`). Nunca `role @>`: la columna ya no existe.
 
 | Rol | Cómo se obtiene | Qué habilita |
 | --- | --- | --- |

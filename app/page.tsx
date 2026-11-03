@@ -1,10 +1,12 @@
 // Pantalla / (landing pública). Server Component.
 // Datos: cifras con SQL directo (lib/db.ts) y conjuntos destacados de lib/open-data.ts.
-// Se prerrenderiza (revalidate = 300): el build corre sin BD, por eso las consultas van en try/catch.
+// Se arma en cada visita y se actualiza en vivo (ActualizacionEnVivo, 2026-10-31; antes revalidate = 300). Las
+// consultas van en try/catch: si la BD no responde, las cifras salen en 0 en vez de tumbar la página.
 
 import Link from "next/link";
 import PublicHeader from "@/components/layout/PublicHeader";
 import PublicFooter from "@/components/layout/PublicFooter";
+import ActualizacionEnVivo from "@/components/layout/ActualizacionEnVivo";
 import ButtonLink from "@/components/ui/ButtonLink";
 import ContadorAnimado from "@/components/ui/ContadorAnimado";
 import Card from "@/components/ui/Card";
@@ -21,7 +23,8 @@ import { DATA_TYPE_LABELS, buscarConjuntosAbiertos, contarConjuntosPublicados } 
 
 // Página pública: se regenera cada cinco minutos y el resto del tiempo se
 // sirve estática, para no golpear la base de datos en cada visita.
-export const revalidate = 300;
+// En vivo (2026-10-31): se arma en cada visita, sin la caché de cinco minutos de antes.
+export const dynamic = "force-dynamic";
 
 const nf = new Intl.NumberFormat("es-MX");
 
@@ -65,10 +68,8 @@ const CIFRAS_VACIAS: CifrasReales = {
 
 /**
  * Tracción real de la plataforma: sin "+" ni cifras redondeadas, son conteos
- * exactos de la BD. Esta página se prerrenderiza en el build (revalidate =
- * 300) y ese build corre sin Postgres disponible (imagen de Docker, sin la
- * red de docker-compose); igual que contarFilas en metricas.ts, si la BD no
- * responde se muestra en 0 en vez de tumbar el build o la página.
+ * exactos de la BD. Igual que contarFilas en metricas.ts, si la BD no responde
+ * se muestra en 0 en vez de tumbar la página.
  */
 async function obtenerCifras(): Promise<CifrasReales> {
   try {
@@ -400,6 +401,7 @@ export default async function LandingPage() {
 
       </main>
 
+      <ActualizacionEnVivo />
       <PublicFooter />
     </div>
   );

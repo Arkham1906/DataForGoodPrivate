@@ -27,7 +27,8 @@ import VentanaDeConfirmacion from "@/components/ui/VentanaDeConfirmacion";
 import { MOTIVOS_DE_REPORTE_DE_APORTE } from "@/lib/reportes/motivos";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 import SelectorDeCalificacion from "@/components/aportes/SelectorDeCalificacion";
-import { etiquetaDeCalificacion, type CalificacionDeAporte } from "@/lib/aportes/calificacion";
+import type { CalificacionDeAporte } from "@/lib/aportes/calificacion";
+import EstrellasDeCalificacion from "@/components/aportes/EstrellasDeCalificacion";
 
 
 /**
@@ -57,7 +58,7 @@ export default function RevisionAportePage() {
   const [banReason, setBanReason] = useState("");
   // Si el autor ya está baneado de la campaña se ofrece quitar el baneo en vez de banearlo otra vez.
   const [autorBaneado, setAutorBaneado] = useState(false);
-  const [calificacion, setCalificacion] = useState<CalificacionDeAporte | "">("");
+  const [calificacion, setCalificacion] = useState<CalificacionDeAporte | 0>(0);
   const [reportando, setReportando] = useState(false);
   const [motivoDeReporte, setMotivoDeReporte] = useState("");
   const [detalleDeReporte, setDetalleDeReporte] = useState("");
@@ -95,7 +96,7 @@ export default function RevisionAportePage() {
 
   async function review(status: "aceptado" | "rechazado", rejectionReason?: string) {
     if (!calificacion) {
-      setActionError("Selecciona una calificación antes de guardar la decisión");
+      setActionError("Califica el aporte de 1 a 5 estrellas antes de guardar la decisión");
       return;
     }
     setSubmitting(true);
@@ -247,7 +248,7 @@ export default function RevisionAportePage() {
   const canReject = Boolean(reason) || customReason.trim().length > 0;
   const alreadyReviewed = item.status === "aceptado" || item.status === "rechazado";
   const esAnonimo = item.userId === null;
-  const calificacionMostrada = etiquetaDeCalificacion(item.calificacion);
+  const calificacionMostrada = item.calificacion != null;
   const puedeReportar =
     (Boolean(motivoDeReporte) || detalleDeReporte.trim().length > 0) &&
     motivoDeReporte.length + detalleDeReporte.trim().length + 3 <= MAXIMO_MOTIVO_DE_REPORTE;
@@ -336,7 +337,7 @@ export default function RevisionAportePage() {
             {calificacionMostrada && (
               <div className="flex justify-between">
                 <dt className="text-system-600">Calificación</dt>
-                <dd className="font-semibold text-system-900">{calificacionMostrada}</dd>
+                <dd className="text-[16px]"><EstrellasDeCalificacion valor={item.calificacion} /></dd>
               </div>
             )}
             {item.status === "rechazado" && item.rejectionReason && (
@@ -419,6 +420,10 @@ export default function RevisionAportePage() {
             <p className="mb-4 rounded border border-warning-500 bg-warning-50 p-3 text-[12.5px] text-warning-800">
               Reportado a supervisión · {item.reporte.motivo}
             </p>
+          ) : item.reportadoASupervision ? (
+            <p className="mb-4 rounded border border-warning-500 bg-warning-50 p-3 text-[12.5px] text-warning-800">
+              Este aporte ya se reportó a supervisión.
+            </p>
           ) : reportando ? (
             <form ref={llevarALaVista} onSubmit={(e) => void confirmarReporte(e)} className="mb-4 rounded-lg border border-warning-500 p-4">
               <p className="text-[13px] font-medium text-system-900">
@@ -426,8 +431,15 @@ export default function RevisionAportePage() {
               </p>
               <p className="mb-3 mt-1 text-[11.5px] text-system-500">
                 Si el contenido es inapropiado o quien lo envió abusa de la campaña, avisa a los supervisores: lo
-                revisan y deciden si le dan un aviso. <strong className="text-system-900">Al reportarlo, el aporte se rechaza</strong>{" "}
-                (aunque ya estuviera aceptado). Esa persona no sabrá quién la reportó.
+                revisan y deciden si le dan un aviso.{" "}
+                {item.campanaFinalizada ? (
+                  "La campaña ya finalizó: el aporte no cambia, solo queda el reporte."
+                ) : (
+                  <>
+                    <strong className="text-system-900">Al reportarlo, el aporte se rechaza</strong> (aunque ya estuviera aceptado).
+                  </>
+                )}{" "}
+                Esa persona no sabrá quién la reportó.
               </p>
               <select
                 value={motivoDeReporte}
@@ -560,7 +572,7 @@ export default function RevisionAportePage() {
         )}
         {item.userId && (
           <div className="order-2 mt-4 flex w-full flex-col items-center gap-3 sm:order-2 sm:col-start-2 sm:row-start-2 sm:mt-0 sm:justify-self-center">
-            {!item.reporte && (
+            {!item.reporte && !item.reportadoASupervision && (
               <Button variant="ghost" disabled={submitting || reportando} onClick={() => setReportando(true)}>
                 Reportar a supervisión
               </Button>
@@ -569,7 +581,7 @@ export default function RevisionAportePage() {
               url={`/api/aportes/${item.id}/reportar-participante`}
               motivos={MOTIVOS_DE_REPORTE_DE_APORTE}
               titulo="Reportar a quien aportó"
-              explicacion="Para contenido inapropiado o faltas de quien lo envió (acoso, contenido ilegal, abuso repetido). Al reportarlo, el aporte se rechaza (aunque ya estuviera aceptado) y la supervisión decide si da un aviso a la cuenta. Esa persona no sabrá quién la reportó. Para sacarla solo de tu campaña, banéala."
+              explicacion={`Para contenido inapropiado o faltas de quien lo envió (acoso, contenido ilegal, abuso repetido). ${item.campanaFinalizada ? "La campaña ya finalizó, así que el aporte no cambia" : "Al reportarlo, el aporte se rechaza (aunque ya estuviera aceptado)"} y la supervisión decide si da un aviso a la cuenta. Esa persona no sabrá quién la reportó. Para sacarla solo de tu campaña, banéala.`}
               placeholder="Qué hizo quien envió el aporte"
               yaReportado={Boolean(item.participanteReportado)}
               textoYaReportado="Ya reportaste a quien envió este aporte. La supervisión lo está revisando."

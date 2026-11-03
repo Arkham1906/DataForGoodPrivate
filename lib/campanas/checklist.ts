@@ -34,8 +34,17 @@ export const MAX_OPCIONES_POR_SECCION = 50;
 export const MAX_LARGO_TEXTO = 120;
 
 /**
- * Valida lo que manda el formulario. Quita espacios, opciones vacías o
- * repetidas y secciones sin opciones. Devuelve un error si un checklist con
+ * Clave para saber si dos títulos u opciones son el mismo (2026-10-31, a pedido del usuario): sin
+ * mayúsculas, sin espacios de más y sin acentos ("Alegría " = "alegria"). La ñ se respeta.
+ */
+export function claveDeTexto(texto: string): string {
+  return texto.normalize("NFD").replace(/[̀́̂̈]/g, "").normalize("NFC").replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+/**
+ * Valida lo que manda el formulario. Quita espacios, opciones vacías y
+ * secciones sin opciones. Devuelve un error si una característica repite una
+ * opción (con claveDeTexto; antes se quitaba sin avisar), si un checklist con
  * opciones no tiene título, o si dos checklists que ve el mismo aporte tienen
  * el mismo título (las respuestas se guardan como "Título: opción"): en el mismo
  * tipo, o uno general y otro de cualquier tipo. Con `tiposDeLaCampana`, quita los
@@ -48,7 +57,7 @@ export function normalizarSecciones(
   if (input == null) return { ok: true, secciones: [] };
   if (!Array.isArray(input)) return { ok: false, error: "checklistSecciones debe ser una lista" };
   if (input.length > MAX_SECCIONES) {
-    return { ok: false, error: `Puedes agregar hasta ${MAX_SECCIONES} checklists` };
+    return { ok: false, error: `Puedes agregar hasta ${MAX_SECCIONES} características` };
   }
 
   const pedidos = Array.isArray(tiposDeLaCampana) ? tiposDeLaCampana.map(String) : null;
@@ -56,25 +65,25 @@ export function normalizarSecciones(
   for (const raw of input) {
     const tipoCrudo = (raw as { tipo?: unknown })?.tipo;
     const tipo = tipoDeSeccion(tipoCrudo);
-    if (tipoCrudo != null && tipoCrudo !== "" && !tipo) return { ok: false, error: "Un checklist tiene un tipo de dato que no existe" };
+    if (tipoCrudo != null && tipoCrudo !== "" && !tipo) return { ok: false, error: "Una característica tiene un tipo de dato que no existe" };
     if (tipo && pedidos && !pedidos.includes(tipo)) continue;
     const titulo = String((raw as { titulo?: unknown })?.titulo ?? "").trim();
     const crudas = (raw as { opciones?: unknown })?.opciones;
-    const opciones = Array.from(
-      new Set((Array.isArray(crudas) ? crudas : []).map((o) => String(o ?? "").trim()).filter(Boolean))
-    );
+    const opciones = (Array.isArray(crudas) ? crudas : []).map((o) => String(o ?? "").trim()).filter(Boolean);
     if (opciones.length === 0) continue;
 
-    if (!titulo) return { ok: false, error: "Cada checklist necesita un título" };
+    if (!titulo) return { ok: false, error: "Cada característica necesita un título" };
+    const repetida = opciones.find((o, i) => opciones.findIndex((p) => claveDeTexto(p) === claveDeTexto(o)) !== i);
+    if (repetida) return { ok: false, error: `La característica "${titulo}" repite la opción "${repetida}"` };
     if (titulo.length > MAX_LARGO_TEXTO || opciones.some((o) => o.length > MAX_LARGO_TEXTO)) {
       return { ok: false, error: `Títulos y opciones pueden tener hasta ${MAX_LARGO_TEXTO} caracteres` };
     }
     if (opciones.length > MAX_OPCIONES_POR_SECCION) {
-      return { ok: false, error: `Cada checklist puede tener hasta ${MAX_OPCIONES_POR_SECCION} opciones` };
+      return { ok: false, error: `Cada característica puede tener hasta ${MAX_OPCIONES_POR_SECCION} opciones` };
     }
-    const clave = titulo.toLowerCase();
-    const choca = secciones.some((s) => s.titulo.toLowerCase() === clave && (!s.tipo || !tipo || s.tipo === tipo));
-    if (choca) return { ok: false, error: `Hay dos checklists con el título "${titulo}"` };
+    const clave = claveDeTexto(titulo);
+    const choca = secciones.some((s) => claveDeTexto(s.titulo) === clave && (!s.tipo || !tipo || s.tipo === tipo));
+    if (choca) return { ok: false, error: `Hay dos características con el título "${titulo}"` };
 
     secciones.push(tipo ? { titulo, opciones, tipo } : { titulo, opciones });
   }

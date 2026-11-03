@@ -14,6 +14,7 @@ import { notificar } from "@/lib/notificaciones/notificaciones";
 import { avisarAvanceDeCampana } from "@/lib/notificaciones/socializacion";
 import { ESTADOS_SIN_DECISION, tieneDecision } from "@/lib/aportes/decision";
 import { yaReporto } from "@/lib/reportes/reportes";
+import { calificacionDesde } from "@/lib/aportes/calificacion";
 
 // Una sola instancia (dominio.md § 5): el creador y el revisor aceptado deciden igual, aceptado o rechazado.
 const ALLOWED_STATUS = new Set(["aceptado", "rechazado"]);
@@ -22,6 +23,7 @@ function mapAporte(row: Record<string, unknown>) {
   return {
     id: String(row.id ?? ""),
     campaignId: String(row.campaign_id ?? ""),
+    campaignName: String(row.campaign_name ?? ""),
     userId: row.user_id != null ? String(row.user_id) : null,
     participantName: String(row.participant_name ?? "Anónimo"),
     participantEmail: row.participant_email ? String(row.participant_email) : undefined,
@@ -30,7 +32,7 @@ function mapAporte(row: Record<string, unknown>) {
     fileSizeBytes: row.file_size_bytes != null ? Number(row.file_size_bytes) : undefined,
     sinArchivo: !row.file_path,
     caracteristicas: Array.isArray(row.caracteristicas) ? row.caracteristicas : [],
-    calificacion: row.calificacion ? String(row.calificacion) : undefined,
+    calificacion: calificacionDesde(row.calificacion) ?? undefined,
     status: String(row.status ?? "pendiente"),
     submittedAt: row.submitted_at ? new Date(String(row.submitted_at)).toISOString() : new Date().toISOString(),
     rejectionReason: row.rejection_reason ? String(row.rejection_reason) : undefined,
@@ -54,7 +56,7 @@ function mapReporte(row: Record<string, unknown>) {
 
 async function loadAporteWithCampaign(id: string) {
   const result = await pool.query(
-    `SELECT a.*, ${columnasDeArchivo("a")}, ${columnaDeRespuestas("a")}, c.creator_id AS campaign_creator_id, c.name AS campaign_name, c.collection_mode AS campaign_collection_mode, ${columnaDeChecklists("c", "campaign_checklist_secciones")},
+    `SELECT a.*, ${columnasDeArchivo("a")}, ${columnaDeRespuestas("a")}, c.creator_id AS campaign_creator_id, c.name AS campaign_name, c.collection_mode AS campaign_collection_mode, c.status AS campaign_status, ${columnaDeChecklists("c", "campaign_checklist_secciones")},
             rs.created_at AS reporte_en, COALESCE(rs.descripcion, rs.motivo) AS reporte_motivo,
             TRIM(CONCAT(ru.nombre, ' ', ru.apellidos)) AS reporte_revisor, rs.reportado_por AS reporte_por_id
      FROM aportes a
@@ -108,6 +110,13 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
         ...(isReviewer || (isCampaignCreator && Number(row.reporte_por_id) === Number(user.id))
           ? { reporte: mapReporte(row) }
           : {}),
+        // Si lo reportó un revisor, el creador solo sabe que ya está reportado (sin quién ni por qué), para
+        // no ofrecerle un botón que termina en 409 (2026-10-31).
+        ...(isCampaignCreator && !isReviewer
+          ? { reportadoASupervision: row.reporte_en != null && Number(row.reporte_por_id) !== Number(user.id) }
+          : {}),
+        // Con la campaña finalizada, reportar ya no rechaza el aporte (rechazarPorReporte).
+        ...(canReview ? { campanaFinalizada: row.campaign_status === "finalizada" } : {}),
         // Ya reportó a quien aportó a la plataforma (POST /api/aportes/[id]/reportar-participante).
         ...(isCampaignCreator || isReviewer
           ? { participanteReportado: await yaReporto({ tipo: "aporte", id: Number(row.id) }, Number(user.id)) }
@@ -151,9 +160,10 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     }
 
     const rejectionReason = body.rejectionReason ?? body.rejection_reason ?? null;
-    const calificacion = String(body.calificacion ?? "").trim().toLowerCase();
-    if (!["bien", "muy_bueno", "excelente"].includes(calificacion)) {
-      return NextResponse.json({ error: "calificacion debe ser bien, muy_bueno o excelente" }, { status: 400 });
+    // De 1 a 5 estrellas (2026-10-31; antes bien, muy_bueno o excelente).
+    const calificacion = calificacionDesde(body.calificacion);
+    if (calificacion === null) {
+      return NextResponse.json({ error: "calificacion debe ser un número entero de 1 a 5 (estrellas)" }, { status: 400 });
     }
     const comoRevisor = isReviewer && !isCampaignCreator;
     // Una decisión no se cambia, la haya tomado quien sea (dominio.md § 5). El UPDATE lo vuelve

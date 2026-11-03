@@ -56,29 +56,41 @@ const VACIO: ResumenDeInicio = {
  * "Campañas para ti" (2026-10-24 en /inicio; desde el 2026-10-27 también en /campanas, vía
  * GET /api/campanas?paraTi=true): activas de otros, sin las que lo banearon. Primero las de sus
  * intereses, luego las de su estado (o para todo el país) y, si no hay de esas, las más concurridas.
+ * `limite` null: todas en ese orden (/campanas las filtra con su propia fila de botones; 2026-11-02).
+ * `opciones.zona` (zona por GPS): también cuenta como "en tu estado" lo de su municipio, todo su estado o
+ * todo el país (la misma regla que "Cerca de ti" de /campanas). `opciones.sinPopulares` (/inicio, 2026-11-03,
+ * a pedido del usuario): solo las de sus temáticas de interés o su ubicación, sin las populares de otras.
  */
 export async function campanasParaTi(
   usuario: { id: number | string; state: string | null; intereses: string[] },
-  limite = CAMPANAS_PARA_TI,
+  limite: number | null = CAMPANAS_PARA_TI,
+  opciones: { zona?: { estado: string; municipio: string } | null; sinPopulares?: boolean } = {},
 ): Promise<CampanaParaTi[]> {
   const intereses = usuario.intereses.map((t) => t.trim().toLowerCase()).filter(Boolean);
-  const estado = usuario.state?.trim() ?? "";
+  const estado = usuario.state?.trim().toLowerCase() ?? "";
+  const zonaEstado = opciones.zona?.estado.trim().toLowerCase() ?? "";
+  const zonaMunicipio = opciones.zona?.municipio.trim().toLowerCase() ?? "";
   const r = await pool.query(
-    `SELECT c.id, c.name, COALESCE(NULLIF(c.tematica, ''), c.tag) AS tematica, est.approved_contributions,
-            c.goal_contributions, est.participants,
-            CASE WHEN lower(COALESCE(NULLIF(c.tematica, ''), c.tag)) = ANY($2::text[]) THEN 'interes'
-                 WHEN $3 <> '' AND (c.todo_el_pais OR c.location_state = $3) THEN 'estado'
-                 ELSE 'popular' END AS motivo
-     FROM campanas c
-     JOIN campana_estadisticas est ON est.campana_id = c.id
-     WHERE c.status = 'activa' AND c.creator_id <> $1
-       AND NOT EXISTS (SELECT 1 FROM campana_baneados b WHERE b.campana_id = c.id AND b.usuario_id = $1)
-     ORDER BY CASE WHEN lower(COALESCE(NULLIF(c.tematica, ''), c.tag)) = ANY($2::text[]) THEN 0
-                   WHEN $3 <> '' AND (c.todo_el_pais OR c.location_state = $3) THEN 1
-                   ELSE 2 END,
-              est.participants DESC, c.created_at DESC
+    `WITH candidatas AS (
+       SELECT c.id, c.name, COALESCE(NULLIF(c.tematica, ''), c.tag) AS tematica, est.approved_contributions,
+              c.goal_contributions, est.participants, c.created_at,
+              CASE WHEN lower(COALESCE(NULLIF(c.tematica, ''), c.tag)) = ANY($2::text[]) THEN 'interes'
+                   WHEN ($3 <> '' AND (c.todo_el_pais OR lower(trim(c.location_state)) = $3))
+                     OR ($5 <> '' AND (c.todo_el_pais OR (lower(trim(c.location_state)) = $5
+                         AND (COALESCE(trim(c.location_city), '') = '' OR lower(trim(c.location_city)) = $6))))
+                     THEN 'estado'
+                   ELSE 'popular' END AS motivo
+       FROM campanas c
+       JOIN campana_estadisticas est ON est.campana_id = c.id
+       WHERE c.status = 'activa' AND c.creator_id <> $1
+         AND NOT EXISTS (SELECT 1 FROM campana_baneados b WHERE b.campana_id = c.id AND b.usuario_id = $1)
+     )
+     SELECT * FROM candidatas
+     WHERE NOT $7 OR motivo <> 'popular'
+     ORDER BY CASE motivo WHEN 'interes' THEN 0 WHEN 'estado' THEN 1 ELSE 2 END,
+              participants DESC, created_at DESC
      LIMIT $4`,
-    [usuario.id, intereses, estado, limite]
+    [usuario.id, intereses, estado, limite, zonaEstado, zonaMunicipio, Boolean(opciones.sinPopulares)]
   );
   return r.rows.map((f) => ({
     id: String(f.id),
@@ -91,11 +103,15 @@ export async function campanasParaTi(
   }));
 }
 
-export async function obtenerResumenDeInicio(usuario: {
-  id: number | string;
-  state: string | null;
-  intereses: string[];
-}): Promise<ResumenDeInicio> {
+export async function obtenerResumenDeInicio(
+  usuario: {
+    id: number | string;
+    state: string | null;
+    intereses: string[];
+  },
+  // Zona por GPS: con ella, "Campañas para ti" también toma las de donde está (2026-11-03).
+  zona: { estado: string; municipio: string } | null = null,
+): Promise<ResumenDeInicio> {
   try {
     const [aportes, campanas, paraTi, recientes, notificaciones] = await Promise.all([
       pool.query(
@@ -114,7 +130,8 @@ export async function obtenerResumenDeInicio(usuario: {
          FROM campanas WHERE creator_id = $1`,
         [usuario.id]
       ),
-      campanasParaTi(usuario),
+      // Sin populares de otras temáticas (2026-11-03, a pedido del usuario; igual que /campanas).
+      campanasParaTi(usuario, CAMPANAS_PARA_TI, { zona, sinPopulares: true }),
       pool.query(
         `SELECT a.id, a.campaign_id, c.name AS campana, a.description, a.status, a.calidad,
                 to_char(a.submitted_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS enviado_en

@@ -3,7 +3,6 @@
 // Datos: lib/campanas/publicas.ts. Al abrir una campaña va a /campanas/[id], que sí pide sesión.
 
 import { textoDeUbicacion } from "@/lib/campanas/ubicacion";
-import { quienOrganiza } from "@/lib/campanas/organizacion";
 import Link from "next/link";
 import { BASE_PATH } from "@/lib/base-path";
 import { entradaDeTarjeta, retraso } from "@/lib/animaciones";
@@ -11,11 +10,13 @@ import { porcentajeDeMeta } from "@/lib/campanas/meta";
 import type { Metadata } from "next";
 import PublicHeader from "@/components/layout/PublicHeader";
 import PublicFooter from "@/components/layout/PublicFooter";
+import ActualizacionEnVivo from "@/components/layout/ActualizacionEnVivo";
 import ButtonLink from "@/components/ui/ButtonLink";
 import Card from "@/components/ui/Card";
 import ProgressBar from "@/components/ui/ProgressBar";
 import Tag from "@/components/ui/Tag";
 import RutaDeTematica from "@/components/ui/RutaDeTematica";
+import SelectorDeVistaCampanas from "@/components/campanas/SelectorDeVistaCampanas";
 import { Input } from "@/components/ui/Input";
 import {
   buscarCampanasParaExplorar,
@@ -264,11 +265,6 @@ export default async function ExplorarCampanasPage({
               ))}
             </nav>
 
-            <p className="mb-4 font-mono text-[12px] text-system-600">
-              {nf.format(campanas.length)} {campanas.length === 1 ? "campaña" : "campañas"}
-              {activos > 0 ? ` · ${activos} ${activos === 1 ? "filtro activo" : "filtros activos"}` : ""}
-            </p>
-
             {campanas.length === 0 ? (
               <p className="rounded-lg bg-system-100 p-4 text-sm text-system-600">
                 {visibles === 0
@@ -276,7 +272,14 @@ export default async function ExplorarCampanasPage({
                   : "Ninguna campaña coincide con estos filtros. Prueba quitando alguno o buscando por otro término."}
               </p>
             ) : (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <SelectorDeVistaCampanas
+                toolbar={
+                  <p className="font-mono text-[12px] text-system-600">
+                    {nf.format(campanas.length)} {campanas.length === 1 ? "campaña" : "campañas"}
+                    {activos > 0 ? ` · ${activos} ${activos === 1 ? "filtro activo" : "filtros activos"}` : ""}
+                  </p>
+                }
+              >
                 {campanas.map((c, i) => {
                   const pct = porcentajeDeMeta(c.approvedContributions, c.goalContributions);
                   const lugar = textoDeUbicacion({ todoElPais: c.todoElPais, municipio: c.locationCity, estado: c.locationState });
@@ -295,10 +298,15 @@ export default async function ExplorarCampanasPage({
                             <Tag tone={ETIQUETA_DE_CAMPANA[c.status].tono}>{ETIQUETA_DE_CAMPANA[c.status].texto}</Tag>
                           </span>
                         </div>
-                        <p className="truncate text-[12.5px] text-system-600" title={`${quienOrganiza(c)}${lugar ? ` · ${lugar}` : ""}`}>
-                          {quienOrganiza(c)}
-                          {lugar ? ` · ${lugar}` : ""}
-                        </p>
+                        <div className="mt-1 space-y-0.5 text-[12.5px] text-system-600">
+                          <p className="truncate" title={c.creatorName || "Sin especificar"}>
+                            <span className="font-semibold text-system-700">Creado por:</span> {c.creatorName || "Sin especificar"}
+                          </p>
+                          <p className="truncate" title={`${c.organizer || "Sin organización"}${lugar ? ` · ${lugar}` : ""}`}>
+                            <span className="font-semibold text-system-700">Organización:</span> {c.organizer || "Sin organización"}
+                            {lugar ? ` · ${lugar}` : ""}
+                          </p>
+                        </div>
                         <RutaDeTematica tematica={c.tematica} etiquetas={c.etiquetas} className="mt-2" />
                         <p className="mt-2 line-clamp-3 break-words text-[13px] leading-snug text-system-600">
                           {c.description.length > 140 ? `${c.description.slice(0, 140)}…` : c.description}
@@ -319,12 +327,13 @@ export default async function ExplorarCampanasPage({
                     </Link>
                   );
                 })}
-              </div>
+              </SelectorDeVistaCampanas>
             )}
           </div>
         </div>
       </main>
 
+      <ActualizacionEnVivo />
       <PublicFooter />
     </div>
   );

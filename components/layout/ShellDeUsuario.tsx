@@ -1,5 +1,5 @@
 // Estructura de la zona de usuario con sesión: TopBar + SidebarNav + VigilanteDeSesion +
-// ActualizacionEnVivo + <main id="contenido">. La usan el layout de (dashboard) y las pantallas
+// ActualizacionEnVivo + DetectorDeUbicacion (zona por GPS) + <main id="contenido">. La usan el layout de (dashboard) y las pantallas
 // públicas que, si hay sesión, deben verse igual que el resto de la app (p. ej. /leaderboard).
 // Server Component: no valida la sesión, recibe el usuario ya validado por quien lo llama.
 
@@ -9,12 +9,14 @@ import TopBar from "@/components/layout/TopBar";
 import SidebarNav from "@/components/layout/SidebarNav";
 import VigilanteDeSesion from "@/components/layout/VigilanteDeSesion";
 import ActualizacionEnVivo from "@/components/layout/ActualizacionEnVivo";
+import DetectorDeUbicacion from "@/components/layout/DetectorDeUbicacion";
 
 export default function ShellDeUsuario({ usuario, children }: { usuario: SessionUser; children: ReactNode }) {
   return (
     <div className="min-h-screen bg-system-50">
       <VigilanteDeSesion />
       <ActualizacionEnVivo />
+      <DetectorDeUbicacion />
       <TopBar usuario={usuario} />
       <div className="dashboard-shell flex">
         <SidebarNav usuario={usuario} />
