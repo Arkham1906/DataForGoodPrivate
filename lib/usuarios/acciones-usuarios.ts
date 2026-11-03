@@ -9,7 +9,7 @@ import { revalidatePath } from "next/cache";
 
 import { pool } from "@/lib/db";
 import { hasRootSession } from "@/lib/rootSession";
-import { normalizeRoles } from "@/lib/roles";
+import { agregarRol, columnaDeRoles, quitarRol } from "@/lib/usuarios/tabla-roles";
 import { CODIGO_DE_ROL, NOMBRE_DE_ROL, type RolAsignable } from "@/lib/usuarios/rol-asignable";
 import { retirarComoRevisorDeTodasLasCampanas } from "@/lib/usuarios/revisor";
 import { registrarAuditoria } from "@/lib/auditoria";
@@ -47,7 +47,7 @@ export async function asignarRol(
 
   try {
     const actual = await pool.query<{ role: string[] | null }>(
-      `SELECT role FROM usuarios WHERE id = $1`,
+      `SELECT ${columnaDeRoles()} FROM usuarios WHERE id = $1`,
       [numericId],
     );
     if (actual.rowCount === 0) {
@@ -58,12 +58,7 @@ export async function asignarRol(
     // rol sin tocar los que ya tenía (incluido "revisor" si lo era).
     const codigo = CODIGO_DE_ROL[rol];
     const teniaElRol = (actual.rows[0].role ?? []).includes(codigo);
-    const nuevosRoles = normalizeRoles([...(actual.rows[0].role ?? []), codigo]);
-
-    await pool.query(`UPDATE usuarios SET role = $2::jsonb, updated_at = NOW() WHERE id = $1`, [
-      numericId,
-      JSON.stringify(nuevosRoles),
-    ]);
+    await agregarRol(pool, numericId, codigo);
 
     await registrarAuditoria({
       actor: { tipo: "superusuario" },
@@ -106,7 +101,7 @@ export async function revocarRol(
 
   try {
     const actual = await pool.query<{ role: string[] | null }>(
-      `SELECT role FROM usuarios WHERE id = $1`,
+      `SELECT ${columnaDeRoles()} FROM usuarios WHERE id = $1`,
       [numericId],
     );
     if (actual.rowCount === 0) {
@@ -119,14 +114,7 @@ export async function revocarRol(
     // reasignación aún no existe).
     const codigo = CODIGO_DE_ROL[rol];
     const teniaElRol = (actual.rows[0].role ?? []).includes(codigo);
-    const nuevosRoles = normalizeRoles(
-      (actual.rows[0].role ?? []).filter((r) => r !== codigo),
-    );
-
-    await pool.query(`UPDATE usuarios SET role = $2::jsonb, updated_at = NOW() WHERE id = $1`, [
-      numericId,
-      JSON.stringify(nuevosRoles),
-    ]);
+    await quitarRol(pool, numericId, codigo);
 
     if (rol === "SUPERVISOR") {
       // Una campaña tiene un solo supervisor: las que tomó y aún no dictamina

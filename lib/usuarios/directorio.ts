@@ -3,6 +3,7 @@
 
 import { AVISOS_PARA_BANEO } from "@/lib/usuarios/escala-de-avisos";
 import { pool } from "@/lib/db";
+import { columnaDeRoles, condicionDeRol } from "@/lib/usuarios/tabla-roles";
 import {
   nombreDeRolPrincipal,
   nombresDeRoles,
@@ -237,8 +238,8 @@ export async function buscarUsuarios(opciones: {
     }
 
     if (rol) {
-      valores.push(JSON.stringify([rol]));
-      condiciones.push(`u.role @> $${valores.length}::jsonb`);
+      valores.push(rol);
+      condiciones.push(condicionDeRol("u", `$${valores.length}`));
     }
 
     const condicionDeEstado: Record<EstadoDeCuenta, string> = {
@@ -268,7 +269,7 @@ export async function buscarUsuarios(opciones: {
     const posicionOffset = valoresConPaginacion.length;
 
     const result = await pool.query<FilaUsuarioDB>(
-      `SELECT u.id, u.nombre, u.apellidos, u.email, u.role,
+      `SELECT u.id, u.nombre, u.apellidos, u.email, ${columnaDeRoles("u")},
               COALESCE(rs.strikes, 0) AS strikes,
               COALESCE(rs.suspendida, false) AS suspendida,
               COALESCE(rs.baneada, false) AS baneada
@@ -301,7 +302,7 @@ export async function obtenerUsuario(id: string): Promise<Usuario | null> {
         created_at: string;
       }
     >(
-      `SELECT u.id, u.nombre, u.apellidos, u.email, u.role, u.state, u.city, u.specialty, u.intereses, u.created_at,
+      `SELECT u.id, u.nombre, u.apellidos, u.email, ${columnaDeRoles("u")}, u.state, u.city, u.specialty, u.intereses, u.created_at,
               COALESCE(rs.strikes, 0) AS strikes,
               COALESCE(rs.suspendida, false) AS suspendida,
               COALESCE(rs.baneada, false) AS baneada

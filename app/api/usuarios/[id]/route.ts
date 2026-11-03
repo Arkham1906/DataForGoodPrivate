@@ -3,6 +3,7 @@
 
 import { NextResponse } from "next/server";
 import { pool } from "@/lib/db";
+import { columnaDeRoles } from "@/lib/usuarios/tabla-roles";
 import { destroySession, getSessionUser } from "@/lib/session";
 import { hasRootSession } from "@/lib/rootSession";
 import { errorDeLargo } from "@/lib/usuarios/perfil";
@@ -57,7 +58,7 @@ export async function GET(
         organizacion,
         intereses,
         intereses_texto,
-        role,
+        ${columnaDeRoles()},
         xp_total,
         level,
         streak_days,
@@ -206,7 +207,7 @@ export async function PATCH(
            organizacion = CASE WHEN $13::boolean THEN $14 ELSE organizacion END,
            updated_at = NOW()
        WHERE id = $1
-       RETURNING id, nombre, apellidos, email, state, city, specialty, organizacion, intereses, intereses_texto, role, xp_total, level, streak_days`,
+       RETURNING id, nombre, apellidos, email, state, city, specialty, organizacion, intereses, intereses_texto, ${columnaDeRoles()}, xp_total, level, streak_days`,
       [
         Number(rawId),
         nombre,

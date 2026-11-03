@@ -37,6 +37,8 @@ import { crearPropuestas, revisarTematicaDeCampana } from "@/lib/tematicas/catal
 import { normalizarSecciones, seccionesDesdeFila } from "@/lib/campanas/checklist";
 import { enviadosPorTipoDesdeFila, limitePorTipoDesdeFila, resolverMetaYLimites } from "@/lib/campanas/limite-por-tipo";
 import { normalizarFormatosDeDocumento } from "@/lib/aportes/archivo";
+import { columnasCalculadas, guardarTiposDeCampana } from "@/lib/campanas/tipos-de-campana";
+import { guardarChecklists } from "@/lib/campanas/tabla-checklists";
 import { asegurarEnlaceVigente } from "@/lib/campanas/enlaces";
 import { errorDeOrganizacion } from "@/lib/campanas/organizacion";
 import { activateScheduledCampaigns, calculateCampaignDaysRemaining, errorDeFinAntesDeInicio, errorDeInicioPasado, errorDeReanudarAntesDeInicio, finalizeExpiredCampaigns, hasCampaignEnded, normalizeCampaignDate, normalizeCampaignTime } from "@/lib/campaign-date";
@@ -81,8 +83,8 @@ function normalizeChecklistOpciones(input: unknown): string[] {
 
 function mapCampaign(row: Record<string, unknown>) {
   const dataTypes = Array.isArray(row.data_types) ? row.data_types : [];
-  const checklistOpciones = Array.isArray(row.checklist_opciones) ? row.checklist_opciones : [];
-  const aportes = Array.isArray(row.aportes) ? row.aportes : [];
+  // La lista plana de antes de los títulos ya no existe (checklists en tablas desde el 2026-10-30).
+  const checklistOpciones: string[] = [];
 
   return {
     id: String(row.id ?? ""),
@@ -131,9 +133,6 @@ function mapCampaign(row: Record<string, unknown>) {
     pausa: pausaDesdeFila(row),
     daysRemaining: calculateCampaignDaysRemaining(row.end_date ?? row.endDate),
     hasReviewerAssigned: Boolean(row.has_reviewer_assigned),
-    shareToken: String(row.share_token ?? ""),
-    shareTokenExpiresAt: row.share_token_expires_at ? new Date(row.share_token_expires_at as string).toISOString() : undefined,
-    contributions: aportes,
   };
 }
 
@@ -148,7 +147,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     await finalizeExpiredCampaigns();
 
     const visible = await condicionDeVisibilidad(user, "campanas", 2);
-    const result = await pool.query(`SELECT * FROM campanas WHERE id = $1 AND ${visible.sql} LIMIT 1`, [id, ...visible.params]);
+    const result = await pool.query(`SELECT *, ${columnasCalculadas()} FROM campanas WHERE id = $1 AND ${visible.sql} LIMIT 1`, [id, ...visible.params]);
     if (result.rowCount === 0) {
       return NextResponse.json({ error: "Campaña no encontrada" }, { status: 404 });
     }
@@ -240,7 +239,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         return NextResponse.json({ error: resultado.error }, { status: resultado.status });
       }
 
-      const updated = await pool.query(`SELECT * FROM campanas WHERE id = $1 LIMIT 1`, [id]);
+      const updated = await pool.query(`SELECT *, ${columnasCalculadas()} FROM campanas WHERE id = $1 LIMIT 1`, [id]);
       return NextResponse.json({ message: "Ahora supervisas esta campaña", data: mapCampaign(updated.rows[0]) });
     }
 
@@ -270,7 +269,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         return NextResponse.json({ error: resultado.error }, { status: resultado.status });
       }
 
-      const updated = await pool.query(`SELECT * FROM campanas WHERE id = $1 LIMIT 1`, [id]);
+      const updated = await pool.query(`SELECT *, ${columnasCalculadas()} FROM campanas WHERE id = $1 LIMIT 1`, [id]);
       return NextResponse.json({ message: resultado.mensaje, data: mapCampaign(updated.rows[0]) });
     }
 
@@ -289,12 +288,12 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         return NextResponse.json({ error: resultado.error }, { status: resultado.status });
       }
 
-      const updated = await pool.query(`SELECT * FROM campanas WHERE id = $1 LIMIT 1`, [id]);
+      const updated = await pool.query(`SELECT *, ${columnasCalculadas()} FROM campanas WHERE id = $1 LIMIT 1`, [id]);
       return NextResponse.json({ message: resultado.mensaje, data: mapCampaign(updated.rows[0]) });
     }
 
     const existing = await pool.query(
-      `SELECT * FROM campanas WHERE id = $1 LIMIT 1`,
+      `SELECT *, ${columnasCalculadas()} FROM campanas WHERE id = $1 LIMIT 1`,
       [id]
     );
     if (existing.rowCount === 0) {
@@ -529,9 +528,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       }
     }
     const seccionesNuevas = checklistSecciones?.ok ? checklistSecciones.secciones : null;
-    // Columnas anteriores a las secciones: se dejan coherentes para quien aún las lea.
     const collectionMode = seccionesNuevas ? (seccionesNuevas.length > 0 ? "checklist" : "texto_libre") : null;
-    const checklistOpciones = seccionesNuevas ? [] : null;
     // Meta por tipo de dato o meta general (2026-10-28, lib/campanas/limite-por-tipo.ts), con los tipos
     // que van a quedar. Por tipo, la meta es la suma de los límites.
     let limitePorTipo: { limite: Record<string, number> | null; metaDeLaSuma: number | null } | null = null;
@@ -545,9 +542,6 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       limitePorTipo?.metaDeLaSuma ??
       ("goalContributions" in body || "goal_contributions" in body ? Number(body.goalContributions ?? body.goal_contributions) : null);
     const quotaPerUser = "quotaPerUser" in body || "quota_per_user" in body ? Number(body.quotaPerUser ?? body.quota_per_user) : null;
-    // Sin reparto de la cuota por tipo desde el 2026-10-27: al cambiar la cuota o los tipos, el
-    // reparto viejo (cuota_por_tipo) se vacía.
-    const tocaReparto = quotaPerUser !== null || dataTypes !== null;
     const startDate = "startDate" in body || "start_date" in body ? normalizeCampaignDate(body.startDate ?? body.start_date) : undefined;
     const startTime = "startTime" in body || "start_time" in body ? normalizeCampaignTime(body.startTime ?? body.start_time) : undefined;
     const endDate = "endDate" in body || "end_date" in body ? normalizeCampaignDate(body.endDate ?? body.end_date) : undefined;
@@ -567,10 +561,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const organizer = "organizer" in body ? String(body.organizer ?? "").trim() : null;
     const errorOrganizacion = errorDeOrganizacion(organizer);
     if (errorOrganizacion) return NextResponse.json({ error: errorOrganizacion }, { status: 400 });
-    // El XP y "revisor asignado" no los cambia el creador (lib/campanas/estado-del-creador.ts):
-    // has_reviewer_assigned lo pone aceptar la invitación de revisor.
+    // El XP no lo cambia el creador (lib/campanas/estado-del-creador.ts). "Revisor asignado" se calcula
+    // de campana_revisores (columnasCalculadas).
     const xpPerContribution = null;
-    const hasReviewerAssigned = null;
 
     // Igual que en POST/PUT: un borrador puede quedar incompleto, pero si
     // esta edición manda (o deja) la campaña en cualquier otro estado, cada
@@ -674,6 +667,19 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       await quitarEtiquetasDeOtraTematica(pool, Number(id), tematica);
     }
 
+    // Tipos de dato, límite por tipo y formatos de "Archivo" (tabla campana_tipos, 2026-10-30): antes del
+    // UPDATE, como las etiquetas, para que su RETURNING ya los traiga. Lo que no llegó se queda como estaba.
+    if (dataTypes !== null || limitePorTipo !== null || formatosDeDocumento !== null) {
+      await guardarTiposDeCampana(pool, id, {
+        tipos: dataTypes ?? (Array.isArray(existing.rows[0].data_types) ? existing.rows[0].data_types.map(String) : []),
+        limite: limitePorTipo !== null ? limitePorTipo.limite : limitePorTipoDesdeFila(existing.rows[0]),
+        formatos: formatosDeDocumento ?? normalizarFormatosDeDocumento(existing.rows[0].formatos_de_documento),
+      });
+    }
+
+    // Checklists (tabla campana_checklists, 2026-10-30), antes del UPDATE para que su RETURNING ya los traiga.
+    if (seccionesNuevas) await guardarChecklists(pool, id, seccionesNuevas);
+
     const result = await pool.query(
       `UPDATE campanas SET
         name = COALESCE($2, name),
@@ -681,28 +687,21 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         tematica = COALESCE($4, tematica),
         tag = COALESCE($4, tag),
         status = COALESCE($5, status),
-        data_types = COALESCE($6::jsonb, data_types),
-        goal_contributions = COALESCE($7, goal_contributions),
-        quota_per_user = COALESCE($8, quota_per_user),
-        start_date = COALESCE($9, start_date),
-        end_date = COALESCE($10, end_date),
-        location_city = COALESCE($11, location_city),
-        location_state = COALESCE($12, location_state),
-        location_colonia = COALESCE($13, location_colonia),
-        organizer = COALESCE($14, organizer),
-        xp_per_contribution = COALESCE($15, xp_per_contribution),
-        has_reviewer_assigned = COALESCE($16, has_reviewer_assigned),
-        collection_mode = COALESCE($17, collection_mode),
-        checklist_opciones = COALESCE($18::jsonb, checklist_opciones),
-        start_time = COALESCE($19, start_time),
-        end_time = COALESCE($20, end_time),
-        checklist_secciones = COALESCE($21::jsonb, checklist_secciones),
-        cuota_por_tipo = CASE WHEN $22::boolean THEN $23::jsonb ELSE cuota_por_tipo END,
-        todo_el_pais = COALESCE($24::boolean, todo_el_pais),
-        proposito = CASE WHEN $25::boolean THEN $26 ELSE proposito END,
-        proposito_otro = CASE WHEN $25::boolean THEN $27 ELSE proposito_otro END,
-        limite_por_tipo = CASE WHEN $28::boolean THEN $29::jsonb ELSE limite_por_tipo END,
-        formatos_de_documento = COALESCE($30::jsonb, formatos_de_documento),
+        goal_contributions = COALESCE($6, goal_contributions),
+        quota_per_user = COALESCE($7, quota_per_user),
+        start_date = COALESCE($8, start_date),
+        end_date = COALESCE($9, end_date),
+        location_city = COALESCE($10, location_city),
+        location_state = COALESCE($11, location_state),
+        location_colonia = COALESCE($12, location_colonia),
+        organizer = COALESCE($13, organizer),
+        xp_per_contribution = COALESCE($14, xp_per_contribution),
+        collection_mode = COALESCE($15, collection_mode),
+        start_time = COALESCE($16, start_time),
+        end_time = COALESCE($17, end_time),
+        todo_el_pais = COALESCE($18::boolean, todo_el_pais),
+        proposito = CASE WHEN $19::boolean THEN $20 ELSE proposito END,
+        proposito_otro = CASE WHEN $19::boolean THEN $21 ELSE proposito_otro END,
         -- La pausó el creador (sin motivo). "status" a la derecha es el estado anterior.
         pausa_por = CASE WHEN $5 = 'en_revision' AND status = 'pausada' THEN NULL WHEN $5 = 'pausada' AND status <> 'pausada' THEN 'creador' ELSE pausa_por END,
         pausa_motivo = CASE WHEN $5 = 'en_revision' AND status = 'pausada' THEN NULL WHEN $5 = 'pausada' AND status <> 'pausada' THEN NULL ELSE pausa_motivo END,
@@ -711,14 +710,13 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         supervisado_por_root = CASE WHEN $5 = 'en_revision' AND status = 'pausada' THEN false ELSE supervisado_por_root END,
         updated_at = NOW()
       WHERE id = $1
-      RETURNING *`,
+      RETURNING *, ${columnasCalculadas()}`,
       [
         id,
         name || null,
         description || null,
         tematica || null,
         status,
-        dataTypes ? JSON.stringify(dataTypes) : null,
         goalContributions,
         quotaPerUser,
         startDate === undefined ? null : startDate,
@@ -728,21 +726,13 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         locationColonia,
         organizer,
         xpPerContribution,
-        hasReviewerAssigned,
         collectionMode,
-        checklistOpciones ? JSON.stringify(checklistOpciones) : null,
         startTime === undefined ? null : startTime,
         endTime === undefined ? null : endTime,
-        seccionesNuevas ? JSON.stringify(seccionesNuevas) : null,
-        tocaReparto,
-        null,
         todoElPais,
         propositoNuevo !== null,
         propositoNuevo?.proposito ?? null,
         propositoNuevo?.otro ?? null,
-        limitePorTipo !== null,
-        limitePorTipo?.limite ? JSON.stringify(limitePorTipo.limite) : null,
-        formatosDeDocumento ? JSON.stringify(formatosDeDocumento) : null,
       ]
     );
 
@@ -852,7 +842,6 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     }
     const checklistSecciones = secciones.secciones;
     const collectionMode = checklistSecciones.length > 0 ? "checklist" : "texto_libre";
-    const checklistOpciones: string[] = [];
     // Meta por tipo de dato o meta general (2026-10-28, lib/campanas/limite-por-tipo.ts).
     const limitePorTipo = resolverMetaYLimites(body, dataTypes, status !== "borrador");
     if (!limitePorTipo.ok) return NextResponse.json({ error: limitePorTipo.error }, { status: 400 });
@@ -870,9 +859,8 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     const organizer = String(body.organizer ?? "").trim();
     const errorOrganizacion = errorDeOrganizacion(organizer);
     if (errorOrganizacion) return NextResponse.json({ error: errorOrganizacion }, { status: 400 });
-    // El XP y "revisor asignado" se conservan: no los decide el creador.
+    // El XP se conserva: no lo decide el creador.
     const xpPerContribution = null;
-    const hasReviewerAssigned = null;
 
     const errorDeInicio = errorDeInicioPasado(startDate) ?? errorDeFinAntesDeInicio(startDate, endDate);
     if (errorDeInicio) {
@@ -924,6 +912,10 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
       await quitarEtiquetasDeOtraTematica(pool, Number(id), tematica);
     }
 
+    // Tipos de dato con su límite y formatos (tabla campana_tipos, 2026-10-30), antes del UPDATE.
+    await guardarTiposDeCampana(pool, id, { tipos: dataTypes, limite: limitePorTipo.limite, formatos: formatosDeDocumento });
+    await guardarChecklists(pool, id, checklistSecciones);
+
     const result = await pool.query(
       `UPDATE campanas SET
         name = $2,
@@ -931,38 +923,30 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
         tematica = $4,
         tag = $4,
         status = $5,
-        data_types = $6::jsonb,
-        goal_contributions = $7,
-        quota_per_user = $8,
-        start_date = $9,
-        end_date = $10,
-        location_city = $11,
-        location_state = $12,
-        location_colonia = $13,
-        organizer = $14,
-        xp_per_contribution = COALESCE($15::int, xp_per_contribution),
-        has_reviewer_assigned = COALESCE($16::boolean, has_reviewer_assigned),
-        collection_mode = $17,
-        checklist_opciones = $18::jsonb,
-        start_time = $19,
-        end_time = $20,
-        checklist_secciones = $21::jsonb,
-        cuota_por_tipo = $22::jsonb,
-        todo_el_pais = $23,
-        proposito = $24,
-        proposito_otro = $25,
-        limite_por_tipo = $26::jsonb,
-        formatos_de_documento = $27::jsonb,
+        goal_contributions = $6,
+        quota_per_user = $7,
+        start_date = $8,
+        end_date = $9,
+        location_city = $10,
+        location_state = $11,
+        location_colonia = $12,
+        organizer = $13,
+        xp_per_contribution = COALESCE($14::int, xp_per_contribution),
+        collection_mode = $15,
+        start_time = $16,
+        end_time = $17,
+        todo_el_pais = $18,
+        proposito = $19,
+        proposito_otro = $20,
         updated_at = NOW()
       WHERE id = $1
-      RETURNING *`,
+      RETURNING *, ${columnasCalculadas()}`,
       [
         id,
         name,
         description,
         tematica,
         status,
-        JSON.stringify(dataTypes),
         goalContributions,
         quotaPerUser,
         startDate,
@@ -972,18 +956,12 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
         locationColonia,
         organizer,
         xpPerContribution,
-        hasReviewerAssigned,
         collectionMode,
-        JSON.stringify(checklistOpciones),
         startTime,
         endTime,
-        JSON.stringify(checklistSecciones),
-        null, // cuota_por_tipo: sin uso desde el 2026-10-27 (solo cuota general; lib/campanas/reparto-sugerido.ts)
         todoElPais,
         proposito.proposito,
         proposito.otro,
-        limitePorTipo.limite ? JSON.stringify(limitePorTipo.limite) : null,
-        JSON.stringify(formatosDeDocumento),
       ]
     );
 

@@ -1,4 +1,5 @@
 import { pool } from "@/lib/db";
+import { columnaDeTipos, condicionDeTipo } from "@/lib/campanas/tipos-de-campana";
 import { activateScheduledCampaigns, calculateCampaignDaysRemaining, finalizeExpiredCampaigns } from "@/lib/campaign-date";
 import { etiquetasDeCampanas } from "@/lib/etiquetas/catalogo";
 
@@ -36,7 +37,7 @@ export type OrdenDeCampanas = "participacion" | "recientes" | "cierre";
 const ESTADOS_VISIBLES = "status IN ('activa', 'pausada')";
 
 const ORDER_SQL: Record<OrdenDeCampanas, string> = {
-  participacion: "participants DESC, current_contributions DESC",
+  participacion: "est.participants DESC, est.current_contributions DESC",
   recientes: "created_at DESC",
   cierre: "end_date ASC NULLS LAST",
 };
@@ -108,14 +109,14 @@ export async function buscarCampanasParaExplorar(filtros: FiltrosDeCampanas): Pr
     }
     if (filtros.tipo) {
       valores.push(filtros.tipo);
-      // data_types es un arreglo JSONB de textos: ? busca el elemento.
-      condiciones.push(`data_types ? $${valores.length}`);
+      condiciones.push(condicionDeTipo("campanas", `$${valores.length}`));
     }
 
     const result = await pool.query(
-      `SELECT id, name, description, tematica, organizer, creator_name, location_city, location_state, todo_el_pais, data_types,
-              approved_contributions, goal_contributions, participants, end_date, status
+      `SELECT id, name, description, tematica, organizer, creator_name, location_city, location_state, todo_el_pais, ${columnaDeTipos()},
+              est.approved_contributions, goal_contributions, est.participants, end_date, status
        FROM campanas
+       JOIN campana_estadisticas est ON est.campana_id = campanas.id
        WHERE ${condiciones.join(" AND ")}
        ORDER BY (status = 'pausada'), ${ORDER_SQL[filtros.orden ?? "participacion"]}`,
       valores
@@ -191,11 +192,11 @@ export function obtenerEstadosParaExplorar() {
 export async function obtenerTiposParaExplorar(): Promise<{ valor: string; total: number }[]> {
   try {
     const result = await pool.query(
-      `SELECT t.valor, COUNT(*)::int AS total
-       FROM campanas, jsonb_array_elements_text(data_types) AS t(valor)
+      `SELECT t.tipo AS valor, COUNT(*)::int AS total
+       FROM campanas JOIN campana_tipos t ON t.campana_id = campanas.id
        WHERE ${ESTADOS_VISIBLES}
-       GROUP BY t.valor
-       ORDER BY total DESC, t.valor ASC`
+       GROUP BY t.tipo
+       ORDER BY total DESC, t.tipo ASC`
     );
     return result.rows;
   } catch {

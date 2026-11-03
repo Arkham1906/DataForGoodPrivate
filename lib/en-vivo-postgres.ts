@@ -15,6 +15,12 @@ const CANAL = "dfg_cambios";
 /** Tablas cuyo contenido se ve en alguna pantalla. No van las de sesiones, bitácora ni notificaciones. */
 const TABLAS_CON_AVISO = [
   "campanas",
+  "campana_estadisticas",
+  "campana_especial",
+  "campana_tipos",
+  "campana_checklists",
+  "checklist_opciones",
+  "aporte_respuestas",
   "aportes",
   "campana_revisores",
   "campana_supervisores",
@@ -30,6 +36,7 @@ const TABLAS_CON_AVISO = [
   "etiquetas",
   "campana_etiquetas",
   "usuario_etiquetas",
+  "usuario_roles",
   "medallas_usuario",
   // Los roles viven en usuario_roles desde el 2026-10-30 (usuarios.role ya no existe).
   "usuario_roles",
@@ -42,7 +49,8 @@ const TABLAS_CON_AVISO = [
 
 /**
  * Función y triggers que avisan de los cambios. En `usuarios` solo avisan los cambios que se ven
- * (nombre, ubicación, ícono, XP, baja; los roles avisan desde usuario_roles): no cada inicio de sesión ni cada código enviado.
+ * (nombre, ubicación, ícono, XP, baja; los roles avisan desde usuario_roles): no cada inicio de sesión
+ * ni cada código enviado.
  * Lo llama ensureCoreSchema() después de crear todas las tablas.
  */
 export async function ensureAvisosDeCambios(): Promise<void> {

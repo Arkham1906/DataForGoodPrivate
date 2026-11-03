@@ -6,6 +6,7 @@ import { Readable } from "node:stream";
 import { NextResponse } from "next/server";
 import { MIME_PPTX, MIME_XLS, MIME_XLSX } from "@/lib/aportes/archivo";
 import { pool } from "@/lib/db";
+import { columnasDeArchivo } from "@/lib/aportes/tabla-archivos";
 import { getSessionUser } from "@/lib/session";
 import { abrirArchivo, tamanoDeArchivo } from "@/lib/minio";
 import { extensionForMime } from "@/lib/open-data";
@@ -59,7 +60,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     if (!user) return NextResponse.json({ error: "Debes iniciar sesion" }, { status: 401 });
 
     const result = await pool.query(
-      `SELECT a.user_id, a.file_path, a.file_mime_type, a.campaign_id, a.status, a.first_pass_by_user_id, a.archivo_borrado_en,
+      `SELECT a.user_id, ${columnasDeArchivo("a")}, a.campaign_id, a.status, a.first_pass_by_user_id,
               c.creator_id AS campaign_creator_id
        FROM aportes a
        JOIN campanas c ON c.id = a.campaign_id

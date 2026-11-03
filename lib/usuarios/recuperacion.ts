@@ -1,5 +1,5 @@
 // Códigos por correo para poner contraseña. Dos caminos comparten el mismo código
-// (columnas recuperacion_* de usuarios):
+// (codigos_usuario con proposito 'contrasena'; hasta el 2026-10-30, columnas recuperacion_* de usuarios):
 //
 // A. Recuperar ("¿Olvidaste tu contraseña?", pantalla /recuperar, sin sesión).
 //    1. solicitarRecuperacion(): si el correo tiene cuenta, guarda el hash de un código de
@@ -45,23 +45,28 @@ type Cuenta = { email: string } | { id: number };
 
 /**
  * Genera el código y lo envía. Devuelve false si no se envió: la cuenta no existe, o le
- * mandamos otro hace menos de SEGUNDOS_ENTRE_ENVIOS. Un solo UPDATE condicional: si llegan
- * dos peticiones juntas, solo una pasa la espera y manda correo.
+ * mandamos otro hace menos de SEGUNDOS_ENTRE_ENVIOS. Un solo INSERT ... ON CONFLICT condicional:
+ * si llegan dos peticiones juntas, solo una pasa la espera y manda correo.
  */
 async function enviarCodigo(cuenta: Cuenta): Promise<boolean> {
   const codigo = randomInt(0, 1_000_000).toString().padStart(6, "0");
   const [condicion, valor] = "email" in cuenta ? ["email = $1", cuenta.email] : ["id = $1", cuenta.id];
 
   const result = await pool.query<{ nombre: string; email: string; tiene_contrasena: boolean }>(
-    `UPDATE usuarios
-     SET recuperacion_codigo_hash = $2,
-         recuperacion_vence_en = NOW() + make_interval(mins => $3),
-         recuperacion_intentos = 0,
-         recuperacion_enviada_en = NOW()
-     WHERE ${condicion}
-       AND eliminada_en IS NULL
-       AND (recuperacion_enviada_en IS NULL OR recuperacion_enviada_en < NOW() - make_interval(secs => $4))
-     RETURNING nombre, email, password_hash IS NOT NULL AS tiene_contrasena`,
+    `WITH cuenta AS (
+       SELECT id, nombre, email, password_hash IS NOT NULL AS tiene_contrasena
+       FROM usuarios
+       WHERE ${condicion} AND eliminada_en IS NULL
+     ), guardado AS (
+       INSERT INTO codigos_usuario (usuario_id, proposito, codigo_hash, vence_en, intentos, enviado_en)
+       SELECT id, 'contrasena', $2, NOW() + make_interval(mins => $3), 0, NOW() FROM cuenta
+       ON CONFLICT (usuario_id, proposito) DO UPDATE
+         SET codigo_hash = EXCLUDED.codigo_hash, vence_en = EXCLUDED.vence_en, intentos = 0, enviado_en = NOW()
+         WHERE codigos_usuario.enviado_en < NOW() - make_interval(secs => $4)
+       RETURNING usuario_id
+     )
+     SELECT cuenta.nombre, cuenta.email, cuenta.tiene_contrasena
+     FROM cuenta JOIN guardado ON guardado.usuario_id = cuenta.id`,
     [valor, hashDeCodigo(codigo), MINUTOS_DE_VIGENCIA, SEGUNDOS_ENTRE_ENVIOS]
   );
   if (!result.rowCount) return false;
@@ -108,7 +113,7 @@ async function usarCodigo(
 ): Promise<ResultadoDeCodigo> {
   // El hash se calcula antes de bloquear la fila: bcrypt tarda.
   const nuevoHash = await hashPassword(nueva);
-  const [condicion, valor] = "email" in cuenta ? ["email = $1", cuenta.email] : ["id = $1", cuenta.id];
+  const [condicion, valor] = "email" in cuenta ? ["u.email = $1", cuenta.email] : ["u.id = $1", cuenta.id];
   const client = await pool.connect();
   let usuarioId: number;
   let creoContrasena: boolean;
@@ -116,29 +121,30 @@ async function usarCodigo(
   try {
     await client.query("BEGIN");
     const result = await client.query(
-      `SELECT id, password_hash, recuperacion_codigo_hash, recuperacion_vence_en, recuperacion_intentos
-       FROM usuarios
-       WHERE ${condicion} AND eliminada_en IS NULL
-       FOR UPDATE`,
+      `SELECT u.id, u.password_hash, c.codigo_hash, c.vence_en, c.intentos
+       FROM usuarios u
+       LEFT JOIN codigos_usuario c ON c.usuario_id = u.id AND c.proposito = 'contrasena'
+       WHERE ${condicion} AND u.eliminada_en IS NULL
+       FOR UPDATE OF u`,
       [valor]
     );
     const fila = result.rows[0];
 
     const vigente =
-      fila?.recuperacion_codigo_hash &&
-      fila.recuperacion_intentos < INTENTOS_POR_CODIGO &&
-      fila.recuperacion_vence_en &&
-      new Date(fila.recuperacion_vence_en) > new Date();
+      fila?.codigo_hash &&
+      fila.intentos < INTENTOS_POR_CODIGO &&
+      new Date(fila.vence_en) > new Date();
 
     if (!vigente) {
       await client.query("ROLLBACK");
       return { ok: false, error: CODIGO_INVALIDO };
     }
 
-    if (hashDeCodigo(codigo) !== fila.recuperacion_codigo_hash) {
-      await client.query(`UPDATE usuarios SET recuperacion_intentos = recuperacion_intentos + 1 WHERE id = $1`, [
-        fila.id,
-      ]);
+    if (hashDeCodigo(codigo) !== fila.codigo_hash) {
+      await client.query(
+        `UPDATE codigos_usuario SET intentos = intentos + 1 WHERE usuario_id = $1 AND proposito = 'contrasena'`,
+        [fila.id]
+      );
       await client.query("COMMIT");
       return { ok: false, error: CODIGO_INVALIDO };
     }
@@ -150,13 +156,12 @@ async function usarCodigo(
        SET password_hash = $2,
            failed_login_attempts = 0, locked_until = NULL,
            email_verificado = true,
-           verification_code_hash = NULL, verification_code_expires_at = NULL, verification_attempts = 0,
-           recuperacion_codigo_hash = NULL, recuperacion_vence_en = NULL, recuperacion_intentos = 0,
-           recuperacion_enviada_en = NULL,
            updated_at = NOW()
        WHERE id = $1`,
       [usuarioId, nuevoHash]
     );
+    // Los dos códigos: el de contraseña ya se usó y el de verificación sobra (el correo quedó verificado).
+    await client.query(`DELETE FROM codigos_usuario WHERE usuario_id = $1`, [usuarioId]);
     if (modo === "recuperar") {
       await client.query(`DELETE FROM sessions WHERE usuario_id = $1`, [usuarioId]);
       await client.query(`DELETE FROM push_suscripciones WHERE usuario_id = $1`, [usuarioId]);

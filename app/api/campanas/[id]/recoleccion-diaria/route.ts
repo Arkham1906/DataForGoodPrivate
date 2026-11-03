@@ -4,6 +4,7 @@
 import { NextResponse } from "next/server";
 import { ZONA_DE_CAMPANAS, hoyEnTepic } from "@/lib/campaign-date";
 import { pool } from "@/lib/db";
+import { columnaDeTipos } from "@/lib/campanas/tipos-de-campana";
 import { getSessionUser } from "@/lib/session";
 
 const DIAS = 14;
@@ -52,11 +53,11 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     const desde = dias[0]?.clave ?? "1970-01-01";
 
     const [diariaResult, tipoResult, campanaResult] = await Promise.all([
-      // Día en la hora de Tepic (submitted_at se guarda en UTC), igual que lib/campanas/panel.ts.
+      // Día en la hora de Tepic, igual que lib/campanas/panel.ts.
       pool.query<{ dia: string; n: string }>(
-        `SELECT to_char((submitted_at AT TIME ZONE 'UTC') AT TIME ZONE $3, 'YYYY-MM-DD') AS dia, COUNT(*) AS n
+        `SELECT to_char(submitted_at AT TIME ZONE $3, 'YYYY-MM-DD') AS dia, COUNT(*) AS n
          FROM aportes
-         WHERE campaign_id = $1 AND submitted_at >= ($2::date::timestamp AT TIME ZONE $3) AT TIME ZONE 'UTC'
+         WHERE campaign_id = $1 AND submitted_at >= ($2::date::timestamp AT TIME ZONE $3)
          GROUP BY 1`,
         [id, desde, ZONA_DE_CAMPANAS]
       ),
@@ -67,7 +68,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
         `SELECT file_type, COUNT(*) AS n FROM aportes WHERE campaign_id = $1 AND status = 'aceptado' GROUP BY file_type`,
         [id]
       ),
-      pool.query<{ data_types: string[] }>(`SELECT data_types FROM campanas WHERE id = $1 LIMIT 1`, [id]),
+      pool.query<{ data_types: string[] }>(`SELECT ${columnaDeTipos()} FROM campanas WHERE id = $1 LIMIT 1`, [id]),
     ]);
 
     const porDia = new Map(diariaResult.rows.map((r) => [r.dia, Number(r.n)]));

@@ -17,8 +17,8 @@ import {
   type TipoDeArchivo,
 } from "@/lib/aportes/archivo";
 import { avisarAportesRecibidos } from "@/lib/notificaciones/hitos-de-aportes";
+import { actualizarEnviados } from "@/lib/campanas/tipos-de-campana";
 import {
-  limitePorTipoDesdeFila,
   mensajeDeTipoLleno,
   tiposConLugar,
   type EnviadosPorTipo,
@@ -148,12 +148,13 @@ export async function insertarAporteConCuota<T>(entrada: {
     }
     // Límite total del tipo: con la campaña bloqueada (el mismo candado que toma recalcularContadores)
     // y contando en la tabla, no en el contador desnormalizado.
-    const campana = await client.query(
-      `SELECT limite_por_tipo, data_types FROM campanas WHERE id = $1 FOR NO KEY UPDATE`,
-      [entrada.campaignId],
+    await client.query(`SELECT 1 FROM campanas WHERE id = $1 FOR NO KEY UPDATE`, [entrada.campaignId]);
+    const campana = await client.query<{ limite: number | null }>(
+      `SELECT limite FROM campana_tipos WHERE campana_id = $1 AND tipo = $2`,
+      [entrada.campaignId, entrada.tipo],
     );
-    const limite = campana.rows[0] ? limitePorTipoDesdeFila(campana.rows[0]) : {};
-    const delTipo = limite[entrada.tipo];
+    const delTipo = Number(campana.rows[0]?.limite ?? 0);
+    const limite: LimitePorTipo = delTipo ? { [entrada.tipo]: delTipo } : {};
     if (delTipo) {
       const { rows } = await client.query<{ n: number }>(
         `SELECT COUNT(*)::int AS n FROM aportes WHERE campaign_id = $1 AND file_type = $2 AND status <> 'rechazado'`,
@@ -168,7 +169,7 @@ export async function insertarAporteConCuota<T>(entrada: {
     await recalcularContadores(entrada.campaignId, client);
     // Total con la campaña bloqueada (recalcularContadores la bloqueó): para el aviso de cada 10 aportes.
     const { rows } = await client.query<{ total: number }>(
-      `SELECT current_contributions AS total FROM campanas WHERE id = $1`,
+      `SELECT current_contributions AS total FROM campana_estadisticas WHERE campana_id = $1`,
       [entrada.campaignId],
     );
     await client.query("COMMIT");
@@ -204,29 +205,24 @@ export async function recalcularContadores(
   client: Pick<PoolClient, "query"> = pool
 ): Promise<void> {
   await client.query(`SELECT 1 FROM campanas WHERE id = $1 FOR NO KEY UPDATE`, [campaignId]);
+  // En campana_estadisticas (2026-10-30): el aporte ya no reescribe la fila de campanas.
   await client.query(
-    `UPDATE campanas c SET
-      current_contributions = a.total,
-      pending_contributions = a.pendientes,
-      approved_contributions = a.aceptados,
-      rejected_contributions = a.rechazados,
-      participants = a.participantes,
-      enviados_por_tipo = COALESCE((
-        SELECT jsonb_object_agg(file_type, n) FROM (
-          SELECT file_type, COUNT(*)::int AS n FROM aportes
-          WHERE campaign_id = $1 AND status <> 'rechazado' GROUP BY file_type
-        ) t
-      ), '{}'::jsonb),
-      updated_at = NOW()
-    FROM (
-      SELECT COUNT(*)::int AS total,
-             COUNT(*) FILTER (WHERE status IN ('pendiente', 'espera_final'))::int AS pendientes,
-             COUNT(*) FILTER (WHERE status = 'aceptado')::int AS aceptados,
-             COUNT(*) FILTER (WHERE status = 'rechazado')::int AS rechazados,
-             COUNT(DISTINCT COALESCE(user_id::text, participant_email, anonimo_id))::int AS participantes
-      FROM aportes WHERE campaign_id = $1
-    ) a
-    WHERE c.id = $1`,
+    `INSERT INTO campana_estadisticas (campana_id, current_contributions, pending_contributions,
+                                       approved_contributions, rejected_contributions, participants)
+     SELECT $1::int, COUNT(*)::int,
+            COUNT(*) FILTER (WHERE status IN ('pendiente', 'espera_final'))::int,
+            COUNT(*) FILTER (WHERE status = 'aceptado')::int,
+            COUNT(*) FILTER (WHERE status = 'rechazado')::int,
+            COUNT(DISTINCT COALESCE(user_id::text, participant_email, anonimo_id))::int
+     FROM aportes WHERE campaign_id = $1
+     ON CONFLICT (campana_id) DO UPDATE SET
+       current_contributions = EXCLUDED.current_contributions,
+       pending_contributions = EXCLUDED.pending_contributions,
+       approved_contributions = EXCLUDED.approved_contributions,
+       rejected_contributions = EXCLUDED.rejected_contributions,
+       participants = EXCLUDED.participants`,
     [campaignId]
   );
+  // No rechazados de cada tipo (campana_tipos.enviados, 2026-10-30; antes campanas.enviados_por_tipo).
+  await actualizarEnviados(client, campaignId);
 }

@@ -14,6 +14,7 @@
 // cuenta de usuario: ve todo en /supervisar. Se envían en segundo plano, de 10 en 10.
 
 import { pool } from "@/lib/db";
+import { condicionDeRol } from "@/lib/usuarios/tabla-roles";
 import { SQL_SANCION_BLOQUEANTE } from "@/lib/sanciones";
 import { notificar, type NuevaNotificacion } from "./notificaciones";
 
@@ -29,7 +30,7 @@ function avisarASupervisores(excluir: number[], crearAviso: () => Promise<Aviso 
 async function enviar(excluir: number[], crearAviso: () => Promise<Aviso | null>): Promise<void> {
   const supervisores = await pool.query<{ id: number }>(
     `SELECT u.id FROM usuarios u
-      WHERE u.role @> '["supervisor"]'::jsonb
+      WHERE ${condicionDeRol("u", "'supervisor'")}
         AND u.id <> ALL($1::int[])
         AND u.email_verificado
         AND u.eliminada_en IS NULL AND u.baja_solicitada_en IS NULL

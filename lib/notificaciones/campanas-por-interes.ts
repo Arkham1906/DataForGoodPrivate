@@ -7,13 +7,14 @@
 // Subtemáticas (etiquetas, 2026-10-27, decisión del usuario): si la persona marcó alguna de la
 // temática de la campaña, no le llegan los avisos por interés de campañas que solo tengan otras
 // etiquetas; las campañas sin etiquetas sí le llegan (son generales de la temática).
-// Quien apaga "Campañas nuevas" en Preferencias (usuarios.avisos_campanas_nuevas) no recibe los
+// Quien apaga "Campañas nuevas" en Preferencias (usuario_preferencias.avisos_campanas_nuevas) no recibe los
 // avisos por interés; quien participa recibe el de especial igual. Nunca al creador, a cuentas
 // bloqueadas o dadas de baja, ni a quien está baneado de la campaña; una vez por campaña y tipo.
 //
 // Se envían en segundo plano y de 10 en 10, sin hacer esperar a quien activó la campaña.
 
 import { pool } from "@/lib/db";
+import { columnasCalculadas } from "@/lib/campanas/tipos-de-campana";
 import { SQL_SANCION_BLOQUEANTE } from "@/lib/sanciones";
 import { claveDeTematica } from "@/lib/tematicas/analizar";
 import { especialDesdeFila } from "@/lib/campanas/especial";
@@ -44,7 +45,7 @@ type Candidato = {
   state: string | null;
   city: string | null;
   participa: boolean;
-  /** usuarios.avisos_campanas_nuevas (Preferencias de /cuenta). */
+  /** usuario_preferencias.avisos_campanas_nuevas (Preferencias de /cuenta). */
   acepta: boolean;
   /** Etiquetas (ids) que marcó dentro de la temática de la campaña. */
   etiquetas_del_tema: number[];
@@ -68,7 +69,7 @@ export function avisarCampanaEspecial(campanaId: number): void {
 
 async function leerCampana(campanaId: number): Promise<Campana | null> {
   const r = await pool.query<Campana>(
-    `SELECT c.*,
+    `SELECT c.*, ${columnasCalculadas("c")},
             ARRAY(SELECT ce.etiqueta_id FROM campana_etiquetas ce JOIN etiquetas e ON e.id = ce.etiqueta_id
                   WHERE ce.campana_id = c.id AND e.aprobada) AS etiquetas_ids
        FROM campanas c WHERE c.id = $1`,
@@ -86,12 +87,13 @@ async function candidatos(campana: Campana, tipo: TipoDeNotificacion): Promise<C
     `SELECT u.id, u.intereses, u.state, u.city,
             (EXISTS (SELECT 1 FROM aportes a WHERE a.campaign_id = $1 AND a.user_id = u.id)
              OR EXISTS (SELECT 1 FROM campanas_guardadas g WHERE g.campana_id = $1 AND g.usuario_id = u.id)) AS participa,
-            u.avisos_campanas_nuevas AS acepta,
+            COALESCE(up.avisos_campanas_nuevas, true) AS acepta,
             ARRAY(SELECT ue.etiqueta_id FROM usuario_etiquetas ue
                     JOIN etiquetas e ON e.id = ue.etiqueta_id
                     JOIN tematicas t ON t.id = e.tematica_id
                    WHERE ue.usuario_id = u.id AND t.clave = $4) AS etiquetas_del_tema
        FROM usuarios u
+       LEFT JOIN usuario_preferencias up ON up.usuario_id = u.id
       WHERE u.id <> $2
         AND u.email_verificado
         AND u.eliminada_en IS NULL AND u.baja_solicitada_en IS NULL

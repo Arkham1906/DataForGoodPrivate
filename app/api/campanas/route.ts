@@ -15,6 +15,8 @@ import { errorDeOrganizacion } from "@/lib/campanas/organizacion";
 import { normalizarSecciones, seccionesDesdeFila } from "@/lib/campanas/checklist";
 import { enviadosPorTipoDesdeFila, limitePorTipoDesdeFila, resolverMetaYLimites } from "@/lib/campanas/limite-por-tipo";
 import { normalizarFormatosDeDocumento } from "@/lib/aportes/archivo";
+import { columnasCalculadas, guardarTiposDeCampana } from "@/lib/campanas/tipos-de-campana";
+import { guardarChecklists } from "@/lib/campanas/tabla-checklists";
 import { XP_POR_APORTE, errorDeEstadoPedido } from "@/lib/campanas/estado-del-creador";
 import { pausaDesdeFila } from "@/lib/campanas/pausa";
 import { rechazoDesdeFila } from "@/lib/campanas/rechazo";
@@ -77,13 +79,8 @@ function mapCampaign(row: Record<string, unknown>) {
       ? row.data_types
       : [];
 
-  const checklistOpciones = Array.isArray(row.checklist_opciones) ? row.checklist_opciones : [];
-
-  const aportes = Array.isArray(row.aportes)
-    ? row.aportes
-    : Array.isArray(row.aportes ?? [])
-      ? row.aportes
-      : [];
+  // La lista plana de antes de los títulos ya no existe (checklists en tablas desde el 2026-10-30).
+  const checklistOpciones: string[] = [];
 
   return {
     id: String(row.id ?? ""),
@@ -136,9 +133,6 @@ function mapCampaign(row: Record<string, unknown>) {
     rechazo: rechazoDesdeFila(row),
     daysRemaining: calculateCampaignDaysRemaining(row.end_date ?? row.endDate),
     hasReviewerAssigned: Boolean(row.has_reviewer_assigned),
-    shareToken: String(row.share_token ?? ""),
-    shareTokenExpiresAt: row.share_token_expires_at ? new Date(row.share_token_expires_at as string).toISOString() : undefined,
-    contributions: aportes,
     myContributionsCount: row.mis_aportes_count != null ? Number(row.mis_aportes_count) : undefined,
     ...(row.can_delete != null ? { canDelete: row.can_delete === true } : {}),
   };
@@ -183,7 +177,7 @@ export async function GET(request: Request) {
 
     if (supervised) {
       const result = await pool.query(
-        `SELECT c.*,
+        `SELECT c.*, ${columnasCalculadas("c")},
                 latest_review.accion AS latest_supervision_action
          FROM campanas c
          LEFT JOIN LATERAL (
@@ -204,7 +198,7 @@ export async function GET(request: Request) {
 
     if (campaignId) {
       const visible = await condicionDeVisibilidad(user, "campanas", 2);
-      const result = await pool.query(`SELECT * FROM campanas WHERE id = $1 AND ${visible.sql} LIMIT 1`, [campaignId, ...visible.params]);
+      const result = await pool.query(`SELECT *, ${columnasCalculadas()} FROM campanas WHERE id = $1 AND ${visible.sql} LIMIT 1`, [campaignId, ...visible.params]);
       if (result.rowCount === 0) return NextResponse.json({ error: "Campaña no encontrada" }, { status: 404 });
       await agregarEtiquetas(result.rows, user, await hasRootSession());
       const campaign = conIsSaved(result.rows[0]);
@@ -229,7 +223,7 @@ export async function GET(request: Request) {
       ? await pool.query(
           // Si está rechazada, el motivo, la fecha y la sanción del último rechazo (lib/campanas/rechazo.ts).
           // El reporte con sanción se escribe en la misma transacción que el rechazo: mismo NOW().
-          `SELECT c.*,
+          `SELECT c.*, ${columnasCalculadas("c")},
                   NOT EXISTS (SELECT 1 FROM aportes a WHERE a.campaign_id = c.id) AS can_delete,
                   r.motivo AS rechazo_motivo, r.created_at AS rechazo_en, r.por_superusuario AS rechazo_por_root,
                   s.tipo AS rechazo_sancion_tipo, s.dias AS rechazo_sancion_dias
@@ -253,7 +247,7 @@ export async function GET(request: Request) {
         )
       : available
         ? await pool.query(
-            `SELECT * FROM campanas
+            `SELECT *, ${columnasCalculadas()} FROM campanas
              WHERE creator_id <> $1 AND status = 'activa'
                AND NOT EXISTS (SELECT 1 FROM campana_baneados b WHERE b.campana_id = campanas.id AND b.usuario_id = $1)
              ORDER BY created_at DESC`,
@@ -261,7 +255,7 @@ export async function GET(request: Request) {
           )
         : misAportes
           ? await pool.query(
-              `SELECT campanas.*,
+              `SELECT campanas.*, ${columnasCalculadas()},
                       (SELECT COUNT(*)::int FROM aportes a2 WHERE a2.campaign_id = campanas.id AND a2.user_id = $1) AS mis_aportes_count
                FROM campanas
                -- Las propias solo si las guardó (2026-10-19: el creador guardaba la suya y no la
@@ -272,7 +266,7 @@ export async function GET(request: Request) {
               [user!.id],
             )
           : await condicionDeVisibilidad(user).then((visible) =>
-              pool.query(`SELECT * FROM campanas WHERE ${visible.sql} ORDER BY created_at DESC`, visible.params),
+              pool.query(`SELECT *, ${columnasCalculadas()} FROM campanas WHERE ${visible.sql} ORDER BY created_at DESC`, visible.params),
             );
 
     await agregarEtiquetas(result.rows, user, await hasRootSession());
@@ -342,9 +336,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: secciones.error }, { status: 400 });
     }
     const checklistSecciones = secciones.secciones;
-    // Columnas anteriores a las secciones: se dejan coherentes para quien aún las lea.
     const collectionMode = checklistSecciones.length > 0 ? "checklist" : "texto_libre";
-    const checklistOpciones: string[] = [];
 
     // Meta por tipo de dato (por defecto: un límite por tipo y la meta es su suma) o meta general
     // (2026-10-28, lib/campanas/limite-por-tipo.ts). Los límites solo de los tipos que pide.
@@ -352,17 +344,9 @@ export async function POST(request: Request) {
     if (!limitePorTipo.ok) return NextResponse.json({ error: limitePorTipo.error }, { status: 400 });
     const goalContributions = limitePorTipo.metaDeLaSuma ?? Number(body.goalContributions ?? body.goal_contributions ?? 0);
     const quotaPerUser = Number(body.quotaPerUser ?? body.quota_per_user ?? 1);
-    // Contadores, XP, "especial" y "revisor asignado" los decide el sistema, no el body:
-    // una campaña nueva empieza en cero y sin revisor.
-    const currentContributions = 0;
-    const approvedContributions = 0;
-    const pendingContributions = 0;
-    const rejectedContributions = 0;
-    const participants = 0;
+    // XP, contadores, "especial" y "revisor asignado" los decide el sistema, no el body: una campaña
+    // nueva empieza en cero (su fila de campana_estadisticas la crea un trigger), no especial y sin revisor.
     const xpPerContribution = XP_POR_APORTE;
-    const daysRemaining = null;
-    const isSpecial = false;
-    const hasReviewerAssigned = false;
 
     const startDate = normalizeCampaignDate(body.startDate ?? body.start_date);
     const endDate = normalizeCampaignDate(body.endDate ?? body.end_date);
@@ -375,9 +359,6 @@ export async function POST(request: Request) {
     const organizer = String(body.organizer ?? "").trim();
     const errorOrganizacion = errorDeOrganizacion(organizer);
     if (errorOrganizacion) return NextResponse.json({ error: errorOrganizacion }, { status: 400 });
-    // Columnas viejas del enlace (ya no se usan: campana_enlaces).
-    const shareToken = "";
-    const shareTokenExpiresAt = null;
 
     // Ni siquiera un borrador empieza antes de hoy (día de Tepic; hoy sí se permite)
     // ni termina antes de empezar.
@@ -412,7 +393,6 @@ export async function POST(request: Request) {
 
     await crearPropuestas(tematicaRevisada.porCrear, creatorId);
 
-    const aportes: unknown[] = [];
     const ahora = ahoraEnZona();
     const horaDeCreacion = `${String(ahora.hour).padStart(2, "0")}:${String(ahora.minute).padStart(2, "0")}`;
 
@@ -431,16 +411,9 @@ export async function POST(request: Request) {
           tematica,
           tag,
           status,
-          data_types,
           collection_mode,
-          checklist_opciones,
           goal_contributions,
           quota_per_user,
-          current_contributions,
-          approved_contributions,
-          pending_contributions,
-          rejected_contributions,
-          participants,
           start_date,
           end_date,
           location_city,
@@ -448,26 +421,15 @@ export async function POST(request: Request) {
           location_colonia,
           organizer,
           xp_per_contribution,
-          is_special,
-          days_remaining,
-          has_reviewer_assigned,
-          share_token,
-          share_token_expires_at,
-          aportes,
           start_time,
           end_time,
-          checklist_secciones,
-          cuota_por_tipo,
           todo_el_pais,
           proposito,
-          proposito_otro,
-          limite_por_tipo,
-          formatos_de_documento
+          proposito_otro
         ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10::jsonb, $11, $12, $13, $14, $15,
-          $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30::jsonb, $31, $32, $33::jsonb, $34::jsonb, $35,
-          $36, $37, $38::jsonb, $39::jsonb
-        ) RETURNING *`,
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
+          $16, $17, $18, $19, $20, $21, $22
+        ) RETURNING id`,
         [
           creatorId,
           creator,
@@ -476,16 +438,9 @@ export async function POST(request: Request) {
           tematica,
           tag,
           status,
-          JSON.stringify(dataTypes),
           collectionMode,
-          JSON.stringify(checklistOpciones),
           goalContributions,
           quotaPerUser,
-          currentContributions,
-          approvedContributions,
-          pendingContributions,
-          rejectedContributions,
-          participants,
           startDate,
           endDate,
           locationCity,
@@ -493,23 +448,21 @@ export async function POST(request: Request) {
           locationColonia,
           organizer,
           xpPerContribution,
-          isSpecial,
-          daysRemaining,
-          hasReviewerAssigned,
-          shareToken,
-          shareTokenExpiresAt,
-          JSON.stringify(aportes),
           horaDeCreacion,
           horaDeCreacion,
-          JSON.stringify(checklistSecciones),
-          null, // cuota_por_tipo: sin uso desde el 2026-10-27 (solo cuota general; lib/campanas/reparto-sugerido.ts)
           todoElPais,
           proposito.proposito,
           proposito.otro,
-          limitePorTipo.limite ? JSON.stringify(limitePorTipo.limite) : null,
-          JSON.stringify(formatosDeDocumento),
         ]
       );
+      // Checklists (tabla campana_checklists, 2026-10-30).
+      await guardarChecklists(cliente, result.rows[0].id, checklistSecciones);
+      // Tipos de dato con su límite y formatos (tabla campana_tipos, 2026-10-30).
+      await guardarTiposDeCampana(cliente, result.rows[0].id, {
+        tipos: dataTypes,
+        limite: limitePorTipo.limite,
+        formatos: formatosDeDocumento,
+      });
       if ("etiquetas" in body) {
         const errorDeEtiquetas = await guardarEtiquetasDeCampana(cliente, {
           campanaId: Number(result.rows[0].id),
@@ -522,6 +475,9 @@ export async function POST(request: Request) {
           return NextResponse.json({ error: errorDeEtiquetas }, { status: 400 });
         }
       }
+      result = await cliente.query(`SELECT c.*, ${columnasCalculadas("c")} FROM campanas c WHERE c.id = $1`, [
+        result.rows[0].id,
+      ]);
       await cliente.query("COMMIT");
     } catch (error) {
       await cliente.query("ROLLBACK").catch(() => {});

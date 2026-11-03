@@ -37,7 +37,8 @@ const ORDEN: TipoDeArchivo[] = ["foto", "video", "audio", "documento", "texto"];
 /**
  * Formatos de "Archivo" que el creador puede limitar (2026-10-28, a pedido del usuario): al marcar
  * "Archivo" en el formulario de campaña elige cuáles acepta (p. ej. solo PDF y Word). Ninguno marcado
- * = todos. Se guarda en campanas.formatos_de_documento (["pdf", "word"]).
+ * = todos. Se guarda en campana_tipos.formatos de la fila "documento" (["pdf", "word"]); al leer una campaña
+ * llega como formatos_de_documento (lib/campanas/tipos-de-campana.ts).
  */
 export type FormatoDeDocumento = "pdf" | "word" | "powerpoint" | "excel";
 export const FORMATOS_DE_DOCUMENTO: { valor: FormatoDeDocumento; nombre: string; extensiones: string[]; mimes: string[] }[] = [

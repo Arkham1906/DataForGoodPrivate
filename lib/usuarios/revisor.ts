@@ -16,11 +16,9 @@ export async function retirarComoRevisorDeTodasLasCampanas(usuarioId: number): P
   );
 
   for (const fila of campanasAfectadas.rows) {
+    // "Tiene revisor" se calcula de campana_revisores (2026-10-30); updated_at avisa a las pantallas abiertas.
     await pool.query(
-      `UPDATE campanas SET has_reviewer_assigned = EXISTS (
-         SELECT 1 FROM campana_revisores WHERE campana_id = $1 AND estado = 'aceptado'
-       ), updated_at = NOW()
-       WHERE id = $1`,
+      `UPDATE campanas SET updated_at = NOW() WHERE id = $1`,
       [fila.campana_id],
     );
   }

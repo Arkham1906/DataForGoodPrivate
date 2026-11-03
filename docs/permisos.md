@@ -76,12 +76,12 @@ En páginas de servidor de la zona de usuario usa `exigirUsuario()`, no `getSess
 
 ## 4. Roles
 
-`usuarios.role` es un arreglo JSONB con códigos de `lib/roles.ts`. Los nombres para mostrar están en `lib/usuarios/rol-asignable.ts`.
+Los roles están en la tabla `usuario_roles` (una fila por rol, desde el 2026-10-30; antes el arreglo JSONB `usuarios.role`), con códigos de `lib/roles.ts`; `columnaDeRoles()` de `lib/usuarios/tabla-roles.ts` los lee como antes. Los nombres para mostrar están en `lib/usuarios/rol-asignable.ts`.
 
 | Rol | Cómo se obtiene | Qué habilita |
 | --- | --- | --- |
 | `usuario` | Toda cuenta | Explorar, aportar, **crear y administrar sus propias campañas** (no hace falta otro rol) |
-| `revisor` | Por campaña: el creador invita (`POST /api/campanas/[id]/revisores`) y la persona acepta desde sus notificaciones. Se guarda en `campana_revisores`, no en `usuarios.role`; `getSessionUser()` lo agrega al vuelo | `/revisiones` para las campañas donde aceptó |
+| `revisor` | Por campaña: el creador invita (`POST /api/campanas/[id]/revisores`) y la persona acepta desde sus notificaciones. Se guarda en `campana_revisores`, y también da el rol `revisor` en `usuario_roles`; `getSessionUser()` lo agrega al vuelo | `/revisiones` para las campañas donde aceptó |
 | `supervisor` | **Solo el SuperUsuario** lo asigna (`asignarRol`). Al revocarlo, sus campañas `en_revision` quedan libres | `/supervision`: tomar y dictaminar campañas `en_revision` que no sean suyas |
 | `admin` | Existe en el código, sin uso definido | — |
 | SuperUsuario | Credencial raíz (no es un rol de la tabla) | Panel `/sistema`, `/usuarios`, `/supervisar` |
@@ -104,7 +104,7 @@ No hay una función central: cada handler lo comprueba con SQL. Si agregas una r
 ## 6. Registro, verificación e inicio de sesión
 
 - **Registro** (`POST /api/usuarios`): crea la cuenta con `email_verificado = false` y llama a `startVerification()` (`lib/verification.ts`).
-- **Verificación:** código de 6 dígitos enviado por Gmail (`nodemailer`), guardado como hash. Vence en 15 minutos y admite 3 intentos. La cookie `pending_verification_id` liga la pantalla `/verificar` con la cuenta.
+- **Verificación:** código de 6 dígitos enviado por Gmail (`nodemailer`), guardado como hash en `codigos_usuario`. Vence en 15 minutos y admite 3 intentos. La cookie `pending_verification_id` liga la pantalla `/verificar` con la cuenta.
 - **Login** (`POST /api/auth/login`): bcrypt (`lib/password.ts`, que también reconoce hashes viejos y los migra al vuelo). Tras 5 fallos bloquea la cuenta 15 minutos (`locked_until`). Rechaza cuentas sin verificar.
 - **Google** (`lib/google.ts`): `GET /api/auth/google` guarda un `state` aleatorio en la cookie `google_oauth_state` y redirige. El callback compara el `state`, vincula `google_id` a una cuenta existente con ese correo o crea una nueva ya verificada.
 - **Volver a donde estabas:** el parámetro `?next=` viaja por `/entrar`, `/registro`, `/verificar`, `/bienvenida` y Google. `destinoSeguro()` (`lib/redireccion.ts`) solo acepta rutas internas, para evitar redirecciones abiertas.

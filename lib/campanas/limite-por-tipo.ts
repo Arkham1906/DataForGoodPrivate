@@ -7,8 +7,9 @@
 // tipo lleva su límite, obligatorio, y la meta de aprobados es la suma de los límites); o, si al creador
 // no le importa cuántos de cada tipo, una META GENERAL (un total de aprobados, sin límites por tipo, que
 // solo marca el avance). Ver resolverMetaYLimites. La cuota por persona vale en los dos casos.
-// Se guarda en campanas.limite_por_tipo ({ "foto": 100 }) y el conteo en campanas.enviados_por_tipo
-// (lo recalcula recalcularContadores, lib/aportes/comun.ts, que también lo exige al insertar).
+// Se guarda en campana_tipos.limite y el conteo en campana_tipos.enviados (2026-10-30; lo recalcula
+// recalcularContadores, lib/aportes/comun.ts, que también lo exige al insertar). Al leer una campaña llegan
+// como limite_por_tipo ({ "foto": 100 }) y enviados_por_tipo (columnasCalculadas de lib/campanas/tipos-de-campana.ts).
 // Sin imports de servidor: lo usan el formulario de campaña y las pantallas de aportar.
 
 import type { DataType } from "@/types";
@@ -68,7 +69,7 @@ export function limitePorTipoDesdeFila(row: { limite_por_tipo?: unknown; data_ty
   return limite;
 }
 
-/** Aportes no rechazados de cada tipo (campanas.enviados_por_tipo). */
+/** Aportes no rechazados de cada tipo (enviados_por_tipo de la fila). */
 export function enviadosPorTipoDesdeFila(row: { enviados_por_tipo?: unknown }): EnviadosPorTipo {
   return mapaDeTipos(row.enviados_por_tipo);
 }

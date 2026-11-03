@@ -64,18 +64,19 @@ export async function campanasParaTi(
   const intereses = usuario.intereses.map((t) => t.trim().toLowerCase()).filter(Boolean);
   const estado = usuario.state?.trim() ?? "";
   const r = await pool.query(
-    `SELECT c.id, c.name, COALESCE(NULLIF(c.tematica, ''), c.tag) AS tematica, c.approved_contributions,
-            c.goal_contributions, c.participants,
+    `SELECT c.id, c.name, COALESCE(NULLIF(c.tematica, ''), c.tag) AS tematica, est.approved_contributions,
+            c.goal_contributions, est.participants,
             CASE WHEN lower(COALESCE(NULLIF(c.tematica, ''), c.tag)) = ANY($2::text[]) THEN 'interes'
                  WHEN $3 <> '' AND (c.todo_el_pais OR c.location_state = $3) THEN 'estado'
                  ELSE 'popular' END AS motivo
      FROM campanas c
+     JOIN campana_estadisticas est ON est.campana_id = c.id
      WHERE c.status = 'activa' AND c.creator_id <> $1
        AND NOT EXISTS (SELECT 1 FROM campana_baneados b WHERE b.campana_id = c.id AND b.usuario_id = $1)
      ORDER BY CASE WHEN lower(COALESCE(NULLIF(c.tematica, ''), c.tag)) = ANY($2::text[]) THEN 0
                    WHEN $3 <> '' AND (c.todo_el_pais OR c.location_state = $3) THEN 1
                    ELSE 2 END,
-              c.participants DESC, c.created_at DESC
+              est.participants DESC, c.created_at DESC
      LIMIT $4`,
     [usuario.id, intereses, estado, limite]
   );
