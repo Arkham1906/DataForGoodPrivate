@@ -15,7 +15,9 @@ import {
   IconoCampanas,
   IconoEscudo,
   IconoInicio,
+  IconoProgreso,
   IconoRevisar,
+  IconoLeaderboard
 } from "@/components/sistema/icons";
 import { claseDeOpcionMarcada, useIndicadorDeMenu } from "@/components/ui/useIndicadorDeMenu";
 import type { SessionUser } from "@/lib/session";
@@ -30,6 +32,9 @@ const NAV_ITEMS: Opcion[] = [
   { href: "/campanas", label: "Explorar campañas", Icono: IconoBuscar },
   { href: "/mis-aportes", label: "Mis aportes", Icono: IconoAportes },
   { href: "/mis-campanas", label: "Mis campañas", Icono: IconoCampanas },
+  // Mi progreso (2026-11-02, decisión del responsable): solo lo de la gamificación (rango, misiones, racha).
+  { href: "/progreso", label: "Mi progreso", Icono: IconoProgreso },
+  { href: "/leaderboard", label: "Lideres", Icono: IconoLeaderboard}
 ];
 
 // Sin contador de reportes junto a "Supervisión" (2026-10-15, a pedido del usuario): cada reporte llega

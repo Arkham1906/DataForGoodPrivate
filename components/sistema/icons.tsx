@@ -140,6 +140,31 @@ export function IconoRevisar(props: IconoProps) {
   );
 }
 
+/** Mi progreso (2026-11-02): escalones con una flecha hacia arriba. */
+export function IconoProgreso(props: IconoProps) {
+  return (
+    <Base {...props}>
+      <path d="M3 21h18" />
+      <path d="M5 21v-5h4v5" />
+      <path d="M10 21v-9h4v9" />
+      <path d="M15 21V7h4v14" />
+    </Base>
+  );
+}
+
+/** Líderes (tabla de clasificación): trofeo. */
+export function IconoLeaderboard(props: IconoProps) {
+  return (
+    <Base {...props}>
+      <path d="M8 21h8" />
+      <path d="M12 17v4" />
+      <path d="M7 4h10v5a5 5 0 0 1-10 0V4z" />
+      <path d="M7 6H4v1a3 3 0 0 0 3 3" />
+      <path d="M17 6h3v1a3 3 0 0 1-3 3" />
+    </Base>
+  );
+}
+
 export function IconoCampana(props: IconoProps) {
   return (
     <Base {...props}>

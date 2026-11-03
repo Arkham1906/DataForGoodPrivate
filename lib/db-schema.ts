@@ -1455,6 +1455,726 @@ export async function ensureIndicesDeLlaves(): Promise<void> {
 
 const lista = (valores: Iterable<string>) => Array.from(valores, (v) => `'${v.replace(/'/g, "''")}'`).join(", ");
 
+// ---------------------------------------------------------------------------------------------
+// Gamificación (2026-11-02): SRS v1.1 + claude/propuesta-bd-gamificacion.md. Este bloque va en
+// lib/db-schema.ts, justo después de ensureMedallasTables() y antes del comentario de
+// ensureCoreSchema(); ensureCoreSchema() llama a ensureGamificacion() después de ensureMedallasTables().
+// Solo usa `pool`, que db-schema.ts ya importa.
+//
+// Reglas que sigue (propuesta § 5): funciones idempotentes, todo con IF NOT EXISTS, siembras con
+// ON CONFLICT DO NOTHING (el SuperUsuario puede editar los catálogos sin que el arranque los pise),
+// fechas TIMESTAMPTZ y cada tabla después de las que referencia.
+//
+// Terminología (RA-GAM-16): todo lo nuevo dice rango, EXP y medalla. Las columnas heredadas
+// usuarios.xp_total, level y streak_days se conservan como histórico no funcional (RF-GAM-68, 70).
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * Parámetros de la versión 1 (SRS v1.1, secciones 3 y 4). Son JSON porque son parámetros
+ * configurables y versionados (RF-GAM-64, RNF-GAM-05): el SuperUsuario agrega una versión nueva en
+ * lugar de editar la anterior, y cada movimiento de EXP guarda la versión con la que se calculó.
+ * Los límites que garantiza la base (un potenciador activo por persona, 0 a 3 protectores) están en
+ * las tablas, no aquí. No hay tipo "ubicación": se descartó (propuesta P1).
+ */
+const PARAMETROS_GAMIFICACION_V1 = {
+  expBase: { texto: 10, foto: 20, documento: 20, audio: 30, video: 30 },
+  multiplicadorCalidad: { buena: 1.0, excelente: 1.5, excepcional: 2.0 },
+  potenciador: { bonificacion: 0.5, duracionMinutos: 15, enEspera: 3 },
+  factorMaximo: 5,
+  ventanasHoras: { correccionCalidad: 24, racha: 72 },
+  bonoCuota: { porcentaje: 25, minimo: 10, maximo: 150, cuotaMinima: 3 },
+};
+
+/** Los 20 rangos del SRS v1.1, tabla 4.3: [número, nombre, EXP, aportes, excelentes o superiores, excepcionales, racha actual, misiones]. */
+const RANGOS_BASE: ReadonlyArray<readonly [number, string, number, number, number, number, number, number]> = [
+  [1, "Investigador en Formación", 0, 0, 0, 0, 0, 0],
+  [2, "Investigador Principiante", 10, 1, 0, 0, 0, 0],
+  [3, "Investigador Curioso", 20, 2, 0, 0, 0, 1],
+  [4, "Investigador Aprendiz", 55, 5, 0, 0, 2, 2],
+  [5, "Investigador Inicial", 90, 8, 1, 0, 2, 3],
+  [6, "Investigador en Desarrollo", 140, 12, 2, 0, 3, 4],
+  [7, "Investigador Explorador", 210, 17, 3, 0, 4, 5],
+  [8, "Investigador Participante", 290, 23, 4, 0, 5, 6],
+  [9, "Investigador Aplicado", 380, 29, 5, 1, 6, 7],
+  [10, "Investigador Constante", 490, 36, 7, 1, 7, 9],
+  [11, "Investigador Comprometido", 615, 44, 9, 2, 8, 11],
+  [12, "Investigador Metódico", 765, 53, 11, 2, 10, 13],
+  [13, "Investigador Avanzado", 940, 63, 14, 3, 11, 15],
+  [14, "Investigador Especializado", 1120, 73, 17, 3, 12, 18],
+  [15, "Investigador Experimentado", 1325, 84, 21, 4, 14, 21],
+  [16, "Investigador Especialista", 1555, 96, 25, 5, 15, 24],
+  [17, "Investigador Referente", 1800, 108, 30, 6, 17, 28],
+  [18, "Investigador Destacado", 2070, 121, 35, 8, 18, 32],
+  [19, "Investigador de Excelencia", 2370, 135, 40, 10, 20, 37],
+  [20, "Investigador Emérito", 2700, 150, 45, 12, 21, 42],
+];
+
+type MedallaBase = {
+  clave: string;
+  nombre: string;
+  mide: string;
+  descripcion: string;
+  /** false = se siembra pero no se evalúa hasta cerrar su decisión abierta. */
+  activa: boolean;
+  /** [nombre del nivel, umbral]; el nivel es la posición (1, 2, 3...). */
+  niveles: ReadonlyArray<readonly [string, number]>;
+};
+
+/**
+ * Las 11 medallas del SRS v1.1, tabla 4.4 (50 niveles). Las descripciones son provisionales: el
+ * SuperUsuario las puede editar (medallas.descripcion) sin que el arranque las pise.
+ */
+const MEDALLAS_BASE: ReadonlyArray<MedallaBase> = [
+  {
+    clave: "bosque_de_datos", nombre: "Bosque de Datos", mide: "aportes_aceptados", activa: true,
+    descripcion: "Crece con cada aporte aceptado.",
+    niveles: [["Semilla", 5], ["Brote", 25], ["Arbusto", 75], ["Árbol", 150], ["Bosque", 400]],
+  },
+  {
+    clave: "supernova", nombre: "Supernova", mide: "aportes_excepcionales", activa: true,
+    descripcion: "Reconoce los aportes de calidad excepcional.",
+    niveles: [["Chispa", 1], ["Destello", 5], ["Centella", 12], ["Aurora", 25], ["Supernova", 50]],
+  },
+  {
+    clave: "llama_constante", nombre: "Llama Constante", mide: "racha_maxima", activa: true,
+    descripcion: "Se alimenta de la racha máxima, en días.",
+    niveles: [["Pabilo", 3], ["Vela", 7], ["Antorcha", 14], ["Hoguera", 30], ["Faro", 100]],
+  },
+  {
+    clave: "cumbres", nombre: "Cumbres", mide: "campanas_completadas", activa: true,
+    descripcion: "Avanza al completar la cuota de campañas.",
+    niveles: [["Colina", 1], ["Loma", 3], ["Cerro", 7], ["Montaña", 15], ["Cordillera", 30]],
+  },
+  {
+    clave: "brujula_de_causas", nombre: "Brújula de Causas", mide: "campanas_distintas", activa: true,
+    descripcion: "Premia el primer aporte aceptado en campañas distintas.",
+    niveles: [["Mapa", 1], ["Brújula", 3], ["Sextante", 8], ["Astrolabio", 15], ["Rosa de los Vientos", 30]],
+  },
+  {
+    clave: "energia_de_impacto", nombre: "Energía de Impacto", mide: "exp_total", activa: true,
+    descripcion: "Evoluciona con la EXP total acumulada.",
+    niveles: [["Pila", 250], ["Dínamo", 1000], ["Turbina", 3000], ["Reactor", 8000], ["Sol", 20000]],
+  },
+  {
+    // Propuesta P1: sin el tipo "ubicación" hay 5 tipos, así que el nivel 6 (Orquesta) no se puede
+    // alcanzar hasta que el SRS se ajuste. Se siembra como está en el SRS.
+    clave: "orquesta_de_datos", nombre: "Orquesta de Datos", mide: "tipos_distintos", activa: true,
+    descripcion: "Premia tener aportes aceptados de tipos de dato distintos.",
+    niveles: [["Dúo", 2], ["Trío", 3], ["Cuarteto", 4], ["Quinteto", 5], ["Orquesta", 6]],
+  },
+  {
+    // PENDIENTE DA-GAM-15 (secuencia, desorden de decisiones, reinicio): inactiva hasta cerrarse.
+    clave: "pulso_firme", nombre: "Pulso Firme", mide: "aceptados_consecutivos", activa: false,
+    descripcion: "Aportes aceptados consecutivos sin rechazo.",
+    niveles: [["Nivel 1", 5], ["Nivel 2", 10], ["Nivel 3", 25], ["Nivel 4", 50], ["Nivel 5", 100]],
+  },
+  {
+    clave: "fenix", nombre: "Fénix", mide: "rachas_recuperadas", activa: true,
+    descripcion: "Recuperar una racha de al menos 7 días después de perderla.",
+    niveles: [["Ceniza", 1], ["Brasa", 3], ["Fénix", 5]],
+  },
+  {
+    clave: "carga_maxima", nombre: "Carga Máxima", mide: "aportes_en_potenciador", activa: true,
+    descripcion: "Aportes aceptados enviados durante un solo potenciador.",
+    niveles: [["Nivel 1", 3], ["Nivel 2", 5], ["Nivel 3", 8]],
+  },
+  {
+    clave: "aliado_de_causas", nombre: "Aliado de Causas", mide: "tematicas_distintas", activa: true,
+    descripcion: "Premia tener aportes aceptados en temáticas distintas.",
+    niveles: [["Nivel 1", 2], ["Nivel 2", 4], ["Nivel 3", 6], ["Nivel 4", 8]],
+  },
+];
+
+/**
+ * Columnas nuevas en tablas que ya existen. Van aquí, juntas, y no dentro de cada ensure*, para que
+ * toda la gamificación se lea (y se revierta) en un solo lugar.
+ *   - usuarios.primer_inicio_sesion_en: ancla de los periodos de misión (RF-GAM-41, RA-GAM-18). Las
+ *     cuentas existentes quedan en NULL: su valor está pendiente en DA-GAM-17 (b).
+ *   - usuarios.intereses_actualizados_en: fecha de la encuesta de intereses, para misiones (RF-GAM-43).
+ *   - usuario_preferencias.avisos_gamificacion: un booleano por tipo de aviso (RF-GAM-61, RA-GAM-08);
+ *     '{}' = todos con su valor por defecto. oculto_en_lideres: RF-GAM-95.
+ *   - aportes.calidad: buena | excelente | excepcional (RF-GAM-09). Es una columna aparte de
+ *     calificacion (1 a 5 estrellas desde el 2026-10-31) porque son escalas distintas: las
+ *     estrellas no dan EXP; calificacion queda como histórico (RN-GAM-27: no hay EXP retroactiva).
+ *     Quien aprobó es first_pass_by_user_id (solo lo escribe un REV; con el creador queda NULL).
+ *   - aportes.invalidado_en y invalidacion_motivo (RF-GAM-53): columnas propias y no un valor nuevo
+ *     de status, para no cambiar los conteos de campaña ni las pantallas de revisión.
+ *   - medallas: clave y mide; la ilustración va por nivel (medalla_niveles), así que file_* ya no
+ *     es obligatorio. medallas_usuario: nivel y valor actuales.
+ */
+async function ensureGamificacionColumnas(): Promise<void> {
+  await pool.query(`
+    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS primer_inicio_sesion_en TIMESTAMPTZ;
+    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS intereses_actualizados_en TIMESTAMPTZ;
+    ALTER TABLE usuario_preferencias ADD COLUMN IF NOT EXISTS avisos_gamificacion JSONB NOT NULL DEFAULT '{}'::jsonb;
+    ALTER TABLE usuario_preferencias ADD COLUMN IF NOT EXISTS oculto_en_lideres BOOLEAN NOT NULL DEFAULT false;
+    ALTER TABLE aportes ADD COLUMN IF NOT EXISTS calidad VARCHAR(12);
+    -- rev: la asignó un revisor; admin_campana: aceptó el creador (Buena fija, RF-GAM-10).
+    ALTER TABLE aportes ADD COLUMN IF NOT EXISTS calidad_origen VARCHAR(15);
+    -- Inicio de la ventana de 24 horas para corregirla (RF-GAM-13), con la hora del servidor.
+    ALTER TABLE aportes ADD COLUMN IF NOT EXISTS calidad_asignada_en TIMESTAMPTZ;
+    -- Resumen de lo que dio el aporte; el detalle está en exp_movimientos (RF-GAM-15).
+    ALTER TABLE aportes ADD COLUMN IF NOT EXISTS exp_otorgada INTEGER;
+    ALTER TABLE aportes ADD COLUMN IF NOT EXISTS invalidado_en TIMESTAMPTZ;
+    ALTER TABLE aportes ADD COLUMN IF NOT EXISTS invalidacion_motivo TEXT;
+    -- Racha y misiones leen los aportes de una persona por fecha de envío.
+    CREATE INDEX IF NOT EXISTS aportes_usuario_envio_idx ON aportes (user_id, submitted_at);
+    ALTER TABLE medallas ADD COLUMN IF NOT EXISTS clave VARCHAR(60) UNIQUE;
+    ALTER TABLE medallas ADD COLUMN IF NOT EXISTS mide VARCHAR(40);
+    ALTER TABLE medallas ALTER COLUMN file_type DROP NOT NULL;
+    ALTER TABLE medallas ALTER COLUMN file_path DROP NOT NULL;
+    ALTER TABLE medallas_usuario ADD COLUMN IF NOT EXISTS nivel_actual SMALLINT NOT NULL DEFAULT 1;
+    ALTER TABLE medallas_usuario ADD COLUMN IF NOT EXISTS valor_actual INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE medallas_usuario ADD COLUMN IF NOT EXISTS actualizado_en TIMESTAMPTZ NOT NULL DEFAULT NOW();
+    -- Obsoletas (RF-GAM-68): se conservan como histórico y el código deja de leerlas.
+    COMMENT ON COLUMN usuarios.xp_total IS 'OBSOLETA (gamificación SRS v1.1): histórico. La EXP está en usuario_progreso.exp_total.';
+    COMMENT ON COLUMN usuarios.level IS 'OBSOLETA (gamificación SRS v1.1): histórico. El rango está en usuario_progreso.rango_actual.';
+    COMMENT ON COLUMN usuarios.streak_days IS 'OBSOLETA (gamificación SRS v1.1): histórico. La racha está en usuario_progreso.racha_actual.';
+    COMMENT ON COLUMN campanas.xp_per_contribution IS 'OBSOLETA (gamificación SRS v1.1): la EXP base sale de parametros_gamificacion.';
+    COMMENT ON COLUMN aportes.calificacion IS 'OBSOLETA para la gamificación: histórico. La calidad que da EXP es aportes.calidad.';
+  `);
+}
+
+/**
+ * Versiones de los parámetros del módulo (RF-GAM-64, RNF-GAM-05): EXP base por tipo, multiplicadores
+ * de calidad, bonificación del potenciador (decimal: 0.5), factor máximo, ventanas de tiempo y bono
+ * por cuota. Una versión nueva no cambia lo ya calculado: exp_movimientos guarda con cuál se hizo.
+ * lanzamiento_en NULL = el módulo aún no se activa; con valor, los aportes enviados antes de esa
+ * fecha no dan EXP (RF-GAM-67). La versión vigente es la de mayor vigente_desde que ya empezó.
+ */
+export async function ensureParametrosGamificacionTable(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS parametros_gamificacion (
+      id SERIAL PRIMARY KEY,
+      version INTEGER NOT NULL UNIQUE CHECK (version > 0),
+      vigente_desde TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      lanzamiento_en TIMESTAMPTZ,
+      valores JSONB NOT NULL,
+      nota TEXT,
+      creado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+      creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+  await pool.query(
+    `INSERT INTO parametros_gamificacion (version, valores, nota)
+     VALUES (1, $1::jsonb, 'Valores iniciales del SRS v1.1')
+     ON CONFLICT (version) DO NOTHING`,
+    [JSON.stringify(PARAMETROS_GAMIFICACION_V1)],
+  );
+}
+
+/**
+ * Catálogo de los 20 rangos (RF-GAM-16, 82; tabla 4.3). Requisitos, nombre, descripción, insignia y
+ * etapa del avatar. descripcion, insignia_path y etapa_avatar quedan en NULL hasta tener el contenido
+ * (DA-GAM-23 y los recursos gráficos de la tabla 4.5); el coleccionable exclusivo está en
+ * objetos.rango_exclusivo. Cambiar un requisito no afecta a los rangos ya alcanzados: cada ascenso
+ * guarda los requisitos que se pidieron (rango_ascensos.requisitos). «Insignia» solo aparece aquí (RA-GAM-16).
+ */
+export async function ensureRangosTable(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS rangos (
+      numero SMALLINT PRIMARY KEY CHECK (numero > 0),
+      nombre VARCHAR(80) NOT NULL,
+      descripcion TEXT,
+      insignia_path VARCHAR(500),
+      etapa_avatar SMALLINT,
+      req_exp INTEGER NOT NULL DEFAULT 0 CHECK (req_exp >= 0),
+      req_aportes INTEGER NOT NULL DEFAULT 0 CHECK (req_aportes >= 0),
+      req_excelentes INTEGER NOT NULL DEFAULT 0 CHECK (req_excelentes >= 0),
+      req_excepcionales INTEGER NOT NULL DEFAULT 0 CHECK (req_excepcionales >= 0),
+      req_racha INTEGER NOT NULL DEFAULT 0 CHECK (req_racha >= 0),
+      req_misiones INTEGER NOT NULL DEFAULT 0 CHECK (req_misiones >= 0),
+      actualizado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      -- Los excepcionales cuentan también como excelentes o superiores (RN-GAM-07).
+      CHECK (req_excepcionales <= req_excelentes AND req_excelentes <= req_aportes)
+    );
+  `);
+  await pool.query(
+    `INSERT INTO rangos (numero, nombre, req_exp, req_aportes, req_excelentes, req_excepcionales, req_racha, req_misiones)
+     SELECT * FROM unnest($1::smallint[], $2::text[], $3::int[], $4::int[], $5::int[], $6::int[], $7::int[], $8::int[])
+     ON CONFLICT (numero) DO NOTHING`,
+    [
+      RANGOS_BASE.map((r) => r[0]),
+      RANGOS_BASE.map((r) => r[1]),
+      RANGOS_BASE.map((r) => r[2]),
+      RANGOS_BASE.map((r) => r[3]),
+      RANGOS_BASE.map((r) => r[4]),
+      RANGOS_BASE.map((r) => r[5]),
+      RANGOS_BASE.map((r) => r[6]),
+      RANGOS_BASE.map((r) => r[7]),
+    ],
+  );
+}
+
+/**
+ * Estado de gamificación de cada persona (RF-GAM-06, 17, 30; anexo A.3-3): una fila por usuario,
+ * que crea un trigger al insertar en usuarios (CA-GAM-14: rango 1 con 0 EXP). Rango, EXP, contadores
+ * de aportes (los excepcionales cuentan también como excelentes o superiores), misiones y campañas
+ * completadas, racha actual y máxima, último día con actividad válida y protectores. Los protectores
+ * son un contador de 0 a 3 y no filas de inventario: el límite lo garantiza esta sola fila, que el
+ * código bloquea con SELECT ... FOR UPDATE (RNF-GAM-03). La EXP nunca baja de 0 (RF-GAM-54).
+ * Inicialización (RF-GAM-66): todas las cuentas existentes empiezan en el rango 1 con 0; las dadas de
+ * baja definitiva (eliminada_en) no se vuelven a crear porque RF-GAM-60 borra su perfil.
+ */
+export async function ensureUsuarioProgresoTable(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS usuario_progreso (
+      usuario_id INTEGER PRIMARY KEY REFERENCES usuarios(id) ON DELETE CASCADE,
+      rango_actual SMALLINT NOT NULL DEFAULT 1 REFERENCES rangos(numero),
+      exp_total INTEGER NOT NULL DEFAULT 0 CHECK (exp_total >= 0),
+      aportes_aceptados INTEGER NOT NULL DEFAULT 0 CHECK (aportes_aceptados >= 0),
+      aportes_excelentes INTEGER NOT NULL DEFAULT 0 CHECK (aportes_excelentes >= 0),
+      aportes_excepcionales INTEGER NOT NULL DEFAULT 0 CHECK (aportes_excepcionales >= 0),
+      misiones_completadas INTEGER NOT NULL DEFAULT 0 CHECK (misiones_completadas >= 0),
+      campanas_completadas INTEGER NOT NULL DEFAULT 0 CHECK (campanas_completadas >= 0),
+      racha_actual INTEGER NOT NULL DEFAULT 0 CHECK (racha_actual >= 0),
+      racha_maxima INTEGER NOT NULL DEFAULT 0 CHECK (racha_maxima >= 0),
+      ultimo_dia_activo DATE,
+      protectores SMALLINT NOT NULL DEFAULT 0 CHECK (protectores BETWEEN 0 AND 3),
+      creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      actualizado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE OR REPLACE FUNCTION dfg_crear_progreso() RETURNS trigger AS $$
+    BEGIN
+      INSERT INTO usuario_progreso (usuario_id) VALUES (NEW.id) ON CONFLICT DO NOTHING;
+      RETURN NULL;
+    END;
+    $$ LANGUAGE plpgsql;
+    CREATE OR REPLACE TRIGGER dfg_crear_progreso AFTER INSERT ON usuarios
+      FOR EACH ROW EXECUTE FUNCTION dfg_crear_progreso();
+    -- Por si una cuenta se creó sin el trigger (y para las cuentas existentes, RF-GAM-66).
+    INSERT INTO usuario_progreso (usuario_id) SELECT id FROM usuarios WHERE eliminada_en IS NULL ON CONFLICT DO NOTHING;
+    CREATE INDEX IF NOT EXISTS usuario_progreso_rango_idx ON usuario_progreso (rango_actual);
+  `);
+}
+
+/**
+ * Contadores por dimensión (RF-GAM-06, medallas, RF-GAM-89): cuántos aportes aceptados y válidos tiene
+ * la persona por tipo de dato, por campaña y por temática. Alimentan Orquesta de Datos (tipos
+ * distintos), Brújula de Causas (campañas distintas), Aliado de Causas (temáticas distintas) y la
+ * tabla de líderes por temática. `clave` es el tipo ('texto', 'foto', ...), el id de la campaña o el
+ * id de la temática (tematicas.id y no su nombre: renombrarTematicaBase cambia el nombre).
+ */
+export async function ensureUsuarioContadoresTable(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS usuario_contadores (
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+      dimension VARCHAR(10) NOT NULL CHECK (dimension IN ('tipo', 'campana', 'tematica')),
+      clave VARCHAR(120) NOT NULL,
+      valor INTEGER NOT NULL DEFAULT 0 CHECK (valor >= 0),
+      actualizado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (usuario_id, dimension, clave),
+      CHECK (dimension <> 'tipo' OR clave IN ('texto', 'foto', 'video', 'audio', 'documento'))
+    );
+    -- Tabla de líderes por temática: quién tiene más en una clave.
+    CREATE INDEX IF NOT EXISTS usuario_contadores_clave_idx ON usuario_contadores (dimension, clave, valor DESC);
+  `);
+}
+
+/**
+ * Historial de ascensos de rango (RF-GAM-20, 83, 84): fecha, requisitos que se pidieron y
+ * recompensas de cada ascenso (etapa del avatar, insignia, coleccionable, otras), y si ya se vio la
+ * celebración. Un ascenso múltiple registra una fila por rango intermedio.
+ */
+export async function ensureRangoAscensosTable(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS rango_ascensos (
+      id SERIAL PRIMARY KEY,
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+      rango SMALLINT NOT NULL REFERENCES rangos(numero),
+      alcanzado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      requisitos JSONB NOT NULL,
+      recompensas JSONB NOT NULL DEFAULT '[]'::jsonb,
+      celebracion_vista_en TIMESTAMPTZ,
+      UNIQUE (usuario_id, rango)
+    );
+    -- Celebraciones que faltan por mostrar al volver a la aplicación.
+    CREATE INDEX IF NOT EXISTS rango_ascensos_pendientes_idx ON rango_ascensos (usuario_id) WHERE celebracion_vista_en IS NULL;
+    CREATE INDEX IF NOT EXISTS rango_ascensos_rango_idx ON rango_ascensos (rango);
+  `);
+}
+
+/**
+ * Historial de moderación de aportes (RF-GAM-27, 72; RA-GAM-15) y de calidad (RF-GAM-71, 65).
+ *   - aporte_eventos: enviado, aceptado, rechazado y cancelado, con la hora del servidor. Resuelve la
+ *     ventana de 72 horas y las decisiones fuera de orden. aporte_id NO es llave foránea a propósito:
+ *     borrar un aporte pendiente es su "cancelación" (propuesta P8) y el evento tiene que sobrevivir.
+ *     Por eso guarda también el tipo y cuándo se envió. Los aportes anónimos no se registran.
+ *   - aporte_calidad_historial: cada asignación y corrección de calidad, con valor anterior, quién
+ *     (un REV, o el creador con Buena fija), motivo (obligatorio al corregir) y fecha.
+ */
+export async function ensureAporteHistorialTables(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS aporte_eventos (
+      id BIGSERIAL PRIMARY KEY,
+      aporte_id INTEGER NOT NULL,
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+      campana_id INTEGER REFERENCES campanas(id) ON DELETE SET NULL,
+      evento VARCHAR(12) NOT NULL CHECK (evento IN ('enviado', 'aceptado', 'rechazado', 'cancelado')),
+      tipo_aporte VARCHAR(20) CHECK (tipo_aporte IN ('texto', 'foto', 'video', 'audio', 'documento')),
+      enviado_en TIMESTAMPTZ NOT NULL,
+      decidido_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+      motivo TEXT,
+      creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS aporte_eventos_aporte_idx ON aporte_eventos (aporte_id, creado_en);
+    CREATE INDEX IF NOT EXISTS aporte_eventos_usuario_idx ON aporte_eventos (usuario_id, enviado_en);
+    CREATE INDEX IF NOT EXISTS aporte_eventos_campana_idx ON aporte_eventos (campana_id);
+    CREATE INDEX IF NOT EXISTS aporte_eventos_decidido_por_idx ON aporte_eventos (decidido_por);
+    -- Un aporte se envía una sola vez.
+    CREATE UNIQUE INDEX IF NOT EXISTS aporte_eventos_enviado_unico_idx ON aporte_eventos (aporte_id) WHERE evento = 'enviado';
+
+    CREATE TABLE IF NOT EXISTS aporte_calidad_historial (
+      id SERIAL PRIMARY KEY,
+      aporte_id INTEGER NOT NULL REFERENCES aportes(id) ON DELETE CASCADE,
+      calidad_anterior VARCHAR(12) CHECK (calidad_anterior IN ('buena', 'excelente', 'excepcional')),
+      calidad_nueva VARCHAR(12) NOT NULL CHECK (calidad_nueva IN ('buena', 'excelente', 'excepcional')),
+      origen VARCHAR(15) NOT NULL CHECK (origen IN ('rev', 'admin_campana')),
+      asignada_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+      motivo TEXT,
+      creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      -- Corregir (hay valor anterior) exige motivo (RF-GAM-13).
+      CHECK (calidad_anterior IS NULL OR length(trim(COALESCE(motivo, ''))) > 0)
+    );
+    CREATE INDEX IF NOT EXISTS aporte_calidad_historial_aporte_idx ON aporte_calidad_historial (aporte_id, creado_en);
+    CREATE INDEX IF NOT EXISTS aporte_calidad_historial_asignada_por_idx ON aporte_calidad_historial (asignada_por);
+  `);
+}
+
+/**
+ * Racha por día y sus eventos (RF-GAM-85, 86).
+ *   - racha_dias: estado de cada día para el calendario: confirmado, provisional (aportes pendientes
+ *     dentro de su ventana de 72 horas), protegido (cubierto con protector), sin_actividad o
+ *     suspendido. El día se determina con la zona horaria del servidor (SRS 1.5).
+ *   - racha_eventos: protector consumido o devuelto, día consolidado a las 72 horas, día descartado
+ *     por un rechazo e interrupción, con el aporte relacionado. clave_idempotencia evita duplicados
+ *     ante reintentos (RF-GAM-08).
+ */
+export async function ensureRachaTables(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS racha_dias (
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+      dia DATE NOT NULL,
+      estado VARCHAR(15) NOT NULL CHECK (estado IN ('confirmado', 'provisional', 'protegido', 'sin_actividad', 'suspendido')),
+      actualizado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (usuario_id, dia)
+    );
+
+    CREATE TABLE IF NOT EXISTS racha_eventos (
+      id BIGSERIAL PRIMARY KEY,
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+      tipo VARCHAR(25) NOT NULL CHECK (tipo IN ('protector_consumido', 'protector_devuelto', 'dia_consolidado', 'dia_descartado', 'racha_interrumpida')),
+      dia DATE,
+      aporte_id INTEGER REFERENCES aportes(id) ON DELETE SET NULL,
+      detalle JSONB NOT NULL DEFAULT '{}'::jsonb,
+      clave_idempotencia VARCHAR(120) NOT NULL UNIQUE,
+      creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS racha_eventos_usuario_idx ON racha_eventos (usuario_id, creado_en DESC);
+    CREATE INDEX IF NOT EXISTS racha_eventos_aporte_idx ON racha_eventos (aporte_id);
+  `);
+}
+
+/**
+ * Potenciadores de EXP (RF-GAM-32 a 36): cola por persona con un activo y hasta tres en espera.
+ * El índice único parcial garantiza un solo activo por persona (sin solapamientos); el máximo de tres
+ * en espera lo cuida el código con el mismo bloqueo de usuario_progreso. Qué pasa al obtener uno con la
+ * capacidad llena NO está definido (DA-GAM-13) y no debe implementarse hasta cerrarse; por eso el estado
+ * 'perdido' solo existe para registrar el aviso de RF-GAM-61. `bonificacion` es decimal (0.5) y se copia al
+ * obtenerlo, para que cambiar el parámetro no altere uno ya obtenido. Elegibilidad (RF-GAM-36): un aporte
+ * es elegible si su submitted_at cae entre activado_en y vence_en.
+ */
+export async function ensurePotenciadoresTable(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS potenciadores (
+      id SERIAL PRIMARY KEY,
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+      estado VARCHAR(10) NOT NULL DEFAULT 'espera' CHECK (estado IN ('espera', 'activo', 'expirado', 'perdido')),
+      bonificacion NUMERIC(3, 2) NOT NULL DEFAULT 0.50 CHECK (bonificacion > 0),
+      duracion_minutos SMALLINT NOT NULL DEFAULT 15 CHECK (duracion_minutos > 0),
+      origen VARCHAR(40),
+      obtenido_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      activado_en TIMESTAMPTZ,
+      vence_en TIMESTAMPTZ,
+      clave_idempotencia VARCHAR(120) NOT NULL UNIQUE,
+      CHECK (estado NOT IN ('activo', 'expirado') OR (activado_en IS NOT NULL AND vence_en IS NOT NULL)),
+      CHECK (vence_en IS NULL OR vence_en > activado_en)
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS potenciadores_un_activo_idx ON potenciadores (usuario_id) WHERE estado = 'activo';
+    CREATE INDEX IF NOT EXISTS potenciadores_cola_idx ON potenciadores (usuario_id, estado, obtenido_en, id);
+    CREATE INDEX IF NOT EXISTS potenciadores_vigencia_idx ON potenciadores (usuario_id, activado_en, vence_en) WHERE activado_en IS NOT NULL;
+  `);
+}
+
+/**
+ * Objetos coleccionables e inventario (RF-GAM-50 a 52, 82). El catálogo está pendiente (DA-GAM-09),
+ * así que `categoria` es texto libre y no hay siembra. rango_exclusivo (único) marca el coleccionable
+ * exclusivo de un rango y evita una llave circular con rangos. usuario_objetos no limita los duplicados
+ * (DA-GAM-09 aún no define su regla): lo que impide entregar dos veces el mismo premio es
+ * clave_idempotencia (RF-GAM-08).
+ */
+export async function ensureObjetosTables(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS objetos (
+      id SERIAL PRIMARY KEY,
+      clave VARCHAR(60) NOT NULL UNIQUE,
+      nombre VARCHAR(120) NOT NULL,
+      descripcion TEXT,
+      categoria VARCHAR(30),
+      imagen_path VARCHAR(500),
+      rango_exclusivo SMALLINT UNIQUE REFERENCES rangos(numero) ON DELETE SET NULL,
+      activo BOOLEAN NOT NULL DEFAULT true,
+      creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS usuario_objetos (
+      id SERIAL PRIMARY KEY,
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+      objeto_id INTEGER NOT NULL REFERENCES objetos(id),
+      obtenido_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      equipado BOOLEAN NOT NULL DEFAULT false,
+      clave_idempotencia VARCHAR(120) NOT NULL UNIQUE
+    );
+    CREATE INDEX IF NOT EXISTS usuario_objetos_usuario_idx ON usuario_objetos (usuario_id);
+    CREATE INDEX IF NOT EXISTS usuario_objetos_objeto_idx ON usuario_objetos (objeto_id);
+  `);
+}
+
+/**
+ * Misiones (RF-GAM-40 a 45, 75). El catálogo está pendiente (DA-GAM-06), así que no hay siembra.
+ *   - misiones: periodicidad diaria o semanal, condición y recompensa en JSON (la forma la define el catálogo).
+ *   - mision_instancias: una por persona, misión y periodo. El periodo tiene inicio y fin explícitos,
+ *     calculados desde primer_inicio_sesion_en (RF-GAM-41); el UNIQUE impide contar dos veces la misma
+ *     finalización (RF-GAM-42). recompensa_entregada_en separa "completada" de "recompensa concedida"
+ *     (RF-GAM-74, DA-GAM-17).
+ *   - mision_instancia_aportes: los aportes que sumaron a cada instancia, para ajustar el progreso al invalidar.
+ */
+export async function ensureMisionesTables(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS misiones (
+      id SERIAL PRIMARY KEY,
+      clave VARCHAR(60) NOT NULL UNIQUE,
+      nombre VARCHAR(120) NOT NULL,
+      descripcion TEXT,
+      periodicidad VARCHAR(10) NOT NULL CHECK (periodicidad IN ('diaria', 'semanal')),
+      condicion JSONB NOT NULL,
+      recompensa JSONB NOT NULL DEFAULT '{}'::jsonb,
+      activa BOOLEAN NOT NULL DEFAULT true,
+      creada_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS mision_instancias (
+      id BIGSERIAL PRIMARY KEY,
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+      mision_id INTEGER NOT NULL REFERENCES misiones(id),
+      periodo_inicio TIMESTAMPTZ NOT NULL,
+      periodo_fin TIMESTAMPTZ NOT NULL,
+      objetivo INTEGER NOT NULL CHECK (objetivo > 0),
+      progreso INTEGER NOT NULL DEFAULT 0 CHECK (progreso >= 0),
+      completada_en TIMESTAMPTZ,
+      recompensa_entregada_en TIMESTAMPTZ,
+      CHECK (periodo_fin > periodo_inicio),
+      UNIQUE (usuario_id, mision_id, periodo_inicio)
+    );
+    CREATE INDEX IF NOT EXISTS mision_instancias_mision_idx ON mision_instancias (mision_id);
+    -- Total histórico de misiones completadas (requisito de rango) y recompensas por entregar.
+    CREATE INDEX IF NOT EXISTS mision_instancias_completadas_idx ON mision_instancias (usuario_id) WHERE completada_en IS NOT NULL;
+    CREATE INDEX IF NOT EXISTS mision_instancias_sin_recompensa_idx ON mision_instancias (usuario_id)
+      WHERE completada_en IS NOT NULL AND recompensa_entregada_en IS NULL;
+
+    CREATE TABLE IF NOT EXISTS mision_instancia_aportes (
+      instancia_id BIGINT NOT NULL REFERENCES mision_instancias(id) ON DELETE CASCADE,
+      aporte_id INTEGER NOT NULL REFERENCES aportes(id) ON DELETE CASCADE,
+      PRIMARY KEY (instancia_id, aporte_id)
+    );
+    CREATE INDEX IF NOT EXISTS mision_instancia_aportes_aporte_idx ON mision_instancia_aportes (aporte_id);
+  `);
+}
+
+/**
+ * Registro de EXP (RF-GAM-07, 08, 60; RNF-GAM-04, 10, 11): cada movimiento de EXP, con su origen
+ * (tipo), motivo y entidad relacionada. Es inalterable: un trigger impide borrar filas y cambiar lo
+ * que se calculó; un error se corrige con un ajuste nuevo (movimiento_original_id apunta al corregido),
+ * nunca editando. Guarda lo usado en el cálculo: EXP base, calidad, multiplicadores, bonificación del
+ * potenciador (decimales), factor, resultado y versión de parámetros. clave_idempotencia UNIQUE hace que
+ * repetir un evento no conceda dos veces (RF-GAM-08). En la baja definitiva usuario_id pasa a NULL y se
+ * marca anonimizado_en: el trigger solo permite ese cambio y los de las llaves foráneas (SET NULL).
+ */
+export async function ensureExpMovimientosTable(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS exp_movimientos (
+      id BIGSERIAL PRIMARY KEY,
+      usuario_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+      anonimizado_en TIMESTAMPTZ,
+      tipo VARCHAR(25) NOT NULL CHECK (tipo IN ('aporte', 'mision', 'bono_campana', 'ajuste_invalidacion', 'ajuste_calidad', 'ajuste_admin')),
+      exp INTEGER NOT NULL,
+      motivo TEXT,
+      aporte_id INTEGER REFERENCES aportes(id) ON DELETE SET NULL,
+      campana_id INTEGER REFERENCES campanas(id) ON DELETE SET NULL,
+      mision_instancia_id BIGINT REFERENCES mision_instancias(id) ON DELETE SET NULL,
+      movimiento_original_id BIGINT REFERENCES exp_movimientos(id),
+      exp_base INTEGER,
+      calidad VARCHAR(12) CHECK (calidad IN ('buena', 'excelente', 'excepcional')),
+      mult_calidad NUMERIC(4, 2),
+      mult_campana NUMERIC(4, 2),
+      potenciador_id INTEGER REFERENCES potenciadores(id) ON DELETE SET NULL,
+      bonificacion_potenciador NUMERIC(3, 2),
+      factor NUMERIC(4, 2),
+      parametros_version INTEGER REFERENCES parametros_gamificacion(version),
+      clave_idempotencia VARCHAR(120) NOT NULL UNIQUE,
+      creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS exp_movimientos_usuario_idx ON exp_movimientos (usuario_id, creado_en DESC);
+    CREATE INDEX IF NOT EXISTS exp_movimientos_aporte_idx ON exp_movimientos (aporte_id);
+    CREATE INDEX IF NOT EXISTS exp_movimientos_campana_idx ON exp_movimientos (campana_id);
+    CREATE INDEX IF NOT EXISTS exp_movimientos_mision_idx ON exp_movimientos (mision_instancia_id);
+    CREATE INDEX IF NOT EXISTS exp_movimientos_potenciador_idx ON exp_movimientos (potenciador_id);
+    CREATE INDEX IF NOT EXISTS exp_movimientos_original_idx ON exp_movimientos (movimiento_original_id);
+    CREATE OR REPLACE FUNCTION dfg_exp_movimientos_inalterable() RETURNS trigger AS $$
+    BEGIN
+      IF TG_OP = 'DELETE' THEN
+        RAISE EXCEPTION 'exp_movimientos es inalterable: registra un ajuste en vez de borrar';
+      END IF;
+      IF (OLD.tipo, OLD.exp, OLD.motivo, OLD.exp_base, OLD.calidad, OLD.mult_calidad, OLD.mult_campana,
+          OLD.bonificacion_potenciador, OLD.factor, OLD.parametros_version, OLD.clave_idempotencia, OLD.creado_en)
+         IS DISTINCT FROM
+         (NEW.tipo, NEW.exp, NEW.motivo, NEW.exp_base, NEW.calidad, NEW.mult_calidad, NEW.mult_campana,
+          NEW.bonificacion_potenciador, NEW.factor, NEW.parametros_version, NEW.clave_idempotencia, NEW.creado_en) THEN
+        RAISE EXCEPTION 'exp_movimientos es inalterable: registra un ajuste en vez de editar';
+      END IF;
+      RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+    CREATE OR REPLACE TRIGGER dfg_exp_movimientos_inalterable BEFORE UPDATE OR DELETE ON exp_movimientos
+      FOR EACH ROW EXECUTE FUNCTION dfg_exp_movimientos_inalterable();
+  `);
+}
+
+/**
+ * Niveles de medalla y su historial (RF-GAM-46 a 49; tabla 4.4).
+ *   - medalla_niveles: nivel, nombre, umbral e ilustración (una por nivel; NULL hasta tener los
+ *     recursos gráficos, tabla 4.5). Se siembran las 11 medallas del SRS (50 niveles). Si una medalla
+ *     ya existía con ese nombre (creada desde el panel) solo se le pone su clave.
+ *   - medalla_ascensos: cuándo se alcanzó cada nivel y si ya se vio la celebración (RF-GAM-84). Un nivel
+ *     alcanzado no se retira (RF-GAM-47): la llave foránea a medalla_niveles no tiene cascada.
+ * Pulso Firme se siembra inactiva hasta cerrar DA-GAM-15.
+ */
+export async function ensureMedallaNivelesTables(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS medalla_niveles (
+      id SERIAL PRIMARY KEY,
+      medalla_id INTEGER NOT NULL REFERENCES medallas(id) ON DELETE CASCADE,
+      nivel SMALLINT NOT NULL CHECK (nivel >= 1),
+      nombre VARCHAR(60) NOT NULL,
+      umbral INTEGER NOT NULL CHECK (umbral > 0),
+      ilustracion_path VARCHAR(500),
+      UNIQUE (medalla_id, nivel)
+    );
+
+    CREATE TABLE IF NOT EXISTS medalla_ascensos (
+      id SERIAL PRIMARY KEY,
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+      medalla_id INTEGER NOT NULL,
+      nivel SMALLINT NOT NULL,
+      alcanzado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      celebracion_vista_en TIMESTAMPTZ,
+      UNIQUE (usuario_id, medalla_id, nivel),
+      FOREIGN KEY (medalla_id, nivel) REFERENCES medalla_niveles (medalla_id, nivel)
+    );
+    CREATE INDEX IF NOT EXISTS medalla_ascensos_pendientes_idx ON medalla_ascensos (usuario_id) WHERE celebracion_vista_en IS NULL;
+  `);
+  for (const m of MEDALLAS_BASE) {
+    await pool.query(
+      `INSERT INTO medallas (clave, nombre, descripcion, mide, criterio, activa)
+       VALUES ($1, $2, $3, $4, $5::jsonb, $6)
+       ON CONFLICT DO NOTHING`,
+      [m.clave, m.nombre, m.descripcion, m.mide, JSON.stringify({ mide: m.mide }), m.activa],
+    );
+    await pool.query(
+      `UPDATE medallas SET clave = $1, mide = COALESCE(mide, $3)
+        WHERE nombre = $2 AND clave IS NULL AND NOT EXISTS (SELECT 1 FROM medallas WHERE clave = $1)`,
+      [m.clave, m.nombre, m.mide],
+    );
+    await pool.query(
+      `INSERT INTO medalla_niveles (medalla_id, nivel, nombre, umbral)
+       SELECT md.id, n.nivel, n.nombre, n.umbral
+         FROM medallas md, unnest($2::smallint[], $3::text[], $4::int[]) AS n(nivel, nombre, umbral)
+        WHERE md.clave = $1
+       ON CONFLICT (medalla_id, nivel) DO NOTHING`,
+      [m.clave, m.niveles.map((_, i) => i + 1), m.niveles.map((n) => n[0]), m.niveles.map((n) => n[1])],
+    );
+  }
+}
+
+/**
+ * Bono por completar la cuota de una campaña (RF-GAM-37 a 39): una fila por persona y campaña.
+ * Guarda la cuota completada, la EXP de referencia (base × calidad, sin potenciador ni multiplicador
+ * de campaña), el bono y el movimiento de EXP que lo concedió. Cuenta en campanas_completadas.
+ * 'revertido' es la regla PROVISIONAL de DA-GAM-14 (se revierte si una invalidación o corrección deja
+ * la cuota incompleta y se recalcula si se completa de nuevo). PENDIENTE: el SRS no dice si una campaña
+ * con cuota menor a 3 (sin bono, RF-GAM-38) cuenta como completada; el bono 0 lo permite.
+ */
+export async function ensureCampanaCuotaBonosTable(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS campana_cuota_bonos (
+      id SERIAL PRIMARY KEY,
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+      campana_id INTEGER NOT NULL REFERENCES campanas(id) ON DELETE CASCADE,
+      cuota INTEGER NOT NULL CHECK (cuota > 0),
+      exp_referencia INTEGER NOT NULL DEFAULT 0 CHECK (exp_referencia >= 0),
+      bono INTEGER NOT NULL DEFAULT 0 CHECK (bono >= 0),
+      estado VARCHAR(10) NOT NULL DEFAULT 'concedido' CHECK (estado IN ('concedido', 'revertido')),
+      exp_movimiento_id BIGINT REFERENCES exp_movimientos(id) ON DELETE SET NULL,
+      completada_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      revertida_en TIMESTAMPTZ,
+      UNIQUE (usuario_id, campana_id)
+    );
+    CREATE INDEX IF NOT EXISTS campana_cuota_bonos_campana_idx ON campana_cuota_bonos (campana_id);
+    CREATE INDEX IF NOT EXISTS campana_cuota_bonos_movimiento_idx ON campana_cuota_bonos (exp_movimiento_id);
+  `);
+}
+
+/**
+ * Posición semanal en la tabla de líderes, para mostrar el cambio respecto a la semana anterior en
+ * Inicio (RF-GAM-96). Solo categorías sin sub-clave (aportes, rango, excelentes, excepcionales); las
+ * posiciones por temática no se guardan. semana_inicio es el primer día de la semana: cómo se delimita
+ * (calendario o móvil) y con qué zona horaria sigue abierto en DA-GAM-21. Quien tiene
+ * usuario_preferencias.oculto_en_lideres no aparece (RF-GAM-95).
+ */
+export async function ensureLideresPosicionesTable(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS lideres_posiciones_semanales (
+      semana_inicio DATE NOT NULL,
+      categoria VARCHAR(15) NOT NULL CHECK (categoria IN ('aportes', 'rango', 'excelentes', 'excepcionales')),
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+      posicion INTEGER NOT NULL CHECK (posicion > 0),
+      calculada_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (semana_inicio, categoria, usuario_id)
+    );
+    CREATE INDEX IF NOT EXISTS lideres_posiciones_usuario_idx ON lideres_posiciones_semanales (usuario_id, semana_inicio DESC);
+  `);
+}
+
+/** Todo el esquema de la gamificación, en el orden de sus llaves foráneas. Lo llama ensureCoreSchema(). */
+export async function ensureGamificacion(): Promise<void> {
+  await ensureGamificacionColumnas(); // antes que todo: usa usuarios, aportes y medallas ya creadas
+  await ensureParametrosGamificacionTable();
+  await ensureRangosTable(); // antes de usuario_progreso, rango_ascensos y objetos: los referencian
+  await ensureUsuarioProgresoTable();
+  await ensureUsuarioContadoresTable();
+  await ensureRangoAscensosTable();
+  await ensureAporteHistorialTables();
+  await ensureRachaTables();
+  await ensurePotenciadoresTable(); // antes de exp_movimientos
+  await ensureObjetosTables();
+  await ensureMisionesTables(); // antes de exp_movimientos
+  await ensureExpMovimientosTable();
+  await ensureMedallaNivelesTables();
+  await ensureCampanaCuotaBonosTable(); // después de exp_movimientos
+  await ensureLideresPosicionesTable();
+}
+
+
 /**
  * Valores válidos de las columnas de estado y tipo (2026-10-30, quinta tanda): la base rechaza un
  * valor mal escrito en vez de guardarlo. Las listas salen de las mismas constantes que usa el código
@@ -1546,6 +2266,7 @@ export async function ensureCoreSchema(): Promise<void> {
   await ensureEspecialidadesTable(); // después de usuarios: creada_por la referencia
   await ensureOrganizacionesTable(); // después de usuarios y campanas: creada_por y la siembra
   await ensureMedallasTables(); // después de usuarios: medallas_usuario.usuario_id la referencia
+  await ensureGamificacion(); // gamificación SRS v1.1: columnas, catálogos y tablas nuevas
   await ensureFechasConZona(); // después de crear las tablas: TIMESTAMP → TIMESTAMPTZ
   await ensureIndicesDeLlaves();
   await ensureRestricciones();

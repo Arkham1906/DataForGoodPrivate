@@ -12,7 +12,7 @@ const LUGAR = [
   { orden: "sm:order-3", escalon: "sm:h-14", color: "bg-error-100 text-error-800 border-error-200", medalla: "3.º" },
 ];
 
-export default function Podio({ lideres, categoria }: { lideres: Lider[]; categoria: CategoriaDeClasificacion }) {
+export default function Podio({ lideres, categoria, resaltarId }: { lideres: Lider[]; categoria: CategoriaDeClasificacion; resaltarId?: number; }) {
   return (
     <ol className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-center sm:gap-4" aria-label="Podio">
       {lideres.slice(0, LUGAR.length).map((lider, i) => {
@@ -24,7 +24,10 @@ export default function Podio({ lideres, categoria }: { lideres: Lider[]; catego
                 datos={{ usuarioId: lider.usuarioId, nombre: lider.nombre, avatar: lider.avatar, version: null }}
                 tamano={i === 0 ? "lg" : "md"}
               />
-              <p className="text-[14px] font-bold text-system-900">{lider.nombre}</p>
+              <p className="text-[14px] font-bold text-system-900">
+                {lider.nombre}
+                {lider.usuarioId === resaltarId && <span className="ml-1.5 text-[11.5px] font-bold text-brand-700">Tu</span>}
+              </p>
               <p className="text-[12.5px] font-semibold text-system-600">{textoDelValor(categoria, lider.valor)}</p>
               {lider.detalle && <p className="font-mono text-[11px] text-system-500">{lider.detalle}</p>}
             </div>

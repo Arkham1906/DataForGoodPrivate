@@ -42,6 +42,13 @@ const TABLAS_CON_AVISO = [
   "usuario_roles",
   "medallas",
   "medallas_usuario",
+  // Los roles viven en usuario_roles desde el 2026-10-30 (usuarios.role ya no existe).
+  "usuario_roles",
+  // Gamificación (2026-11-02): lo que muestran /inicio y /progreso.
+  "usuario_progreso",
+  "potenciadores",
+  "racha_dias",
+  "mision_instancias",
 ];
 
 /**

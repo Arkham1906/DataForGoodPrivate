@@ -28,6 +28,8 @@ export type AporteReciente = {
   descripcion: string;
   /** pendiente, espera_final, aceptado o rechazado. */
   estado: string;
+  /** buena | excelente | excepcional (RF-GAM-09); null mientras no se asigna. */
+  calidad: string | null;
   /** ISO con "Z" (submitted_at es TIMESTAMP en UTC). */
   enviadoEn: string;
 };
@@ -131,7 +133,7 @@ export async function obtenerResumenDeInicio(
       // Sin populares de otras temáticas (2026-11-03, a pedido del usuario; igual que /campanas).
       campanasParaTi(usuario, CAMPANAS_PARA_TI, { zona, sinPopulares: true }),
       pool.query(
-        `SELECT a.id, a.campaign_id, c.name AS campana, a.description, a.status,
+        `SELECT a.id, a.campaign_id, c.name AS campana, a.description, a.status, a.calidad,
                 to_char(a.submitted_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS enviado_en
          FROM aportes a JOIN campanas c ON c.id = a.campaign_id
          WHERE a.user_id = $1
@@ -164,6 +166,7 @@ export async function obtenerResumenDeInicio(
         campana: String(r.campana ?? ""),
         descripcion: String(r.description ?? ""),
         estado: String(r.status ?? ""),
+        calidad: r.calidad ? String(r.calidad) : null,
         enviadoEn: String(r.enviado_en ?? ""),
       })),
       notificaciones: notificaciones.data,
