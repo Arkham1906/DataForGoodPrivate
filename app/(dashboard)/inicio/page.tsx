@@ -1,7 +1,7 @@
 // Pantalla /inicio (2026-10-24, a pedido del usuario): la primera pantalla del usuario común al iniciar sesión.
 // Rediseñada el 2026-11-02 según el diseño v9 «Inicio simplificado» (SRS v1.1): arriba el rango y el avance hacia el
 // siguiente (ResumenDeRango), luego «Hoy» (potenciador, misiones de hoy y racha: ResumenDeHoy), y después lo que ya
-// tenía: resumen de aportes y campañas, campañas para ti, últimos aportes (con su calidad) y notificaciones.
+// tenía: resumen de aportes y campañas, campañas para ti, últimos aportes (con sus estrellas, 2026-11-03) y notificaciones.
 // El mapa de aportes pasa a Mis aportes (decisión del diseño v9).
 // Server Component. Acceso: sesión de usuario (exigirUsuario). Datos: obtenerResumenDeInicio() de
 // lib/usuarios/inicio.ts y obtenerResumenDeProgreso() de lib/gamificacion/progreso.ts (null si aún no hay datos de
@@ -25,6 +25,7 @@ import { obtenerResumenDeInicio } from "@/lib/usuarios/inicio";
 import { obtenerResumenDeProgreso } from "@/lib/gamificacion/progreso";
 import { zonaDetectadaDe } from "@/lib/ubicacion/zona-detectada";
 import CampanasParaTi from "@/components/campanas/CampanasParaTi";
+import EstrellasDeCalificacion from "@/components/aportes/EstrellasDeCalificacion";
 import BotonCrearCampana from "@/components/campanas/BotonCrearCampana";
 import AvisoSinTematicas from "@/components/campanas/AvisoSinTematicas";
 import ResumenDeRango from "@/components/gamificacion/ResumenDeRango";
@@ -47,13 +48,6 @@ const ESTADO_DE_APORTE: Record<string, { texto: string; tono: "default" | "ok" |
   espera_final: { texto: "En revisión", tono: "warn" },
   aceptado: { texto: "Aceptado", tono: "ok" },
   rechazado: { texto: "Rechazado", tono: "danger" },
-};
-
-/** Calidad de un aporte aceptado (RF-GAM-09). */
-const CALIDAD_DE_APORTE: Record<string, string> = {
-  buena: "Buena",
-  excelente: "Excelente",
-  excepcional: "Excepcional",
 };
 
 /** Como Card, pero sin relleno: las filas de la lista llevan el suyo. */
@@ -172,9 +166,7 @@ export default async function InicioPage() {
                           </span>
                         </span>
                         <span className="flex shrink-0 flex-wrap justify-end gap-1.5">
-                          {a.estado === "aceptado" && a.calidad && CALIDAD_DE_APORTE[a.calidad] && (
-                            <Tag tone="default">{CALIDAD_DE_APORTE[a.calidad]}</Tag>
-                          )}
+                          <EstrellasDeCalificacion valor={a.calificacion} className="self-center text-[13px]" />
                           <Tag tone={estado.tono}>{estado.texto}</Tag>
                         </span>
                       </Link>
