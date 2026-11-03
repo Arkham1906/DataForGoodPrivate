@@ -25,6 +25,7 @@ export default function CampanasParaTi({
   campanas,
   accion,
   vacio,
+  vistaCuadricula = true,
   className = "",
 }: {
   /** id del título (aria-labelledby): cada pantalla usa el suyo. */
@@ -34,6 +35,8 @@ export default function CampanasParaTi({
   accion?: ReactNode;
   /** Qué mostrar sin campañas; sin él, no se dibuja la sección. */
   vacio?: ReactNode;
+  /** En /campanas, sigue la preferencia compartida de lista o cuadrícula. */
+  vistaCuadricula?: boolean;
   className?: string;
 }) {
   if (campanas.length === 0 && !vacio) return null;
@@ -48,7 +51,7 @@ export default function CampanasParaTi({
       {campanas.length === 0 ? (
         vacio
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className={vistaCuadricula ? "grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-3" : "flex flex-col gap-3"}>
           {campanas.map((c) => {
             const pct = porcentajeDeMeta(c.aprobados, c.meta);
             return (

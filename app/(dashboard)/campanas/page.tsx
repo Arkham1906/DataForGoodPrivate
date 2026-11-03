@@ -320,17 +320,20 @@ export default function CampanasPage() {
             Descubre proyectos con impacto social cerca de ti.
           </p>
         </div>
-        <BotonCrearCampana variant="primary" size="sm" className="whitespace-nowrap max-md:max-w-[126px] max-md:px-2.5 max-md:py-1.5 max-md:text-[11.5px] max-md:leading-4">
-          Crear campaña
-        </BotonCrearCampana>
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          <BotonCrearCampana variant="primary" size="sm" className="whitespace-nowrap max-md:max-w-[126px] max-md:px-2.5 max-md:py-1.5 max-md:text-[11.5px] max-md:leading-4">
+            Crear campaña
+          </BotonCrearCampana>
+          <BotonCambiarVista vistaCuadricula={vistaCuadricula} onCambiar={() => guardarVistaDeCampanas(!vistaCuadricula)} />
+        </div>
       </div>
 
       {!cargando && !error && (
         <CampanasParaTi
           id="campanas-para-ti"
           campanas={paraTi}
+          vistaCuadricula={vistaCuadricula}
           className="mb-8 max-md:mb-6"
-          accion={<BotonCambiarVista vistaCuadricula={vistaCuadricula} onCambiar={() => guardarVistaDeCampanas(!vistaCuadricula)} className="md:hidden" />}
         />
       )}
 
@@ -428,19 +431,14 @@ export default function CampanasPage() {
       )}
 
       {!cargando && !error && (
-        <div className="flex items-start gap-2">
-          <div className="min-w-0 flex-1">
-            <BarraDeFiltros
-              valores={{ vista, q: busqueda.q, orden: busqueda.orden, tematica: temaActivo, etiqueta: etiquetaActiva, tipo: tipoActivo }}
-              vistas={vistas}
-              tematicas={temasConCampanas.map(([tema]) => tema)}
-              etiquetasPorTematica={etiquetasPorTema}
-              onCambiar={cambiarBusqueda}
-              colapsableEnMovil
-            />
-          </div>
-          <BotonCambiarVista vistaCuadricula={vistaCuadricula} onCambiar={() => guardarVistaDeCampanas(!vistaCuadricula)} className="max-md:hidden" />
-        </div>
+        <BarraDeFiltros
+          valores={{ vista, q: busqueda.q, orden: busqueda.orden, tematica: temaActivo, etiqueta: etiquetaActiva, tipo: tipoActivo }}
+          vistas={vistas}
+          tematicas={temasConCampanas.map(([tema]) => tema)}
+          etiquetasPorTematica={etiquetasPorTema}
+          onCambiar={cambiarBusqueda}
+          colapsableEnMovil
+        />
       )}
 
       {error ? (
