@@ -298,6 +298,9 @@ export default function CampanasPage() {
     (ptTipo ? ptPorEtiqueta.filter((c) => (c.dataTypes ?? []).includes(ptTipo as TipoDeDato)) : ptPorEtiqueta).map((c) => String(c.id))
   );
   const ptFiltroActivo = ptVista !== TODAS || ptTema !== "" || ptTipo !== "";
+  // Sin temáticas de interés ni ubicación (GPS o estado del perfil) no hay nada "para ti": no salen ni las
+  // filas de botones ni la sección (2026-11-03, a pedido del usuario; antes mostraba las populares).
+  const conParaTi = misIntereses.size > 0 || Boolean(lugarDelFiltro);
   // Sin filtro, las CAMPANAS_PARA_TI primeras; con filtro, todas las que coinciden (2026-11-02).
   const ptCoinciden = recomendadas.filter((r) => ptFiltradas.has(String(r.c.id)));
   const paraTiVisibles = (ptFiltroActivo ? ptCoinciden : ptCoinciden.slice(0, CAMPANAS_PARA_TI)).map((r) => r.p);
@@ -307,9 +310,10 @@ export default function CampanasPage() {
   const temasOcultos = ptTemas.slice(MAXIMO_DE_TEMAS_VISIBLES);
   // Una temática elegida desde "Más temáticas" se ve como botón activo para poder quitarla.
   if (ptTema && !temasVisibles.includes(ptTema)) temasVisibles.push(ptTema);
-  const botonesFijos: { valor: string; texto: string; total: number | null }[] = [
+  // "Tu localidad" solo con ubicación (GPS o estado del perfil): sin ella siempre quedaría vacía.
+  const botonesFijos: { valor: string; texto: string; total: number }[] = [
     { valor: TODAS, texto: "Todas", total: ptCampanas.length },
-    { valor: TU_LOCALIDAD, texto: zona ? "Cerca de ti" : "Tu localidad", total: lugarDelFiltro ? ptEnMiLocalidad.length : null },
+    ...(lugarDelFiltro ? [{ valor: TU_LOCALIDAD, texto: zona ? "Cerca de ti" : "Tu localidad", total: ptEnMiLocalidad.length }] : []),
   ];
   function elegirLista(valor: string) {
     setPtVista(valor);
@@ -364,7 +368,7 @@ export default function CampanasPage() {
         </div>
       </div>
 
-      {!cargando && !error && ptCampanas.length > 0 && (
+      {!cargando && !error && conParaTi && ptCampanas.length > 0 && (
         <div className="mb-4 flex flex-col gap-3 max-md:gap-2">
           <div className={CLASE_DE_FILA} role="group" aria-label="Filtrar campañas para ti">
             {botonesFijos.map((b) => {
@@ -379,7 +383,7 @@ export default function CampanasPage() {
                   className={`${CLASE_DEL_FILTRO} ${activo ? CLASE_ACTIVO : CLASE_INACTIVO}`}
                 >
                   {b.texto}
-                  {b.total !== null && <span className="ml-1.5 font-mono">{b.total}</span>}
+                  <span className="ml-1.5 font-mono">{b.total}</span>
                 </button>
               );
             })}
@@ -455,7 +459,7 @@ export default function CampanasPage() {
         </div>
       )}
 
-      {!cargando && !error && (
+      {!cargando && !error && conParaTi && (
         <CampanasParaTi
           id="campanas-para-ti"
           campanas={paraTiVisibles}
