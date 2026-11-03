@@ -3,7 +3,8 @@
 // lib/usuarios/inicio.ts. Muestra el resumen de sus aportes y campañas, hasta 3 campañas activas para él (de sus
 // intereses, de su estado o las más concurridas), sus últimos aportes y sus notificaciones sin leer.
 // Sin temáticas de interés ni ubicación (zona por GPS o estado del perfil) no sale "Campañas para ti"
-// (2026-11-03, a pedido del usuario; igual que en /campanas). Sin temáticas sale además el recuadro
+// (2026-11-03, a pedido del usuario; igual que en /campanas), y la sección solo trae campañas de sus temáticas
+// o de su ubicación, sin las "populares" de otras temáticas. Sin temáticas sale además el recuadro
 // campanas/AvisoSinTematicas, con el mismo texto que en /campanas.
 // Solo lectura: cada bloque enlaza a la pantalla donde se actúa. Se actualiza solo con ActualizacionEnVivo.
 
@@ -53,7 +54,8 @@ function saludoDeInicio(): string {
 export default async function InicioPage() {
   const usuario = await exigirUsuario();
   const mostrarBienvenida = !usuario.bienvenida_vista && (await marcarBienvenidaVista(usuario.id));
-  const [resumen, zona] = await Promise.all([obtenerResumenDeInicio(usuario), zonaDetectadaDe(Number(usuario.id)).catch(() => null)]);
+  const zona = await zonaDetectadaDe(Number(usuario.id)).catch(() => null);
+  const resumen = await obtenerResumenDeInicio(usuario, zona);
   const conParaTi = usuario.intereses.length > 0 || Boolean(usuario.state?.trim()) || zona !== null;
   const { aportes, campanas } = resumen;
 
@@ -108,7 +110,7 @@ export default async function InicioPage() {
           }
           vacio={
             <Card>
-              <p className="text-[13px] text-system-600">Por ahora no hay campañas activas para participar.</p>
+              <p className="text-[13px] text-system-600">Por ahora no hay campañas activas de tus temáticas de interés ni de tu zona.</p>
               <BotonCrearCampana variant="secondary" size="sm" className="mt-3">
                 Crear una campaña
               </BotonCrearCampana>
