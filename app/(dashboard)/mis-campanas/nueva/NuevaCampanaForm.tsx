@@ -521,8 +521,8 @@ function CampanaFormulario({
   // Para todo el país (2026-10-21, a pedido del usuario): sin estado ni municipio. Una
   // campaña nueva empieza marcada (2026-10-31, a pedido del usuario); al editar, se respeta la suya.
   const [todoElPais, setTodoElPais] = useState(editingCampaign ? Boolean(editingCampaign.todoElPais) : true);
-  // Campaña nueva (2026-11-02, a pedido del usuario): al abrir, si no tiene temáticas de interés, la ventana
-  // campanas/AvisoSinTematicas; al llegar a "Vigencia y lugar", PedirUbicacion pide su ubicación y con ella
+  // Campaña nueva (2026-11-02, a pedido del usuario): si no tiene temáticas de interés, el recuadro
+  // campanas/AvisoSinTematicas arriba del formulario; al llegar a "Vigencia y lugar", PedirUbicacion pide su ubicación y con ella
   // llena estado y municipio si están vacíos (zonaDelCreador: para avisarlo bajo "Para todo el país").
   const sinTematicas = !editingCampaign && perfil.sinTematicas;
   const [zonaDelCreador, setZonaDelCreador] = useState<ZonaDetectada | null>(null);
@@ -1054,6 +1054,15 @@ function CampanaFormulario({
           {limitReached ? "Límite alcanzado" : editingCampaign ? labelEstado(status) : "Borrador"}
         </Tag>
       </div>
+
+      {!editingCampaign && (
+        <AvisoSinTematicas sinTematicas={sinTematicas} clave="dfg:aviso-sin-tematicas-al-crear">
+          <p>
+            Aún no eliges temáticas de interés. Agrégalas para mostrarte primero las campañas que te interesan y
+            avisarte cuando se abra una nueva. Si vas ahora, lo que llevas de esta campaña no se guarda.
+          </p>
+        </AvisoSinTematicas>
+      )}
 
       {/* Al corregir una rechazada, el motivo a la vista (2026-10-22, lib/campanas/rechazo.ts). */}
       {status === "rechazada" && (
@@ -2001,14 +2010,6 @@ function CampanaFormulario({
         alIr={irAlCampo}
       />
 
-      {!editingCampaign && (
-        <AvisoSinTematicas sinTematicas={sinTematicas} clave="dfg:aviso-sin-tematicas-al-crear">
-          <p>
-            Al crear tu cuenta no elegiste temáticas. Con ellas te mostramos primero las campañas que te interesan
-            y te avisamos cuando se abra una nueva. Si las agregas ahora, vuelve después a crear tu campaña.
-          </p>
-        </AvisoSinTematicas>
-      )}
       <PedirUbicacion
         ref={ubicacion}
         activo={!editingCampaign}

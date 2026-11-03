@@ -54,10 +54,11 @@ const VACIO: ResumenDeInicio = {
  * "Campañas para ti" (2026-10-24 en /inicio; desde el 2026-10-27 también en /campanas, vía
  * GET /api/campanas?paraTi=true): activas de otros, sin las que lo banearon. Primero las de sus
  * intereses, luego las de su estado (o para todo el país) y, si no hay de esas, las más concurridas.
+ * `limite` null: todas en ese orden (/campanas las filtra con su propia fila de botones; 2026-11-02).
  */
 export async function campanasParaTi(
   usuario: { id: number | string; state: string | null; intereses: string[] },
-  limite = CAMPANAS_PARA_TI,
+  limite: number | null = CAMPANAS_PARA_TI,
 ): Promise<CampanaParaTi[]> {
   const intereses = usuario.intereses.map((t) => t.trim().toLowerCase()).filter(Boolean);
   const estado = usuario.state?.trim() ?? "";

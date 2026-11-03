@@ -146,7 +146,8 @@ function mapCampaign(row: Record<string, unknown>) {
 
 // GET: campañas. Modos por query: ?id= (una, con bloque viewer), ?mine=true (creadas por ti),
 // ?misAportes=true (aportaste o guardaste), ?available=true (puedes aportar), ?supervised=true (supervisas),
-// ?paraTi=true ("Campañas para ti": hasta 3, como en /inicio; otra forma, CampanaParaTi de lib/usuarios/inicio.ts).
+// ?paraTi=true ("Campañas para ti": hasta 3, como en /inicio; otra forma, CampanaParaTi de lib/usuarios/inicio.ts);
+// con &todas=true, todas en el orden de recomendación (/campanas las filtra y muestra 3; 2026-11-02).
 // Sin parámetros: activas, sin sesión.
 export async function GET(request: Request) {
   try {
@@ -168,7 +169,10 @@ export async function GET(request: Request) {
     if ((mine || available || misAportes || supervised || paraTi) && !user) {
       return NextResponse.json({ error: "Debes iniciar sesion" }, { status: 401 });
     }
-    if (paraTi) return NextResponse.json({ data: await campanasParaTi(user!) });
+    if (paraTi) {
+      const todas = url.searchParams.get("todas") === "true";
+      return NextResponse.json({ data: await campanasParaTi(user!, todas ? null : undefined) });
+    }
 
     const [savedIds, bannedIds] = user
       ? await Promise.all([obtenerIdsGuardados(user.id), idsDeCampanasConBaneo(user.id)])
