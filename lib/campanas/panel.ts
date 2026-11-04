@@ -30,6 +30,8 @@ export type PanelDeCampana = {
   fechaFin: string | null;
   diasRestantes: number | null;
   meta: number;
+  /** Último cambio de la campaña o de sus aportes (ISO), para "Actualizado hace 5 min". */
+  actualizadoEn: string | null;
   metricas: {
     recibidos: number;
     aprobados: number;
@@ -61,6 +63,22 @@ function diasRecientes(dias: number): { clave: string; etiqueta: string }[] {
   return lista;
 }
 
+/**
+ * Último cambio de la campaña o de sus aportes. submitted_at y reviewed_at van aparte porque no todo
+ * UPDATE de aportes mueve updated_at. GREATEST ignora los NULL (campaña sin aportes).
+ */
+export async function ultimaActualizacionDeCampana(campanaId: string | number): Promise<string | null> {
+  const { rows } = await pool.query<{ actualizado_en: Date | null }>(
+    `SELECT GREATEST(c.updated_at, MAX(a.updated_at), MAX(a.submitted_at), MAX(a.reviewed_at)) AS actualizado_en
+     FROM campanas c
+     LEFT JOIN aportes a ON a.campaign_id = c.id
+     WHERE c.id = $1
+     GROUP BY c.id`,
+    [campanaId],
+  );
+  return rows[0]?.actualizado_en?.toISOString() ?? null;
+}
+
 export async function obtenerPanelDeCampana(campanaId: string | number): Promise<PanelDeCampana | null> {
   const campanaResult = await pool.query(
     `SELECT id, name, status, start_date, end_date, goal_contributions, ${columnaDeTipos()} FROM campanas WHERE id = $1 LIMIT 1`,
@@ -72,7 +90,8 @@ export async function obtenerPanelDeCampana(campanaId: string | number): Promise
   const dias = diasRecientes(DIAS);
   const desde = dias[0]?.clave ?? "1970-01-01";
 
-  const [conteos, diaria, tipos] = await Promise.all([
+  const [actualizadoEn, conteos, diaria, tipos] = await Promise.all([
+    ultimaActualizacionDeCampana(campanaId),
     pool.query<{ recibidos: string; aprobados: string; pendientes: string; rechazados: string; participantes: string }>(
       `SELECT COUNT(*) AS recibidos,
               COUNT(*) FILTER (WHERE status = 'aceptado') AS aprobados,
@@ -147,6 +166,7 @@ export async function obtenerPanelDeCampana(campanaId: string | number): Promise
     fechaFin,
     diasRestantes: fechaFin ? calculateCampaignDaysRemaining(campana.end_date) : null,
     meta,
+    actualizadoEn,
     metricas,
     porcentajeMeta: meta > 0 ? Math.min(100, Math.round((metricas.recibidos / meta) * 100)) : 0,
     recoleccionDiaria,

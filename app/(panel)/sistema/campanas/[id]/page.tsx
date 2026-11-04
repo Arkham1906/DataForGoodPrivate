@@ -4,6 +4,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import TextoDeActualizacion from "@/components/campanas/TextoDeActualizacion";
 import GraficaDeColumnas from "@/components/sistema/grafica-columnas";
 import MetricCard from "@/components/sistema/MetricCard";
 import ProgressBar from "@/components/sistema/ProgressBar";
@@ -82,7 +83,13 @@ export default async function PanelDeCampanaSistemaPage({ params }: { params: Pr
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {enVivo ? <Tag tone="ok">En vivo · actualiza cada 3 s</Tag> : <Tag tone={et.tono}>{et.texto}</Tag>}
+          {enVivo ? (
+            <Tag tone="ok">
+              <TextoDeActualizacion iso={c.actualizadoEn} />
+            </Tag>
+          ) : (
+            <Tag tone={et.tono}>{et.texto}</Tag>
+          )}
           <EnlaceBoton href={`/aportes?campana=${id}`}>Ver aportes recibidos</EnlaceBoton>
         </div>
       </header>

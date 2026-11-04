@@ -1,5 +1,5 @@
 // Ayudantes de las animaciones de entrada de las páginas públicas (landing,
-// /explorar, /datos, /entrar). Las clases viven en app/globals.css y solo se
+// /explorar, /datos, /entrar, y desde el 2026-11-03 las que usan EncabezadoPublico). Las clases viven en app/globals.css y solo se
 // animan con prefers-reduced-motion: no-preference. Sin imports de servidor:
 // lo usan también componentes cliente.
 

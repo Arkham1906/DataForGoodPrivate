@@ -142,7 +142,7 @@ Reglas al enviar (`POST /api/aportes`): campaña `activa`, no ser el creador, no
 ## 6. Convenciones y trampas
 
 - **IDs:** `SERIAL` en la BD, `string` en el frontend.
-- **JSONB** para listas cortas que se leen completas (`intereses`, `metadata`). Los tipos de dato, los roles y los checklists ya no son JSONB: se filtran con `condicionDeTipo()` (`lib/campanas/tipos-de-campana.ts`) y `condicionDeRol()` (`lib/usuarios/tabla-roles.ts`), y las respuestas se cuentan con un JOIN a `aporte_respuestas`.
+- **JSONB** para listas cortas que se leen completas (`intereses`, `metadata`). Los tipos de dato, los roles y los checklists ya no son JSONB: se filtran con `condicionDeTipos()` (`lib/campanas/tipos-de-campana.ts`) y `condicionDeRol()` (`lib/usuarios/tabla-roles.ts`), y las respuestas se cuentan con un JOIN a `aporte_respuestas`.
 - **Valores válidos:** los estados y tipos de texto llevan una regla CHECK (`ensureRestricciones` en `lib/db-schema.ts`, 2026-10-30): estado de campaña y de aporte, `collection_mode`, `pausa_por`, `proposito`, `calificacion`, estado y origen del reporte, tipo de sanción, `avatar` y `baja_destino_aportes`. Un valor nuevo se agrega a esa lista (o a la constante de la que sale) en el mismo cambio.
 - **Índices:** toda llave foránea lleva índice en su columna (`ensureIndicesDeLlaves`); al agregar una, agrégalo a la lista.
 - **Carreras:** resuélvelas con `UPDATE ... WHERE <condición> RETURNING` y revisa `rowCount`, no leyendo y luego escribiendo.

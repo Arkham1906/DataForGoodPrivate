@@ -20,6 +20,7 @@ import { AvisoNoEncontrado } from "@/components/ui/AvisoNoEncontrado";
 import { porcentajeDeMeta, pronosticoDeMeta } from "@/lib/campanas/meta";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 import MetricasGenerales from "@/components/campanas/MetricasGenerales";
+import TextoDeActualizacion from "@/components/campanas/TextoDeActualizacion";
 import type { MetricasGenerales as DatosDeMetricas } from "@/lib/campanas/metricas-generales-tipos";
 
 const TEXTO_DEL_PRONOSTICO = {
@@ -38,6 +39,7 @@ export default function PanelCampanaPage() {
   const [recoleccionDiaria, setRecoleccionDiaria] = useState<DiaDeRecoleccion[]>([]);
   const [porTipo, setPorTipo] = useState<TipoDeAporte[]>([]);
   const [metricasGenerales, setMetricasGenerales] = useState<DatosDeMetricas | null>(null);
+  const [actualizadoEn, setActualizadoEn] = useState<string | null>(null);
   const [noEncontrada, setNoEncontrada] = useState(false);
 
   // Vuelve a leer cuando algo cambia en la base (actualización en vivo).
@@ -64,6 +66,7 @@ export default function PanelCampanaPage() {
         const body = await recoleccionResponse.json();
         setRecoleccionDiaria(Array.isArray(body.data) ? body.data : []);
         setPorTipo(Array.isArray(body.porTipo) ? body.porTipo : []);
+        setActualizadoEn(body.actualizadoEn ?? null);
       }
       if (metricasResponse.ok) {
         const body = await metricasResponse.json();
@@ -74,7 +77,7 @@ export default function PanelCampanaPage() {
     if (!params.id) return;
     void loadCampaign();
 
-    // El badge dice "en vivo": ya no consulta cada 3 s; vuelve a leer en cuanto llega un aporte
+    // Ya no consulta cada 3 s: vuelve a leer en cuanto llega un aporte
     // o cambia algo de la campaña (useRecargaEnVivo, 2026-10-19).
     return () => {
       activo = false;
@@ -135,7 +138,7 @@ export default function PanelCampanaPage() {
           </p>
         </div>
         <Tag tone={isFinished ? "default" : "ok"}>
-          {isFinished ? "Solo lectura" : "En vivo"}
+          {isFinished ? "Solo lectura" : <TextoDeActualizacion iso={actualizadoEn} />}
         </Tag>
       </div>
 

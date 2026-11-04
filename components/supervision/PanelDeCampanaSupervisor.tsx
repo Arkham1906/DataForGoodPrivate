@@ -6,6 +6,7 @@ import Link from "next/link";
 import Tag from "@/components/ui/Tag";
 import type { PanelDeCampana } from "@/lib/campanas/panel";
 import MetricasGenerales from "@/components/campanas/MetricasGenerales";
+import TextoDeActualizacion from "@/components/campanas/TextoDeActualizacion";
 import type { MetricasGenerales as DatosDeMetricas } from "@/lib/campanas/metricas-generales-tipos";
 import RefrescoEnVivo from "./RefrescoEnVivo";
 
@@ -91,7 +92,7 @@ export default function PanelDeCampanaSupervisor({
             {formatearFecha(panel.fechaInicio, false)} – {formatearFecha(panel.fechaFin)} · {ESTADO[panel.status] ?? panel.status}
           </p>
         </div>
-        <Tag tone={enVivo ? "ok" : "default"}>{enVivo ? "En vivo · actualiza cada 3 s" : "Solo lectura"}</Tag>
+        <Tag tone={enVivo ? "ok" : "default"}>{enVivo ? <TextoDeActualizacion iso={panel.actualizadoEn} /> : "Solo lectura"}</Tag>
       </div>
 
       <div className="supervision-metrics-grid mb-6 grid grid-cols-4 gap-4 sm:grid-cols-2 lg:grid-cols-4">

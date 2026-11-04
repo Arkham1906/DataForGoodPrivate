@@ -58,9 +58,12 @@ export function columnaDeTipos(c = "campanas"): string {
              FROM campana_tipos ct WHERE ct.campana_id = ${c}.id) AS data_types`;
 }
 
-/** Condición "la campaña `c` pide el tipo del parámetro" (antes `data_types ? $n`). */
-export function condicionDeTipo(c: string, parametro: string): string {
-  return `EXISTS (SELECT 1 FROM campana_tipos ct WHERE ct.campana_id = ${c}.id AND ct.tipo = ${parametro})`;
+/**
+ * Condición "la campaña `c` pide todos los tipos del parámetro", un arreglo (2026-11-03; antes uno solo).
+ * Puede pedir más. `campana_tipos` no repite un tipo por campaña; con el arreglo vacío se cumple siempre.
+ */
+export function condicionDeTipos(c: string, parametro: string): string {
+  return `(SELECT COUNT(*) FROM campana_tipos ct WHERE ct.campana_id = ${c}.id AND ct.tipo = ANY(${parametro}::text[])) = cardinality(${parametro}::text[])`;
 }
 
 /**

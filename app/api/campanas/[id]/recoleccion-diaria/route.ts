@@ -4,6 +4,7 @@
 import { NextResponse } from "next/server";
 import { ZONA_DE_CAMPANAS, hoyEnTepic } from "@/lib/campaign-date";
 import { pool } from "@/lib/db";
+import { ultimaActualizacionDeCampana } from "@/lib/campanas/panel";
 import { columnaDeTipos } from "@/lib/campanas/tipos-de-campana";
 import { getSessionUser } from "@/lib/session";
 
@@ -87,7 +88,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       };
     });
 
-    return NextResponse.json({ data, porTipo });
+    return NextResponse.json({ data, porTipo, actualizadoEn: await ultimaActualizacionDeCampana(id) });
   } catch (error) {
     console.error("Error obteniendo la recolección diaria", error);
     return NextResponse.json({ error: "No se pudo obtener la recolección diaria" }, { status: 500 });

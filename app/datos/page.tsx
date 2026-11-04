@@ -8,6 +8,7 @@ import { entradaDeTarjeta, retraso } from "@/lib/animaciones";
 import type { Metadata } from "next";
 import PublicHeader from "@/components/layout/PublicHeader";
 import PublicFooter from "@/components/layout/PublicFooter";
+import EncabezadoPublico from "@/components/layout/EncabezadoPublico";
 import ActualizacionEnVivo from "@/components/layout/ActualizacionEnVivo";
 import ButtonLink from "@/components/ui/ButtonLink";
 import Card from "@/components/ui/Card";
@@ -82,17 +83,11 @@ export default async function CatalogoDeDatosPage({
       <PublicHeader />
 
       <main id="contenido" className="mx-auto max-w-5xl px-6 pb-24 pt-14">
-        <p className="landing-entrada mb-2 font-mono text-[10.5px] uppercase tracking-widest text-brand-600">
-          Datos abiertos
-        </p>
-        <h1 style={retraso(80)} className="landing-entrada max-w-2xl text-[32px] font-extrabold leading-tight tracking-tight text-system-900">
-          Conjuntos de datos de la comunidad
-        </h1>
-        <p style={retraso(160)} className="landing-entrada mt-4 max-w-2xl text-[14.5px] leading-relaxed text-system-600">
+        <EncabezadoPublico etiqueta="Datos abiertos" titulo="Conjuntos de datos de la comunidad">
           {nf.format(total)} {total === 1 ? "conjunto publicado" : "conjuntos publicados"} a
           partir de campañas ya cerradas. Cada uno reúne solo aportes aprobados, sin datos que
           identifiquen a quien participó.
-        </p>
+        </EncabezadoPublico>
 
         <form style={retraso(240)} className="landing-entrada mt-6 flex flex-wrap gap-2.5" action={`${BASE_PATH}/datos`} method="get">
           {orden !== "recientes" && <input type="hidden" name="orden" value={orden} />}

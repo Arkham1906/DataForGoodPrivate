@@ -77,14 +77,16 @@ async function obtenerCifras(): Promise<CifrasReales> {
     // los aportes, solo personas con cuenta y creadores distintos):
     //   - campañas: solo las publicadas (activa, pausada, finalizada), sin borradores, en revisión,
     //     programadas ni rechazadas;
-    //   - participantes: personas con cuenta y dispositivos sin cuenta (anonimo_id) que aportaron;
+    //   - participantes: personas con cuenta y dispositivos sin cuenta (anonimo_id) con al menos un aporte
+    //     aprobado (2026-11-03, a pedido del usuario; antes contaba cualquier aporte, también rechazados);
+    //     la expresión debe ser idéntica a la del índice aportes_participante_aprobado_idx;
     //   - datos: solo aportes aprobados, como la meta y los datos abiertos;
     //   - organizaciones: quién organiza las campañas publicadas (la organización escrita o, si no hay,
     //     el nombre del creador, como quienOrganiza()), sin distinguir mayúsculas.
     const result = await pool.query(`
       SELECT
         (SELECT COUNT(*)::int FROM campanas WHERE status IN ('activa', 'pausada', 'finalizada')) AS campanas_creadas,
-        (SELECT COUNT(DISTINCT COALESCE(user_id::text, anonimo_id))::int FROM aportes) AS participantes,
+        (SELECT COUNT(DISTINCT COALESCE(user_id::text, anonimo_id))::int FROM aportes WHERE status = 'aceptado') AS participantes,
         (SELECT COUNT(*)::int FROM aportes WHERE status = 'aceptado') AS datos_recolectados,
         (SELECT COUNT(DISTINCT lower(COALESCE(NULLIF(trim(organizer), ''), NULLIF(trim(creator_name), ''))))::int
            FROM campanas WHERE status IN ('activa', 'pausada', 'finalizada')) AS organizaciones

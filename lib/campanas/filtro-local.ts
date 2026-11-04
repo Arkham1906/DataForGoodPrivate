@@ -3,6 +3,7 @@
 // para /sistema/campanas. Sin imports de servidor: lo usan componentes cliente.
 
 import { TEMAS_DE_INTERES } from "@/lib/intereses";
+import { tiposDesde } from "@/lib/campanas/sistema-opciones";
 
 export type FiltrosLocales = { q: string; tematica: string; etiqueta?: string; tipo: string; orden: string };
 
@@ -56,11 +57,13 @@ export function filtrarCampanas<T extends CampanaFiltrable>(
   tematicaDe: (campana: T) => string,
 ): T[] {
   const q = filtros.q.trim().toLowerCase();
+  // Varios tipos a la vez (2026-11-03): la campaña debe pedirlos todos.
+  const tipos = tiposDesde(filtros.tipo);
   const resultado = lista.filter((c) => {
     const tema = tematicaDe(c);
     if (filtros.tematica && tema !== filtros.tematica) return false;
     if (filtros.tematica && filtros.etiqueta && !(c.etiquetas ?? []).some((e) => e.nombre === filtros.etiqueta)) return false;
-    if (filtros.tipo && !(c.dataTypes ?? []).includes(filtros.tipo)) return false;
+    if (!tipos.every((t) => (c.dataTypes ?? []).includes(t))) return false;
     if (!q) return true;
     return (
       c.name.toLowerCase().includes(q) ||

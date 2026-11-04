@@ -5,7 +5,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
-/** Vuelve a pedir el Server Component cada `ms` para el badge "En vivo". */
+/** Vuelve a pedir el Server Component cada `ms` para mantener el panel al día. */
 export default function RefrescoEnVivo({ ms = 3000 }: { ms?: number }) {
   const router = useRouter();
 

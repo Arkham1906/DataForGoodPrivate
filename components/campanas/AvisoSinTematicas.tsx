@@ -4,7 +4,7 @@
 // en su perfil (las omitió al crear su cuenta). La usan /campanas ("Explorar campañas") y el formulario de
 // una campaña nueva. Es un recuadro dentro de la página con el mismo estilo que AvisoDeUbicacion (antes era
 // una ventana emergente; se cambió a pedido del usuario porque resultaba molesta). "Agregar mis temáticas"
-// lleva a /cuenta#mis-intereses; "Ahora no" lo oculta en esa pantalla durante la sesión del navegador
+// lleva a /cuenta#mis-intereses con la sección en rojo (resaltarTematicas, 2026-11-03); "Ahora no" lo oculta en esa pantalla durante la sesión del navegador
 // (sessionStorage con la `clave` de quien la usa). Desde el 2026-11-03 también en /inicio (Server Component):
 // sessionStorage se lee con useSyncExternalStore para que el HTML del servidor y la hidratación coincidan.
 
@@ -57,7 +57,7 @@ export default function AvisoSinTematicas({
     <div className="mb-5 rounded-lg border-l-4 border-brand-600 bg-system-100 p-3.5 text-[12.5px] text-system-600">
       {children}
       <div className="mt-2.5 flex flex-wrap gap-2">
-        <Link href="/cuenta#mis-intereses" onClick={cerrar}>
+        <Link href="/cuenta?resaltarTematicas=1#mis-intereses" onClick={cerrar}>
           <Button size="sm" variant="primary">
             Agregar mis temáticas
           </Button>

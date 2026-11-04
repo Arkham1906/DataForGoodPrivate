@@ -103,8 +103,8 @@ const PASO_DEL_CAMPO: Record<CampoDeCampana, string | null> = {
   limites: "paso-meta",
   inicio: "paso-vigencia",
   fin: "paso-vigencia",
-  estado: "paso-vigencia",
-  municipio: "paso-vigencia",
+  estado: "paso-lugar",
+  municipio: "paso-lugar",
   general: null,
 };
 
@@ -201,6 +201,13 @@ const QUIEN_MANDA: Record<DataType, string> = {
 // se manda y se guarda como municipio vacío.
 const TODO_EL_ESTADO = "__todo_el_estado__";
 
+/** Dónde aplica la campaña: las 4 opciones del paso "Lugar" (2026-11-03). */
+type ModoDeLugar = "pais" | "perfil" | "actual" | "manual";
+
+function textoDeZona(zona: ZonaDetectada): string {
+  return `${zona.municipio ? `${zona.municipio}, ` : "Todo el estado de "}${zona.estado}`;
+}
+
 const MAX_ACTIVE_CAMPAIGNS = 5;
 
 
@@ -219,7 +226,7 @@ function labelEstado(status: string | undefined) {
   return status ? ESTADO_LABELS[status] ?? status : "Borrador";
 }
 
-/** Sin temáticas de interés (ventana al abrir) y estado/municipio del perfil (botón de "Vigencia y lugar"). */
+/** Sin temáticas de interés (ventana al abrir) y estado/municipio del perfil (botón de "Lugar"). */
 type DatosDelPerfil = { sinTematicas: boolean; zona: ZonaDetectada | null };
 
 export default function NuevaCampanaForm() {
@@ -518,20 +525,20 @@ function CampanaFormulario({
     editingCampaign?.locationCity || (editingCampaign?.locationState ? TODO_EL_ESTADO : "")
   );
   const municipioReal = locationCity === TODO_EL_ESTADO ? "" : locationCity;
-  // Para todo el país (2026-10-21, a pedido del usuario): sin estado ni municipio. Una
-  // campaña nueva empieza marcada (2026-10-31, a pedido del usuario); al editar, se respeta la suya.
-  const [todoElPais, setTodoElPais] = useState(editingCampaign ? Boolean(editingCampaign.todoElPais) : true);
+  // Paso "Lugar" (2026-11-03, a pedido del usuario): una de 4 opciones. Una campaña nueva empieza en "Para todo el
+  // país" (sin estado ni municipio); al editar, en esa si la tiene y si no en "manual", con los suyos.
+  const [modoDeLugar, setModoDeLugar] = useState<ModoDeLugar>(editingCampaign && !editingCampaign.todoElPais ? "manual" : "pais");
+  const todoElPais = modoDeLugar === "pais";
   // Campaña nueva (2026-11-02, a pedido del usuario): si no tiene temáticas de interés, el recuadro
-  // campanas/AvisoSinTematicas arriba del formulario; al llegar a "Vigencia y lugar", PedirUbicacion pide su ubicación y con ella
-  // llena estado y municipio si están vacíos (zonaDelCreador: para avisarlo bajo "Para todo el país").
+  // campanas/AvisoSinTematicas arriba del formulario.
   const sinTematicas = !editingCampaign && perfil.sinTematicas;
-  const [zonaDelCreador, setZonaDelCreador] = useState<ZonaDetectada | null>(null);
-  // Botón "Usar mi estado y municipio" (2026-11-02, a pedido del usuario): el estado y municipio de su perfil
-  // (/cuenta); si no tiene, pide su ubicación (PedirUbicacion); si la rechaza, los elige a mano.
-  const zonaDelPerfil = perfil.zona;
+  // Estado y municipio del perfil con los nombres del catálogo; null si no tiene estado (la opción sale desactivada).
+  const zonaDelPerfil = perfil.zona ? zonaDelCatalogo(perfil.zona) : null;
   const [buscandoZona, setBuscandoZona] = useState(false);
   const [avisoDeZona, setAvisoDeZona] = useState<{ ok: boolean; texto: string } | null>(null);
   const ubicacion = useRef<ControlDeUbicacion>(null);
+  // Sigue en "Mi ubicación actual": una respuesta que llega después de cambiar de opción se ignora.
+  const esperandoUbicacion = useRef(false);
   const [reactivando, setReactivando] = useState(false);
   const [reactivarError, setReactivarError] = useState<string | null>(null);
   // Por qué no se puede guardar (2026-10-27, a pedido del usuario): al intentar guardar se juntan
@@ -596,10 +603,12 @@ function CampanaFormulario({
     setLocationState(nuevoEstado);
     // El municipio pertenece al estado anterior: no tiene sentido conservarlo.
     setLocationCity("");
+    setAvisoDeZona(null); // Ya no es la zona que decía el aviso.
   }
 
   function cambiarMunicipio(nuevoMunicipio: string) {
     setLocationCity(nuevoMunicipio);
+    setAvisoDeZona(null);
   }
 
   // Zona con los nombres del catálogo (lib/mexico-geo), sin importar acentos ni mayúsculas; null si el
@@ -612,45 +621,38 @@ function CampanaFormulario({
     return { estado, municipio: municipio ?? "" };
   }
 
-  // Pone la zona en la campaña (quita "Para todo el país"); sin municipio, "Todo el estado".
-  function ponerZona(zona: ZonaDetectada, origen: string) {
-    setTodoElPais(false);
+  // Pone la zona en la campaña; sin municipio, "Todo el estado".
+  function ponerZona(zona: ZonaDetectada) {
     setLocationState(zona.estado);
     setLocationCity(zona.municipio || TODO_EL_ESTADO);
-    setAvisoDeZona({
-      ok: true,
-      texto: `Usamos ${origen}: ${zona.municipio ? `${zona.municipio}, ` : "todo el estado de "}${zona.estado}. Puedes cambiarlo.`,
-    });
   }
 
-  function usarMiEstadoYMunicipio() {
+  // Las 4 opciones del paso "Lugar". El perfil y la ubicación actual llenan estado y municipio; "manual" conserva
+  // lo que hubiera para poder ajustarlo.
+  function elegirLugar(modo: ModoDeLugar) {
+    setModoDeLugar(modo);
     setAvisoDeZona(null);
-    const delPerfil = zonaDelPerfil && zonaDelCatalogo(zonaDelPerfil);
-    if (delPerfil) ponerZona(delPerfil, "el estado y municipio de tu perfil");
-    else ubicacion.current?.pedir();
+    esperandoUbicacion.current = modo === "actual";
+    if (modo === "perfil" && zonaDelPerfil) ponerZona(zonaDelPerfil);
+    if (modo === "actual") ubicacion.current?.pedir();
   }
 
-  // Zona de la persona (PedirUbicacion). Sola: llena estado y municipio solo si siguen vacíos. Con el botón:
-  // los pone aunque ya hubiera otros. Si el estado no está en el catálogo, no llena nada.
-  function usarZonaDelCreador(zonaDetectada: ZonaDetectada, porBoton: boolean) {
+  function recibirUbicacion(zonaDetectada: ZonaDetectada) {
+    if (!esperandoUbicacion.current) return;
     const zona = zonaDelCatalogo(zonaDetectada);
     if (!zona) {
-      if (porBoton) avisoSinUbicacion("No reconocimos tu ubicación.");
+      sinUbicacion("No reconocimos tu ubicación.");
       return;
     }
-    setZonaDelCreador(zona);
-    if (porBoton) {
-      ponerZona(zona, "tu ubicación");
-      return;
-    }
-    if (locationState) return;
-    setLocationState(zona.estado);
-    setLocationCity(zona.municipio || TODO_EL_ESTADO);
+    ponerZona(zona);
+    setAvisoDeZona({ ok: true, texto: `Usamos tu ubicación actual: ${textoDeZona(zona)}.` });
   }
 
-  // Sin perfil ni ubicación: a mano (quita "Para todo el país" para que vea los campos).
-  function avisoSinUbicacion(motivo: string) {
-    setTodoElPais(false);
+  // No se pudo o no quiso compartirla: pasa a "Elegir manualmente" y le dice por qué.
+  function sinUbicacion(motivo: string) {
+    if (!esperandoUbicacion.current) return;
+    esperandoUbicacion.current = false;
+    setModoDeLugar("manual");
     setAvisoDeZona({ ok: false, texto: `${motivo} Elige el estado y el municipio a mano.` });
   }
 
@@ -804,7 +806,7 @@ function CampanaFormulario({
       else if (inicioMovido) agregar("inicio", errorDeInicioPasado(fechaInicioFormulario));
       if (!fechaFinFormulario) agregar("fin", "Falta la fecha de finalización");
       else agregar("fin", errorDeFinAntesDeInicio(fechaInicioFormulario, fechaFinFormulario));
-      if (!todoElPais && !locationState) agregar("estado", "Selecciona un estado o marca que la campaña es para todo el país");
+      if (!todoElPais && !locationState) agregar("estado", "Selecciona un estado o elige \"Para todo el país\"");
       else if (!todoElPais && !locationCity) agregar("municipio", "Selecciona un municipio o \"Todo el estado\"");
       if (propositoEditado || enviarRevisionAlGuardar) {
         const validado = validarProposito(proposito, propositoOtro, true);
@@ -843,7 +845,7 @@ function CampanaFormulario({
     if (cuotaIncompleta) agregar(cuotaIncompleta.campo, cuotaIncompleta.mensaje);
     if (!fechaInicioFormulario) agregar("inicio", "Falta la fecha de inicio");
     if (!fechaFinFormulario) agregar("fin", "Falta la fecha de finalización");
-    if (!todoElPais && !locationState) agregar("estado", "Selecciona un estado o marca que la campaña es para todo el país");
+    if (!todoElPais && !locationState) agregar("estado", "Selecciona un estado o elige \"Para todo el país\"");
     else if (!todoElPais && !locationCity) agregar("municipio", "Selecciona un municipio o \"Todo el estado\"");
     return lista;
   }
@@ -1010,11 +1012,16 @@ function CampanaFormulario({
   const pasos: Paso[] = (
     [
       { id: "paso-datos", titulo: "Datos básicos", completo: Boolean(name.trim() && description.trim() && theme) },
-      // Orden de los pasos (2026-10-28, a pedido del usuario): vigencia y lugar va 2.º y qué se recolecta 3.º.
+      // Orden de los pasos (2026-11-03, a pedido del usuario): vigencia y lugar van separados, 2.º y 3.º.
       {
         id: "paso-vigencia",
-        titulo: "Vigencia y lugar",
-        completo: Boolean(fechaInicioFormulario && fechaFinFormulario && !errorDeFechas && (todoElPais || (locationState && locationCity))),
+        titulo: "Vigencia",
+        completo: Boolean(fechaInicioFormulario && fechaFinFormulario && !errorDeFechas),
+      },
+      {
+        id: "paso-lugar",
+        titulo: "Lugar",
+        completo: Boolean(todoElPais || (locationState && locationCity)),
       },
       {
         id: "paso-recoleccion",
@@ -1030,6 +1037,27 @@ function CampanaFormulario({
   ).map((p) => ({ ...p, conProblemas: pasosConProblemas.has(p.id) }));
   const paso = (id: string) => pasos.find((p) => p.id === id)!;
   const noEditable = contenidoBloqueado ? "No se puede cambiar" : undefined;
+  const opcionesDeLugar: { modo: ModoDeLugar; titulo: string; detalle: string; desactivada?: boolean }[] = [
+    {
+      modo: "pais",
+      titulo: "Para todo el país",
+      detalle: "La campaña aparece en toda la República y se avisa a quien tenga su temática, viva donde viva.",
+    },
+    {
+      modo: "perfil",
+      titulo: "La ubicación de mi perfil",
+      detalle: zonaDelPerfil ? textoDeZona(zonaDelPerfil) : "Tu perfil no tiene estado: agrégalo en Mi cuenta para usar esta opción.",
+      desactivada: !zonaDelPerfil,
+    },
+    {
+      modo: "actual",
+      titulo: "Mi ubicación actual",
+      detalle: buscandoZona
+        ? "Buscando tu ubicación…"
+        : "Tu navegador te pedirá permiso. Solo usamos tu estado y municipio, nunca tus coordenadas.",
+    },
+    { modo: "manual", titulo: "Elegir manualmente", detalle: "Selecciona el estado y el municipio." },
+  ];
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -1047,7 +1075,7 @@ function CampanaFormulario({
               ? status === "aceptada"
                 ? "La campaña ya fue aceptada y espera su fecha de inicio: solo puedes ajustar la meta de aportes y la fecha de finalización."
                 : "La campaña ya está en curso: solo puedes ajustar la meta de aportes y la fecha de finalización. Para cambiar lo demás, páusala."
-              : "Completa los cuatro pasos y envíala a revisión. Puedes guardarla como borrador en cualquier momento."}
+              : "Completa los cinco pasos y envíala a revisión. Puedes guardarla como borrador en cualquier momento."}
           </p>
         </div>
         <Tag tone={limitReached ? "danger" : (status && ETIQUETA_DE_CAMPANA[status]?.tono) || "default"}>
@@ -1243,8 +1271,8 @@ function CampanaFormulario({
           <TarjetaDePaso
             id="paso-vigencia"
             numero={2}
-            titulo="Vigencia y lugar"
-            descripcion="Cuándo recibe aportes y en qué parte del país."
+            titulo="Vigencia"
+            descripcion="Cuándo recibe aportes."
             completo={paso("paso-vigencia").completo}
             conProblemas={paso("paso-vigencia").conProblemas}
             aviso={contenidoBloqueado ? "Solo la finalización se puede cambiar" : undefined}
@@ -1352,21 +1380,43 @@ function CampanaFormulario({
               </Field>
             </div>
             {errorDeFechas && (fechaInicioFormulario || fechaFinFormulario) && !errorDe("inicio") && !errorDe("fin") && (
-              <p className="-mt-2 mb-4 text-[12px] text-error-700">{errorDeFechas}</p>
+              <p className="mt-3 text-[12px] text-error-700">{errorDeFechas}</p>
             )}
+          </TarjetaDePaso>
 
-            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-              <p className="text-[13px] font-medium text-system-900">¿Dónde aplica la campaña?</p>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={usarMiEstadoYMunicipio}
-                disabled={contenidoBloqueado || buscandoZona}
-              >
-                {buscandoZona ? "Buscando tu ubicación…" : "Usar mi estado y municipio"}
-              </Button>
-            </div>
+          <TarjetaDePaso
+            id="paso-lugar"
+            numero={3}
+            titulo="Lugar"
+            descripcion="En qué parte del país aplica."
+            completo={paso("paso-lugar").completo}
+            conProblemas={paso("paso-lugar").conProblemas}
+            aviso={contenidoBloqueado ? "No se puede cambiar" : undefined}
+          >
+            <fieldset disabled={contenidoBloqueado} className="mb-4">
+              <legend className="mb-2 text-[13px] font-medium text-system-900">¿Dónde aplica la campaña?</legend>
+              <div className="flex flex-col gap-2">
+                {opcionesDeLugar.map((opcion) => (
+                  <label
+                    key={opcion.modo}
+                    className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-system-200 bg-system-50 p-3.5 has-[:checked]:border-brand-600 has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50"
+                  >
+                    <input
+                      type="radio"
+                      name="lugar-de-la-campana"
+                      checked={modoDeLugar === opcion.modo}
+                      disabled={opcion.desactivada}
+                      onChange={() => elegirLugar(opcion.modo)}
+                      className="mt-0.5 h-4 w-4 shrink-0 accent-brand-600"
+                    />
+                    <span>
+                      <span className="block text-[13px] font-semibold text-system-900">{opcion.titulo}</span>
+                      <span className="mt-0.5 block text-[12px] text-system-600">{opcion.detalle}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
             {avisoDeZona && (
               <p
                 role={avisoDeZona.ok ? "status" : "alert"}
@@ -1375,33 +1425,8 @@ function CampanaFormulario({
                 {avisoDeZona.texto}
               </p>
             )}
-            <label className="mb-4 flex cursor-pointer items-start gap-2.5 rounded-lg border border-system-200 bg-system-50 p-3.5 has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50">
-              <input
-                type="checkbox"
-                checked={todoElPais}
-                onChange={(e) => setTodoElPais(e.target.checked)}
-                disabled={contenidoBloqueado}
-                className="mt-0.5 h-4 w-4 shrink-0 accent-brand-600"
-              />
-              <span>
-                <span className="block text-[13px] font-semibold text-system-900">
-                  Para todo el país (sin limitar por ubicación)
-                </span>
-                <span className="mt-0.5 block text-[12px] text-system-600">
-                  La campaña aparece en toda la República y se avisa a quien tenga su temática, viva donde viva.
-                  Déjala sin marcar para limitarla a un estado o municipio.
-                </span>
-              </span>
-            </label>
-            {todoElPais && zonaDelCreador && !editingCampaign && (
-              <p className="-mt-2 mb-4 text-[12px] text-system-600">
-                Estás en {zonaDelCreador.municipio ? `${zonaDelCreador.municipio}, ` : ""}
-                {zonaDelCreador.estado}: si quitas la marca, la campaña ya queda en tu {zonaDelCreador.municipio ? "municipio" : "estado"}.
-              </p>
-            )}
-
-            {!todoElPais && (
-              // "Vigencia y lugar" es la única sección con campos lado a lado (2026-10-28, a pedido del usuario;
+            {modoDeLugar === "manual" && (
+              // "Vigencia" y "Lugar" son las únicas secciones con campos lado a lado (2026-10-28, a pedido del usuario;
               // el resto del formulario va en una columna). En móvil, en columna.
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Field label="Estado" required error={errorDe("estado")}>
@@ -1443,7 +1468,7 @@ function CampanaFormulario({
 
           <TarjetaDePaso
             id="paso-recoleccion"
-            numero={3}
+            numero={4}
             titulo="Qué se recolecta"
             descripcion="Qué tipo de aporte se pide y cómo lo describe quien participa."
             completo={paso("paso-recoleccion").completo}
@@ -1728,7 +1753,7 @@ function CampanaFormulario({
 
           <TarjetaDePaso
             id="paso-meta"
-            numero={4}
+            numero={5}
             titulo="Meta y cuota"
             descripcion="Cuántos aportes busca la campaña de cada tipo de dato (o en total) y cuántos puede enviar cada persona."
             completo={paso("paso-meta").completo}
@@ -1903,8 +1928,8 @@ function CampanaFormulario({
           {edicionCompleta && (
             <div className="mb-6 max-w-lg rounded-lg bg-warning-50 p-4 text-[12.5px] text-warning-800">
               {status === "en_revision" || status === "rechazada"
-                ? "Puedes editar la campaña y volver a enviarla a revisión mientras el supervisor no responda."
-                : "Al enviar, la campaña pasa a “En revisión”; podrás seguir editándola mientras el supervisor no responda."}
+                ? "Solo el supervisor revisará tu campaña. Puedes editarla y volver a enviarla mientras no responda."
+                : "Al enviar, la campaña pasa a “En revisión” y solo la revisará el supervisor. Podrás seguir editándola mientras no responda."}
             </div>
           )}
           {edicionLimitada && (
@@ -2012,10 +2037,8 @@ function CampanaFormulario({
 
       <PedirUbicacion
         ref={ubicacion}
-        activo={!editingCampaign}
-        idDelPaso="paso-vigencia"
-        onZona={usarZonaDelCreador}
-        onSinUbicacion={avisoSinUbicacion}
+        onZona={recibirUbicacion}
+        onSinUbicacion={sinUbicacion}
         onOcupado={setBuscandoZona}
       />
     </div>

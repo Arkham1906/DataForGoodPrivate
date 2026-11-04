@@ -101,6 +101,19 @@
   background: var(--color-error-50);
 }
 
+/* Temáticas del perfil: igual que la organización, al llegar desde "Agregar mis temáticas" (2026-11-03). */
+#mis-intereses.tematicas-resaltadas {
+  border-color: var(--color-error-700);
+  outline: 2px solid var(--color-error-700);
+  outline-offset: 3px;
+  background: var(--color-error-50);
+}
+
+#mis-intereses.tematicas-resaltadas textarea {
+  border-color: var(--color-error-700);
+  background: var(--color-error-50);
+}
+
 body {
   margin: 0;
   background: var(--color-system-50);

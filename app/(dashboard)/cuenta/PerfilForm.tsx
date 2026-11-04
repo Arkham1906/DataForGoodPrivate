@@ -81,14 +81,21 @@ export default function PerfilForm({
   const [avisoVisible, setAvisoVisible] = useState(false);
 
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("resaltarOrganizacion") !== "1") return;
-    const apartado = document.getElementById("organizacion");
-    if (!apartado) return;
+    // Quien llega desde un aviso ve en rojo lo que falta: la organización o, desde el 2026-11-03, las temáticas.
+    const params = new URLSearchParams(window.location.search);
+    const destino =
+      params.get("resaltarOrganizacion") === "1"
+        ? { id: "organizacion", clase: "organizacion-resaltada", bloque: "center" as const }
+        : params.get("resaltarTematicas") === "1"
+          ? { id: "mis-intereses", clase: "tematicas-resaltadas", bloque: "start" as const }
+          : null;
+    const apartado = destino && document.getElementById(destino.id);
+    if (!destino || !apartado) return;
 
-    apartado.classList.add("organizacion-resaltada");
-    apartado.scrollIntoView({ behavior: "smooth", block: "center" });
+    apartado.classList.add(destino.clase);
+    apartado.scrollIntoView({ behavior: "smooth", block: destino.bloque });
 
-    return () => apartado.classList.remove("organizacion-resaltada");
+    return () => apartado.classList.remove(destino.clase);
   }, []);
 
   // Los valores guardados: a ellos vuelve "Descartar cambios".

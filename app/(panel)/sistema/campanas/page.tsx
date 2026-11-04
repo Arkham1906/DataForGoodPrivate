@@ -18,12 +18,12 @@ import {
   contarPorEstado,
   diasRestantes,
   esEstado,
-  esTipo,
   formatearFechaCampana,
   listarEtiquetasPorTematica,
   listarTematicas,
   type EstadoDeCampana,
 } from "@/lib/campanas/sistema";
+import { tiposDesde } from "@/lib/campanas/sistema-opciones";
 import FiltrosDeCampanas from "./filtros";
 import { exigirSesionRoot } from "@/lib/supervision/root";
 
@@ -57,7 +57,7 @@ export default async function ListadoDeCampanasPage({ searchParams }: { searchPa
       estado,
       tematica: sp.tematica,
       etiqueta: sp.etiqueta,
-      tipo: esTipo(sp.tipo),
+      tipos: tiposDesde(sp.tipo),
       vigencia: sp.vigencia,
       orden: sp.orden,
       pagina,

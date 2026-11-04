@@ -1,5 +1,5 @@
 import { pool } from "@/lib/db";
-import { columnaDeTipos, condicionDeTipo } from "@/lib/campanas/tipos-de-campana";
+import { columnaDeTipos, condicionDeTipos } from "@/lib/campanas/tipos-de-campana";
 import { activateScheduledCampaigns, finalizeExpiredCampaigns, normalizeCampaignDate } from "@/lib/campaign-date";
 import { hasRootSession } from "@/lib/rootSession";
 import {
@@ -80,7 +80,8 @@ export type FiltrosDeCampanas = {
   tematica?: string;
   /** Subtemática (nombre, aprobada); solo junto con `tematica`. */
   etiqueta?: string;
-  tipo?: TipoDeDato;
+  /** Salen las campañas que piden todos estos tipos (2026-11-03). */
+  tipos?: TipoDeDato[];
   vigencia?: string;
   orden?: string;
   pagina?: number;
@@ -99,8 +100,8 @@ export async function buscarCampanas(f: FiltrosDeCampanas): Promise<{ filas: Fil
 
   // El listado no muestra borradores (ver ESTADOS_DEL_LISTADO).
   const condiciones: string[] = ["status <> 'borrador'"];
-  const valores: (string | number)[] = [];
-  const param = (v: string | number) => {
+  const valores: (string | number | string[])[] = [];
+  const param = (v: string | number | string[]) => {
     valores.push(v);
     return `$${valores.length}`;
   };
@@ -119,7 +120,7 @@ export async function buscarCampanas(f: FiltrosDeCampanas): Promise<{ filas: Fil
                WHERE ce.campana_id = base.id AND e.aprobada AND e.nombre = ${param(f.etiqueta)})`,
     );
   }
-  if (f.tipo) condiciones.push(condicionDeTipo("base", param(f.tipo)));
+  if (f.tipos?.length) condiciones.push(condicionDeTipos("base", param(f.tipos)));
   if (f.vigencia === "7d" || f.vigencia === "30d" || f.vigencia === "mas30") {
     const hoy = param(hoyLocal());
     condiciones.push(

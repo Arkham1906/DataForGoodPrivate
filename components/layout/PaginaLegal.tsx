@@ -6,6 +6,8 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import PublicHeader from "@/components/layout/PublicHeader";
 import PublicFooter from "@/components/layout/PublicFooter";
+import EncabezadoPublico from "@/components/layout/EncabezadoPublico";
+import { retraso } from "@/lib/animaciones";
 import { FECHA_DE_ACTUALIZACION } from "@/lib/legal";
 
 export type SeccionLegal = { id: string; titulo: string; contenido: ReactNode };
@@ -25,12 +27,17 @@ export default function PaginaLegal({
   return (
     <div className="min-h-screen bg-system-50">
       <PublicHeader />
-      <main id="contenido" className="mx-auto max-w-2xl px-6 pb-24 pt-16">
-        <h1 className="text-[28px] font-extrabold tracking-tight text-system-900">{titulo}</h1>
-        <p className="mt-2 font-mono text-[11.5px] text-system-500">Última actualización: {FECHA_DE_ACTUALIZACION}</p>
-        <div className="mt-5 space-y-3 text-[14.5px] leading-relaxed text-system-600">{introduccion}</div>
+      <main id="contenido" className="mx-auto max-w-5xl px-6 pb-24 pt-14">
+        <EncabezadoPublico etiqueta="Legal" titulo={titulo}>
+          <p className="font-mono text-[11.5px] text-system-500">Última actualización: {FECHA_DE_ACTUALIZACION}</p>
+          {introduccion}
+        </EncabezadoPublico>
 
-        <nav aria-label="Contenido" className="mt-8 rounded-lg border border-system-200 bg-white p-4">
+        <nav
+          aria-label="Contenido"
+          style={retraso(240)}
+          className="landing-entrada mt-8 max-w-2xl rounded-lg border border-system-200 bg-white p-4"
+        >
           <p className="mb-2 text-[12.5px] font-semibold text-system-900">Contenido</p>
           <ol className="list-decimal space-y-1 pl-5 text-[13px]">
             {secciones.map((s) => (
@@ -44,7 +51,7 @@ export default function PaginaLegal({
         </nav>
 
         {secciones.map((s, i) => (
-          <section key={s.id} id={s.id} aria-labelledby={`${s.id}-titulo`} className="mt-10 scroll-mt-6">
+          <section key={s.id} id={s.id} aria-labelledby={`${s.id}-titulo`} className="landing-revelar mt-10 max-w-2xl scroll-mt-6">
             <h2 id={`${s.id}-titulo`} className="text-lg font-extrabold text-system-900">
               {i + 1}. {s.titulo}
             </h2>
@@ -54,7 +61,7 @@ export default function PaginaLegal({
           </section>
         ))}
 
-        <p className="mt-12 border-t border-system-200 pt-6 text-[13px] text-system-600">
+        <p className="mt-12 max-w-2xl border-t border-system-200 pt-6 text-[13px] text-system-600">
           Consulta también {" "}
           <Link href={otroTexto.href} className="font-semibold text-brand-600 hover:underline">
             {otroTexto.etiqueta}

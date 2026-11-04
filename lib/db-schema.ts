@@ -626,6 +626,9 @@ export async function ensureAportesTable(): Promise<void> {
     ALTER TABLE aportes DROP COLUMN IF EXISTS ip_hmac;
     -- Espera entre aportes anónimos: último aporte del dispositivo, en cualquier campaña.
     CREATE INDEX IF NOT EXISTS aportes_anonimo_fecha_idx ON aportes (anonimo_id, submitted_at) WHERE anonimo_id IS NOT NULL;
+    -- Cifra "Participantes" de la landing (2026-11-03): cuentas y dispositivos con aportes aprobados. La
+    -- expresión y la condición deben ser idénticas a las de obtenerCifras() en app/page.tsx.
+    CREATE INDEX IF NOT EXISTS aportes_participante_aprobado_idx ON aportes ((COALESCE(user_id::text, anonimo_id))) WHERE status = 'aceptado';
     -- Marca "Contenido inapropiado" (creador o revisor) de un aporte anónimo. Solo
     -- estos cuentan para el bloqueo global del dispositivo (lib/aportes/sanciones-anonimas.ts).
     ALTER TABLE aportes ADD COLUMN IF NOT EXISTS inapropiado BOOLEAN NOT NULL DEFAULT false;

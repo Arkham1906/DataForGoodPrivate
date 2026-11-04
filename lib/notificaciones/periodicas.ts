@@ -16,6 +16,7 @@ import { SQL_SANCION_BLOQUEANTE } from "@/lib/sanciones";
 import { ZONA_DE_CAMPANAS, ahoraEnZona } from "@/lib/campaign-date";
 import { fechaCorta } from "@/lib/campanas/especial-reglas";
 import { coincideConPersona } from "./campanas-por-interes";
+import { mensajeDelResumen } from "./mensaje-del-resumen";
 import { notificar } from "./notificaciones";
 
 const HORA_DE_ENVIO = 9;
@@ -54,10 +55,6 @@ async function enTandas<T>(lista: T[], enviar: (item: T) => Promise<void>): Prom
 
 function plural(n: number, uno: string, varios: string): string {
   return `${n} ${n === 1 ? uno : varios}`;
-}
-
-function enLista(partes: string[]): string {
-  return partes.length <= 1 ? partes.join("") : `${partes.slice(0, -1).join(", ")} y ${partes[partes.length - 1]}`;
 }
 
 async function enviarRecordatorios(): Promise<void> {
@@ -154,15 +151,11 @@ async function enviarResumenes(): Promise<void> {
     const deMiZona = campanas.rows.filter((c) => Number(c.creator_id) !== Number(persona.id) && coincideConPersona(c, persona)).length;
     if (misAceptados === 0 && deMiZona === 0 && conjuntos === 0) return;
 
-    const partes: string[] = [];
-    if (misAceptados > 0) partes.push(`te aceptaron ${plural(misAceptados, "aporte", "aportes")}`);
-    if (deMiZona > 0) partes.push(`${deMiZona === 1 ? "salió" : "salieron"} ${plural(deMiZona, "campaña", "campañas")} de tus temáticas en tu zona`);
-    if (conjuntos > 0) partes.push(`se ${conjuntos === 1 ? "publicó" : "publicaron"} ${plural(conjuntos, "conjunto", "conjuntos")} de datos abiertos`);
     await notificar({
       usuarioId: persona.id,
       tipo: "resumen_mensual",
       titulo: `Tu resumen de ${mes.nombre}`,
-      mensaje: `En ${mes.nombre} ${enLista(partes)}.`,
+      mensaje: mensajeDelResumen(mes.nombre, misAceptados, deMiZona, conjuntos),
       enlace: conjuntos > 0 && misAceptados === 0 && deMiZona === 0 ? "/datos" : "/campanas",
       metadata: { mes: mes.inicio },
     });

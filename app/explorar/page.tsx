@@ -1,5 +1,4 @@
-// Pantalla /explorar (pública): vitrina de campañas activas y, después, las pausadas (con su etiqueta;
-// 2026-10-24), con filtros en searchParams (?q, ?tematica, ?etiqueta, ?estado, ?tipo desde el 2026-10-28, ?orden).
+// Pantalla /explorar (pública): vitrina de campañas activas (sin las pausadas desde el 2026-11-03), con filtros en searchParams (?q, ?tematica, ?etiqueta, ?estado, ?tipo desde el 2026-10-28, ?orden).
 // Datos: lib/campanas/publicas.ts. Al abrir una campaña va a /campanas/[id], que sí pide sesión.
 
 import { textoDeUbicacion } from "@/lib/campanas/ubicacion";
@@ -10,6 +9,7 @@ import { porcentajeDeMeta } from "@/lib/campanas/meta";
 import type { Metadata } from "next";
 import PublicHeader from "@/components/layout/PublicHeader";
 import PublicFooter from "@/components/layout/PublicFooter";
+import EncabezadoPublico from "@/components/layout/EncabezadoPublico";
 import ActualizacionEnVivo from "@/components/layout/ActualizacionEnVivo";
 import ButtonLink from "@/components/ui/ButtonLink";
 import Card from "@/components/ui/Card";
@@ -28,7 +28,7 @@ import {
   type OrdenDeCampanas,
 } from "@/lib/campanas/publicas";
 import { DATA_TYPE_LABELS } from "@/lib/open-data";
-import { esTipo } from "@/lib/campanas/sistema-opciones";
+import { alternarTipo, tiposDesde } from "@/lib/campanas/sistema-opciones";
 import { ETIQUETA_DE_CAMPANA } from "@/lib/campanas/sistema-opciones";
 import type { DataType } from "@/types";
 
@@ -65,19 +65,21 @@ export default async function ExplorarCampanasPage({
   // Subtemática (2026-10-27): solo con una temática elegida.
   const etiqueta = tematica ? sp.etiqueta || undefined : undefined;
   const locationState = sp.estado || undefined;
-  // Tipo de dato (2026-10-28): solo los conocidos; otro valor en la URL se ignora.
-  const tipo = esTipo(sp.tipo);
+  // Tipo de dato (2026-10-28): solo los conocidos; otro valor en la URL se ignora. Desde el 2026-11-03,
+  // uno o varios (?tipo=foto,video): salen las campañas que los piden todos.
+  const tiposElegidos = tiposDesde(sp.tipo);
+  const tipo = tiposElegidos.join(",") || undefined;
   const orden: OrdenDeCampanas = ORDENES_VALIDOS.has(sp.orden as OrdenDeCampanas)
     ? (sp.orden as OrdenDeCampanas)
     : "participacion";
 
-  const [campanas, { activas: total, visibles }, tematicas, estados, etiquetas, tipos] = await Promise.all([
-    buscarCampanasParaExplorar({ q, tematica, etiqueta, locationState, tipo, orden }),
+  const [campanas, total, tematicas, estados, etiquetas, tipos] = await Promise.all([
+    buscarCampanasParaExplorar({ q, tematica, etiqueta, locationState, tipos: tiposElegidos, orden }),
     contarCampanasParaExplorar(),
     obtenerTematicasParaExplorar(),
     obtenerEstadosParaExplorar(),
     tematica ? obtenerEtiquetasParaExplorar(tematica) : Promise.resolve([]),
-    obtenerTiposParaExplorar(),
+    obtenerTiposParaExplorar(tiposElegidos),
   ]);
 
   const activos = [q, tematica, etiqueta, locationState, tipo].filter(Boolean).length;
@@ -103,16 +105,10 @@ export default async function ExplorarCampanasPage({
       <PublicHeader />
 
       <main id="contenido" className="mx-auto max-w-5xl px-6 pb-24 pt-14">
-        <p className="landing-entrada mb-2 font-mono text-[10.5px] uppercase tracking-widest text-brand-600">
-          Campañas
-        </p>
-        <h1 style={retraso(80)} className="landing-entrada max-w-2xl text-[32px] font-extrabold leading-tight tracking-tight text-system-900">
-          Campañas abiertas a la comunidad
-        </h1>
-        <p style={retraso(160)} className="landing-entrada mt-4 max-w-2xl text-[14.5px] leading-relaxed text-system-600">
+        <EncabezadoPublico etiqueta="Campañas" titulo="Campañas abiertas a la comunidad">
           {nf.format(total)} {total === 1 ? "campaña activa" : "campañas activas"} recibiendo
           aportes en este momento. Crea una cuenta o inicia sesión para participar.
-        </p>
+        </EncabezadoPublico>
 
         <form style={retraso(240)} className="landing-entrada mt-6 flex flex-wrap gap-2.5" action={`${BASE_PATH}/explorar`} method="get">
           {orden !== "participacion" && <input type="hidden" name="orden" value={orden} />}
@@ -198,15 +194,18 @@ export default async function ExplorarCampanasPage({
             {tipos.length > 0 && (
               <div>
                 <p className="mb-2 text-[11.5px] font-semibold uppercase tracking-wide text-system-500">
-                  Tipo de dato
+                  Tipo de dato <span className="font-normal normal-case tracking-normal">(uno o varios)</span>
                 </p>
                 <div className="dashboard-nav flex min-w-0 flex-row gap-2 overflow-x-auto overscroll-x-contain pb-2 [-webkit-overflow-scrolling:touch] md:flex-col md:gap-1 md:overflow-visible md:pb-0">
-                  {tipos.map((t) => (
+                  {tipos.map((t) => {
+                    const elegido = (tiposElegidos as string[]).includes(t.valor);
+                    return (
                     <Link
                       key={t.valor}
-                      href={enlaceCon({ tipo: tipo === t.valor ? undefined : t.valor })}
+                      href={enlaceCon({ tipo: alternarTipo(tipo, t.valor) || undefined })}
+                      aria-current={elegido ? "true" : undefined}
                       className={`flex shrink-0 items-center justify-between gap-2 whitespace-nowrap rounded-pill border px-3 py-1.5 text-[12.5px] md:shrink md:rounded md:border-0 md:px-2 md:py-1.5 md:text-[13px] ${
-                        tipo === t.valor
+                        elegido
                           ? "border-brand-600 bg-brand-50 font-semibold text-brand-600"
                           : "border-system-300 bg-white text-system-600 hover:bg-system-100 md:border-transparent md:bg-transparent"
                       }`}
@@ -214,7 +213,8 @@ export default async function ExplorarCampanasPage({
                       <span>{DATA_TYPE_LABELS[t.valor as DataType] ?? t.valor}</span>
                       <span className="font-mono text-[11px] text-system-500">{t.total}</span>
                     </Link>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -267,7 +267,7 @@ export default async function ExplorarCampanasPage({
 
             {campanas.length === 0 ? (
               <p className="rounded-lg bg-system-100 p-4 text-sm text-system-600">
-                {visibles === 0
+                {total === 0
                   ? "Por ahora no hay campañas activas. Vuelve pronto o crea la tuya."
                   : "Ninguna campaña coincide con estos filtros. Prueba quitando alguno o buscando por otro término."}
               </p>
@@ -320,7 +320,7 @@ export default async function ExplorarCampanasPage({
                           <ProgressBar pct={pct} tone="ok" />
                           <p className="mt-2 font-mono text-[11px] text-system-500">
                             {nf.format(c.participants)} participantes · {pct}% de la meta ·{" "}
-                            {c.status === "pausada" ? "no recibe aportes por ahora" : textoDeCierre(c.daysRemaining)}
+                            {textoDeCierre(c.daysRemaining)}
                           </p>
                         </div>
                       </Card>

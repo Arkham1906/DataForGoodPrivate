@@ -1,12 +1,13 @@
 import { pool } from "@/lib/db";
-import { columnaDeTipos, condicionDeTipo } from "@/lib/campanas/tipos-de-campana";
+import { columnaDeTipos, condicionDeTipos } from "@/lib/campanas/tipos-de-campana";
+import { NOMBRE_DE_TIPO } from "@/lib/campanas/sistema-opciones";
 import { activateScheduledCampaigns, calculateCampaignDaysRemaining, finalizeExpiredCampaigns } from "@/lib/campaign-date";
 import { etiquetasDeCampanas } from "@/lib/etiquetas/catalogo";
 
 /**
- * Campañas de la vitrina pública /explorar: activas y, desde el 2026-10-24 (a pedido del usuario), también
- * las pausadas, después de las activas y con su etiqueta (no reciben aportes). Solo expone lo que ya se ve
- * en la landing y en /datos: nada de quién aporta ni de la revisión.
+ * Campañas de la vitrina pública /explorar: solo las activas. Del 2026-10-24 al 2026-11-03 también salían
+ * las pausadas; se quitaron a pedido del usuario, igual que en /campanas. Solo expone lo que ya se ve en la
+ * landing y en /datos: nada de quién aporta ni de la revisión.
  */
 export type CampanaPublica = {
   id: string;
@@ -28,13 +29,13 @@ export type CampanaPublica = {
   goalContributions: number;
   participants: number;
   daysRemaining: number | null;
-  status: "activa" | "pausada";
+  status: "activa";
 };
 
 export type OrdenDeCampanas = "participacion" | "recientes" | "cierre";
 
 /** Estados que salen en /explorar. */
-const ESTADOS_VISIBLES = "status IN ('activa', 'pausada')";
+const ESTADOS_VISIBLES = "status = 'activa'";
 
 const ORDER_SQL: Record<OrdenDeCampanas, string> = {
   participacion: "est.participants DESC, est.current_contributions DESC",
@@ -49,7 +50,8 @@ export type FiltrosDeCampanas = {
   etiqueta?: string;
   locationState?: string;
   /** Tipo de dato que pide la campaña (foto, video, audio, documento o texto; 2026-10-28). */
-  tipo?: string;
+  /** Tipos de dato: salen las campañas que los piden todos (2026-11-03). */
+  tipos?: string[];
   orden?: OrdenDeCampanas;
 };
 
@@ -70,7 +72,7 @@ function mapCampana(row: Record<string, unknown>): CampanaPublica {
     goalContributions: Number(row.goal_contributions ?? 0),
     participants: Number(row.participants ?? 0),
     daysRemaining: calculateCampaignDaysRemaining(row.end_date),
-    status: row.status === "pausada" ? "pausada" : "activa",
+    status: "activa",
   };
 }
 
@@ -107,9 +109,9 @@ export async function buscarCampanasParaExplorar(filtros: FiltrosDeCampanas): Pr
       // Una campaña para todo el país también vale en ese estado.
       condiciones.push(`(location_state = $${valores.length} OR todo_el_pais)`);
     }
-    if (filtros.tipo) {
-      valores.push(filtros.tipo);
-      condiciones.push(condicionDeTipo("campanas", `$${valores.length}`));
+    if (filtros.tipos?.length) {
+      valores.push(filtros.tipos);
+      condiciones.push(condicionDeTipos("campanas", `$${valores.length}`));
     }
 
     const result = await pool.query(
@@ -118,7 +120,7 @@ export async function buscarCampanasParaExplorar(filtros: FiltrosDeCampanas): Pr
        FROM campanas
        JOIN campana_estadisticas est ON est.campana_id = campanas.id
        WHERE ${condiciones.join(" AND ")}
-       ORDER BY (status = 'pausada'), ${ORDER_SQL[filtros.orden ?? "participacion"]}`,
+       ORDER BY ${ORDER_SQL[filtros.orden ?? "participacion"]}`,
       valores
     );
     const campanas = result.rows.map(mapCampana);
@@ -130,19 +132,15 @@ export async function buscarCampanasParaExplorar(filtros: FiltrosDeCampanas): Pr
   }
 }
 
-/**
- * Activas y pausadas, sin filtros: `activas` va en el texto de arriba ("N campañas activas recibiendo
- * aportes") y `visibles` distingue "no hay campañas" de "sin resultados".
- */
-export async function contarCampanasParaExplorar(): Promise<{ activas: number; visibles: number }> {
+/** Activas, sin filtros: va en el texto de arriba y distingue "no hay campañas" de "sin resultados". */
+export async function contarCampanasParaExplorar(): Promise<number> {
   try {
     const result = await pool.query(
-      `SELECT COUNT(*) FILTER (WHERE status = 'activa')::int AS activas, COUNT(*)::int AS visibles
-       FROM campanas WHERE ${ESTADOS_VISIBLES}`
+      `SELECT COUNT(*)::int AS activas FROM campanas WHERE ${ESTADOS_VISIBLES}`
     );
-    return { activas: Number(result.rows[0]?.activas ?? 0), visibles: Number(result.rows[0]?.visibles ?? 0) };
+    return Number(result.rows[0]?.activas ?? 0);
   } catch {
-    return { activas: 0, visibles: 0 };
+    return 0;
   }
 }
 
@@ -189,16 +187,19 @@ export function obtenerEstadosParaExplorar() {
 }
 
 /** Tipos de dato que piden las campañas visibles, con cuántas campañas pide cada uno (2026-10-28). */
-export async function obtenerTiposParaExplorar(): Promise<{ valor: string; total: number }[]> {
+export async function obtenerTiposParaExplorar(elegidos: string[] = []): Promise<{ valor: string; total: number }[]> {
   try {
     const result = await pool.query(
       `SELECT t.tipo AS valor, COUNT(*)::int AS total
        FROM campanas JOIN campana_tipos t ON t.campana_id = campanas.id
-       WHERE ${ESTADOS_VISIBLES}
-       GROUP BY t.tipo
-       ORDER BY total DESC, t.tipo ASC`
+       WHERE ${ESTADOS_VISIBLES} AND ${condicionDeTipos("campanas", "$1")}
+       GROUP BY t.tipo`,
+      [elegidos]
     );
-    return result.rows;
+    // Con tipos elegidos, cada número dice cuántas quedan al sumar ese tipo. Salen siempre todos los tipos y
+    // en el mismo orden, también en 0: la lista no cambia al filtrar (2026-11-03, a pedido del usuario).
+    const totales = new Map<string, number>(result.rows.map((r) => [r.valor, r.total]));
+    return Object.keys(NOMBRE_DE_TIPO).map((valor) => ({ valor, total: totales.get(valor) ?? 0 }));
   } catch {
     return [];
   }

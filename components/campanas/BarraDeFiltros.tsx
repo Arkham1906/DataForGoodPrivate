@@ -10,9 +10,8 @@
 
 import { useEffect, useId, useState } from "react";
 
-import { NOMBRE_DE_TIPO, ORDENES_DE_CAMPANA, VIGENCIAS, type TipoDeDato } from "@/lib/campanas/sistema-opciones";
-
-const TIPOS = Object.keys(NOMBRE_DE_TIPO) as TipoDeDato[];
+import SelectorDeTipos from "@/components/campanas/SelectorDeTipos";
+import { ORDENES_DE_CAMPANA, VIGENCIAS } from "@/lib/campanas/sistema-opciones";
 
 const CLASE_SELECT =
   "min-h-[38px] w-full rounded border border-system-300 bg-white px-3 text-sm text-system-900 outline-none transition-colors focus:border-brand-600";
@@ -23,6 +22,7 @@ export type ValoresDeFiltros = {
   vista?: string;
   tematica: string;
   etiqueta?: string;
+  /** Uno o varios tipos separados por comas (ver tiposDesde). */
   tipo: string;
   vigencia?: string;
   orden: string;
@@ -71,7 +71,6 @@ export default function BarraDeFiltros({
   const idPanel = useId();
   const idTema = useId();
   const idEtiqueta = useId();
-  const idTipo = useId();
   const idVig = useId();
   const idOrden = useId();
 
@@ -177,26 +176,7 @@ export default function BarraDeFiltros({
           </div>
         )}
 
-        {conTipo && (
-          <div className="min-w-0 flex-1">
-            <label className="sr-only" htmlFor={`${idTipo}-${sufijo}`}>
-              Filtrar por tipo de dato
-            </label>
-            <select
-              id={`${idTipo}-${sufijo}`}
-              className={CLASE_SELECT}
-              value={filtros.tipo}
-              onChange={(e) => cambiar("tipo", e.target.value)}
-            >
-              <option value="">Tipo de dato: todos</option>
-              {TIPOS.map((tipo) => (
-                <option key={tipo} value={tipo}>
-                  {NOMBRE_DE_TIPO[tipo]}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+        {conTipo && <SelectorDeTipos valor={filtros.tipo} onCambiar={(valor) => cambiar("tipo", valor)} clase={CLASE_SELECT} />}
 
         {conVigencia && (
           <div className="min-w-0 flex-1">

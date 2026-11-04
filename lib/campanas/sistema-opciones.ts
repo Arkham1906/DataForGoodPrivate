@@ -89,6 +89,30 @@ export function esTipo(v?: string): TipoDeDato | undefined {
   return v && v in NOMBRE_DE_TIPO ? (v as TipoDeDato) : undefined;
 }
 
+/**
+ * Filtro de tipo de dato con varios a la vez (2026-11-03): en la URL y en las barras de filtros son los
+ * tipos separados por comas ("foto,video"). Devuelve los conocidos, sin repetir y en el orden de
+ * NOMBRE_DE_TIPO; lo demás se ignora. Cada tipo marcado reduce la lista: salen las campañas que los
+ * piden todos, aunque pidan alguno más.
+ */
+export function tiposDesde(v?: string | string[] | null): TipoDeDato[] {
+  const elegidos = String(v ?? "").split(",");
+  return (Object.keys(NOMBRE_DE_TIPO) as TipoDeDato[]).filter((t) => elegidos.includes(t));
+}
+
+/** Marca o desmarca un tipo en el filtro; devuelve el valor nuevo ("" = todos). */
+export function alternarTipo(actual: string | undefined, tipo: string): string {
+  const elegidos: string[] = tiposDesde(actual);
+  const siguiente = elegidos.includes(tipo) ? elegidos.filter((t) => t !== tipo) : [...elegidos, tipo];
+  return tiposDesde(siguiente.join(",")).join(",");
+}
+
+/** Nombres de los tipos del filtro para un texto: "Foto y Video". */
+export function nombresDeTipos(v?: string | null): string {
+  const nombres = tiposDesde(v).map((t) => NOMBRE_DE_TIPO[t]);
+  return nombres.length > 1 ? `${nombres.slice(0, -1).join(", ")} y ${nombres[nombres.length - 1]}` : (nombres[0] ?? "");
+}
+
 export type FilaDeCampana = {
   id: string;
   nombre: string;

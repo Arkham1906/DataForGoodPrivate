@@ -12,6 +12,7 @@ import PublicFooter from "@/components/layout/PublicFooter";
 import ActualizacionEnVivo from "@/components/layout/ActualizacionEnVivo";
 import Card from "@/components/ui/Card";
 import Tag from "@/components/ui/Tag";
+import { retraso } from "@/lib/animaciones";
 import { DATA_TYPE_LABELS, obtenerConjuntoAbierto } from "@/lib/open-data";
 import { BotonDeDescarga, ContadorDeDescargas } from "./descargas";
 
@@ -47,21 +48,24 @@ export default async function ConjuntoAbiertoPage({
     <div className="min-h-screen bg-system-50">
       <PublicHeader />
 
-      <main id="contenido" className="mx-auto max-w-3xl px-6 pb-24 pt-14">
+      <main id="contenido" className="mx-auto max-w-5xl px-6 pb-24 pt-14">
         <Link href="/datos" className="text-[12.5px] font-medium text-brand-600 hover:underline">
           ← Volver al catálogo
         </Link>
 
-        <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
+        <p className="landing-entrada mb-2 mt-4 font-mono text-[10.5px] uppercase tracking-widest text-brand-600">
+          Datos abiertos
+        </p>
+        <div style={retraso(80)} className="landing-entrada flex flex-wrap items-start justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-[28px] font-extrabold leading-tight tracking-tight text-system-900">
+            <h1 className="max-w-2xl text-[32px] font-extrabold leading-tight tracking-tight text-system-900">
               {conjunto.name}
             </h1>
             {conjunto.verified && <Tag tone="ok">Verificado</Tag>}
           </div>
           <Tag tone="ok">{nf.format(conjunto.approvedContributions)} aportes aprobados</Tag>
         </div>
-        <p className="mt-2 text-[13.5px] text-system-600">
+        <p style={retraso(160)} className="landing-entrada mt-2 text-[13.5px] text-system-600">
           {conjunto.organizer}
           {conjunto.closedAt
             ? ` · cerró el ${new Date(conjunto.closedAt).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" })}`
@@ -70,18 +74,18 @@ export default async function ConjuntoAbiertoPage({
 
         {conjunto.proposito && (
           // Para qué se recolectaron los datos (2026-10-27).
-          <p className="mt-2 text-[13.5px] text-system-600">
+          <p style={retraso(160)} className="landing-entrada mt-2 text-[13.5px] text-system-600">
             <span className="font-semibold text-system-900">Propósito:</span> {conjunto.proposito}
           </p>
         )}
 
         {conjunto.description && (
-          <p className="mt-5 max-w-2xl text-[14.5px] leading-relaxed text-system-600">
+          <p style={retraso(160)} className="landing-entrada mt-5 max-w-2xl text-[14.5px] leading-relaxed text-system-600">
             {conjunto.description}
           </p>
         )}
 
-        <div className="mt-6 flex flex-wrap gap-1.5">
+        <div style={retraso(240)} className="landing-entrada mt-6 flex flex-wrap gap-1.5">
           <Tag>{conjunto.tematica || "Sin temática"}</Tag>
           <Tag>{conjunto.license}</Tag>
           {(conjunto.locationCity || conjunto.locationState || conjunto.todoElPais) && (
@@ -90,7 +94,7 @@ export default async function ConjuntoAbiertoPage({
         </div>
 
         {/* Las 4 métricas salen de obtenerConjuntoAbierto(); cada una dice de dónde sale su número. */}
-        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div style={retraso(320)} className="landing-entrada mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Card>
             <p className="text-[11px] text-system-600">Tamaño</p>
             <p className="font-mono text-[15px] font-bold text-system-900">
@@ -133,7 +137,7 @@ export default async function ConjuntoAbiertoPage({
           </Card>
         </div>
 
-        <Card className="mt-4">
+        <Card style={retraso(400)} className="landing-entrada mt-4">
           <p className="mb-3 text-[13px] font-semibold text-system-900">Tipos de dato incluidos</p>
           <div className="flex flex-wrap gap-1.5">
             {conjunto.dataTypes.length > 0 ? (
@@ -144,7 +148,7 @@ export default async function ConjuntoAbiertoPage({
           </div>
         </Card>
 
-        <Card className="mt-4 bg-system-100">
+        <Card style={retraso(480)} className="landing-entrada mt-4 bg-system-100">
           <p className="text-[13px] font-semibold text-system-900">Descarga del conjunto</p>
           {conjunto.approvedContributions > 0 ? (
             <>

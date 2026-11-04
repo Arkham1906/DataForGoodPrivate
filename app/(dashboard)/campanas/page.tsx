@@ -37,7 +37,7 @@ import AvisoSinTematicas from "@/components/campanas/AvisoSinTematicas";
 import type { Campaign } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
 import { FILTROS_VACIOS, filtrarCampanas, type FiltrosLocales } from "@/lib/campanas/filtro-local";
-import { NOMBRE_DE_TIPO, type TipoDeDato } from "@/lib/campanas/sistema-opciones";
+import { NOMBRE_DE_TIPO, alternarTipo, nombresDeTipos, tiposDesde, type TipoDeDato } from "@/lib/campanas/sistema-opciones";
 import { claveDeTematica } from "@/lib/tematicas/analizar";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 import BotonCrearCampana from "@/components/campanas/BotonCrearCampana";
@@ -149,7 +149,7 @@ export default function CampanasPage() {
   // Intereses del perfil (por clave, sin acentos): sus temáticas van primero en el select.
   const [misIntereses, setMisIntereses] = useState<Set<string>>(new Set());
   const [busqueda, setBusqueda] = useState<FiltrosLocales>(FILTROS_VACIOS);
-  // Tipo de dato elegido; "" = todos. Se conserva al cambiar de temática.
+  // Tipos de dato elegidos, separados por comas (2026-11-03: uno o varios); "" = todos. Se conserva al cambiar de temática.
   const [tipoActivo, setTipoActivo] = useState("");
   // Aviso "Agrega tus temáticas" (2026-11-02): sin temáticas de interés en el perfil.
   const [sinTematicas, setSinTematicas] = useState(false);
@@ -187,13 +187,8 @@ export default function CampanasPage() {
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(payload.error ?? "No se pudieron cargar las campañas");
         const todas = Array.isArray(payload.data) ? (payload.data as Campaign[]) : [];
-        // Activas y, después, las pausadas (2026-10-24, a pedido del usuario: antes solo activas). Una pausada
-        // sale con su etiqueta y no recibe aportes (lo vuelve a comprobar el servidor).
-        setCampaigns(
-          todas
-            .filter((campaign) => campaign.status === "activa" || campaign.status === "pausada")
-            .sort((a, b) => Number(a.status === "pausada") - Number(b.status === "pausada"))
-        );
+        // Solo activas: las pausadas salieron de 2026-10-24 a 2026-11-03 y se quitaron a pedido del usuario.
+        setCampaigns(todas.filter((campaign) => campaign.status === "activa"));
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : "No se pudieron cargar las campañas");
       } finally {
@@ -298,8 +293,10 @@ export default function CampanasPage() {
   const ptPorTema = ptTema ? ptPorVista.filter((c) => c.tag === ptTema) : ptPorVista;
   const ptPorEtiqueta =
     ptTema && ptEtiqueta ? ptPorTema.filter((c) => (c.etiquetas ?? []).some((e) => e.nombre === ptEtiqueta)) : ptPorTema;
+  // Varios tipos a la vez (2026-11-03): la campaña debe pedirlos todos.
+  const ptTipos = tiposDesde(ptTipo);
   const ptFiltradas = new Set(
-    (ptTipo ? ptPorEtiqueta.filter((c) => (c.dataTypes ?? []).includes(ptTipo as TipoDeDato)) : ptPorEtiqueta).map((c) => String(c.id))
+    ptPorEtiqueta.filter((c) => ptTipos.every((t) => (c.dataTypes ?? []).includes(t))).map((c) => String(c.id))
   );
   const ptFiltroActivo = ptVista !== TODAS || ptTema !== "" || ptTipo !== "";
   // Sin temáticas de interés ni ubicación (GPS o estado del perfil) no hay nada "para ti": no salen ni las
@@ -338,10 +335,9 @@ export default function CampanasPage() {
         }, new Map<string, number>())
       ).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "es"))
     : [];
-  // Tipos de dato de las recomendadas ya filtradas; el elegido sigue visible aunque quede en 0, para poder quitarlo.
-  const tiposDeLaLista = TIPOS_DE_DATO.map((tipo) => [tipo, ptPorEtiqueta.filter((c) => (c.dataTypes ?? []).includes(tipo)).length] as const).filter(
-    ([tipo, total]) => total > 0 || tipo === ptTipo
-  );
+  // Tipos de dato de las recomendadas ya filtradas: cada número dice cuántas quedan con ese tipo y los ya elegidos.
+  // Salen siempre todos, también en 0: la fila no cambia al filtrar (2026-11-03, a pedido del usuario).
+  const tiposDeLaLista = TIPOS_DE_DATO.map((tipo) => [tipo, ptPorEtiqueta.filter((c) => [...ptTipos, tipo].every((t) => (c.dataTypes ?? []).includes(t))).length] as const);
 
   function cambiarBusqueda(clave: keyof ValoresDeFiltros, valor: string) {
     if (clave === "q" || clave === "orden") setBusqueda((actual) => ({ ...actual, [clave]: valor }));
@@ -442,15 +438,15 @@ export default function CampanasPage() {
 
           {tiposDeLaLista.length > 0 && (
             <div className={CLASE_DE_FILA} role="group" aria-label="Filtrar campañas para ti por tipo de dato">
-              <span className="mr-1 shrink-0 text-[12px] text-system-500">Tipo de dato:</span>
+              <span className="mr-1 shrink-0 text-[12px] text-system-500">Tipo de dato (uno o varios):</span>
               {tiposDeLaLista.map(([tipo, total]) => {
-                const activo = ptTipo === tipo;
+                const activo = ptTipos.includes(tipo);
                 return (
                   <button
                     key={tipo}
                     type="button"
                     aria-pressed={activo}
-                    onClick={() => setPtTipo(activo ? "" : tipo)}
+                    onClick={() => setPtTipo(alternarTipo(ptTipo, tipo))}
                     className={`${CLASE_DE_CHIP} ${activo ? CLASE_ACTIVO : CLASE_INACTIVO}`}
                   >
                     {NOMBRE_DE_TIPO[tipo]}
@@ -526,7 +522,7 @@ export default function CampanasPage() {
         <p className="text-sm text-system-600">
           {buscando && porEtiqueta.length > 0
             ? tipoActivo && !busqueda.q.trim()
-              ? `Ninguna campaña de esta lista pide ${NOMBRE_DE_TIPO[tipoActivo as TipoDeDato].toLowerCase()}.`
+              ? `Ninguna campaña de esta lista pide ${nombresDeTipos(tipoActivo).toLowerCase()}.`
               : "Ninguna campaña coincide con la búsqueda."
             : temaActivo
               ? "No hay campañas de esta temática en esta lista."
@@ -554,8 +550,6 @@ export default function CampanasPage() {
           extra={
             abierta.isBanned ? (
               <p className="rounded-lg bg-error-50 p-3 text-[12.5px] text-error-700">Quien organiza esta campaña te baneó: ya no puedes aportar en ella.</p>
-            ) : abierta.status === "pausada" ? (
-              <p className="rounded-lg bg-warning-50 p-3 text-[12.5px] text-system-900">Está pausada: por ahora no recibe aportes.</p>
             ) : undefined
           }
           acciones={
