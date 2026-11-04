@@ -7,6 +7,7 @@ type Tone = "default" | "ok" | "warn" | "danger" | "info" | "on";
 interface TagProps {
   children: ReactNode;
   tone?: Tone;
+  className?: string;
 }
 
 const toneClasses: Record<Tone, string> = {
@@ -19,10 +20,10 @@ const toneClasses: Record<Tone, string> = {
   on: "bg-brand-600 border-brand-600 text-white",
 };
 
-export default function Tag({ children, tone = "default" }: TagProps) {
+export default function Tag({ children, tone = "default", className }: TagProps) {
   return (
     <span
-      className={`inline-flex items-center rounded-pill border px-2.5 py-1 text-[12.5px] font-semibold ${toneClasses[tone]}`}
+      className={`inline-flex items-center rounded-pill border px-2.5 py-1 text-[12.5px] font-semibold ${toneClasses[tone]} ${className ?? ""}`}
     >
       {children}
     </span>
