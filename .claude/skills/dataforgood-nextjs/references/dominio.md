@@ -120,6 +120,8 @@ Fuentes: `mis-campanas`, `NuevaCampanaForm`, `campanas/[id]` y `panel`.
 
 - **Orden por avance (2026-11-04, a pedido del usuario):** `/campanas`, `/explorar` y `/mis-campanas` ordenan por "Mayor avance" y "Menor avance" (solo aprobados), y sus barras muestran el porcentaje (`ProgressBar` con `conPorcentaje`). Sin filtro visible por rango de avance: el usuario lo probó y pidió quitarlo. "Menor avance" y "Menos aportes" están en `ORDENES_DE_CAMPANA`, compartidos por todas las `BarraDeFiltros`, y en `/explorar`; "Menos aportes" cuenta los recibidos, como "Más aportes". `/mis-campanas` solo ordena por avance; en revisión y rechazadas van al final.
 
+- **Permiso de ubicación (2026-11-04):** si la preferencia está activa pero no hay zona guardada, `/campanas` busca de verdad con permiso, muestra el error con "Intentar de nuevo" si falla y vuelve a invitar sin permiso. El permiso dado desde el navegador también cuenta (`DetectorDeUbicacion`, con `permisoDeUbicacion`); "Ahora no" se respeta hasta que el permiso cambie. La preferencia es por navegador y origen: `localhost`, `127.0.0.1` y otra dirección son independientes.
+
 ## 4. Aportes y cuota
 
 Fuentes: `campanas/[id]/aportar`, `mis-aportes` y `mis-aportes/[campanaId]`.

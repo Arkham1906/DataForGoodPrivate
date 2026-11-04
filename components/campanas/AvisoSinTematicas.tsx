@@ -34,6 +34,7 @@ export default function AvisoSinTematicas({
   sinTematicas,
   clave,
   children,
+  siCerrado = null,
 }: {
   /** true cuando ya se sabe que la persona no tiene temáticas (mientras carga, false). */
   sinTematicas: boolean;
@@ -41,12 +42,15 @@ export default function AvisoSinTematicas({
   clave: string;
   /** Texto del aviso. */
   children: ReactNode;
+  /** Qué mostrar si ya dijo "Ahora no": en /inicio evita dejar solo el título de "Campañas para ti". */
+  siCerrado?: ReactNode;
 }) {
   const [cerrado, setCerrado] = useState(false);
-  // En el servidor (y al hidratar) cuenta como oculto, para no mostrarlo y quitarlo en seguida si ya se
-  // dijo "Ahora no"; después se lee sessionStorage y aparece si toca.
-  const oculto = useSyncExternalStore(sinSuscripcion, () => yaSeOculto(clave), () => true);
-  if (!sinTematicas || cerrado || oculto) return null;
+  // En el servidor (y al hidratar) aún no se sabe (null): no se dibuja nada, para no mostrar un texto y cambiarlo
+  // en seguida si ya se dijo "Ahora no"; después se lee sessionStorage y aparece lo que toque.
+  const oculto = useSyncExternalStore<boolean | null>(sinSuscripcion, () => yaSeOculto(clave), () => null);
+  if (!sinTematicas || oculto === null) return null;
+  if (cerrado || oculto) return <>{siCerrado}</>;
 
   function cerrar() {
     ocultar(clave);

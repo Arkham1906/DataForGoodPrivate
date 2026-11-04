@@ -295,12 +295,22 @@ export default function CampanasPage() {
     ptPorEtiqueta.filter((c) => ptTipos.every((t) => (c.dataTypes ?? []).includes(t))).map((c) => String(c.id))
   );
   const ptFiltroActivo = ptVista !== TODAS || ptTema !== "" || ptTipo !== "";
-  // Sin temáticas de interés ni ubicación (GPS o estado del perfil) no hay nada "para ti": no salen ni las
-  // filas de botones ni la sección (2026-11-03, a pedido del usuario; antes mostraba las populares).
+  // Sin temáticas de interés ni ubicación (GPS o estado del perfil) no hay nada "para ti": no salen las filas de
+  // botones ni campañas (2026-11-03; antes mostraba las populares), pero sí el título (2026-11-04, a pedido del usuario).
   const conParaTi = misIntereses.size > 0 || Boolean(lugarDelFiltro);
   // Sin filtro, las CAMPANAS_PARA_TI primeras; con filtro, todas las que coinciden (2026-11-02).
   const ptCoinciden = recomendadas.filter((r) => ptFiltradas.has(String(r.c.id)));
   const paraTiVisibles = (ptFiltroActivo ? ptCoinciden : ptCoinciden.slice(0, CAMPANAS_PARA_TI)).map((r) => r.p);
+  // Van debajo del título de "Campañas para ti" si la sección no tiene qué mostrar; si no, después de ella.
+  const avisoSinTematicas = (
+    <AvisoSinTematicas sinTematicas={sinTematicas} clave="dfg:aviso-sin-tematicas">
+      <p>
+        Aún no eliges temáticas de interés. Agrégalas para mostrarte primero las campañas que te interesan y
+        avisarte cuando se abra una nueva.
+      </p>
+    </AvisoSinTematicas>
+  );
+  const avisoDeUbicacion = <AvisoDeUbicacion zona={zona} />;
 
   const porTemaDeTodas = new Map(ptTemas);
   const temasVisibles = ptTemas.slice(0, MAXIMO_DE_TEMAS_VISIBLES).map(([tema]) => tema);
@@ -455,12 +465,18 @@ export default function CampanasPage() {
         </div>
       )}
 
-      {!cargando && !error && conParaTi && (
+      {!cargando && !error && (
         <CampanasParaTi
           id="campanas-para-ti"
-          campanas={paraTiVisibles}
+          campanas={conParaTi ? paraTiVisibles : []}
           vacio={
-            ptFiltroActivo ? (
+            !conParaTi ? (
+              // Sin temáticas ni ubicación: el título sigue y debajo van los dos avisos (2026-11-04, a pedido del usuario).
+              <>
+                {avisoSinTematicas}
+                {avisoDeUbicacion}
+              </>
+            ) : ptFiltroActivo ? (
               <p className="text-sm text-system-600">
                 {ptVista === TU_LOCALIDAD && !lugarDelFiltro
                   ? "Aún no indicas en qué estado vives: agrégalo en Mi cuenta o usa tu ubicación."
@@ -475,16 +491,9 @@ export default function CampanasPage() {
         />
       )}
 
-      {!cargando && !error && (
-        <AvisoSinTematicas sinTematicas={sinTematicas} clave="dfg:aviso-sin-tematicas">
-          <p>
-            Aún no eliges temáticas de interés. Agrégalas para mostrarte primero las campañas que te interesan y
-            avisarte cuando se abra una nueva.
-          </p>
-        </AvisoSinTematicas>
-      )}
+      {!cargando && !error && conParaTi && avisoSinTematicas}
 
-      {!cargando && !error && <AvisoDeUbicacion zona={zona} />}
+      {!cargando && !error && conParaTi && avisoDeUbicacion}
 
       {!cargando && !error && (
         <BarraDeFiltros
