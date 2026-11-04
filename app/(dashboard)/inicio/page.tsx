@@ -3,6 +3,8 @@
 // siguiente (ResumenDeRango), luego «Hoy» (potenciador, misiones de hoy y racha: ResumenDeHoy), y después lo que ya
 // tenía: resumen de aportes y campañas, campañas para ti, últimos aportes (con sus estrellas, 2026-11-03) y notificaciones.
 // El mapa de aportes pasa a Mis aportes (decisión del diseño v9).
+// «Aportar a una campaña» va en el encabezado de «Tus últimos aportes», junto a «Ver todos» (2026-11-03, a pedido del
+// equipo: arriba de la página quedaba muy lejos de donde se actúa).
 // Server Component. Acceso: sesión de usuario (exigirUsuario). Datos: obtenerResumenDeInicio() de
 // lib/usuarios/inicio.ts y obtenerResumenDeProgreso() de lib/gamificacion/progreso.ts (null si aún no hay datos de
 // progreso: entonces se omiten esos dos bloques). Hasta 3 campañas activas para él, de sus temáticas de interés o de
@@ -70,14 +72,11 @@ export default async function InicioPage() {
 
   return (
     <div className="space-y-8 max-md:space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
-        <div>
-          <h1 className="text-2xl font-extrabold text-system-900 max-md:text-xl max-md:leading-tight">
-            {mostrarBienvenida ? `¡Bienvenido a DataForGood, ${usuario.nombre}!` : `${saludoDeInicio()}, ${usuario.nombre}`}
-          </h1>
-          <p className="mt-1 text-[13px] text-system-600">Esto es lo que pasa con tu progreso, tus aportes y tus campañas.</p>
-        </div>
-        <ButtonLink href="/campanas">Aportar a una campaña</ButtonLink>
+      <div>
+        <h1 className="text-2xl font-extrabold text-system-900 max-md:text-xl max-md:leading-tight">
+          {mostrarBienvenida ? `¡Bienvenido a DataForGood, ${usuario.nombre}!` : `${saludoDeInicio()}, ${usuario.nombre}`}
+        </h1>
+        <p className="mt-1 text-[13px] text-system-600">Esto es lo que pasa con tu progreso, tus aportes y tus campañas.</p>
       </div>
 
       {progreso && (
@@ -144,9 +143,14 @@ export default async function InicioPage() {
             <h2 id="inicio-aportes" className="text-lg font-extrabold text-system-900">
               Tus últimos aportes
             </h2>
-            <Link href="/mis-aportes" className="text-[13px] font-semibold text-brand-600 hover:underline">
-              Ver todos →
-            </Link>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <ButtonLink href="/campanas" size="sm">
+                Aportar a una campaña
+              </ButtonLink>
+              <Link href="/mis-aportes" className="text-[13px] font-semibold text-brand-600 hover:underline">
+                Ver todos →
+              </Link>
+            </div>
           </div>
           <div className={CAJA_DE_LISTA}>
             {resumen.recientes.length === 0 ? (
