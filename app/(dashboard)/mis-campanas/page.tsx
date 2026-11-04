@@ -15,12 +15,12 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Button from "@/components/ui/Button";
 import ButtonLink from "@/components/ui/ButtonLink";
 import Tag from "@/components/ui/Tag";
 import RutaDeTematica from "@/components/ui/RutaDeTematica";
 import ProgressBar from "@/components/ui/ProgressBar";
-import VentanaDeCampana from "@/components/campanas/VentanaDeCampana";
 import type { Campaign, CampaignStatus } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
 import { EsqueletoDeTarjetas } from "@/components/ui/Esqueletos";
@@ -161,7 +161,7 @@ function mapCampaign(row: Record<string, unknown>): CampanaDeMisCampanas {
     rejectedContributions: Number(row.rejectedContributions ?? 0),
     participants: Number(row.participants ?? 0),
     startDate: row.startDate as string | null,
-    // Horas, checklists, colonia, "todo el país" y organización: la ventana de detalle (2026-10-27).
+    // Horas, checklists, colonia, "todo el país" y organización: el detalle de campaña.
     // startTime también decide entre "Reanudar" y "Activar campaña" (antes no llegaba y se tomaba 00:00).
     startTime: (row.startTime as string | null) ?? null,
     endDate: row.endDate as string | null,
@@ -198,8 +198,6 @@ export default function MisCampanasPage() {
   // Campaña cuya ventana de "Finalizar" está abierta (2026-10-16; antes window.confirm).
   const [porFinalizar, setPorFinalizar] = useState<Campaign | null>(null);
   const [porActivar, setPorActivar] = useState<Campaign | null>(null);
-  // Campaña cuya ventana de detalle está abierta (2026-10-27): clic en su tarjeta.
-  const [abierta, setAbierta] = useState<Campaign | null>(null);
   const vistaCuadricula = useSyncExternalStore(suscribirVistaDeMisCampanas, leerVistaDeMisCampanas, () => true);
   const [porEliminar, setPorEliminar] = useState<CampanaDeMisCampanas | null>(null);
   // Nombre que escribe para confirmar que borra una campaña con aportes.
@@ -431,12 +429,13 @@ export default function MisCampanasPage() {
           {visibles.map((campaign) => {
             const pct = porcentajeDeMeta(campaign.approvedContributions, campaign.goalContributions);
             const puedeFinalizar = campaign.status === "activa" || campaign.status === "pausada";
+            const puedeVerAportesYPanel = ["activa", "pausada", "finalizada", "fallida"].includes(campaign.status);
             const cambiando = cambiandoId === campaign.id;
 
             return (
               // La lista compacta su altura al contenido en escritorio amplio; en tamaños menores
               // conserva la distribución anterior y la cuadrícula mantiene tarjetas en columna.
-              // Toda la tarjeta abre el detalle (2026-10-27): un botón la cubre y los botones de abajo quedan encima.
+              // Toda la tarjeta abre el detalle y las acciones quedan encima del enlace.
               <div
                 key={campaign.id}
                 className={
@@ -445,21 +444,26 @@ export default function MisCampanasPage() {
                     : "relative flex min-w-0 cursor-pointer flex-col rounded-lg border border-system-200 bg-white p-4 transition-colors hover:border-brand-600 max-md:p-3 md:h-[190px] md:grid md:grid-cols-[minmax(0,1.35fr)_minmax(260px,1fr)_auto] md:grid-rows-[56px_minmax(0,1fr)] md:items-stretch md:gap-x-5 md:overflow-hidden lg:h-auto lg:grid-rows-[auto_auto] lg:overflow-visible"
                 }
               >
-                <button
-                  type="button"
-                  onClick={() => setAbierta(campaign)}
+                <Link
+                  href={`/mis-campanas/${campaign.id}`}
                   aria-label={`Ver la información de ${campaign.name}`}
-                  data-sin-respuesta
                   className="absolute inset-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
                 />
-                <div className={vistaCuadricula ? "mb-1 flex items-start justify-between gap-2 max-md:h-12 max-md:shrink-0 max-md:overflow-hidden" : "mb-1 flex items-start justify-between gap-2 max-md:h-8 max-md:shrink-0 max-md:overflow-hidden md:col-start-1 md:row-start-1 md:mb-0 md:max-h-[56px] md:min-w-0 md:overflow-hidden"}>
-                  <p className={`line-clamp-2 min-w-0 break-words font-medium leading-4 text-system-900 ${vistaCuadricula ? "text-[12px] max-md:text-[11.5px]" : "text-[13.5px] max-md:text-[13px]"}`} title={campaign.name}>
+                <div className={vistaCuadricula ? "mb-1 flex items-start justify-between gap-2 max-md:h-12 max-md:shrink-0 max-md:overflow-hidden" : "relative mb-1 flex items-start justify-between gap-2 max-md:h-8 max-md:shrink-0 max-md:overflow-hidden md:col-start-1 md:row-start-1 md:mb-0 md:h-[56px] md:min-w-0 md:items-center md:overflow-hidden"}>
+                  <p className={`line-clamp-2 min-w-0 break-words font-medium leading-4 text-system-900 ${vistaCuadricula ? "text-[12px] max-md:text-[11.5px]" : "text-[13.5px] max-md:text-[13px] md:w-[140px] md:shrink-0"}`} title={campaign.name}>
                     {campaign.name}
                   </p>
-                  <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
+                  <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
                     {campaign.especial && campaign.especial.etapa !== "terminada" && <Tag tone="warn">Especial ×{campaign.especial.multiplicador}</Tag>}
                     {/* Mismos colores que el panel (ETIQUETA_DE_CAMPANA, 2026-10-22): aceptada y activa en verde, rechazada en rojo, borrador en gris. */}
-                    <Tag tone={ETIQUETA_DE_CAMPANA[campaign.status]?.tono ?? "default"}>{labels[campaign.status]}</Tag>
+                    <span className={vistaCuadricula
+                      ? "md:flex md:h-full md:w-[160px] md:shrink-0 md:items-center md:justify-center"
+                      : "md:absolute md:left-[140px] md:top-0 md:flex md:h-full md:w-[140px] md:shrink-0 md:items-center md:justify-center"
+                    }>
+                      <Tag tone={ETIQUETA_DE_CAMPANA[campaign.status]?.tono ?? "default"} className={campaign.status === "aceptada" ? "whitespace-nowrap" : undefined}>
+                        {campaign.status === "aceptada" ? "Campaña aceptada" : labels[campaign.status]}
+                      </Tag>
+                    </span>
                   </div>
                 </div>
                 <RutaDeTematica tematica={campaign.tematica || campaign.tag} className={vistaCuadricula ? "mb-1.5 text-[10.5px] max-md:mb-1 max-md:text-[10px]" : "mb-2 md:col-start-1 md:row-start-2 md:mb-0 md:max-h-full md:overflow-hidden"} />
@@ -508,16 +512,6 @@ export default function MisCampanasPage() {
                     )}
                   </>
                 )}
-                {/* Aceptada (2026-11-01): se activa sola en su inicio y el creador puede activarla antes. */}
-                {campaign.status === "aceptada" && (
-                  <div className="mb-2.5 rounded-lg border border-success-700 bg-success-50 p-2.5 text-[11.5px] text-system-900 max-md:max-h-[72px] max-md:overflow-hidden">
-                    <p className="font-semibold">La supervisión aprobó tu campaña</p>
-                    <p className="mt-0.5 text-system-600">
-                      Se activará sola el {campaign.startDate ? fechaDDMMAAAA(campaign.startDate) : "día de inicio"}
-                      {campaign.startTime ? ` a las ${campaign.startTime.slice(0, 5)}` : ""}. Si quieres empezar antes, actívala ahora.
-                    </p>
-                  </div>
-                )}
                 {campaign.status === "pausada" && campaign.pausa?.por === "supervision" ? (
                   <div className="mb-2.5 rounded-lg border border-warning-200 bg-warning-50 p-2.5 text-[11.5px] text-system-900 max-md:max-h-[76px] max-md:overflow-hidden">
                     <p className="font-semibold">La supervisión pausó esta campaña</p>
@@ -532,10 +526,8 @@ export default function MisCampanasPage() {
                     Terminó con menos del {PORCENTAJE_MINIMO}% de su meta: no publica datos abiertos. Puedes extenderla con una nueva fecha de cierre desde Editar.
                   </p>
                 )}
-                {/* "Revisar aportes" y "Panel" solo aparecen en campañas activas; las demás acciones
-                    dependen del estado y se mantienen en "Más" cuando corresponde.
-                    Rechazada: la principal es corregirla (no tiene aportes que revisar). En revisión y rechazada
-                    no hay "Revisar aportes" ni "Panel" (2026-11-01, a pedido del usuario): todavía no recibe aportes. */}
+                {/* Las campañas activas, pausadas, finalizadas e incompletas conservan acceso
+                    a sus aportes y panel para consultar la información recopilada. */}
                 </div>
                 <div className={vistaCuadricula ? "relative z-10 mt-auto flex flex-wrap items-center gap-1 border-t border-system-100 pt-2.5 max-md:mt-auto max-md:gap-1 max-md:pt-2" : "relative z-10 mt-4 flex flex-nowrap items-center gap-1.5 border-t border-system-100 pt-3 max-md:mt-2 max-md:shrink-0 max-md:gap-1 max-md:pt-1 md:col-start-3 md:row-span-2 md:row-start-1 md:my-0 md:self-center md:border-l md:border-t-0 md:pl-5"}>
                   {campaign.status === "rechazada" ? (
@@ -546,14 +538,14 @@ export default function MisCampanasPage() {
                     <Button variant="primary" size="sm" className={vistaCuadricula ? "whitespace-nowrap max-md:px-1 max-md:py-1 max-md:text-[10px]" : "max-md:px-2 max-md:py-1.5 max-md:text-[11px]"} onClick={() => setPorActivar(campaign)} disabled={cambiando}>
                       Activar campaña
                     </Button>
-                  ) : campaign.status === "activa" ? (
+                  ) : puedeVerAportesYPanel ? (
                     <ButtonLink href={`/mis-campanas/${campaign.id}/aportes`} variant="primary" size="sm" aria-label={`Revisar aportes de ${campaign.name}`} className={vistaCuadricula ? "whitespace-nowrap max-md:px-1 max-md:py-1 max-md:text-[10px]" : "max-md:px-2 max-md:py-1.5 max-md:text-[11px]"}>
                       {vistaCuadricula ? <><span className="max-md:hidden">Revisar aportes</span><span className="md:hidden">Aportes</span></> : "Revisar aportes"}
                       {campaign.pendingContributions > 0 && <span className="font-mono">({campaign.pendingContributions})</span>}
                     </ButtonLink>
                   ) : null}
-                  {campaign.status === "activa" && (
-                    <ButtonLink href={`/mis-campanas/${campaign.id}/panel`} size="sm" className={vistaCuadricula ? "whitespace-nowrap max-md:hidden max-md:px-1 max-md:py-1 max-md:text-[10px]" : "max-md:px-2 max-md:py-1.5 max-md:text-[11px]"}>Panel</ButtonLink>
+                  {puedeVerAportesYPanel && (
+                    <ButtonLink href={`/mis-campanas/${campaign.id}/panel`} size="sm" className={vistaCuadricula ? "whitespace-nowrap max-md:px-1 max-md:py-1 max-md:text-[10px]" : "max-md:px-2 max-md:py-1.5 max-md:text-[11px]"}>Panel</ButtonLink>
                   )}
                    <div className="ml-auto hidden w-fit items-center gap-1 rounded-lg border border-system-200 bg-system-50 p-1 md:flex">
                   {campaign.status === "activa" && (
@@ -618,9 +610,6 @@ export default function MisCampanasPage() {
                       texto="Más"
                       etiqueta={`Más acciones de ${campaign.name}`}
                       opciones={[
-                        ...(vistaCuadricula && campaign.status === "activa"
-                          ? [{ etiqueta: "Panel", href: `/mis-campanas/${campaign.id}/panel` }]
-                          : []),
                         ...(campaign.status === "activa"
                           ? [{ etiqueta: "Compartir", alElegir: () => setPorCompartir(campaign) }]
                           : []),
@@ -859,48 +848,6 @@ export default function MisCampanasPage() {
         )}
       </VentanaDeConfirmacion>
 
-      {abierta && (
-        <VentanaDeCampana
-          key={abierta.id}
-          campana={abierta}
-          onCerrar={() => setAbierta(null)}
-          sinAvance={sinAportesTodavia(abierta.status)}
-          // En revisión no queda nada "solo para ti" (sin cifras ni motivo): sin el bloque.
-          extra={abierta.status === "en_revision" ? undefined : <DatosDelCreador campana={abierta} />}
-          acciones={
-            <>
-              {["activa", "pausada", "finalizada", "fallida"].includes(abierta.status) && (
-                <ButtonLink href={`/campanas/${abierta.id}`} size="sm">
-                  Verla como participante
-                </ButtonLink>
-              )}
-              {abierta.status === "activa" ? (
-                <Button type="button" size="sm" onClick={() => { setPorEditar(abierta); setAbierta(null); }}>
-                  Editar
-                </Button>
-              ) : (
-                <ButtonLink href={`/mis-campanas/nueva?edit=${abierta.id}`} size="sm">
-                  Editar
-                </ButtonLink>
-              )}
-              {abierta.status === "activa" && (
-                <ButtonLink href={`/mis-campanas/${abierta.id}/panel`} size="sm">
-                  Panel
-                </ButtonLink>
-              )}
-              {abierta.status === "rechazada" ? (
-                <ButtonLink href={`/mis-campanas/nueva?edit=${abierta.id}`} variant="primary" size="sm">
-                  Corregir y reenviar
-                </ButtonLink>
-              ) : abierta.status === "activa" ? (
-                <ButtonLink href={`/mis-campanas/${abierta.id}/aportes`} variant="primary" size="sm">
-                  Revisar aportes{abierta.pendingContributions > 0 && <span className="font-mono"> ({abierta.pendingContributions})</span>}
-                </ButtonLink>
-              ) : null}
-            </>
-          }
-        />
-      )}
     </div>
   );
 }
@@ -908,56 +855,4 @@ export default function MisCampanasPage() {
 /** En revisión o rechazada todavía no recibe aportes: sin "Revisar aportes" ni "Panel" (2026-11-01). */
 function sinAportesTodavia(estado: string) {
   return estado === "en_revision" || estado === "rechazada";
-}
-
-/** Lo que solo ve el creador en la ventana de detalle (2026-10-27): estado, motivos, aportes y revisión. */
-function DatosDelCreador({ campana }: { campana: Campaign }) {
-  const nf = new Intl.NumberFormat("es-MX");
-  const cifras = [
-    { valor: campana.currentContributions, texto: "recibidos" },
-    { valor: campana.pendingContributions, texto: "por revisar" },
-    { valor: campana.approvedContributions, texto: "aprobados" },
-    { valor: campana.rejectedContributions, texto: "rechazados" },
-  ];
-  return (
-    <div className="flex flex-col gap-3">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-system-500">Solo para ti, como creador</p>
-      {campana.status === "rechazada" && (
-        <div className="rounded-lg border border-error-200 bg-error-50 p-3 text-[12.5px]">
-          <p className="font-semibold text-error-700">
-            {campana.rechazo?.porSuperUsuario ? "La supervisión" : "Un supervisor"} la rechazó
-            {campana.rechazo && <> el {fechaDeRechazo.format(new Date(campana.rechazo.fecha))}</>}
-            {campana.rechazo?.sancion && <> · se aplicó {campana.rechazo.sancion}</>}
-          </p>
-          <p className="mt-1 whitespace-pre-line break-words text-system-600">Motivo: {campana.rechazo?.motivo ?? "sin motivo registrado"}</p>
-        </div>
-      )}
-      {campana.status === "pausada" && (
-        <div className="rounded-lg border border-warning-200 bg-warning-50 p-3 text-[12.5px] text-system-900">
-          <p className="font-semibold">{campana.pausa?.por === "supervision" ? "La supervisión pausó esta campaña" : "La pausaste tú"}</p>
-          {campana.pausa?.por === "supervision" && (
-            <p className="mt-1 whitespace-pre-line break-words text-system-600">Motivo: {campana.pausa.motivo || "sin motivo registrado"}</p>
-          )}
-        </div>
-      )}
-      {/* En revisión o rechazada, sin cifras ni revisor (2026-11-01): todavía no recibe aportes. */}
-      {!sinAportesTodavia(campana.status) && (
-      <>
-      <dl className="grid grid-cols-4 gap-2 max-sm:grid-cols-2">
-        {cifras.map((c) => (
-          // Título primero (dt antes de dd); se ve debajo del número con flex-col-reverse.
-          <div key={c.texto} className="flex flex-col-reverse rounded-lg bg-system-50 p-2.5 text-center">
-            <dt className="text-[11px] text-system-500">{c.texto}</dt>
-            <dd className="font-mono text-[16px] font-bold text-system-900">{nf.format(c.valor)}</dd>
-          </div>
-        ))}
-      </dl>
-      <p className="text-[12.5px] text-system-600">
-        {campana.hasReviewerAssigned ? "Tiene revisor de aportes asignado." : "Todavía no tiene revisor de aportes: los revisas tú."}
-        {campana.especial && <> {resumenDeIncentivos(campana.especial)} ({textoDelPeriodo(campana.especial)}).</>}
-      </p>
-      </>
-      )}
-    </div>
-  );
 }
