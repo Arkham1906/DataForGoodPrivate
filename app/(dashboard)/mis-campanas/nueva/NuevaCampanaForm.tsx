@@ -233,7 +233,6 @@ export default function NuevaCampanaForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const editId = searchParams.get("edit");
-  const solicitarRevisionAlGuardar = searchParams.get("enviarRevision") === "true";
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [cargando, setCargando] = useState(true);
   const [organizacionPerfil, setOrganizacionPerfil] = useState<string | undefined>(undefined);
@@ -322,7 +321,6 @@ export default function NuevaCampanaForm() {
       perfil={perfil}
       activeCampaigns={activeCampaigns.length}
       limitReached={limitReached}
-      solicitarRevisionAlGuardar={solicitarRevisionAlGuardar}
     />
   );
 }
@@ -333,14 +331,12 @@ function CampanaFormulario({
   perfil,
   activeCampaigns,
   limitReached,
-  solicitarRevisionAlGuardar,
 }: {
   editingCampaign: Campaign | undefined;
   organizacionPerfil: string;
   perfil: DatosDelPerfil;
   activeCampaigns: number;
   limitReached: boolean;
-  solicitarRevisionAlGuardar: boolean;
 }) {
   const router = useRouter();
 
@@ -348,8 +344,7 @@ function CampanaFormulario({
   // rechazada se puede editar por completo y reenviar; activa, pausada o
   // aceptada (aprobada, esperando su fecha de inicio) solo permiten ajustar
   // meta y fecha de finalización, sin tocar su estado; pausada permite casi
-  // todo y normalmente sigue pausada. El
-  // flujo de edición iniciado desde una activa la envía a revisión al guardar;
+  // todo y al guardar pasa a revisión;
   // finalizada queda en solo lectura. La fallida (2026-11-01) igual: solo se extiende con un fin nuevo.
   const status = editingCampaign?.status;
   const soloLectura = status === "finalizada" || status === "fallida";
@@ -357,8 +352,7 @@ function CampanaFormulario({
   const edicionLimitada = status === "activa" || status === "pausada" || status === "aceptada";
   const edicionCompleta = !edicionLimitada && !soloLectura;
   const editaEnPausa = status === "pausada";
-  const enviarRevisionAlGuardar =
-    solicitarRevisionAlGuardar && editaEnPausa && editingCampaign?.pausa?.por === "creador";
+  const enviarRevisionAlGuardar = editaEnPausa;
   // Lo que solo se edita por completo o en pausa (nombre, temática, tipos, cuota, inicio, ubicación).
   const contenidoBloqueado = edicionLimitada && !editaEnPausa;
 
@@ -504,7 +498,6 @@ function CampanaFormulario({
     return null;
   }
   const [startDate, setStartDate] = useState(editingCampaign?.startDate ?? "");
-  const startTime = editingCampaign?.startTime ?? "";
   const [endDate, setEndDate] = useState(editingCampaign?.endDate ?? "");
   const endTime = editingCampaign?.endTime ?? "";
   const [duracionEnMeses, setDuracionEnMeses] = useState(1);
@@ -549,15 +542,6 @@ function CampanaFormulario({
   const [problemasDelServidor, setProblemasDelServidor] = useState<Problema[]>([]);
   const [ventanaDeProblemas, setVentanaDeProblemas] = useState<Problema[] | null>(null);
   const [confirmarCancelar, setConfirmarCancelar] = useState(false);
-  // Pausada (2026-10-27): "Guardar y reanudar" (o "Guardar y programar" si el inicio quedó en el
-  // futuro) o "Guardar y dejar pausada". Si se guardó pero no se pudo reanudar, aquí va el motivo.
-  const [sinReanudar, setSinReanudar] = useState<string | null>(null);
-  // La que pausó la supervisión solo la reanuda la supervisión (2026-10-15).
-  const pausadaPorSupervision = editaEnPausa && editingCampaign?.pausa?.por === "supervision";
-  const propositoEditado =
-    proposito !== (editingCampaign?.proposito ?? "") ||
-    propositoOtro !== (editingCampaign?.propositoOtro ?? "");
-
   const limiteActivasAlcanzado = activeCampaigns >= MAX_ACTIVE_CAMPAIGNS;
 
   function cambiarInicio(fecha: string) {
@@ -808,7 +792,7 @@ function CampanaFormulario({
       else agregar("fin", errorDeFinAntesDeInicio(fechaInicioFormulario, fechaFinFormulario));
       if (!todoElPais && !locationState) agregar("estado", "Selecciona un estado o elige \"Para todo el país\"");
       else if (!todoElPais && !locationCity) agregar("municipio", "Selecciona un municipio o \"Todo el estado\"");
-      if (propositoEditado || enviarRevisionAlGuardar) {
+      if (enviarRevisionAlGuardar) {
         const validado = validarProposito(proposito, propositoOtro, true);
         if (!validado.ok) agregar("proposito", validado.error);
       }
@@ -850,24 +834,20 @@ function CampanaFormulario({
     return lista;
   }
 
-  // alGuardar: pausa manual, el estado al que pasa después de guardar ("activa" reanuda,
-  // "aceptada" la programa). El envío del flujo de edición de una activa va en el PATCH de edición.
-  async function handleSubmit(e: React.FormEvent, asDraft: boolean, alGuardar: "activa" | "aceptada" | null = null) {
+  async function handleSubmit(e: React.FormEvent, asDraft: boolean) {
     e.preventDefault();
     if (soloLectura) return;
 
     const lista = problemasDe(asDraft);
     setIntento(asDraft ? "borrador" : "revision");
     setProblemasDelServidor([]);
-    setSinReanudar(null);
     if (lista.length > 0) {
       setVentanaDeProblemas(lista);
       return;
     }
 
     // Activa o aceptada: solo se guardan meta y fecha de fin. Pausada: también
-    // lo de CAMPOS_EDITABLES_EN_PAUSA. En los tres el estado no se manda, así la
-    // campaña se mantiene en el estado en el que estaba.
+    // lo de CAMPOS_EDITABLES_EN_PAUSA y pasa a revisión al guardar.
     // En el orden en que se ven (↑/↓).
     const checklistSecciones = checklistsVigentes.map((c) => ({
       titulo: c.titulo.trim(),
@@ -876,10 +856,9 @@ function CampanaFormulario({
     }));
     const camposEditables = editaEnPausa
       ? {
-          status: enviarRevisionAlGuardar ? "en_revision" : undefined,
-          ...(propositoEditado || enviarRevisionAlGuardar
-            ? { proposito, propositoOtro: proposito === "otro" ? propositoOtro.trim() : "" }
-            : {}),
+          status: "en_revision",
+          proposito,
+          propositoOtro: proposito === "otro" ? propositoOtro.trim() : "",
           name,
           description,
           organizer: organizer.trim(),
@@ -971,20 +950,6 @@ function CampanaFormulario({
         throw new Error(body.error ?? (editingCampaign ? "No se pudo actualizar la campaña" : "No se pudo crear la campaña"));
       }
 
-      if (editingCampaign && alGuardar) {
-        const cambio = await fetch(`${BASE_PATH}/api/campanas/${editingCampaign.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: alGuardar }),
-        });
-        if (!cambio.ok) {
-          // Los cambios ya se guardaron: se queda aquí y explica por qué sigue pausada.
-          const body = await cambio.json().catch(() => ({}));
-          setSinReanudar(body.error ?? (alGuardar === "aceptada" ? "No se pudo programar la campaña" : "No se pudo reanudar la campaña"));
-          return;
-        }
-      }
-
       router.push("/mis-campanas");
     } catch (error) {
       console.error(editingCampaign ? "Error actualizando campaña" : "Error creando campaña", error);
@@ -996,8 +961,6 @@ function CampanaFormulario({
   }
 
   const inicioMovido = editaEnPausa && startDate !== (editingCampaign?.startDate ?? "");
-  // Inicio todavía por llegar: se programa (vuelve a "aceptada") en vez de reanudarse.
-  const programar = editaEnPausa && inicioEnElFuturo(fechaInicioFormulario, startTime);
   // Problemas a la vista: después del primer intento de guardar, se recalculan mientras se corrige.
   const errores: Problema[] = [...(intento ? problemasDe(intento === "borrador") : []), ...problemasDelServidor];
   const errorDe = (campo: CampoDeCampana) =>
@@ -1068,9 +1031,7 @@ function CampanaFormulario({
           </h1>
           <p className="mt-1 text-[13px] text-system-600">
             {editaEnPausa
-              ? pausadaPorSupervision
-                ? "La campaña está pausada por la supervisión: puedes cambiar todo menos la organización. Sigue pausada al guardar y se avisa a quien la supervisa."
-                : "La campaña está pausada: puedes cambiar todo menos la organización. Al guardar eliges si la reanudas o la dejas pausada; se avisa a quien la supervisa."
+              ? "La campaña está pausada: puedes editar sus datos. Al guardar, pasará a revisión y no recibirá aportes hasta que la supervisión decida."
               : edicionLimitada
               ? status === "aceptada"
                 ? "La campaña ya fue aceptada y espera su fecha de inicio: solo puedes ajustar la meta de aportes y la fecha de finalización."
@@ -1936,15 +1897,9 @@ function CampanaFormulario({
             <div className="mb-6 max-w-lg rounded-lg bg-system-100 p-4 text-[12.5px] text-system-600">
               {enviarRevisionAlGuardar
                 ? "Al guardar, la campaña pasará a En revisión. No recibirá aportes nuevos mientras la supervisión revisa los cambios."
-                : !editaEnPausa
-                ? `La campaña está ${status === "aceptada" ? "aceptada" : "activa"}: los cambios se guardan y mantiene su estado actual.`
-                : pausadaPorSupervision
-                ? "La pausó la supervisión: los cambios se guardan, sigue pausada y la supervisión decide cuándo reanudarla."
-                : programar
-                ? `Empieza el ${fechaDDMMAAAA(fechaInicioFormulario)}: con «Guardar y programar» queda programada y empieza sola ese día.`
-                : "Con «Guardar y reanudar» vuelve a recibir aportes en cuanto guardas; con «Guardar y dejar pausada» la reanudas después desde Mis campañas."}
+                : `La campaña está ${status === "aceptada" ? "aceptada" : "activa"}: los cambios se guardan y mantiene su estado actual.`}
               {editaEnPausa &&
-                " Los aportes que ya llegaron no cambian, aunque su tipo de dato ya no se pida. Quien la supervisa recibe un aviso de lo que cambiaste."}
+                " Los aportes que ya llegaron no cambian, aunque su tipo de dato ya no se pida. La supervisión recibe la campaña para revisar los cambios."}
             </div>
           )}
           {errores.length > 0 && (
@@ -1959,20 +1914,6 @@ function CampanaFormulario({
               <Button type="button" size="sm" variant="danger" onClick={() => setVentanaDeProblemas(errores)}>
                 Ver qué falta
               </Button>
-            </div>
-          )}
-
-          {sinReanudar && (
-            <div
-              role="alert"
-              className="mb-6 flex max-w-lg flex-wrap items-center justify-between gap-3 rounded-lg bg-warning-50 p-4 text-[12.5px] text-warning-800"
-            >
-              <span>
-                <b>Los cambios se guardaron, pero la campaña sigue pausada.</b> {sinReanudar}
-              </span>
-              <ButtonLink href="/mis-campanas" size="sm">
-                Ir a Mis campañas
-              </ButtonLink>
             </div>
           )}
 
@@ -1992,21 +1933,10 @@ function CampanaFormulario({
                   Guardar borrador
                 </Button>
               )}
-              {editaEnPausa && !pausadaPorSupervision && !enviarRevisionAlGuardar ? (
-                <>
-                  <Button type="submit" onClick={(e) => handleSubmit(e, false)}>
-                    Guardar y dejar pausada
-                  </Button>
-                  <Button variant="primary" type="submit" onClick={(e) => handleSubmit(e, false, programar ? "aceptada" : "activa")}>
-                    {programar ? "Guardar y programar" : "Guardar y reanudar"}
-                  </Button>
-                </>
-              ) : (
-                /* Siempre activo (2026-10-27): si falta algo, al tocarlo se explica qué. */
-                <Button variant="primary" type="submit">
-                  {enviarRevisionAlGuardar ? "Enviar a revisión" : edicionLimitada ? "Guardar cambios" : "Enviar a revisión"}
-                </Button>
-              )}
+              {/* Siempre activo (2026-10-27): si falta algo, al tocarlo se explica qué. */}
+              <Button variant="primary" type="submit">
+                {enviarRevisionAlGuardar ? "Enviar a revisión" : edicionLimitada ? "Guardar cambios" : "Enviar a revisión"}
+              </Button>
             </div>
           </div>
         </form>

@@ -126,6 +126,7 @@ Las pantallas del panel usan solo ese kit, y las de usuario solo `components/ui/
 - **Cabeceras públicas y del SuperUsuario en móvil:** `PublicHeader` permanece arriba al desplazarse; en `(panel)`, `Topbar` y la navegación horizontal de `Sidebar` quedan fijos, uno debajo del otro (`app/globals.css`).
 - **Panel del SuperUsuario (2026-10-04, Gerard):** menú de Usuarios en móvil con `/usuarios?movil=menu` y las opciones móviles de `Subtabs` (`listaEnMovil`, `distribuidasEnMovil`, `volverAlMenuEnMovil`, `menuInicialMovil`); tablas del panel como tarjetas `md:hidden` + tabla en escritorio; botones de sanciones con `anchoCompleto`.
 - **Filtros en fila desplazable (2026-10-05, Gerard):** los botones de filtro de `/campanas`, `/mis-aportes`, `/mis-campanas` y las categorías de `/supervision`, y las opciones de temática, estado y orden de `/explorar`, van en móvil en una sola fila con scroll horizontal (`dashboard-nav flex-nowrap overflow-x-auto`, `shrink-0 whitespace-nowrap` en cada botón y `md:flex-wrap` en escritorio). `.dashboard-nav` (`app/globals.css`) oculta la barra de scroll.
+- **Tarjetas de `/mis-campanas` (2026-11-04):** en móvil, la vista de lista muestra filas compactas con acciones en un renglón; en cuadrícula, la altura se adapta al contenido para reducir espacios vacíos y "Panel" va dentro de "Más" para mantener la acción principal y el menú juntos. Los textos variables se limitan para mantener estable el contenido; el detalle completo sigue disponible al abrir una tarjeta.
 
 **Pendiente o por revisar:**
 

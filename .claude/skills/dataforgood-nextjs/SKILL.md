@@ -134,6 +134,7 @@ DataForGood conecta organizaciones con personas que aportan información en camp
   - Números provisionales (`TODO(dominio)`): 3 inapropiados en 30 días → 30 días de bloqueo, 60 s de espera, 20 aportes anónimos por IP por hora, 50 MP.
   - **Botones sin función:** ninguno conocido. El interruptor de "Privacidad" (que Gerard movió a la ventana de Preferencias en 7463815) se convirtió el 2026-10-19 en el interruptor general "Notificaciones".
   - Favicon (2026-10-28): `public/icono.svg` (el logo sin metadatos) y `icono-192.png`, en `metadata.icons` de `app/layout.tsx` con `BASE_PATH`.
+- **2026-11-04: edición de campañas pausadas.** Guardar cualquier edición pasa la campaña a `en_revision` en el mismo PATCH y avisa a los supervisores con `campana_por_revisar`, sin importar quién la pausó. Pausar sin editar no la envía a revisión. Se conservan los aportes existentes.
 
 | Zona | Rutas | Acceso |
 | --- | --- | --- |

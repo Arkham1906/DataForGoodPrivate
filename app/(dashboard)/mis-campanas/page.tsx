@@ -319,7 +319,7 @@ export default function MisCampanasPage() {
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error ?? "No se pudo pausar la campaña");
-      router.push(`/mis-campanas/nueva?edit=${encodeURIComponent(campaign.id)}&enviarRevision=true`);
+      router.push(`/mis-campanas/nueva?edit=${encodeURIComponent(campaign.id)}`);
     } catch (cause) {
       setCambioError((prev) => ({
         ...prev,
@@ -423,7 +423,7 @@ export default function MisCampanasPage() {
                 className={
                   vistaCuadricula
                     ? "relative flex h-full min-w-0 cursor-pointer flex-col rounded-lg border border-system-200 bg-white p-3 transition-colors hover:border-brand-600 max-md:p-2.5"
-                    : "relative flex min-w-0 cursor-pointer flex-col rounded-lg border border-system-200 bg-white p-4 transition-colors hover:border-brand-600 max-md:p-3 md:grid md:grid-cols-[minmax(0,1.35fr)_minmax(260px,1fr)_auto] md:items-center md:gap-x-5"
+                    : "relative flex min-w-0 cursor-pointer flex-col rounded-lg border border-system-200 bg-white p-4 transition-colors hover:border-brand-600 max-md:p-3 md:h-[190px] md:grid md:grid-cols-[minmax(0,1.35fr)_minmax(260px,1fr)_auto] md:grid-rows-[56px_minmax(0,1fr)] md:items-stretch md:gap-x-5 md:overflow-hidden"
                 }
               >
                 <button
@@ -433,7 +433,7 @@ export default function MisCampanasPage() {
                   data-sin-respuesta
                   className="absolute inset-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
                 />
-                <div className={vistaCuadricula ? "mb-1 flex items-start justify-between gap-2" : "mb-1 flex items-start justify-between gap-2 md:col-start-1 md:row-start-1 md:mb-0 md:min-w-0"}>
+                <div className={vistaCuadricula ? "mb-1 flex items-start justify-between gap-2 max-md:h-12 max-md:shrink-0 max-md:overflow-hidden" : "mb-1 flex items-start justify-between gap-2 max-md:h-8 max-md:shrink-0 max-md:overflow-hidden md:col-start-1 md:row-start-1 md:mb-0 md:max-h-[56px] md:min-w-0 md:overflow-hidden"}>
                   <p className={`line-clamp-2 min-w-0 break-words font-medium leading-4 text-system-900 ${vistaCuadricula ? "text-[12px] max-md:text-[11.5px]" : "text-[13.5px] max-md:text-[13px]"}`} title={campaign.name}>
                     {campaign.name}
                   </p>
@@ -443,8 +443,8 @@ export default function MisCampanasPage() {
                     <Tag tone={ETIQUETA_DE_CAMPANA[campaign.status]?.tono ?? "default"}>{labels[campaign.status]}</Tag>
                   </div>
                 </div>
-                <RutaDeTematica tematica={campaign.tematica || campaign.tag} etiquetas={campaign.etiquetas} className={vistaCuadricula ? "mb-1.5 text-[10.5px] max-md:mb-1 max-md:text-[10px]" : "mb-2 md:col-start-1 md:row-start-2 md:mb-0"} />
-                <div className={vistaCuadricula ? "min-w-0" : "min-w-0 md:col-start-2 md:row-span-2 md:row-start-1 md:border-l md:border-system-100 md:pl-5"}>
+                <RutaDeTematica tematica={campaign.tematica || campaign.tag} etiquetas={campaign.etiquetas} className={vistaCuadricula ? "mb-1.5 text-[10.5px] max-md:mb-1 max-md:h-10 max-md:shrink-0 max-md:overflow-hidden max-md:text-[10px]" : "mb-2 max-md:h-8 max-md:shrink-0 max-md:overflow-hidden md:col-start-1 md:row-start-2 md:mb-0 md:max-h-full md:overflow-hidden"} />
+                <div className={vistaCuadricula ? "min-w-0" : "min-h-0 min-w-0 md:col-start-2 md:row-span-2 md:row-start-1 md:max-h-full md:overflow-hidden md:border-l md:border-system-100 md:pl-5"}>
                 {campaign.status === "rechazada" ? (
                   // Por qué se rechazó (2026-10-22, a pedido del usuario; antes solo en la notificación).
                   // Ocupa el lugar de fechas, barra y números con la misma altura (65 px + margen = los
@@ -470,7 +470,7 @@ export default function MisCampanasPage() {
                   </div>
                 ) : (
                   <>
-                    <p className={`${vistaCuadricula ? "mb-2 font-mono text-[10px] max-md:mb-1.5 max-md:text-[9px]" : "mb-2.5 font-mono text-[11.5px] max-md:text-[10.5px]"} text-system-600`}>
+                    <p className={`${vistaCuadricula ? "mb-2 font-mono text-[10px] max-md:mb-1.5 max-md:text-[9px]" : "mb-2.5 font-mono text-[11.5px] max-md:text-[10.5px]"} max-md:truncate text-system-600`}>
                       {campaign.startDate ? fechaDDMMAAAA(campaign.startDate) : "Sin fecha"} al{" "}
                       {campaign.endDate ? fechaDDMMAAAA(campaign.endDate) : "Sin fecha"}
                     </p>
@@ -478,20 +478,20 @@ export default function MisCampanasPage() {
                     {!sinAportesTodavia(campaign.status) && (
                       <>
                         <ProgressBar pct={pct} tone={campaign.status === "finalizada" ? "ok" : "accent"} />
-                        <p className={`${vistaCuadricula ? "my-2 font-mono text-[10px] max-md:my-1.5 max-md:text-[9px]" : "my-2.5 font-mono text-[12px] max-md:text-[11px]"} text-system-600`}>
+                        <p className={`${vistaCuadricula ? "my-2 font-mono text-[10px] max-md:my-1.5 max-md:text-[9px]" : "my-2.5 font-mono text-[12px] max-md:text-[11px]"} text-system-600 max-md:line-clamp-2 max-md:overflow-hidden`}>
                           {campaign.approvedContributions} / {campaign.goalContributions} aprobados · {campaign.pendingContributions} aportes pendientes
                           {campaign.especial && <> · {textoDelPeriodo(campaign.especial)}</>}
                         </p>
                       </>
                     )}
                     {campaign.especial && (
-                      <p className={`${vistaCuadricula ? "-mt-1 mb-2 text-[10px] max-md:text-[9px]" : "-mt-1 mb-2.5 text-[12px] max-md:text-[11px]"} text-system-600`}>{resumenDeIncentivos(campaign.especial)}</p>
+                      <p className={`${vistaCuadricula ? "-mt-1 mb-2 text-[10px] max-md:text-[9px]" : "-mt-1 mb-2.5 line-clamp-2 text-[12px] max-md:text-[11px]"} text-system-600 max-md:line-clamp-1 max-md:overflow-hidden`}>{resumenDeIncentivos(campaign.especial)}</p>
                     )}
                   </>
                 )}
                 {/* Aceptada (2026-11-01): se activa sola en su inicio y el creador puede activarla antes. */}
                 {campaign.status === "aceptada" && (
-                  <div className="mb-2.5 rounded-lg border border-success-700 bg-success-50 p-2.5 text-[11.5px] text-system-900">
+                  <div className="mb-2.5 rounded-lg border border-success-700 bg-success-50 p-2.5 text-[11.5px] text-system-900 max-md:max-h-[72px] max-md:overflow-hidden">
                     <p className="font-semibold">La supervisión aprobó tu campaña</p>
                     <p className="mt-0.5 text-system-600">
                       Se activará sola el {campaign.startDate ? fechaDDMMAAAA(campaign.startDate) : "día de inicio"}
@@ -500,16 +500,16 @@ export default function MisCampanasPage() {
                   </div>
                 )}
                 {campaign.status === "pausada" && campaign.pausa?.por === "supervision" ? (
-                  <div className="mb-2.5 rounded-lg border border-warning-200 bg-warning-50 p-2.5 text-[11.5px] text-system-900">
+                  <div className="mb-2.5 rounded-lg border border-warning-200 bg-warning-50 p-2.5 text-[11.5px] text-system-900 max-md:max-h-[76px] max-md:overflow-hidden">
                     <p className="font-semibold">La supervisión pausó esta campaña</p>
-                    <p className="mt-0.5 whitespace-pre-line break-words text-system-600">Motivo: {campaign.pausa.motivo || "sin motivo registrado"}</p>
+                    <p className="mt-0.5 line-clamp-2 whitespace-pre-line break-words text-system-600">Motivo: {campaign.pausa.motivo || "sin motivo registrado"}</p>
                     <p className="mt-0.5 text-system-600">No recibe aportes hasta que la supervisión la reanude.</p>
                   </div>
                 ) : campaign.status === "pausada" && (
-                  <p className="mb-2.5 text-[11.5px] text-system-600">Pausada: no recibe aportes ni aparece en Campañas hasta que la reanudes.</p>
+                  <p className="mb-2.5 line-clamp-2 text-[11.5px] text-system-600">Pausada: no recibe aportes ni aparece en Campañas hasta que la reanudes.</p>
                 )}
                 {campaign.status === "fallida" && (
-                  <p className="mb-2.5 text-[11.5px] text-warning-800">
+                  <p className="mb-2.5 line-clamp-2 text-[11.5px] text-warning-800">
                     Terminó con menos del {PORCENTAJE_MINIMO}% de su meta: no publica datos abiertos. Puedes extenderla con una nueva fecha de cierre desde Editar.
                   </p>
                 )}
@@ -517,7 +517,7 @@ export default function MisCampanasPage() {
                     Rechazada: la principal es corregirla (no tiene aportes que revisar). En revisión y rechazada
                     no hay "Revisar aportes" ni "Panel" (2026-11-01, a pedido del usuario): todavía no recibe aportes. */}
                 </div>
-                <div className={vistaCuadricula ? "relative z-10 mt-auto flex flex-wrap items-center gap-1 border-t border-system-100 pt-2.5 max-md:gap-1 max-md:pt-2" : "relative z-10 mt-4 flex flex-wrap items-center gap-1.5 border-t border-system-100 pt-3 max-md:gap-1 md:col-start-3 md:row-span-2 md:row-start-1 md:mt-0 md:border-l md:border-t-0 md:pl-5"}>
+                <div className={vistaCuadricula ? "relative z-10 mt-auto flex flex-wrap items-center gap-1 border-t border-system-100 pt-2.5 max-md:mt-3 max-md:gap-1 max-md:pt-2" : "relative z-10 mt-4 flex flex-nowrap items-center gap-1.5 border-t border-system-100 pt-3 max-md:mt-2 max-md:shrink-0 max-md:gap-1 max-md:pt-1 md:col-start-3 md:row-span-2 md:row-start-1 md:my-0 md:self-center md:border-l md:border-t-0 md:pl-5"}>
                   {campaign.status === "rechazada" ? (
                     <ButtonLink href={`/mis-campanas/nueva?edit=${campaign.id}`} variant="primary" size="sm" className={vistaCuadricula ? "whitespace-nowrap max-md:px-1 max-md:py-1 max-md:text-[10px]" : "max-md:px-2 max-md:py-1.5 max-md:text-[11px]"}>
                       Corregir y reenviar
@@ -527,13 +527,13 @@ export default function MisCampanasPage() {
                       Activar campaña
                     </Button>
                   ) : campaign.status !== "en_revision" && (
-                    <ButtonLink href={`/mis-campanas/${campaign.id}/aportes`} variant="primary" size="sm" className={vistaCuadricula ? "whitespace-nowrap max-md:px-1 max-md:py-1 max-md:text-[10px]" : "max-md:px-2 max-md:py-1.5 max-md:text-[11px]"}>
-                      Revisar aportes
+                    <ButtonLink href={`/mis-campanas/${campaign.id}/aportes`} variant="primary" size="sm" aria-label={`Revisar aportes de ${campaign.name}`} className={vistaCuadricula ? "whitespace-nowrap max-md:px-1 max-md:py-1 max-md:text-[10px]" : "max-md:px-2 max-md:py-1.5 max-md:text-[11px]"}>
+                      {vistaCuadricula ? <><span className="max-md:hidden">Revisar aportes</span><span className="md:hidden">Aportes</span></> : "Revisar aportes"}
                       {campaign.pendingContributions > 0 && <span className="font-mono">({campaign.pendingContributions})</span>}
                     </ButtonLink>
                   )}
                   {!sinAportesTodavia(campaign.status) && (
-                    <ButtonLink href={`/mis-campanas/${campaign.id}/panel`} size="sm" className={vistaCuadricula ? "whitespace-nowrap max-md:px-1 max-md:py-1 max-md:text-[10px]" : "max-md:px-2 max-md:py-1.5 max-md:text-[11px]"}>Panel</ButtonLink>
+                    <ButtonLink href={`/mis-campanas/${campaign.id}/panel`} size="sm" className={vistaCuadricula ? "whitespace-nowrap max-md:hidden max-md:px-1 max-md:py-1 max-md:text-[10px]" : "max-md:px-2 max-md:py-1.5 max-md:text-[11px]"}>Panel</ButtonLink>
                   )}
                    <div className="ml-auto hidden w-fit items-center gap-1 rounded-lg border border-system-200 bg-system-50 p-1 md:flex">
                   {campaign.status === "activa" && (
@@ -590,11 +590,14 @@ export default function MisCampanasPage() {
                     </Button>
                   )}
                   </div>
-                  <div className="flex basis-full justify-center md:hidden">
+                  <div className="ml-auto flex shrink-0 justify-end md:hidden">
                     <MenuDeAcciones
                       texto="Más"
                       etiqueta={`Más acciones de ${campaign.name}`}
                       opciones={[
+                        ...(vistaCuadricula && !sinAportesTodavia(campaign.status)
+                          ? [{ etiqueta: "Panel", href: `/mis-campanas/${campaign.id}/panel` }]
+                          : []),
                         ...(campaign.status === "activa"
                           ? [{ etiqueta: "Compartir", alElegir: () => setPorCompartir(campaign) }]
                           : []),
@@ -668,7 +671,7 @@ export default function MisCampanasPage() {
                   /> */}
                 </div>
                 {cambioError[campaign.id] && (
-                  <p role="alert" className="mt-2 text-[11.5px] text-error-700">{cambioError[campaign.id]}</p>
+                  <p role="alert" className="mt-2 text-[11.5px] text-error-700 max-md:absolute max-md:bottom-1 max-md:left-3 max-md:right-3 max-md:z-20 max-md:line-clamp-1 max-md:bg-white md:absolute md:bottom-1 md:left-4 md:right-4 md:z-20 md:mt-0 md:truncate md:bg-white">{cambioError[campaign.id]}</p>
                 )}
               </div>
             );

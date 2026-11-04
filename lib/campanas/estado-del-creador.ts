@@ -32,8 +32,7 @@ export const CAMPOS_DE_EDICION_LIMITADA = new Set([
  * Pausada (2026-10-22, a pedido del usuario): además nombre, descripción, temática, propósito, tipos
  * de dato (con la cuota, que depende de ellos), checklists (texto y orden), inicio y ubicación;
  * la organización se puede cambiar desde el 2026-11-02.
- * La edición normal sigue pausada y avisa a quien la supervisa; desde Editar en una activa,
- * se pausa antes y se puede enviar a revisión al guardar.
+ * Cualquier edición guardada vuelve a revisión; pausar sin editar no.
  */
 export const CAMPOS_EDITABLES_EN_PAUSA = new Set([
   ...CAMPOS_DE_EDICION_LIMITADA,
@@ -73,7 +72,7 @@ export const CAMPOS_EDITABLES_EN_PAUSA = new Set([
   "location_colonia",
 ]);
 
-/** Columnas que, si cambian al editar una pausada, se avisan a la supervisión. */
+/** Columnas cuyos cambios se detallan en la bitácora al editar una campaña pausada. */
 export const COLUMNAS_AVISADAS_EN_PAUSA = [
   "name",
   "description",

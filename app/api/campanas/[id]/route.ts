@@ -16,7 +16,6 @@ import {
   MAX_CAMPANAS_ACTIVAS as MAX_ACTIVE_CAMPAIGNS,
   errorDeEstadoPedido,
 } from "@/lib/campanas/estado-del-creador";
-import { avisarEdicionEnPausa } from "@/lib/notificaciones/avisos-a-supervisores";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { eliminarCampana } from "@/lib/campanas/eliminar";
 import { pool } from "@/lib/db";
@@ -276,15 +275,18 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
     const currentStatus = String(existing.rows[0].status ?? "borrador");
     const estadoSolicitado = "status" in body ? normalizeCampaignStatus(body.status) : null;
-    const enviarRevisionDesdePausa = currentStatus === "pausada" && estadoSolicitado === "en_revision";
+    const editaCampanaPausada =
+      currentStatus === "pausada" && Object.keys(body).some((key) => key !== "status");
+    const enviarRevisionDesdePausa =
+      currentStatus === "pausada" && (estadoSolicitado === "en_revision" || editaCampanaPausada);
     // Pausada con inicio futuro que el creador activa ya (2026-11-01): su inicio se adelanta a ahora (Tepic).
     let inicioAdelantado: { fecha: string; hora: string } | null = null;
 
     // Reglas de edición por estado: una finalizada es de solo lectura salvo
     // para reactivarla (status: "activa", con cupo libre de campañas activas);
     // activa y aceptada solo dejan tocar meta y fecha de fin (sin cambiar su
-    // estado); pausada además casi todo (CAMPOS_EDITABLES_EN_PAUSA, sigue
-    // pausada); borrador, en_revision y rechazada se editan por completo.
+    // estado); al editar una pausada, vuelve a revisión; borrador, en_revision
+    // y rechazada se editan por completo.
     // Una fallida (2026-11-01, lib/campanas/fallida.ts) igual: extenderla es reactivarla con un fin nuevo.
     if (estaTerminada(currentStatus)) {
       const reactiva = normalizeCampaignStatus(body.status) === "activa";
@@ -350,12 +352,6 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     }
 
     if (currentStatus === "activa" || currentStatus === "pausada") {
-      if (enviarRevisionDesdePausa && existing.rows[0].pausa_por !== "creador") {
-        return NextResponse.json(
-          { error: "Solo puedes enviar a revisión una campaña que pausaste para editarla" },
-          { status: 403 }
-        );
-      }
       if (enviarRevisionDesdePausa) {
         const errorDeEstado = await errorDeEstadoPedido("en_revision", user.id);
         if (errorDeEstado) return NextResponse.json({ error: errorDeEstado }, { status: 400 });
@@ -530,6 +526,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const description = "description" in body ? String(body.description ?? "").trim() : null;
     let tematica = "tematica" in body || "tag" in body ? String(body.tematica ?? body.tag ?? "").trim() : null;
     let status = "status" in body ? normalizeCampaignStatus(body.status) : null;
+    if (enviarRevisionDesdePausa) status = "en_revision";
     // El creador la finaliza: con menos del 25% de la meta en aprobados queda "fallida" (2026-11-01).
     if (status === "finalizada" && (currentStatus === "activa" || currentStatus === "pausada")) {
       const alTerminar = await pool.query<{ estado: string }>(
@@ -708,7 +705,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     // Etiquetas (subtemáticas, 2026-10-27): se validan y guardan antes del UPDATE, con la temática
     // que va a quedar; si hay un error, no cambia nada. En pausa se comparan para el aviso al supervisor.
     const tematicaQueQueda = tematica || String(existing.rows[0].tematica ?? existing.rows[0].tag ?? "");
-    const etiquetasAntes = currentStatus === "pausada" ? await nombresDeEtiquetasDeCampana(Number(id)) : [];
+    const etiquetasAntes = enviarRevisionDesdePausa ? await nombresDeEtiquetasDeCampana(Number(id)) : [];
     if ("etiquetas" in body) {
       const errorDeEtiquetas = await guardarEtiquetasDeCampana(pool, {
         campanaId: Number(id),
@@ -806,7 +803,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         detalle: { estadoAnterior: currentStatus, estadoNuevo: "pausada" },
       });
     }
-    // Entró a revisión (desde borrador o rechazada): avisa a los supervisores.
+    // Entró a revisión (incluye la edición de una pausada): avisa a los supervisores.
     if (result.rows[0].status === "en_revision" && currentStatus !== "en_revision") {
       avisarCampanaPorRevisar({
         id: Number(id),
@@ -814,11 +811,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         otraVez: currentStatus === "rechazada" || enviarRevisionDesdePausa,
       });
     }
-    // Se editó estando pausada: queda en la bitácora y se avisa a quien la supervisa.
-    if (currentStatus === "pausada" && result.rows[0].status === "pausada") {
+    if (currentStatus === "pausada" && result.rows[0].status === "en_revision") {
       const antes = existing.rows[0];
       const despues = result.rows[0];
-      // NULL y "" valen lo mismo: una colonia NULL que el formulario manda vacía no es un cambio.
       const valor = (v: unknown) => JSON.stringify(v === null || v === undefined ? "" : v);
       const campos: string[] = COLUMNAS_AVISADAS_EN_PAUSA.filter((c) => valor(antes[c]) !== valor(despues[c]));
       if (valor(etiquetasAntes) !== valor(await nombresDeEtiquetasDeCampana(Number(id)))) campos.push("etiquetas");
@@ -829,10 +824,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
           objetivo: { tipo: "campana", id: Number(id) },
           detalle: { campos },
         });
-        avisarEdicionEnPausa({ id: Number(id), creadorId: Number(user.id), supervisorId: despues.supervisor_id, campos });
       }
     }
-
     await agregarEtiquetas(result.rows, user);
     const terminoFallida = result.rows[0].status === "fallida" && currentStatus !== "fallida";
     return NextResponse.json({
