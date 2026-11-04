@@ -24,6 +24,26 @@ function esTipo(valor: string): valor is DataType {
 }
 
 /**
+ * Lo que una persona puede mandar de un tipo no pasa de lo que recibe toda la campaña de ese tipo
+ * (2026-11-04, a pedido del usuario): con límite de 5 fotos, el máximo por persona llega a 5.
+ * Solo compara los tipos que traen los dos números.
+ */
+export function errorDeMaximoSobreLimite(
+  maximos: Partial<Record<string, number>> | null | undefined,
+  limite: Partial<Record<string, number>> | null | undefined,
+): string | null {
+  for (const tipo of ORDEN_DE_TIPOS) {
+    const maximo = maximos?.[tipo];
+    const tope = limite?.[tipo];
+    if (maximo && tope && maximo > tope) {
+      const plural = PLURALES_DE_TIPO[tipo][1];
+      return `El máximo de ${plural} por persona (${maximo}) no puede ser mayor que el límite de ${plural} de la campaña (${tope})`;
+    }
+  }
+  return null;
+}
+
+/**
  * Cuota y máximos por persona según cómo se mide la meta (2026-10-31, segundo pedido del usuario: "en por
  * tipo de dato quita la cuota por persona, ya se maneja un máximo de cada tipo"):
  * - `porTipo` (meta por tipo de dato): no hay cuota general que escribir. Cada tipo que pide la campaña

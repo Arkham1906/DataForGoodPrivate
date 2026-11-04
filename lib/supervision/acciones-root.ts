@@ -5,6 +5,7 @@
 // Cada una verifica la sesión raíz; la lógica está en ./decision.ts.
 
 import { revalidatePath } from "next/cache";
+import { DECISIONES_DE_DATOS_ABIERTOS, decidirDatosAbiertos, type DecisionDeDatosAbiertos } from "@/lib/supervision/datos-abiertos";
 
 import { hasRootSession } from "@/lib/rootSession";
 import {
@@ -51,6 +52,24 @@ export async function decidirComoSuperUsuario(
  * Pausar (con motivo), reanudar o finalizar (con motivo) una campaña aceptada, la supervise
  * quien la supervise (2026-10-15). Reglas en ./estado-por-supervision.ts.
  */
+/** Publicar o no los datos abiertos de una campaña terminada (2026-11-04). */
+export async function decidirDatosAbiertosComoSuperUsuario(
+  campanaId: string,
+  decision: DecisionDeDatosAbiertos,
+  motivo: string,
+): Promise<ResultadoDeSupervision> {
+  if (!(await hasRootSession())) throw new Error("No autorizado");
+  if (!/^\d+$/.test(campanaId) || !DECISIONES_DE_DATOS_ABIERTOS.has(decision)) {
+    return { ok: false, error: "Petición inválida." };
+  }
+
+  const resultado = await decidirDatosAbiertos(campanaId, decision, motivo, { tipo: "root" });
+  if (!resultado.ok) return { ok: false, error: resultado.error };
+
+  revalidatePath("/supervisar", "layout");
+  return { ok: true, mensaje: resultado.mensaje };
+}
+
 export async function cambiarEstadoComoSuperUsuario(
   campanaId: string,
   cambio: CambioDeEstadoPorSupervision,

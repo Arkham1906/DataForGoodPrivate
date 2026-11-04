@@ -3,15 +3,14 @@
 // "reanudar" | "finalizar", motivo }) y el SuperUsuario sobre cualquier campaña aceptada
 // (lib/supervision/acciones-root.ts). Pausar y finalizar piden motivo, que ve el creador (notificación
 // y /mis-campanas) y, al pausar, también quien quiere aportar. Una campaña pausada por la supervisión
-// solo la reanuda la supervisión; el creador sí puede finalizarla.
+// solo la reanuda la supervisión, y solo cuando el creador guardó ajustes después de la pausa
+// (campanas.ajustes_en, 2026-11-04, decisión del usuario); el creador sí puede finalizarla.
 
 import { pool } from "@/lib/db";
 import { errorDeReanudarAntesDeInicio, hasCampaignEnded, normalizeCampaignDate, normalizeCampaignTime } from "@/lib/campaign-date";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { asegurarEnlaceVigente } from "@/lib/campanas/enlaces";
-import { MAX_CAMPANAS_ACTIVAS, contarActivas } from "@/lib/campanas/estado-del-creador";
 import { MAXIMO_MOTIVO_DE_SUPERVISION } from "@/lib/campanas/pausa";
-import { explicacionDeFallida, sqlEstadoAlTerminar } from "@/lib/campanas/fallida";
 import { notificar } from "@/lib/notificaciones/notificaciones";
 import { avisarCampanaEspecial } from "@/lib/notificaciones/campanas-por-interes";
 import type { AutorDeDecision } from "@/lib/supervision/decision";
@@ -38,7 +37,7 @@ export async function cambiarEstadoPorSupervision(
   autor: AutorDeDecision,
 ): Promise<ResultadoDeCambioDeEstado> {
   const existente = await pool.query(
-    `SELECT id, status, creator_id, name, supervisor_id, supervisado_por_root, start_date, start_time, end_date, end_time, pausa_por,
+    `SELECT id, status, creator_id, name, supervisor_id, supervisado_por_root, start_date, start_time, end_date, end_time, pausa_por, ajustes_en,
             EXISTS (SELECT 1 FROM campana_especial ce WHERE ce.campana_id = campanas.id) AS is_special
      FROM campanas WHERE id = $1 LIMIT 1`,
     [campanaId],
@@ -82,6 +81,9 @@ export async function cambiarEstadoPorSupervision(
     if (campana.pausa_por !== "supervision") {
       return { ok: false, status: 403, error: "Esta campaña la pausó quien la organiza; solo esa persona puede reanudarla" };
     }
+    if (!campana.ajustes_en) {
+      return { ok: false, status: 400, error: "Quien organiza la campaña todavía no guarda los ajustes: no se puede reanudar" };
+    }
     if (hasCampaignEnded(normalizeCampaignDate(campana.end_date), normalizeCampaignTime(campana.end_time))) {
       return {
         ok: false,
@@ -91,24 +93,16 @@ export async function cambiarEstadoPorSupervision(
     }
     const errorDeInicio = errorDeReanudarAntesDeInicio(campana.start_date, campana.start_time);
     if (errorDeInicio) return { ok: false, status: 400, error: errorDeInicio };
-    // Mismo tope que cuando la reanuda el creador: cuenta para sus campañas activas.
-    if ((await contarActivas(campana.creator_id)) >= MAX_CAMPANAS_ACTIVAS) {
-      return {
-        ok: false,
-        status: 400,
-        error: `Quien organiza la campaña ya tiene ${MAX_CAMPANAS_ACTIVAS} campañas activas; no se puede reanudar esta por ahora`,
-      };
-    }
   }
 
   // Condicional al estado leído: si cambió mientras tanto (el creador la pausó, se finalizó...), no se aplica.
-  // Al finalizar, con menos del 25% de la meta en aprobados queda "fallida" (2026-11-01, lib/campanas/fallida.ts).
   const actualizada = await pool.query<{ status: string }>(
     `UPDATE campanas
-     SET status = CASE WHEN $2::text = 'finalizada' THEN ${sqlEstadoAlTerminar("campanas")} ELSE $2::text END,
+     SET status = $2::text,
          pausa_por = CASE WHEN $2::text = 'pausada' THEN 'supervision' ELSE pausa_por END,
          pausa_motivo = CASE WHEN $2::text = 'pausada' THEN $3::text ELSE pausa_motivo END,
          pausada_en = CASE WHEN $2::text = 'pausada' THEN NOW() ELSE pausada_en END,
+         ajustes_en = CASE WHEN $2::text = 'pausada' THEN NULL ELSE ajustes_en END,
          updated_at = NOW()
      WHERE id = $1 AND status = $4
      RETURNING id, status`,
@@ -118,7 +112,6 @@ export async function cambiarEstadoPorSupervision(
     return { ok: false, status: 409, error: "La campaña cambió mientras tanto. Vuelve a cargar la página" };
   }
   const estadoNuevo = String(actualizada.rows[0].status);
-  const fallida = estadoNuevo === "fallida";
 
   if (hacia === "activa") {
     await asegurarEnlaceVigente(Number(campanaId));
@@ -154,10 +147,8 @@ export async function cambiarEstadoPorSupervision(
           }
         : {
             tipo: "campana_finalizada" as const,
-            titulo: fallida ? "La supervisión finalizó tu campaña: quedó incompleta" : "La supervisión finalizó tu campaña",
-            mensaje: fallida
-              ? `"${nombre}" ya no recibe aportes y ${explicacionDeFallida()} Motivo: ${motivo}`
-              : `"${nombre}" ya no recibe aportes. Motivo: ${motivo}`,
+            titulo: "La supervisión finalizó tu campaña",
+            mensaje: `"${nombre}" ya no recibe aportes. Motivo: ${motivo}`,
             enlace: `/mis-campanas/${campanaId}/panel`,
           }),
   });
@@ -165,7 +156,7 @@ export async function cambiarEstadoPorSupervision(
   const mensaje = {
     pausar: "Campaña pausada",
     reanudar: "Campaña reanudada",
-    finalizar: fallida ? "Campaña finalizada: quedó incompleta porque juntó menos del 25% de su meta" : "Campaña finalizada",
+    finalizar: "Campaña finalizada",
   }[cambio];
   return { ok: true, nextStatus: estadoNuevo, mensaje };
 }

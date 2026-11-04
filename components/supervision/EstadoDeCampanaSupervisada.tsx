@@ -4,13 +4,15 @@
 // qué está pausada. Lo usan /supervision/[campaignId] (supervisor, con PATCH /api/campanas/[id])
 // y /supervisar/[campaignId] (SuperUsuario, con cambiarEstadoComoSuperUsuario): cada pantalla
 // pasa `onCambiar`, que devuelve el error o null. Pausar y finalizar piden motivo en una ventana
-// (ui/VentanaDeConfirmacion); reanudar solo aparece si la pausó la supervisión.
+// (ui/VentanaDeConfirmacion); reanudar solo aparece si la pausó la supervisión y se habilita cuando
+// el creador guardó ajustes (2026-11-04).
 // Reglas en lib/supervision/estado-por-supervision.ts.
 
 import { useState } from "react";
 import { Textarea } from "@/components/ui/Input";
 import VentanaDeConfirmacion from "@/components/ui/VentanaDeConfirmacion";
 import { MAXIMO_MOTIVO_DE_SUPERVISION, type PausaDeCampana } from "@/lib/campanas/pausa";
+import { ZONA_DE_CAMPANAS } from "@/lib/fecha-de-tepic";
 
 export type CambioDeEstado = "pausar" | "reanudar" | "finalizar";
 
@@ -31,6 +33,9 @@ export default function EstadoDeCampanaSupervisada({
 
   if (status !== "activa" && status !== "pausada") return null;
   const pausadaPorSupervision = status === "pausada" && pausa?.por === "supervision";
+  const ajustesEn = pausa?.ajustesEn
+    ? new Date(pausa.ajustesEn).toLocaleString("es-MX", { dateStyle: "short", timeStyle: "short", timeZone: ZONA_DE_CAMPANAS })
+    : null;
 
   async function cambiar(cambio: CambioDeEstado, texto = "") {
     setEnCurso(cambio);
@@ -77,7 +82,7 @@ export default function EstadoDeCampanaSupervisada({
             {status === "activa"
               ? "Está recibiendo aportes. Puedes pausarla o finalizarla explicando el motivo."
               : pausadaPorSupervision
-                ? "La pausó la supervisión: no recibe aportes hasta que se reanude."
+                ? "La pausó la supervisión: no recibe aportes hasta que se reanude, y se reanuda cuando quien la organiza haga los ajustes."
                 : "La pausó quien la organiza: solo esa persona puede reanudarla."}
           </p>
         </div>
@@ -96,7 +101,8 @@ export default function EstadoDeCampanaSupervisada({
             <button
               type="button"
               onClick={() => void reanudar()}
-              disabled={ocupado}
+              disabled={ocupado || !ajustesEn}
+              title={ajustesEn ? undefined : "Se habilita cuando quien organiza guarde los ajustes"}
               className="rounded-pill border border-success-700/40 bg-success-50 px-3.5 py-2 text-[12.5px] font-bold text-success-700 disabled:opacity-60"
             >
               {enCurso === "reanudar" ? "Reanudando…" : "Reanudar campaña"}
@@ -119,6 +125,13 @@ export default function EstadoDeCampanaSupervisada({
           <p className="mt-1 whitespace-pre-line text-system-600">
             {pausa?.por === "supervision" ? pausa.motivo || "Sin motivo registrado" : "Quien organiza la campaña no da motivo al pausarla."}
           </p>
+          {pausadaPorSupervision && (
+            <p className="mt-2 font-semibold">
+              {ajustesEn
+                ? `Quien organiza guardó ajustes (${ajustesEn}). Revisa que atiendan el motivo antes de reanudar.`
+                : "Quien organiza todavía no guarda ajustes: no se puede reanudar."}
+            </p>
+          )}
         </div>
       )}
 
@@ -139,7 +152,7 @@ export default function EstadoDeCampanaSupervisada({
         <ul className="mb-4 flex list-disc flex-col gap-1.5 pl-5">
           {ventana === "finalizar" ? (
             <>
-              <li>Dejará de recibir aportes y pasará a los datos abiertos.</li>
+              <li>Dejará de recibir aportes. Después se decide si sus datos se publican en Datos abiertos.</li>
               <li>A quien la organiza le llega una notificación con el motivo.</li>
             </>
           ) : (

@@ -691,7 +691,8 @@ paths:
       description: |
         Exige sesión y una organización no vacía en el perfil; sin ella responde 403, incluso al
         crear borradores. La campaña es de quien la crea. `status` solo `borrador` (por defecto) o
-        `en_revision`; con 5 campañas activas, solo `borrador`. Contadores, XP, `isSpecial` y
+        `en_revision`; con 5 campañas en revisión del creador, solo `borrador`. El máximo por persona de un tipo
+        (`cuotaPorTipo`) no puede pasar del límite de ese tipo (`limitePorTipo`): 400. Contadores, XP, `isSpecial` y
         `hasReviewerAssigned` del body se ignoran. La fecha de inicio y la de fin usan la hora de
         Tepic del momento de creación; `startTime` y `endTime` enviados por clientes anteriores se ignoran.
       requestBody:
@@ -753,15 +754,19 @@ paths:
           Los campos permitidos dependen del estado actual; una campaña `finalizada` es de solo lectura.
           `aceptada` y `activa`: solo `goalContributions`, `endDate` y `endTime`. `pausada` (2026-10-22): además
           `name`, `description`, `tematica`, `dataTypes`, `quotaPerUser`, `startDate`, `startTime`,
-          `checklistSecciones`, `todoElPais` y la ubicación (400 con `organizer`); sigue pausada y se avisa a su supervisor.
+          `organizer`, `proposito`, `checklistSecciones`, `todoElPais` y la ubicación. Si la pausó el creador hay que mandar
+          todos los campos: pasa a `en_revision` en la misma petición (400 con 5 en revisión o con el cierre vencido). Si la pausó la supervisión admite cambios parciales, sigue
+          pausada y se avisa a su supervisor (`status: "en_revision"` da 403); solo la supervisión la reanuda, tras esos ajustes.
         - **Pausar y reanudar (solo el creador):** `{ "status": "pausada" }` sobre una `activa` y
           `{ "status": "activa" }` sobre una `pausada`, sin otros campos. Una pausada no recibe aportes
-          ni aparece en las listas públicas. Reanudar da 400 si su fecha de cierre ya pasó o si el
-          creador ya tiene 5 campañas activas, y también si su inicio todavía no llega: entonces se programa
+          ni aparece en las listas públicas. Reanudar da 400 si su fecha de cierre ya pasó
+          y también si su inicio todavía no llega: entonces se programa
           con `{ "status": "aceptada" }` (vuelve a "aceptada" y se activa sola a su hora; 400 si el inicio ya
-          llegó, mismas condiciones de cierre y cupo). Si la pausó la supervisión, el creador no la reanuda
+          llegó, mismas condiciones de cierre). Si la pausó la supervisión, el creador no la reanuda
           ni la programa (403).
-        - **Supervisor:** `{ "action": "tomar" }` para tomarla, o `{ "action": "aceptada" }` /
+        - **Datos abiertos (supervisor de una campaña terminada):** `{ "action": "publicar_datos" }` (400 sin aportes
+          aprobados) o `{ "action": "no_publicar_datos", "motivo": "..." }`; 409 si ya se decidió.
+        - **Supervisor:** `{ "action": "tomar" }` para tomarla, o `{ "action": "aceptada" }` (400 si su fecha de cierre ya pasó) /
           `{ "action": "rechazada", "motivoDeLista": "...", "motivo": "...", "sancion": { "tipo": "...", "dias": 2 } }`
           para decidir. Al rechazar: `motivoDeLista` (uno de los motivos de reportar campaña u "Otro") y/o `motivo`
           (explicación, hasta 500; obligatoria con "Otro"). `sancion` es opcional: `STRIKE` (aviso, sigue la escala),
@@ -1136,6 +1141,21 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /api/campanas/{id}/similares:
+    get:
+      tags: [Campañas]
+      summary: Campañas similares a una en revisión
+      description: |
+        Las demás campañas de la misma temática (hasta 12, primero las abiertas; sin borradores ni
+        rechazadas), para decidir si una campaña en revisión se acepta. Solo el rol de supervisor. Fuera de
+        revisión responde una lista vacía.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200": { description: "`{ data: { tematica, total, campanas } }`" }
+        "401": { description: Sin sesión }
+        "403": { description: No es supervisor }
+        "404": { description: Campaña no encontrada }
   /api/campanas/{id}/metricas:
     get:
       tags: [Campañas]

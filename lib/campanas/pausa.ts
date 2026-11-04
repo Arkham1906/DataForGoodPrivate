@@ -1,4 +1,4 @@
-// Quién pausó una campaña y por qué (columnas campanas.pausa_por, pausa_motivo y pausada_en).
+// Quién pausó una campaña y por qué (columnas campanas.pausa_por, pausa_motivo, pausada_en y ajustes_en).
 // Sin imports de servidor: lo usan los route handlers y las pantallas cliente.
 // El creador pausa sin motivo desde /mis-campanas; la supervisión (el supervisor de la campaña o
 // el SuperUsuario) pausa con motivo obligatorio desde /supervision o /supervisar (2026-10-15).
@@ -9,6 +9,8 @@ export type PausaDeCampana = {
   motivo: string | null;
   /** ISO, o null en campañas pausadas antes del 2026-10-15. */
   en: string | null;
+  /** ISO: cuándo guardó el creador sus últimos ajustes tras una pausa de la supervisión; sin ellos no se reanuda. */
+  ajustesEn: string | null;
 };
 
 /** Hasta cuántos caracteres admite el motivo de pausar o finalizar desde la supervisión. */
@@ -18,10 +20,12 @@ export const MAXIMO_MOTIVO_DE_SUPERVISION = 500;
 export function pausaDesdeFila(row: Record<string, unknown>): PausaDeCampana | null {
   if (String(row.status ?? "") !== "pausada") return null;
   const en = row.pausada_en ? new Date(row.pausada_en as string) : null;
+  const ajustes = row.ajustes_en ? new Date(row.ajustes_en as string) : null;
   return {
     por: row.pausa_por === "supervision" ? "supervision" : "creador",
     motivo: row.pausa_motivo ? String(row.pausa_motivo) : null,
     en: en && !Number.isNaN(en.getTime()) ? en.toISOString() : null,
+    ajustesEn: ajustes && !Number.isNaN(ajustes.getTime()) ? ajustes.toISOString() : null,
   };
 }
 

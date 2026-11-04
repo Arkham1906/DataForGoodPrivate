@@ -39,6 +39,8 @@ const COMPARADORES: Record<string, (a: CampanaFiltrable, b: CampanaFiltrable) =>
   participantes: (a, b) => Number(b.participants ?? 0) - Number(a.participants ?? 0),
   aportes: (a, b) => Number(b.currentContributions ?? 0) - Number(a.currentContributions ?? 0),
   avance: (a, b) => avance(b) - avance(a),
+  menor_avance: (a, b) => avance(a) - avance(b),
+  menos_aportes: (a, b) => Number(a.currentContributions ?? 0) - Number(b.currentContributions ?? 0),
   // Las que no tienen fecha de cierre van al final.
   vence: (a, b) => {
     if (!a.endDate || !b.endDate) return a.endDate ? -1 : b.endDate ? 1 : 0;

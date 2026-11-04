@@ -1,6 +1,6 @@
 // Eliminar una campaña (DELETE /api/campanas/[id]). Desde el 2026-10-27 el creador podía borrarla solo sin
 // aportes; desde el 2026-10-31 (a pedido del usuario) también con aportes, con estas decisiones del usuario:
-// - Con aportes, en cualquier estado menos finalizada: una finalizada ya publicó sus datos abiertos (/datos).
+// - Con aportes, en cualquier estado menos finalizada.
 // Desde el 2026-11-01 (decisiones del usuario) se puede borrar si está en borrador, si no tiene aportes o si
 // todos sus aportes siguen en revisión (pendiente o espera_final; ninguno aprobado ni rechazado), y nunca una
 // finalizada, aunque no tenga aportes. La regla vive en sqlPuedeEliminar (lista y servidor usan la misma).
@@ -73,7 +73,7 @@ export async function eliminarCampana(entrada: {
         status: 409,
         error:
           estado === "finalizada"
-            ? "Esta campaña ya finalizó y sus datos abiertos están publicados: no se puede eliminar."
+            ? "Esta campaña ya finalizó: no se puede eliminar."
             : "Esta campaña ya tiene aportes aprobados o rechazados: no se puede eliminar.",
       };
     }

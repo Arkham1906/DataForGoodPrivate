@@ -16,12 +16,13 @@ import { inscripcionDe } from "@/lib/campanas/inscripciones";
 import { errorDeOrganizacion } from "@/lib/campanas/organizacion";
 import { normalizarSecciones, seccionesDesdeFila } from "@/lib/campanas/checklist";
 import { enviadosPorTipoDesdeFila, limitePorTipoDesdeFila, resolverMetaYLimites } from "@/lib/campanas/limite-por-tipo";
-import { cuotaPorTipoDesdeFila, resolverCuotaYMaximos } from "@/lib/campanas/cuota-por-tipo";
+import { cuotaPorTipoDesdeFila, errorDeMaximoSobreLimite, resolverCuotaYMaximos } from "@/lib/campanas/cuota-por-tipo";
 import { normalizarFormatosDeDocumento } from "@/lib/aportes/archivo";
 import { columnasCalculadas, guardarTiposDeCampana } from "@/lib/campanas/tipos-de-campana";
 import { guardarChecklists } from "@/lib/campanas/tabla-checklists";
 import { XP_POR_APORTE, errorDeEstadoPedido } from "@/lib/campanas/estado-del-creador";
 import { pausaDesdeFila } from "@/lib/campanas/pausa";
+import { datosAbiertosDesdeFila } from "@/lib/campanas/datos-abiertos";
 import { rechazoDesdeFila } from "@/lib/campanas/rechazo";
 import { condicionDeVisibilidad } from "@/lib/campanas/visibilidad";
 import { agregarEtiquetas, guardarEtiquetasDeCampana } from "@/lib/etiquetas/catalogo";
@@ -135,6 +136,7 @@ function mapCampaign(row: Record<string, unknown>) {
     especial: especialDesdeFila(row),
     // Quién la pausó y por qué (null si no está pausada).
     pausa: pausaDesdeFila(row),
+    datosAbiertos: datosAbiertosDesdeFila(row),
     // Por qué se rechazó (solo en ?mine=true y mientras siga rechazada).
     rechazo: rechazoDesdeFila(row),
     daysRemaining: calculateCampaignDaysRemaining(row.end_date ?? row.endDate),
@@ -370,6 +372,8 @@ export async function POST(request: Request) {
       exigirCompleto: status !== "borrador",
     });
     if (!cuotaPorTipo.ok) return NextResponse.json({ error: cuotaPorTipo.error }, { status: 400 });
+    const errorDeMaximo = errorDeMaximoSobreLimite(cuotaPorTipo.maximos, limitePorTipo.limite);
+    if (errorDeMaximo) return NextResponse.json({ error: errorDeMaximo }, { status: 400 });
     const quotaPerUser = cuotaPorTipo.cuota;
     // XP, contadores, "especial" y "revisor asignado" los decide el sistema, no el body: una campaña
     // nueva empieza en cero (su fila de campana_estadisticas la crea un trigger), no especial y sin revisor.

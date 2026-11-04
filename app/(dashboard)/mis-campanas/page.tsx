@@ -29,9 +29,10 @@ import MenuDeAcciones from "@/components/ui/MenuDeAcciones";
 import CompartirCampana from "@/app/(dashboard)/campanas/[id]/compartir";
 import { resumenDeIncentivos, textoDelPeriodo } from "@/lib/campanas/especial-reglas";
 import { porcentajeDeMeta } from "@/lib/campanas/meta";
-import { PORCENTAJE_MINIMO, terminariaFallida } from "@/lib/campanas/fallida";
 import { fechaDDMMAAAA, inicioEnElFuturo, ZONA_DE_CAMPANAS } from "@/lib/fecha-de-tepic";
 import { ETIQUETA_DE_CAMPANA } from "@/lib/campanas/sistema-opciones";
+import { textoDeDatosAbiertos } from "@/lib/campanas/datos-abiertos";
+import { MAX_CAMPANAS_EN_REVISION } from "@/lib/campanas/cola-de-revision";
 import BotonCrearCampana from "@/components/campanas/BotonCrearCampana";
 
 const fechaDeRechazo = new Intl.DateTimeFormat("es-MX", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: ZONA_DE_CAMPANAS });
@@ -76,7 +77,6 @@ const labels: Record<CampaignStatus, string> = {
   activa: "Activa",
   pausada: "Pausada",
   finalizada: "Finalizada",
-  fallida: "Incompleta",
   rechazada: "Rechazada",
 };
 
@@ -90,8 +90,6 @@ const FILTROS: { valor: Filtro; etiqueta: string; fijo?: boolean }[] = [
   { valor: "activa", etiqueta: "Activas", fijo: true },
   { valor: "pausada", etiqueta: "Pausadas" },
   { valor: "finalizada", etiqueta: "Finalizadas", fijo: true },
-  // Terminaron con menos del 25% de su meta (2026-11-01, lib/campanas/fallida.ts).
-  { valor: "fallida", etiqueta: "Incompletas" },
   { valor: "rechazada", etiqueta: "Rechazadas" },
   { valor: "borrador", etiqueta: "Borradores" },
 ];
@@ -179,6 +177,7 @@ function mapCampaign(row: Record<string, unknown>): CampanaDeMisCampanas {
     hasReviewerAssigned: Boolean(row.hasReviewerAssigned),
     especial: (row.especial as Campaign["especial"]) ?? null,
     pausa: (row.pausa as Campaign["pausa"]) ?? null,
+    datosAbiertos: (row.datosAbiertos as Campaign["datosAbiertos"]) ?? null,
     rechazo: (row.rechazo as Campaign["rechazo"]) ?? null,
     canDelete: row.canDelete === true,
     esperaActivacion: row.esperaActivacion === true,
@@ -204,6 +203,8 @@ export default function MisCampanasPage() {
   const [nombreParaEliminar, setNombreParaEliminar] = useState("");
   const [cargando, setCargando] = useState(true);
   const [filtro, setFiltro] = useState<Filtro>("todas");
+  // Orden por avance de la meta (2026-11-04): "" = más recientes.
+  const [ordenDeAvance, setOrdenDeAvance] = useState<"" | "mayor" | "menor">("");
 
   // Vuelve a leer cuando algo cambia en la base (actualización en vivo).
   const recarga = useRecargaEnVivo();
@@ -226,12 +227,22 @@ export default function MisCampanasPage() {
   const proximasAFinalizar = campaigns.filter(estaProximaAFinalizar);
   // Los estados fijos siempre se ven; el resto solo si hay alguna campaña en él.
   const filtros = FILTROS.filter((f) => f.fijo || (f.valor !== "todas" && f.valor !== "proximas" && count(f.valor) > 0));
-  const visibles =
+  const porEstado =
     filtro === "todas"
       ? campaigns
       : filtro === "proximas"
         ? proximasAFinalizar
         : campaigns.filter((campaign) => campaign.status === filtro);
+  // En revisión y rechazada no tienen barra: van al final. El desempate es la más nueva.
+  const avanceDe = (c: CampanaDeMisCampanas) => (c.goalContributions > 0 ? c.approvedContributions / c.goalContributions : 0);
+  const visibles = ordenDeAvance
+    ? [...porEstado].sort(
+        (a, b) =>
+          Number(sinAportesTodavia(a.status)) - Number(sinAportesTodavia(b.status)) ||
+          (ordenDeAvance === "mayor" ? avanceDe(b) - avanceDe(a) : avanceDe(a) - avanceDe(b)) ||
+          Number(b.id) - Number(a.id),
+      )
+    : porEstado;
 
   // Solo el creador ve esta pantalla (viene de mine=true): no hace falta
   // revisar rol ni dueño aparte, ya está filtrado por sesión.
@@ -254,7 +265,6 @@ export default function MisCampanasPage() {
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error ?? fallo);
-      // Al finalizar, el servidor decide si queda finalizada o fallida (2026-11-01).
       const estadoNuevo: CampaignStatus = payload.data?.status ?? nuevo;
       setCampaigns((prev) => prev.map((c) => (c.id === id ? { ...c, status: estadoNuevo } : c)));
       return true;
@@ -310,6 +320,9 @@ export default function MisCampanasPage() {
       setCambiandoId(null);
     }
   }
+
+  // Con la cola de revisión llena no se pausa para editar: no podría enviar los cambios (2026-11-04).
+  const colaDeRevisionLlena = campaigns.filter((c) => c.status === "en_revision").length >= MAX_CAMPANAS_EN_REVISION;
 
   async function pausarYEditar(campaign: Campaign) {
     setCambiandoId(campaign.id);
@@ -411,6 +424,24 @@ export default function MisCampanasPage() {
         </div>
       </div>
 
+      {campaigns.length > 0 && (
+        <div className="-mt-2 mb-5 sm:max-w-[220px]">
+          <label className="sr-only" htmlFor="orden-de-avance">
+            Ordenar campañas
+          </label>
+          <select
+            id="orden-de-avance"
+            value={ordenDeAvance}
+            onChange={(e) => setOrdenDeAvance(e.target.value as "" | "mayor" | "menor")}
+            className="min-h-[38px] w-full rounded border border-system-300 bg-white px-3 text-sm text-system-900 outline-none transition-colors focus:border-brand-600"
+          >
+            <option value="">Más recientes</option>
+            <option value="mayor">Mayor avance</option>
+            <option value="menor">Menor avance</option>
+          </select>
+        </div>
+      )}
+
       {error ? (
         <p className="rounded-lg bg-error-50 p-4 text-sm text-error-700">{error}</p>
       ) : cargando ? (
@@ -429,7 +460,7 @@ export default function MisCampanasPage() {
           {visibles.map((campaign) => {
             const pct = porcentajeDeMeta(campaign.approvedContributions, campaign.goalContributions);
             const puedeFinalizar = campaign.status === "activa" || campaign.status === "pausada";
-            const puedeVerAportesYPanel = ["activa", "pausada", "finalizada", "fallida"].includes(campaign.status);
+            const puedeVerAportesYPanel = ["activa", "pausada", "finalizada"].includes(campaign.status);
             const cambiando = cambiandoId === campaign.id;
 
             return (
@@ -441,7 +472,7 @@ export default function MisCampanasPage() {
                 className={
                   vistaCuadricula
                     ? "relative flex h-full min-w-0 cursor-pointer flex-col rounded-lg border border-system-200 bg-white p-3 transition-colors hover:border-brand-600 max-md:p-2.5"
-                    : "relative flex min-w-0 cursor-pointer flex-col rounded-lg border border-system-200 bg-white p-4 transition-colors hover:border-brand-600 max-md:p-3 md:h-[190px] md:grid md:grid-cols-[minmax(0,1.35fr)_minmax(260px,1fr)_auto] md:grid-rows-[56px_minmax(0,1fr)] md:items-stretch md:gap-x-5 md:overflow-hidden lg:h-auto lg:grid-rows-[auto_auto] lg:overflow-visible"
+                    : "relative flex min-w-0 cursor-pointer flex-col rounded-lg border border-system-200 bg-white p-4 transition-colors hover:border-brand-600 max-md:p-3 md:min-h-[190px] md:grid md:grid-cols-[minmax(0,1.35fr)_minmax(260px,1fr)_auto] md:grid-rows-[56px_minmax(0,1fr)] md:items-stretch md:gap-x-5 md:overflow-hidden lg:h-auto lg:min-h-0 lg:grid-rows-[auto_auto] lg:overflow-visible"
                 }
               >
                 <Link
@@ -500,7 +531,7 @@ export default function MisCampanasPage() {
                     {/* En revisión no hay barra ni cifras (2026-11-01, a pedido del usuario): todavía no recibe aportes. */}
                     {!sinAportesTodavia(campaign.status) && (
                       <>
-                        <ProgressBar pct={pct} tone={campaign.status === "finalizada" ? "ok" : "accent"} />
+                        <ProgressBar pct={pct} tone={campaign.status === "finalizada" ? "ok" : "accent"} conPorcentaje />
                         <p className={`${vistaCuadricula ? "my-2 font-mono text-[10px] max-md:my-1.5 max-md:text-[9px]" : "my-2.5 font-mono text-[12px] max-md:text-[11px]"} text-system-600 max-md:line-clamp-2 max-md:overflow-hidden`}>
                           {campaign.approvedContributions} / {campaign.goalContributions} aprobados · {campaign.pendingContributions} aportes pendientes
                           {campaign.especial && <> · {textoDelPeriodo(campaign.especial)}</>}
@@ -516,17 +547,15 @@ export default function MisCampanasPage() {
                   <div className="mb-2.5 rounded-lg border border-warning-200 bg-warning-50 p-2.5 text-[11.5px] text-system-900 max-md:max-h-[76px] max-md:overflow-hidden">
                     <p className="font-semibold">La supervisión pausó esta campaña</p>
                     <p className="mt-0.5 line-clamp-2 whitespace-pre-line break-words text-system-600">Motivo: {campaign.pausa.motivo || "sin motivo registrado"}</p>
-                    <p className="mt-0.5 text-system-600">No recibe aportes hasta que la supervisión la reanude.</p>
+                    <p className="mt-0.5 text-system-600">{campaign.pausa.ajustesEn ? "Guardaste ajustes: la supervisión decidirá si la reanuda." : "Haz los ajustes en Editar: solo la supervisión puede reanudarla."}</p>
                   </div>
                 ) : campaign.status === "pausada" && (
                   <p className="mb-2.5 line-clamp-2 text-[11.5px] text-system-600">Pausada: no recibe aportes ni aparece en Campañas hasta que la reanudes.</p>
                 )}
-                {campaign.status === "fallida" && (
-                  <p className="mb-2.5 line-clamp-2 text-[11.5px] text-warning-800">
-                    Terminó con menos del {PORCENTAJE_MINIMO}% de su meta: no publica datos abiertos. Puedes extenderla con una nueva fecha de cierre desde Editar.
-                  </p>
+                {campaign.datosAbiertos && (
+                  <p className="mb-2.5 line-clamp-2 text-[11.5px] text-system-600">{textoDeDatosAbiertos(campaign.datosAbiertos)}</p>
                 )}
-                {/* Las campañas activas, pausadas, finalizadas e incompletas conservan acceso
+                {/* Las campañas activas, pausadas y finalizadas conservan acceso
                     a sus aportes y panel para consultar la información recopilada. */}
                 </div>
                 <div className={vistaCuadricula ? "relative z-10 mt-auto flex flex-wrap items-center gap-1 border-t border-system-100 pt-2.5 max-md:mt-auto max-md:gap-1 max-md:pt-2" : "relative z-10 mt-4 flex flex-nowrap items-center gap-1.5 border-t border-system-100 pt-3 max-md:mt-2 max-md:shrink-0 max-md:gap-1 max-md:pt-1 md:col-start-3 md:row-span-2 md:row-start-1 md:my-0 md:self-center md:border-l md:border-t-0 md:pl-5"}>
@@ -558,7 +587,7 @@ export default function MisCampanasPage() {
                       <IconoDeAccion tipo="editar" />
                     </Button>
                   ) : (
-                    <ButtonLink href={`/mis-campanas/nueva?edit=${campaign.id}`} variant="secondary" size="sm" className="!size-9 !rounded-md !p-0" aria-label={campaign.status === "fallida" ? `Extender ${campaign.name}` : `Editar ${campaign.name}`} title={campaign.status === "fallida" ? "Extender campaña" : "Editar"}>
+                    <ButtonLink href={`/mis-campanas/nueva?edit=${campaign.id}`} variant="secondary" size="sm" className="!size-9 !rounded-md !p-0" aria-label={`Editar ${campaign.name}`} title={"Editar"}>
                       <IconoDeAccion tipo="editar" />
                     </ButtonLink>
                   )}
@@ -615,7 +644,7 @@ export default function MisCampanasPage() {
                           : []),
                         campaign.status === "activa"
                           ? { etiqueta: "Editar", alElegir: () => setPorEditar(campaign), deshabilitado: cambiando }
-                          : { etiqueta: campaign.status === "fallida" ? "Extender campaña" : "Editar", href: `/mis-campanas/nueva?edit=${campaign.id}` },
+                          : { etiqueta: "Editar", href: `/mis-campanas/nueva?edit=${campaign.id}` },
                         ...(campaign.status === "activa"
                           ? [{ etiqueta: "Pausar campaña", alElegir: () => setPorPausar(campaign), deshabilitado: cambiando }]
                           : []),
@@ -708,13 +737,20 @@ export default function MisCampanasPage() {
         textoConfirmar="Pausar y editar"
         textoOcupado="Pausando…"
         ocupado={porEditar !== null && cambiandoId === porEditar.id}
+        confirmarDeshabilitado={colaDeRevisionLlena}
         onCancelar={() => setPorEditar(null)}
         onConfirmar={() => {
           if (porEditar) void pausarYEditar(porEditar);
         }}
       >
         {porEditar && <p className="mb-3 font-semibold text-system-900">{porEditar.name}</p>}
-        <p>La campaña dejará de recibir aportes mientras haces los cambios. Al guardar, pasará a En revisión para que la supervisión revise la versión actualizada.</p>
+        {colaDeRevisionLlena ? (
+          <p role="alert" className="rounded-lg bg-warning-50 p-3 text-warning-800">
+            Ya tienes {MAX_CAMPANAS_EN_REVISION} campañas en revisión: si la pausas ahora no podrás enviar los cambios. Espera a que la supervisión acepte o rechace alguna. Mientras tanto, la campaña sigue activa y recibiendo aportes.
+          </p>
+        ) : (
+          <p>La campaña dejará de recibir aportes mientras haces los cambios. Al guardar, pasará a En revisión para que la supervisión revise la versión actualizada.</p>
+        )}
         {porEditar && cambioError[porEditar.id] && <p role="alert" className="mt-3 text-error-700">{cambioError[porEditar.id]}</p>}
       </VentanaDeConfirmacion>
 
@@ -792,20 +828,10 @@ export default function MisCampanasPage() {
         }}
       >
         {porFinalizar && <p className="mb-3 font-semibold text-system-900">{porFinalizar.name}</p>}
-        {/* Con menos del 25% de la meta en aprobados terminará fallida (2026-11-01, lib/campanas/fallida.ts). */}
-        {porFinalizar && terminariaFallida(porFinalizar.approvedContributions, porFinalizar.goalContributions) && (
-          <p className="mb-3 rounded border border-warning-200 bg-warning-50 p-2.5 text-system-900">
-            Lleva {porFinalizar.approvedContributions} de {porFinalizar.goalContributions} aportes aprobados, menos
-            del {PORCENTAJE_MINIMO}% de su meta: si la finalizas ahora quedará <strong>incompleta</strong> y no
-            publicará datos abiertos.
-          </p>
-        )}
         <ul className="flex list-disc flex-col gap-1.5 pl-5">
           <li>Dejará de recibir aportes nuevos, ni de personas con cuenta ni por su enlace público.</li>
           <li>Dejará de aparecer en Campañas y en Explorar.</li>
-          {!(porFinalizar && terminariaFallida(porFinalizar.approvedContributions, porFinalizar.goalContributions)) && (
-            <li>Sus aportes aprobados se publicarán en Datos abiertos.</li>
-          )}
+          <li>La supervisión decidirá si sus aportes aprobados se publican en Datos abiertos.</li>
         </ul>
         <p className="mt-3">Para volver a abrirla tendrás que editarla y ponerle una fecha de cierre nueva.</p>
       </VentanaDeConfirmacion>

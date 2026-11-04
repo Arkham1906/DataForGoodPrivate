@@ -8,7 +8,7 @@ import { listarCampanasParaRoot } from "@/lib/supervision/root";
 import PestanasDeModeracion from "@/components/moderacion/PestanasDeModeracion";
 import PestanasDeSupervision from "./pestanas";
 import { exigirSesionRoot } from "@/lib/supervision/root";
-import { estaTerminada } from "@/lib/campanas/fallida";
+import { estaTerminada } from "@/lib/campanas/terminada";
 
 export const metadata: Metadata = { title: "Modo supervisor" };
 

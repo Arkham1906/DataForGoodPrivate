@@ -25,6 +25,9 @@ import { columnaDeChecklists } from "@/lib/campanas/tabla-checklists";
 export function columnasCalculadas(c = "campanas"): string {
   return `(SELECT COALESCE(jsonb_agg(ct.tipo ORDER BY ct.orden), '[]'::jsonb)
              FROM campana_tipos ct WHERE ct.campana_id = ${c}.id) AS data_types,
+          (SELECT d.estado FROM campana_datos_abiertos d WHERE d.campana_id = ${c}.id) AS datos_abiertos_estado,
+          (SELECT d.motivo FROM campana_datos_abiertos d WHERE d.campana_id = ${c}.id) AS datos_abiertos_motivo,
+          (SELECT d.decidido_en FROM campana_datos_abiertos d WHERE d.campana_id = ${c}.id) AS datos_abiertos_en,
           (SELECT jsonb_object_agg(ct.tipo, ct.limite)
              FROM campana_tipos ct WHERE ct.campana_id = ${c}.id AND ct.limite IS NOT NULL) AS limite_por_tipo,
           (SELECT jsonb_object_agg(ct.tipo, ct.cuota_por_persona)

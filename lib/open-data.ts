@@ -3,15 +3,15 @@ import { columnaDeTipos } from "@/lib/campanas/tipos-de-campana";
 import type { DataType } from "@/types";
 import { quienOrganiza } from "@/lib/campanas/organizacion";
 import { textoDelProposito } from "@/lib/campanas/proposito";
+import { sqlDatosPublicados } from "@/lib/campanas/datos-abiertos";
 
 /**
- * Un "conjunto de datos abierto" no tiene tabla propia todavía: por ahora es
- * una campaña finalizada, con el tamaño, los formatos, la calidad y las
+ * Un "conjunto de datos abierto" es una campaña terminada que la supervisión
+ * decidió publicar (lib/supervision/datos-abiertos.ts), con el tamaño, los formatos, la calidad y las
  * descargas calculados en vivo a partir de `aportes` (ver dominio.md, § 9).
  *
- * TODO(dominio): sigue sin existir un paso explícito de "publicar" (que
- * anonimice o congele el conjunto); esta lectura toma los aportes aceptados
- * de la campaña tal como están hoy en la BD.
+ * TODO(dominio): publicar no anonimiza ni congela el conjunto; esta lectura
+ * toma los aportes aceptados de la campaña tal como están hoy en la BD.
  */
 export interface OpenDataset {
   id: string;
@@ -179,7 +179,7 @@ export async function buscarConjuntosAbiertos(
   filtros: OpenDataFilters
 ): Promise<{ conjuntos: OpenDataset[] }> {
   try {
-    const condiciones = ["c.status = 'finalizada'"];
+    const condiciones = [sqlDatosPublicados("c")];
     const valores: unknown[] = [];
 
     const q = filtros.q?.trim();
@@ -214,7 +214,7 @@ export async function buscarConjuntosAbiertos(
 /** Total de conjuntos publicados, sin filtros: para distinguir "catálogo vacío" de "sin resultados para este filtro". */
 export async function contarConjuntosPublicados(): Promise<number> {
   try {
-    const result = await pool.query(`SELECT COUNT(*)::int AS total FROM campanas WHERE status = 'finalizada'`);
+    const result = await pool.query(`SELECT COUNT(*)::int AS total FROM campanas WHERE ${sqlDatosPublicados("campanas")}`);
     return Number(result.rows[0]?.total ?? 0);
   } catch {
     return 0;
@@ -222,29 +222,29 @@ export async function contarConjuntosPublicados(): Promise<number> {
 }
 
 export async function obtenerConjuntoAbierto(id: string): Promise<OpenDataset | null> {
-  const result = await pool.query(`${SELECT} WHERE c.id = $1 AND c.status = 'finalizada' LIMIT 1`, [id]);
+  const result = await pool.query(`${SELECT} WHERE c.id = $1 AND ${sqlDatosPublicados("c")} LIMIT 1`, [id]);
   if (result.rowCount === 0) return null;
   return mapDataset(result.rows[0]);
 }
 
-/** Temáticas presentes entre las campañas ya finalizadas, para las facetas del catálogo. */
+/** Temáticas presentes entre las campañas publicadas, para las facetas del catálogo. */
 export async function obtenerTematicasDelCatalogo(): Promise<{ valor: string; total: number }[]> {
   const result = await pool.query(
     `SELECT tematica AS valor, COUNT(*)::int AS total
      FROM campanas
-     WHERE status = 'finalizada' AND tematica IS NOT NULL AND tematica <> ''
+     WHERE ${sqlDatosPublicados("campanas")} AND tematica IS NOT NULL AND tematica <> ''
      GROUP BY tematica
      ORDER BY total DESC, valor ASC`
   );
   return result.rows;
 }
 
-/** Estados presentes entre las campañas ya finalizadas, para las facetas del catálogo. */
+/** Estados presentes entre las campañas publicadas, para las facetas del catálogo. */
 export async function obtenerEstadosDelCatalogo(): Promise<{ valor: string; total: number }[]> {
   const result = await pool.query(
     `SELECT location_state AS valor, COUNT(*)::int AS total
      FROM campanas
-     WHERE status = 'finalizada' AND location_state IS NOT NULL AND location_state <> ''
+     WHERE ${sqlDatosPublicados("campanas")} AND location_state IS NOT NULL AND location_state <> ''
      GROUP BY location_state
      ORDER BY total DESC, valor ASC`
   );

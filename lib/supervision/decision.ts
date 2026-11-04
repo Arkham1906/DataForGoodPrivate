@@ -20,6 +20,7 @@ import {
   MAXIMO_EXPLICACION_DE_RECHAZO,
   MOTIVOS_DE_RECHAZO_DE_CAMPANA,
   OTRO_MOTIVO,
+  motivoExigeExplicacion,
   textoDelMotivoDeRechazo,
 } from "@/lib/reportes/motivos";
 
@@ -141,7 +142,7 @@ export async function registrarDecisionDeCampana(
   opciones: { tomarSiEstaLibre?: boolean } = {},
 ): Promise<ResultadoDeDecision> {
   const existing = await pool.query(
-    `SELECT id, status, creator_id, name, start_date, start_time, supervisor_id, supervisado_por_root
+    `SELECT id, status, creator_id, name, start_date, start_time, end_date, end_time, supervisor_id, supervisado_por_root
      FROM campanas WHERE id = $1 LIMIT 1`,
     [campanaId],
   );
@@ -175,6 +176,18 @@ export async function registrarDecisionDeCampana(
   }
 
   if (accion === "rechazada") return rechazar(campana, entrada, autor, tomarAlDecidir);
+
+  // Si el cierre venció mientras esperaba en la cola, al aceptarla se activaría y finalizaría sola
+  // (2026-11-04). Va antes de tomarla: rechazarla deja que quien la organiza ponga una fecha nueva.
+  // Import dinámico: lib/campaign-date importa notificaciones.
+  const { hasCampaignEnded, normalizeCampaignDate, normalizeCampaignTime } = await import("@/lib/campaign-date");
+  if (hasCampaignEnded(normalizeCampaignDate(campana.end_date), normalizeCampaignTime(campana.end_time))) {
+    return {
+      ok: false,
+      status: 400,
+      error: "La fecha de finalización de esta campaña ya pasó: recházala para que quien la organiza ponga una nueva",
+    };
+  }
 
   if (tomarAlDecidir) {
     const tomada = await tomarCampanaParaSupervisar(campanaId, autor);
@@ -246,8 +259,8 @@ async function rechazar(
   if (!lista && !explicacion) {
     return { ok: false, status: 400, error: "El motivo es obligatorio al rechazar una campaña" };
   }
-  if (lista === OTRO_MOTIVO && !explicacion) {
-    return { ok: false, status: 400, error: "Con «Otro», explica el motivo del rechazo" };
+  if (motivoExigeExplicacion(lista) && !explicacion) {
+    return { ok: false, status: 400, error: `Con «${lista}», explica el motivo del rechazo` };
   }
   if (explicacion && explicacion.length > MAXIMO_EXPLICACION_DE_RECHAZO) {
     return { ok: false, status: 400, error: `La explicación no puede pasar de ${MAXIMO_EXPLICACION_DE_RECHAZO} caracteres` };

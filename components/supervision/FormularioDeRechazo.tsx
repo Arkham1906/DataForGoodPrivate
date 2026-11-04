@@ -2,7 +2,7 @@
 
 // Formulario para rechazar una campaña en revisión (2026-10-16), compartido por /supervision/[campaignId]
 // (supervisor) y /supervisar/[campaignId] (SuperUsuario). Motivo de la lista (MOTIVOS_DE_RECHAZO_DE_CAMPANA)
-// y/o explicación; con "Otro", la explicación es obligatoria. La casilla "Sancionar al creador" agrega un
+// y/o explicación; con "Otro" o "Ya existe una campaña similar", la explicación es obligatoria. La casilla "Sancionar al creador" agrega un
 // aviso, una suspensión o el baneo (components/moderacion/OpcionesDeSancion); esa sanción queda en
 // reportes y sanciones de la supervisión. Las reglas se vuelven a validar en lib/supervision/decision.ts.
 
@@ -13,7 +13,8 @@ import OpcionesDeSancion, { SANCION_POR_DEFECTO, type SancionElegida } from "@/c
 import {
   MAXIMO_EXPLICACION_DE_RECHAZO,
   MOTIVOS_DE_RECHAZO_DE_CAMPANA,
-  OTRO_MOTIVO,
+  MOTIVO_CAMPANA_SIMILAR,
+  motivoExigeExplicacion,
 } from "@/lib/reportes/motivos";
 
 export type RechazoPedido = {
@@ -40,7 +41,8 @@ export default function FormularioDeRechazo({
   const [sancion, setSancion] = useState<SancionElegida>(SANCION_POR_DEFECTO);
 
   const conTexto = explicacion.trim().length > 0;
-  const completo = (Boolean(motivoDeLista) || conTexto) && (motivoDeLista !== OTRO_MOTIVO || conTexto);
+  const exigeExplicacion = motivoExigeExplicacion(motivoDeLista);
+  const completo = (Boolean(motivoDeLista) || conTexto) && (!exigeExplicacion || conTexto);
 
   function enviar(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -69,7 +71,7 @@ export default function FormularioDeRechazo({
       </select>
 
       <label htmlFor={idExplicacion} className="mb-1.5 block text-[13px] font-semibold text-system-900">
-        Explicación {motivoDeLista === OTRO_MOTIVO ? <span className="text-error-700">*</span> : <span className="font-normal text-system-500">(opcional si elegiste un motivo)</span>}
+        Explicación {exigeExplicacion ? <span className="text-error-700">*</span> : <span className="font-normal text-system-500">(opcional si elegiste un motivo)</span>}
       </label>
       <Textarea
         id={idExplicacion}
@@ -77,7 +79,7 @@ export default function FormularioDeRechazo({
         maxLength={MAXIMO_EXPLICACION_DE_RECHAZO}
         value={explicacion}
         onChange={(event) => setExplicacion(event.target.value)}
-        placeholder="Explica al creador por qué se rechaza la campaña"
+        placeholder={motivoDeLista === MOTIVO_CAMPANA_SIMILAR ? "Explica al creador con qué campaña se parece y por qué se rechaza" : "Explica al creador por qué se rechaza la campaña"}
         disabled={ocupado}
       />
 

@@ -9,7 +9,9 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition, type ReactNode } from "react";
-import { cambiarEstadoComoSuperUsuario, decidirComoSuperUsuario } from "@/lib/supervision/acciones-root";
+import { cambiarEstadoComoSuperUsuario, decidirComoSuperUsuario, decidirDatosAbiertosComoSuperUsuario } from "@/lib/supervision/acciones-root";
+import DecisionDeDatosAbiertos from "@/components/supervision/DecisionDeDatosAbiertos";
+import type { DatosAbiertosDeCampana } from "@/lib/campanas/datos-abiertos";
 import Tag from "@/components/ui/Tag";
 import EstadoDeCampanaSupervisada from "@/components/supervision/EstadoDeCampanaSupervisada";
 import FormularioDeRechazo, { type RechazoPedido } from "@/components/supervision/FormularioDeRechazo";
@@ -17,6 +19,37 @@ import type { AccionDeSupervision } from "@/lib/supervision/decision";
 import type { PausaDeCampana } from "@/lib/campanas/pausa";
 
 /** Pausar, reanudar o finalizar como SuperUsuario cualquier campaña activa o pausada (2026-10-15). */
+export function DatosAbiertosComoSuperUsuario({
+  campaignId,
+  datos,
+  aprobados,
+  meta,
+  participantes,
+}: {
+  campaignId: string;
+  datos: DatosAbiertosDeCampana;
+  aprobados: number;
+  meta: number;
+  participantes: number;
+}) {
+  const router = useRouter();
+  return (
+    <DecisionDeDatosAbiertos
+      datos={datos}
+      aprobados={aprobados}
+      meta={meta}
+      participantes={participantes}
+      puedeDecidir
+      onDecidir={async (decision, motivo) => {
+        const resultado = await decidirDatosAbiertosComoSuperUsuario(campaignId, decision, motivo);
+        if (!resultado.ok) return resultado.error;
+        router.refresh();
+        return null;
+      }}
+    />
+  );
+}
+
 export function EstadoComoSuperUsuario({
   campaignId,
   status,
@@ -86,7 +119,7 @@ export default function AccionesDeSupervision({
 
         {supervision === "otro" && status === "en_revision" ? (
           <Tag>La supervisa otro supervisor</Tag>
-        ) : supervision !== "mia" && (status === "finalizada" || status === "fallida" || status === "rechazada") ? (
+        ) : supervision !== "mia" && (status === "finalizada" || status === "rechazada") ? (
           <Tag>{supervision === "otro" ? "La supervisa otro supervisor" : "Sin supervisor"}</Tag>
         ) : puedeDictaminar ? (
           <div className="flex flex-wrap gap-2">

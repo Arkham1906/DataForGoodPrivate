@@ -13,9 +13,13 @@ import {
   CAMPOS_EDITABLES_EN_PAUSA,
   COLUMNAS_AVISADAS_EN_PAUSA,
   ESTADOS_CON_EDICION_COMPLETA,
-  MAX_CAMPANAS_ACTIVAS as MAX_ACTIVE_CAMPAIGNS,
+  colaDeRevisionLlena,
   errorDeEstadoPedido,
 } from "@/lib/campanas/estado-del-creador";
+import { MAX_CAMPANAS_EN_REVISION } from "@/lib/campanas/cola-de-revision";
+import { avisarAjustesEnPausa } from "@/lib/notificaciones/avisos-a-supervisores";
+import { DECISIONES_DE_DATOS_ABIERTOS, decidirDatosAbiertos, type DecisionDeDatosAbiertos } from "@/lib/supervision/datos-abiertos";
+import { datosAbiertosDesdeFila } from "@/lib/campanas/datos-abiertos";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { eliminarCampana } from "@/lib/campanas/eliminar";
 import { pool } from "@/lib/db";
@@ -35,13 +39,13 @@ import { validarProposito } from "@/lib/campanas/proposito";
 import { crearPropuestas, revisarTematicaDeCampana } from "@/lib/tematicas/catalogo";
 import { normalizarSecciones, seccionesDesdeFila } from "@/lib/campanas/checklist";
 import { enviadosPorTipoDesdeFila, limitePorTipoDesdeFila, resolverMetaYLimites } from "@/lib/campanas/limite-por-tipo";
-import { cuotaPorTipoDesdeFila, resolverCuotaYMaximos, type CuotaPorTipo } from "@/lib/campanas/cuota-por-tipo";
+import { cuotaPorTipoDesdeFila, errorDeMaximoSobreLimite, resolverCuotaYMaximos, type CuotaPorTipo } from "@/lib/campanas/cuota-por-tipo";
 import { normalizarFormatosDeDocumento } from "@/lib/aportes/archivo";
 import { columnasCalculadas, guardarTiposDeCampana } from "@/lib/campanas/tipos-de-campana";
 import { guardarChecklists } from "@/lib/campanas/tabla-checklists";
 import { asegurarEnlaceVigente } from "@/lib/campanas/enlaces";
 import { errorDeOrganizacion } from "@/lib/campanas/organizacion";
-import { estaTerminada, sqlEstadoAlTerminar } from "@/lib/campanas/fallida";
+import { estaTerminada } from "@/lib/campanas/terminada";
 import { activateScheduledCampaigns, ahoraEnZona, hoyEnTepic, calculateCampaignDaysRemaining, errorDeFinAntesDeInicio, errorDeInicioPasado, errorDeReanudarAntesDeInicio, finalizeExpiredCampaigns, hasCampaignEnded, normalizeCampaignDate, normalizeCampaignTime } from "@/lib/campaign-date";
 
 function normalizeDataTypes(input: unknown): string[] {
@@ -135,6 +139,7 @@ function mapCampaign(row: Record<string, unknown>) {
     isSpecial: Boolean(row.is_special),
     especial: especialDesdeFila(row),
     pausa: pausaDesdeFila(row),
+    datosAbiertos: datosAbiertosDesdeFila(row),
     daysRemaining: calculateCampaignDaysRemaining(row.end_date ?? row.endDate),
     hasReviewerAssigned: Boolean(row.has_reviewer_assigned),
   };
@@ -262,6 +267,25 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       return NextResponse.json({ message: resultado.mensaje, data: mapCampaign(updated.rows[0]) });
     }
 
+    // Publicar o no los datos abiertos de una campaña terminada (2026-11-04): solo quien la supervisa.
+    if (DECISIONES_DE_DATOS_ABIERTOS.has(accion)) {
+      const roles = Array.isArray(user.role) ? user.role : typeof user.role === "string" ? [user.role] : [];
+      if (!roles.includes("supervisor")) {
+        return NextResponse.json({ error: "Solo un supervisor puede decidir sobre los datos abiertos" }, { status: 403 });
+      }
+
+      const resultado = await decidirDatosAbiertos(id, accion as DecisionDeDatosAbiertos, body.motivo, {
+        tipo: "usuario",
+        usuarioId: Number(user.id),
+      });
+      if (!resultado.ok) {
+        return NextResponse.json({ error: resultado.error }, { status: resultado.status });
+      }
+
+      const updated = await pool.query(`SELECT *, ${columnasCalculadas()} FROM campanas WHERE id = $1 LIMIT 1`, [id]);
+      return NextResponse.json({ message: resultado.mensaje, data: mapCampaign(updated.rows[0]) });
+    }
+
     const existing = await pool.query(
       `SELECT *, ${columnasCalculadas()} FROM campanas WHERE id = $1 LIMIT 1`,
       [id]
@@ -275,24 +299,32 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
     const currentStatus = String(existing.rows[0].status ?? "borrador");
     const estadoSolicitado = "status" in body ? normalizeCampaignStatus(body.status) : null;
+    // La que pausó la supervisión no vuelve a revisión al editarla (2026-11-04, decisión del usuario): sigue
+    // pausada, con su motivo y su supervisor, y solo la supervisión la reanuda cuando se hicieron los ajustes.
+    const pausadaPorSupervision = currentStatus === "pausada" && existing.rows[0].pausa_por === "supervision";
+    if (pausadaPorSupervision && estadoSolicitado === "en_revision") {
+      return NextResponse.json(
+        { error: "La supervisión pausó esta campaña: guarda los ajustes y la supervisión decidirá si la reanuda" },
+        { status: 403 }
+      );
+    }
     const editaCampanaPausada =
-      currentStatus === "pausada" && Object.keys(body).some((key) => key !== "status");
+      currentStatus === "pausada" && !pausadaPorSupervision && Object.keys(body).some((key) => key !== "status");
     const enviarRevisionDesdePausa =
-      currentStatus === "pausada" && (estadoSolicitado === "en_revision" || editaCampanaPausada);
+      currentStatus === "pausada" && !pausadaPorSupervision && (estadoSolicitado === "en_revision" || editaCampanaPausada);
     // Pausada con inicio futuro que el creador activa ya (2026-11-01): su inicio se adelanta a ahora (Tepic).
     let inicioAdelantado: { fecha: string; hora: string } | null = null;
 
     // Reglas de edición por estado: una finalizada es de solo lectura salvo
-    // para reactivarla (status: "activa", con cupo libre de campañas activas);
+    // para reactivarla (status: "activa");
     // activa y aceptada solo dejan tocar meta y fecha de fin (sin cambiar su
-    // estado); al editar una pausada, vuelve a revisión; borrador, en_revision
-    // y rechazada se editan por completo.
-    // Una fallida (2026-11-01, lib/campanas/fallida.ts) igual: extenderla es reactivarla con un fin nuevo.
+    // estado); al editar una pausada, vuelve a revisión si la pausó el creador y sigue
+    // pausada si la pausó la supervisión; borrador, en_revision y rechazada se editan por completo.
     if (estaTerminada(currentStatus)) {
       const reactiva = normalizeCampaignStatus(body.status) === "activa";
       if (!reactiva) {
         return NextResponse.json(
-          { error: `Una campaña ${currentStatus === "fallida" ? "fallida" : "finalizada"} es de solo lectura y no se puede editar` },
+          { error: "Una campaña finalizada es de solo lectura y no se puede editar" },
           { status: 403 }
         );
       }
@@ -302,17 +334,6 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       if (camposNoPermitidos.length > 0) {
         return NextResponse.json(
           { error: "Al reactivar una campaña solo puedes ajustar su fecha/hora de finalización" },
-          { status: 400 }
-        );
-      }
-
-      const activas = await pool.query(
-        `SELECT COUNT(*)::int AS count FROM campanas WHERE creator_id = $1 AND status = 'activa'`,
-        [user.id]
-      );
-      if (Number(activas.rows[0].count) >= MAX_ACTIVE_CAMPAIGNS) {
-        return NextResponse.json(
-          { error: `Ya tienes ${MAX_ACTIVE_CAMPAIGNS} campañas activas; pausa o finaliza otra antes de reactivar esta` },
           { status: 400 }
         );
       }
@@ -353,8 +374,13 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
     if (currentStatus === "activa" || currentStatus === "pausada") {
       if (enviarRevisionDesdePausa) {
-        const errorDeEstado = await errorDeEstadoPedido("en_revision", user.id);
-        if (errorDeEstado) return NextResponse.json({ error: errorDeEstado }, { status: 400 });
+        // Cola de revisión llena: una pausada no se guarda como borrador, así que sigue pausada sin cambios.
+        if (await colaDeRevisionLlena(user.id)) {
+          return NextResponse.json(
+            { error: `Ya tienes ${MAX_CAMPANAS_EN_REVISION} campañas en revisión: no puedes enviar estos cambios hasta que la supervisión acepte o rechace alguna. La campaña sigue pausada.` },
+            { status: 400 }
+          );
+        }
         const camposRequeridos = [
           "name",
           "description",
@@ -375,6 +401,13 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         ];
         if (camposRequeridos.some((campo) => !(campo in body))) {
           return NextResponse.json({ error: "Para enviar a revisión, guarda todos los datos de la campaña" }, { status: 400 });
+        }
+        // Con el cierre vencido, al aprobarse se activaría y finalizaría sola (2026-11-04).
+        if (hasCampaignEnded(normalizeCampaignDate(body.endDate), normalizeCampaignTime(body.endTime ?? existing.rows[0].end_time))) {
+          return NextResponse.json(
+            { error: "La fecha de finalización ya pasó: pon una nueva para enviarla a revisión" },
+            { status: 400 }
+          );
         }
         const camposNoPermitidos = Object.keys(body).filter(
           (key) => key !== "status" && !CAMPOS_EDITABLES_EN_PAUSA.has(key)
@@ -401,9 +434,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
             { status: 403 }
           );
         }
-        // Reanudar: vuelve a contar para el tope de activas, y si su cierre ya
-        // pasó mientras estaba pausada, finalizeExpiredCampaigns la cerraría
-        // en la siguiente lectura.
+        // Reanudar: si su cierre ya pasó mientras estaba pausada,
+        // finalizeExpiredCampaigns la cerraría en la siguiente lectura.
         if (hasCampaignEnded(normalizeCampaignDate(existing.rows[0].end_date), normalizeCampaignTime(existing.rows[0].end_time))) {
           return NextResponse.json(
             { error: "La fecha de cierre ya pasó. Edita la campaña y pon una nueva antes de reanudarla" },
@@ -420,16 +452,6 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         }
         if (pedido === "aceptada" && !errorDeInicio) {
           return NextResponse.json({ error: "La campaña ya llegó a su fecha de inicio: reanúdala en vez de programarla" }, { status: 400 });
-        }
-        const activas = await pool.query(
-          `SELECT COUNT(*)::int AS count FROM campanas WHERE creator_id = $1 AND status = 'activa'`,
-          [user.id]
-        );
-        if (Number(activas.rows[0].count) >= MAX_ACTIVE_CAMPAIGNS) {
-          return NextResponse.json(
-            { error: `Ya tienes ${MAX_ACTIVE_CAMPAIGNS} campañas activas; pausa o finaliza otra antes de ${pedido === "aceptada" ? "programar" : "reanudar"} esta` },
-            { status: 400 }
-          );
         }
       }
       if (!cambiaEstado) {
@@ -460,16 +482,6 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       if (hasCampaignEnded(normalizeCampaignDate(existing.rows[0].end_date), normalizeCampaignTime(existing.rows[0].end_time))) {
         return NextResponse.json(
           { error: "La fecha de cierre ya pasó. Edita la fecha de finalización antes de activarla" },
-          { status: 400 }
-        );
-      }
-      const activas = await pool.query(
-        `SELECT COUNT(*)::int AS count FROM campanas WHERE creator_id = $1 AND status = 'activa'`,
-        [user.id]
-      );
-      if (Number(activas.rows[0].count) >= MAX_ACTIVE_CAMPAIGNS) {
-        return NextResponse.json(
-          { error: `Ya tienes ${MAX_ACTIVE_CAMPAIGNS} campañas activas; pausa o finaliza otra antes de activar esta` },
           { status: 400 }
         );
       }
@@ -518,7 +530,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     // Borrador, en revisión o rechazada: el creador solo la guarda o la (re)envía a revisión.
     // Antes aceptaba cualquier estado, y un PATCH { status: "activa" } se saltaba al supervisor.
     if ("status" in body && ESTADOS_CON_EDICION_COMPLETA.has(currentStatus)) {
-      const errorDeEstado = await errorDeEstadoPedido(String(normalizeCampaignStatus(body.status)), user.id);
+      const errorDeEstado = await errorDeEstadoPedido(String(normalizeCampaignStatus(body.status)), user.id, id);
       if (errorDeEstado) return NextResponse.json({ error: errorDeEstado }, { status: 400 });
     }
 
@@ -527,14 +539,6 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     let tematica = "tematica" in body || "tag" in body ? String(body.tematica ?? body.tag ?? "").trim() : null;
     let status = "status" in body ? normalizeCampaignStatus(body.status) : null;
     if (enviarRevisionDesdePausa) status = "en_revision";
-    // El creador la finaliza: con menos del 25% de la meta en aprobados queda "fallida" (2026-11-01).
-    if (status === "finalizada" && (currentStatus === "activa" || currentStatus === "pausada")) {
-      const alTerminar = await pool.query<{ estado: string }>(
-        `SELECT ${sqlEstadoAlTerminar("c")} AS estado FROM campanas c WHERE c.id = $1`,
-        [id]
-      );
-      status = alTerminar.rows[0]?.estado ?? "finalizada";
-    }
     const dataTypes = "dataTypes" in body || "data_types" in body ? normalizeDataTypes(body.dataTypes ?? body.data_types) : null;
     // Formatos de "Archivo" (2026-10-28): si llegan o cambian los tipos; sin "documento", [].
     const formatosDeDocumento =
@@ -590,6 +594,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         exigirCompleto: (status ?? currentStatus) !== "borrador",
       });
       if (!validado.ok) return NextResponse.json({ error: validado.error }, { status: 400 });
+      // Solo si llegan los máximos: una activa no los manda y no podría corregirlos.
+      if (porTipo) {
+        const errorDeMaximo = errorDeMaximoSobreLimite(validado.maximos, limitePorTipo?.limite ?? limitePorTipoDesdeFila(existing.rows[0]));
+        if (errorDeMaximo) return NextResponse.json({ error: errorDeMaximo }, { status: 400 });
+      }
       cuotaPorTipo = validado.maximos;
       if (porTipo) quotaPerUser = validado.cuota;
     }
@@ -705,7 +714,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     // Etiquetas (subtemáticas, 2026-10-27): se validan y guardan antes del UPDATE, con la temática
     // que va a quedar; si hay un error, no cambia nada. En pausa se comparan para el aviso al supervisor.
     const tematicaQueQueda = tematica || String(existing.rows[0].tematica ?? existing.rows[0].tag ?? "");
-    const etiquetasAntes = enviarRevisionDesdePausa ? await nombresDeEtiquetasDeCampana(Number(id)) : [];
+    const etiquetasAntes = currentStatus === "pausada" ? await nombresDeEtiquetasDeCampana(Number(id)) : [];
     if ("etiquetas" in body) {
       const errorDeEtiquetas = await guardarEtiquetasDeCampana(pool, {
         campanaId: Number(id),
@@ -788,6 +797,10 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       ]
     );
 
+    // Se reactivó: pierde la decisión de datos abiertos y se vuelve a decidir al terminar (2026-11-04).
+    if (estaTerminada(currentStatus) && !estaTerminada(String(result.rows[0].status))) {
+      await pool.query(`DELETE FROM campana_datos_abiertos WHERE campana_id = $1`, [id]);
+    }
     // Pasó a activa (p. ej. se reactivó una finalizada): genera su enlace público.
     if (result.rows[0].status === "activa" && currentStatus !== "activa") {
       await asegurarEnlaceVigente(Number(id));
@@ -811,7 +824,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         otraVez: currentStatus === "rechazada" || enviarRevisionDesdePausa,
       });
     }
-    if (currentStatus === "pausada" && result.rows[0].status === "en_revision") {
+    // Se editó estando pausada. Si la pausó la supervisión (sigue pausada), un cambio real cuenta como
+    // ajustes: habilita "Reanudar" y avisa a quien la supervisa.
+    if (currentStatus === "pausada" && (result.rows[0].status === "en_revision" || result.rows[0].status === "pausada")) {
       const antes = existing.rows[0];
       const despues = result.rows[0];
       const valor = (v: unknown) => JSON.stringify(v === null || v === undefined ? "" : v);
@@ -824,12 +839,17 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
           objetivo: { tipo: "campana", id: Number(id) },
           detalle: { campos },
         });
+        if (result.rows[0].status === "pausada") {
+          const marcada = await pool.query(`UPDATE campanas SET ajustes_en = NOW() WHERE id = $1 RETURNING ajustes_en`, [id]);
+          result.rows[0].ajustes_en = marcada.rows[0].ajustes_en;
+          avisarAjustesEnPausa({ id: Number(id), creadorId: Number(user.id), supervisorId: despues.supervisor_id, campos });
+        }
       }
     }
+
     await agregarEtiquetas(result.rows, user);
-    const terminoFallida = result.rows[0].status === "fallida" && currentStatus !== "fallida";
     return NextResponse.json({
-      message: terminoFallida ? "Campaña finalizada: quedó incompleta porque juntó menos del 25% de su meta" : "Campaña actualizada",
+      message: "Campaña actualizada",
       data: mapCampaign(result.rows[0]),
     });
   } catch (error) {
@@ -877,7 +897,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     if (status === null) {
       return NextResponse.json({ error: `status debe ser uno de: ${Array.from(ALLOWED_STATUS).join(", ")}` }, { status: 400 });
     }
-    const errorDeEstado = await errorDeEstadoPedido(status, user.id);
+    const errorDeEstado = await errorDeEstadoPedido(status, user.id, id);
     if (errorDeEstado) return NextResponse.json({ error: errorDeEstado }, { status: 400 });
 
     const dataTypes = normalizeDataTypes(body.dataTypes ?? body.data_types ?? []);
@@ -907,6 +927,8 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
       exigirCompleto: status !== "borrador",
     });
     if (!cuotaPorTipo.ok) return NextResponse.json({ error: cuotaPorTipo.error }, { status: 400 });
+    const errorDeMaximo = errorDeMaximoSobreLimite(cuotaPorTipo.maximos, limitePorTipo.limite);
+    if (errorDeMaximo) return NextResponse.json({ error: errorDeMaximo }, { status: 400 });
     const quotaPerUser = cuotaPorTipo.cuota;
     const startDate = normalizeCampaignDate(body.startDate ?? body.start_date);
     const startTime = normalizeCampaignTime(body.startTime ?? body.start_time);

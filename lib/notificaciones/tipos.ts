@@ -14,6 +14,7 @@ export type TipoDeNotificacion =
   | "campana_reportada"
   | "campana_iniciada"
   // Llegó su inicio, pero el creador ya tiene el máximo de activas (lib/campaign-date.ts, 2026-10-27).
+  // Ya no se envía (2026-11-04: sin tope de activas); se conserva por los avisos de antes.
   | "campana_en_espera"
   | "campana_finalizada"
   // Quien la organizaba borró una campaña con tus aportes (lib/campanas/eliminar.ts, 2026-10-31).
@@ -38,8 +39,12 @@ export type TipoDeNotificacion =
   // A los supervisores (./avisos-a-supervisores.ts): llegó un reporte o una campaña entró a revisión.
   | "reporte_nuevo"
   | "campana_por_revisar"
-  // Al supervisor de la campaña: el creador la editó mientras estaba pausada.
+  // Al supervisor de la campaña: el creador guardó ajustes en la campaña que pausó la supervisión.
   | "campana_editada"
+  // Datos abiertos (lib/supervision/datos-abiertos.ts): al supervisor, por decidir; al creador, el resultado.
+  | "datos_por_decidir"
+  | "datos_publicados"
+  | "datos_no_publicados"
   // Campañas para participar (lib/notificaciones/campanas-por-interes.ts)
   | "campana_nueva"
   | "campana_especial"
@@ -118,12 +123,14 @@ export function categoriaDeNotificacion(tipo: string): CategoriaDeNotificacion {
     // Algo salió mal para ti.
     case "aporte_rechazado":
     case "campana_rechazada":
+    case "datos_no_publicados":
     case "campana_baneo":
     case "sancion_aplicada":
       return "problema";
     // Necesitas hacer algo (revisar, aceptar o atender tu campaña).
     case "invitacion_revisor":
     case "campana_por_revisar":
+    case "datos_por_decidir":
     case "reporte_nuevo":
     case "campana_editada":
     case "campana_en_espera":
@@ -132,6 +139,7 @@ export function categoriaDeNotificacion(tipo: string): CategoriaDeNotificacion {
     // Buenas noticias.
     case "aporte_aceptado":
     case "campana_aceptada":
+    case "datos_publicados":
     case "campana_iniciada":
     case "campana_reanudada":
     case "revisor_acepto":

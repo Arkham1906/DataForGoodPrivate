@@ -26,13 +26,16 @@ export type AccionAuditada =
   | "supervision.pausar"
   | "supervision.reanudar"
   | "supervision.finalizar"
+  // Decidió si los datos de una campaña terminada se publican (lib/supervision/datos-abiertos.ts).
+  | "supervision.publicar_datos"
+  | "supervision.no_publicar_datos"
   | "campana.banear"
   | "campana.eliminar"
   // El creador activó (o programó) su campaña aprobada (2026-10-31).
   | "campana.activar"
   // El creador pausó su campaña activa (PATCH /api/campanas/[id], 2026-10-24; antes no quedaba registro).
   | "campana.pausar"
-  // El creador editó su campaña pausada antes de enviarla a revisión (PATCH /api/campanas/[id]).
+  // El creador editó su campaña pausada (PATCH /api/campanas/[id]); detalle.campos dice qué cambió.
   | "campana.editar_pausada"
   // Aceptó los acuerdos al inscribirse para aportar (lib/campanas/inscripciones.ts).
   | "campana.inscribirse"

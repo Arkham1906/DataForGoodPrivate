@@ -1,5 +1,5 @@
 // Pantalla /supervisar/[campaignId]: revisar una campaña y dictaminar como SuperUsuario.
-// Server Component. Datos: obtenerCampanaParaRoot(). Botones en acciones.tsx.
+// Server Component. Datos: obtenerCampanaParaRoot() y, en revisión, obtenerCampanasSimilares(). Botones en acciones.tsx.
 // Participantes y panel de cualquier campaña que ya recolecta, la haya aceptado él u otro supervisor.
 // Activa o pausada: pausar (con motivo), reanudar y finalizar (con motivo), en EstadoComoSuperUsuario.
 
@@ -8,12 +8,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import Tag from "@/components/ui/Tag";
 import { obtenerCampanaParaRoot } from "@/lib/supervision/root";
+import { obtenerCampanasSimilares } from "@/lib/supervision/similares";
+import CampanasSimilares from "@/components/supervision/CampanasSimilares";
 import { repartoSugerido } from "@/lib/campanas/reparto-sugerido";
 import { resumenDeCuotaPorTipo } from "@/lib/campanas/cuota-por-tipo";
 import { BackLink } from "../_ui";
 import { quienOrganiza } from "@/lib/campanas/organizacion";
 import { textoDelProposito } from "@/lib/campanas/proposito";
-import AccionesDeSupervision, { EstadoComoSuperUsuario } from "./acciones";
+import AccionesDeSupervision, { DatosAbiertosComoSuperUsuario, EstadoComoSuperUsuario } from "./acciones";
 import type { Metadata } from "next";
 import { exigirSesionRoot } from "@/lib/supervision/root";
 
@@ -26,7 +28,6 @@ const statusMap = {
   rechazada: { label: "Rechazada", tone: "danger" },
   borrador: { label: "Borrador", tone: "default" },
   finalizada: { label: "Finalizada", tone: "default" },
-  fallida: { label: "Incompleta", tone: "warn" },
   pausada: { label: "Pausada", tone: "default" },
 } as const;
 
@@ -42,10 +43,11 @@ export default async function SupervisarCampanaPage({ params }: { params: Promis
   const { campaignId } = await params;
   const campaign = await obtenerCampanaParaRoot(campaignId);
   if (!campaign) notFound();
+  const similares = campaign.status === "en_revision" ? await obtenerCampanasSimilares(campaign.id) : null;
 
   const currentStatus = statusMap[campaign.status as keyof typeof statusMap] ?? { label: "En revisión", tone: "warn" };
   const dataTypes = campaign.dataTypes.length > 0 ? campaign.dataTypes : ["texto"];
-  const yaRecolecta = campaign.status === "activa" || campaign.status === "pausada" || campaign.status === "finalizada" || campaign.status === "fallida";
+  const yaRecolecta = campaign.status === "activa" || campaign.status === "pausada" || campaign.status === "finalizada";
   const location = textoDeUbicacion({ todoElPais: campaign.todoElPais, colonia: campaign.locationColonia, municipio: campaign.locationCity, estado: campaign.locationState }, "Sin ubicación");
 
   const filas: [string, React.ReactNode][][] = [
@@ -102,6 +104,17 @@ export default async function SupervisarCampanaPage({ params }: { params: Promis
       {/* Activa o pausada, la supervise quien la supervise (2026-10-15). */}
       <EstadoComoSuperUsuario campaignId={campaign.id} status={campaign.status} pausa={campaign.pausa} />
 
+      {/* Terminada (2026-11-04): el SuperUsuario decide sobre cualquiera. */}
+      {campaign.datosAbiertos && (
+        <DatosAbiertosComoSuperUsuario
+          campaignId={campaign.id}
+          datos={campaign.datosAbiertos}
+          aprobados={campaign.approvedContributions}
+          meta={campaign.goalContributions}
+          participantes={campaign.participants}
+        />
+      )}
+
       <section className="rounded-lg border border-system-200 bg-white p-5 shadow-sm">
         <p className="text-[13.5px] leading-6 text-system-600">{campaign.description}</p>
 
@@ -132,6 +145,8 @@ export default async function SupervisarCampanaPage({ params }: { params: Promis
           )}
         </div>
       </section>
+
+      {similares && <CampanasSimilares similares={similares} rutaBase="/supervisar" />}
     </div>
   );
 }

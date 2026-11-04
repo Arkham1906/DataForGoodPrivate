@@ -5,6 +5,7 @@ import { columnasCalculadas } from "@/lib/campanas/tipos-de-campana";
 import { activateScheduledCampaigns, finalizeExpiredCampaigns, normalizeCampaignDate } from "@/lib/campaign-date";
 import { hasRootSession } from "@/lib/rootSession";
 import { pausaDesdeFila, type PausaDeCampana } from "@/lib/campanas/pausa";
+import { datosAbiertosDesdeFila, type DatosAbiertosDeCampana } from "@/lib/campanas/datos-abiertos";
 import { agregarEtiquetas } from "@/lib/etiquetas/catalogo";
 import type { EtiquetaDeCampana } from "@/lib/etiquetas/reglas";
 import { cuotaPorTipoDesdeFila, type CuotaPorTipo } from "@/lib/campanas/cuota-por-tipo";
@@ -21,7 +22,7 @@ import { cuotaPorTipoDesdeFila, type CuotaPorTipo } from "@/lib/campanas/cuota-p
  */
 
 /** Estados de una campaña que ya pasó la supervisión (la aceptó alguien). */
-export const ESTADOS_SUPERVISADOS = ["aceptada", "activa", "pausada", "finalizada", "fallida"];
+export const ESTADOS_SUPERVISADOS = ["aceptada", "activa", "pausada", "finalizada"];
 
 /** Guardia de cada página: el layout de (panel) ya la aplica, pero no basta solo. */
 export async function exigirSesionRoot(): Promise<void> {
@@ -64,6 +65,8 @@ export type CampanaSupervisable = {
   endDate: string | null;
   /** Quién la pausó y por qué, o null si no está pausada. */
   pausa: PausaDeCampana | null;
+  /** Decisión de datos abiertos, o null si no ha terminado. */
+  datosAbiertos: DatosAbiertosDeCampana | null;
 };
 
 function mapear(row: Record<string, unknown>): CampanaSupervisable {
@@ -99,6 +102,7 @@ function mapear(row: Record<string, unknown>): CampanaSupervisable {
     startDate: normalizeCampaignDate(row.start_date),
     endDate: normalizeCampaignDate(row.end_date),
     pausa: pausaDesdeFila(row),
+    datosAbiertos: datosAbiertosDesdeFila(row),
   };
 }
 
@@ -172,7 +176,7 @@ export async function obtenerCampanaSupervisadaPorRoot(id: string): Promise<{ id
 
   const result = await pool.query<{ id: number; name: string }>(
     `SELECT id, name FROM campanas
-     WHERE id = $1 AND status IN ('activa', 'pausada', 'finalizada', 'fallida')
+     WHERE id = $1 AND status IN ('activa', 'pausada', 'finalizada')
      LIMIT 1`,
     [id],
   );

@@ -41,8 +41,8 @@ export function hoyEnTepic(): string {
 
 /**
  * true si la fecha ("YYYY-MM-DD") y hora ("HH:MM", opcional) de inicio todavía no llegan en Tepic.
- * Versión para el navegador de hasCampaignStarted (lib/campaign-date.ts): el formulario decide
- * entre "Guardar y reanudar" y "Guardar y programar" con ella (2026-10-27).
+ * Versión para el navegador de hasCampaignStarted (lib/campaign-date.ts): /mis-campanas decide
+ * si una pausada se activa o se programa con ella, y comprueba que una fecha de cierre siga vigente.
  */
 export function inicioEnElFuturo(fecha: string | null | undefined, hora?: string | null): boolean {
   if (!fecha) return false;

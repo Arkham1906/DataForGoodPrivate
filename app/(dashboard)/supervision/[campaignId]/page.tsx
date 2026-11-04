@@ -1,7 +1,7 @@
 "use client";
 
 // Pantalla /supervision/[campaignId]: revisar una campaña en_revision y dictaminar.
-// Componente cliente. Datos: GET /api/campanas?id=.
+// Componente cliente. Datos: GET /api/campanas?id= y, en revisión, GET /api/campanas/[id]/similares.
 // Acciones: tomar con PATCH /api/campanas/[id] { action: "tomar" }; dictaminar con
 // PATCH { action: "aceptada" | "rechazada", motivoDeLista, motivo, sancion }. Al rechazar se puede sancionar
 // al creador (components/supervision/FormularioDeRechazo); "Reportar" se quitó el 2026-10-16.
@@ -14,12 +14,16 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Tag from "@/components/ui/Tag";
+import CampanasSimilares from "@/components/supervision/CampanasSimilares";
+import DecisionDeDatosAbiertos, { type DecisionPedida } from "@/components/supervision/DecisionDeDatosAbiertos";
+import type { DatosAbiertosDeCampana } from "@/lib/campanas/datos-abiertos";
 import FormularioDeRechazo, { type RechazoPedido } from "@/components/supervision/FormularioDeRechazo";
 import { BackLink } from "../_ui";
 import { BASE_PATH } from "@/lib/base-path";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import EstadoDeCampanaSupervisada, { type CambioDeEstado } from "@/components/supervision/EstadoDeCampanaSupervisada";
 import type { PausaDeCampana } from "@/lib/campanas/pausa";
+import type { CampanasSimilares as Similares } from "@/lib/supervision/similares";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 import { repartoSugerido } from "@/lib/campanas/reparto-sugerido";
 import { resumenDeCuotaPorTipo } from "@/lib/campanas/cuota-por-tipo";
@@ -55,6 +59,7 @@ type Campaign = {
   startDate?: string | null;
   endDate?: string | null;
   pausa?: PausaDeCampana | null;
+  datosAbiertos?: DatosAbiertosDeCampana | null;
 };
 
 export default function CampaignDetailPage() {
@@ -69,6 +74,7 @@ export default function CampaignDetailPage() {
   const [errorDeDecision, setErrorDeDecision] = useState<string | null>(null);
   const [isCreator, setIsCreator] = useState(false);
   const [isMySupervision, setIsMySupervision] = useState(false);
+  const [similares, setSimilares] = useState<Similares | null>(null);
 
   // Vuelve a leer cuando algo cambia en la base (actualización en vivo).
   const recarga = useRecargaEnVivo();
@@ -95,6 +101,16 @@ export default function CampaignDetailPage() {
       void loadCampaign();
     }
   }, [campaignId, recarga]);
+
+  // Las de la misma temática, para decidir si se acepta (2026-11-04). Si fallan, la revisión sigue.
+  const enRevision = campaign?.status === "en_revision";
+  useEffect(() => {
+    if (!campaignId || !enRevision) return;
+    void fetch(`${BASE_PATH}/api/campanas/${campaignId}/similares`, { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload) => setSimilares(payload?.data ?? null))
+      .catch(() => setSimilares(null));
+  }, [campaignId, enRevision, recarga]);
 
   async function handleDecision(action: "aceptada" | "rechazada", rechazo?: RechazoPedido) {
     if (!campaignId) return;
@@ -124,6 +140,23 @@ export default function CampaignDetailPage() {
       setErrorDeDecision(cause instanceof Error ? cause.message : "No se pudo registrar la decisión");
     } finally {
       setActionLoading(null);
+    }
+  }
+
+  // Publicar o no los datos abiertos de la campaña terminada que supervisa (2026-11-04). Devuelve el error o null.
+  async function handleDatosAbiertos(decision: DecisionPedida, motivo: string): Promise<string | null> {
+    try {
+      const response = await fetch(`${BASE_PATH}/api/campanas/${campaignId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: decision, motivo }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) return payload?.error ?? "No se pudo guardar la decisión";
+      if (payload?.data) setCampaign(payload.data);
+      return null;
+    } catch {
+      return "No se pudo guardar la decisión";
     }
   }
 
@@ -164,7 +197,6 @@ export default function CampaignDetailPage() {
     rechazada: { label: "Rechazada", tone: "danger" },
     borrador: { label: "Borrador", tone: "default" },
     finalizada: { label: "Finalizada", tone: "default" },
-    fallida: { label: "Incompleta", tone: "warn" },
     pausada: { label: "Pausada", tone: "default" },
   } as const;
 
@@ -251,6 +283,17 @@ export default function CampaignDetailPage() {
         <EstadoDeCampanaSupervisada status={String(campaign.status ?? "")} pausa={campaign.pausa} onCambiar={handleCambioDeEstado} />
       )}
 
+      {campaign.datosAbiertos && (
+        <DecisionDeDatosAbiertos
+          datos={campaign.datosAbiertos}
+          aprobados={Number(campaign.approvedContributions ?? 0)}
+          meta={Number(campaign.goalContributions ?? 0)}
+          participantes={Number(campaign.participants ?? 0)}
+          puedeDecidir={isMySupervision && !isCreator}
+          onDecidir={handleDatosAbiertos}
+        />
+      )}
+
       <section className="rounded-lg border border-system-200 bg-white p-5 shadow-sm">
         <p className="text-[13.5px] leading-6 text-system-600">{campaign.description}</p>
 
@@ -320,7 +363,7 @@ export default function CampaignDetailPage() {
         </div>
 
         <div className="mt-5 flex flex-wrap gap-3">
-          {(campaign.status === "activa" || campaign.status === "pausada" || campaign.status === "finalizada" || campaign.status === "fallida") && (
+          {(campaign.status === "activa" || campaign.status === "pausada" || campaign.status === "finalizada") && (
             <Link href={`/supervision/${campaign.id}/usuarios`} className="rounded-pill bg-brand-600 px-5 py-3 text-[12.5px] font-bold text-white shadow-sm hover:bg-brand-800">
               Ver participantes
             </Link>
@@ -332,6 +375,8 @@ export default function CampaignDetailPage() {
           )}
         </div>
       </section>
+
+      {campaign.status === "en_revision" && similares && <CampanasSimilares similares={similares} rutaBase="/supervision" />}
     </div>
   );
 }

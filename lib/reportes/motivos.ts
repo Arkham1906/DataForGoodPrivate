@@ -14,11 +14,19 @@ export const MOTIVOS_DE_REPORTE_DE_CAMPANA = [
 /** "Otro" de la lista de motivos de rechazo: obliga a escribir la explicación. */
 export const OTRO_MOTIVO = "Otro";
 
+/** La supervisión comparó con las campañas similares (2026-11-04): obliga a explicar el rechazo. */
+export const MOTIVO_CAMPANA_SIMILAR = "Ya existe una campaña similar";
+
 /**
- * Por qué la supervisión rechaza una campaña (2026-10-16): los de reportar una campaña y "Otro".
- * Se elige uno y/o se explica con palabras propias; con "Otro", la explicación es obligatoria.
+ * Por qué la supervisión rechaza una campaña (2026-10-16): los de reportar una campaña, el de campaña
+ * similar y "Otro". Se elige uno y/o se explica con palabras propias.
  */
-export const MOTIVOS_DE_RECHAZO_DE_CAMPANA = [...MOTIVOS_DE_REPORTE_DE_CAMPANA, OTRO_MOTIVO];
+export const MOTIVOS_DE_RECHAZO_DE_CAMPANA = [...MOTIVOS_DE_REPORTE_DE_CAMPANA, MOTIVO_CAMPANA_SIMILAR, OTRO_MOTIVO];
+
+/** Con estos motivos la explicación es obligatoria. */
+export function motivoExigeExplicacion(motivo: string | null): boolean {
+  return motivo === OTRO_MOTIVO || motivo === MOTIVO_CAMPANA_SIMILAR;
+}
 
 /** Largo máximo de la explicación del rechazo. */
 export const MAXIMO_EXPLICACION_DE_RECHAZO = 500;

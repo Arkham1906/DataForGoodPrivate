@@ -96,7 +96,7 @@ export default function PanelCampanaPage() {
     return new Date(year, month - 1, day);
   };
 
-  const isFinished = campaign.status === "finalizada" || campaign.status === "fallida";
+  const isFinished = campaign.status === "finalizada";
   const pct = porcentajeDeMeta(campaign.approvedContributions, campaign.goalContributions);
   const inicio = parseDateOnly(campaign.startDate);
   const hoy = new Date();
@@ -141,18 +141,6 @@ export default function PanelCampanaPage() {
           {isFinished ? "Solo lectura" : <TextoDeActualizacion iso={actualizadoEn} />}
         </Tag>
       </div>
-
-      {/* Fallida (2026-11-01, lib/campanas/fallida.ts): por qué y cómo extenderla. */}
-      {campaign.status === "fallida" && (
-        <div className="mb-6 rounded-lg border border-warning-200 bg-warning-50 p-4 text-[13px] text-system-900">
-          <p className="font-semibold">Campaña incompleta</p>
-          <p className="mt-1">
-            Terminó con {campaign.approvedContributions} de {campaign.goalContributions} aportes aprobados, menos del 25% de
-            su meta, así que no publicó datos abiertos. Puedes extenderla con una nueva fecha de cierre desde{" "}
-            <Link href={`/mis-campanas/nueva?edit=${campaign.id}`} className="font-semibold underline">Extender campaña</Link>.
-          </p>
-        </div>
-      )}
 
       <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <MetricCard label="Aportes aprobados" value={campaign.approvedContributions} />
