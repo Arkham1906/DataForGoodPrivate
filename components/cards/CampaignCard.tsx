@@ -1,6 +1,6 @@
 // Tarjeta de campaña para las listas de la zona de usuario (/campanas, /mis-aportes...). Recibe un Campaign de types/index.ts.
-// Con `onAbrir` (2026-10-27) toda la tarjeta es clickeable: un botón que la cubre abre el detalle en
-// una ventana (campanas/VentanaDeCampana); "Ver detalles" queda encima y sigue llevando a /campanas/[id].
+// `hrefAlAbrir` hace que un enlace cubra la tarjeta para navegar al detalle; `onAbrir` conserva la
+// opción de abrir una ventana en pantallas que todavía la usan. "Ver detalles" también lleva al detalle.
 
 import Link from "next/link";
 import Card from "@/components/ui/Card";
@@ -27,7 +27,7 @@ function formatDateRange(start: string | null, end: string | null) {
   return `${s} – ${e}`;
 }
 
-export default function CampaignCard({ campaign, onAbrir, compact = false, mobileCompact = false }: { campaign: Campaign; onAbrir?: () => void; compact?: boolean; mobileCompact?: boolean }) {
+export default function CampaignCard({ campaign, onAbrir, hrefAlAbrir, compact = false, mobileCompact = false }: { campaign: Campaign; onAbrir?: () => void; hrefAlAbrir?: string; compact?: boolean; mobileCompact?: boolean }) {
   const remainingDays = Number.isFinite(campaign.daysRemaining) ? Math.max(0, Number(campaign.daysRemaining)) : 0;
   const pct = porcentajeDeMeta(campaign.approvedContributions, campaign.goalContributions);
   const isActive = campaign.status === "activa";
@@ -40,8 +40,14 @@ export default function CampaignCard({ campaign, onAbrir, compact = false, mobil
   }) : "Sin fecha";
 
   return (
-    <Card className={`flex flex-col ${compact ? "gap-2 p-3 max-md:gap-1.5 max-md:p-2.5" : "gap-3 max-md:gap-2.5 max-md:p-3.5"} ${mobileCompact ? "max-sm:gap-2 max-sm:p-2.5" : ""} ${onAbrir ? "relative cursor-pointer transition-colors hover:border-brand-600" : ""}`}>
-      {onAbrir && (
+    <Card className={`flex flex-col ${compact ? "gap-2 p-3 max-md:gap-1.5 max-md:p-2.5" : "gap-3 max-md:gap-2.5 max-md:p-3.5"} ${mobileCompact ? "max-sm:gap-2 max-sm:p-2.5" : ""} ${onAbrir || hrefAlAbrir ? "relative cursor-pointer transition-colors hover:border-brand-600" : ""}`}>
+      {hrefAlAbrir ? (
+        <Link
+          href={hrefAlAbrir}
+          aria-label={`Ver la campaña ${campaign.name}`}
+          className="absolute inset-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+        />
+      ) : onAbrir ? (
         <button
           type="button"
           onClick={onAbrir}
@@ -49,11 +55,11 @@ export default function CampaignCard({ campaign, onAbrir, compact = false, mobil
           data-sin-respuesta
           className="absolute inset-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
         />
-      )}
+      ) : null}
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
-        {/* Temática › etiquetas (2026-10-27). */}
+        {/* En el catálogo se muestra la temática principal, sin subtemáticas. */}
         <div className="min-w-0">
-          <RutaDeTematica tematica={campaign.tematica || campaign.tag} etiquetas={campaign.etiquetas} />
+          <RutaDeTematica tematica={campaign.tematica || campaign.tag} />
         </div>
         <div className="flex flex-wrap justify-end gap-1.5">
           {campaign.especial?.etapa === "vigente" && <Tag tone="warn">★ Especial ×{campaign.especial.multiplicador}</Tag>}
