@@ -3,6 +3,7 @@
 // RachaSemanal) para que un cambio en una no toque a las otras. Server Component; la única parte con estado es
 // PotenciadorActivo (su cuenta regresiva).
 
+import type { ReactNode } from "react";
 import type { ResumenDeProgreso } from "@/lib/gamificacion/progreso-tipos";
 import MisionesDeHoy from "./MisionesDeHoy";
 import PotenciadorActivo from "./PotenciadorActivo";
@@ -10,7 +11,14 @@ import RachaSemanal from "./RachaSemanal";
 
 const ZONA = "flex min-w-0 flex-col gap-2.5 p-5";
 
-export default function ResumenDeHoy({ progreso }: { progreso: ResumenDeProgreso }) {
+export default function ResumenDeHoy({
+  progreso,
+  accionDeRacha,
+}: {
+  progreso: ResumenDeProgreso;
+  /** Debajo de la racha; /progreso pone ahí el calendario (CalendarioDeRacha). */
+  accionDeRacha?: ReactNode;
+}) {
   return (
     <section
       aria-label="Hoy"
@@ -23,7 +31,7 @@ export default function ResumenDeHoy({ progreso }: { progreso: ResumenDeProgreso
         <MisionesDeHoy misiones={progreso.misiones} />
       </div>
       <div className={`${ZONA} lg:flex-1`}>
-        <RachaSemanal racha={progreso.racha} />
+        <RachaSemanal racha={progreso.racha} accion={accionDeRacha} />
       </div>
     </section>
   );

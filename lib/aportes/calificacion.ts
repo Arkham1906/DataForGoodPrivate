@@ -7,13 +7,13 @@ export const ESTRELLAS_MAXIMAS = 5;
 
 export type CalificacionDeAporte = 1 | 2 | 3 | 4 | 5;
 
-/** Nombre de cada número de estrellas (para el lector de pantalla y el título al pasar el cursor). */
+/** Nombre de cada número de estrellas (SRS v1.2, RF-GAM-99 y RA-GAM-25): solo de interfaz; los datos usan el número. */
 export const NOMBRES_DE_ESTRELLAS: Record<CalificacionDeAporte, string> = {
-  1: "Malo",
-  2: "Regular",
-  3: "Bien",
-  4: "Muy bueno",
-  5: "Excelente",
+  1: "Suficiente",
+  2: "Bueno",
+  3: "Muy bueno",
+  4: "Sobresaliente",
+  5: "Excepcional",
 };
 
 export function esCalificacion(valor: unknown): valor is CalificacionDeAporte {
@@ -27,7 +27,7 @@ export function calificacionDesde(valor: unknown): CalificacionDeAporte | null {
   return esCalificacion(n) ? n : null;
 }
 
-/** "4 de 5 estrellas (Muy bueno)", o null sin calificación. */
+/** "4 de 5 estrellas (Sobresaliente)", o null sin calificación. */
 export function textoDeCalificacion(valor: unknown): string | null {
   const n = calificacionDesde(valor);
   if (n === null) return null;

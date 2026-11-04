@@ -1,9 +1,10 @@
 "use client";
 
 // Ficha de rango en ventana (2026-11-02; SRS v1.1: RF-GAM-22, 78 a 83): el detalle de un rango según su estado.
-// Actual: cuándo se alcanzó, lo que pidió y lo que se recibió. Siguiente: avance por requisito y lo que se
-// recibirá. Avistado: la pista y lo que pedirá. Solo pinta lo que el servidor envió en cada ficha (RNF-GAM-14):
-// el avistado no trae nombre, descripción ni etapa, así que aquí no hay forma de mostrarlos.
+// Actual y alcanzado: cuándo se alcanzó, lo que pidió y lo que se recibió. Siguiente: avance por requisito y lo que
+// se recibirá. Avistado: la pista y lo que pedirá. Por descubrir: solo lo que pedirá. Solo pinta lo que el servidor
+// envió en cada ficha (RNF-GAM-14): avistado y por descubrir no traen nombre, descripción ni etapa, así que aquí no
+// hay forma de mostrarlos. Textos según la v1.2 (2026-11-04): nada promete ni advierte una reversión.
 //
 // Ventana <dialog> nativo, como EditarAvatar y PreferenciasDeComunicacion: Esc la cierra, el foco vuelve al
 // botón que la abrió y el clic en el fondo la cierra. `abierta` es el número del rango que se ve (null =
@@ -25,9 +26,11 @@ import type {
 import InsigniaDeRango from "./InsigniaDeRango";
 
 const CHIP: Record<DatosDeFicha["estado"], { texto: string; tono: "default" | "ok" | "info" }> = {
+  alcanzado: { texto: "Alcanzado", tono: "info" },
   actual: { texto: "Tu rango actual", tono: "default" },
   siguiente: { texto: "Siguiente", tono: "ok" },
   avistado: { texto: "Avistado", tono: "info" },
+  oculto: { texto: "Por descubrir", tono: "default" },
 };
 
 function Flecha({ lado }: { lado: "izquierda" | "derecha" | "cerrar" }) {
@@ -119,11 +122,14 @@ function Descripcion({ texto }: { texto: string | null }) {
 }
 
 function Cuerpo({ ficha, total }: { ficha: DatosDeFicha; total: number }) {
-  if (ficha.estado === "actual") {
+  if (ficha.estado === "actual" || ficha.estado === "alcanzado") {
+    const esActual = ficha.estado === "actual";
     return (
       <>
         <p id="ficha-rango-intro" className="text-sm text-system-700">
-          Tu rango actual. Es permanente: no se pierde por inactividad, por perder la racha ni por invalidaciones.
+          {esActual
+            ? "Tu rango actual. Es permanente: no se pierde por inactividad ni por perder la racha."
+            : "Un rango que ya es tuyo, para siempre."}
         </p>
         {ficha.textoDeAscenso && <p className="text-[13px] font-semibold text-system-900">{ficha.textoDeAscenso}</p>}
         <Descripcion texto={ficha.descripcion} />
@@ -139,7 +145,10 @@ function Cuerpo({ ficha, total }: { ficha: DatosDeFicha; total: number }) {
         </Seccion>
         <Seccion id="ficha-rango-recibiste" titulo="Lo que recibiste">
           <ul className="space-y-2">
-            <Recompensa titulo={`Etapa ${ficha.etapaDelAvatar} de tu avatar`} detalle="Es la etapa que tiene hoy tu avatar." />
+            <Recompensa
+              titulo={`Etapa ${ficha.etapaDelAvatar} de tu avatar`}
+              detalle={esActual ? "Es la etapa que tiene hoy tu avatar." : "Tu avatar ya pasó por esta etapa y no retrocede."}
+            />
             <Recompensa titulo="Insignia del rango" detalle="El emblema de este rango." />
           </ul>
         </Seccion>
@@ -159,7 +168,7 @@ function Cuerpo({ ficha, total }: { ficha: DatosDeFicha; total: number }) {
         <Seccion id="ficha-rango-pide" titulo="Lo que pide y tu avance">
           <ListaDeAvance requisitos={ficha.requisitos} />
           <p className="text-[12px] text-system-500">
-            Si una invalidación reduce tu avance, aquí verás tus estadísticas actuales.
+            Los aportes de 5★ cuentan también como de 4★ o más. Lo que ganas con un aporte aceptado no se revierte.
           </p>
         </Seccion>
         <Seccion id="ficha-rango-recibiras" titulo="Lo que recibirás">
@@ -174,6 +183,26 @@ function Cuerpo({ ficha, total }: { ficha: DatosDeFicha; total: number }) {
         <ButtonLink href="/campanas" variant="primary" size="sm" className="self-start">
           Buscar campañas para aportar
         </ButtonLink>
+      </>
+    );
+  }
+
+  if (ficha.estado === "oculto") {
+    return (
+      <>
+        <p id="ficha-rango-intro" className="text-sm text-system-700">
+          Un rango por descubrir. Puedes consultar lo que pedirá; lo demás se revela al acercarte.
+        </p>
+        <Seccion id="ficha-rango-pedira" titulo="Lo que pedirá">
+          <ListaDeMetas requisitos={ficha.requisitos} cumplidos={false} />
+          <p className="text-[12px] text-system-500">
+            Requisitos vigentes del catálogo. Pueden cambiar en nuevas versiones sin afectar a los rangos ya alcanzados.
+          </p>
+        </Seccion>
+        <p className="text-[12.5px] text-system-600">
+          Su nombre, su insignia y lo que recibirás se revelan al alcanzar el rango {ficha.numero - 1}.
+          {ficha.numero >= total && " Es el último rango de la trayectoria."}
+        </p>
       </>
     );
   }
@@ -268,12 +297,12 @@ export default function FichaDeRango({
             <div className="mt-4 flex items-center gap-4">
               <InsigniaDeRango numero={ficha.numero} estado={ficha.estado} tamano="lg" />
               <div className="min-w-0">
-                <Tag tone={chip.tono}>{chip.texto}</Tag>
+                <Tag tone={chip.tono}>{ficha.estado === "oculto" && ficha.numero >= total ? "El último rango" : chip.texto}</Tag>
                 <h2 id="ficha-rango-titulo" className="mt-1.5 text-xl font-extrabold leading-tight">
                   <span className="block text-[12px] font-semibold text-brand-200">
                     Rango {ficha.numero} de {total}
                   </span>
-                  {ficha.estado === "avistado" ? "Nombre por descubrir" : ficha.nombre}
+                  {ficha.estado === "avistado" || ficha.estado === "oculto" ? "Nombre por descubrir" : ficha.nombre}
                 </h2>
               </div>
             </div>

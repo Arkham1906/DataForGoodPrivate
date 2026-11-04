@@ -1,9 +1,10 @@
 // Racha de «Hoy» (2026-11-02; SRS v1.1: RF-GAM-25 a 31, 85): los días de racha y los últimos 7 días con el estado de
 // cada uno (confirmado, provisional con aportes en revisión, cubierto con protector, sin actividad, suspendido).
 // Cada estado se distingue también por su forma y su texto para lectores de pantalla, no solo por el color.
-// Sin estado: sirve en servidor y cliente. El calendario completo y los eventos de la racha (RF-GAM-85, 86) son
-// de /progreso y llegan en otra entrega.
+// Sin estado: sirve en servidor y cliente. El calendario completo y los eventos de la racha (RF-GAM-85, 86) van en
+// CalendarioDeRacha, que /progreso pasa como `accion`.
 
+import type { ReactNode } from "react";
 import {
   MAXIMO_DE_PROTECTORES,
   type EstadoDeDiaDeRacha,
@@ -27,7 +28,7 @@ const TEXTO_DEL_DIA: Record<EstadoDeDiaDeRacha, string> = {
   suspendido: "suspendido",
 };
 
-export default function RachaSemanal({ racha }: { racha: ResumenDeRacha }) {
+export default function RachaSemanal({ racha, accion }: { racha: ResumenDeRacha; accion?: ReactNode }) {
   return (
     <>
       <h2 className="text-lg font-extrabold text-system-900">Racha</h2>
@@ -51,6 +52,7 @@ export default function RachaSemanal({ racha }: { racha: ResumenDeRacha }) {
       <p className="text-[12.5px] text-brand-800">
         Máxima: {racha.maxima}. Protectores: {racha.protectores} de {MAXIMO_DE_PROTECTORES}.
       </p>
+      {accion}
     </>
   );
 }

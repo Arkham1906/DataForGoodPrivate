@@ -42,7 +42,7 @@ type FilaDeProgreso = {
   total_rangos: number;
 };
 
-type FilaDeRango = {
+export type FilaDeRango = {
   numero: number;
   nombre: string;
   descripcion: string | null;
@@ -59,7 +59,7 @@ const NOMBRES_DE_DIA = ["domingo", "lunes", "martes", "miércoles", "jueves", "v
 const LETRAS_DE_DIA = ["D", "L", "M", "M", "J", "V", "S"];
 const ESTADOS_DE_DIA = new Set<string>(["confirmado", "provisional", "protegido", "sin_actividad", "suspendido"]);
 
-function requisitosDe(r: FilaDeRango): ValoresPorRequisito {
+export function requisitosDe(r: FilaDeRango): ValoresPorRequisito {
   return {
     exp: r.req_exp,
     aportes: r.req_aportes,
@@ -70,7 +70,7 @@ function requisitosDe(r: FilaDeRango): ValoresPorRequisito {
   };
 }
 
-function sumarDias(dia: string, dias: number): string {
+export function sumarDias(dia: string, dias: number): string {
   const fecha = new Date(`${dia}T00:00:00Z`);
   fecha.setUTCDate(fecha.getUTCDate() + dias);
   return fecha.toISOString().slice(0, 10);

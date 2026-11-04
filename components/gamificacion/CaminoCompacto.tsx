@@ -13,6 +13,8 @@ import InsigniaDeRango from "./InsigniaDeRango";
 function etiquetaDe(ficha: DatosDeFicha): string {
   if (ficha.estado === "actual") return `Tu rango, ${ficha.numero}, ${ficha.nombre}. Abre su ficha.`;
   if (ficha.estado === "siguiente") return `Siguiente rango, ${ficha.numero}, ${ficha.nombre}. Abre su ficha.`;
+  if (ficha.estado === "alcanzado") return `Rango ${ficha.numero}, ${ficha.nombre}, alcanzado. Abre su ficha.`;
+  if (ficha.estado === "oculto") return `Rango ${ficha.numero}, por descubrir. Abre su ficha.`;
   return `Rango ${ficha.numero}, avistado. Abre su ficha.`;
 }
 

@@ -167,8 +167,12 @@ Tabla de líderes de la landing. **Hoy devuelve datos de ejemplo** y la sección
 | `tipos.ts` 🟢 | Contrato: `Lider`, `TablaDeLideres`, `CategoriaDeClasificacion`, `LIDERES_POR_CATEGORIA` (6), `LUGARES_DEL_PODIO` (3), `textoDelValor()`, `nombreParaMostrar()` ("Carlos P.") | `components/gamificacion/*`, `clasificacion.ts` |
 | `clasificacion.ts` | `obtenerTablaDeLideres()` (TODO: consultas reales) y `mostrarTablaDeLideres()` (interruptor del entorno) | `app/page.tsx` |
 | `datos-de-ejemplo.ts` 🟢 | `TABLA_DE_EJEMPLO`: 6 personas inventadas; se borra al conectar la base | `clasificacion.ts` |
-| `rangos.ts` 🟢 (2026-11-02) | Lógica pura de rangos (RF-GAM-16, 22, 23, 78 a 83): estado de cada rango, requisitos y avance, `pistaDelRango()`, fichas por estado (actual, siguiente, avistado), `textoDeAscenso()` | `progreso.ts`, `components/gamificacion/*` |
+| `rangos.ts` 🟢 (2026-11-02) | Lógica pura de rangos (RF-GAM-16, 22, 23, 78 a 83): estado de cada rango, requisitos y avance, `pistaDelRango()`, fichas por estado (alcanzado, actual, siguiente, avistado, oculto), `textoDeAscenso()` | `progreso.ts`, `components/gamificacion/*` |
 | `progreso-tipos.ts` 🟢 (2026-11-02) | Contrato de `ResumenDeProgreso`: rango, potenciadores, misiones de hoy y racha. El tipo de la ficha avistada no tiene campos ocultos (RNF-GAM-14) | `progreso.ts`, `components/gamificacion/*` |
+| `medallas.ts` 🟢 (2026-11-04) | `medallasMasCercanas()`: elige las medallas con menos camino a su siguiente nivel | `mi-progreso.ts` |
+| `pantallas-de-progreso.ts` 🟢 (2026-11-04) | Las seis pestañas de Mi progreso y cuáles ya existen (`rutaDePantalla()`) | `components/gamificacion/*` |
+| `mi-progreso-tipos.ts` 🟢 (2026-11-04) | Contrato del Resumen y del calendario de racha | `mi-progreso.ts`, `components/gamificacion/*` |
+| `mi-progreso.ts` (2026-11-04) | `obtenerDatosDeResumen()` (fichas de los 20 rangos, camino, calificaciones, medallas) y `obtenerCalendarioDeRacha()`; solo lectura; devuelven `null` si fallan | `/progreso`, `/api/progreso/racha` |
 | `progreso.ts` (2026-11-02) | `obtenerResumenDeProgreso(usuarioId)`: 6 consultas en paralelo (`usuario_progreso`, `rangos`, `rango_ascensos`, `potenciadores`, `mision_instancias`, `racha_dias`); devuelve `null` si falla | `/inicio`, `/progreso` |
 
 Componentes en `components/gamificacion/`: `TablaDeLideres` (cliente: categorías y selector de temática), `Podio` (lugares 1 a 3) y `ListaDeLideres` (del 4 en adelante).

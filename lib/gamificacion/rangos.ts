@@ -26,17 +26,37 @@ export type ValoresPorRequisito = Record<ClaveDeRequisito, number>;
 const TEXTOS: Record<ClaveDeRequisito, { etiqueta: string; plural: string; nuevo: string }> = {
   exp: { etiqueta: "EXP", plural: "EXP", nuevo: "EXP" },
   aportes: { etiqueta: "Aportes aceptados", plural: "aportes aceptados", nuevo: "un aporte aceptado" },
+  // Nombres de la v1.2 (2026-11-04: RF-GAM-99). La clave y la columna siguen siendo `excelentes` hasta su migración.
   excelentes: {
-    etiqueta: "Excelentes o superiores",
-    plural: "aportes excelentes o superiores",
-    nuevo: "un aporte excelente o superior",
+    etiqueta: "Sobresalientes o superiores (4★ o más)",
+    plural: "aportes de 4★ o más",
+    nuevo: "un aporte de 4★ o más",
   },
-  excepcionales: { etiqueta: "Excepcionales", plural: "aportes excepcionales", nuevo: "un aporte excepcional" },
+  excepcionales: {
+    etiqueta: "Excepcionales (5★)",
+    plural: "aportes excepcionales (5★)",
+    nuevo: "un aporte excepcional (5★)",
+  },
   racha: { etiqueta: "Racha actual", plural: "días de racha", nuevo: "una racha de días seguidos" },
   misiones: { etiqueta: "Misiones completadas", plural: "misiones completadas", nuevo: "una misión completada" },
 };
 
+/** Etiquetas cortas de cada requisito, para el bloque de rango de /progreso. */
+export const ETIQUETAS_CORTAS: Record<ClaveDeRequisito, string> = {
+  exp: "EXP",
+  aportes: "Aportes",
+  excelentes: "4★ o más",
+  excepcionales: "5★",
+  racha: "Racha",
+  misiones: "Misiones",
+};
+
 const nf = new Intl.NumberFormat("es-MX");
+
+/** «Aplicado» de «Investigador Aplicado»: la parte que cabe en el camino de rangos. */
+export function nombreCortoDeRango(nombre: string): string {
+  return nombre.replace(/^Investigador\s+/, "");
+}
 
 /** Estado de un rango respecto al rango actual de la persona (RF-GAM-78). */
 export type EstadoDeRango = "alcanzado" | "actual" | "siguiente" | "avistado" | "oculto";
@@ -106,7 +126,7 @@ function unirConY(lista: string[]): string {
   return `${lista.slice(0, -1).join(", ")} y ${lista[lista.length - 1]}`;
 }
 
-/** Lo que falta en un requisito, con su plural: «1 aporte aceptado», «3 excelentes», «2 días de racha». */
+/** Lo que falta en un requisito, con su plural: «1 aporte aceptado», «3 aportes de 4★ o más», «2 días de racha». */
 function frase(clave: ClaveDeRequisito, faltan: number): string {
   const uno = faltan === 1;
   switch (clave) {
@@ -115,9 +135,9 @@ function frase(clave: ClaveDeRequisito, faltan: number): string {
     case "aportes":
       return `${faltan} ${uno ? "aporte aceptado" : "aportes aceptados"}`;
     case "excelentes":
-      return `${faltan} ${uno ? "excelente" : "excelentes"}`;
+      return `${faltan} ${uno ? "aporte" : "aportes"} de 4★ o más`;
     case "excepcionales":
-      return `${faltan} ${uno ? "excepcional" : "excepcionales"}`;
+      return `${faltan} ${uno ? "aporte" : "aportes"} de 5★`;
     case "racha":
       return `${faltan} ${uno ? "día de racha" : "días de racha"}`;
     case "misiones":
@@ -125,7 +145,7 @@ function frase(clave: ClaveDeRequisito, faltan: number): string {
   }
 }
 
-/** «Te faltan 33 EXP y 2 excelentes.» (RF-GAM-22). Con todo cumplido, avisa que el ascenso se registra solo. */
+/** «Te faltan 33 EXP y 2 aportes de 4★ o más.» (RF-GAM-22). Con todo cumplido, avisa que el ascenso se registra solo. */
 export function textoQueFalta(avances: AvanceDeRequisito[]): string {
   const pendientes = avances.filter((a) => !a.cumplido);
   if (pendientes.length === 0) {
@@ -172,6 +192,9 @@ export type FichaDeRangoActual = {
   textoDeAscenso: string;
 };
 
+/** Rango ya alcanzado: lo mismo que el actual (RF-GAM-78 a, 83). */
+export type FichaDeRangoAlcanzado = Omit<FichaDeRangoActual, "estado"> & { estado: "alcanzado" };
+
 /** Rango siguiente: nombre y descripción visibles; requisitos con avance y lo que se recibirá. */
 export type FichaDeRangoSiguiente = {
   estado: "siguiente";
@@ -195,7 +218,19 @@ export type FichaDeRangoAvistado = {
   requisitos: RequisitoDeRango[];
 };
 
-export type FichaDeRango = FichaDeRangoActual | FichaDeRangoSiguiente | FichaDeRangoAvistado;
+/** Rango por descubrir: solo número y requisitos (RF-GAM-78 d, 80). Los demás datos no salen del servidor. */
+export type FichaDeRangoOculto = {
+  estado: "oculto";
+  numero: number;
+  requisitos: RequisitoDeRango[];
+};
+
+export type FichaDeRango =
+  | FichaDeRangoAlcanzado
+  | FichaDeRangoActual
+  | FichaDeRangoSiguiente
+  | FichaDeRangoAvistado
+  | FichaDeRangoOculto;
 
 // ---------------------------------------------------------------------------------------------------
 // Fecha del ascenso (RF-GAM-83), en la zona de las campañas (Tepic).
@@ -211,6 +246,11 @@ const DIA_EN_ZONA = new Intl.DateTimeFormat("en-CA", {
 
 function diasEntre(desde: string, hasta: string): number {
   return Math.round((Date.parse(`${hasta}T00:00:00Z`) - Date.parse(`${desde}T00:00:00Z`)) / 86_400_000);
+}
+
+/** «21 oct»; texto vacío sin fecha registrada: no se inventa. */
+export function fechaCortaDeAscenso(fecha: Date | null): string {
+  return fecha ? FECHA_CORTA.format(fecha) : "";
 }
 
 /**
