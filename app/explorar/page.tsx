@@ -15,7 +15,6 @@ import ButtonLink from "@/components/ui/ButtonLink";
 import Card from "@/components/ui/Card";
 import ProgressBar from "@/components/ui/ProgressBar";
 import Tag from "@/components/ui/Tag";
-import RutaDeTematica from "@/components/ui/RutaDeTematica";
 import SelectorDeVistaCampanas from "@/components/campanas/SelectorDeVistaCampanas";
 import { Input } from "@/components/ui/Input";
 import {
@@ -307,7 +306,11 @@ export default async function ExplorarCampanasPage({
                             {lugar ? ` · ${lugar}` : ""}
                           </p>
                         </div>
-                        <RutaDeTematica tematica={c.tematica} etiquetas={c.etiquetas} className="mt-2" />
+                        {c.tematica && (
+                          <div className="mt-2">
+                            <Tag tone="ok">{c.tematica}</Tag>
+                          </div>
+                        )}
                         <p className="mt-2 line-clamp-3 break-words text-[13px] leading-snug text-system-600">
                           {c.description.length > 140 ? `${c.description.slice(0, 140)}…` : c.description}
                         </p>

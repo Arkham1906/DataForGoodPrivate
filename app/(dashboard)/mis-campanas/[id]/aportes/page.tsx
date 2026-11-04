@@ -119,8 +119,7 @@ export default function BandejaAportesPage() {
       ) : (
         <div className="mb-5 flex flex-wrap items-start justify-between gap-3 rounded-lg bg-warning-50 p-4 text-[12.5px] text-warning-800">
           <span>
-            Tú eres el revisor de esta campaña: decides si cada aporte se acepta o se rechaza. Si quieres ayuda,
-            invita a otras personas como revisores.
+            Invitar a más revisores a colaborar:
           </span>
           <div className="flex flex-wrap gap-2">
             {/* Con invitaciones pendientes también hay a quién ver. */}

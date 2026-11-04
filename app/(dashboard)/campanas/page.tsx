@@ -31,8 +31,6 @@ import CampanasParaTi from "@/components/campanas/CampanasParaTi";
 import MasTematicas from "@/components/campanas/MasTematicas";
 import type { CampanaParaTi } from "@/lib/usuarios/inicio";
 import Button from "@/components/ui/Button";
-import ButtonLink from "@/components/ui/ButtonLink";
-import VentanaDeCampana from "@/components/campanas/VentanaDeCampana";
 import AvisoSinTematicas from "@/components/campanas/AvisoSinTematicas";
 import type { Campaign } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
@@ -131,8 +129,6 @@ export default function CampanasPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   // "Campañas para ti" (2026-10-27): las mismas de /inicio, arriba de los filtros.
   const [paraTi, setParaTi] = useState<CampanaParaTi[]>([]);
-  // Campaña cuya ventana de detalle está abierta (2026-10-27): clic en su tarjeta.
-  const [abierta, setAbierta] = useState<Campaign | null>(null);
   const vistaCuadricula = useSyncExternalStore(suscribirVistaDeCampanas, leerVistaDeCampanas, () => true);
   const [vista, setVista] = useState(TODAS);
   // Temática elegida ("" = todas) y su subtemática (2026-10-27; "" = todas). Otra temática quita la subtemática.
@@ -537,27 +533,9 @@ export default function CampanasPage() {
           {/* Las tarjetas usan h3: este h2 evita saltar del h1 al h3. */}
           <h2 className="sr-only">Lista de campañas</h2>
           {filtered.map((campaign) => (
-            <CampaignCard key={campaign.id} campaign={campaign} compact={!vistaCuadricula} mobileCompact={vistaCuadricula} onAbrir={() => setAbierta(campaign)} />
+            <CampaignCard key={campaign.id} campaign={campaign} compact={!vistaCuadricula} mobileCompact={vistaCuadricula} hrefAlAbrir={`/campanas/${campaign.id}`} />
           ))}
         </div>
-      )}
-
-      {abierta && (
-        <VentanaDeCampana
-          key={abierta.id}
-          campana={abierta}
-          onCerrar={() => setAbierta(null)}
-          extra={
-            abierta.isBanned ? (
-              <p className="rounded-lg bg-error-50 p-3 text-[12.5px] text-error-700">Quien organiza esta campaña te baneó: ya no puedes aportar en ella.</p>
-            ) : undefined
-          }
-          acciones={
-            <ButtonLink href={`/campanas/${abierta.id}`} variant="primary" size="sm">
-              {abierta.status === "activa" && !abierta.isBanned ? "Ir a la campaña y participar" : "Ir a la campaña"}
-            </ButtonLink>
-          }
-        />
       )}
     </div>
   );
