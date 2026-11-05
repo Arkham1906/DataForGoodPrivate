@@ -14,7 +14,7 @@
 // la persona propuso: las pendientes suyas llegan en `tematicas` de GET /api/etiquetas y las que aún no
 // guarda, en `tematicasPropuestas`.
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useImperativeHandle, useRef, useState, type Ref } from "react";
 
 import { BASE_PATH } from "@/lib/base-path";
 import {
@@ -25,9 +25,10 @@ import {
 } from "@/lib/etiquetas/reglas";
 import { claveDeTematica } from "@/lib/tematicas/analizar";
 import { etiquetasEnElTexto } from "@/lib/etiquetas/desde-texto";
+import { etiquetaEquivalente } from "@/lib/etiquetas/sinonimos";
 
-/** Pausa al escribir antes de buscar etiquetas en el texto (la misma de ui/InteresesDesdeTexto). */
-const PAUSA_AL_ESCRIBIR_MS = 700;
+/** Al proponer: `error` no se agregó; `nota` se usó otra etiqueta en su lugar. */
+type ResultadoDeProponer = { error?: string; nota?: string };
 
 // Mismas reglas que validarNombreDeTematica (lib/tematicas/catalogo.ts); el servidor vuelve a revisar
 // (también las palabras inapropiadas).
@@ -40,8 +41,15 @@ const CLASE_BOTON =
 const CLASE_ACTIVA = "border-brand-600 bg-brand-600 text-white";
 const CLASE_INACTIVA = "border-system-300 bg-white text-system-600 hover:border-brand-600";
 
+export type ControlDeSubtematicas = {
+  /** Analiza si el texto cambió desde el último análisis. Devuelve los ids con los que se guarda. */
+  analizarAlGuardar: (intereses: string[]) => number[];
+};
+
 export default function SubtematicasDelPerfil({
+  ref,
   texto,
+  analisis,
   intereses,
   seleccionadas,
   onCambiar,
@@ -50,11 +58,14 @@ export default function SubtematicasDelPerfil({
   error,
   tematicasPropuestas = [],
 }: {
+  ref?: Ref<ControlDeSubtematicas>;
   /**
    * Lo que la persona escribió sobre sus gustos (2026-10-28): las etiquetas que menciona se marcan
-   * solas (lib/etiquetas/desde-texto.ts), como las temáticas en ui/InteresesDesdeTexto.
+   * con "Analizar texto" o al guardar (lib/etiquetas/desde-texto.ts), como las temáticas en ui/InteresesDesdeTexto.
    */
   texto: string;
+  /** Sube cada vez que se da "Analizar texto" (2026-11-04): solo entonces se mira el texto. */
+  analisis: number;
   /** Temáticas elegidas (nombres). */
   intereses: string[];
   /** Ids de las etiquetas marcadas (aprobadas o pendientes propias). */
@@ -93,52 +104,65 @@ export default function SubtematicasDelPerfil({
     };
   }, [desconocidas]);
 
-  // Etiquetas desde el texto (2026-10-28), con las mismas reglas que las temáticas: al dejar de
-  // escribir se marcan las que el texto menciona y se desmarcan las que ya no menciona, salvo las que
+  // Etiquetas desde el texto (2026-10-28), con las mismas reglas que las temáticas: con "Analizar
+  // texto" se marcan las que el texto menciona y se desmarcan las que ya no menciona, salvo las que
   // la persona marcó a mano; las que desmarcó a mano no vuelven mientras el texto las siga mencionando.
   const delTexto = useRef<Set<number> | null>(null);
   const aMano = useRef(new Set<number>());
   const quitadasAMano = useRef(new Set<number>());
   const primerTexto = useRef(texto);
   const [avisoDelTexto, setAvisoDelTexto] = useState<string | null>(null);
-  const actuales = useRef({ catalogo, intereses, seleccionadas, nuevas, onCambiar });
+  const actuales = useRef({ catalogo, texto, intereses, seleccionadas, nuevas, onCambiar });
   useEffect(() => {
-    actuales.current = { catalogo, intereses, seleccionadas, nuevas, onCambiar };
+    actuales.current = { catalogo, texto, intereses, seleccionadas, nuevas, onCambiar };
   });
-  const clavesDeIntereses = intereses.map(claveDeTematica).join("|");
+
+  const ultimoAnalizado = useRef(texto);
+
+  function analizarTexto(temas: string[]): number[] {
+    const { catalogo: cat, texto: textoActual, seleccionadas: marcadasAhora, nuevas: porProponer, onCambiar: cambiar } = actuales.current;
+    if (!cat) return marcadasAhora;
+    ultimoAnalizado.current = textoActual;
+    // Solo las aprobadas de sus temáticas: una pendiente ya la eligió ella al proponerla.
+    const candidatas = temas.flatMap((tema) => (cat[tema] ?? []).filter((e) => !e.pendiente));
+    // Lo que el texto guardado menciona y no está marcado se puede marcar: pudo guardarse sin analizar.
+    delTexto.current ??= etiquetasEnElTexto(primerTexto.current, candidatas);
+    const ahora = etiquetasEnElTexto(textoActual, candidatas);
+    for (const id of quitadasAMano.current) if (!ahora.has(id)) quitadasAMano.current.delete(id);
+    const quitadas = marcadasAhora.filter((id) => delTexto.current!.has(id) && !ahora.has(id) && !aMano.current.has(id));
+    const quedan = marcadasAhora.filter((id) => !quitadas.includes(id));
+    const espacio = Math.max(0, MAXIMO_DE_ETIQUETAS_EN_PERFIL - quedan.length - porProponer.length);
+    const agregadas = [...ahora].filter((id) => !quedan.includes(id) && !quitadasAMano.current.has(id)).slice(0, espacio);
+    delTexto.current = ahora;
+    if (quitadas.length === 0 && agregadas.length === 0) {
+      setAvisoDelTexto(null);
+      return marcadasAhora;
+    }
+    const resultado = [...quedan, ...agregadas];
+    cambiar(resultado);
+    // En todo el catálogo: la etiqueta desmarcada puede ser de una temática que el mismo análisis quitó.
+    const nombre = (id: number) => Object.values(cat).flat().find((e) => e.id === id)?.nombre ?? "";
+    const partes: string[] = [];
+    if (agregadas.length > 0) partes.push(`Marcamos ${agregadas.map(nombre).join(", ")} por tu texto.`);
+    if (quitadas.length > 0) partes.push(`Desmarcamos ${quitadas.map(nombre).filter(Boolean).join(", ")}: ya no está en tu texto.`);
+    setAvisoDelTexto(partes.join(" "));
+    // Se abre el submenú de las temáticas donde se marcó algo, para que se vea.
+    const temasConAgregadas = temas.filter((tema) => (cat[tema] ?? []).some((e) => agregadas.includes(e.id)));
+    if (temasConAgregadas.length > 0) setAbiertas((actualesAbiertas) => new Set([...actualesAbiertas, ...temasConAgregadas]));
+    return resultado;
+  }
+
+  useImperativeHandle(ref, () => ({
+    analizarAlGuardar: (temas) =>
+      actuales.current.texto.trim() === ultimoAnalizado.current.trim() ? actuales.current.seleccionadas : analizarTexto(temas),
+  }));
 
   useEffect(() => {
-    if (!catalogo) return;
-    const temporizador = setTimeout(() => {
-      const { catalogo: cat, intereses: temas, seleccionadas: marcadasAhora, nuevas: porProponer, onCambiar: cambiar } = actuales.current;
-      if (!cat) return;
-      // Solo las aprobadas de sus temáticas: una pendiente ya la eligió ella al proponerla.
-      const candidatas = temas.flatMap((tema) => (cat[tema] ?? []).filter((e) => !e.pendiente));
-      if (delTexto.current === null) {
-        // Lo que el texto guardado menciona y no está marcado lo desmarcó antes: no se vuelve a poner.
-        delTexto.current = etiquetasEnElTexto(primerTexto.current, candidatas);
-        for (const id of delTexto.current) if (!marcadasAhora.includes(id)) quitadasAMano.current.add(id);
-      }
-      const ahora = etiquetasEnElTexto(texto, candidatas);
-      for (const id of quitadasAMano.current) if (!ahora.has(id)) quitadasAMano.current.delete(id);
-      const quitadas = marcadasAhora.filter((id) => delTexto.current!.has(id) && !ahora.has(id) && !aMano.current.has(id));
-      const quedan = marcadasAhora.filter((id) => !quitadas.includes(id));
-      const espacio = Math.max(0, MAXIMO_DE_ETIQUETAS_EN_PERFIL - quedan.length - porProponer.length);
-      const agregadas = [...ahora].filter((id) => !quedan.includes(id) && !quitadasAMano.current.has(id)).slice(0, espacio);
-      delTexto.current = ahora;
-      if (quitadas.length === 0 && agregadas.length === 0) return;
-      cambiar([...quedan, ...agregadas]);
-      const nombre = (id: number) => candidatas.find((e) => e.id === id)?.nombre ?? "";
-      const partes: string[] = [];
-      if (agregadas.length > 0) partes.push(`Marcamos ${agregadas.map(nombre).join(", ")} por tu texto.`);
-      if (quitadas.length > 0) partes.push(`Desmarcamos ${quitadas.map(nombre).filter(Boolean).join(", ")}: ya no está en tu texto.`);
-      setAvisoDelTexto(partes.join(" "));
-      // Se abre el submenú de las temáticas donde se marcó algo, para que se vea.
-      const temasConAgregadas = temas.filter((tema) => (cat[tema] ?? []).some((e) => agregadas.includes(e.id)));
-      if (temasConAgregadas.length > 0) setAbiertas((actualesAbiertas) => new Set([...actualesAbiertas, ...temasConAgregadas]));
-    }, PAUSA_AL_ESCRIBIR_MS);
+    if (analisis === 0) return;
+    // En el siguiente turno: las temáticas que dio el mismo análisis ya están en `actuales`.
+    const temporizador = setTimeout(() => analizarTexto(actuales.current.intereses), 0);
     return () => clearTimeout(temporizador);
-  }, [texto, clavesDeIntereses, catalogo]);
+  }, [analisis]);
 
   if (!catalogo) return null;
   const clavesDeTematicas = new Set([...tematicas, ...tematicasPropuestas].map(claveDeTematica));
@@ -173,32 +197,43 @@ export default function SubtematicasDelPerfil({
     });
   }
 
-  /** Agrega lo escrito: si ya existe en la temática, la marca; si no, queda como nueva. Devuelve el error o null. */
-  function proponer(tema: string, escrito: string): string | null {
+  /**
+   * Agrega lo escrito: si ya existe en la temática, la marca; si es sinónimo de una que existe
+   * (2026-11-04), marca esa y lo avisa en `nota`; si no, queda como nueva.
+   */
+  function proponer(tema: string, escrito: string): ResultadoDeProponer {
     const nombre = escrito.trim().replace(/\s+/g, " ");
     if (nombre.length < LARGO_MINIMO || nombre.length > LARGO_MAXIMO) {
-      return `Escribe entre ${LARGO_MINIMO} y ${LARGO_MAXIMO} caracteres.`;
+      return { error: `Escribe entre ${LARGO_MINIMO} y ${LARGO_MAXIMO} caracteres.` };
     }
-    if (!FORMATO_DEL_NOMBRE.test(nombre)) return "Usa solo letras, espacios, guiones y comas.";
+    if (!FORMATO_DEL_NOMBRE.test(nombre)) return { error: "Usa solo letras, espacios, guiones y comas." };
     const clave = claveDeTematica(nombre);
     if (clavesDeTematicas.has(clave) || intereses.some((t) => claveDeTematica(t) === clave)) {
-      return `«${nombre}» ya es una temática: escribe algo más específico.`;
+      return { error: `«${nombre}» ya es una temática: escribe algo más específico.` };
     }
-    const existente = (catalogo?.[tema] ?? []).find((e) => claveDeTematica(e.nombre) === clave);
+    const delCatalogo = catalogo?.[tema] ?? [];
+    const propuestas = nuevas.filter((n) => claveDeTematica(n.tematica) === claveDeTematica(tema)).map((n) => n.nombre);
+    const igual = delCatalogo.find((e) => claveDeTematica(e.nombre) === clave);
+    const yaPropuesta = propuestas.some((n) => claveDeTematica(n) === clave);
+    const equivalente = igual || yaPropuesta ? null : etiquetaEquivalente(nombre, [...delCatalogo.map((e) => e.nombre), ...propuestas]);
+    const existente = igual ?? delCatalogo.find((e) => e.nombre === equivalente);
     if (existente) {
-      if (!marcadas.includes(existente.id)) {
-        if (lleno) return `Puedes marcar hasta ${MAXIMO_DE_ETIQUETAS_EN_PERFIL}.`;
+      const marcada = marcadas.includes(existente.id);
+      if (!marcada) {
+        if (lleno) return { error: `Puedes marcar hasta ${MAXIMO_DE_ETIQUETAS_EN_PERFIL}.` };
         onCambiar([...marcadas, existente.id]);
       }
-      return null;
+      if (!equivalente) return {};
+      return { nota: `«${nombre}» es lo mismo que «${equivalente}»${marcada ? ", que ya está marcada" : ": marcamos esa"}.` };
     }
-    if (nuevas.some((n) => claveDeTematica(n.tematica) === claveDeTematica(tema) && claveDeTematica(n.nombre) === clave)) return null;
-    if (lleno) return `Puedes marcar hasta ${MAXIMO_DE_ETIQUETAS_EN_PERFIL}.`;
+    if (equivalente) return { nota: `«${nombre}» es lo mismo que «${equivalente}», que ya propusiste.` };
+    if (yaPropuesta) return {};
+    if (lleno) return { error: `Puedes marcar hasta ${MAXIMO_DE_ETIQUETAS_EN_PERFIL}.` };
     if (nuevasVisibles.length >= MAXIMO_DE_ETIQUETAS_NUEVAS_EN_PERFIL) {
-      return `Puedes proponer hasta ${MAXIMO_DE_ETIQUETAS_NUEVAS_EN_PERFIL} etiquetas nuevas a la vez.`;
+      return { error: `Puedes proponer hasta ${MAXIMO_DE_ETIQUETAS_NUEVAS_EN_PERFIL} etiquetas nuevas a la vez.` };
     }
     onNuevas([...nuevas, { tematica: tema, nombre }]);
-    return null;
+    return {};
   }
 
   return (
@@ -263,17 +298,19 @@ function SubmenuDeTematica({
   onAbrir: () => void;
   onAlternar: (id: number) => void;
   onQuitarNueva: (nombre: string) => void;
-  onProponer: (escrito: string) => string | null;
+  onProponer: (escrito: string) => ResultadoDeProponer;
 }) {
   const [texto, setTexto] = useState("");
   const [aviso, setAviso] = useState<string | null>(null);
+  const [nota, setNota] = useState<string | null>(null);
   const idPanel = useId();
   const idCampo = useId();
   const cuantas = etiquetas.filter((e) => marcadas.includes(e.id)).length + nuevas.length;
 
   function agregar() {
-    const error = onProponer(texto);
-    setAviso(error);
+    const { error, nota: mensaje } = onProponer(texto);
+    setAviso(error ?? null);
+    setNota(mensaje ?? null);
     if (!error) setTexto("");
   }
 
@@ -347,6 +384,7 @@ function SubmenuDeTematica({
                 onChange={(e) => {
                   setTexto(e.target.value);
                   setAviso(null);
+                  setNota(null);
                 }}
                 onKeyDown={(e) => {
                   // Enter agrega la etiqueta en vez de enviar el formulario del perfil.
@@ -373,6 +411,9 @@ function SubmenuDeTematica({
                 {aviso}
               </p>
             )}
+            <p aria-live="polite" className={nota ? "mt-1 text-[12px] text-brand-600" : "sr-only"}>
+              {nota}
+            </p>
           </div>
         )}
       </div>

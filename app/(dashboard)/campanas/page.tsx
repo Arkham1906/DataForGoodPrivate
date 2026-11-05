@@ -4,15 +4,17 @@
 // GET /api/auth/sesion; arriba, "Campañas para ti" como en /inicio (GET /api/campanas?paraTi=true,
 // components/campanas/CampanasParaTi; 2026-10-27). Mientras llegan, tarjetas esqueleto (cards/CampaignCardSkeleton).
 // Filtros (2026-10-31, a pedido del usuario): solo la barra de /sistema/campanas (campanas/BarraDeFiltros):
-// "Mostrar" (todas, guardadas, tu localidad o cerca de ti), búsqueda, temática (las de tus intereses primero),
+// "Mostrar" (todas, favoritas, tu localidad o cerca de ti), búsqueda, temática (las de tus intereses primero),
 // subtemática, tipo de dato y orden; sin vigencia.
-// Filas de botones (2026-11-02, a pedido del usuario: regresan sin quitar la barra): Todas, Guardadas, Tu
-// localidad y hasta MAXIMO_DE_TEMAS_VISIBLES temáticas (las de tus intereses primero, con ★; el resto en
+// Filas de botones (2026-11-02, a pedido del usuario: regresan sin quitar la barra; campanas/FilasDeFiltros): Todas, Tu
+// localidad y hasta 5 temáticas (las de tus intereses primero, con ★; el resto en
 // "Más temáticas", campanas/MasTematicas); con una temática, sus subtemáticas; y los tipos de dato. Van arriba
 // de "Campañas para ti" y filtran SOLO esa sección (2026-11-02, a pedido del usuario), con su propio estado:
 // la barra filtra solo la lista de abajo. La sección pide todas las recomendadas en orden
 // (?paraTi=true&todas=true): sin filtro muestra las CAMPANAS_PARA_TI primeras; con filtro, todas las que
-// coinciden. Sin "Guardadas" en estos botones (2026-11-02, a pedido del usuario; sigue en el select de la barra).
+// coinciden. Sin "Favoritas" en estos botones (2026-11-02, a pedido del usuario; sigue en el select de la barra).
+// "Campañas favoritas" (2026-11-04, a pedido del usuario; antes "Guardadas"): sección sin filtros, arriba de
+// "Campañas para ti", con todas las favoritas activas; sin favoritas no sale.
 // Aviso de temáticas (2026-11-02, a pedido del usuario): si la persona no tiene temáticas de interés (las
 // omitió al crear su cuenta), sale el recuadro campanas/AvisoSinTematicas (mismo estilo que el de ubicación),
 // que la lleva a "Mis intereses" de /cuenta; "Ahora no" lo oculta durante la sesión del navegador.
@@ -28,22 +30,20 @@ import CampaignCard from "@/components/cards/CampaignCard";
 import CampaignCardSkeleton from "@/components/cards/CampaignCardSkeleton";
 import BarraDeFiltros, { type ValoresDeFiltros } from "@/components/campanas/BarraDeFiltros";
 import CampanasParaTi from "@/components/campanas/CampanasParaTi";
-import MasTematicas from "@/components/campanas/MasTematicas";
+import FilasDeFiltros, { TODAS, TU_LOCALIDAD, useFiltrosDeLista } from "@/components/campanas/FilasDeFiltros";
 import type { CampanaParaTi } from "@/lib/usuarios/inicio";
 import Button from "@/components/ui/Button";
 import AvisoSinTematicas from "@/components/campanas/AvisoSinTematicas";
 import type { Campaign } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
 import { FILTROS_VACIOS, filtrarCampanas, type FiltrosLocales } from "@/lib/campanas/filtro-local";
-import { NOMBRE_DE_TIPO, alternarTipo, nombresDeTipos, tiposDesde, type TipoDeDato } from "@/lib/campanas/sistema-opciones";
+import { nombresDeTipos } from "@/lib/campanas/sistema-opciones";
 import { claveDeTematica } from "@/lib/tematicas/analizar";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 import BotonCrearCampana from "@/components/campanas/BotonCrearCampana";
 
-// Qué lista se muestra (select "Mostrar"): todas, las guardadas o las de su localidad / cerca de ti.
-const TODAS = "";
-const GUARDADAS = "guardadas";
-const TU_LOCALIDAD = "localidad";
+// Qué lista se muestra (select "Mostrar"): todas, las favoritas o las de su localidad / cerca de ti.
+const FAVORITAS = "favoritas";
 // Tarjetas esqueleto mientras cargan: dos filas en escritorio (3 columnas), suficientes en móvil.
 const TARJETAS_DE_CARGA = 6;
 const CLAVE_VISTA_CAMPANAS = "dfg:campanas:vista";
@@ -81,17 +81,6 @@ function guardarVistaDeCampanas(vistaCuadricula: boolean): void {
 // Cuántas muestra "Campañas para ti" sin filtro (las mismas que CAMPANAS_PARA_TI de lib/usuarios/inicio.ts, que no se
 // importa aquí porque ese archivo usa la base de datos).
 const CAMPANAS_PARA_TI = 3;
-// Temáticas que se muestran como botón; las demás, en "Más temáticas".
-const MAXIMO_DE_TEMAS_VISIBLES = 5;
-const CLASE_DEL_FILTRO =
-  "shrink-0 whitespace-nowrap rounded-pill border px-3.5 py-1.5 text-[13px] font-semibold transition-colors max-md:px-2.5 max-md:py-1 max-md:text-[12px]";
-const CLASE_DE_CHIP = "shrink-0 whitespace-nowrap rounded-pill border px-2.5 py-1 text-[12px] font-semibold transition-colors";
-const CLASE_INACTIVO = "border-system-300 bg-white text-system-600 hover:border-brand-600";
-const CLASE_ACTIVO = "border-brand-600 bg-brand-600 text-white";
-const CLASE_DE_FILA =
-  "dashboard-nav flex w-full min-w-0 flex-nowrap items-center gap-1.5 overflow-x-auto overscroll-x-contain pb-2 [-webkit-overflow-scrolling:touch] md:flex-wrap md:overflow-visible md:pb-0";
-// Orden de los botones de tipo de dato: el mismo del formulario de campaña.
-const TIPOS_DE_DATO = Object.keys(NOMBRE_DE_TIPO) as TipoDeDato[];
 
 /** "Estado de México" y "estado de mexico" cuentan como el mismo estado. */
 function normalizarEstado(valor: string | null | undefined): string {
@@ -149,12 +138,6 @@ export default function CampanasPage() {
   const [tipoActivo, setTipoActivo] = useState("");
   // Aviso "Agrega tus temáticas" (2026-11-02): sin temáticas de interés en el perfil.
   const [sinTematicas, setSinTematicas] = useState(false);
-  // Filtro de "Campañas para ti" (filas de botones; 2026-11-02): independiente de la barra de la lista.
-  const [ptVista, setPtVista] = useState(TODAS);
-  const [ptTema, setPtTema] = useState("");
-  const [ptEtiqueta, setPtEtiqueta] = useState("");
-  const [ptTipo, setPtTipo] = useState("");
-
   // Vuelve a leer cuando algo cambia en la base (actualización en vivo).
   const recarga = useRecargaEnVivo();
   useEffect(() => {
@@ -221,11 +204,11 @@ export default function CampanasPage() {
         : [];
   const enMiEstado = deMiLocalidad(campaigns);
   const lugarDelFiltro = zona ? `${zona.municipio}, ${zona.estado}` : miEstado;
-  const guardadas = campaigns.filter((c) => c.isSaved);
+  const favoritas = campaigns.filter((c) => c.isSaved);
 
   const vistas = [
     { valor: TODAS, etiqueta: `Mostrar: todas (${campaigns.length})` },
-    { valor: GUARDADAS, etiqueta: `Guardadas (${guardadas.length})` },
+    { valor: FAVORITAS, etiqueta: `Favoritas (${favoritas.length})` },
     {
       valor: TU_LOCALIDAD,
       etiqueta: zona
@@ -236,7 +219,7 @@ export default function CampanasPage() {
     },
   ];
 
-  const porVista = vista === GUARDADAS ? guardadas : vista === TU_LOCALIDAD ? enMiEstado : campaigns;
+  const porVista = vista === FAVORITAS ? favoritas : vista === TU_LOCALIDAD ? enMiEstado : campaigns;
 
   const esDeMisIntereses = (tema: string) => misIntereses.has(claveDeTematica(tema));
 
@@ -266,8 +249,7 @@ export default function CampanasPage() {
   }
 
   // Filas de botones de "Campañas para ti" (2026-11-02): trabajan sobre las recomendadas (en su orden), con
-  // los datos completos de cada una (temática, etiquetas, tipos, guardada, lugar) tomados de la lista.
-  // Todas y Tu localidad quitan la temática; una temática vuelve a "todas".
+  // los datos completos de cada una (temática, etiquetas, tipos, favorita, lugar) tomados de la lista.
   // Solo las de sus temáticas de interés o de su ubicación (2026-11-03, a pedido del usuario): las
   // "populares" de otras temáticas que agrega el servidor ya no entran, y los botones de temática son solo
   // los de sus intereses.
@@ -277,30 +259,14 @@ export default function CampanasPage() {
     const c = porId.get(String(p.id));
     return c && ((c.tag && esDeMisIntereses(c.tag)) || idsDeMiLocalidad.has(String(c.id))) ? [{ p, c }] : [];
   });
-  const ptCampanas = recomendadas.map((r) => r.c);
-  const ptEnMiLocalidad = deMiLocalidad(ptCampanas);
-  const ptTemas = Array.from(
-    ptCampanas.reduce(
-      (conteo, c) => (c.tag && esDeMisIntereses(c.tag) ? conteo.set(c.tag, (conteo.get(c.tag) ?? 0) + 1) : conteo),
-      new Map<string, number>()
-    )
-  ).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "es"));
-  const ptPorVista = ptVista === TU_LOCALIDAD ? ptEnMiLocalidad : ptCampanas;
-  const ptPorTema = ptTema ? ptPorVista.filter((c) => c.tag === ptTema) : ptPorVista;
-  const ptPorEtiqueta =
-    ptTema && ptEtiqueta ? ptPorTema.filter((c) => (c.etiquetas ?? []).some((e) => e.nombre === ptEtiqueta)) : ptPorTema;
-  // Varios tipos a la vez (2026-11-03): la campaña debe pedirlos todos.
-  const ptTipos = tiposDesde(ptTipo);
-  const ptFiltradas = new Set(
-    ptPorEtiqueta.filter((c) => ptTipos.every((t) => (c.dataTypes ?? []).includes(t))).map((c) => String(c.id))
-  );
-  const ptFiltroActivo = ptVista !== TODAS || ptTema !== "" || ptTipo !== "";
+  const filtroParaTi = useFiltrosDeLista({ campanas: recomendadas.map((r) => r.c), deMiLocalidad, esDeMisIntereses });
+  const idsParaTi = new Set(filtroParaTi.coinciden.map((c) => String(c.id)));
   // Sin temáticas de interés ni ubicación (GPS o estado del perfil) no hay nada "para ti": no salen las filas de
   // botones ni campañas (2026-11-03; antes mostraba las populares), pero sí el título (2026-11-04, a pedido del usuario).
   const conParaTi = misIntereses.size > 0 || Boolean(lugarDelFiltro);
   // Sin filtro, las CAMPANAS_PARA_TI primeras; con filtro, todas las que coinciden (2026-11-02).
-  const ptCoinciden = recomendadas.filter((r) => ptFiltradas.has(String(r.c.id)));
-  const paraTiVisibles = (ptFiltroActivo ? ptCoinciden : ptCoinciden.slice(0, CAMPANAS_PARA_TI)).map((r) => r.p);
+  const ptCoinciden = recomendadas.filter((r) => idsParaTi.has(String(r.c.id)));
+  const paraTiVisibles = (filtroParaTi.activo ? ptCoinciden : ptCoinciden.slice(0, CAMPANAS_PARA_TI)).map((r) => r.p);
   // Van debajo del título de "Campañas para ti" si la sección no tiene qué mostrar; si no, después de ella.
   const avisoSinTematicas = (
     <AvisoSinTematicas sinTematicas={sinTematicas} clave="dfg:aviso-sin-tematicas">
@@ -312,40 +278,7 @@ export default function CampanasPage() {
   );
   const avisoDeUbicacion = <AvisoDeUbicacion zona={zona} />;
 
-  const porTemaDeTodas = new Map(ptTemas);
-  const temasVisibles = ptTemas.slice(0, MAXIMO_DE_TEMAS_VISIBLES).map(([tema]) => tema);
-  const temasOcultos = ptTemas.slice(MAXIMO_DE_TEMAS_VISIBLES);
-  // Una temática elegida desde "Más temáticas" se ve como botón activo para poder quitarla.
-  if (ptTema && !temasVisibles.includes(ptTema)) temasVisibles.push(ptTema);
-  // "Tu localidad" solo con ubicación (GPS o estado del perfil): sin ella siempre quedaría vacía.
-  const botonesFijos: { valor: string; texto: string; total: number }[] = [
-    { valor: TODAS, texto: "Todas", total: ptCampanas.length },
-    ...(lugarDelFiltro ? [{ valor: TU_LOCALIDAD, texto: zona ? "Cerca de ti" : "Tu localidad", total: ptEnMiLocalidad.length }] : []),
-  ];
-  function elegirLista(valor: string) {
-    setPtVista(valor);
-    setPtTema("");
-    setPtEtiqueta("");
-  }
-  function elegirTema(tema: string) {
-    setPtVista(TODAS);
-    setPtTema(tema);
-    setPtEtiqueta("");
-  }
-  // Subtemáticas de la temática elegida, con cuántas recomendadas tiene cada una.
-  const etiquetasDelTema = ptTema
-    ? Array.from(
-        ptPorTema.reduce((conteo, c) => {
-          for (const e of c.etiquetas ?? []) if (!e.pendiente) conteo.set(e.nombre, (conteo.get(e.nombre) ?? 0) + 1);
-          return conteo;
-        }, new Map<string, number>())
-      ).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "es"))
-    : [];
-  // Tipos de dato de las recomendadas ya filtradas: cada número dice cuántas quedan con ese tipo y los ya elegidos.
-  // Salen siempre todos, también en 0: la fila no cambia al filtrar (2026-11-03, a pedido del usuario).
-  const tiposDeLaLista = TIPOS_DE_DATO.map((tipo) => [tipo, ptPorEtiqueta.filter((c) => [...ptTipos, tipo].every((t) => (c.dataTypes ?? []).includes(t))).length] as const);
-
-  function cambiarBusqueda(clave: keyof ValoresDeFiltros, valor: string) {
+    function cambiarBusqueda(clave: keyof ValoresDeFiltros, valor: string) {
     if (clave === "q" || clave === "orden") setBusqueda((actual) => ({ ...actual, [clave]: valor }));
     else if (clave === "vista") {
       eligioVista.current = true;
@@ -374,95 +307,27 @@ export default function CampanasPage() {
         </div>
       </div>
 
-      {!cargando && !error && conParaTi && ptCampanas.length > 0 && (
-        <div className="mb-4 flex flex-col gap-3 max-md:gap-2">
-          <div className={CLASE_DE_FILA} role="group" aria-label="Filtrar campañas para ti">
-            {botonesFijos.map((b) => {
-              const activo = ptVista === b.valor && !ptTema;
-              return (
-                <button
-                  key={b.texto}
-                  type="button"
-                  onClick={() => elegirLista(b.valor)}
-                  aria-pressed={activo}
-                  title={b.valor === TU_LOCALIDAD && lugarDelFiltro ? `Campañas en ${lugarDelFiltro}` : undefined}
-                  className={`${CLASE_DEL_FILTRO} ${activo ? CLASE_ACTIVO : CLASE_INACTIVO}`}
-                >
-                  {b.texto}
-                  <span className="ml-1.5 font-mono">{b.total}</span>
-                </button>
-              );
-            })}
-            {temasVisibles.map((tema) => {
-              const activo = ptTema === tema;
-              const deMisIntereses = esDeMisIntereses(tema);
-              return (
-                <button
-                  key={tema}
-                  type="button"
-                  onClick={() => elegirTema(tema)}
-                  aria-pressed={activo}
-                  title={deMisIntereses ? "Está entre tus intereses" : undefined}
-                  className={`${CLASE_DEL_FILTRO} ${activo ? CLASE_ACTIVO : CLASE_INACTIVO}`}
-                >
-                  {deMisIntereses && (
-                    <span aria-hidden="true" className={`mr-1 ${activo ? "text-white" : "text-brand-600"}`}>
-                      ★
-                    </span>
-                  )}
-                  {tema}
-                  {deMisIntereses && <span className="sr-only"> (de tus intereses)</span>}
-                  <span className="ml-1.5 font-mono">{porTemaDeTodas.get(tema) ?? 0}</span>
-                </button>
-              );
-            })}
-            {temasOcultos.length > 0 && (
-              <MasTematicas temas={temasOcultos} onElegir={elegirTema} claseDelBoton={`${CLASE_DEL_FILTRO} ${CLASE_INACTIVO}`} />
-            )}
+      {!cargando && !error && favoritas.length > 0 && (
+        <section aria-labelledby="campanas-favoritas" className="mb-8 max-md:mb-6">
+          <h2 id="campanas-favoritas" className="mb-3 text-lg font-extrabold text-system-900">
+            Campañas favoritas
+          </h2>
+          <div className={vistaCuadricula ? "grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-3" : "flex flex-col gap-3"}>
+            {favoritas.map((campaign) => (
+              <CampaignCard key={campaign.id} campaign={campaign} compact={!vistaCuadricula} mobileCompact={vistaCuadricula} hrefAlAbrir={`/campanas/${campaign.id}`} />
+            ))}
           </div>
+        </section>
+      )}
 
-          {etiquetasDelTema.length > 0 && (
-            <div className={CLASE_DE_FILA} role="group" aria-label={`Subtemáticas de ${ptTema}`}>
-              <span className="mr-1 shrink-0 text-[12px] text-system-500">Etiquetas:</span>
-              {etiquetasDelTema.map(([nombre, total]) => {
-                const activa = ptEtiqueta === nombre;
-                return (
-                  <button
-                    key={nombre}
-                    type="button"
-                    aria-pressed={activa}
-                    onClick={() => setPtEtiqueta(activa ? "" : nombre)}
-                    className={`${CLASE_DE_CHIP} ${activa ? CLASE_ACTIVO : CLASE_INACTIVO}`}
-                  >
-                    #{nombre}
-                    <span className="ml-1.5 font-mono">{total}</span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          {tiposDeLaLista.length > 0 && (
-            <div className={CLASE_DE_FILA} role="group" aria-label="Filtrar campañas para ti por tipo de dato">
-              <span className="mr-1 shrink-0 text-[12px] text-system-500">Tipo de dato (uno o varios):</span>
-              {tiposDeLaLista.map(([tipo, total]) => {
-                const activo = ptTipos.includes(tipo);
-                return (
-                  <button
-                    key={tipo}
-                    type="button"
-                    aria-pressed={activo}
-                    onClick={() => setPtTipo(alternarTipo(ptTipo, tipo))}
-                    className={`${CLASE_DE_CHIP} ${activo ? CLASE_ACTIVO : CLASE_INACTIVO}`}
-                  >
-                    {NOMBRE_DE_TIPO[tipo]}
-                    <span className="ml-1.5 font-mono">{total}</span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
+      {!cargando && !error && conParaTi && recomendadas.length > 0 && (
+        <FilasDeFiltros
+          filtro={filtroParaTi}
+          lugar={lugarDelFiltro}
+          cercaDeTi={zona !== null}
+          esDeMisIntereses={esDeMisIntereses}
+          className="mb-4"
+        />
       )}
 
       {!cargando && !error && (
@@ -476,9 +341,9 @@ export default function CampanasPage() {
                 {avisoSinTematicas}
                 {avisoDeUbicacion}
               </>
-            ) : ptFiltroActivo ? (
+            ) : filtroParaTi.activo ? (
               <p className="text-sm text-system-600">
-                {ptVista === TU_LOCALIDAD && !lugarDelFiltro
+                {filtroParaTi.vista === TU_LOCALIDAD && !lugarDelFiltro
                   ? "Aún no indicas en qué estado vives: agrégalo en Mi cuenta o usa tu ubicación."
                   : "Ninguna campaña recomendada para ti coincide con este filtro."}
               </p>
@@ -531,8 +396,8 @@ export default function CampanasPage() {
               : "Ninguna campaña coincide con la búsqueda."
             : temaActivo
               ? "No hay campañas de esta temática en esta lista."
-              : vista === GUARDADAS
-                ? "Todavía no has guardado ninguna campaña."
+              : vista === FAVORITAS
+                ? "Aún no tienes campañas favoritas."
                 : vista === TU_LOCALIDAD
                   ? `Por ahora no hay campañas activas en ${lugarDelFiltro}.`
                   : "Todavía no hay campañas activas."}

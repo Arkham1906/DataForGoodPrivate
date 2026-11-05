@@ -298,7 +298,7 @@ export default function CampaignDetailPage() {
                 <p className="rounded-lg bg-system-100 p-3 text-center text-[12.5px] text-system-600">Esta campaña no está recibiendo aportes.</p>
               )}
               <Button variant="secondary" className="mt-2.5 w-full" disabled={guardando} onClick={alternarGuardado}>
-                {saved ? "Campaña guardada" : "Guardar campaña"}
+                {saved ? "Campaña favorita" : "Marcar como favorita"}
               </Button>
             </div>
           </section>

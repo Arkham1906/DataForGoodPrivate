@@ -1,7 +1,8 @@
 "use client";
 
 // Ubicación en el navegador (2026-10-31; ver lib/ubicacion/zona-detectada.ts). La persona la activa con un
-// botón en /campanas (el navegador pide permiso ahí, nunca solo); desde entonces
+// botón en /campanas, en /cuenta o en el paso 3 de /bienvenida (el navegador pide permiso solo después de
+// que la persona acepta en la ventana de la app); desde entonces
 // components/layout/DetectorDeUbicacion la vuelve a mandar cada tanto para notar el cambio de zona.
 // "Usar mi ubicación" se recuerda en este navegador (localStorage): en otro dispositivo se activa aparte.
 // Las coordenadas van a POST /api/ubicacion y ahí solo se convierten en estado y municipio.

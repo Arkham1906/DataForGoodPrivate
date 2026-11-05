@@ -9,7 +9,7 @@ function parseCampaignId(raw: string): number | null {
   return Number.isInteger(id) ? id : null;
 }
 
-// POST /api/campanas/:id/guardar — marca la campaña como guardada por el usuario en sesión.
+// POST /api/campanas/:id/guardar — marca la campaña como favorita del usuario en sesión.
 export async function POST(
   _request: Request,
   context: { params: Promise<{ id: string }> }
@@ -41,11 +41,11 @@ export async function POST(
     return NextResponse.json({ data: { isSaved: true } });
   } catch (error) {
     console.error("Error guardando campaña", error);
-    return NextResponse.json({ error: "No se pudo guardar la campaña" }, { status: 500 });
+    return NextResponse.json({ error: "No se pudo agregar la campaña a favoritas" }, { status: 500 });
   }
 }
 
-// DELETE /api/campanas/:id/guardar — quita la campaña de las guardadas del usuario en sesión.
+// DELETE /api/campanas/:id/guardar — quita la campaña de las favoritas del usuario en sesión.
 export async function DELETE(
   _request: Request,
   context: { params: Promise<{ id: string }> }
@@ -70,6 +70,6 @@ export async function DELETE(
     return NextResponse.json({ data: { isSaved: false } });
   } catch (error) {
     console.error("Error quitando campaña guardada", error);
-    return NextResponse.json({ error: "No se pudo quitar la campaña guardada" }, { status: 500 });
+    return NextResponse.json({ error: "No se pudo quitar la campaña de favoritas" }, { status: 500 });
   }
 }

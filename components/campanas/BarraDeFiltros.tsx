@@ -3,7 +3,7 @@
 // Barra de filtros de campañas: búsqueda, temática, etiqueta (subtemática de la temática elegida,
 // 2026-10-27; solo si quien la usa pasa `etiquetasPorTematica`), tipo de dato, vigencia (opcional) y orden.
 // Quien la usa vacía la etiqueta cuando cambia la temática.
-// Con `vistas` (2026-10-31, solo /campanas) va primero un select "Mostrar" (todas, guardadas, cerca de ti...).
+// Con `vistas` (2026-10-31, solo /campanas) va primero un select "Mostrar" (todas, favoritas, cerca de ti...).
 // Solo dibuja y avisa de los cambios; quien la usa decide qué hacer con ellos:
 // /sistema/campanas los escribe en la URL y /supervision, /supervisar y /campanas filtran en el navegador.
 // Constantes de lib/campanas/sistema-opciones.ts (sin imports de servidor).
@@ -52,7 +52,7 @@ export default function BarraDeFiltros({
   conTematica?: boolean;
   /** false: sin el select de tipo de dato. */
   conTipo?: boolean;
-  /** Select "Mostrar" con estas listas (p. ej. Todas / Guardadas / Cerca de ti); sin él no sale. */
+  /** Select "Mostrar" con estas listas (p. ej. Todas / Favoritas / Cerca de ti); sin él no sale. */
   vistas?: { valor: string; etiqueta: string }[];
 }) {
   const [texto, setTexto] = useState(valores.q);

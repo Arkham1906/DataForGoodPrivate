@@ -9,6 +9,7 @@ import { useState } from "react";
 
 import Button from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { etiquetaEquivalente } from "@/lib/etiquetas/sinonimos";
 import { claveDeTematica, LARGO_DEL_NOMBRE } from "@/lib/tematicas/analizar";
 
 export default function SelectorDeEtiquetas({
@@ -36,6 +37,8 @@ export default function SelectorDeEtiquetas({
 }) {
   const [nueva, setNueva] = useState("");
   const [aviso, setAviso] = useState<string | null>(null);
+  // Informa, no es un error: lo escrito era sinónimo de una que ya existe (2026-11-04).
+  const [nota, setNota] = useState<string | null>(null);
 
   if (!tematica) {
     return <p className="text-[12.5px] text-system-500">Elige primero la temática para ver sus etiquetas.</p>;
@@ -56,12 +59,14 @@ export default function SelectorDeEtiquetas({
       onCambiar([...seleccionadas, etiqueta]);
     }
     setAviso(null);
+    setNota(null);
   }
 
   function agregar() {
     const limpia = nueva.trim().replace(/\s+/g, " ");
     const clave = claveDeTematica(limpia);
     if (!clave) return;
+    setNota(null);
     if (limpia.length < LARGO_DEL_NOMBRE.minimo) {
       setAviso(`La etiqueta debe tener al menos ${LARGO_DEL_NOMBRE.minimo} letras.`);
       return;
@@ -73,6 +78,23 @@ export default function SelectorDeEtiquetas({
     const tematica = tematicas.find((t) => claveDeTematica(t) === clave);
     if (tematica) {
       setAviso(`«${tematica}» ya es una temática: usa una etiqueta más específica.`);
+      return;
+    }
+    // Sinónimo de una del catálogo o de una ya elegida: se usa esa en vez de proponer otra.
+    const existenteIgual = opciones.some((o) => claveDeTematica(o) === clave);
+    const equivalente = existenteIgual ? null : etiquetaEquivalente(limpia, [...opciones, ...seleccionadas]);
+    if (equivalente) {
+      if (claves.has(claveDeTematica(equivalente))) {
+        setNota(`«${limpia}» es lo mismo que «${equivalente}», que ya está marcada.`);
+      } else if (lleno) {
+        setAviso(`Puedes poner hasta ${maximo} etiquetas.`);
+        return;
+      } else {
+        onCambiar([...seleccionadas, equivalente]);
+        setNota(`«${limpia}» es lo mismo que «${equivalente}»: marcamos esa.`);
+      }
+      setNueva("");
+      setAviso(null);
       return;
     }
     if (lleno) {
@@ -125,6 +147,7 @@ export default function SelectorDeEtiquetas({
           onChange={(e) => {
             setNueva(e.target.value);
             setAviso(null);
+            setNota(null);
           }}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
@@ -150,6 +173,9 @@ export default function SelectorDeEtiquetas({
           {aviso}
         </p>
       ) : null}
+      <p aria-live="polite" className={nota ? "mt-1.5 text-[12px] font-medium text-brand-600" : "sr-only"}>
+        {nota}
+      </p>
     </div>
   );
 }

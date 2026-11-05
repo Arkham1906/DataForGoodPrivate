@@ -2,17 +2,20 @@
 
 // Pantalla /bienvenida: perfil inicial tras verificar, en dos pasos del registro: paso 3 (estado y
 // municipio) y paso 4 (especialidad, organización desde el 2026-10-26, e intereses). Se puede omitir.
+// Paso 3 (2026-11-04, a pedido del usuario): al llegar se pide la ubicación (ui/UbicacionDelPerfil); los
+// campos solo salen si no se da. "Omitir" pasa al paso 4 sin guardar ubicación (antes terminaba el registro).
 // Datos: GET /api/auth/sesion. Guarda con PATCH /api/usuarios/[id] al pasar al paso 4 y al finalizar.
 // Intereses: la persona escribe qué le gusta y de ahí salen sus temáticas (ui/InteresesDesdeTexto).
 // Catálogos: lib/mexico-geo.ts, lib/perfil-opciones.ts; temáticas en GET /api/tematicas; especialidades
 // en GET /api/especialidades (ui/CampoDeEspecialidad: se elige o se escribe; una nueva se ofrece a todos).
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Button from "@/components/ui/Button";
 import { Field } from "@/components/ui/Input";
-import InteresesDesdeTexto from "@/components/ui/InteresesDesdeTexto";
-import SubtematicasDelPerfil from "@/components/ui/SubtematicasDelPerfil";
+import InteresesDesdeTexto, { type ControlDeIntereses } from "@/components/ui/InteresesDesdeTexto";
+import SubtematicasDelPerfil, { type ControlDeSubtematicas } from "@/components/ui/SubtematicasDelPerfil";
+import UbicacionDelPerfil from "@/components/ui/UbicacionDelPerfil";
 import Skeleton from "@/components/ui/Skeleton";
 import CampoDeEspecialidad from "@/components/ui/CampoDeEspecialidad";
 import CampoDeOrganizacion from "@/components/ui/CampoDeOrganizacion";
@@ -56,6 +59,11 @@ function BienvenidaForm() {
   const [tematicasNuevas, setTematicasNuevas] = useState<string[]>([]);
   const [errorDeEtiquetas, setErrorDeEtiquetas] = useState<string | null>(null);
   const [textoDeIntereses, setTextoDeIntereses] = useState("");
+  // Veces que se dio "Analizar texto": ui/SubtematicasDelPerfil analiza con cada una (2026-11-04).
+  const [analisis, setAnalisis] = useState(0);
+  // Al terminar se analiza el texto si cambió (2026-11-04, a pedido del usuario).
+  const controlDeIntereses = useRef<ControlDeIntereses>(null);
+  const controlDeSubtematicas = useRef<ControlDeSubtematicas>(null);
   const [state, setState] = useState("");
   const [city, setCity] = useState("");
   const [specialty, setSpecialty] = useState("");
@@ -120,6 +128,13 @@ function BienvenidaForm() {
     setPaso(4);
   }
 
+  // Omite solo este paso: lo que se haya llenado aquí no se guarda.
+  function omitirUbicacion() {
+    setState(user?.state ?? "");
+    setCity(user?.city ?? "");
+    setPaso(4);
+  }
+
   async function finish() {
     // Especialidad y organización escritas se revisan antes con las mismas reglas que el servidor,
     // para no perder el resto del perfil por un 400.
@@ -130,14 +145,16 @@ function BienvenidaForm() {
     if ((validada && !validada.ok) || (organizacionValidada && !organizacionValidada.ok)) return;
 
     setErrorDeEtiquetas(null);
+    const temasFinales = controlDeIntereses.current?.analizarAlGuardar() ?? selected;
+    const etiquetasFinales = controlDeSubtematicas.current?.analizarAlGuardar(temasFinales) ?? etiquetas;
     const error = await guardar({
       state,
       city,
       specialty,
       organizacion,
-      intereses: selected,
+      intereses: temasFinales,
       interesesTexto: textoDeIntereses,
-      etiquetas,
+      etiquetas: etiquetasFinales,
       etiquetasNuevas,
       tematicasNuevas,
     });
@@ -188,7 +205,7 @@ function BienvenidaForm() {
             {paso === 3 ? "Paso 3 de 4 · Tu ubicación" : "Paso 4 de 4 · Tus intereses"}
           </p>
         </div>
-        <Button variant="ghost" size="sm" onClick={finish}>
+        <Button variant="ghost" size="sm" onClick={paso === 3 ? omitirUbicacion : finish}>
           Omitir
         </Button>
       </div>
@@ -205,37 +222,48 @@ function BienvenidaForm() {
 
       {paso === 3 ? (
         <>
-          <div className="lg:grid lg:grid-cols-2 lg:gap-x-8">
-            <Field label="Estado">
-              <select
-                value={state}
-                onChange={(e) => cambiarEstado(e.target.value)}
-                className="w-full rounded border border-system-300 bg-white px-3.5 py-3 text-sm text-system-900 outline-none focus:border-brand-600"
-              >
-                <option value="">Selecciona un estado</option>
-                {opcionesCon(state, NOMBRES_DE_ESTADOS).map((opcion) => (
-                  <option key={opcion}>{opcion}</option>
-                ))}
-              </select>
-            </Field>
+          <UbicacionDelPerfil
+            pedirAlEntrar={!user.state}
+            onZona={(zona) => {
+              setState(zona.estado);
+              setCity(zona.municipio);
+            }}
+            ubicacionActual={[city, state].filter(Boolean).join(", ")}
+            conUbicacion="Si no es correcto, cámbialo a mano."
+            sinUbicacion="Elige tu estado y municipio abajo, u omite este paso."
+          >
+            <div className="lg:grid lg:grid-cols-2 lg:gap-x-8">
+              <Field label="Estado">
+                <select
+                  value={state}
+                  onChange={(e) => cambiarEstado(e.target.value)}
+                  className="w-full rounded border border-system-300 bg-white px-3.5 py-3 text-sm text-system-900 outline-none focus:border-brand-600"
+                >
+                  <option value="">Selecciona un estado</option>
+                  {opcionesCon(state, NOMBRES_DE_ESTADOS).map((opcion) => (
+                    <option key={opcion}>{opcion}</option>
+                  ))}
+                </select>
+              </Field>
 
-            <Field label="Municipio">
-              <select
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                disabled={!state}
-                className="w-full rounded border border-system-300 bg-white px-3.5 py-3 text-sm text-system-900 outline-none focus:border-brand-600 disabled:opacity-50"
-              >
-                <option value="">{state ? "Selecciona un municipio" : "Primero selecciona un estado"}</option>
-                {opcionesCon(city, municipiosDe(state)).map((opcion) => (
-                  <option key={opcion}>{opcion}</option>
-                ))}
-              </select>
-            </Field>
-          </div>
+              <Field label="Municipio">
+                <select
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  disabled={!state}
+                  className="w-full rounded border border-system-300 bg-white px-3.5 py-3 text-sm text-system-900 outline-none focus:border-brand-600 disabled:opacity-50"
+                >
+                  <option value="">{state ? "Selecciona un municipio" : "Primero selecciona un estado"}</option>
+                  {opcionesCon(city, municipiosDe(state)).map((opcion) => (
+                    <option key={opcion}>{opcion}</option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+          </UbicacionDelPerfil>
 
           <div className="flex justify-end gap-2.5">
-            <Button variant="secondary" onClick={finish}>
+            <Button variant="secondary" onClick={omitirUbicacion}>
               Omitir por ahora
             </Button>
             <Button variant="primary" onClick={siguiente}>
@@ -288,6 +316,8 @@ function BienvenidaForm() {
 
             <div className="mb-3">
               <InteresesDesdeTexto
+                ref={controlDeIntereses}
+                onAnalizado={() => setAnalisis((n) => n + 1)}
                 texto={textoDeIntereses}
                 onTexto={setTextoDeIntereses}
                 seleccionados={selected}
@@ -296,6 +326,8 @@ function BienvenidaForm() {
                 onNuevas={setTematicasNuevas}
               />
               <SubtematicasDelPerfil
+                ref={controlDeSubtematicas}
+                analisis={analisis}
                 texto={textoDeIntereses}
                 intereses={selected}
                 seleccionadas={etiquetas}

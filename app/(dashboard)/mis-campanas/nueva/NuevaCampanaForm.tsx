@@ -36,7 +36,7 @@ import { LARGO_MAXIMO_ORGANIZACION } from "@/lib/campanas/organizacion";
 import CampoDeOrganizacion from "@/components/ui/CampoDeOrganizacion";
 import { ETIQUETA_DE_CAMPANA } from "@/lib/campanas/sistema-opciones";
 import { GuiaDePasos, TarjetaDePaso, type Paso } from "./PasosDeCampana";
-import PedirUbicacion, { type ControlDeUbicacion } from "./PedirUbicacion";
+import PedirUbicacion, { type ControlDeUbicacion } from "@/components/ui/PedirUbicacion";
 import AvisoSinTematicas from "@/components/campanas/AvisoSinTematicas";
 import type { ZonaDetectada } from "@/lib/ubicacion/en-el-navegador";
 import { PLURALES_DE_TIPO, repartoSugerido } from "@/lib/campanas/reparto-sugerido";
@@ -1939,12 +1939,10 @@ function CampanaFormulario({
               {campanasEnRevision} de {MAX_CAMPANAS_EN_REVISION} campañas en revisión
             </p>
             <div className="flex flex-wrap gap-2.5">
-              {/* Cancelar cambios (2026-10-31, a pedido del usuario): solo al editar; sale sin guardar. */}
-              {editingCampaign && (
-                <Button type="button" variant="ghost" onClick={() => setConfirmarCancelar(true)}>
-                  Cancelar cambios
-                </Button>
-              )}
+              {/* Sale sin guardar: al editar (2026-10-31) y al crear (2026-11-04), a pedido del usuario. */}
+              <Button type="button" variant="ghost" onClick={() => setConfirmarCancelar(true)}>
+                {editingCampaign ? "Cancelar cambios" : "Cancelar"}
+              </Button>
               {!edicionLimitada && !enviarRevisionAlGuardar && (
                 <Button type="submit" onClick={(e) => handleSubmit(e, true)}>
                   Guardar borrador
@@ -1961,17 +1959,22 @@ function CampanaFormulario({
 
       <VentanaDeConfirmacion
         abierto={confirmarCancelar}
-        titulo="¿Cancelar los cambios?"
-        textoConfirmar="Sí, descartar cambios"
+        titulo={editingCampaign ? "¿Cancelar los cambios?" : "¿Cancelar la campaña nueva?"}
+        textoConfirmar={editingCampaign ? "Sí, descartar cambios" : "Sí, descartar campaña"}
+        textoCancelar={editingCampaign ? "Cancelar" : "Seguir editando"}
         textoOcupado="Saliendo…"
         peligro
         onCancelar={() => setConfirmarCancelar(false)}
         onConfirmar={() => router.push("/mis-campanas")}
       >
-        <p>
-          Lo que cambiaste y no guardaste se pierde; la campaña queda como estaba.
-          {editaEnPausa ? " Sigue pausada: puedes reanudarla desde Mis campañas." : ""}
-        </p>
+        {editingCampaign ? (
+          <p>
+            Lo que cambiaste y no guardaste se pierde; la campaña queda como estaba.
+            {editaEnPausa ? " Sigue pausada: puedes reanudarla desde Mis campañas." : ""}
+          </p>
+        ) : (
+          <p>Lo que llenaste se pierde. Si quieres retomarla después, usa “Guardar borrador”.</p>
+        )}
       </VentanaDeConfirmacion>
 
       <VentanaDeProblemas
@@ -1983,6 +1986,7 @@ function CampanaFormulario({
       />
 
       <PedirUbicacion
+        explicacion="Con tu ubicación llenamos el estado y el municipio de la campaña por ti (puedes cambiarlos) y en Explorar campañas te mostramos las que están cerca. Tu navegador te pedirá permiso; solo guardamos tu estado y municipio, nunca tus coordenadas."
         ref={ubicacion}
         onZona={recibirUbicacion}
         onSinUbicacion={sinUbicacion}

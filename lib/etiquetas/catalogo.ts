@@ -12,11 +12,13 @@
 //     /cuenta): queda pendiente y solo ella la ve en su perfil hasta que el SuperUsuario la revisa;
 //     rechazarla la borra y la quita de su perfil. Las etiquetas base salen de ./base.ts.
 // Los nombres se validan como los de las temáticas (validarNombreDeTematica) y no se repiten dentro
-// de la misma temática (por `clave`, sin acentos ni mayúsculas).
+// de la misma temática (por `clave`, sin acentos ni mayúsculas). Tampoco un sinónimo de una que ya
+// existe (2026-11-04): al proponer "Aguas negras" se usa "Aguas residuales" (./sinonimos.ts).
 
 import type { Pool, PoolClient } from "pg";
 
 import { pool } from "@/lib/db";
+import { etiquetaEquivalente } from "@/lib/etiquetas/sinonimos";
 import { claveDeTematica } from "@/lib/tematicas/analizar";
 import { validarNombreDeTematica, type ResultadoDelCatalogo } from "@/lib/tematicas/catalogo";
 import {
@@ -112,10 +114,10 @@ export async function guardarEtiquetasDeCampana(
     return null;
   }
 
-  const claves = [...pedidas.keys()];
+  // Todas las de la temática: los sinónimos (2026-11-04) se buscan entre ellas.
   const existentes = await db.query<{ id: number; clave: string; nombre: string; aprobada: boolean; oculta: boolean; creada_por: number | null }>(
-    `SELECT id, clave, nombre, aprobada, oculta, creada_por FROM etiquetas WHERE tematica_id = $1 AND clave = ANY($2::text[])`,
-    [tematicaId, claves],
+    `SELECT id, clave, nombre, aprobada, oculta, creada_por FROM etiquetas WHERE tematica_id = $1`,
+    [tematicaId],
   );
   const porClave = new Map(existentes.rows.map((r) => [r.clave, r]));
   const actuales = await db.query<{ etiqueta_id: number }>(
@@ -126,7 +128,9 @@ export async function guardarEtiquetasDeCampana(
 
   const ids: number[] = [];
   for (const [clave, nombre] of pedidas) {
-    const fila = porClave.get(clave);
+    // Tal cual o, si no, un sinónimo de una que ya está en la temática (2026-11-04): se usa esa.
+    const equivalente = porClave.has(clave) ? null : etiquetaEquivalente(nombre, [...porClave.values()].map((f) => f.nombre));
+    const fila = porClave.get(equivalente ? claveDeTematica(equivalente) : clave);
     if (fila) {
       const id = Number(fila.id);
       const disponible =
@@ -134,7 +138,7 @@ export async function guardarEtiquetasDeCampana(
         yaLasTenia.has(id) ||
         (!fila.aprobada && Number(fila.creada_por) === Number(usuarioId));
       if (!disponible) return `La etiqueta «${fila.nombre}» no está disponible`;
-      ids.push(id);
+      if (!ids.includes(id)) ids.push(id);
       continue;
     }
     const validado = validarNombreDeTematica(nombre);
@@ -149,7 +153,12 @@ export async function guardarEtiquetasDeCampana(
        RETURNING id`,
       [tematicaId, validado.nombre, claveDeTematica(validado.nombre), usuarioId],
     );
-    ids.push(Number(nueva.rows[0].id));
+    const idNueva = Number(nueva.rows[0].id);
+    if (!ids.includes(idNueva)) ids.push(idNueva);
+    // Por si en la misma lista viene un sinónimo de la que se acaba de crear.
+    porClave.set(claveDeTematica(validado.nombre), {
+      id: idNueva, clave: claveDeTematica(validado.nombre), nombre: validado.nombre, aprobada: false, oculta: false, creada_por: usuarioId,
+    });
   }
 
   await db.query(`DELETE FROM campana_etiquetas WHERE campana_id = $1 AND NOT (etiqueta_id = ANY($2::int[]))`, [campanaId, ids]);
@@ -303,19 +312,22 @@ export async function guardarEtiquetasDelUsuario(
         [claveDeTematica(nueva.tematica), claves],
       );
       if (!tematica.rows[0]) continue;
-      const clave = claveDeTematica(nueva.nombre);
+      // Un sinónimo de una que ya está en la temática (2026-11-04) se vuelve esa.
+      const deLaTematica = await cliente.query<{ nombre: string }>(`SELECT nombre FROM etiquetas WHERE tematica_id = $1`, [tematica.rows[0].id]);
+      const nombreFinal = etiquetaEquivalente(nueva.nombre, deLaTematica.rows.map((f) => f.nombre)) ?? nueva.nombre;
+      const clave = claveDeTematica(nombreFinal);
       // ON CONFLICT: ya existe en esa temática (aprobada, pendiente u oculta): se toma esa.
       const fila = await cliente.query<{ id: number; aprobada: boolean; oculta: boolean }>(
         `INSERT INTO etiquetas (tematica_id, nombre, clave, origen, creada_por, aprobada)
          VALUES ($1, $2, $3, 'usuario', $4, false)
          ON CONFLICT (tematica_id, clave) DO UPDATE SET clave = EXCLUDED.clave
          RETURNING id, aprobada, oculta`,
-        [Number(tematica.rows[0].id), nueva.nombre, clave, usuarioId],
+        [Number(tematica.rows[0].id), nombreFinal, clave, usuarioId],
       );
       const existente = fila.rows[0];
       if (existente.aprobada && existente.oculta) {
         await cliente.query("ROLLBACK");
-        return { ok: false, error: `La etiqueta «${nueva.nombre}» no está disponible` };
+        return { ok: false, error: `La etiqueta «${nombreFinal}» no está disponible` };
       }
       if (!ids.includes(Number(existente.id))) ids.push(Number(existente.id));
     }
@@ -419,14 +431,19 @@ async function errorDeNombreDeTematica(db: Db, clave: string): Promise<string | 
   return r.rows[0] ? `«${r.rows[0].nombre}» ya es una temática: usa una etiqueta más específica.` : null;
 }
 
-async function errorDeRepetida(tematicaId: number, clave: string, sinContarId?: number): Promise<string | null> {
+/** Mismo nombre o, desde el 2026-11-04, sinónimo de otra de la temática (./sinonimos.ts). */
+async function errorDeRepetida(tematicaId: number, nombre: string, sinContarId?: number): Promise<string | null> {
   const r = await pool.query<{ nombre: string; oculta: boolean }>(
-    `SELECT nombre, oculta FROM etiquetas WHERE tematica_id = $1 AND clave = $2 AND ($3::int IS NULL OR id <> $3)`,
-    [tematicaId, clave, sinContarId ?? null],
+    `SELECT nombre, oculta FROM etiquetas WHERE tematica_id = $1 AND ($2::int IS NULL OR id <> $2)`,
+    [tematicaId, sinContarId ?? null],
   );
-  const fila = r.rows[0];
+  const clave = claveDeTematica(nombre);
+  const igual = r.rows.find((f) => claveDeTematica(f.nombre) === clave);
+  const equivalente = igual ? null : etiquetaEquivalente(nombre, r.rows.map((f) => f.nombre));
+  const fila = igual ?? r.rows.find((f) => f.nombre === equivalente);
   if (!fila) return null;
-  return fila.oculta ? `Ya existe «${fila.nombre}» en esta temática, oculta. Usa "Mostrar".` : `Ya existe «${fila.nombre}» en esta temática.`;
+  const inicio = igual ? `Ya existe «${fila.nombre}» en esta temática` : `«${nombre}» es lo mismo que «${fila.nombre}», que ya existe en esta temática`;
+  return fila.oculta ? `${inicio}, oculta. Usa "Mostrar".` : `${inicio}.`;
 }
 
 /** Crea una etiqueta del panel en una temática: aprobada y visible desde ya. */
@@ -436,7 +453,7 @@ export async function crearEtiqueta(tematicaId: number, nombre: string): Promise
   const clave = claveDeTematica(nombre);
   const esTematica = await errorDeNombreDeTematica(pool, clave);
   if (esTematica) return { ok: false, error: esTematica };
-  const repetida = await errorDeRepetida(tematicaId, clave);
+  const repetida = await errorDeRepetida(tematicaId, nombre);
   if (repetida) return { ok: false, error: repetida };
   try {
     const r = await pool.query<{ id: number }>(
@@ -458,7 +475,7 @@ export async function renombrarEtiqueta(id: number, nombre: string): Promise<Res
   const clave = claveDeTematica(nombre);
   const esTematica = await errorDeNombreDeTematica(pool, clave);
   if (esTematica) return { ok: false, error: esTematica };
-  const repetida = await errorDeRepetida(Number(fila.tematica_id), clave, id);
+  const repetida = await errorDeRepetida(Number(fila.tematica_id), nombre, id);
   if (repetida) return { ok: false, error: repetida };
   try {
     await pool.query(`UPDATE etiquetas SET nombre = $2, clave = $3 WHERE id = $1`, [id, nombre, clave]);

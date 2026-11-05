@@ -11,11 +11,12 @@
 // en GET /api/especialidades (ui/CampoDeEspecialidad, 2026-10-26: se elige o se escribe; una nueva se ofrece a todos).
 
 import { useRouter } from "next/navigation";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import Button from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Input";
-import InteresesDesdeTexto from "@/components/ui/InteresesDesdeTexto";
-import SubtematicasDelPerfil from "@/components/ui/SubtematicasDelPerfil";
+import InteresesDesdeTexto, { type ControlDeIntereses } from "@/components/ui/InteresesDesdeTexto";
+import SubtematicasDelPerfil, { type ControlDeSubtematicas } from "@/components/ui/SubtematicasDelPerfil";
+import UbicacionDelPerfil from "@/components/ui/UbicacionDelPerfil";
 import LogoutButton from "@/components/auth/LogoutButton";
 import CampoDeEspecialidad from "@/components/ui/CampoDeEspecialidad";
 import CampoDeOrganizacion from "@/components/ui/CampoDeOrganizacion";
@@ -51,11 +52,14 @@ const CLASE_BLOQUEADO = "disabled:cursor-default disabled:bg-system-100";
 export default function PerfilForm({
   usuario,
   encabezado,
+  pie,
   children,
 }: {
   usuario: Usuario;
   /** Avatar (con el lápiz para cambiarlo), nombre y rol: la parte izquierda de la tarjeta superior. */
   encabezado: ReactNode;
+  /** Tarjeta "Eliminar cuenta": va después del formulario y antes de los botones de guardar. */
+  pie: ReactNode;
   /** Tarjeta de seguridad, que va junto a los datos personales. */
   children?: ReactNode;
 }) {
@@ -67,6 +71,11 @@ export default function PerfilForm({
   const [specialty, setSpecialty] = useState(usuario.specialty ?? "");
   const [organizacion, setOrganizacion] = useState(usuario.organizacion ?? "");
   const [intereses, setIntereses] = useState<string[]>(usuario.intereses);
+  // Veces que se dio "Analizar texto": ui/SubtematicasDelPerfil analiza con cada una (2026-11-04).
+  const [analisis, setAnalisis] = useState(0);
+  // Al guardar se analiza el texto si cambió (2026-11-04, a pedido del usuario).
+  const controlDeIntereses = useRef<ControlDeIntereses>(null);
+  const controlDeSubtematicas = useRef<ControlDeSubtematicas>(null);
   const [interesesTexto, setInteresesTexto] = useState(usuario.interesesTexto ?? "");
   const [etiquetas, setEtiquetas] = useState<number[]>(usuario.etiquetas);
   // Subtemáticas que escribió porque no estaban (2026-10-28): se crean pendientes al guardar.
@@ -152,6 +161,8 @@ export default function PerfilForm({
     setTematicasNuevas([]);
     setErrorDeEtiquetas(null);
     setError("");
+    // Vuelve a montar los intereses: lo analizado de un texto descartado no cuenta.
+    setVecesGuardado((n) => n + 1);
   }
 
   async function guardar() {
@@ -159,6 +170,9 @@ export default function PerfilForm({
       setError("El nombre y los apellidos son obligatorios.");
       return;
     }
+
+    const temasFinales = controlDeIntereses.current?.analizarAlGuardar() ?? intereses;
+    const etiquetasFinales = controlDeSubtematicas.current?.analizarAlGuardar(temasFinales) ?? etiquetas;
 
     setGuardando(true);
     setError("");
@@ -171,9 +185,9 @@ export default function PerfilForm({
         city,
         specialty: specialty.trim(),
         organizacion: organizacion.trim(),
-        intereses,
+        intereses: temasFinales,
         interesesTexto: interesesTexto.trim(),
-        etiquetas,
+        etiquetas: etiquetasFinales,
       };
       const response = await fetch(`${BASE_PATH}/api/usuarios/${usuario.id}`, {
         method: "PATCH",
@@ -192,7 +206,7 @@ export default function PerfilForm({
       }
       // El servidor devuelve los intereses con el nombre del catálogo (p. ej. con otra mayúscula
       // o acento): se muestran esos.
-      const guardados = Array.isArray(body.data?.intereses) ? (body.data.intereses as string[]) : intereses;
+      const guardados = Array.isArray(body.data?.intereses) ? (body.data.intereses as string[]) : cambios.intereses;
       // Igual con la especialidad: "biologia" se guarda como "Biología" del catálogo (2026-10-26).
       const especialidad = typeof body.data?.specialty === "string" ? body.data.specialty : body.data ? "" : cambios.specialty;
       const organizacionGuardada =
@@ -205,7 +219,7 @@ export default function PerfilForm({
       setIntereses(guardados);
       setInteresesTexto(cambios.interesesTexto);
       // El servidor quita las subtemáticas de temáticas que ya no tiene.
-      const etiquetasGuardadas = Array.isArray(body.data?.etiquetas) ? (body.data.etiquetas as number[]) : etiquetas;
+      const etiquetasGuardadas = Array.isArray(body.data?.etiquetas) ? (body.data.etiquetas as number[]) : cambios.etiquetas;
       setEtiquetas(etiquetasGuardadas);
       setEtiquetasNuevas([]);
       setTematicasNuevas([]);
@@ -262,35 +276,46 @@ export default function PerfilForm({
               <Input disabled value={usuario.email} className={CLASE_BLOQUEADO} />
             </Field>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Estado">
-                <select
-                  value={state}
-                  onChange={(e) => cambiarEstado(e.target.value)}
-                  className={CLASE_SELECT}
-                >
-                  <option value="">Selecciona un estado</option>
-                  {opcionesCon(state, NOMBRES_DE_ESTADOS).map((opcion) => (
-                    <option key={opcion}>{opcion}</option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Municipio">
-                <select
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  disabled={!state}
-                  className={CLASE_SELECT}
-                >
-                  <option value="">
-                    {state ? "Selecciona un municipio" : "Primero selecciona un estado"}
-                  </option>
-                  {opcionesCon(city, municipiosDe(state)).map((opcion) => (
-                    <option key={opcion}>{opcion}</option>
-                  ))}
-                </select>
-              </Field>
-            </div>
+            {/* El permiso solo con el botón (2026-11-04); el perfil no cambia hasta dar "Guardar cambios". */}
+            <UbicacionDelPerfil
+              onZona={(zona) => {
+                setState(zona.estado);
+                setCity(zona.municipio);
+              }}
+              ubicacionActual={[city, state].filter(Boolean).join(", ")}
+              conUbicacion="Da “Guardar cambios” para dejarlo en tu perfil."
+              sinUbicacion="Puedes elegir tu estado y municipio abajo."
+            >
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Estado">
+                  <select
+                    value={state}
+                    onChange={(e) => cambiarEstado(e.target.value)}
+                    className={CLASE_SELECT}
+                  >
+                    <option value="">Selecciona un estado</option>
+                    {opcionesCon(state, NOMBRES_DE_ESTADOS).map((opcion) => (
+                      <option key={opcion}>{opcion}</option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Municipio">
+                  <select
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    disabled={!state}
+                    className={CLASE_SELECT}
+                  >
+                    <option value="">
+                      {state ? "Selecciona un municipio" : "Primero selecciona un estado"}
+                    </option>
+                    {opcionesCon(city, municipiosDe(state)).map((opcion) => (
+                      <option key={opcion}>{opcion}</option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
+            </UbicacionDelPerfil>
 
             <Field label="¿En qué te especializas?" hint="Elige una de la lista o escribe la tuya.">
               <CampoDeEspecialidad value={specialty} onChange={setSpecialty} />
@@ -319,7 +344,9 @@ export default function PerfilForm({
           </div>
 
           <InteresesDesdeTexto
-            key={vecesGuardado}
+            ref={controlDeIntereses}
+            key={`intereses-${vecesGuardado}`}
+            onAnalizado={() => setAnalisis((n) => n + 1)}
             texto={interesesTexto}
             onTexto={setInteresesTexto}
             seleccionados={intereses}
@@ -328,7 +355,9 @@ export default function PerfilForm({
             onNuevas={setTematicasNuevas}
           />
           <SubtematicasDelPerfil
-            key={vecesGuardado}
+            ref={controlDeSubtematicas}
+            key={`subtematicas-${vecesGuardado}`}
+            analisis={analisis}
             texto={interesesTexto}
             intereses={intereses}
             seleccionadas={etiquetas}
@@ -342,23 +371,26 @@ export default function PerfilForm({
             Determinan qué campañas aparecen en “Sugeridas para ti”. Los cambios se aplican al dar “Guardar cambios”.
           </p>
         </section>
-
-        {(hayCambios || error) && (
-          <div className="flex flex-wrap items-center justify-end gap-3 md:col-span-2">
-            {error && (
-              <p role="alert" className="text-[12.5px] text-error-700">
-                {error}
-              </p>
-            )}
-            <Button variant="secondary" size="sm" onClick={cancelar} disabled={guardando || !hayCambios}>
-              Descartar cambios
-            </Button>
-            <Button variant="primary" size="sm" onClick={guardar} disabled={guardando || !hayCambios}>
-              {guardando ? "Guardando..." : "Guardar cambios"}
-            </Button>
-          </div>
-        )}
       </div>
+
+      {pie}
+
+      {/* Lo último de la pantalla (2026-11-04, a pedido del usuario). */}
+      {(hayCambios || error) && (
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          {error && (
+            <p role="alert" className="text-[12.5px] text-error-700">
+              {error}
+            </p>
+          )}
+          <Button variant="secondary" size="sm" onClick={cancelar} disabled={guardando || !hayCambios}>
+            Descartar cambios
+          </Button>
+          <Button variant="primary" size="sm" onClick={guardar} disabled={guardando || !hayCambios}>
+            {guardando ? "Guardando..." : "Guardar cambios"}
+          </Button>
+        </div>
+      )}
 
       {avisoVisible && (
         // Aviso al centro de la pantalla; se va solo o con un clic.

@@ -3,7 +3,8 @@
 // personales y los intereses, que se editan directamente (2026-10-20), y guarda con PATCH /api/usuarios/[id].
 // La contraseña se cambia (o, en una cuenta de Google, se crea) en CambiarContrasena.tsx con un
 // código enviado al correo de la cuenta; no se pide la actual.
-// La tarjeta "Eliminar cuenta" (hasta abajo) lleva a /cuenta/eliminar (baja voluntaria, SCR-WEB-31).
+// La tarjeta "Eliminar cuenta" (prop `pie`, justo antes de los botones de guardar) lleva a
+// /cuenta/eliminar (baja voluntaria, SCR-WEB-31).
 // El lápiz sobre el avatar (EditarAvatar.tsx, 2026-10-13; siempre visible desde el 2026-10-20): iniciales,
 // ícono predefinido o foto propia (PUT /api/usuarios/[id]/avatar); el ícono se pinta con components/ui/Avatar.
 // Experimental (2026-10-07): al llegar con "Ver perfil" de la barra superior, el avatar y el
@@ -69,6 +70,21 @@ export default async function CuentaPage() {
           interesesTexto: currentUser.intereses_texto,
           etiquetas: await etiquetasDelUsuario(currentUser.id),
         }}
+        pie={
+          <Card>
+            <div className="space-y-3">
+              <div>
+                <h2 className="text-sm font-bold text-system-900">Eliminar cuenta</h2>
+                <p className="mt-1 text-[12.5px] text-system-600">
+                  Solicita la eliminación de tu cuenta y revisa qué pasará con tus aportes.
+                </p>
+              </div>
+              <ButtonLink href="/cuenta/eliminar" variant="danger" size="sm">
+                Eliminar cuenta
+              </ButtonLink>
+            </div>
+          </Card>
+        }
         encabezado={
           <div className="flex items-center gap-4">
             <div className="relative shrink-0">
@@ -161,44 +177,6 @@ export default async function CuentaPage() {
           </div>
         </section>
       </PerfilForm>
-
-      <section className="rounded-lg border border-system-200 bg-white p-5">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-system-500">
-              Progreso y logros
-            </p>
-            <div className="mt-2 flex flex-wrap items-center gap-3 text-[14px] text-system-600">
-              <span className="text-system-900 font-extrabold text-base">
-                Nivel {currentUser.level}
-              </span>
-              <span className="text-system-600">
-                · {currentUser.xp_total.toLocaleString("es-MX")} XP
-              </span>
-              <span className="text-system-600">
-                · racha de {currentUser.streak_days} días
-              </span>
-            </div>
-          </div>
-          <button className="rounded-pill border border-system-300 bg-white px-5 py-2 text-[13px] font-bold text-system-900 transition-colors hover:border-brand-600 hover:text-brand-600">
-            Ver
-          </button>
-        </div>
-      </section>
-
-      <Card>
-        <div className="space-y-3">
-          <div>
-            <h2 className="text-sm font-bold text-system-900">Eliminar cuenta</h2>
-            <p className="mt-1 text-[12.5px] text-system-600">
-              Solicita la eliminación de tu cuenta y revisa qué pasará con tus aportes.
-            </p>
-          </div>
-          <ButtonLink href="/cuenta/eliminar" variant="danger" size="sm">
-            Eliminar cuenta
-          </ButtonLink>
-        </div>
-      </Card>
     </div>
     </ViewTransition>
   );

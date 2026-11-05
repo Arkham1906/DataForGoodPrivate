@@ -2,8 +2,11 @@
 
 // Intereses a partir de un texto (2026-10-07). La persona escribe qué le gusta y se sacan las
 // temáticas con lib/tematicas/analizar.ts, en el navegador. Desde el 2026-10-27 (a pedido del usuario)
-// el texto y sus temáticas van sincronizados: se analiza solo al dejar de escribir (o con Enter; el
-// botón "Analizar" se quitó el 2026-10-28 por innecesario), y si se borra el fragmento que dio una temática, la temática se quita. Las que la
+// el texto y sus temáticas van sincronizados: si se borra el fragmento que dio una temática, al analizar
+// la temática se quita. Desde el 2026-11-04 (a pedido del usuario) se analiza SOLO con el botón "Analizar
+// texto" (antes, al dejar de escribir o con Enter; Enter ahora es un salto de línea) y, si el texto cambió
+// desde el último análisis, al guardar (`ref.analizarAlGuardar()`). `onAnalizado` avisa al formulario
+// para que ui/SubtematicasDelPerfil analice el mismo texto. Las que la
 // persona agregó con "Agregar temáticas" se respetan aunque el texto no las mencione. Debajo, las elegidas con × y "Agregar temáticas" (ui/SelectorDeTemas) para
 // corregir. Desde el 2026-10-20 el texto solo da temáticas que ya existen (palabras clave): lo que
 // no reconoce se ignora y no se crean temáticas nuevas. Lo usan /bienvenida (paso 4) y /cuenta
@@ -13,22 +16,26 @@
 // `nuevas` (el formulario la manda como `tematicasNuevas` en PATCH /api/usuarios/[id]) y queda pendiente
 // hasta que el SuperUsuario la revisa; las ya propuestas (`propias` del catálogo) se marcan "por aprobar".
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useImperativeHandle, useRef, useState, type Ref } from "react";
+import Button from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Input";
 import SelectorDeTemas from "@/components/ui/SelectorDeTemas";
 import { TEMAS_DE_INTERES } from "@/lib/intereses";
 import { analizarIntereses, claveDeTematica, LARGO_MAXIMO_DEL_TEXTO, MAXIMO_DE_INTERESES } from "@/lib/tematicas/analizar";
 import { BASE_PATH } from "@/lib/base-path";
 
-/** Pausa al escribir antes de analizar el texto. */
-const PAUSA_AL_ESCRIBIR_MS = 700;
-
 /** "A", "A y B", "A, B y C". */
 function enLista(nombres: string[]): string {
   return nombres.length <= 1 ? (nombres[0] ?? "") : `${nombres.slice(0, -1).join(", ")} y ${nombres.at(-1)}`;
 }
 
+export type ControlDeIntereses = {
+  /** Analiza si el texto cambió desde el último análisis. Devuelve las temáticas con las que se guarda. */
+  analizarAlGuardar: () => string[];
+};
+
 export default function InteresesDesdeTexto({
+  ref,
   texto,
   onTexto,
   seleccionados,
@@ -36,7 +43,9 @@ export default function InteresesDesdeTexto({
   deshabilitado = false,
   nuevas: propuestasSinGuardar = [],
   onNuevas,
+  onAnalizado,
 }: {
+  ref?: Ref<ControlDeIntereses>;
   texto: string;
   onTexto: (texto: string) => void;
   seleccionados: string[];
@@ -45,6 +54,8 @@ export default function InteresesDesdeTexto({
   /** Temáticas propuestas aún sin guardar (2026-10-29). Sin `onNuevas` no se puede proponer. */
   nuevas?: string[];
   onNuevas?: (nuevas: string[]) => void;
+  /** Se dio "Analizar texto" (2026-11-04). */
+  onAnalizado?: () => void;
 }) {
   const id = useId();
   const [catalogo, setCatalogo] = useState<string[]>(TEMAS_DE_INTERES);
@@ -75,43 +86,35 @@ export default function InteresesDesdeTexto({
   // Las que quitó con la × aunque el texto las mencione: no se vuelven a poner mientras el texto las
   // siga mencionando (si deja de mencionarlas y luego las vuelve a escribir, sí).
   const quitadasAMano = useRef(new Set<string>());
-  // Lo más reciente, para el análisis que corre al dejar de escribir.
-  const actuales = useRef({ seleccionados, catalogo, onCambiar });
-  useEffect(() => {
-    actuales.current = { seleccionados, catalogo, onCambiar };
-  });
   const primerTexto = useRef(texto);
-  const primerosSeleccionados = useRef(seleccionados);
+  const ultimoAnalizado = useRef(texto);
 
-  function temasDelTexto(t: string, cat: string[]): Set<string> {
-    return new Set(analizarIntereses(t, cat).tematicas.map(claveDeTematica));
-  }
+  useImperativeHandle(ref, () => ({
+    analizarAlGuardar: () => (texto.trim() === ultimoAnalizado.current.trim() ? seleccionados : analizar()),
+  }));
 
-  function analizar(silencioso = false) {
-    const { seleccionados: actualesSel, catalogo: cat, onCambiar: cambiar } = actuales.current;
-    if (delTexto.current === null) {
-      delTexto.current = temasDelTexto(primerTexto.current, cat);
-      // Lo que el texto guardado menciona pero no está en el perfil lo quitó la persona antes:
-      // no se vuelve a poner mientras el texto lo siga mencionando.
-      const teniaAlCargar = new Set(primerosSeleccionados.current.map(claveDeTematica));
-      for (const clave of delTexto.current) if (!teniaAlCargar.has(clave)) quitadasAMano.current.add(clave);
-    }
-    const { tematicas: encontradas, descartadas } = analizarIntereses(texto, cat);
+  function analizar(): string[] {
+    ultimoAnalizado.current = texto;
+    // Lo que el texto guardado menciona y no está en el perfil ya no se toma como quitado a mano: un
+    // texto puede guardarse sin analizar (2026-11-04), y entonces el botón no podría agregarlo.
+    delTexto.current ??= new Set(analizarIntereses(primerTexto.current, catalogo).tematicas.map(claveDeTematica));
+    const { tematicas: encontradas, descartadas } = analizarIntereses(texto, catalogo);
     const ahora = new Set(encontradas.map(claveDeTematica));
     for (const clave of quitadasAMano.current) if (!ahora.has(clave)) quitadasAMano.current.delete(clave);
 
     // Se quitan las que daba el texto anterior y ya no da (si no se agregaron a mano).
-    const quitadas = actualesSel.filter((t) => {
+    const quitadas = seleccionados.filter((t) => {
       const clave = claveDeTematica(t);
       return delTexto.current!.has(clave) && !ahora.has(clave) && !aMano.current.has(clave);
     });
-    const quedan = actualesSel.filter((t) => !quitadas.includes(t));
+    const quedan = seleccionados.filter((t) => !quitadas.includes(t));
     const yaEstaban = new Set(quedan.map(claveDeTematica));
     const nuevas = encontradas.filter((t) => !yaEstaban.has(claveDeTematica(t)) && !quitadasAMano.current.has(claveDeTematica(t)));
     const caben = nuevas.slice(0, Math.max(0, MAXIMO_DE_INTERESES - quedan.length));
     delTexto.current = ahora;
 
-    if (quitadas.length > 0 || caben.length > 0) cambiar([...quedan, ...caben]);
+    const resultado = quitadas.length > 0 || caben.length > 0 ? [...quedan, ...caben] : seleccionados;
+    if (resultado !== seleccionados) onCambiar(resultado);
 
     // Las partes con palabras inapropiadas (lib/tematicas/filtro.ts) se descartan completas; se
     // avisa sin repetir las palabras.
@@ -128,9 +131,6 @@ export default function InteresesDesdeTexto({
     }
     if (partes.length > 0) {
       setAviso(partes.join(" "));
-    } else if (silencioso) {
-      // Al escribir, sin cambios: no se queda el aviso de un análisis anterior.
-      setAviso(null);
     } else {
       setAviso(
         !texto.trim()
@@ -140,19 +140,8 @@ export default function InteresesDesdeTexto({
             : "Esas temáticas ya estaban en tu lista.",
       );
     }
+    return resultado;
   }
-
-  // Se analiza solo al dejar de escribir (no al montar: el texto guardado ya dio sus temáticas).
-  const montado = useRef(false);
-  useEffect(() => {
-    if (!montado.current) {
-      montado.current = true;
-      return;
-    }
-    const id = setTimeout(() => analizar(true), PAUSA_AL_ESCRIBIR_MS);
-    return () => clearTimeout(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [texto]);
 
   // Las que la persona ya tenía y no se ofrecen (pendientes de antes del 2026-10-20, u ocultas)
   // también son opciones: el selector descarta lo que no esté en `opciones`.
@@ -168,21 +157,26 @@ export default function InteresesDesdeTexto({
         id={id}
         value={texto}
         onChange={(e) => onTexto(e.target.value)}
-        onKeyDown={(e) => {
-          // Enter analiza; Mayús+Enter hace un salto de línea. Mientras se compone un carácter
-          // (teclados con acentos o en otros idiomas) Enter no cuenta.
-          if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-            e.preventDefault();
-            analizar();
-          }
-        }}
         maxLength={LARGO_MAXIMO_DEL_TEXTO}
         rows={3}
         disabled={deshabilitado}
         placeholder="Por ejemplo: me gusta andar en bici, cuidar a los perritos de la calle y la fotografía."
         className="disabled:cursor-default disabled:bg-system-100"
       />
-      <p className="mt-1.5 text-[11.5px] text-system-500">Tus temáticas se ajustan solas al texto: si borras algo, se quita su temática.</p>
+      <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[11.5px] text-system-500">Da “Analizar texto” para ver tus temáticas; también se analiza al guardar. Si borras algo, se quita su temática.</p>
+        <Button
+          type="button"
+          size="sm"
+          onClick={() => {
+            onAnalizado?.();
+            analizar();
+          }}
+          disabled={deshabilitado}
+        >
+          Analizar texto
+        </Button>
+      </div>
       <p aria-live="polite" className="mt-2 min-h-[1lh] text-[12.5px] text-system-600">
         {aviso}
       </p>

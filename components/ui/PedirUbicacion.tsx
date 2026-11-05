@@ -1,12 +1,13 @@
 "use client";
 
-// Ubicación actual al crear o editar una campaña: la opción "Mi ubicación actual" del paso "Lugar" llama a
-// ref.pedir() (2026-11-03, a pedido del usuario; antes también se pedía sola al llegar al paso).
+// Ventana para pedir la ubicación. "Mi ubicación actual" del paso "Lugar" de una campaña llama a ref.pedir()
+// (2026-11-03, a pedido del usuario; antes también se pedía sola al llegar al paso), y también
+// ui/UbicacionDelPerfil en /bienvenida y /cuenta (2026-11-04).
 //  - Si ya la activó (la misma preferencia que "Usar mi ubicación" de /campanas, lib/ubicacion/en-el-navegador.ts),
 //    la detecta sin ventana.
 //  - Si no, sale una ventana aunque antes haya dicho "Ahora no" (ahora la pidió él). "Usar mi ubicación" hace
 //    que el navegador pida el permiso, guarda su zona y la pasa a `onZona`.
-//  - Si la rechaza o no se puede, `onSinUbicacion` con el motivo: el formulario pasa a "Elegir manualmente".
+//  - Si la rechaza o no se puede, `onSinUbicacion` con el motivo: quien la usa ofrece elegirla a mano.
 
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
 import VentanaDeConfirmacion from "@/components/ui/VentanaDeConfirmacion";
@@ -22,11 +23,14 @@ export type ControlDeUbicacion = { pedir: () => void };
 
 export default function PedirUbicacion({
   ref,
+  explicacion,
   onZona,
   onSinUbicacion,
   onOcupado,
 }: {
   ref?: Ref<ControlDeUbicacion>;
+  /** Para qué se usa la ubicación en esa pantalla. */
+  explicacion: string;
   onZona: (zona: ZonaDetectada) => void;
   /** No se pudo o no quiso compartirla. */
   onSinUbicacion: (motivo: string) => void;
@@ -101,11 +105,7 @@ export default function PedirUbicacion({
       onCancelar={ahoraNo}
       onConfirmar={() => void usarUbicacion()}
     >
-      <p>
-        Con tu ubicación llenamos el estado y el municipio de la campaña por ti (puedes cambiarlos) y en Explorar
-        campañas te mostramos las que están cerca. Tu navegador te pedirá permiso; solo guardamos tu estado y
-        municipio, nunca tus coordenadas.
-      </p>
+      <p>{explicacion}</p>
       {error && (
         <p role="alert" className="mt-3 text-error-700">
           {error}
