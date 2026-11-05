@@ -179,6 +179,7 @@ export default function PestanasDeSupervision({
                 </p>
               </div>
               <div className="flex items-center gap-3">
+                {campaign.datosAbiertos?.estado === "pendiente" && <Tag tone="warn">Datos por decidir</Tag>}
                 {etiqueta(campaign)}
                 <Link href={`/supervisar/${campaign.id}`} className="font-bold text-brand-600">Ver detalle</Link>
               </div>

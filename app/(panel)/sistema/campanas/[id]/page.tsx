@@ -41,7 +41,7 @@ export default async function PanelDeCampanaSistemaPage({ params }: { params: Pr
 
   const estado = esEstado(c.status) ?? "borrador";
   const et = ETIQUETA_DE_CAMPANA[estado];
-  const finalizada = estado === "finalizada" || estado === "fallida";
+  const finalizada = estado === "finalizada";
   const enVivo = estado === "activa";
   const duracion =
     c.fechaInicio && c.fechaFin ? Math.round((Date.parse(c.fechaFin) - Date.parse(c.fechaInicio)) / 86_400_000) : null;

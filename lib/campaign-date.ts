@@ -1,7 +1,6 @@
 // Fechas de campaña (DATE + TIME separados) y transiciones automáticas de estado, sin cron:
 // activateScheduledCampaigns (aceptada → activa) y finalizeExpiredCampaigns (activa → finalizada)
-// se ejecutan en cada lectura de /api/campanas y avisan al creador (campana_iniciada, campana_finalizada;
-// campana_en_espera si llegó su inicio pero ya tiene el máximo de activas).
+// se ejecutan en cada lectura de /api/campanas y avisan al creador (campana_iniciada, campana_finalizada).
 //
 // La fecha y hora que escribe el creador son hora de pared de Tepic (sin zona). "Ahora" y
 // "hoy" se calculan siempre en ZONA_DE_CAMPANAS, no con la zona del proceso: dentro de
@@ -11,8 +10,6 @@
 import { pool } from "@/lib/db";
 import { notificar } from "@/lib/notificaciones/notificaciones";
 import { ahoraEnZona, fechaDDMMAAAA } from "@/lib/fecha-de-tepic";
-import { MAX_CAMPANAS_ACTIVAS } from "@/lib/campanas/estado-del-creador";
-import { explicacionDeFallida, sqlEstadoAlTerminar } from "@/lib/campanas/fallida";
 
 // Viven en lib/fecha-de-tepic.ts para que el navegador también las use.
 export { ZONA_DE_CAMPANAS, ahoraEnZona, hoyEnTepic, errorDeInicioPasado, errorDeFinAntesDeInicio } from "@/lib/fecha-de-tepic";
@@ -151,11 +148,9 @@ function nowLocalTimestampParam(): string {
  * perezosa en cada lectura de campañas, igual que calculateCampaignDaysRemaining.
  * Sin start_time, COALESCE la deja en 00:00 (mismo comportamiento que antes).
  *
- * Tope de activas también al activarse (2026-10-27): el tope se revisa al aceptar, reanudar o
- * programar, pero mientras la campaña espera su inicio el creador puede llenar sus lugares. Solo
- * se activan las que caben en MAX_CAMPANAS_ACTIVAS (por creador, en orden de inicio); las demás
- * siguen "aceptada", se activan en cuanto se libera un lugar y el creador recibe una vez
- * campana_en_espera. El candado evita que dos corridas a la vez cuenten las mismas activas.
+ * Sin tope de activas desde el 2026-11-04 (decisión del usuario): toda aceptada se activa al llegar
+ * su inicio. El candado evita que dos corridas a la vez activen las mismas. campana_en_espera ya no
+ * se envía: solo se borran los avisos de ese tipo que queden de antes.
  *
  * Desde el 2026-11-01 (a pedido del usuario) toda aceptada se activa sola al llegar su inicio; el creador
  * puede activarla antes desde /mis-campanas. espera_activacion (2026-10-31: esperaban al creador) ya no cuenta.
@@ -164,7 +159,6 @@ export async function activateScheduledCampaigns(): Promise<void> {
   const ahora = nowLocalTimestampParam();
   const client = await pool.connect();
   let rows: { id: number; creator_id: number; name: string; is_special: boolean }[] = [];
-  let enEspera: { id: number; creator_id: number; name: string }[] = [];
   try {
     await client.query("BEGIN");
     const candado = await client.query<{ ok: boolean }>(
@@ -176,35 +170,14 @@ export async function activateScheduledCampaigns(): Promise<void> {
       return;
     }
     ({ rows } = await client.query<{ id: number; creator_id: number; name: string; is_special: boolean }>(
-      `WITH activas AS (
-         SELECT creator_id, COUNT(*)::int AS n FROM campanas WHERE status = 'activa' GROUP BY creator_id
-       ), listas AS (
-         SELECT id, creator_id,
-                ROW_NUMBER() OVER (PARTITION BY creator_id ORDER BY start_date, start_time NULLS FIRST, id) AS turno
-         FROM campanas
-         WHERE status = 'aceptada'
-           AND (start_date::timestamp + COALESCE(start_time, TIME '00:00:00')) <= $1::timestamp
-       )
-       UPDATE campanas c SET status = 'activa', updated_at = NOW()
-       FROM listas l LEFT JOIN activas a ON a.creator_id = l.creator_id
-       WHERE c.id = l.id
-         AND (l.creator_id IS NULL OR COALESCE(a.n, 0) + l.turno <= $2)
+      `UPDATE campanas c SET status = 'activa', updated_at = NOW()
+       WHERE c.status = 'aceptada'
+         AND (c.start_date::timestamp + COALESCE(c.start_time, TIME '00:00:00')) <= $1::timestamp
        RETURNING c.id, c.creator_id, c.name,
                  EXISTS (SELECT 1 FROM campana_especial ce WHERE ce.campana_id = c.id) AS is_special`,
-      [ahora, MAX_CAMPANAS_ACTIVAS]
-    ));
-    // Las que llegaron a su inicio sin lugar y todavía no tienen el aviso.
-    ({ rows: enEspera } = await client.query<{ id: number; creator_id: number; name: string }>(
-      `SELECT c.id, c.creator_id, c.name FROM campanas c
-       WHERE c.status = 'aceptada' AND c.creator_id IS NOT NULL
-         AND (c.start_date::timestamp + COALESCE(c.start_time, TIME '00:00:00')) <= $1::timestamp
-         AND NOT EXISTS (
-           SELECT 1 FROM notificaciones n
-           WHERE n.campana_id = c.id AND n.usuario_id = c.creator_id AND n.tipo = 'campana_en_espera'
-         )`,
       [ahora]
     ));
-    // Ya empezó: el aviso de espera queda viejo (y si vuelve a esperar, se avisa de nuevo).
+    // Ya empezó: el aviso de espera de antes del 2026-11-04 queda viejo.
     if (rows.length > 0) {
       await client.query(
         `DELETE FROM notificaciones WHERE tipo = 'campana_en_espera' AND campana_id = ANY($1::int[])`,
@@ -217,16 +190,6 @@ export async function activateScheduledCampaigns(): Promise<void> {
     throw error;
   } finally {
     client.release();
-  }
-  for (const { id, creator_id, name } of enEspera) {
-    await notificar({
-      usuarioId: creator_id,
-      tipo: "campana_en_espera",
-      titulo: "Tu campaña espera un lugar",
-      mensaje: `"${name}" llegó a su fecha de inicio, pero ya tienes ${MAX_CAMPANAS_ACTIVAS} campañas activas. Empieza sola en cuanto pauses o finalices otra.`,
-      campanaId: id,
-      enlace: "/mis-campanas",
-    });
   }
   if (rows.length === 0) return;
   // Al empezar, cada campaña recibe su enlace público. Import dinámico:
@@ -260,24 +223,20 @@ export async function activateScheduledCampaigns(): Promise<void> {
  * 00:00 (mismo comportamiento que antes de agregar la hora).
  */
 export async function finalizeExpiredCampaigns(): Promise<void> {
-  // Con menos del 25% de la meta en aprobados queda "fallida" (2026-11-01, lib/campanas/fallida.ts).
-  const { rows } = await pool.query<{ id: number; creator_id: number; name: string; status: string }>(
-    `UPDATE campanas SET status = ${sqlEstadoAlTerminar("campanas")}, updated_at = NOW()
+  const { rows } = await pool.query<{ id: number; creator_id: number; name: string }>(
+    `UPDATE campanas SET status = 'finalizada', updated_at = NOW()
      WHERE status = 'activa'
        AND end_date IS NOT NULL
        AND (end_date::timestamp + COALESCE(end_time, TIME '00:00:00')) <= $1::timestamp
-     RETURNING id, creator_id, name, status`,
+     RETURNING id, creator_id, name`,
     [nowLocalTimestampParam()]
   );
-  for (const { id, creator_id, name, status } of rows) {
+  for (const { id, creator_id, name } of rows) {
     await notificar({
       usuarioId: creator_id,
       tipo: "campana_finalizada",
-      titulo: status === "fallida" ? "Tu campaña terminó incompleta" : "Tu campaña terminó",
-      mensaje:
-        status === "fallida"
-          ? `"${name}" llegó a su fecha de fin y ${explicacionDeFallida()}`
-          : `"${name}" llegó a su fecha de fin y ya no recibe aportes.`,
+      titulo: "Tu campaña terminó",
+      mensaje: `"${name}" llegó a su fecha de fin y ya no recibe aportes.`,
       campanaId: id,
       enlace: `/mis-campanas/${id}/panel`,
     });

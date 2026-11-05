@@ -90,7 +90,7 @@ export default function CampaignCard({ campaign, onAbrir, hrefAlAbrir, compact =
         </p>
       </div>
 
-      <ProgressBar pct={isActive || isPaused ? pct : 0} />
+      <ProgressBar pct={isActive || isPaused ? pct : 0} conPorcentaje />
 
       <div className={`flex ${compact ? "gap-5" : "gap-6 max-md:gap-5"}`}>
         <div>

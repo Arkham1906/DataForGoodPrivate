@@ -42,6 +42,9 @@ const ORDENES: { valor: OrdenDeCampanas; etiqueta: string }[] = [
   { valor: "participacion", etiqueta: "Más participación" },
   { valor: "recientes", etiqueta: "Más recientes" },
   { valor: "cierre", etiqueta: "Cierran pronto" },
+  { valor: "mayor_avance", etiqueta: "Mayor avance" },
+  { valor: "menor_avance", etiqueta: "Menor avance" },
+  { valor: "menos_aportes", etiqueta: "Menos aportes" },
 ];
 const ORDENES_VALIDOS = new Set(ORDENES.map((o) => o.valor));
 
@@ -320,9 +323,9 @@ export default async function ExplorarCampanasPage({
                           ))}
                         </div>
                         <div className="mt-auto pt-3">
-                          <ProgressBar pct={pct} tone="ok" />
+                          <ProgressBar pct={pct} tone="ok" conPorcentaje />
                           <p className="mt-2 font-mono text-[11px] text-system-500">
-                            {nf.format(c.participants)} participantes · {pct}% de la meta ·{" "}
+                            {nf.format(c.participants)} participantes ·{" "}
                             {textoDeCierre(c.daysRemaining)}
                           </p>
                         </div>

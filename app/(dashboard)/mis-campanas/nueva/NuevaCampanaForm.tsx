@@ -29,6 +29,8 @@ import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import VentanaDeOrganizacionRequerida from "@/components/campanas/VentanaDeOrganizacionRequerida";
 import CampoDeFecha from "@/components/ui/CampoDeFecha";
 import AsaDeArrastre, { moverA } from "@/components/ui/AsaDeArrastre";
+import { MAX_CAMPANAS_EN_REVISION } from "@/lib/campanas/cola-de-revision";
+import { errorDeMaximoSobreLimite } from "@/lib/campanas/cuota-por-tipo";
 import { errorDeFinAntesDeInicio, errorDeInicioPasado, fechaDDMMAAAA, hoyEnTepic, inicioEnElFuturo } from "@/lib/fecha-de-tepic";
 import { LARGO_MAXIMO_ORGANIZACION } from "@/lib/campanas/organizacion";
 import CampoDeOrganizacion from "@/components/ui/CampoDeOrganizacion";
@@ -41,7 +43,6 @@ import { PLURALES_DE_TIPO, repartoSugerido } from "@/lib/campanas/reparto-sugeri
 import { maximosDesdeLaCuota } from "@/lib/campanas/cuota-por-tipo";
 import { LIMITE_MAXIMO_POR_TIPO } from "@/lib/campanas/limite-por-tipo";
 import { FORMATOS_DE_DOCUMENTO, type FormatoDeDocumento } from "@/lib/aportes/archivo";
-import { PORCENTAJE_MINIMO } from "@/lib/campanas/fallida";
 
 /** Campos del formulario que pueden tener un problema al guardar (2026-10-27). "general": nada en particular. */
 type CampoDeCampana =
@@ -126,7 +127,7 @@ function campoDelMensaje(mensaje: string): CampoDeCampana {
   if (m.includes("municipio")) return "municipio";
   if (m.includes("inicio")) return "inicio";
   if (m.includes("finaliza") || m.includes("cierre") || m.includes("fecha de fin")) return "fin";
-  if (m.includes("estado") && !m.includes("campañas activas")) return "estado";
+  if (m.includes("estado") && !m.includes("campañas en revisión")) return "estado";
   return "general";
 }
 
@@ -208,8 +209,6 @@ function textoDeZona(zona: ZonaDetectada): string {
   return `${zona.municipio ? `${zona.municipio}, ` : "Todo el estado de "}${zona.estado}`;
 }
 
-const MAX_ACTIVE_CAMPAIGNS = 5;
-
 
 const ESTADO_LABELS: Record<string, string> = {
   borrador: "Borrador",
@@ -218,7 +217,6 @@ const ESTADO_LABELS: Record<string, string> = {
   activa: "Activa",
   pausada: "Pausada",
   finalizada: "Finalizada",
-  fallida: "Incompleta",
   rechazada: "Rechazada",
 };
 
@@ -284,8 +282,14 @@ export default function NuevaCampanaForm() {
   }, [editId]);
 
   const editingCampaign = editId ? campaigns.find((campaign) => campaign.id === editId) : undefined;
-  const activeCampaigns = campaigns.filter((c) => c.status === "activa");
-  const limitReached = !editingCampaign && activeCampaigns.length >= MAX_ACTIVE_CAMPAIGNS;
+  // Cola de revisión (2026-11-04): la campaña que se edita no ocupa lugar si ya está en revisión.
+  const campanasEnRevision = campaigns.filter((c) => c.status === "en_revision" && c.id !== editId).length;
+  const vaARevision =
+    !editingCampaign ||
+    editingCampaign.status === "borrador" ||
+    editingCampaign.status === "rechazada" ||
+    (editingCampaign.status === "pausada" && editingCampaign.pausa?.por !== "supervision");
+  const colaLlena = vaARevision && campanasEnRevision >= MAX_CAMPANAS_EN_REVISION;
 
   // Mientras carga, no se monta el formulario: sus campos leen
   // editingCampaign una sola vez, al montar (ver CampanaFormulario). Si se
@@ -319,8 +323,8 @@ export default function NuevaCampanaForm() {
       editingCampaign={editingCampaign}
       organizacionPerfil={organizacionPerfil}
       perfil={perfil}
-      activeCampaigns={activeCampaigns.length}
-      limitReached={limitReached}
+      campanasEnRevision={campanasEnRevision}
+      colaLlena={colaLlena}
     />
   );
 }
@@ -329,14 +333,14 @@ function CampanaFormulario({
   editingCampaign,
   organizacionPerfil,
   perfil,
-  activeCampaigns,
-  limitReached,
+  campanasEnRevision,
+  colaLlena,
 }: {
   editingCampaign: Campaign | undefined;
   organizacionPerfil: string;
   perfil: DatosDelPerfil;
-  activeCampaigns: number;
-  limitReached: boolean;
+  campanasEnRevision: number;
+  colaLlena: boolean;
 }) {
   const router = useRouter();
 
@@ -344,15 +348,16 @@ function CampanaFormulario({
   // rechazada se puede editar por completo y reenviar; activa, pausada o
   // aceptada (aprobada, esperando su fecha de inicio) solo permiten ajustar
   // meta y fecha de finalización, sin tocar su estado; pausada permite casi
-  // todo y al guardar pasa a revisión;
-  // finalizada queda en solo lectura. La fallida (2026-11-01) igual: solo se extiende con un fin nuevo.
+  // todo y al guardar pasa a revisión, o sigue pausada si la pausó la supervisión;
+  // finalizada queda en solo lectura.
   const status = editingCampaign?.status;
-  const soloLectura = status === "finalizada" || status === "fallida";
-  const esFallida = status === "fallida";
+  const soloLectura = status === "finalizada";
   const edicionLimitada = status === "activa" || status === "pausada" || status === "aceptada";
   const edicionCompleta = !edicionLimitada && !soloLectura;
   const editaEnPausa = status === "pausada";
-  const enviarRevisionAlGuardar = editaEnPausa;
+  // La que pausó la supervisión sigue pausada al guardar: solo la supervisión la reanuda (2026-11-04).
+  const pausadaPorSupervision = editaEnPausa && editingCampaign?.pausa?.por === "supervision";
+  const enviarRevisionAlGuardar = editaEnPausa && !pausadaPorSupervision;
   // Lo que solo se edita por completo o en pausa (nombre, temática, tipos, cuota, inicio, ubicación).
   const contenidoBloqueado = edicionLimitada && !editaEnPausa;
 
@@ -468,7 +473,8 @@ function CampanaFormulario({
       const plural = PLURALES_DE_TIPO[tipo as DataType][1];
       if (!Number.isInteger(n) || n < 1) return `El máximo de ${plural} por persona debe ser un número entero mayor a 0`;
     }
-    return null;
+    // Una activa o aceptada no puede cambiar sus máximos: no se le exige corregirlos.
+    return metaPorTipo && !contenidoBloqueado ? errorDeMaximoSobreLimite(cuotaPorTipo, limitePorTipo) : null;
   }
   function faltaMaximo(): string | null {
     const falta = DATA_TYPES.find((d) => dataTypes.includes(d.value) && !cuotaPorTipo[d.value]);
@@ -542,7 +548,14 @@ function CampanaFormulario({
   const [problemasDelServidor, setProblemasDelServidor] = useState<Problema[]>([]);
   const [ventanaDeProblemas, setVentanaDeProblemas] = useState<Problema[] | null>(null);
   const [confirmarCancelar, setConfirmarCancelar] = useState(false);
-  const limiteActivasAlcanzado = activeCampaigns >= MAX_ACTIVE_CAMPAIGNS;
+  const propositoEditado =
+    proposito !== (editingCampaign?.proposito ?? "") ||
+    propositoOtro !== (editingCampaign?.propositoOtro ?? "");
+
+  // Una pausada no se guarda como borrador: con la cola llena, sigue pausada sin estos cambios.
+  const avisoDeColaLlena = editaEnPausa
+    ? `Ya tienes ${MAX_CAMPANAS_EN_REVISION} campañas en revisión: no puedes enviar estos cambios hasta que la supervisión acepte o rechace alguna`
+    : `Ya tienes ${MAX_CAMPANAS_EN_REVISION} campañas en revisión: guárdala como borrador y envíala cuando la supervisión acepte o rechace alguna`;
 
   function cambiarInicio(fecha: string) {
     setInicioModificado(true);
@@ -557,7 +570,7 @@ function CampanaFormulario({
   }
 
   async function handleReactivar() {
-    if (!editingCampaign || limiteActivasAlcanzado || !endDate) return;
+    if (!editingCampaign || !endDate) return;
 
     if (!inicioEnElFuturo(endDate, endTime)) {
       setReactivarError("Elige una fecha de finalización futura según el horario que ya tiene la campaña.");
@@ -710,20 +723,12 @@ function CampanaFormulario({
           <div>
             <h1 className="text-xl font-extrabold text-system-900">{name}</h1>
             <p className="mt-1 text-[13px] text-system-600">
-              {esFallida
-                ? `Esta campaña terminó incompleta: juntó menos del ${PORCENTAJE_MINIMO}% de su meta en aportes aprobados y no publicó datos abiertos. Para extenderla y seguir recibiendo aportes, define una nueva fecha de finalización.`
-                : "Esta campaña ya finalizó y queda en solo lectura: no se puede editar. Para reactivarla, primero define una nueva fecha de finalización."}
+              {"Esta campaña ya finalizó y queda en solo lectura: no se puede editar. Para reactivarla, primero define una nueva fecha de finalización."}
             </p>
           </div>
-          <Tag tone={esFallida ? "warn" : undefined}>{esFallida ? "Incompleta" : "Finalizada"}</Tag>
+          <Tag>Finalizada</Tag>
         </div>
 
-        {limiteActivasAlcanzado && (
-          <div className="mb-4 max-w-lg rounded-lg bg-warning-50 p-4 text-[12.5px] text-warning-800">
-            Ya tienes {MAX_ACTIVE_CAMPAIGNS} campañas activas. Pausa o finaliza otra antes de
-            reactivar esta.
-          </div>
-        )}
         {reactivarError && (
           <div className="mb-4 max-w-lg rounded-lg bg-error-50 p-4 text-[12.5px] text-error-700">
             {reactivarError}
@@ -740,7 +745,6 @@ function CampanaFormulario({
               value={endDate}
               aria-label="Nueva fecha de finalización"
               onChange={setEndDate}
-              disabled={limiteActivasAlcanzado}
               required
             />
           </Field>
@@ -753,9 +757,9 @@ function CampanaFormulario({
           <Button
             variant="primary"
             onClick={handleReactivar}
-            disabled={limiteActivasAlcanzado || reactivando || !endDate}
+            disabled={reactivando || !endDate}
           >
-            {reactivando ? (esFallida ? "Extendiendo..." : "Reactivando...") : esFallida ? "Extender campaña" : "Reactivar campaña"}
+            {reactivando ? "Reactivando..." : "Reactivar campaña"}
           </Button>
         </div>
       </div>
@@ -764,11 +768,11 @@ function CampanaFormulario({
 
   // Solo se exige completo al enviar a revisión o al editar una campaña ya
   // aceptada/activa/pausada: un borrador puede quedar a medias a propósito
-  // (es justo lo que permite seguir bajo el límite de 5 campañas activas).
+  // (es justo lo que permite seguir trabajando con la cola de revisión llena).
   function problemasDe(asDraft: boolean): Problema[] {
     const lista: Problema[] = [];
     const agregar = (campo: CampoDeCampana, mensaje: string | null | undefined) => {
-      if (mensaje) lista.push({ campo, mensaje });
+      if (mensaje && !lista.some((p) => p.campo === campo && p.mensaje === mensaje)) lista.push({ campo, mensaje });
     };
     const vacio = (n: string) => !Number(n) || Number(n) <= 0;
     // Por tipo: cada tipo marcado con su límite. General: la meta escrita.
@@ -792,7 +796,12 @@ function CampanaFormulario({
       else agregar("fin", errorDeFinAntesDeInicio(fechaInicioFormulario, fechaFinFormulario));
       if (!todoElPais && !locationState) agregar("estado", "Selecciona un estado o elige \"Para todo el país\"");
       else if (!todoElPais && !locationCity) agregar("municipio", "Selecciona un municipio o \"Todo el estado\"");
-      if (enviarRevisionAlGuardar) {
+      if (colaLlena) agregar("general", avisoDeColaLlena);
+      // Con el cierre vencido, al aprobarse se activaría y finalizaría sola (2026-11-04).
+      if (enviarRevisionAlGuardar && fechaFinFormulario && !inicioEnElFuturo(fechaFinFormulario, endTime)) {
+        agregar("fin", "La fecha de finalización ya pasó: pon una nueva para enviarla a revisión");
+      }
+      if (propositoEditado || enviarRevisionAlGuardar) {
         const validado = validarProposito(proposito, propositoOtro, true);
         if (!validado.ok) agregar("proposito", validado.error);
       }
@@ -820,9 +829,7 @@ function CampanaFormulario({
     if (!propositoValido.ok) agregar("proposito", propositoValido.error);
     if (asDraft) return lista;
 
-    if (limitReached) {
-      agregar("general", `Ya tienes ${MAX_ACTIVE_CAMPAIGNS} campañas activas: guárdala como borrador y envíala cuando pauses o finalices otra`);
-    }
+    if (colaLlena) agregar("general", avisoDeColaLlena);
     if (dataTypes.length === 0) agregar("tipos", "Selecciona al menos un tipo de dato");
     revisarMeta();
     const cuotaIncompleta = errorDeCuota();
@@ -847,7 +854,7 @@ function CampanaFormulario({
     }
 
     // Activa o aceptada: solo se guardan meta y fecha de fin. Pausada: también
-    // lo de CAMPOS_EDITABLES_EN_PAUSA y pasa a revisión al guardar.
+    // lo de CAMPOS_EDITABLES_EN_PAUSA, y pasa a revisión salvo que la haya pausado la supervisión.
     // En el orden en que se ven (↑/↓).
     const checklistSecciones = checklistsVigentes.map((c) => ({
       titulo: c.titulo.trim(),
@@ -856,9 +863,10 @@ function CampanaFormulario({
     }));
     const camposEditables = editaEnPausa
       ? {
-          status: "en_revision",
-          proposito,
-          propositoOtro: proposito === "otro" ? propositoOtro.trim() : "",
+          status: enviarRevisionAlGuardar ? "en_revision" : undefined,
+          ...(propositoEditado || enviarRevisionAlGuardar
+            ? { proposito, propositoOtro: proposito === "otro" ? propositoOtro.trim() : "" }
+            : {}),
           name,
           description,
           organizer: organizer.trim(),
@@ -1031,7 +1039,11 @@ function CampanaFormulario({
           </h1>
           <p className="mt-1 text-[13px] text-system-600">
             {editaEnPausa
-              ? "La campaña está pausada: puedes editar sus datos. Al guardar, pasará a revisión y no recibirá aportes hasta que la supervisión decida."
+              ? pausadaPorSupervision
+                ? "La supervisión pausó esta campaña: haz los ajustes que te pidió y guárdalos. Sigue pausada hasta que quien la supervisa la reanude."
+                : colaLlena
+                ? "La campaña está pausada. Tu cola de revisión está llena: todavía no puedes enviar cambios."
+                : "La campaña está pausada: puedes editar sus datos. Al guardar, pasará a revisión y no recibirá aportes hasta que la supervisión decida."
               : edicionLimitada
               ? status === "aceptada"
                 ? "La campaña ya fue aceptada y espera su fecha de inicio: solo puedes ajustar la meta de aportes y la fecha de finalización."
@@ -1039,8 +1051,8 @@ function CampanaFormulario({
               : "Completa los cinco pasos y envíala a revisión. Puedes guardarla como borrador en cualquier momento."}
           </p>
         </div>
-        <Tag tone={limitReached ? "danger" : (status && ETIQUETA_DE_CAMPANA[status]?.tono) || "default"}>
-          {limitReached ? "Límite alcanzado" : editingCampaign ? labelEstado(status) : "Borrador"}
+        <Tag tone={colaLlena ? "danger" : (status && ETIQUETA_DE_CAMPANA[status]?.tono) || "default"}>
+          {colaLlena ? "Cola de revisión llena" : editingCampaign ? labelEstado(status) : "Borrador"}
         </Tag>
       </div>
 
@@ -1069,12 +1081,13 @@ function CampanaFormulario({
         </div>
       )}
 
-      {limitReached && (
+      {colaLlena && (
         <div className="mb-6 flex flex-wrap items-start justify-between gap-3 rounded-lg bg-error-50 p-4 text-[13px] text-error-700">
           <p>
-            <b>Ya tienes {MAX_ACTIVE_CAMPAIGNS} campañas activas.</b> El sistema permite un
-            máximo de {MAX_ACTIVE_CAMPAIGNS} en simultáneo. Puedes guardar esta como
-            borrador y publicarla cuando finalices o pauses alguna de las otras.
+            <b>Ya tienes {MAX_CAMPANAS_EN_REVISION} campañas en revisión.</b>{" "}
+            {editaEnPausa
+              ? "No puedes enviar cambios hasta que la supervisión acepte o rechace alguna. Mientras tanto, puedes reanudarla sin cambios desde Mis campañas."
+              : "Puedes guardar esta como borrador y enviarla cuando la supervisión acepte o rechace alguna."}
           </p>
           <Link href="/mis-campanas">
             <Button size="sm">Ver mis campañas</Button>
@@ -1843,7 +1856,7 @@ function CampanaFormulario({
                   Máximo por persona de cada tipo <span className="text-error-700">*</span>
                 </legend>
                 <p className="mb-2.5 text-[11.5px] text-system-500">
-                  Cuántos aportes de cada tipo puede mandar cada persona. La cuota por persona es la suma.
+                  Cuántos aportes de cada tipo puede mandar cada persona, sin pasar del límite de ese tipo. La cuota por persona es la suma.
                 </p>
                 {dataTypes.length === 0 && (
                   <p className="rounded-lg border border-dashed border-system-300 p-3 text-[12px] text-system-500">
@@ -1896,10 +1909,14 @@ function CampanaFormulario({
           {edicionLimitada && (
             <div className="mb-6 max-w-lg rounded-lg bg-system-100 p-4 text-[12.5px] text-system-600">
               {enviarRevisionAlGuardar
-                ? "Al guardar, la campaña pasará a En revisión. No recibirá aportes nuevos mientras la supervisión revisa los cambios."
+                ? `${colaLlena ? "Cuando haya un lugar en tu cola de revisión, al guardar" : "Al guardar"}, la campaña pasará a En revisión. No recibirá aportes nuevos mientras la supervisión revisa los cambios.`
+                : pausadaPorSupervision
+                ? "La pausó la supervisión: los cambios se guardan, sigue pausada y solo quien la supervisa puede reanudarla."
                 : `La campaña está ${status === "aceptada" ? "aceptada" : "activa"}: los cambios se guardan y mantiene su estado actual.`}
               {editaEnPausa &&
-                " Los aportes que ya llegaron no cambian, aunque su tipo de dato ya no se pida. La supervisión recibe la campaña para revisar los cambios."}
+                ` Los aportes que ya llegaron no cambian, aunque su tipo de dato ya no se pida. ${
+                  pausadaPorSupervision ? "Quien la supervisa recibe un aviso de lo que cambiaste." : "La supervisión recibe la campaña para revisar los cambios."
+                }`}
             </div>
           )}
           {errores.length > 0 && (
@@ -1919,7 +1936,7 @@ function CampanaFormulario({
 
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-system-200 pt-4">
             <p className="font-mono text-[12.5px] text-system-600">
-              {activeCampaigns} de {MAX_ACTIVE_CAMPAIGNS} campañas activas usadas
+              {campanasEnRevision} de {MAX_CAMPANAS_EN_REVISION} campañas en revisión
             </p>
             <div className="flex flex-wrap gap-2.5">
               {/* Cancelar cambios (2026-10-31, a pedido del usuario): solo al editar; sale sin guardar. */}

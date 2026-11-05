@@ -91,6 +91,8 @@ const ORDEN_SQL: Record<string, string> = {
   participantes: "participantes DESC, id DESC",
   aportes: "aportes DESC, id DESC",
   avance: "CASE WHEN goal_contributions > 0 THEN aprobados::float / goal_contributions ELSE 0 END DESC, id DESC",
+  menor_avance: "CASE WHEN goal_contributions > 0 THEN aprobados::float / goal_contributions ELSE 0 END ASC, id DESC",
+  menos_aportes: "aportes ASC, id DESC",
   vence: "end_date ASC NULLS LAST, id DESC",
 };
 

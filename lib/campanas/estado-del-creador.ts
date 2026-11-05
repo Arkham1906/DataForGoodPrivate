@@ -2,12 +2,12 @@
 // /api/campanas/[id]). Una regla, un lugar: dominio.md § 4 y § 5.
 //   - El creador solo guarda como `borrador` o envía `en_revision`. La activa el supervisor
 //     (lib/supervision/decision.ts); el creador solo reactiva una finalizada o la finaliza.
-//   - Máximo MAX_CAMPANAS_ACTIVAS activas a la vez: pasado ese número, solo borrador.
+//   - Cola de revisión: hasta MAX_CAMPANAS_EN_REVISION en revisión a la vez; con la cola llena, solo
+//     borrador. No hay tope de campañas creadas ni activas (2026-11-04, decisión del usuario).
 //   - Contadores, "especial", "revisor asignado" y XP no los decide el creador.
 
 import { pool } from "@/lib/db";
-
-export const MAX_CAMPANAS_ACTIVAS = 5;
+import { MAX_CAMPANAS_EN_REVISION } from "@/lib/campanas/cola-de-revision";
 
 /** Estados que el creador puede pedir al crear o al editar por completo. */
 export const ESTADOS_QUE_ELIGE_EL_CREADOR = new Set(["borrador", "en_revision"]);
@@ -32,7 +32,8 @@ export const CAMPOS_DE_EDICION_LIMITADA = new Set([
  * Pausada (2026-10-22, a pedido del usuario): además nombre, descripción, temática, propósito, tipos
  * de dato (con la cuota, que depende de ellos), checklists (texto y orden), inicio y ubicación;
  * la organización se puede cambiar desde el 2026-11-02.
- * Cualquier edición guardada vuelve a revisión; pausar sin editar no.
+ * Si la pausó el creador, cualquier edición guardada vuelve a revisión; pausar sin editar no.
+ * Si la pausó la supervisión, sigue pausada y solo la supervisión la reanuda (2026-11-04).
  */
 export const CAMPOS_EDITABLES_EN_PAUSA = new Set([
   ...CAMPOS_DE_EDICION_LIMITADA,
@@ -72,7 +73,7 @@ export const CAMPOS_EDITABLES_EN_PAUSA = new Set([
   "location_colonia",
 ]);
 
-/** Columnas cuyos cambios se detallan en la bitácora al editar una campaña pausada. */
+/** Columnas cuyos cambios se detallan en la bitácora y en el aviso al editar una campaña pausada. */
 export const COLUMNAS_AVISADAS_EN_PAUSA = [
   "name",
   "description",
@@ -101,25 +102,30 @@ export const COLUMNAS_AVISADAS_EN_PAUSA = [
 // usan el valor que siempre mandó el formulario; el creador no lo elige.
 export const XP_POR_APORTE = 50;
 
-/** Campañas activas de esta persona. */
-export async function contarActivas(usuarioId: string | number): Promise<number> {
+/** true si la persona ya ocupa toda su cola de revisión, sin contar la campaña que se está guardando. */
+export async function colaDeRevisionLlena(usuarioId: string | number, campanaId?: string | number): Promise<boolean> {
   const { rows } = await pool.query<{ n: number }>(
-    `SELECT COUNT(*)::int AS n FROM campanas WHERE creator_id = $1 AND status = 'activa'`,
-    [usuarioId]
+    `SELECT COUNT(*)::int AS n FROM campanas
+     WHERE creator_id = $1 AND status = 'en_revision' AND ($2::int IS NULL OR id <> $2::int)`,
+    [usuarioId, campanaId ?? null]
   );
-  return Number(rows[0]?.n ?? 0);
+  return Number(rows[0]?.n ?? 0) >= MAX_CAMPANAS_EN_REVISION;
 }
 
 /**
  * Por qué el creador no puede pedir ese estado, o null si puede. Solo para crear o para
  * editar una campaña en borrador, en revisión o rechazada.
  */
-export async function errorDeEstadoPedido(estado: string, usuarioId: string | number): Promise<string | null> {
+export async function errorDeEstadoPedido(
+  estado: string,
+  usuarioId: string | number,
+  campanaId?: string | number,
+): Promise<string | null> {
   if (!ESTADOS_QUE_ELIGE_EL_CREADOR.has(estado)) {
     return "Solo puedes guardar la campaña como borrador o enviarla a revisión: la activa el supervisor.";
   }
-  if (estado === "en_revision" && (await contarActivas(usuarioId)) >= MAX_CAMPANAS_ACTIVAS) {
-    return `Ya tienes ${MAX_CAMPANAS_ACTIVAS} campañas activas: por ahora solo puedes guardarla como borrador.`;
+  if (estado === "en_revision" && (await colaDeRevisionLlena(usuarioId, campanaId))) {
+    return `Ya tienes ${MAX_CAMPANAS_EN_REVISION} campañas en revisión: guárdala como borrador y envíala cuando la supervisión acepte o rechace alguna.`;
   }
   return null;
 }

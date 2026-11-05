@@ -33,6 +33,18 @@ export function guardarPreferenciaDeUbicacion(valor: "si" | "no"): void {
   }
 }
 
+/**
+ * Estado del permiso en el navegador, sin pedirlo. Safari viejo no tiene permissions.query: ahí se
+ * responde "granted", porque intentarlo no vuelve a mostrar el aviso si la persona ya la activó.
+ */
+export async function permisoDeUbicacion(): Promise<PermissionState> {
+  try {
+    return (await navigator.permissions.query({ name: "geolocation" })).state;
+  } catch {
+    return "granted";
+  }
+}
+
 export function hayGeolocalizacion(): boolean {
   return typeof navigator !== "undefined" && "geolocation" in navigator;
 }

@@ -18,7 +18,7 @@ async function getSupervisedCampaign(campaignId: string): Promise<CampaignAccess
 
   const result = await pool.query<CampaignAccess>(
     `SELECT id, name, status FROM campanas
-    WHERE id = $1 AND supervisor_id = $2 AND status IN ('activa', 'pausada', 'finalizada', 'fallida')
+    WHERE id = $1 AND supervisor_id = $2 AND status IN ('activa', 'pausada', 'finalizada')
      LIMIT 1`,
     [campaignId, user.id]
   );

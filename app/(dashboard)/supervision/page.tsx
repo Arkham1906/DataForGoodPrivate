@@ -16,13 +16,14 @@ import { FILTROS_VACIOS, avisoSinResultados, conFiltro, etiquetasPorTematica, fi
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import PestanasDeModeracion from "@/components/moderacion/PestanasDeModeracion";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
-import { estaTerminada } from "@/lib/campanas/fallida";
+import { estaTerminada } from "@/lib/campanas/terminada";
 
 type CampaignApiItem = {
   id: string;
   creatorId: string;
   supervisorId?: string | null;
   supervisedByRoot?: boolean;
+  datosAbiertos?: { estado: string } | null;
   creatorName: string;
   name: string;
   tag?: string;
@@ -303,6 +304,7 @@ export default function SupervisionPage() {
                 </p>
               </div>
               <div className="flex items-center gap-3">
+                {campaign.datosAbiertos?.estado === "pendiente" && <Tag tone="warn">Datos por decidir</Tag>}
                 <Tag>Finalizada</Tag>
                 <Link href={`/supervision/${campaign.id}`} className="font-bold text-brand-600">Ver detalle</Link>
               </div>

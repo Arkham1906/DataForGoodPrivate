@@ -13,7 +13,7 @@ import { BASE_PATH } from "@/lib/base-path";
 import { FILTROS_VACIOS, avisoSinResultados, filtrarCampanas, opcionesDeTematica, type FiltrosLocales } from "@/lib/campanas/filtro-local";
 import { EsqueletoDeFilas } from "@/components/ui/Esqueletos";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
-import { estaTerminada } from "@/lib/campanas/fallida";
+import { estaTerminada } from "@/lib/campanas/terminada";
 
 type ReviewCampaign = {
   id: string;

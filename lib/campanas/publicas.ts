@@ -32,7 +32,7 @@ export type CampanaPublica = {
   status: "activa";
 };
 
-export type OrdenDeCampanas = "participacion" | "recientes" | "cierre";
+export type OrdenDeCampanas = "participacion" | "recientes" | "cierre" | "mayor_avance" | "menor_avance" | "menos_aportes";
 
 /** Estados que salen en /explorar. */
 const ESTADOS_VISIBLES = "status = 'activa'";
@@ -41,6 +41,9 @@ const ORDER_SQL: Record<OrdenDeCampanas, string> = {
   participacion: "est.participants DESC, est.current_contributions DESC",
   recientes: "created_at DESC",
   cierre: "end_date ASC NULLS LAST",
+  mayor_avance: "CASE WHEN goal_contributions > 0 THEN est.approved_contributions::float / goal_contributions ELSE 0 END DESC, created_at DESC",
+  menor_avance: "CASE WHEN goal_contributions > 0 THEN est.approved_contributions::float / goal_contributions ELSE 0 END ASC, created_at DESC",
+  menos_aportes: "est.current_contributions ASC, created_at DESC",
 };
 
 export type FiltrosDeCampanas = {

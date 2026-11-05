@@ -6,6 +6,7 @@ import { ejecutarBajasVencidas } from "@/lib/usuarios/baja";
 import { enviarAvisosPeriodicos } from "@/lib/notificaciones/periodicas";
 import { activateScheduledCampaigns, finalizeExpiredCampaigns } from "@/lib/campaign-date";
 import { escucharCambiosDeLaBase } from "@/lib/en-vivo-postgres";
+import { marcarDatosPorDecidir } from "@/lib/supervision/datos-abiertos";
 import { revisarRachas } from "@/lib/gamificacion/racha";
 
 const UNA_HORA_MS = 60 * 60 * 1000;
@@ -25,6 +26,7 @@ function programarEstadosDeCampanas(): void {
   const correr = () =>
     activateScheduledCampaigns()
       .then(() => finalizeExpiredCampaigns())
+      .then(() => marcarDatosPorDecidir())
       .catch((error) => console.error("Error al actualizar el estado de las campañas por fecha", error));
   void correr();
   setInterval(correr, UN_MINUTO_MS).unref();

@@ -3,6 +3,8 @@
 // Aviso de ubicación en /campanas (2026-10-31; lib/ubicacion/en-el-navegador.ts):
 //  - Sin decidir: invita a "Usar mi ubicación" (el navegador pide permiso al pulsarlo) o "Ahora no".
 //  - Activada o con zona guardada: "Estás en Tepic, Nayarit" con "Dejar de usar mi ubicación".
+//  - Activada sin zona guardada (2026-11-04): con permiso busca de verdad, y si falla lo dice con "Intentar de
+//    nuevo"; sin permiso vuelve a invitar. Antes se quedaba en "Buscando dónde estás…" sin buscar nada.
 //  - Dijo que no: no sale (se puede activar otra vez desde el enlace pequeño "Usar mi ubicación").
 // Si el navegador no tiene GPS, no sale nada.
 
@@ -13,6 +15,7 @@ import {
   detectarYEnviarZona,
   guardarPreferenciaDeUbicacion,
   hayGeolocalizacion,
+  permisoDeUbicacion,
   preferenciaDeUbicacion,
   type ZonaDetectada,
 } from "@/lib/ubicacion/en-el-navegador";
@@ -29,6 +32,21 @@ export default function AvisoDeUbicacion({ zona }: { zona: ZonaDetectada | null 
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPreferencia(hayGeolocalizacion() ? preferenciaDeUbicacion() : "no");
   }, []);
+
+  // Activada en este navegador, pero sin zona guardada (otra cuenta, o la borró): se busca o se vuelve a invitar.
+  const faltaZona = preferencia === "si" && !zona;
+  useEffect(() => {
+    if (!faltaZona) return;
+    let vivo = true;
+    void permisoDeUbicacion().then((permiso) => {
+      if (!vivo) return;
+      if (permiso === "granted") void activar();
+      else setPreferencia(null);
+    });
+    return () => {
+      vivo = false;
+    };
+  }, [faltaZona]);
 
   async function activar() {
     setOcupado(true);
@@ -66,10 +84,17 @@ export default function AvisoDeUbicacion({ zona }: { zona: ZonaDetectada | null 
             </>
           ) : fueraDeMexico ? (
             "No estás en México o no pudimos ubicar tu municipio: te mostramos todas las campañas."
+          ) : error ? (
+            <span className="text-error-700">{error}</span>
           ) : (
             "Buscando dónde estás…"
           )}
         </span>
+        {error && !zona && (
+          <button type="button" onClick={() => void activar()} disabled={ocupado} className="font-semibold text-brand-600 hover:underline">
+            Intentar de nuevo
+          </button>
+        )}
         <button type="button" onClick={() => void quitar()} disabled={ocupado} className="font-semibold text-brand-600 hover:underline">
           Dejar de usar mi ubicación
         </button>

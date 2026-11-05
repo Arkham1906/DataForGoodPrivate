@@ -3,6 +3,7 @@
 
 import type { CampanaEspecial } from "@/lib/campanas/especial-reglas";
 import type { PausaDeCampana } from "@/lib/campanas/pausa";
+import type { DatosAbiertosDeCampana } from "@/lib/campanas/datos-abiertos";
 import type { RechazoDeCampana } from "@/lib/campanas/rechazo";
 import type { EtiquetaDeCampana } from "@/lib/etiquetas/reglas";
 
@@ -13,7 +14,6 @@ export type CampaignStatus =
   | "activa"
   | "pausada"
   | "finalizada"
-  | "fallida" // terminó con menos del 25% de la meta en aprobados (lib/campanas/fallida.ts)
   | "rechazada";
 
 export type DataType = "texto" | "foto" | "video" | "audio" | "documento";
@@ -99,6 +99,8 @@ export interface Campaign {
   especial?: CampanaEspecial | null;
   /** Quién la pausó y por qué (lib/campanas/pausa.ts), o null si no está pausada. */
   pausa?: PausaDeCampana | null;
+  /** Decisión de datos abiertos (lib/campanas/datos-abiertos.ts), o null si no ha terminado. */
+  datosAbiertos?: DatosAbiertosDeCampana | null;
   /** Por qué la rechazó la supervisión (lib/campanas/rechazo.ts); solo en ?mine=true y si sigue rechazada. */
   rechazo?: RechazoDeCampana | null;
   daysRemaining: number | null;

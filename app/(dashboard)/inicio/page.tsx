@@ -8,10 +8,10 @@
 // Server Component. Acceso: sesión de usuario (exigirUsuario). Datos: obtenerResumenDeInicio() de
 // lib/usuarios/inicio.ts y obtenerResumenDeProgreso() de lib/gamificacion/progreso.ts (null si aún no hay datos de
 // progreso: entonces se omiten esos dos bloques). Hasta 3 campañas activas para él, de sus temáticas de interés o de
-// su ubicación. Sin temáticas de interés ni ubicación (zona por GPS o estado del perfil) no sale "Campañas para ti"
-// (2026-11-03, a pedido del usuario; igual que en /campanas), y la sección solo trae campañas de sus temáticas
-// o de su ubicación, sin las "populares" de otras temáticas. Sin temáticas sale además el recuadro
-// campanas/AvisoSinTematicas, con el mismo texto que en /campanas.
+// su ubicación. Sin temáticas de interés ni ubicación (zona por GPS o estado del perfil) "Campañas para ti" no
+// lista campañas, pero el título sigue, con el aviso debajo (2026-11-04, a pedido del usuario; igual que en /campanas).
+// La sección solo trae campañas de sus temáticas o de su ubicación, sin las "populares" de otras temáticas. Sin
+// temáticas sale además el recuadro campanas/AvisoSinTematicas, con el mismo texto que en /campanas.
 // Solo lectura: cada bloque enlaza a la pantalla donde se actúa. Se actualiza solo con ActualizacionEnVivo.
 
 import Link from "next/link";
@@ -69,6 +69,25 @@ export default async function InicioPage() {
   const [resumen, progreso] = await Promise.all([obtenerResumenDeInicio(usuario, zona), obtenerResumenDeProgreso(usuario.id)]);
   const conParaTi = usuario.intereses.length > 0 || Boolean(usuario.state?.trim()) || zona !== null;
   const { aportes, campanas } = resumen;
+  // Sin nada "para ti" va debajo del título, y con "Ahora no" queda una línea para que el título no se quede solo.
+  const avisoSinTematicas = (
+    <AvisoSinTematicas
+      sinTematicas={usuario.intereses.length === 0}
+      clave="dfg:aviso-sin-tematicas-inicio"
+      siCerrado={
+        !conParaTi && (
+          <p className="text-[13px] text-system-600">
+            Agrega temáticas de interés en Mi cuenta o activa tu ubicación en Explorar campañas para ver aquí tus recomendaciones.
+          </p>
+        )
+      }
+    >
+      <p>
+        Aún no eliges temáticas de interés. Agrégalas para mostrarte primero las campañas que te interesan y
+        avisarte cuando se abra una nueva.
+      </p>
+    </AvisoSinTematicas>
+  );
 
   return (
     <div className="space-y-8 max-md:space-y-6">
@@ -110,32 +129,29 @@ export default async function InicioPage() {
         )}
       </section>
 
-      <AvisoSinTematicas sinTematicas={usuario.intereses.length === 0} clave="dfg:aviso-sin-tematicas-inicio">
-        <p>
-          Aún no eliges temáticas de interés. Agrégalas para mostrarte primero las campañas que te interesan y
-          avisarte cuando se abra una nueva.
-        </p>
-      </AvisoSinTematicas>
+      {conParaTi && avisoSinTematicas}
 
-      {conParaTi && (
-        <CampanasParaTi
-          id="inicio-para-ti"
-          campanas={resumen.paraTi}
-          accion={
-            <Link href="/campanas" className="text-[13px] font-semibold text-brand-600 hover:underline">
-              Ver todas →
-            </Link>
-          }
-          vacio={
+      <CampanasParaTi
+        id="inicio-para-ti"
+        campanas={conParaTi ? resumen.paraTi : []}
+        accion={
+          <Link href="/campanas" className="text-[13px] font-semibold text-brand-600 hover:underline">
+            Ver todas →
+          </Link>
+        }
+        vacio={
+          !conParaTi ? (
+            avisoSinTematicas
+          ) : (
             <Card>
               <p className="text-[13px] text-system-600">Por ahora no hay campañas activas de tus temáticas de interés ni de tu zona.</p>
               <BotonCrearCampana variant="secondary" size="sm" className="mt-3">
                 Crear una campaña
               </BotonCrearCampana>
             </Card>
-          }
-        />
-      )}
+          )
+        }
+      />
 
       <div className="space-y-8 max-md:space-y-6">
         <section aria-labelledby="inicio-aportes">

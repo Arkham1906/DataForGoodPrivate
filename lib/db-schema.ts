@@ -8,7 +8,6 @@ import { ESTRELLAS_MAXIMAS } from "@/lib/aportes/calificacion";
 import { PROPOSITOS } from "@/lib/campanas/proposito";
 import { TIPOS_DE_SANCION } from "@/lib/sanciones";
 import { DESTINOS_DE_APORTES } from "@/lib/usuarios/baja-opciones";
-import { sqlEstadoAlTerminar } from "@/lib/campanas/fallida";
 
 /**
  * Único lugar donde se define el DDL de cada tabla. Antes estaba duplicado
@@ -253,6 +252,7 @@ export async function ensureCampanasTable(): Promise<void> {
       pausa_por VARCHAR(20),
       pausa_motivo TEXT,
       pausada_en TIMESTAMPTZ,
+      ajustes_en TIMESTAMPTZ,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
@@ -295,6 +295,9 @@ export async function ensureCampanasTable(): Promise<void> {
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS pausa_por VARCHAR(20);
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS pausa_motivo TEXT;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS pausada_en TIMESTAMPTZ;
+    -- Cuándo guardó el creador sus últimos ajustes tras una pausa de la supervisión (2026-11-04);
+    -- sin ellos no se reanuda. Se limpia al pausar otra vez.
+    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS ajustes_en TIMESTAMPTZ;
     -- Aprobada por la supervisión y esperando a que el creador la active (2026-10-31, a pedido del usuario):
     -- mientras sea true, una "aceptada" no se activa sola (activateScheduledCampaigns). Las de antes, false.
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS espera_activacion BOOLEAN NOT NULL DEFAULT false;
@@ -2158,6 +2161,33 @@ export async function ensureLideresPosicionesTable(): Promise<void> {
   `);
 }
 
+/**
+ * Decisión de datos abiertos de cada campaña terminada (2026-11-04, lib/supervision/datos-abiertos.ts). Al
+ * crear la tabla, las finalizadas que ya estaban publicadas se quedan publicadas (decisión del usuario).
+ * Solo esa vez: repetirlo publicaría las que esperan la decisión.
+ */
+export async function ensureCampanaDatosAbiertosTable(): Promise<void> {
+  await pool.query(`
+    DO $$
+    BEGIN
+      IF to_regclass('public.campana_datos_abiertos') IS NULL THEN
+        CREATE TABLE campana_datos_abiertos (
+          campana_id INTEGER PRIMARY KEY REFERENCES campanas(id) ON DELETE CASCADE,
+          estado VARCHAR(20) NOT NULL DEFAULT 'pendiente' CHECK (estado IN ('pendiente', 'publicada', 'no_publicada')),
+          motivo TEXT,
+          decidido_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+          por_superusuario BOOLEAN NOT NULL DEFAULT false,
+          decidido_en TIMESTAMPTZ
+        );
+        CREATE INDEX campana_datos_abiertos_decidido_por_idx ON campana_datos_abiertos (decidido_por);
+        CREATE INDEX campana_datos_abiertos_estado_idx ON campana_datos_abiertos (estado);
+        INSERT INTO campana_datos_abiertos (campana_id, estado, decidido_en)
+        SELECT id, 'publicada', NOW() FROM campanas WHERE status = 'finalizada';
+      END IF;
+    END $$;
+  `);
+}
+
 /** Todo el esquema de la gamificación, en el orden de sus llaves foráneas. Lo llama ensureCoreSchema(). */
 export async function ensureGamificacion(): Promise<void> {
   await ensureGamificacionColumnas(); // antes que todo: usa usuarios, aportes y medallas ya creadas
@@ -2190,7 +2220,7 @@ function restricciones(): ReadonlyArray<[tabla: string, nombre: string, condicio
   return [
     // Estados de la campaña (lib/campanas/sistema-opciones.ts, EstadoDeCampana).
     ["campanas", "campanas_status_check",
-      `status IN ('borrador', 'en_revision', 'aceptada', 'activa', 'pausada', 'rechazada', 'finalizada', 'fallida')`],
+      `status IN ('borrador', 'en_revision', 'aceptada', 'activa', 'pausada', 'rechazada', 'finalizada')`],
     ["campanas", "campanas_collection_mode_check", `collection_mode IN ('checklist', 'texto_libre')`],
     // Quién la pausó (lib/campanas/pausa.ts).
     ["campanas", "campanas_pausa_por_check", `pausa_por IN ('creador', 'supervision')`],
@@ -2223,17 +2253,10 @@ export async function ensureRestricciones(): Promise<void> {
   }
 }
 
-/**
- * Cada campaña terminada con el estado que le toca por la regla de fallida (2026-11-01, decisión del
- * usuario; lib/campanas/fallida.ts): las finalizadas de antes con menos del 25% de su meta en aprobados
- * pasan a "fallida", y al revés. Sin avisos. Después de ensureRestricciones, que ya admite 'fallida'.
- */
-export async function ensureEstadoDeTerminadas(): Promise<void> {
-  const { rowCount } = await pool.query(
-    `UPDATE campanas SET status = ${sqlEstadoAlTerminar("campanas")}
-     WHERE status IN ('finalizada', 'fallida') AND status <> ${sqlEstadoAlTerminar("campanas")}`
-  );
-  if (rowCount) console.log(`Campañas terminadas que cambiaron entre finalizada y fallida: ${rowCount}`);
+/** Sin estado "incompleta" (2026-11-04, a pedido del usuario): las que quedaban pasan a finalizada. Sin avisos. */
+export async function ensureSinCampanasFallidas(): Promise<void> {
+  const { rowCount } = await pool.query(`UPDATE campanas SET status = 'finalizada' WHERE status = 'fallida'`);
+  if (rowCount) console.log(`Campañas incompletas que pasaron a finalizadas: ${rowCount}`);
 }
 
 export async function ensureCoreSchema(): Promise<void> {
@@ -2257,6 +2280,7 @@ export async function ensureCoreSchema(): Promise<void> {
   await ensureAportesTable();
   await ensureArchivosTable(); // después de aportes: copia sus file_* y borra esas columnas
   await ensureCampanaTiposTable(); // después de aportes: cuenta los enviados de cada tipo
+  await ensureCampanaDatosAbiertosTable(); // después de campanas y usuarios: las referencia
   await ensureChecklistsTables(); // después de campanas y aportes: copia checklists y respuestas y borra esas columnas
   await ensureCampanaInscripcionesTable(); // después de aportes: toma de ahí a quien ya había aceptado
   await ensureDispositivosBloqueadosTable(); // después de aportes: aporte_id la referencia
@@ -2272,7 +2296,7 @@ export async function ensureCoreSchema(): Promise<void> {
   await ensureGamificacion(); // gamificación SRS v1.1: columnas, catálogos y tablas nuevas
   await ensureFechasConZona(); // después de crear las tablas: TIMESTAMP → TIMESTAMPTZ
   await ensureIndicesDeLlaves();
+  await ensureSinCampanasFallidas(); // antes de las reglas: el CHECK ya no admite 'fallida'
   await ensureRestricciones();
-  await ensureEstadoDeTerminadas(); // después de las reglas: el CHECK ya admite 'fallida'
   await ensureAvisosDeCambios(); // al final: pone triggers en las tablas de arriba
 }

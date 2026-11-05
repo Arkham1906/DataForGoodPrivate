@@ -5,9 +5,10 @@ import { extensionForMime, OPEN_DATA_LICENSE } from "@/lib/open-data";
 import { textoDelProposito } from "@/lib/campanas/proposito";
 import { tablaDeAportesCsv, ubicacionDeCampana, type FilaDeAporteAbierto } from "@/lib/open-data-csv";
 import { readUploadedFile } from "@/lib/minio";
+import { sqlDatosPublicados } from "@/lib/campanas/datos-abiertos";
 
 /**
- * Descarga pública del conjunto de datos abierto de una campaña finalizada:
+ * Descarga pública del conjunto de datos abierto de una campaña publicada:
  * un ZIP con los archivos de sus aportes aceptados y la tabla aportes.csv
  * (desde el 2026-10-07; lib/open-data-csv.ts), sin nombre ni correo de quien
  * participó (dominio.md § 9). La tabla lleva todos los aportes aceptados,
@@ -22,7 +23,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
 
     const campana = await pool.query(
       `SELECT id, name, location_state, location_city, location_colonia, todo_el_pais, proposito, proposito_otro
-       FROM campanas WHERE id = $1 AND status = 'finalizada' LIMIT 1`,
+       FROM campanas WHERE id = $1 AND ${sqlDatosPublicados("campanas")} LIMIT 1`,
       [id]
     );
     if (campana.rowCount === 0) {

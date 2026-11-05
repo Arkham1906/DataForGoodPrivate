@@ -1,6 +1,8 @@
 "use client";
 
 // Formulario de /root. Acción: POST /api/auth/root, que crea la cookie root_session_token.
+// Si falla, una alerta arriba del formulario (2026-11-04, a pedido del usuario; antes una línea bajo la
+// credencial que pasaba desapercibida). Se quita al volver a escribir.
 
 import { useId, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
@@ -21,6 +23,11 @@ export default function RootLoginForm() {
   const [error, setError] = useState("");
 
   const incompleto = identificador.trim() === "" || credencial === "";
+
+  function alEscribir(guardar: (valor: string) => void, valor: string) {
+    guardar(valor);
+    setError("");
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -50,7 +57,7 @@ export default function RootLoginForm() {
       setError(
         response.status === 429
           ? "Demasiados intentos. Espera un minuto antes de volver a intentarlo."
-          : "La credencial no es válida."
+          : "Credenciales incorrectas. Revisa tu identificador y tu credencial e inténtalo de nuevo."
       );
       setCredencial("");
     } catch {
@@ -62,17 +69,24 @@ export default function RootLoginForm() {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col" noValidate>
+      {error && (
+        <div id={idError} role="alert" className="mb-4 rounded-lg border border-error-700/40 bg-error-50 p-3 text-[13px] font-semibold text-error-700">
+          {error}
+        </div>
+      )}
       <Field label="Identificador" required>
         <Input
           name="identificador"
           type="text"
           value={identificador}
-          onChange={(e) => setIdentificador(e.target.value)}
+          onChange={(e) => alEscribir(setIdentificador, e.target.value)}
           placeholder="Tu identificador"
           autoComplete="off"
           autoCapitalize="none"
           spellCheck={false}
           disabled={enviando}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? idError : undefined}
           required
         />
       </Field>
@@ -81,7 +95,7 @@ export default function RootLoginForm() {
           name="credencial"
           type="password"
           value={credencial}
-          onChange={(e) => setCredencial(e.target.value)}
+          onChange={(e) => alEscribir(setCredencial, e.target.value)}
           placeholder="••••••••••••"
           autoComplete="off"
           disabled={enviando}
@@ -89,11 +103,6 @@ export default function RootLoginForm() {
           aria-describedby={error ? idError : undefined}
           required
         />
-        {error && (
-          <p className="mt-1.5 text-[12px] text-error-700" id={idError} role="alert">
-            {error}
-          </p>
-        )}
       </Field>
 
       <Button

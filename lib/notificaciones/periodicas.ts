@@ -132,7 +132,7 @@ async function enviarResumenes(): Promise<void> {
       [mes.inicio, mes.periodo],
     ),
     pool.query<{ n: number }>(
-      `SELECT COUNT(*)::int AS n FROM campanas WHERE status = 'finalizada' AND end_date >= $1::date AND end_date < $2::date`,
+      `SELECT COUNT(*)::int AS n FROM campana_datos_abiertos WHERE estado = 'publicada' AND decidido_en >= $1::date AND decidido_en < $2::date`,
       [mes.inicio, mes.periodo],
     ),
   ]);

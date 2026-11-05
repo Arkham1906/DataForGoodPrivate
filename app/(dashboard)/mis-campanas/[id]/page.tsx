@@ -17,6 +17,8 @@ import VentanaDeConfirmacion from "@/components/ui/VentanaDeConfirmacion";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import { AvisoNoEncontrado } from "@/components/ui/AvisoNoEncontrado";
 import { BASE_PATH } from "@/lib/base-path";
+import { MAX_CAMPANAS_EN_REVISION } from "@/lib/campanas/cola-de-revision";
+import { textoDeDatosAbiertos } from "@/lib/campanas/datos-abiertos";
 import { porcentajeDeMeta } from "@/lib/campanas/meta";
 import { textoDelProposito } from "@/lib/campanas/proposito";
 import { ETIQUETA_DE_CAMPANA, NOMBRE_DE_TIPO, type TipoDeDato } from "@/lib/campanas/sistema-opciones";
@@ -63,6 +65,8 @@ export default function DetalleDeMisCampanasPage() {
   const [errorDeEdicion, setErrorDeEdicion] = useState<string | null>(null);
   const [confirmarEdicion, setConfirmarEdicion] = useState(false);
   const [editando, setEditando] = useState(false);
+  // Con la cola de revisión llena no se pausa para editar: no podría enviar los cambios (2026-11-04).
+  const [colaLlena, setColaLlena] = useState(false);
   const recarga = useRecargaEnVivo();
 
   useEffect(() => {
@@ -85,6 +89,8 @@ export default function DetalleDeMisCampanasPage() {
           return;
         }
         setCampana(propia as CampanaPropia);
+        const enRevision = (payload.data as { status?: string }[]).filter((item) => item.status === "en_revision").length;
+        setColaLlena(enRevision >= MAX_CAMPANAS_EN_REVISION);
         setError(null);
       } catch (cause) {
         if (activa) setError(cause instanceof Error ? cause.message : "No se pudo cargar la campaña");
@@ -256,11 +262,21 @@ export default function DetalleDeMisCampanasPage() {
                   {campana.pausa?.por === "supervision" ? "La supervisión pausó esta campaña" : "La pausaste tú"}
                 </p>
                 {campana.pausa?.por === "supervision" && (
-                  <p className="mt-1 whitespace-pre-line break-words text-system-600">
-                    Motivo: {campana.pausa.motivo || "sin motivo registrado"}
-                  </p>
+                  <>
+                    <p className="mt-1 whitespace-pre-line break-words text-system-600">
+                      Motivo: {campana.pausa.motivo || "sin motivo registrado"}
+                    </p>
+                    <p className="mt-1 text-system-600">
+                      {campana.pausa.ajustesEn
+                        ? "Guardaste ajustes: la supervisión decidirá si la reanuda."
+                        : "Haz los ajustes en Editar: solo la supervisión puede reanudarla."}
+                    </p>
+                  </>
                 )}
               </div>
+            )}
+            {campana.datosAbiertos && (
+              <p className="mb-4 whitespace-pre-line break-words text-[12.5px] text-system-600">{textoDeDatosAbiertos(campana.datosAbiertos)}</p>
             )}
             {!sinAportes && (
               <>
@@ -292,7 +308,7 @@ export default function DetalleDeMisCampanasPage() {
           className="flex flex-col gap-2 border-t border-system-200 pt-4 sm:flex-row sm:flex-wrap sm:justify-end"
           aria-label="Acciones de la campaña"
         >
-          {["activa", "pausada", "finalizada", "fallida"].includes(campana.status) && (
+          {["activa", "pausada", "finalizada"].includes(campana.status) && (
             <ButtonLink href={`/campanas/${campana.id}`} size="sm" className="w-full whitespace-normal text-center sm:w-auto">
               Verla como participante
             </ButtonLink>
@@ -345,11 +361,18 @@ export default function DetalleDeMisCampanasPage() {
         textoConfirmar="Pausar y editar"
         textoOcupado="Pausando…"
         ocupado={editando}
+        confirmarDeshabilitado={colaLlena}
         onCancelar={() => setConfirmarEdicion(false)}
         onConfirmar={() => void pausarYEditar()}
       >
         <p className="mb-3 font-semibold text-system-900">{campana.name}</p>
-        <p>La campaña dejará de recibir aportes mientras haces los cambios. Al guardar, pasará a En revisión para que la supervisión revise la versión actualizada.</p>
+        {colaLlena ? (
+          <p role="alert" className="rounded-lg bg-warning-50 p-3 text-warning-800">
+            Ya tienes {MAX_CAMPANAS_EN_REVISION} campañas en revisión: si la pausas ahora no podrás enviar los cambios. Espera a que la supervisión acepte o rechace alguna. Mientras tanto, la campaña sigue activa y recibiendo aportes.
+          </p>
+        ) : (
+          <p>La campaña dejará de recibir aportes mientras haces los cambios. Al guardar, pasará a En revisión para que la supervisión revise la versión actualizada.</p>
+        )}
         {errorDeEdicion && <p role="alert" className="mt-3 text-error-700">{errorDeEdicion}</p>}
       </VentanaDeConfirmacion>
     </div>

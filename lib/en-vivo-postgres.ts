@@ -16,6 +16,7 @@ const CANAL = "dfg_cambios";
 const TABLAS_CON_AVISO = [
   "campanas",
   "campana_estadisticas",
+  "campana_datos_abiertos",
   "campana_especial",
   "campana_tipos",
   "campana_checklists",

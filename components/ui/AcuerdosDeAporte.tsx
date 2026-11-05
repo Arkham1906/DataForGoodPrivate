@@ -186,7 +186,13 @@ export function InscripcionACampana({
           {error}
         </p>
       )}
-      <Button variant="primary" className="w-full" disabled={!acuerdosCompletos(acuerdos) || enviando} onClick={() => void inscribirme()}>
+      {/* En rojo y sin efecto hasta aceptar los dos acuerdos (2026-11-04, a pedido del usuario). */}
+      <Button
+        variant="primary"
+        className={`w-full ${acuerdosCompletos(acuerdos) ? "" : "!border-error-700 !bg-error-700 !text-white disabled:!opacity-100"}`}
+        disabled={!acuerdosCompletos(acuerdos) || enviando}
+        onClick={() => void inscribirme()}
+      >
         {enviando ? (
           <span className="inline-flex items-center gap-2">
             <IndicadorDeCarga />

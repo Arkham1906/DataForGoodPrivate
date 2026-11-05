@@ -11,7 +11,7 @@
 //    NO se borra: campanas.creator_id es ON DELETE CASCADE y se llevaría las campañas
 //    finalizadas con los aportes de otras personas.
 //
-// Aporte "ya utilizado" = aceptado en una campaña finalizada (forma parte de los datos
+// Aporte "ya utilizado" = aceptado en una campaña publicada (forma parte de los datos
 // abiertos publicados en /datos): nunca se borra; con "eliminar" se anonimiza igual.
 
 import { pool } from "@/lib/db";
@@ -20,7 +20,7 @@ import { registrarAuditoria } from "@/lib/auditoria";
 import { recalcularContadores } from "@/lib/aportes/comun";
 import { retirarComoRevisorDeTodasLasCampanas } from "@/lib/usuarios/revisor";
 import { MINUTOS_DE_GRACIA, type DestinoDeAportes } from "@/lib/usuarios/baja-opciones";
-import { sqlEstadoAlTerminar } from "@/lib/campanas/fallida";
+import { sqlDatosPublicados } from "@/lib/campanas/datos-abiertos";
 
 /** Nombre con el que quedan los aportes anonimizados. */
 const NOMBRE_ANONIMO = "Anónimo";
@@ -56,8 +56,8 @@ export async function obtenerResumenDeBaja(usuarioId: number): Promise<ResumenDe
     }>(
       `SELECT COUNT(*)::int AS total,
               COUNT(DISTINCT a.campaign_id)::int AS campanas,
-              COUNT(*) FILTER (WHERE a.status = 'aceptado' AND c.status = 'finalizada')::int AS utilizados,
-              COUNT(*) FILTER (WHERE a.status = 'aceptado' AND c.status <> 'finalizada')::int AS aceptados_sin_uso,
+              COUNT(*) FILTER (WHERE a.status = 'aceptado' AND ${sqlDatosPublicados("c")})::int AS utilizados,
+              COUNT(*) FILTER (WHERE a.status = 'aceptado' AND NOT ${sqlDatosPublicados("c")})::int AS aceptados_sin_uso,
               COUNT(*) FILTER (WHERE a.status IN ('pendiente', 'espera_final'))::int AS pendientes,
               COUNT(*) FILTER (WHERE a.status = 'rechazado')::int AS rechazados
        FROM aportes a JOIN campanas c ON c.id = a.campaign_id
@@ -130,8 +130,7 @@ export async function solicitarBaja(usuarioId: number, destino: DestinoDeAportes
       [usuarioId]
     );
     const finalizadas = await client.query(
-      // Con menos del 25% de la meta en aprobados quedan "fallida" (2026-11-01, lib/campanas/fallida.ts).
-      `UPDATE campanas SET status = ${sqlEstadoAlTerminar("campanas")}, updated_at = NOW()
+      `UPDATE campanas SET status = 'finalizada', updated_at = NOW()
        WHERE creator_id = $1 AND status IN ('activa', 'pausada')`,
       [usuarioId]
     );
@@ -231,7 +230,7 @@ async function ejecutarBaja(usuarioId: number): Promise<void> {
          USING campanas c
          WHERE c.id = a.campaign_id
            AND a.user_id = $1
-           AND NOT (a.status = 'aceptado' AND c.status = 'finalizada')
+           AND NOT (a.status = 'aceptado' AND ${sqlDatosPublicados("c")})
          -- El trigger borra su fila de archivos al final de la sentencia; aquí todavía se lee.
          RETURNING a.campaign_id,
                    (SELECT ar.ruta FROM archivos ar WHERE ar.id = a.archivo_id) AS file_path,
