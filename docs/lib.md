@@ -171,6 +171,11 @@ Tabla de líderes de la landing. **Hoy devuelve datos de ejemplo** y la sección
 | `datos-de-ejemplo.ts` 🟢 | `TABLA_DE_EJEMPLO`: 6 personas inventadas; se borra al conectar la base | `clasificacion.ts` |
 | `rangos.ts` 🟢 (2026-11-02) | Lógica pura de rangos (RF-GAM-16, 22, 23, 78 a 83): estado de cada rango, requisitos y avance, `pistaDelRango()`, fichas por estado (alcanzado, actual, siguiente, avistado, oculto), `textoDeAscenso()` | `progreso.ts`, `components/gamificacion/*` |
 | `progreso-tipos.ts` 🟢 (2026-11-02) | Contrato de `ResumenDeProgreso`: rango, potenciadores, misiones de hoy y racha. El tipo de la ficha avistada no tiene campos ocultos (RNF-GAM-14) | `progreso.ts`, `components/gamificacion/*` |
+| `catalogos.ts` 🟢 (2026-11-04) | Valida `lib/datos/rangos.json` y `lib/datos/misiones.json`; `ensureGamificacion()` los copia a las tablas al arrancar | `lib/db-schema.ts` |
+| `misiones-reglas.ts` 🟢 (2026-11-04) | Reglas puras de misiones (RF-GAM-40 a 45): `periodoEn()`, `avanceDeMision()`, `elegirMisiones()`, `textoDeRecompensa()` | `misiones.ts`, `catalogos.ts` |
+| `misiones.ts` (2026-11-04) | `actualizarMisiones()`: avance y recompensa automática; `asegurarMisionesVigentes()`: abre los periodos al leer; `obtenerMisiones()`: datos de `/progreso/misiones` | `/api/aportes`, `/api/aportes/[id]`, `/api/campanas/[id]/guardar`, `progreso.ts` |
+| `racha-reglas.ts` 🟢 (2026-11-04) | Reglas puras de la racha sin protectores (RF-GAM-25, 27, 31): `calcularRacha()`, `diaDeRuptura()` | `racha.ts` |
+| `racha.ts` (2026-11-04) | `actualizarRacha(usuarioId)`: recalcula y guarda `racha_dias`, `racha_eventos` y `usuario_progreso`; `revisarRachas()`: cada minuto, para los días sin aportes | `/api/aportes`, `instrumentation-node.ts` |
 | `medallas.ts` 🟢 (2026-11-04) | `medallasMasCercanas()`: elige las medallas con menos camino a su siguiente nivel | `mi-progreso.ts` |
 | `pantallas-de-progreso.ts` 🟢 (2026-11-04) | Las seis pestañas de Mi progreso y cuáles ya existen (`rutaDePantalla()`) | `components/gamificacion/*` |
 | `mi-progreso-tipos.ts` 🟢 (2026-11-04) | Contrato del Resumen y del calendario de racha | `mi-progreso.ts`, `components/gamificacion/*` |

@@ -1,5 +1,5 @@
 // Racha de «Hoy» (2026-11-02; SRS v1.1: RF-GAM-25 a 31, 85): los días de racha y los últimos 7 días con el estado de
-// cada uno (confirmado, provisional con aportes en revisión, cubierto con protector, sin actividad, suspendido).
+// cada uno (con actividad, cubierto con protector, sin actividad, suspendido).
 // Cada estado se distingue también por su forma y su texto para lectores de pantalla, no solo por el color.
 // Sin estado: sirve en servidor y cliente. El calendario completo y los eventos de la racha (RF-GAM-85, 86) van en
 // CalendarioDeRacha, que /progreso pasa como `accion`.
@@ -7,13 +7,14 @@
 import type { ReactNode } from "react";
 import {
   MAXIMO_DE_PROTECTORES,
+  PROTECTORES_ACTIVOS,
   type EstadoDeDiaDeRacha,
   type ResumenDeRacha,
 } from "@/lib/gamificacion/progreso-tipos";
 
 const CLASE_DEL_DIA: Record<EstadoDeDiaDeRacha, string> = {
   confirmado: "bg-brand-700",
-  // Rayado: cuenta provisionalmente mientras el aporte espera su revisión (ventana de 72 horas).
+  // Valor que ya no se escribe (SRS v1.3); se conserva para días guardados antes del cambio.
   provisional: "bg-[repeating-linear-gradient(135deg,var(--color-brand-700)_0_2px,#fff_2px_6px)]",
   protegido: "border-2 border-success-700 bg-success-100",
   sin_actividad: "border border-dashed border-brand-300 bg-white",
@@ -50,7 +51,7 @@ export default function RachaSemanal({ racha, accion }: { racha: ResumenDeRacha;
         ))}
       </ol>
       <p className="text-[12.5px] text-brand-800">
-        Máxima: {racha.maxima}. Protectores: {racha.protectores} de {MAXIMO_DE_PROTECTORES}.
+        Máxima: {racha.maxima}.{PROTECTORES_ACTIVOS && ` Protectores: ${racha.protectores} de ${MAXIMO_DE_PROTECTORES}.`}
       </p>
       {accion}
     </>

@@ -9,6 +9,8 @@ import type { FichaDeRango } from "./rangos";
 
 /** Protectores que se conservan como máximo (RF-GAM-30). */
 export const MAXIMO_DE_PROTECTORES = 3;
+/** Los protectores aún no existen (2026-11-04): la interfaz no los muestra y la racha se interrumpe con un día faltante. */
+export const PROTECTORES_ACTIVOS = false;
 /** Potenciadores en espera como máximo, además del activo (RF-GAM-35). */
 export const MAXIMO_DE_POTENCIADORES_EN_ESPERA = 3;
 
@@ -33,6 +35,8 @@ export type MisionDeHoy = {
   objetivo: number;
   completada: boolean;
   recompensaEntregada: boolean;
+  /** «15 EXP»; null sin recompensa. */
+  recompensa: string | null;
 };
 
 export type ResumenDeMisiones = {

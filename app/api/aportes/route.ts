@@ -11,6 +11,8 @@ import { getSessionUser } from "@/lib/session";
 import { estaBaneadoDeCampana } from "@/lib/campanas/baneos";
 import { respuestasValidas, seccionesDelTipo, seccionesDesdeFila } from "@/lib/campanas/checklist";
 import { idDeEnlaceVigente } from "@/lib/campanas/enlaces";
+import { actualizarRacha } from "@/lib/gamificacion/racha";
+import { actualizarMisiones } from "@/lib/gamificacion/misiones";
 import {
   LARGO_MAXIMO_DESCRIPCION,
   MENSAJE_CUERPO_GRANDE,
@@ -77,7 +79,7 @@ export async function GET(request: Request) {
                   SELECT 1 FROM campana_revisores cr
                   WHERE cr.campana_id = c.id AND cr.usuario_id = $2 AND cr.estado = 'aceptado'
                 ) AS is_reviewer
-         FROM campanas c WHERE c.id = $1 LIMIT 1`,
+          FROM campanas c WHERE c.id = $1 LIMIT 1`,
         [campaignId, user.id]
       );
       if (campaignResult.rowCount === 0) {
@@ -95,8 +97,8 @@ export async function GET(request: Request) {
           `SELECT a.*, c.name AS campaign_name,
                   COALESCE(NULLIF(c.tematica, ''), c.tag, '') AS campaign_tematica,
                   ${columnasDeArchivo("a")}, ${columnaDeRespuestas("a")}
-           FROM aportes a JOIN campanas c ON c.id = a.campaign_id
-           WHERE a.user_id = $1 ORDER BY a.submitted_at DESC`,
+            FROM aportes a JOIN campanas c ON c.id = a.campaign_id
+            WHERE a.user_id = $1 ORDER BY a.submitted_at DESC`,
           [user.id]
         )
       : mine
@@ -104,9 +106,9 @@ export async function GET(request: Request) {
             `SELECT a.*, c.name AS campaign_name,
                     COALESCE(NULLIF(c.tematica, ''), c.tag, '') AS campaign_tematica,
                     ${columnasDeArchivo("a")}, ${columnaDeRespuestas("a")}
-             FROM aportes a JOIN campanas c ON c.id = a.campaign_id
-             WHERE a.campaign_id = $1 AND a.user_id = $2
-             ORDER BY a.submitted_at DESC`,
+              FROM aportes a JOIN campanas c ON c.id = a.campaign_id
+              WHERE a.campaign_id = $1 AND a.user_id = $2
+              ORDER BY a.submitted_at DESC`,
             [campaignId, user.id]
           )
         : reviewer
@@ -114,19 +116,19 @@ export async function GET(request: Request) {
               `SELECT a.*, c.name AS campaign_name,
                       COALESCE(NULLIF(c.tematica, ''), c.tag, '') AS campaign_tematica,
                       ${columnasDeArchivo("a")}, ${columnaDeRespuestas("a")}
-               FROM aportes a JOIN campanas c ON c.id = a.campaign_id
-               WHERE a.campaign_id = $1
-                 AND a.user_id IS DISTINCT FROM $2
-                 AND (a.status = 'pendiente' OR a.first_pass_by_user_id = $2)
-               ORDER BY a.submitted_at DESC`,
+                FROM aportes a JOIN campanas c ON c.id = a.campaign_id
+                WHERE a.campaign_id = $1
+                  AND a.user_id IS DISTINCT FROM $2
+                  AND (a.status = 'pendiente' OR a.first_pass_by_user_id = $2)
+                ORDER BY a.submitted_at DESC`,
               [campaignId, user.id]
             )
           : await pool.query(
               `SELECT a.*, c.name AS campaign_name,
                       COALESCE(NULLIF(c.tematica, ''), c.tag, '') AS campaign_tematica,
                       ${columnasDeArchivo("a")}, ${columnaDeRespuestas("a")}
-               FROM aportes a JOIN campanas c ON c.id = a.campaign_id
-               WHERE a.campaign_id = $1 ORDER BY a.submitted_at DESC`,
+                FROM aportes a JOIN campanas c ON c.id = a.campaign_id
+                WHERE a.campaign_id = $1 ORDER BY a.submitted_at DESC`,
               [campaignId]
             );
 
@@ -291,6 +293,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Ya alcanzaste tu cuota en esta campaña" }, { status: 400 });
     }
 
+    await actualizarRacha(user.id);
+    await actualizarMisiones(user.id);
     return NextResponse.json({ message: "Aporte enviado", data: mapAporte(insertado.fila) }, { status: 201 });
   } catch (error) {
     console.error("Error creando aporte", error);

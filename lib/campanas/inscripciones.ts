@@ -9,6 +9,7 @@ import { pool } from "@/lib/db";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { errorDeConsentimiento } from "@/lib/aportes/consentimiento";
 import { estaBaneadoDeCampana } from "@/lib/campanas/baneos";
+import { actualizarMisiones } from "@/lib/gamificacion/misiones";
 
 export type ResultadoDeInscripcion = { ok: true } | { ok: false; status: 400 | 403 | 404; error: string };
 
@@ -56,6 +57,7 @@ export async function inscribir(entrada: {
       accion: "campana.inscribirse",
       objetivo: { tipo: "campana", id: entrada.campanaId },
     });
+    await actualizarMisiones(entrada.usuarioId);
   }
   return { ok: true };
 }

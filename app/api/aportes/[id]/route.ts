@@ -15,6 +15,7 @@ import { avisarAvanceDeCampana } from "@/lib/notificaciones/socializacion";
 import { ESTADOS_SIN_DECISION, tieneDecision } from "@/lib/aportes/decision";
 import { yaReporto } from "@/lib/reportes/reportes";
 import { calificacionDesde } from "@/lib/aportes/calificacion";
+import { actualizarMisiones } from "@/lib/gamificacion/misiones";
 
 // Una sola instancia (dominio.md § 5): el creador y el revisor aceptado deciden igual, aceptado o rechazado.
 const ALLOWED_STATUS = new Set(["aceptado", "rechazado"]);
@@ -224,6 +225,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       client.release();
     }
 
+    // Un aporte aceptado tarde suma al periodo en que se envió (RF-GAM-41).
+    if (nuevoEstado === "aceptado" && row.user_id != null) await actualizarMisiones(row.user_id, [row.submitted_at]);
     // Aceptar es la decisión final: se quita la marca de inapropiado que pudo poner alguien antes.
     if (nuevoEstado === "aceptado") await quitarMarcaInapropiado(Number(id));
     // Si con este aporte la campaña pasó un hito de su meta, se avisa a quienes participan (en segundo plano).
@@ -360,7 +363,7 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
     // La condición evita borrar si la revisión decidió el aporte mientras se esperaba el bloqueo.
     const borrado = await client.query(
       `DELETE FROM aportes
-       WHERE id = $1 AND user_id = $2 AND status IN ('pendiente', 'espera_final')`,
+      WHERE id = $1 AND user_id = $2 AND status IN ('pendiente', 'espera_final')`,
       [id, user.id]
     );
     if (borrado.rowCount === 0) {

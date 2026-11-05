@@ -7,6 +7,7 @@ import { enviarAvisosPeriodicos } from "@/lib/notificaciones/periodicas";
 import { activateScheduledCampaigns, finalizeExpiredCampaigns } from "@/lib/campaign-date";
 import { escucharCambiosDeLaBase } from "@/lib/en-vivo-postgres";
 import { marcarDatosPorDecidir } from "@/lib/supervision/datos-abiertos";
+import { revisarRachas } from "@/lib/gamificacion/racha";
 
 const UNA_HORA_MS = 60 * 60 * 1000;
 const UN_MINUTO_MS = 60 * 1000;
@@ -51,6 +52,16 @@ function programarBajasVencidas(): void {
   setInterval(avisos, UNA_HORA_MS).unref();
 }
 
+/** Lo que cambia la racha con el paso del tiempo (lib/gamificacion/racha.ts): los días sin aportes. */
+function programarRachas(): void {
+  const marca = globalThis as typeof globalThis & { __rachasProgramadas?: boolean };
+  if (marca.__rachasProgramadas) return;
+  marca.__rachasProgramadas = true;
+
+  void revisarRachas();
+  setInterval(revisarRachas, UN_MINUTO_MS).unref();
+}
+
 export async function crearEsquemaAlArrancar(): Promise<void> {
   // Falta de configuración: reintentar no sirve de nada, así que se avisa
   // de inmediato (antes esperaba 30 intentos para decir lo mismo).
@@ -70,6 +81,7 @@ export async function crearEsquemaAlArrancar(): Promise<void> {
       await ensureCoreSchema();
       programarBajasVencidas();
       programarEstadosDeCampanas();
+      programarRachas();
       escucharCambiosDeLaBase();
       return;
     } catch (error) {

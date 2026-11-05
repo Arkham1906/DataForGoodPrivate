@@ -267,19 +267,23 @@ export async function obtenerCalendarioDeRacha(
   try {
     const hoy = hoyEnTepic();
     const mesActual = hoy.slice(0, 7);
-    const cuentaR = await pool.query<{ primer_mes: string }>(
-      `SELECT to_char(creado_en AT TIME ZONE $2, 'YYYY-MM') AS primer_mes FROM usuario_progreso WHERE usuario_id = $1`,
+    const cuentaR = await pool.query<{ primer_mes: string; inicio_de_racha: string | null }>(
+      `SELECT to_char(creado_en AT TIME ZONE $2, 'YYYY-MM') AS primer_mes,
+              CASE WHEN racha_actual > 0
+                THEN to_char(ultimo_dia_activo - (racha_actual - 1), 'YYYY-MM-DD') END AS inicio_de_racha
+       FROM usuario_progreso WHERE usuario_id = $1`,
       [usuarioId, ZONA_DE_CAMPANAS],
     );
     const primerMes = cuentaR.rows[0]?.primer_mes;
     if (!primerMes) return null;
+    const diaDeInicio = cuentaR.rows[0].inicio_de_racha;
 
     const pedido = mesPedido ?? mesActual;
     const mes = pedido > mesActual ? mesActual : pedido < primerMes ? primerMes : pedido;
     const inicio = `${mes}-01`;
     const fin = `${otroMes(mes, 1)}-01`;
 
-    const [diasR, aportesR, eventosR] = await Promise.all([
+    const [diasR, aportesR, eventosR, inicioR] = await Promise.all([
       pool.query<{ dia: string; estado: string }>(
         `SELECT to_char(dia, 'YYYY-MM-DD') AS dia, estado
           FROM racha_dias WHERE usuario_id = $1 AND dia >= $2::date AND dia < $3::date`,
@@ -317,6 +321,15 @@ export async function obtenerCalendarioDeRacha(
          ORDER BY e.creado_en DESC, e.id DESC`,
         [usuarioId, inicio, fin, ZONA_DE_CAMPANAS],
       ),
+      // El primero que se envió ese día, sea cual sea el resultado de su revisión (RF-GAM-102).
+      pool.query<{ description: string; campana: string }>(
+        `SELECT a.description, c.name AS campana
+         FROM aportes a JOIN campanas c ON c.id = a.campaign_id
+         WHERE a.user_id = $1 AND to_char(a.submitted_at AT TIME ZONE $3, 'YYYY-MM-DD') = $2
+         ORDER BY a.submitted_at, a.id
+         LIMIT 1`,
+        [usuarioId, diaDeInicio, ZONA_DE_CAMPANAS],
+      ),
     ]);
 
     const estados = new Map(diasR.rows.map((d) => [d.dia, d.estado]));
@@ -341,7 +354,14 @@ export async function obtenerCalendarioDeRacha(
       const guardado = estados.get(dia);
       const estado: DiaDelCalendario["estado"] =
         dia > hoy ? "por_venir" : guardado && ESTADOS_DE_DIA.has(guardado) ? (guardado as EstadoDeDiaDeRacha) : "sin_actividad";
-      dias.push({ dia, numero, estado, hoy: dia === hoy, aportes: aportesPorDia.get(dia) ?? [] });
+      dias.push({
+        dia,
+        numero,
+        estado,
+        hoy: dia === hoy,
+        inicioDeRacha: dia === diaDeInicio,
+        aportes: aportesPorDia.get(dia) ?? [],
+      });
     }
 
     const eventos: EventoDeRacha[] = eventosR.rows.map((e) => ({
@@ -359,6 +379,13 @@ export async function obtenerCalendarioDeRacha(
       desfase: (new Date(`${inicio}T00:00:00Z`).getUTCDay() + 6) % 7,
       dias,
       eventos,
+      inicioDeRacha: diaDeInicio
+        ? {
+            fecha: FECHA_CORTA.format(new Date(`${diaDeInicio}T00:00:00Z`)),
+            descripcion: inicioR.rows[0]?.description ?? null,
+            campana: inicioR.rows[0]?.campana ?? null,
+          }
+        : null,
     };
   } catch (error) {
     console.error("Error armando el calendario de la racha", error);

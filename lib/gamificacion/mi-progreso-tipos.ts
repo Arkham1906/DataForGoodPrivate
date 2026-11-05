@@ -78,6 +78,8 @@ export type DiaDelCalendario = {
   /** Los días que aún no llegan no tienen estado. */
   estado: EstadoDeDiaDeRacha | "por_venir";
   hoy: boolean;
+  /** Primer día de la racha actual. */
+  inicioDeRacha: boolean;
   aportes: AporteDelDia[];
 };
 
@@ -88,6 +90,14 @@ export type EventoDeRacha = {
   texto: string;
   /** Descripción del aporte relacionado, si lo hay (RF-GAM-86). */
   aporte: string | null;
+};
+
+/** El aporte con el que empezó la racha actual; descripción y campaña son null si el aporte ya no existe. */
+export type InicioDeRacha = {
+  /** «2 nov». */
+  fecha: string;
+  descripcion: string | null;
+  campana: string | null;
 };
 
 export type CalendarioDeRachaDelMes = {
@@ -102,4 +112,6 @@ export type CalendarioDeRachaDelMes = {
   desfase: number;
   dias: DiaDelCalendario[];
   eventos: EventoDeRacha[];
+  /** null sin racha activa. */
+  inicioDeRacha: InicioDeRacha | null;
 };

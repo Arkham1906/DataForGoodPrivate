@@ -6,6 +6,10 @@ export type TipoDeNotificacion =
   // Sobre mis aportes
   | "aporte_aceptado"
   | "aporte_rechazado"
+  // Pasó un día sin aportes y la racha terminó (lib/gamificacion/racha.ts, RF-GAM-61).
+  | "racha_interrumpida"
+  // Se completó una misión y su recompensa ya se entregó (lib/gamificacion/misiones.ts, RF-GAM-61).
+  | "mision_completada"
   | "campana_baneo"
   | "campana_desbaneo"
   // Sobre mis campañas
