@@ -8,7 +8,7 @@ export type PantallaDeProgreso = "resumen" | "trayectoria" | "misiones" | "medal
 export const PANTALLAS_DE_PROGRESO: readonly { clave: PantallaDeProgreso; etiqueta: string; href: string | null }[] = [
   { clave: "resumen", etiqueta: "Resumen", href: "/progreso" },
   { clave: "trayectoria", etiqueta: "Trayectoria", href: null },
-  { clave: "misiones", etiqueta: "Misiones", href: null },
+  { clave: "misiones", etiqueta: "Misiones", href: "/progreso/misiones" },
   { clave: "medallas", etiqueta: "Medallas", href: null },
   { clave: "avatar", etiqueta: "Avatar e inventario", href: null },
   { clave: "historial", etiqueta: "Historial de EXP", href: null },

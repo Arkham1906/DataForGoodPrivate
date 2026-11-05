@@ -13,6 +13,8 @@
 
 import { pool } from "@/lib/db";
 import { ZONA_DE_CAMPANAS, hoyEnTepic } from "@/lib/fecha-de-tepic";
+import { asegurarMisionesVigentes } from "./misiones";
+import { recompensaDesde, textoDeRecompensa } from "./misiones-reglas";
 import type {
   DiaDeRacha,
   EstadoDeDiaDeRacha,
@@ -98,6 +100,7 @@ function diasDeRacha(hoy: string, filas: { dia: string; estado: string }[]): Dia
 /** null si la persona no tiene fila de progreso o el catálogo de rangos no la contiene (se loguea el error). */
 export async function obtenerResumenDeProgreso(usuarioId: number | string): Promise<ResumenDeProgreso | null> {
   try {
+    await asegurarMisionesVigentes(usuarioId);
     const hoy = hoyEnTepic();
     const [progresoR, rangosR, ascensosR, potenciadoresR, misionesR, rachaR] = await Promise.all([
       pool.query<FilaDeProgreso>(
@@ -140,14 +143,15 @@ export async function obtenerResumenDeProgreso(usuarioId: number | string): Prom
         completada: boolean;
         entregada: boolean;
         renueva_a: string;
+        recompensa: unknown;
       }>(
-        `SELECT mi.id::text AS id, m.nombre, mi.objetivo, mi.progreso,
+        `SELECT mi.id::text AS id, m.nombre, m.recompensa, mi.objetivo, mi.progreso,
                 (mi.completada_en IS NOT NULL) AS completada,
                 (mi.recompensa_entregada_en IS NOT NULL) AS entregada,
                 to_char(mi.periodo_fin AT TIME ZONE $2, 'HH24:MI') AS renueva_a
          FROM mision_instancias mi
          JOIN misiones m ON m.id = mi.mision_id
-         WHERE mi.usuario_id = $1 AND m.activa AND m.periodicidad = 'diaria'
+         WHERE mi.usuario_id = $1 AND m.periodicidad = 'diaria'
            AND mi.periodo_inicio <= NOW() AND mi.periodo_fin > NOW()
          ORDER BY mi.periodo_fin, mi.id`,
         [usuarioId, ZONA_DE_CAMPANAS],
@@ -236,6 +240,7 @@ export async function obtenerResumenDeProgreso(usuarioId: number | string): Prom
       objetivo: m.objetivo,
       completada: m.completada,
       recompensaEntregada: m.entregada,
+      recompensa: textoDeRecompensa(recompensaDesde(m.recompensa)),
     }));
 
     return {

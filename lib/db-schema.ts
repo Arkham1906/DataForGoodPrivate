@@ -5,6 +5,7 @@ import { claveDeTematica } from "@/lib/tematicas/analizar";
 import { ETIQUETAS_BASE } from "@/lib/etiquetas/base";
 import { ensureAvisosDeCambios } from "@/lib/en-vivo-postgres";
 import { ESTRELLAS_MAXIMAS } from "@/lib/aportes/calificacion";
+import { MISIONES_DEL_CATALOGO, RANGOS_DEL_CATALOGO, erroresDeMisiones, erroresDeRangos } from "@/lib/gamificacion/catalogos";
 import { PROPOSITOS } from "@/lib/campanas/proposito";
 import { TIPOS_DE_SANCION } from "@/lib/sanciones";
 import { DESTINOS_DE_APORTES } from "@/lib/usuarios/baja-opciones";
@@ -1491,30 +1492,6 @@ const PARAMETROS_GAMIFICACION_V1 = {
   bonoCuota: { porcentaje: 25, minimo: 10, maximo: 150, cuotaMinima: 3 },
 };
 
-/** Los 20 rangos del SRS v1.1, tabla 4.3: [número, nombre, EXP, aportes, excelentes o superiores, excepcionales, racha actual, misiones]. */
-const RANGOS_BASE: ReadonlyArray<readonly [number, string, number, number, number, number, number, number]> = [
-  [1, "Investigador en Formación", 0, 0, 0, 0, 0, 0],
-  [2, "Investigador Principiante", 10, 1, 0, 0, 0, 0],
-  [3, "Investigador Curioso", 20, 2, 0, 0, 0, 1],
-  [4, "Investigador Aprendiz", 55, 5, 0, 0, 2, 2],
-  [5, "Investigador Inicial", 90, 8, 1, 0, 2, 3],
-  [6, "Investigador en Desarrollo", 140, 12, 2, 0, 3, 4],
-  [7, "Investigador Explorador", 210, 17, 3, 0, 4, 5],
-  [8, "Investigador Participante", 290, 23, 4, 0, 5, 6],
-  [9, "Investigador Aplicado", 380, 29, 5, 1, 6, 7],
-  [10, "Investigador Constante", 490, 36, 7, 1, 7, 9],
-  [11, "Investigador Comprometido", 615, 44, 9, 2, 8, 11],
-  [12, "Investigador Metódico", 765, 53, 11, 2, 10, 13],
-  [13, "Investigador Avanzado", 940, 63, 14, 3, 11, 15],
-  [14, "Investigador Especializado", 1120, 73, 17, 3, 12, 18],
-  [15, "Investigador Experimentado", 1325, 84, 21, 4, 14, 21],
-  [16, "Investigador Especialista", 1555, 96, 25, 5, 15, 24],
-  [17, "Investigador Referente", 1800, 108, 30, 6, 17, 28],
-  [18, "Investigador Destacado", 2070, 121, 35, 8, 18, 32],
-  [19, "Investigador de Excelencia", 2370, 135, 40, 10, 20, 37],
-  [20, "Investigador Emérito", 2700, 150, 45, 12, 21, 42],
-];
-
 type MedallaBase = {
   clave: string;
   nombre: string;
@@ -1695,21 +1672,7 @@ export async function ensureRangosTable(): Promise<void> {
       CHECK (req_excepcionales <= req_excelentes AND req_excelentes <= req_aportes)
     );
   `);
-  await pool.query(
-    `INSERT INTO rangos (numero, nombre, req_exp, req_aportes, req_excelentes, req_excepcionales, req_racha, req_misiones)
-     SELECT * FROM unnest($1::smallint[], $2::text[], $3::int[], $4::int[], $5::int[], $6::int[], $7::int[], $8::int[])
-     ON CONFLICT (numero) DO NOTHING`,
-    [
-      RANGOS_BASE.map((r) => r[0]),
-      RANGOS_BASE.map((r) => r[1]),
-      RANGOS_BASE.map((r) => r[2]),
-      RANGOS_BASE.map((r) => r[3]),
-      RANGOS_BASE.map((r) => r[4]),
-      RANGOS_BASE.map((r) => r[5]),
-      RANGOS_BASE.map((r) => r[6]),
-      RANGOS_BASE.map((r) => r[7]),
-    ],
-  );
+  await sincronizarRangos();
 }
 
 /**
@@ -1946,8 +1909,52 @@ export async function ensureObjetosTables(): Promise<void> {
   `);
 }
 
+/** Copia lib/datos/rangos.json a la tabla. Con un error en el JSON, la tabla se queda como estaba. */
+async function sincronizarRangos(): Promise<void> {
+  const errores = erroresDeRangos(RANGOS_DEL_CATALOGO);
+  if (errores.length > 0) {
+    console.error(`lib/datos/rangos.json no se aplicó:\n${errores.join("\n")}`);
+    return;
+  }
+  for (const r of RANGOS_DEL_CATALOGO) {
+    const q = r.requisitos;
+    await pool.query(
+      `INSERT INTO rangos (numero, nombre, descripcion, req_exp, req_aportes, req_excelentes, req_excepcionales, req_racha, req_misiones)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       ON CONFLICT (numero) DO UPDATE SET
+         nombre = EXCLUDED.nombre, descripcion = COALESCE(EXCLUDED.descripcion, rangos.descripcion),
+         req_exp = EXCLUDED.req_exp, req_aportes = EXCLUDED.req_aportes, req_excelentes = EXCLUDED.req_excelentes,
+         req_excepcionales = EXCLUDED.req_excepcionales, req_racha = EXCLUDED.req_racha, req_misiones = EXCLUDED.req_misiones,
+         actualizado_en = NOW()`,
+      [r.numero, r.nombre, r.descripcion, q.exp, q.aportes, q.sobresalientes, q.excepcionales, q.racha, q.misiones],
+    );
+  }
+}
+
+/** Copia lib/datos/misiones.json a la tabla. Una misión que sale del JSON se desactiva: su historial se conserva. */
+async function sincronizarMisiones(): Promise<void> {
+  const errores = erroresDeMisiones(MISIONES_DEL_CATALOGO);
+  if (errores.length > 0) {
+    console.error(`lib/datos/misiones.json no se aplicó:\n${errores.join("\n")}`);
+    return;
+  }
+  for (const m of MISIONES_DEL_CATALOGO) {
+    await pool.query(
+      `INSERT INTO misiones (clave, nombre, descripcion, periodicidad, grupo, condicion, recompensa, activa)
+       VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8)
+       ON CONFLICT (clave) DO UPDATE SET
+         nombre = EXCLUDED.nombre, descripcion = EXCLUDED.descripcion, periodicidad = EXCLUDED.periodicidad, grupo = EXCLUDED.grupo,
+         condicion = EXCLUDED.condicion, recompensa = EXCLUDED.recompensa, activa = EXCLUDED.activa`,
+      [m.clave, m.nombre, m.descripcion ?? null, m.periodicidad, m.grupo, JSON.stringify(m.condicion), JSON.stringify(m.recompensa ?? {}), m.activa],
+    );
+  }
+  await pool.query(`UPDATE misiones SET activa = false WHERE activa AND clave <> ALL($1::text[])`, [
+    MISIONES_DEL_CATALOGO.map((m) => m.clave),
+  ]);
+}
+
 /**
- * Misiones (RF-GAM-40 a 45, 75). El catálogo está pendiente (DA-GAM-06), así que no hay siembra.
+ * Misiones (RF-GAM-40 a 45, 75). El catálogo vive en lib/datos/misiones.json (lib/gamificacion/catalogos.ts).
  *   - misiones: periodicidad diaria o semanal, condición y recompensa en JSON (la forma la define el catálogo).
  *   - mision_instancias: una por persona, misión y periodo. El periodo tiene inicio y fin explícitos,
  *     calculados desde primer_inicio_sesion_en (RF-GAM-41); el UNIQUE impide contar dos veces la misma
@@ -1968,6 +1975,8 @@ export async function ensureMisionesTables(): Promise<void> {
       activa BOOLEAN NOT NULL DEFAULT true,
       creada_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+    -- Variedad de la selección aleatoria (lib/gamificacion/misiones-reglas.ts, 2026-11-04).
+    ALTER TABLE misiones ADD COLUMN IF NOT EXISTS grupo VARCHAR(40);
 
     CREATE TABLE IF NOT EXISTS mision_instancias (
       id BIGSERIAL PRIMARY KEY,
@@ -1995,6 +2004,7 @@ export async function ensureMisionesTables(): Promise<void> {
     );
     CREATE INDEX IF NOT EXISTS mision_instancia_aportes_aporte_idx ON mision_instancia_aportes (aporte_id);
   `);
+  await sincronizarMisiones();
 }
 
 /**

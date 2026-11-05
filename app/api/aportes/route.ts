@@ -12,6 +12,7 @@ import { estaBaneadoDeCampana } from "@/lib/campanas/baneos";
 import { respuestasValidas, seccionesDelTipo, seccionesDesdeFila } from "@/lib/campanas/checklist";
 import { idDeEnlaceVigente } from "@/lib/campanas/enlaces";
 import { actualizarRacha } from "@/lib/gamificacion/racha";
+import { actualizarMisiones } from "@/lib/gamificacion/misiones";
 import {
   LARGO_MAXIMO_DESCRIPCION,
   MENSAJE_CUERPO_GRANDE,
@@ -293,6 +294,7 @@ export async function POST(request: Request) {
     }
 
     await actualizarRacha(user.id);
+    await actualizarMisiones(user.id);
     return NextResponse.json({ message: "Aporte enviado", data: mapAporte(insertado.fila) }, { status: 201 });
   } catch (error) {
     console.error("Error creando aporte", error);

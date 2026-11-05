@@ -2,8 +2,7 @@
 // avance y la hora a la que se renuevan (el periodo se cuenta desde su primer inicio de sesión, no por el día del
 // servidor). Sin estado: sirve en servidor y cliente.
 //
-// Todavía no muestra la recompensa de cada misión: su forma depende del catálogo de misiones (DA-GAM-06, abierto)
-// y no se inventa. Mientras no haya catálogo ni instancias, la lista queda vacía y lo dice.
+// Sin misiones activas en lib/datos/misiones.json, la lista queda vacía y lo dice.
 
 import ProgressBar from "@/components/ui/ProgressBar";
 import type { MisionDeHoy, ResumenDeMisiones } from "@/lib/gamificacion/progreso-tipos";
@@ -12,8 +11,8 @@ import type { MisionDeHoy, ResumenDeMisiones } from "@/lib/gamificacion/progreso
 const MAXIMO_DE_TRAMOS = 5;
 
 function textoDeEstado(m: MisionDeHoy): string {
-  if (m.completada) return m.recompensaEntregada ? "Entregada" : "Completada";
-  return `${m.progreso} de ${m.objetivo}`;
+  if (m.completada) return m.recompensa ? `Entregada: ${m.recompensa}` : "Completada";
+  return m.recompensa ? `${m.progreso} de ${m.objetivo}, ${m.recompensa}` : `${m.progreso} de ${m.objetivo}`;
 }
 
 export default function MisionesDeHoy({ misiones }: { misiones: ResumenDeMisiones }) {

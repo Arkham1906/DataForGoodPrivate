@@ -66,6 +66,13 @@ export async function createSession(usuarioId: number) {
     [tokenHash, usuarioId, expiresAt]
   );
 
+  // Ancla de los periodos de misión (RF-GAM-41, RA-GAM-18): solo el primer inicio de sesión.
+  await pool.query(
+    `UPDATE usuarios SET primer_inicio_sesion_en = date_trunc('second', NOW())
+     WHERE id = $1 AND primer_inicio_sesion_en IS NULL`,
+    [usuarioId]
+  );
+
   const cookieStore = await cookies();
   cookieStore.set(COOKIE_NAME, token, {
     httpOnly: true,

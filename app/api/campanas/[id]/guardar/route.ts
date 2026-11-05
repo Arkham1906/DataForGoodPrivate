@@ -2,6 +2,7 @@
 
 import { NextResponse } from "next/server";
 import { pool } from "@/lib/db";
+import { actualizarMisiones } from "@/lib/gamificacion/misiones";
 import { getSessionUser } from "@/lib/session";
 
 function parseCampaignId(raw: string): number | null {
@@ -33,10 +34,11 @@ export async function POST(
 
     await pool.query(
       `INSERT INTO campanas_guardadas (usuario_id, campana_id)
-       VALUES ($1, $2)
-       ON CONFLICT (usuario_id, campana_id) DO NOTHING`,
+        VALUES ($1, $2)
+        ON CONFLICT (usuario_id, campana_id) DO NOTHING`,
       [user.id, campaignId]
     );
+    await actualizarMisiones(user.id);
 
     return NextResponse.json({ data: { isSaved: true } });
   } catch (error) {
