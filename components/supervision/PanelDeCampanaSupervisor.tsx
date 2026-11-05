@@ -125,26 +125,6 @@ export default function PanelDeCampanaSupervisor({
         </div>
       </section>
 
-      <div className="grid gap-5 md:grid-cols-2">
-        <section className="rounded-lg border border-system-200 bg-white p-5 shadow-sm">
-          <h2 className="text-[13px] font-bold text-system-900">Por tipo de dato <span className="font-normal text-system-500">· aprobados</span></h2>
-          {panel.porTipo.length === 0 || panel.metricas.aprobados === 0 ? (
-            <p className="mt-5 text-[12.5px] text-system-600">Todavía no hay aportes aprobados.</p>
-          ) : (
-            <div className="mt-5 space-y-4">
-              {panel.porTipo.map((tipo) => (
-                <div key={tipo.tipo} className="flex items-center gap-3 text-[12.5px]">
-                  <span className="w-20 text-system-600">{tipo.etiqueta}</span>
-                  <div className="h-2 flex-1 overflow-hidden rounded-pill bg-system-100">
-                    <div className="h-full rounded-pill bg-success-700" style={{ width: `${tipo.porcentaje}%` }} />
-                  </div>
-                  <span className="w-8 text-right font-mono text-system-600">{tipo.valor}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-
         <section className="rounded-lg border border-system-200 bg-white p-5 shadow-sm">
           <h2 className="text-[13px] font-bold text-system-900">Progreso hacia la meta</h2>
           <div className="mt-5 h-2.5 overflow-hidden rounded-pill bg-system-100">
@@ -159,7 +139,6 @@ export default function PanelDeCampanaSupervisor({
           </p>
           <p className="mt-5 rounded-lg bg-system-100 p-4 text-[12.5px] leading-5 text-system-600">{mensajeRitmo}</p>
         </section>
-      </div>
 
       {metricasGenerales ? <MetricasGenerales datos={metricasGenerales} /> : null}
     </div>

@@ -3,6 +3,7 @@
 // Solo dibuja: los datos los calcula lib/campanas/metricas-generales.ts. Lo usan el panel del
 // creador (/mis-campanas/[id]/panel, vía GET /api/campanas/[id]/metricas) y el de supervisión
 // (components/supervision/PanelDeCampanaSupervisor). Sin estado ni efectos.
+// Las características de los aportes (checklists) van aparte, debajo de una línea (2026-11-05, a pedido del usuario).
 
 import type { ReactNode } from "react";
 import ProgressBar from "@/components/ui/ProgressBar";
@@ -57,7 +58,7 @@ export default function MetricasGenerales({ datos }: { datos: Datos }) {
   return (
     <div className="mt-8">
       <h2 className="mb-1 text-[15px] font-extrabold text-system-900">Métricas generales</h2>
-      <p className="mb-4 text-[12.5px] text-system-600">Según los tipos de dato, la ubicación y las características de la campaña.</p>
+      <p className="mb-4 text-[12.5px] text-system-600">Según los tipos de dato y la ubicación de la campaña, y cómo llegan y se revisan sus aportes.</p>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Tarjeta titulo="Tipos de dato">
@@ -167,27 +168,39 @@ export default function MetricasGenerales({ datos }: { datos: Datos }) {
           />
         </Tarjeta>
 
-        {checklists.map((c, i) => (
-          <Tarjeta
-            key={`${c.tipo ?? ""}-${c.titulo}-${i}`}
-            titulo={`Característica${c.etiquetaDeTipo ? ` de ${c.etiquetaDeTipo.toLowerCase()}` : ""}: ${c.titulo || "Características"}`}
-          >
-            {c.aprobados === 0 ? (
-              <Vacio>Las respuestas aparecen con los aportes aprobados.</Vacio>
-            ) : (
-              <>
-                {c.opciones.map((o) => (
-                  <Barra key={o.opcion} etiqueta={o.opcion} valor={o.aportes} porcentaje={o.porcentaje} detalle={`${o.porcentaje}%`} />
-                ))}
-                <p className="text-[11.5px] text-system-500">
-                  Sobre {plural(c.aprobados, "aporte aprobado", "aportes aprobados")}
-                  {c.etiquetaDeTipo ? ` de ${c.etiquetaDeTipo.toLowerCase()}` : ""}; un aporte puede marcar varias.
-                </p>
-              </>
-            )}
-          </Tarjeta>
-        ))}
       </div>
+
+      {checklists.length > 0 && (
+        <section aria-labelledby="caracteristicas-de-los-aportes" className="mt-8 border-t border-system-200 pt-6">
+          <h2 id="caracteristicas-de-los-aportes" className="mb-1 text-[15px] font-extrabold text-system-900">
+            Características de los aportes
+          </h2>
+          <p className="mb-4 text-[12.5px] text-system-600">Lo que marcaron quienes aportaron, según los aportes aprobados.</p>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {checklists.map((c, i) => (
+              <Tarjeta
+                key={`${c.tipo ?? ""}-${c.titulo}-${i}`}
+                titulo={[c.titulo || "Características", c.etiquetaDeTipo].filter(Boolean).join(" · ")}
+              >
+                {c.aprobados === 0 ? (
+                  <Vacio>Las respuestas aparecen con los aportes aprobados.</Vacio>
+                ) : (
+                  <>
+                    {c.opciones.map((o) => (
+                      <Barra key={o.opcion} etiqueta={o.opcion} valor={o.aportes} porcentaje={o.porcentaje} detalle={`${o.porcentaje}%`} />
+                    ))}
+                    <p className="text-[11.5px] text-system-500">
+                      Sobre {plural(c.aprobados, "aporte aprobado", "aportes aprobados")}
+                      {c.etiquetaDeTipo ? ` de ${c.etiquetaDeTipo.toLowerCase()}` : ""}; un aporte puede marcar varias.
+                    </p>
+                  </>
+                )}
+              </Tarjeta>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

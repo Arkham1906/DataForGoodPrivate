@@ -5,7 +5,8 @@
 // y, desde el 2026-10-27, GET /api/campanas/[id]/metricas ("Métricas generales", components/campanas/MetricasGenerales).
 // Solo el creador: a cualquier otra persona le sale el aviso de página no encontrada (2026-10-20;
 // antes veía las métricas). La recolección diaria ya respondía 403 a quien no la creó.
-// La meta cuenta solo los aprobados (lib/campanas/meta.ts).
+// La meta cuenta solo los aprobados (lib/campanas/meta.ts). Los tipos de dato van solo en "Métricas generales"
+// (2026-11-05, a pedido del usuario: antes también había un bloque "Por tipo de dato").
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -31,13 +32,11 @@ const TEXTO_DEL_PRONOSTICO = {
 } as const;
 
 type DiaDeRecoleccion = { fecha: string; etiqueta: string; valor: number };
-type TipoDeAporte = { tipo: string; etiqueta: string; valor: number; porcentaje: number };
 
 export default function PanelCampanaPage() {
   const params = useParams<{ id: string }>();
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [recoleccionDiaria, setRecoleccionDiaria] = useState<DiaDeRecoleccion[]>([]);
-  const [porTipo, setPorTipo] = useState<TipoDeAporte[]>([]);
   const [metricasGenerales, setMetricasGenerales] = useState<DatosDeMetricas | null>(null);
   const [actualizadoEn, setActualizadoEn] = useState<string | null>(null);
   const [noEncontrada, setNoEncontrada] = useState(false);
@@ -65,7 +64,6 @@ export default function PanelCampanaPage() {
       if (recoleccionResponse.ok) {
         const body = await recoleccionResponse.json();
         setRecoleccionDiaria(Array.isArray(body.data) ? body.data : []);
-        setPorTipo(Array.isArray(body.porTipo) ? body.porTipo : []);
         setActualizadoEn(body.actualizadoEn ?? null);
       }
       if (metricasResponse.ok) {
@@ -179,67 +177,43 @@ export default function PanelCampanaPage() {
         </>
       )}
 
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-        <div>
-          <p className="mb-3 text-[12.5px] font-medium text-system-900">
-            {isFinished ? "Resultado por tipo de dato" : "Por tipo de dato"}
-          </p>
-          {porTipo.length === 0 ? (
-            <p className="text-[12.5px] text-system-600">Todavía no hay aportes aprobados.</p>
-          ) : (
-            porTipo.map((tipo, i) => (
-              <div
-                key={tipo.tipo}
-                className={`flex items-center gap-2.5 text-[12.5px] ${i < porTipo.length - 1 ? "mb-2.5" : ""}`}
-              >
-                <span className="w-16 flex-none text-system-600">{tipo.etiqueta}</span>
-                <div className="flex-1">
-                  <ProgressBar pct={tipo.porcentaje} />
-                </div>
-                <span className="w-8 text-right font-mono">{tipo.valor}</span>
-              </div>
-            ))
-          )}
-        </div>
-
-        <div>
-          <p className="mb-3 text-[12.5px] font-medium text-system-900">
-            {isFinished ? "Cierre" : "Progreso hacia la meta"}
-          </p>
-          {isFinished ? (
-            <div className="flex flex-col gap-2 text-[13px]">
-              <div className="flex justify-between">
-                <span className="text-system-600">Meta</span>
-                <span className="font-mono font-medium text-system-900">
-                  {campaign.approvedContributions} de {campaign.goalContributions}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-system-600">Cerrada el</span>
-                <span className="font-mono font-medium text-system-900">
-                  {campaign.endDate && parseDateOnly(campaign.endDate)?.toLocaleDateString("es-MX", {
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                  })}
-                </span>
-              </div>
+      <div>
+        <p className="mb-3 text-[12.5px] font-medium text-system-900">
+          {isFinished ? "Cierre" : "Progreso hacia la meta"}
+        </p>
+        {isFinished ? (
+          <div className="flex flex-col gap-2 text-[13px]">
+            <div className="flex justify-between">
+              <span className="text-system-600">Meta</span>
+              <span className="font-mono font-medium text-system-900">
+                {campaign.approvedContributions} de {campaign.goalContributions}
+              </span>
             </div>
-          ) : (
-            <>
-              <ProgressBar pct={pct} tone="ok" />
-              <div className="my-3 flex justify-between font-mono text-[12.5px] text-system-600">
-                <span>
-                  {campaign.approvedContributions} de {campaign.goalContributions} aprobados
-                </span>
-                <span>{campaign.daysRemaining ?? 0} días restantes</span>
-              </div>
-              <div className="rounded-lg bg-system-100 p-3.5 text-[12px] leading-relaxed text-system-600">
-                {TEXTO_DEL_PRONOSTICO[pronostico]}
-              </div>
-            </>
-          )}
-        </div>
+            <div className="flex justify-between">
+              <span className="text-system-600">Cerrada el</span>
+              <span className="font-mono font-medium text-system-900">
+                {campaign.endDate && parseDateOnly(campaign.endDate)?.toLocaleDateString("es-MX", {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                })}
+              </span>
+            </div>
+          </div>
+        ) : (
+          <>
+            <ProgressBar pct={pct} tone="ok" />
+            <div className="my-3 flex justify-between font-mono text-[12.5px] text-system-600">
+              <span>
+                {campaign.approvedContributions} de {campaign.goalContributions} aprobados
+              </span>
+              <span>{campaign.daysRemaining ?? 0} días restantes</span>
+            </div>
+            <div className="rounded-lg bg-system-100 p-3.5 text-[12px] leading-relaxed text-system-600">
+              {TEXTO_DEL_PRONOSTICO[pronostico]}
+            </div>
+          </>
+        )}
       </div>
 
       {metricasGenerales ? <MetricasGenerales datos={metricasGenerales} /> : null}
