@@ -334,10 +334,10 @@ export async function reportesPendientesContra(
   const { rows } = await pool.query<{ campana: string; reportes: number; motivos: string[] }>(
     `SELECT MIN(c.name) AS campana, COUNT(*)::int AS reportes,
             ARRAY_REMOVE(ARRAY_AGG(DISTINCT r.motivo), NULL) AS motivos
-     FROM reportes r JOIN campanas c ON c.id = r.campana_id
-     WHERE ${sqlDeClave(clave, "r.")}
-       AND r.reportado_id = $2 AND r.estado = 'pendiente'
-     HAVING COUNT(*) > 0`,
+      FROM reportes r JOIN campanas c ON c.id = r.campana_id
+      WHERE ${sqlDeClave(clave, "r.")}
+        AND r.reportado_id = $2 AND r.estado = 'pendiente'
+      HAVING COUNT(*) > 0`,
     [clave.id, usuarioId],
   );
   const f = rows[0];

@@ -360,7 +360,7 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
     // La condición evita borrar si la revisión decidió el aporte mientras se esperaba el bloqueo.
     const borrado = await client.query(
       `DELETE FROM aportes
-       WHERE id = $1 AND user_id = $2 AND status IN ('pendiente', 'espera_final')`,
+      WHERE id = $1 AND user_id = $2 AND status IN ('pendiente', 'espera_final')`,
       [id, user.id]
     );
     if (borrado.rowCount === 0) {

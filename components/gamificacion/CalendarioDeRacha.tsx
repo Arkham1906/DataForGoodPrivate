@@ -1,6 +1,6 @@
 "use client";
 
-// Calendario de la racha (2026-11-04; diseño v10, SRS v1.2: RF-GAM-85, 86): el botón «Ver calendario de la racha» y
+// Calendario de la racha (2026-11-04; diseño v10, SRS v1.3: RF-GAM-85, 86, 102): el botón «Ver calendario de la racha» y
 // su ventana, con el estado de cada día del mes, los aportes del día elegido y lo que produjeron, y los eventos de la
 // racha. Los datos se piden al abrir y al cambiar de mes (GET /api/progreso/racha), no al cargar la página.
 //
@@ -8,7 +8,7 @@
 // El estado de cada día se distingue también por su forma y su texto para lectores de pantalla, no solo por el color.
 //
 // Pendiente (no se inventa): el avance de misiones de cada día (RF-GAM-85) no tiene de dónde leerse: las misiones no
-// guardan qué aporte las hizo avanzar. La hora exacta de consolidación depende de DA-GAM-16.
+// guardan qué aporte las hizo avanzar.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Button from "@/components/ui/Button";
@@ -17,12 +17,12 @@ import Tag from "@/components/ui/Tag";
 import { NOMBRES_DE_ESTRELLAS } from "@/lib/aportes/calificacion";
 import { BASE_PATH } from "@/lib/base-path";
 import type { CalendarioDeRachaDelMes, DiaDelCalendario } from "@/lib/gamificacion/mi-progreso-tipos";
-import { MAXIMO_DE_PROTECTORES, type ResumenDeRacha } from "@/lib/gamificacion/progreso-tipos";
+import { MAXIMO_DE_PROTECTORES, PROTECTORES_ACTIVOS, type ResumenDeRacha } from "@/lib/gamificacion/progreso-tipos";
 
 type Estado = DiaDelCalendario["estado"];
 
 const ESTADOS: Record<Estado, { nombre: string; celda: string; tono: "default" | "ok" | "warn" | "info" }> = {
-  confirmado: { nombre: "Confirmado", celda: "bg-success-700 text-white", tono: "ok" },
+  confirmado: { nombre: "Con actividad", celda: "bg-success-700 text-white", tono: "ok" },
   provisional: {
     nombre: "Provisional",
     celda: "border border-warning-500 bg-[repeating-linear-gradient(135deg,var(--color-warning-100)_0_4px,var(--color-warning-300)_4px_6px)] text-warning-900",
@@ -34,7 +34,11 @@ const ESTADOS: Record<Estado, { nombre: string; celda: string; tono: "default" |
   por_venir: { nombre: "Por venir", celda: "border border-system-100 bg-system-50 text-system-500", tono: "default" },
 };
 
-const LEYENDA: Exclude<Estado, "por_venir" | "suspendido">[] = ["confirmado", "provisional", "protegido", "sin_actividad"];
+const LEYENDA: Exclude<Estado, "por_venir" | "suspendido">[] = [
+  "confirmado",
+  ...(PROTECTORES_ACTIVOS ? (["protegido"] as const) : []),
+  "sin_actividad",
+];
 const DIAS_DE_LA_SEMANA = [
   ["L", "lunes"],
   ["M", "martes"],
@@ -53,8 +57,7 @@ function fechaLarga(dia: string): string {
 }
 
 function textoDelDia(d: DiaDelCalendario): string {
-  if (d.estado === "confirmado") return "Un aporte aceptado confirma el día para siempre.";
-  if (d.estado === "provisional") return "Tu aporte sigue en revisión. El día cuenta durante su ventana de 72 horas; después se consolida aunque se rechace.";
+  if (d.estado === "confirmado" || d.estado === "provisional") return "Enviaste al menos un aporte: el día cuenta para tu racha, sea cual sea el resultado de su revisión.";
   if (d.estado === "protegido") return "Se usó un protector y la racha siguió.";
   if (d.estado === "suspendido") return "Tu racha estuvo suspendida este día.";
   if (d.hoy) return "Envía un aporte hoy para que el día cuente.";
@@ -81,13 +84,13 @@ function Celda({ dia, elegido, onElegir }: { dia: DiaDelCalendario; elegido: boo
       onClick={onElegir}
       disabled={dia.estado === "por_venir"}
       aria-pressed={elegido}
-      aria-label={`${dia.numero}${hoy}: ${estado.nombre}`}
+      aria-label={`${dia.numero}${hoy}: ${estado.nombre}${dia.inicioDeRacha ? ", inicio de tu racha" : ""}`}
       className={`flex h-11 w-full flex-col items-center justify-center rounded-[10px] text-[13px] font-bold leading-none ${estado.celda} ${
         dia.hoy ? "outline-2 -outline-offset-2 outline-dashed outline-brand-600" : ""
       } ${elegido ? "ring-2 ring-brand-600 ring-offset-2" : ""} disabled:cursor-default`}
     >
       {dia.numero}
-      {dia.hoy && <span className="mt-0.5 text-[11px] font-semibold">hoy</span>}
+      {(dia.hoy || dia.inicioDeRacha) && <span className="mt-0.5 text-[11px] font-semibold">{dia.hoy ? "hoy" : "inicio"}</span>}
       {dia.estado === "protegido" && !dia.hoy && (
         <svg viewBox="0 0 24 24" aria-hidden="true" className="mt-0.5 h-3 w-3" fill="currentColor">
           <path d="M12 2l8 3v7c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V5z" />
@@ -103,7 +106,10 @@ function DetalleDelDia({ dia }: { dia: DiaDelCalendario }) {
     <section aria-live="polite" className="flex flex-col gap-1.5 rounded-[10px] border border-system-100 bg-system-50 px-3.5 py-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-sm font-bold text-system-900">{fechaLarga(dia.dia)}</h3>
-        <Tag tone={estado.tono}>{estado.nombre}</Tag>
+        <span className="flex flex-wrap gap-1.5">
+          {dia.inicioDeRacha && <Tag tone="on">Inicio de tu racha</Tag>}
+          <Tag tone={estado.tono}>{estado.nombre}</Tag>
+        </span>
       </div>
       <p className="text-[13px] text-system-700">{textoDelDia(dia)}</p>
       {dia.aportes.length > 0 && (
@@ -195,8 +201,17 @@ export default function CalendarioDeRacha({ racha }: { racha: ResumenDeRacha }) 
               <strong className="text-[22px] text-system-900">
                 {racha.actual} {racha.actual === 1 ? "día" : "días"}
               </strong>{" "}
-              de racha actual · máxima {racha.maxima} · protectores {racha.protectores} de {MAXIMO_DE_PROTECTORES}
+              de racha actual · máxima {racha.maxima}
+              {PROTECTORES_ACTIVOS && ` · protectores ${racha.protectores} de ${MAXIMO_DE_PROTECTORES}`}
             </p>
+            {calendario?.inicioDeRacha && (
+              <p className="rounded-[10px] bg-brand-50 px-3.5 py-2.5 text-[13px] text-brand-800">
+                Tu racha empezó el <strong>{calendario.inicioDeRacha.fecha}</strong>
+                {calendario.inicioDeRacha.descripcion
+                  ? ` con «${calendario.inicioDeRacha.descripcion}», en ${calendario.inicioDeRacha.campana}.`
+                  : "."}
+              </p>
+            )}
 
             {fallo ? (
               <div role="alert" className="rounded-[10px] bg-error-50 p-3.5 text-[13px] text-error-700">
@@ -255,7 +270,7 @@ export default function CalendarioDeRacha({ racha }: { racha: ResumenDeRacha }) 
                   {[...LEYENDA, ...(conSuspendidos ? (["suspendido"] as const) : [])].map((e) => (
                     <li key={e} className="inline-flex items-center gap-1.5">
                       <span aria-hidden="true" className={`h-3 w-3 rounded ${ESTADOS[e].celda}`} />
-                      {e === "provisional" ? "Provisional (72 h)" : ESTADOS[e].nombre}
+                      {ESTADOS[e].nombre}
                     </li>
                   ))}
                 </ul>
