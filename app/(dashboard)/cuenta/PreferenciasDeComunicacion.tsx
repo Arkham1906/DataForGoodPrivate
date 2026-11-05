@@ -7,10 +7,13 @@
 // Arriba de todo (desde el 2026-10-20, a pedido del usuario; antes iba al final), el interruptor
 // general "Notificaciones" (2026-10-19; antes ahí estaba "Privacidad", sin función): apagado, no
 // llega ninguna notificación salvo las de la cuenta, y las cuatro de abajo se ven atenuadas.
+// Al final, "Usar mi ubicación" (2026-11-04, ./UbicacionEnPreferencias): no depende del interruptor general.
 
 import { useRef, useState } from "react";
 import Button from "@/components/ui/Button";
 import { BASE_PATH } from "@/lib/base-path";
+import type { ZonaDetectada } from "@/lib/ubicacion/en-el-navegador";
+import UbicacionEnPreferencias from "./UbicacionEnPreferencias";
 import {
   OPCIONES_DE_PREFERENCIAS,
   PREFERENCIA_GENERAL,
@@ -18,7 +21,15 @@ import {
   type Preferencias,
 } from "@/lib/usuarios/preferencias-opciones";
 
-export default function PreferenciasDeComunicacion({ usuarioId, iniciales }: { usuarioId: string | number; iniciales: Preferencias }) {
+export default function PreferenciasDeComunicacion({
+  usuarioId,
+  iniciales,
+  zona,
+}: {
+  usuarioId: string | number;
+  iniciales: Preferencias;
+  zona: ZonaDetectada | null;
+}) {
   const dialogo = useRef<HTMLDialogElement>(null);
   const [valores, setValores] = useState<Preferencias>(iniciales);
   const [guardando, setGuardando] = useState<ClaveDePreferencia | null>(null);
@@ -55,7 +66,7 @@ export default function PreferenciasDeComunicacion({ usuarioId, iniciales }: { u
       <div className="flex items-center justify-between gap-4">
         <div>
           <p className="text-sm font-bold text-system-900">Preferencias</p>
-          <p className="text-[12.5px] text-system-600">Comunicación y notificaciones</p>
+          <p className="text-[12.5px] text-system-600">Comunicación, notificaciones y ubicación</p>
         </div>
         <Button variant="secondary" size="sm" onClick={() => dialogo.current?.showModal()}>
           Ver
@@ -74,10 +85,10 @@ export default function PreferenciasDeComunicacion({ usuarioId, iniciales }: { u
         <div className="flex max-h-[85vh] flex-col">
           <div className="border-b border-system-200 p-5">
             <h2 id="preferencias-titulo" className="text-lg font-extrabold text-system-900">
-              Comunicación y notificaciones
+              Comunicación, notificaciones y ubicación
             </h2>
             <p className="mt-1 text-[12.5px] text-system-600">
-              Llegan a la campana, a Notificaciones y, si los activaste, como avisos del teléfono. Se guardan al tocarlos.
+              Los avisos llegan a la campana, a Notificaciones y, si los activaste, al teléfono. Todo se guarda al tocarlo.
             </p>
           </div>
 
@@ -147,6 +158,8 @@ export default function PreferenciasDeComunicacion({ usuarioId, iniciales }: { u
                 );
               })}
             </div>
+
+            <UbicacionEnPreferencias zonaInicial={zona} />
           </div>
 
           <div className="flex justify-end border-t border-system-200 p-4">

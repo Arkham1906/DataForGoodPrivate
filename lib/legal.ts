@@ -13,4 +13,4 @@ export const RESPONSABLE: { nombre: string | null; domicilio: string | null; cor
 };
 
 /** Fecha de la versión vigente de los dos textos. Cámbiala cada vez que se modifiquen. */
-export const FECHA_DE_ACTUALIZACION = "19 de octubre de 2026";
+export const FECHA_DE_ACTUALIZACION = "4 de noviembre de 2026";

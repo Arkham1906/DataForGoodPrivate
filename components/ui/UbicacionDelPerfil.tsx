@@ -10,9 +10,8 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import Button from "@/components/ui/Button";
 import PedirUbicacion, { type ControlDeUbicacion } from "@/components/ui/PedirUbicacion";
-import { hayGeolocalizacion, preferenciaDeUbicacion, type ZonaDetectada } from "@/lib/ubicacion/en-el-navegador";
+import { hayGeolocalizacion, preferenciaDeUbicacion, suscribirAPreferenciaDeUbicacion, type ZonaDetectada } from "@/lib/ubicacion/en-el-navegador";
 
-const sinSuscripcion = () => () => {};
 const noSePuedePedir = () => !hayGeolocalizacion() || preferenciaDeUbicacion() === "no";
 
 export default function UbicacionDelPerfil({
@@ -40,7 +39,7 @@ export default function UbicacionDelPerfil({
   const [mensaje, setMensaje] = useState<string | null>(null);
   const [aMano, setAMano] = useState(false);
   // En el servidor no se sabe: false, para que la hidratación coincida.
-  const sinPermiso = useSyncExternalStore(sinSuscripcion, noSePuedePedir, () => false);
+  const sinPermiso = useSyncExternalStore(suscribirAPreferenciaDeUbicacion, noSePuedePedir, () => false);
   const verCampos = aMano || sinPermiso;
 
   useEffect(() => {

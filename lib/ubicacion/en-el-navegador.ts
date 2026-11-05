@@ -1,7 +1,7 @@
 "use client";
 
 // Ubicación en el navegador (2026-10-31; ver lib/ubicacion/zona-detectada.ts). La persona la activa con un
-// botón en /campanas, en /cuenta o en el paso 3 de /bienvenida (el navegador pide permiso solo después de
+// botón en /campanas, en /cuenta (también con el interruptor de Preferencias) o en el paso 3 de /bienvenida (el navegador pide permiso solo después de
 // que la persona acepta en la ventana de la app); desde entonces
 // components/layout/DetectorDeUbicacion la vuelve a mandar cada tanto para notar el cambio de zona.
 // "Usar mi ubicación" se recuerda en este navegador (localStorage): en otro dispositivo se activa aparte.
@@ -15,6 +15,7 @@ export type ZonaDetectada = { estado: string; municipio: string };
 export const EVENTO_ZONA = "dataforgood:zona-detectada";
 
 const CLAVE = "dfg:usar-ubicacion";
+const EVENTO_PREFERENCIA = "dataforgood:preferencia-de-ubicacion";
 
 /** "si" (la activó), "no" (dijo "Ahora no" o la quitó) o null (aún no decide). */
 export function preferenciaDeUbicacion(): "si" | "no" | null {
@@ -32,6 +33,17 @@ export function guardarPreferenciaDeUbicacion(valor: "si" | "no"): void {
   } catch {
     // Sin almacenamiento (ventana privada): solo dura esta visita.
   }
+  window.dispatchEvent(new Event(EVENTO_PREFERENCIA));
+}
+
+/** Avisa cuando cambia la preferencia, en esta pestaña o en otra. */
+export function suscribirAPreferenciaDeUbicacion(alCambiar: () => void): () => void {
+  window.addEventListener(EVENTO_PREFERENCIA, alCambiar);
+  window.addEventListener("storage", alCambiar);
+  return () => {
+    window.removeEventListener(EVENTO_PREFERENCIA, alCambiar);
+    window.removeEventListener("storage", alCambiar);
+  };
 }
 
 /**

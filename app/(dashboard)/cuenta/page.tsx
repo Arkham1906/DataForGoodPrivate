@@ -17,6 +17,7 @@ import ButtonLink from "@/components/ui/ButtonLink";
 import Card from "@/components/ui/Card";
 import { exigirUsuario } from "@/lib/session";
 import { etiquetasDelUsuario } from "@/lib/etiquetas/catalogo";
+import { zonaDetectadaDe } from "@/lib/ubicacion/zona-detectada";
 import PerfilForm from "./PerfilForm";
 import CambiarContrasena from "./CambiarContrasena";
 import PreferenciasDeComunicacion from "./PreferenciasDeComunicacion";
@@ -30,6 +31,7 @@ export const metadata: Metadata = { title: "Mi cuenta" };
 
 export default async function CuentaPage() {
   const currentUser = await exigirUsuario();
+  const zona = await zonaDetectadaDe(Number(currentUser.id)).catch(() => null);
 
   // El rol más alto (SuperUsuario > Supervisor > Revisor de aportes > Usuario común). No usar role[0]:
   // normalizeRoles() siempre pone "usuario" primero.
@@ -173,6 +175,7 @@ export default async function CuentaPage() {
                 resumenMensual: currentUser.resumen_mensual,
                 notificaciones: currentUser.notificaciones_activas,
               }}
+              zona={zona && { estado: zona.estado, municipio: zona.municipio }}
             />
           </div>
         </section>

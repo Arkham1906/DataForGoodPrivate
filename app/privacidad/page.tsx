@@ -53,6 +53,14 @@ const SECCIONES: SeccionLegal[] = [
           </li>
         </ul>
         <p>
+          <strong className="text-system-900">Tu ubicación, solo si la activas.</strong> Si usas «Usar mi ubicación» o
+          «Mi ubicación actual» y das permiso en tu navegador, este nos manda tus coordenadas al abrir la plataforma y cada
+          cierto tiempo mientras la usas. Con ellas calculamos en qué estado y municipio de México estás, sin enviarlas a
+          otros servicios, y las descartamos: no guardamos las coordenadas ni tu recorrido. Guardamos solo tu último estado
+          y municipio detectados, que únicamente ves tú, y los lugares de los que ya te avisamos, para no repetir el aviso.
+          Puedes usar la plataforma sin compartir tu ubicación, escribiendo tu estado y municipio en tu perfil u omitiéndolos.
+        </p>
+        <p>
           <strong className="text-system-900">Fotos y documentos sin metadatos.</strong> Antes de guardar una foto le
           quitamos los datos ocultos que traen las cámaras (como la ubicación GPS), y a los PDF y documentos de Word sus
           autores y propiedades. Los videos y audios se guardan como los subes y pueden conservar esos datos: la
@@ -83,6 +91,11 @@ const SECCIONES: SeccionLegal[] = [
           <li>Cuidar la seguridad de la plataforma: atender reportes, aplicar sanciones e impedir que una cuenta baneada vuelva a registrarse.</li>
           <li>Publicar como datos abiertos los aportes aprobados de las campañas que terminan (ver la sección 4).</li>
         </ul>
+        <p>
+          Si activas tu ubicación, la usamos para mostrarte las campañas de donde estás, avisarte cuando llegues a otra
+          zona y llenar por ti el estado y el municipio de tu perfil o de la campaña que estás creando. Lo que llenes en
+          una campaña se ve junto con ella. Puedes dejar de usarla cuando quieras (ver la sección 7).
+        </p>
         <p>Finalidades que puedes apagar en Preferencias de tu cuenta, sin que afecte el servicio:</p>
         <ul>
           <li>Avisarte de campañas nuevas que coinciden con tus intereses y tu ubicación.</li>
@@ -151,6 +164,11 @@ const SECCIONES: SeccionLegal[] = [
           los casos.
         </p>
         <p>
+          Tu última zona detectada y los lugares de los que te avisamos se borran al dar «Dejar de usar mi ubicación» o al
+          eliminar tu cuenta. Los avisos que ya recibiste siguen en tus notificaciones hasta que los borres, y el estado y
+          municipio de tu perfil se quedan hasta que los cambies.
+        </p>
+        <p>
           Los aportes ya publicados como datos abiertos siguen disponibles sin tu nombre. Si tu cuenta fue baneada,
           conservamos tu correo en una lista para impedir un nuevo registro. La bitácora de seguridad se conserva para
           poder revisar lo ocurrido.
@@ -170,6 +188,10 @@ const SECCIONES: SeccionLegal[] = [
         <ul>
           <li>Ver y corregir tus datos en Mi cuenta.</li>
           <li>Apagar los avisos opcionales en Mi cuenta → Preferencias.</li>
+          <li>
+            Dejar de usar tu ubicación en Mi cuenta → Preferencias o con «Dejar de usar mi ubicación» en Explorar
+            campañas, y quitar el permiso en tu navegador. El permiso se da por navegador: en otro dispositivo se activa aparte.
+          </li>
           <li>Borrar tus notificaciones, y los aportes que te rechazaron, desde sus pantallas.</li>
           <li>Eliminar tu cuenta en Mi cuenta → Eliminar cuenta.</li>
         </ul>
