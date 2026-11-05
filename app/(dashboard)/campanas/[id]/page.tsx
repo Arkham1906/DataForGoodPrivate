@@ -161,12 +161,9 @@ export default function CampaignDetailPage() {
         )}
 
         <div className="mb-6 rounded-lg bg-brand-800 p-5 text-white">
-          <p className="text-base font-bold">Tu observación suma conocimiento</p>
+          <h2 className="text-base font-bold">¿De qué trata esta campaña?</h2>
           <p className="mt-1 text-[13px] text-white/85">{campaign.description}</p>
         </div>
-
-        <h2 className="mb-2 text-lg font-bold text-system-900">¿De qué trata esta campaña?</h2>
-        <p className="text-[14px] leading-relaxed text-system-600">{campaign.description}</p>
 
         <h2 className="mb-2 mt-6 text-lg font-bold text-system-900">¿Qué puedes aportar?</h2>
         <p className="mb-3 text-[13px] text-system-600">

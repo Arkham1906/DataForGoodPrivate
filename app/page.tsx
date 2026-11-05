@@ -202,7 +202,7 @@ export default async function LandingPage() {
 
   return (
     <div className="min-h-screen bg-system-50">
-      <PublicHeader />
+      <PublicHeader mostrarComoFunciona={false} />
 
       {/* Todo el contenido va en <main> (antes las secciones de abajo quedaban fuera de toda región). */}
       <main id="contenido">

@@ -38,6 +38,12 @@ export const metadata: Metadata = {
 
 const nf = new Intl.NumberFormat("es-MX");
 
+function textoDeCierre(dias: number | null): string {
+  if (dias === null) return "sin fecha de cierre";
+  if (dias === 0) return "cierra hoy";
+  return dias === 1 ? "queda 1 día" : `quedan ${dias} días`;
+}
+
 const ORDENES: { valor: OrdenDeCampanas; etiqueta: string }[] = [
   { valor: "participacion", etiqueta: "Más participación" },
   { valor: "recientes", etiqueta: "Más recientes" },
@@ -49,12 +55,6 @@ const ORDENES: { valor: OrdenDeCampanas; etiqueta: string }[] = [
 const ORDENES_VALIDOS = new Set(ORDENES.map((o) => o.valor));
 
 type Busqueda = Record<string, string | undefined>;
-
-function textoDeCierre(dias: number | null): string {
-  if (dias === null) return "sin fecha de cierre";
-  if (dias === 0) return "cierra hoy";
-  return dias === 1 ? "queda 1 día" : `quedan ${dias} días`;
-}
 
 export default async function ExplorarCampanasPage({
   searchParams,

@@ -740,6 +740,7 @@ export default function MisCampanasPage() {
         textoOcupado="Pausando…"
         ocupado={porEditar !== null && cambiandoId === porEditar.id}
         confirmarDeshabilitado={colaDeRevisionLlena}
+        textoCancelar="Volver"
         onCancelar={() => setPorEditar(null)}
         onConfirmar={() => {
           if (porEditar) void pausarYEditar(porEditar);
@@ -762,6 +763,7 @@ export default function MisCampanasPage() {
         textoConfirmar="Pausar campaña"
         textoOcupado="Pausando…"
         ocupado={porPausar !== null && cambiandoId === porPausar.id}
+        textoCancelar="Volver"
         onCancelar={() => setPorPausar(null)}
         onConfirmar={() => {
           if (!porPausar) return;

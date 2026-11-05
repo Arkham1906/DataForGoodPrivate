@@ -7,6 +7,8 @@ import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 import ButtonLink from "@/components/ui/ButtonLink";
 import Tag from "@/components/ui/Tag";
+import { MiniaturaDeAporte } from "@/components/ui/ArchivoDelAporte";
+import EstrellasDeCalificacion from "@/components/aportes/EstrellasDeCalificacion";
 import { BASE_PATH } from "@/lib/base-path";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 import type { Contribution, DataType } from "@/types";
@@ -148,7 +150,78 @@ export default function MisAportesPage() {
 
       {filtrosAbiertos && <div className="fixed inset-0 z-50 flex items-end bg-system-900/40 p-3 lg:hidden" role="dialog" aria-modal="true" aria-labelledby="titulo-filtros"><div className="max-h-[90vh] w-full overflow-y-auto rounded-xl bg-white p-4 shadow-xl"><div className="mb-4 flex items-center justify-between gap-3"><h2 id="titulo-filtros" className="text-base font-extrabold text-system-900">Filtrar mis aportes</h2><button type="button" onClick={() => setFiltrosAbiertos(false)} className="rounded-full p-2 text-xl leading-none text-system-600 hover:bg-system-100" aria-label="Cerrar filtros">×</button></div><div className="grid gap-3 sm:grid-cols-2"><CamposDeFiltros {...propsDeFiltros} /></div><div className="mt-5 flex items-center justify-between gap-3 border-t border-system-200 pt-4"><p className="text-[12px] text-system-500">{hayFiltros ? `${filtrados.length} de ${items.length} aportes` : "Sin filtros"}</p><div className="flex gap-2"><Button size="sm" onClick={limpiarFiltros}>Limpiar</Button><Button variant="primary" size="sm" onClick={() => setFiltrosAbiertos(false)}>Aplicar</Button></div></div></div></div>}
 
-      {filtrados.length === 0 ? <p className="rounded-lg border border-dashed border-system-300 p-6 text-sm text-system-600">No hay aportes que coincidan con los filtros.</p> : <div className={vistaCuadricula ? "grid grid-cols-2 gap-2 sm:gap-3" : "flex flex-col gap-2 sm:gap-3"}>{filtrados.map((item) => <button key={item.id} type="button" onClick={() => router.push(`/mis-aportes/${item.campaignId}/${item.id}`)} className="block w-full rounded-lg text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"><article className={vistaCuadricula ? "h-full rounded-lg border border-system-200 bg-white p-4 shadow-sm transition-colors hover:border-brand-600 max-md:p-3" : "h-full rounded-lg border border-system-200 bg-white p-3 shadow-sm transition-colors hover:border-brand-600 max-md:p-2.5"}><div className="flex items-start justify-between gap-2"><div className="min-w-0"><h2 className="truncate text-[15px] font-bold text-system-900">{item.campaignName}</h2><p className="mt-1 text-[12.5px] text-system-600">{item.campaignTematica || "Sin temática"}</p></div><Tag tone={item.status === "aceptado" ? "ok" : item.status === "rechazado" ? "danger" : "warn"}>{item.status === "aceptado" ? "Aceptado" : item.status === "rechazado" ? "Rechazado" : "En revisión"}</Tag></div><dl className="mt-3 grid grid-cols-2 gap-2 border-t border-system-200 pt-3 text-[12px]"><div><dt className="text-system-500">Tipo de dato</dt><dd className="mt-0.5 font-semibold capitalize text-system-900">{item.fileType}</dd></div><div><dt className="text-system-500">Fecha de envío</dt><dd className="mt-0.5 font-mono text-system-900">{new Date(item.submittedAt).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" })}</dd></div></dl></article></button>)}</div>}
+      {filtrados.length === 0 ? <p className="rounded-lg border border-dashed border-system-300 p-6 text-sm text-system-600">No hay aportes que coincidan con los filtros.</p> : <div className={vistaCuadricula ? "grid grid-cols-2 gap-2 sm:gap-3" : "flex flex-col gap-2 sm:gap-3"}>{filtrados.map((item) => {
+        const estadoEtiqueta = item.status === "aceptado" ? "Aceptado" : item.status === "rechazado" ? "Rechazado" : "En revisión";
+        const estadoTono = item.status === "aceptado" ? "ok" : item.status === "rechazado" ? "danger" : "warn";
+
+        return (
+          <button key={item.id} type="button" onClick={() => router.push(`/mis-aportes/${item.campaignId}/${item.id}`)} className="block w-full rounded-lg text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600">
+              <article className={vistaCuadricula ? "flex h-full flex-col rounded-lg border border-system-200 bg-white p-4 shadow-sm transition-colors hover:border-brand-600 max-md:p-3" : "flex items-center gap-3 rounded-lg border border-system-200 bg-white p-2.5 shadow-sm transition-colors hover:border-brand-600 max-md:gap-2 max-md:p-2.5"}>
+              {vistaCuadricula ? (
+                <>
+                  <MiniaturaDeAporte
+                    aporteId={item.id}
+                    tipo={item.fileType}
+                    sinArchivo={item.sinArchivo}
+                    alt={`Vista previa de ${item.fileType} en ${item.campaignName}`}
+                    className="mb-2.5 aspect-video w-full max-w-60 mx-auto object-cover"
+                  />
+                  <div className="h-[72px] overflow-hidden">
+                    <h2 className="line-clamp-2 text-[13px] leading-5 font-bold text-system-900">{item.campaignName}</h2>
+                    <Tag tone={estadoTono} className="mt-1">{estadoEtiqueta}</Tag>
+                  </div>
+                  <p className="mt-1 line-clamp-1 text-[12.5px] text-system-600">{item.campaignTematica || "Sin temática"}</p>
+                  <div className="mt-1 flex min-h-4 items-center whitespace-nowrap text-[11px]">
+                    {item.calificacion != null ? (
+                      <EstrellasDeCalificacion valor={item.calificacion} className="text-[13px]" />
+                    ) : (
+                      <span className="text-system-500">Sin calificación</span>
+                    )}
+                  </div>
+                  <dl className="mt-auto grid grid-cols-2 gap-2 border-t border-system-200 pt-3 text-[12px]">
+                    <div><dt className="text-system-500">Tipo</dt><dd className="mt-0.5 font-semibold capitalize text-system-900">{item.fileType}</dd></div>
+                    <div><dt className="text-system-500">Fecha</dt><dd className="mt-0.5 font-mono text-system-900">{new Date(item.submittedAt).toLocaleDateString("es-MX", { day: "numeric", month: "short" })}</dd></div>
+                  </dl>
+                </>
+              ) : (
+                <>
+                  <MiniaturaDeAporte aporteId={item.id} tipo={item.fileType} sinArchivo={item.sinArchivo} alt={`Vista previa de ${item.fileType} en ${item.campaignName}`} className="h-12 w-12 shrink-0" />
+                  <div className="min-w-0 flex-1 overflow-hidden">
+                    <div className="flex min-w-0 items-center gap-2 overflow-hidden text-[12px]">
+                      <span className="truncate font-bold text-system-900">{item.campaignName}</span>
+                      <span className="shrink-0 text-system-400">•</span>
+                      <span className="shrink-0 text-[11px] font-medium uppercase tracking-[0.08em] text-system-500">{item.fileType}</span>
+                    </div>
+                    <div className="mt-1 flex min-w-0 items-center gap-2 overflow-hidden text-[11px] text-system-600">
+                      <span className="truncate">{item.campaignTematica || "Sin temática"}</span>
+                      <span className="h-1 w-1 shrink-0 rounded-full bg-system-300" aria-hidden="true" />
+                      <span className="hidden shrink-0 items-center md:inline-flex">
+                        {item.calificacion != null ? (
+                          <EstrellasDeCalificacion valor={item.calificacion} className="text-[13px]" />
+                        ) : (
+                          <span className="text-system-500">Sin calificación</span>
+                        )}
+                      </span>
+                      <span className="hidden h-1 w-1 shrink-0 rounded-full bg-system-300 md:inline-block" aria-hidden="true" />
+                      <span className="shrink-0">{new Date(item.submittedAt).toLocaleDateString("es-MX", { day: "numeric", month: "short" })}</span>
+                      <span className="h-1 w-1 shrink-0 rounded-full bg-system-300" aria-hidden="true" />
+                      <span className="shrink-0">{estadoEtiqueta}</span>
+                    </div>
+                    <span className="md:hidden">
+                      {item.calificacion != null ? (
+                        <EstrellasDeCalificacion valor={item.calificacion} className="mt-1 text-[13px]" />
+                      ) : (
+                        <span className="mt-1 block text-[11px] text-system-500">Sin calificación</span>
+                      )}
+                    </span>
+                  </div>
+                  <Tag tone={estadoTono} className="hidden shrink-0 md:inline-flex">{estadoEtiqueta}</Tag>
+                </>
+              )}
+            </article>
+          </button>
+        );
+      })}</div>}
     </>}
   </div>;
 }

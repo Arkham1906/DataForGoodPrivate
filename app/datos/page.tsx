@@ -10,7 +10,6 @@ import PublicHeader from "@/components/layout/PublicHeader";
 import PublicFooter from "@/components/layout/PublicFooter";
 import EncabezadoPublico from "@/components/layout/EncabezadoPublico";
 import ActualizacionEnVivo from "@/components/layout/ActualizacionEnVivo";
-import ButtonLink from "@/components/ui/ButtonLink";
 import Card from "@/components/ui/Card";
 import Tag from "@/components/ui/Tag";
 import { Input } from "@/components/ui/Input";
@@ -89,7 +88,7 @@ export default async function CatalogoDeDatosPage({
           identifiquen a quien participó.
         </EncabezadoPublico>
 
-        <form style={retraso(240)} className="landing-entrada mt-6 flex flex-wrap gap-2.5" action={`${BASE_PATH}/datos`} method="get">
+        <form style={retraso(240)} className="landing-entrada mt-6 w-full" action={`${BASE_PATH}/datos`} method="get">
           {orden !== "recientes" && <input type="hidden" name="orden" value={orden} />}
           {tematica && <input type="hidden" name="tematica" value={tematica} />}
           {locationState && <input type="hidden" name="estado" value={locationState} />}
@@ -99,11 +98,8 @@ export default async function CatalogoDeDatosPage({
             defaultValue={q ?? ""}
             aria-label="Buscar conjuntos de datos"
             placeholder="Buscar por tema, organización o municipio"
-            className="max-w-sm"
+            className="w-full"
           />
-          <ButtonLink href="/mis-campanas/nueva" variant="primary">
-            Publicar una campaña
-          </ButtonLink>
         </form>
 
         <div className="mt-8 grid grid-cols-1 gap-8 md:grid-cols-[220px_1fr]">
