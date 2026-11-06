@@ -32,7 +32,8 @@ export const CAMPOS_DE_EDICION_LIMITADA = new Set([
  * Pausada (2026-10-22, a pedido del usuario): además nombre, descripción, temática, propósito, tipos
  * de dato (con la cuota, que depende de ellos), checklists (texto y orden), inicio y ubicación;
  * la organización se puede cambiar desde el 2026-11-02.
- * Si la pausó el creador, cualquier edición guardada vuelve a revisión; pausar sin editar no.
+ * Si la pausó el creador, una edición amplia vuelve a revisión; solo meta/límites y fin pueden
+ * guardarse sin revisión; pausar sin editar no.
  * Si la pausó la supervisión, sigue pausada y solo la supervisión la reanuda (2026-11-04).
  */
 export const CAMPOS_EDITABLES_EN_PAUSA = new Set([

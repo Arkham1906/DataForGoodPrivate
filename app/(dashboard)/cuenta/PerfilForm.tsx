@@ -23,6 +23,7 @@ import CampoDeOrganizacion from "@/components/ui/CampoDeOrganizacion";
 import { opcionesCon } from "@/lib/perfil-opciones";
 import { municipiosDe, NOMBRES_DE_ESTADOS } from "@/lib/mexico-geo";
 import { BASE_PATH } from "@/lib/base-path";
+import { destinoSeguro } from "@/lib/redireccion";
 import type { EtiquetaNueva } from "@/lib/etiquetas/reglas";
 
 type Usuario = {
@@ -226,6 +227,11 @@ export default function PerfilForm({
       setVecesGuardado((n) => n + 1);
       setGuardado({ ...cambios, specialty: especialidad, organizacion: organizacionGuardada, intereses: guardados, etiquetas: etiquetasGuardadas });
       setAvisoVisible(true);
+      const returnTo = new URLSearchParams(window.location.search).get("returnTo");
+      if (returnTo && destinoSeguro(returnTo) === returnTo) {
+        router.push(returnTo);
+        return;
+      }
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo guardar el perfil");

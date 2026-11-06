@@ -310,16 +310,25 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     }
     const editaCampanaPausada =
       currentStatus === "pausada" && !pausadaPorSupervision && Object.keys(body).some((key) => key !== "status");
+    const guardadoLimitadoDePausada =
+      currentStatus === "pausada" &&
+      !pausadaPorSupervision &&
+      (estadoSolicitado === "activa" || estadoSolicitado === "pausada") &&
+      Object.keys(body).every((key) => key === "status" || CAMPOS_DE_EDICION_LIMITADA.has(key));
     const enviarRevisionDesdePausa =
-      currentStatus === "pausada" && !pausadaPorSupervision && (estadoSolicitado === "en_revision" || editaCampanaPausada);
+      currentStatus === "pausada" &&
+      !pausadaPorSupervision &&
+      !guardadoLimitadoDePausada &&
+      (estadoSolicitado === "en_revision" || editaCampanaPausada);
     // Pausada con inicio futuro que el creador activa ya (2026-11-01): su inicio se adelanta a ahora (Tepic).
     let inicioAdelantado: { fecha: string; hora: string } | null = null;
 
     // Reglas de edición por estado: una finalizada es de solo lectura salvo
     // para reactivarla (status: "activa");
     // activa y aceptada solo dejan tocar meta y fecha de fin (sin cambiar su
-    // estado); al editar una pausada, vuelve a revisión si la pausó el creador y sigue
-    // pausada si la pausó la supervisión; borrador, en_revision y rechazada se editan por completo.
+    // estado); al editar una pausada, los cambios amplios vuelven a revisión,
+    // mientras que meta/límites y fin pueden guardarse pausada o activa; borrador,
+    // en_revision y rechazada se editan por completo.
     if (estaTerminada(currentStatus)) {
       const reactiva = normalizeCampaignStatus(body.status) === "activa";
       if (!reactiva) {
@@ -420,11 +429,15 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       // desde /mis-campanas, sin tocar ningún otro campo a la vez. Una pausada
       // cuyo inicio se movió al futuro se programa (2026-10-27): vuelve a
       // "aceptada" y activateScheduledCampaigns la activa a su hora.
-      const pedido = Object.keys(body).length === 1 ? normalizeCampaignStatus(body.status) : null;
+      const pedido =
+        Object.keys(body).length === 1 || guardadoLimitadoDePausada
+          ? normalizeCampaignStatus(body.status)
+          : null;
       const cambiaEstado =
         pedido === "finalizada" ||
         (currentStatus === "activa" && pedido === "pausada") ||
         (currentStatus === "pausada" && (pedido === "activa" || pedido === "aceptada")) ||
+        guardadoLimitadoDePausada ||
         enviarRevisionDesdePausa;
       if ((pedido === "activa" || pedido === "aceptada") && cambiaEstado) {
         // La que pausó la supervisión (2026-10-15) solo la reanuda la supervisión.
@@ -764,9 +777,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         proposito = CASE WHEN $19::boolean THEN $20 ELSE proposito END,
         proposito_otro = CASE WHEN $19::boolean THEN $21 ELSE proposito_otro END,
         -- La pausó el creador (sin motivo). "status" a la derecha es el estado anterior.
-        pausa_por = CASE WHEN $5 = 'en_revision' AND status = 'pausada' THEN NULL WHEN $5 = 'pausada' AND status <> 'pausada' THEN 'creador' ELSE pausa_por END,
-        pausa_motivo = CASE WHEN $5 = 'en_revision' AND status = 'pausada' THEN NULL WHEN $5 = 'pausada' AND status <> 'pausada' THEN NULL ELSE pausa_motivo END,
-        pausada_en = CASE WHEN $5 = 'en_revision' AND status = 'pausada' THEN NULL WHEN $5 = 'pausada' AND status <> 'pausada' THEN NOW() ELSE pausada_en END,
+        pausa_por = CASE WHEN $5 IN ('en_revision', 'activa') AND status = 'pausada' AND pausa_por = 'creador' THEN NULL WHEN $5 = 'pausada' AND status <> 'pausada' THEN 'creador' ELSE pausa_por END,
+        pausa_motivo = CASE WHEN $5 IN ('en_revision', 'activa') AND status = 'pausada' AND pausa_por = 'creador' THEN NULL WHEN $5 = 'pausada' AND status <> 'pausada' THEN NULL ELSE pausa_motivo END,
+        pausada_en = CASE WHEN $5 IN ('en_revision', 'activa') AND status = 'pausada' AND pausa_por = 'creador' THEN NULL WHEN $5 = 'pausada' AND status <> 'pausada' THEN NOW() ELSE pausada_en END,
         supervisor_id = CASE WHEN $5 = 'en_revision' AND status = 'pausada' THEN NULL ELSE supervisor_id END,
         supervisado_por_root = CASE WHEN $5 = 'en_revision' AND status = 'pausada' THEN false ELSE supervisado_por_root END,
         updated_at = NOW()
