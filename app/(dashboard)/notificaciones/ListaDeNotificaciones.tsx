@@ -163,8 +163,7 @@ export default function ListaDeNotificaciones({
         // el último renglón, para que el fondo de las no leídas no se salga del borde.
         <ul className="divide-y divide-system-200 rounded-lg border border-system-200 bg-white">
           {items.map((item) => (
-            // Hover gris en todo el renglón (2026-10-31, a pedido del usuario), igual que en la campana.
-            <li key={item.id} className={`flex gap-3 px-4 py-3.5 first:rounded-t-lg last:rounded-b-lg hover:bg-system-200 ${item.readAt ? "" : "bg-brand-50"}`}>
+            <li key={item.id} className={`notificacion-hover flex gap-3 px-4 py-3.5 first:rounded-t-lg last:rounded-b-lg ${item.readAt ? "" : "bg-brand-50"}`}>
               <span
                 aria-hidden
                 title={CATEGORIAS_DE_NOTIFICACION[categoriaDeNotificacion(item.type)].nombre}

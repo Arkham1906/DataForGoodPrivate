@@ -162,7 +162,7 @@ export default function NotificationsBell() {
         <div
           role="dialog"
           aria-label="Notificaciones"
-          className="absolute right-0 top-11 z-20 w-80 max-w-[calc(100vw-2rem)] rounded-lg border border-system-200 bg-white shadow-lg max-md:fixed max-md:left-3 max-md:right-3 max-md:top-[var(--dashboard-topbar-height,76px)] max-md:w-auto max-md:max-w-none"
+          className="absolute right-0 top-11 z-20 w-[21rem] max-w-[calc(100vw-2rem)] rounded-lg border border-system-200 bg-white shadow-lg max-md:fixed max-md:left-3 max-md:right-3 max-md:top-[var(--dashboard-topbar-height,76px)] max-md:w-auto max-md:max-w-none"
         >
           <div className="flex items-center justify-between gap-2 border-b border-system-200 px-3 py-2.5">
             <p className="text-sm font-bold text-system-900">Notificaciones</p>
@@ -184,9 +184,7 @@ export default function NotificationsBell() {
                   <button
                     type="button"
                     onClick={() => void abrir(item)}
-                    // Hover gris (2026-10-31, a pedido del usuario): el mismo en leídas y no leídas, y más oscuro
-                    // que el azul de las no leídas, para que pasar el cursor no parezca marcarla como leída.
-                    className="flex w-full gap-2.5 px-3 py-2.5 text-left hover:bg-system-200"
+                    className="notificacion-hover flex w-full gap-2.5 px-3 py-2.5 text-left"
                   >
                     <span
                       aria-hidden
