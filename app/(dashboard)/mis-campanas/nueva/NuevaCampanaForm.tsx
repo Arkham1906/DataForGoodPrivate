@@ -5,7 +5,7 @@
 // Editar: carga con GET /api/campanas?mine=true y guarda con PATCH /api/campanas/[id].
 // Qué campos se pueden editar depende del estado; la regla real está en el PATCH (ver docs/datos.md § 3).
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { startTransition, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Field, Input, Textarea } from "@/components/ui/Input";
@@ -13,6 +13,7 @@ import Button from "@/components/ui/Button";
 import ButtonLink from "@/components/ui/ButtonLink";
 import Tag from "@/components/ui/Tag";
 import VentanaDeProblemas, { type ProblemaDeFormulario } from "@/components/ui/VentanaDeProblemas";
+import VentanaDeConfirmacion from "@/components/ui/VentanaDeConfirmacion";
 import SelectorDeTemas from "@/components/ui/SelectorDeTemas";
 import SelectorDeEtiquetas from "@/components/ui/SelectorDeEtiquetas";
 import RutaDeTematica from "@/components/ui/RutaDeTematica";
@@ -147,6 +148,51 @@ type OpcionEditable = { clave: number; texto: string };
 /** `tipo`: el tipo de dato al que pertenece (2026-10-28); "" = de una campaña anterior, vale para todos. */
 type ChecklistEditable = { clave: number; tipo: DataType | ""; titulo: string; opciones: OpcionEditable[]; nuevaOpcion: string };
 
+type BorradorDeCampana = {
+  name: string;
+  description: string;
+  organizer: string;
+  proposito: string;
+  propositoOtro: string;
+  theme: string;
+  etiquetas: string[];
+  dataTypes: DataType[];
+  formatosDeDocumento: FormatoDeDocumento[];
+  checklists: ChecklistEditable[];
+  goal: string;
+  quota: string;
+  metaPorTipo: boolean;
+  limites: Partial<Record<DataType, string>>;
+  topes: Partial<Record<DataType, string>>;
+  startDate: string;
+  endDate: string;
+  duracionEnMeses: number;
+  modoFinalizacion: "mensual" | "personalizada";
+  fechaFinPersonalizada: string;
+  inicioModificado: boolean;
+  locationState: string;
+  locationCity: string;
+  modoDeLugar: ModoDeLugar;
+};
+
+function leerBorradorDeCampana(clave: string): Partial<BorradorDeCampana> | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const valor: unknown = JSON.parse(sessionStorage.getItem(clave) ?? "null");
+    return valor && typeof valor === "object" ? (valor as Partial<BorradorDeCampana>) : null;
+  } catch {
+    return null;
+  }
+}
+
+function borrarBorradorDeCampana(clave: string) {
+  try {
+    sessionStorage.removeItem(clave);
+  } catch {
+    // El formulario sigue funcionando aunque el navegador no permita sessionStorage.
+  }
+}
+
 /** Otra opción de la característica ya dice lo mismo (claveDeTexto: sin mayúsculas, acentos ni espacios de más). */
 function opcionYaExiste(c: ChecklistEditable, texto: string, salvo?: number): boolean {
   const clave = claveDeTexto(texto);
@@ -208,6 +254,11 @@ function textoDeZona(zona: ZonaDetectada): string {
   return `${zona.municipio ? `${zona.municipio}, ` : "Todo el estado de "}${zona.estado}`;
 }
 
+function rutaActualParaRegreso(): string {
+  if (typeof window === "undefined") return "/mis-campanas/nueva";
+  return `${window.location.pathname}${window.location.search}`;
+}
+
 
 const ESTADO_LABELS: Record<string, string> = {
   borrador: "Borrador",
@@ -230,6 +281,7 @@ export default function NuevaCampanaForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const editId = searchParams.get("edit");
+  const restaurarEstado = searchParams.get("restaurar") === "activa";
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [cargando, setCargando] = useState(true);
   const [organizacionPerfil, setOrganizacionPerfil] = useState<string | undefined>(undefined);
@@ -311,7 +363,11 @@ export default function NuevaCampanaForm() {
       <VentanaDeOrganizacionRequerida
         abierto
         onCancelar={() => router.push("/mis-campanas")}
-        onAgregar={() => router.push("/cuenta?resaltarOrganizacion=1#organizacion")}
+        onAgregar={() =>
+          router.push(
+            `/cuenta?resaltarOrganizacion=1&returnTo=${encodeURIComponent(rutaActualParaRegreso())}#organizacion`
+          )
+        }
       />
     );
   }
@@ -324,6 +380,7 @@ export default function NuevaCampanaForm() {
       perfil={perfil}
       campanasEnRevision={campanasEnRevision}
       colaLlena={colaLlena}
+      restaurarEstado={restaurarEstado}
     />
   );
 }
@@ -334,20 +391,25 @@ function CampanaFormulario({
   perfil,
   campanasEnRevision,
   colaLlena,
+  restaurarEstado,
 }: {
   editingCampaign: Campaign | undefined;
   organizacionPerfil: string;
   perfil: DatosDelPerfil;
   campanasEnRevision: number;
   colaLlena: boolean;
+  restaurarEstado: boolean;
 }) {
   const router = useRouter();
+  const claveBorrador = `dfg:campana-borrador:${editingCampaign?.id ?? "nueva"}`;
+  const borradorLeido = useRef(false);
+  const restaurandoBorrador = useRef(false);
 
   // Reglas de edición por estado (dominio.md): una campaña en revisión o
   // rechazada se puede editar por completo y reenviar; activa, pausada o
   // aceptada (aprobada, esperando su fecha de inicio) solo permiten ajustar
   // meta y fecha de finalización, sin tocar su estado; pausada permite casi
-  // todo y al guardar pasa a revisión, o sigue pausada si la pausó la supervisión;
+  // todo y al guardar pasa a revisión, salvo que solo cambien meta/límites o fin;
   // finalizada queda en solo lectura.
   const status = editingCampaign?.status;
   const soloLectura = status === "finalizada";
@@ -423,8 +485,9 @@ function CampanaFormulario({
   }
   // Sin ejemplos: una campaña nueva empieza sin checklists. Los de campañas
   // viejas (lista plana, sin título) se titulan "Checklist" para poder guardarlos.
-  const [checklists, setChecklists] = useState<ChecklistEditable[]>(() =>
-    (editingCampaign?.checklistSecciones ?? []).map((s) => nuevoChecklist(s.titulo || "Características", s.opciones, s.tipo ?? ""))
+  const [checklists, setChecklists] = useState<ChecklistEditable[]>(
+    () =>
+      (editingCampaign?.checklistSecciones ?? []).map((s) => nuevoChecklist(s.titulo || "Características", s.opciones, s.tipo ?? ""))
   );
   // Un borrador guardado sin meta o sin cuota trae 0: se muestra vacío, no "0".
   const [goal, setGoal] = useState(editingCampaign?.goalContributions ? String(editingCampaign.goalContributions) : "");
@@ -525,7 +588,111 @@ function CampanaFormulario({
   const municipioReal = locationCity === TODO_EL_ESTADO ? "" : locationCity;
   // Paso "Lugar" (2026-11-03, a pedido del usuario): una de 4 opciones. Una campaña nueva empieza en "Para todo el
   // país" (sin estado ni municipio); al editar, en esa si la tiene y si no en "manual", con los suyos.
-  const [modoDeLugar, setModoDeLugar] = useState<ModoDeLugar>(editingCampaign && !editingCampaign.todoElPais ? "manual" : "pais");
+  const [modoDeLugar, setModoDeLugar] = useState<ModoDeLugar>(
+    editingCampaign && !editingCampaign.todoElPais ? "manual" : "pais"
+  );
+
+  useEffect(() => {
+    const guardado = leerBorradorDeCampana(claveBorrador);
+    borradorLeido.current = true;
+    if (!guardado) return;
+
+    restaurandoBorrador.current = true;
+    startTransition(() => {
+      if (guardado.name !== undefined) setName(guardado.name);
+      if (guardado.description !== undefined) setDescription(guardado.description);
+      if (guardado.organizer !== undefined) setOrganizer(guardado.organizer || organizacionPerfil);
+      if (guardado.proposito !== undefined) setProposito(guardado.proposito);
+      if (guardado.propositoOtro !== undefined) setPropositoOtro(guardado.propositoOtro);
+      if (guardado.theme !== undefined) setTheme(guardado.theme);
+      if (guardado.etiquetas !== undefined) setEtiquetas(guardado.etiquetas);
+      if (guardado.dataTypes !== undefined) setDataTypes(guardado.dataTypes);
+      if (guardado.formatosDeDocumento !== undefined) setFormatosDeDocumento(guardado.formatosDeDocumento);
+      if (guardado.checklists !== undefined) setChecklists(guardado.checklists);
+      if (guardado.goal !== undefined) setGoal(guardado.goal);
+      if (guardado.quota !== undefined) setQuota(guardado.quota);
+      if (guardado.metaPorTipo !== undefined) setMetaPorTipo(guardado.metaPorTipo);
+      if (guardado.limites !== undefined) setLimites(guardado.limites);
+      if (guardado.topes !== undefined) setTopes(guardado.topes);
+      if (!editingCampaign && guardado.startDate !== undefined) setStartDate(guardado.startDate);
+      if (guardado.endDate !== undefined) setEndDate(guardado.endDate);
+      if (guardado.duracionEnMeses !== undefined) setDuracionEnMeses(guardado.duracionEnMeses);
+      if (guardado.modoFinalizacion !== undefined) setModoFinalizacion(guardado.modoFinalizacion);
+      if (guardado.fechaFinPersonalizada !== undefined) setFechaFinPersonalizada(guardado.fechaFinPersonalizada);
+      if (!editingCampaign && guardado.inicioModificado !== undefined) setInicioModificado(guardado.inicioModificado);
+      if (guardado.locationState !== undefined) setLocationState(guardado.locationState);
+      if (guardado.locationCity !== undefined) setLocationCity(guardado.locationCity);
+      if (guardado.modoDeLugar !== undefined) setModoDeLugar(guardado.modoDeLugar);
+    });
+  }, [claveBorrador, editingCampaign, organizacionPerfil]);
+
+  useEffect(() => {
+    if (!borradorLeido.current) return;
+    if (restaurandoBorrador.current) {
+      restaurandoBorrador.current = false;
+      return;
+    }
+
+    try {
+      sessionStorage.setItem(
+        claveBorrador,
+        JSON.stringify({
+          name,
+          description,
+          organizer,
+          proposito,
+          propositoOtro,
+          theme,
+          etiquetas,
+          dataTypes,
+          formatosDeDocumento,
+          checklists,
+          goal,
+          quota,
+          metaPorTipo,
+          limites,
+          topes,
+          startDate,
+          endDate,
+          duracionEnMeses,
+          modoFinalizacion,
+          fechaFinPersonalizada,
+          inicioModificado,
+          locationState,
+          locationCity,
+          modoDeLugar,
+        } satisfies BorradorDeCampana)
+      );
+    } catch {
+      // La persistencia es una ayuda de navegación; no debe impedir llenar la campaña.
+    }
+  }, [
+    claveBorrador,
+    name,
+    description,
+    organizer,
+    proposito,
+    propositoOtro,
+    theme,
+    etiquetas,
+    dataTypes,
+    formatosDeDocumento,
+    checklists,
+    goal,
+    quota,
+    metaPorTipo,
+    limites,
+    topes,
+    startDate,
+    endDate,
+    duracionEnMeses,
+    modoFinalizacion,
+    fechaFinPersonalizada,
+    inicioModificado,
+    locationState,
+    locationCity,
+    modoDeLugar,
+  ]);
   const todoElPais = modoDeLugar === "pais";
   // Campaña nueva (2026-11-02, a pedido del usuario): si no tiene temáticas de interés, el recuadro
   // campanas/AvisoSinTematicas arriba del formulario.
@@ -546,9 +713,80 @@ function CampanaFormulario({
   const [intento, setIntento] = useState<"borrador" | "revision" | null>(null);
   const [problemasDelServidor, setProblemasDelServidor] = useState<Problema[]>([]);
   const [ventanaDeProblemas, setVentanaDeProblemas] = useState<Problema[] | null>(null);
+  const [cancelando, setCancelando] = useState(false);
+  const [mostrarConfirmacionDeCancelacion, setMostrarConfirmacionDeCancelacion] = useState(false);
+  const [errorDeCancelacion, setErrorDeCancelacion] = useState<string | null>(null);
   const propositoEditado =
     proposito !== (editingCampaign?.proposito ?? "") ||
     propositoOtro !== (editingCampaign?.propositoOtro ?? "");
+
+  async function cancelarFormulario() {
+    if (cancelando) return;
+    setCancelando(true);
+    setErrorDeCancelacion(null);
+    try {
+      if (editingCampaign && restaurarEstado) {
+        const response = await fetch(`${BASE_PATH}/api/campanas/${encodeURIComponent(editingCampaign.id)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "activa" }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error ?? "No se pudo restaurar la campaña");
+      }
+      borrarBorradorDeCampana(claveBorrador);
+      router.push("/mis-campanas");
+    } catch (error) {
+      setErrorDeCancelacion(error instanceof Error ? error.message : "No se pudo cancelar la edición");
+      setCancelando(false);
+    }
+  }
+
+  const checklistActual = checklists
+    .filter((c) => !c.tipo || dataTypes.includes(c.tipo))
+    .map((c) => ({
+    titulo: c.titulo.trim(),
+    opciones: c.opciones.map((o) => o.texto.trim()),
+    ...(c.tipo ? { tipo: c.tipo } : {}),
+    }));
+  const checklistOriginal = (editingCampaign?.checklistSecciones ?? []).map((c) => ({
+    titulo: c.titulo.trim(),
+    opciones: c.opciones.map((o) => o.trim()),
+    ...(c.tipo ? { tipo: c.tipo } : {}),
+  }));
+  const soloMetaYFechaCambiables =
+    editaEnPausa &&
+    !pausadaPorSupervision &&
+    JSON.stringify({
+      name,
+      description,
+      organizer: organizer.trim(),
+      theme,
+      etiquetas,
+      dataTypes,
+      formatosDeDocumento,
+      checklist: checklistActual,
+      proposito,
+      propositoOtro,
+      todoElPais,
+      locationState,
+      locationCity: municipioReal,
+    }) ===
+      JSON.stringify({
+        name: editingCampaign?.name ?? "",
+        description: editingCampaign?.description ?? "",
+        organizer: editingCampaign?.organizer ?? "",
+        theme: editingCampaign?.tag ?? "",
+        etiquetas: (editingCampaign?.etiquetas ?? []).map((e) => e.nombre),
+        dataTypes: editingCampaign?.dataTypes ?? [],
+        formatosDeDocumento: editingCampaign?.formatosDeDocumento ?? [],
+        checklist: checklistOriginal,
+        proposito: editingCampaign?.proposito ?? "",
+        propositoOtro: editingCampaign?.propositoOtro ?? "",
+        todoElPais: editingCampaign?.todoElPais ?? false,
+        locationState: editingCampaign?.locationState ?? "",
+        locationCity: editingCampaign?.locationCity ?? "",
+      });
 
   // Una pausada no se guarda como borrador: con la cola llena, sigue pausada sin estos cambios.
   const avisoDeColaLlena = editaEnPausa
@@ -779,6 +1017,12 @@ function CampanaFormulario({
       else if (vacio(goal)) agregar("meta", "La meta de aportes debe ser mayor a 0");
     };
 
+    if (soloMetaYFechaCambiables) {
+      revisarMeta();
+      if (!fechaFinFormulario) agregar("fin", "Falta la fecha de finalización");
+      else agregar("fin", errorDeFinAntesDeInicio(fechaInicioFormulario, fechaFinFormulario));
+      return lista;
+    }
     if (editaEnPausa) {
       if (!name.trim()) agregar("nombre", "Falta el nombre de la campaña");
       if (!description.trim()) agregar("descripcion", "Falta la descripción");
@@ -839,7 +1083,7 @@ function CampanaFormulario({
     return lista;
   }
 
-  async function handleSubmit(e: React.FormEvent, asDraft: boolean) {
+  async function handleSubmit(e: React.FormEvent, asDraft: boolean, estadoPausada?: "activa" | "pausada") {
     e.preventDefault();
     if (soloLectura) return;
 
@@ -859,7 +1103,15 @@ function CampanaFormulario({
       opciones: c.opciones.map((o) => o.texto.trim()),
       ...(c.tipo ? { tipo: c.tipo } : {}),
     }));
-    const camposEditables = editaEnPausa
+    const camposEditables = soloMetaYFechaCambiables && estadoPausada
+      ? {
+          status: estadoPausada,
+          goalContributions: metaFinal,
+          metaPorTipo,
+          limitePorTipo,
+          endDate: fechaFinFormulario,
+        }
+      : editaEnPausa
       ? {
           status: enviarRevisionAlGuardar ? "en_revision" : undefined,
           ...(propositoEditado || enviarRevisionAlGuardar
@@ -956,6 +1208,7 @@ function CampanaFormulario({
         throw new Error(body.error ?? (editingCampaign ? "No se pudo actualizar la campaña" : "No se pudo crear la campaña"));
       }
 
+      borrarBorradorDeCampana(claveBorrador);
       router.push("/mis-campanas");
     } catch (error) {
       console.error(editingCampaign ? "Error actualizando campaña" : "Error creando campaña", error);
@@ -1027,6 +1280,10 @@ function CampanaFormulario({
     },
     { modo: "manual", titulo: "Elegir manualmente", detalle: "Selecciona el estado y el municipio." },
   ];
+  const ubicacionActual =
+    modoDeLugar === "actual" && locationState
+      ? textoDeZona({ estado: locationState, municipio: locationCity })
+      : null;
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -1055,10 +1312,14 @@ function CampanaFormulario({
       </div>
 
       {!editingCampaign && (
-        <AvisoSinTematicas sinTematicas={sinTematicas} clave="dfg:aviso-sin-tematicas-al-crear">
+        <AvisoSinTematicas
+          sinTematicas={sinTematicas}
+          clave="dfg:aviso-sin-tematicas-al-crear"
+          returnTo={rutaActualParaRegreso()}
+        >
           <p>
             Aún no eliges temáticas de interés. Agrégalas para mostrarte primero las campañas que te interesan y
-            avisarte cuando se abra una nueva. Si vas ahora, lo que llevas de esta campaña no se guarda.
+            avisarte cuando se abra una nueva. Tus avances de esta campaña se conservarán mientras actualizas tu perfil.
           </p>
         </AvisoSinTematicas>
       )}
@@ -1162,7 +1423,7 @@ function CampanaFormulario({
                 </p>
 
                 <p className="mb-1.5 mt-4 text-[13px] font-medium text-system-900">
-                  Etiquetas <span className="font-normal text-system-500">(opcional)</span>
+                  Subtemáticas <span className="font-normal text-system-500">(opcional)</span>
                 </p>
                 <div
                   data-campo="etiquetas"
@@ -1292,7 +1553,7 @@ function CampanaFormulario({
                     aria-label="Fecha de inicio"
                     onChange={cambiarInicio}
                     required
-                    disabled={contenidoBloqueado}
+                    disabled={Boolean(editingCampaign) || contenidoBloqueado}
                   />
                 </div>
               </Field>
@@ -1382,14 +1643,19 @@ function CampanaFormulario({
                       className="mt-0.5 h-4 w-4 shrink-0 accent-brand-600"
                     />
                     <span>
-                      <span className="block text-[13px] font-semibold text-system-900">{opcion.titulo}</span>
+                      <span className="block text-[13px] font-semibold text-system-900">
+                        {opcion.titulo}
+                        {opcion.modo === "actual" && ubicacionActual && (
+                          <span className="ml-1 font-semibold text-brand-700">: {ubicacionActual}</span>
+                        )}
+                      </span>
                       <span className="mt-0.5 block text-[12px] text-system-600">{opcion.detalle}</span>
                     </span>
                   </label>
                 ))}
               </div>
             </fieldset>
-            {avisoDeZona && (
+            {avisoDeZona && !avisoDeZona.ok && (
               <p
                 role={avisoDeZona.ok ? "status" : "alert"}
                 className={`mb-3 text-[12px] ${avisoDeZona.ok ? "text-system-600" : "text-error-700"}`}
@@ -1937,32 +2203,90 @@ function CampanaFormulario({
               {campanasEnRevision} de {MAX_CAMPANAS_EN_REVISION} campañas en revisión
             </p>
             <div className="flex w-full flex-nowrap justify-end gap-1.5 sm:w-auto sm:gap-2.5">
-              <ButtonLink href="/mis-campanas" variant="secondary" size="sm" className="whitespace-nowrap px-2 sm:px-3.5">
+              <Button type="button" variant="secondary" size="sm" className="whitespace-nowrap px-2 sm:px-3.5" onClick={() => setMostrarConfirmacionDeCancelacion(true)} disabled={cancelando}>
                 Cancelar
-              </ButtonLink>
-              {!edicionLimitada && !enviarRevisionAlGuardar && (
+              </Button>
+              {!edicionLimitada && !enviarRevisionAlGuardar && !soloMetaYFechaCambiables && (
                 <Button type="submit" size="sm" className="whitespace-nowrap px-2 sm:px-3.5" aria-label="Guardar borrador" onClick={(e) => handleSubmit(e, true)}>
                   <span className="sm:hidden">Borrador</span>
                   <span className="hidden sm:inline">Guardar borrador</span>
                 </Button>
               )}
               {/* Siempre activo (2026-10-27): si falta algo, al tocarlo se explica qué. */}
-              <Button
-                variant="primary"
-                type="submit"
-                size="sm"
-                className="whitespace-nowrap px-2 sm:px-3.5"
-                aria-label={enviarRevisionAlGuardar || !edicionLimitada ? "Enviar a revisión" : "Guardar cambios"}
-              >
-                <span className="sm:hidden">{enviarRevisionAlGuardar || !edicionLimitada ? "Enviar" : "Guardar"}</span>
-                <span className="hidden sm:inline">
-                  {enviarRevisionAlGuardar ? "Enviar a revisión" : edicionLimitada ? "Guardar cambios" : "Enviar a revisión"}
-                </span>
-              </Button>
+              {soloMetaYFechaCambiables ? (
+                <>
+                  <Button
+                    variant="secondary"
+                    type="submit"
+                    size="sm"
+                    className="whitespace-nowrap px-2 sm:px-3.5"
+                    onClick={(e) => handleSubmit(e, false, "pausada")}
+                  >
+                    Guardar y seguir pausada
+                  </Button>
+                  <Button
+                    variant="primary"
+                    type="submit"
+                    size="sm"
+                    className="whitespace-nowrap px-2 sm:px-3.5"
+                    onClick={(e) => handleSubmit(e, false, "activa")}
+                  >
+                    Guardar y reanudar
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  variant="primary"
+                  type="submit"
+                  size="sm"
+                  className="whitespace-nowrap px-2 sm:px-3.5"
+                  aria-label={enviarRevisionAlGuardar || !edicionLimitada ? "Enviar a revisión" : "Guardar cambios"}
+                >
+                  <span className="sm:hidden">{enviarRevisionAlGuardar || !edicionLimitada ? "Enviar" : "Guardar"}</span>
+                  <span className="hidden sm:inline">
+                    {enviarRevisionAlGuardar ? "Enviar a revisión" : edicionLimitada ? "Guardar cambios" : "Enviar a revisión"}
+                  </span>
+                </Button>
+              )}
             </div>
           </div>
+          {errorDeCancelacion && (
+            <p role="alert" className="mt-3 text-right text-[12px] text-error-700">
+              {errorDeCancelacion}
+            </p>
+          )}
         </form>
       </div>
+
+      <VentanaDeConfirmacion
+        abierto={mostrarConfirmacionDeCancelacion}
+        titulo={editingCampaign ? "¿Cancelar la edición?" : "¿Cancelar la creación?"}
+        textoConfirmar="Sí, cancelar"
+        textoOcupado="Cancelando..."
+        ocupado={cancelando}
+        peligro
+        textoCancelar="Seguir editando"
+        onCancelar={() => setMostrarConfirmacionDeCancelacion(false)}
+        onConfirmar={() => void cancelarFormulario()}
+      >
+        {editingCampaign ? (
+          <>
+            <p>Se descartarán todos los cambios realizados en esta campaña.</p>
+            {restaurarEstado && (
+              <p className="mt-3">
+                La campaña volverá a estar activa porque se pausó temporalmente para editarla.
+              </p>
+            )}
+          </>
+        ) : (
+          <p>Se eliminarán los datos que hayas llenado y no se creará ninguna campaña.</p>
+        )}
+        {errorDeCancelacion && (
+          <p role="alert" className="mt-3 text-error-700">
+            {errorDeCancelacion}
+          </p>
+        )}
+      </VentanaDeConfirmacion>
 
       <VentanaDeProblemas
         abierto={ventanaDeProblemas !== null}

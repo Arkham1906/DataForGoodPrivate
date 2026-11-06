@@ -23,6 +23,7 @@ export default function MenuDeAcciones({
   etiqueta = "Más acciones",
   texto = "Más",
   discreto = false,
+  compacto = false,
   alinear = "derecha",
   className = "",
 }: {
@@ -33,6 +34,8 @@ export default function MenuDeAcciones({
   texto?: string;
   /** Botón como enlace de texto (renglones con acciones en texto, p. ej. /notificaciones). */
   discreto?: boolean;
+  /** Reduce el botón para conservar acciones en una sola fila en tarjetas estrechas. */
+  compacto?: boolean;
   /** Borde del botón con el que se alinea la lista: "derecha" si el botón está al final del
    *  renglón (crece hacia la izquierda), "izquierda" si está al inicio (crece hacia la derecha). */
   alinear?: "derecha" | "izquierda";
@@ -101,7 +104,7 @@ export default function MenuDeAcciones({
         className={
           discreto
             ? "inline-flex min-h-6 items-center gap-1 px-1 text-[12px] font-semibold text-system-600 hover:text-system-900"
-            : buttonClasses("secondary", "sm", "max-md:px-2 max-md:py-1.5 max-md:text-[11px]")
+            : buttonClasses("secondary", "sm", compacto ? "max-md:px-1 max-md:py-1 max-md:text-[8px]" : "max-md:px-2 max-md:py-1.5 max-md:text-[11px]")
         }
       >
         {texto}

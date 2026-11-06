@@ -115,7 +115,7 @@ export default function DetalleDeMisCampanasPage() {
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error ?? "No se pudo pausar la campaña");
-      router.push(`/mis-campanas/nueva?edit=${encodeURIComponent(campana.id)}`);
+      router.push(`/mis-campanas/nueva?edit=${encodeURIComponent(campana.id)}&restaurar=activa`);
     } catch (cause) {
       setErrorDeEdicion(cause instanceof Error ? cause.message : "No se pudo pausar la campaña");
     } finally {

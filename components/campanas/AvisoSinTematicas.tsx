@@ -35,6 +35,7 @@ export default function AvisoSinTematicas({
   clave,
   children,
   siCerrado = null,
+  returnTo,
 }: {
   /** true cuando ya se sabe que la persona no tiene temáticas (mientras carga, false). */
   sinTematicas: boolean;
@@ -44,6 +45,8 @@ export default function AvisoSinTematicas({
   children: ReactNode;
   /** Qué mostrar si ya dijo "Ahora no": en /inicio evita dejar solo el título de "Campañas para ti". */
   siCerrado?: ReactNode;
+  /** Ruta interna a la que debe volver después de guardar las temáticas. */
+  returnTo?: string;
 }) {
   const [cerrado, setCerrado] = useState(false);
   // En el servidor (y al hidratar) aún no se sabe (null): no se dibuja nada, para no mostrar un texto y cambiarlo
@@ -61,7 +64,10 @@ export default function AvisoSinTematicas({
     <div className="mb-5 rounded-lg border-l-4 border-brand-600 bg-system-100 p-3.5 text-[12.5px] text-system-600">
       {children}
       <div className="mt-2.5 flex flex-wrap gap-2">
-        <Link href="/cuenta?resaltarTematicas=1#mis-intereses" onClick={cerrar}>
+        <Link
+          href={`/cuenta?resaltarTematicas=1${returnTo ? `&returnTo=${encodeURIComponent(returnTo)}` : ""}#mis-intereses`}
+          onClick={cerrar}
+        >
           <Button size="sm" variant="primary">
             Agregar mis temáticas
           </Button>
