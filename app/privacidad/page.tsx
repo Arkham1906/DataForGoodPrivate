@@ -220,8 +220,9 @@ export default function PrivacidadPage() {
       titulo="Aviso de privacidad"
       introduccion={
         <p>
-          DataForGood conecta a organizaciones con personas que aportan información para campañas sociales, ambientales y
-          comunitarias. Este aviso explica qué datos personales recabamos, para qué los usamos, con quién los compartimos
+          DataForGood conecta a quienes quieren ayudar con quienes están en el lugar de los hechos. Crea una campaña y deja
+          que tu comunidad la alimente con fotos, videos, audios, documentos o testimonios para causas sociales, ambientales
+          y comunitarias. Este aviso explica qué datos personales recabamos, para qué los usamos, con quién los compartimos
           y cómo puedes ejercer tus derechos, conforme a la legislación mexicana de protección de datos personales.
         </p>
       }

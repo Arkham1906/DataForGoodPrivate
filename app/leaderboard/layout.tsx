@@ -21,8 +21,8 @@ export default async function LeaderboardLayout({ children }: { children: ReactN
   }
 
   return (
-    <div className="min-h-screen bg-system-50">
-      <PublicHeader />
+    <div className="min-h-screen bg-white">
+      <PublicHeader variante="portada" />
       <main id="contenido" className="px-6 pb-24 pt-14">
         {children}
       </main>

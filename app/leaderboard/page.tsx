@@ -7,11 +7,16 @@
 // Si hay sesión, la persona se ve marcada con "Tú" en la tabla y el marco (TopBar + sidebar) lo pone
 // app/leaderboard/layout.tsx; sin sesión, el marco es el público (PublicHeader + PublicFooter).
 // Acciones: ninguna (solo consulta). La landing enlaza aquí con "Ver tabla completa".
+// Diseño del 2026-11-06: el de la landing. La franja va redondeada porque esta página también se ve en el marco de la app.
 
 import type { Metadata } from "next";
 import { BASE_PATH } from "@/lib/base-path";
 import { retraso } from "@/lib/animaciones";
+import Link from "next/link";
 import ButtonLink from "@/components/ui/ButtonLink";
+import EncabezadoPublico from "@/components/layout/EncabezadoPublico";
+import FranjaDeCampo from "@/components/landing/FranjaDeCampo";
+import { claseDeOrden } from "@/components/landing/estilos";
 import Button from "@/components/ui/Button";
 import ListaDeLideres from "@/components/gamificacion/ListaDeLideres";
 import Podio from "@/components/gamificacion/Podio";
@@ -71,65 +76,59 @@ export default async function LideresPage({ searchParams }: { searchParams: Prom
     const resaltarId = sesion?.id;
 
     return (
-        <div className="mx-auto max-w-4xl">
-            <p className="landing-entrada mb-2 font-mono text-[10.5px] uppercase tracking-widest text-brand-600">
-            Comunidad
-            </p>
-            <h1
-            style={retraso(80)}
-            className="landing-entrada max-w-2xl text-[32px] font-extrabold leading-tight tracking-tight text-system-900"
-            >
-            Tabla de líderes
-            </h1>
-            <p style={retraso(160)} className="landing-entrada mt-4 max-w-2xl text-[14.5px] leading-relaxed text-system-600">
+        <div className="mx-auto max-w-5xl">
+            <EncabezadoPublico centrado etiqueta="Comunidad" titulo="Tabla de líderes">
             Quienes más aportan a la comunidad. Solo cuentan los aportes aprobados, desde siempre.
             {total > 0 && ` ${nf.format(total)} ${total === 1 ? "persona" : "personas"} en esta tabla.`}
-            </p>
+            </EncabezadoPublico>
 
-            <div style={retraso(240)} className="landing-entrada mt-6 flex flex-wrap items-center justify-between gap-3">
-            <nav aria-label="Categoría" className="flex flex-wrap gap-2">
-                {CATEGORIAS_DE_CLASIFICACION.map((c) => (
-                <ButtonLink
-                    key={c.valor}
-                    href={enlaceA(c.valor, undefined, 1)}
-                    variant={categoria === c.valor ? "primary" : "secondary"}
-                    size="sm"
-                    aria-current={categoria === c.valor ? "page" : undefined}
-                >
-                    {c.etiqueta}
-                </ButtonLink>
-                ))}
-            </nav>
-
-            {categoria === "tematica" && tematicas.length > 0 && (
-                // Formulario GET: cambia de temática sin JavaScript. El action lleva el basePath a mano.
-                <form action={`${BASE_PATH}/leaderboard`} method="get" className="flex items-center gap-2">
-                <input type="hidden" name="categoria" value="tematica" />
-                <label htmlFor="tematica-de-lideres" className="text-[12.5px] font-medium text-system-600">
-                    Temática
-                </label>
-                <select
-                    id="tematica-de-lideres"
-                    name="tematica"
-                    defaultValue={tematica}
-                    className="rounded border border-system-300 bg-white px-3 py-2 text-[13px] text-system-900 outline-none focus:border-brand-600"
-                >
-                    {tematicas.map((t) => (
-                    <option key={t} value={t}>
-                        {t}
-                    </option>
+            <FranjaDeCampo redondeada style={retraso(240)} className="landing-entrada mt-10">
+            <div className="relative flex justify-center px-4 py-8">
+                <div className="flex max-w-full flex-wrap items-center justify-center gap-x-4 gap-y-2 rounded-[18px] bg-white p-2 shadow-sm">
+                <nav aria-label="Categoría" className="flex max-w-full gap-1.5 overflow-x-auto">
+                    {CATEGORIAS_DE_CLASIFICACION.map((c) => (
+                    <Link
+                        key={c.valor}
+                        href={enlaceA(c.valor, undefined, 1)}
+                        aria-current={categoria === c.valor ? "page" : undefined}
+                        className={claseDeOrden(categoria === c.valor)}
+                    >
+                        {c.etiqueta}
+                    </Link>
                     ))}
-                </select>
-                <Button type="submit" size="sm">
-                    Ver
-                </Button>
-                </form>
-            )}
-            </div>
+                </nav>
 
-            <section className="mt-8" aria-label="Clasificación">
+                {categoria === "tematica" && tematicas.length > 0 && (
+                    // Formulario GET: cambia de temática sin JavaScript. El action lleva el basePath a mano.
+                    <form action={`${BASE_PATH}/leaderboard`} method="get" className="flex items-center gap-2">
+                    <input type="hidden" name="categoria" value="tematica" />
+                    <label htmlFor="tematica-de-lideres" className="text-[12.5px] font-medium text-system-600">
+                        Temática
+                    </label>
+                    <select
+                        id="tematica-de-lideres"
+                        name="tematica"
+                        defaultValue={tematica}
+                        className="rounded border border-system-300 bg-white px-3 py-2 text-[13px] text-system-900 outline-none focus:border-brand-600"
+                    >
+                        {tematicas.map((t) => (
+                        <option key={t} value={t}>
+                            {t}
+                        </option>
+                        ))}
+                    </select>
+                    <Button type="submit" size="sm">
+                        Ver
+                    </Button>
+                    </form>
+                )}
+                </div>
+            </div>
+            </FranjaDeCampo>
+
+            <section className="mt-6 rounded-[18px] bg-system-100 p-4 md:p-8" aria-label="Clasificación">
             {total === 0 ? (
-                <p className="rounded-lg bg-system-100 p-4 text-center text-[13px] text-system-600">
+                <p className="rounded-lg bg-white p-4 text-center text-[13px] text-system-600">
                 {categoria === "nivel"
                     ? "Todavía nadie ha ganado XP para aparecer en esta tabla."
                     : "Todavía no hay aportes aprobados para armar esta tabla."}

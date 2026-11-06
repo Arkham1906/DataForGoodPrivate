@@ -1,7 +1,7 @@
 // Pantalla /datos/[id] (pública): ficha de un conjunto de datos abierto.
 // Datos: obtenerConjuntoAbierto() de lib/open-data.ts. Descarga: GET /api/datos/[id]/descarga (ZIP con los
-// archivos y la tabla aportes.csv). Métricas: tamaño (archivos que salen en el ZIP), descargas (sube en el momento
-// con descargas.tsx), calidad (aprobados / revisados) y formatos (tipos de archivo del ZIP).
+// archivos y la tabla aportes.csv). Métricas: tamaño (archivos que salen en el ZIP) y descargas (sube en el momento
+// con descargas.tsx).
 
 import { textoDeUbicacion } from "@/lib/campanas/ubicacion";
 import Link from "next/link";
@@ -46,7 +46,7 @@ export default async function ConjuntoAbiertoPage({
 
   return (
     <div className="min-h-screen bg-system-50">
-      <PublicHeader />
+      <PublicHeader variante="portada" />
 
       <main id="contenido" className="mx-auto max-w-5xl px-6 pb-24 pt-14">
         <Link href="/datos" className="text-[12.5px] font-medium text-brand-600 hover:underline">
@@ -93,8 +93,8 @@ export default async function ConjuntoAbiertoPage({
           )}
         </div>
 
-        {/* Las 4 métricas salen de obtenerConjuntoAbierto(); cada una dice de dónde sale su número. */}
-        <div style={retraso(320)} className="landing-entrada mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {/* Las 2 métricas salen de obtenerConjuntoAbierto(); cada una dice de dónde sale su número. */}
+        <div style={retraso(320)} className="landing-entrada mt-6 grid grid-cols-2 gap-3">
           <Card>
             <p className="text-[11px] text-system-600">Tamaño</p>
             <p className="font-mono text-[15px] font-bold text-system-900">
@@ -112,28 +112,6 @@ export default async function ConjuntoAbiertoPage({
               <ContadorDeDescargas key={conjunto.downloads} conjuntoId={conjunto.id} inicial={conjunto.downloads} />
             </p>
             <p className="mt-0.5 text-[11px] text-system-500">Veces que se bajó el ZIP</p>
-          </Card>
-          <Card>
-            <p className="text-[11px] text-system-600">Calidad</p>
-            <p className="font-mono text-[15px] font-bold text-system-900">
-              {conjunto.quality != null ? `${conjunto.quality.toFixed(1)}/10` : "—"}
-            </p>
-            <p className="mt-0.5 text-[11px] text-system-500">
-              {conjunto.quality != null
-                ? `${nf.format(conjunto.approvedContributions)} aprobados de ${nf.format(conjunto.approvedContributions + conjunto.rejectedContributions)} revisados`
-                : "Sin aportes revisados"}
-            </p>
-          </Card>
-          <Card>
-            <p className="text-[11px] text-system-600">Formatos</p>
-            <p className="font-mono text-[15px] font-bold text-system-900">
-              {conjunto.formats.length > 0 ? conjunto.formats.join(" · ") : "CSV"}
-            </p>
-            <p className="mt-0.5 text-[11px] text-system-500">
-              {conjunto.formats.length > 0
-                ? `${conjunto.formats.length === 1 ? "Tipo de archivo" : `${conjunto.formats.length} tipos de archivo`} y la tabla CSV`
-                : "Solo la tabla aportes.csv"}
-            </p>
           </Card>
         </div>
 
@@ -157,7 +135,7 @@ export default async function ConjuntoAbiertoPage({
                 con su campaña, ubicación, descripción y tipo; quien participó aparece como
                 “Participante 1”, “Participante 2”… o “Anónimo”, nunca con su nombre ni correo)
                 {conjunto.sizeBytes > 0
-                  ? ` y los archivos de los aportes (${conjunto.formats.join(", ")}), ${conjunto.sizeLabel} en total.`
+                  ? ` y los archivos de los aportes, ${conjunto.sizeLabel} en total.`
                   : ". Esta campaña no tiene archivos que descargar: sus aportes son de texto o sus archivos se eliminaron por moderación."}
               </p>
               <BotonDeDescarga

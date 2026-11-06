@@ -10,12 +10,13 @@ import Tag from "@/components/ui/Tag";
 import { MiniaturaDeAporte } from "@/components/ui/ArchivoDelAporte";
 import EstrellasDeCalificacion from "@/components/aportes/EstrellasDeCalificacion";
 import { BASE_PATH } from "@/lib/base-path";
+import { NOMBRE_DE_TIPO } from "@/lib/campanas/sistema-opciones";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 import type { Contribution, DataType } from "@/types";
 
 const TIPOS: { value: DataType; label: string }[] = [
   { value: "texto", label: "Texto" }, { value: "foto", label: "Foto" }, { value: "video", label: "Video" },
-  { value: "audio", label: "Audio" }, { value: "documento", label: "Documento" },
+  { value: "audio", label: "Audio" }, { value: "documento", label: "Archivo" },
 ];
 const ESTADOS = [
   { value: "aceptado", label: "Aceptados" }, { value: "pendiente", label: "En revisión" }, { value: "rechazado", label: "Rechazados" },
@@ -153,6 +154,7 @@ export default function MisAportesPage() {
       {filtrados.length === 0 ? <p className="rounded-lg border border-dashed border-system-300 p-6 text-sm text-system-600">No hay aportes que coincidan con los filtros.</p> : <div className={vistaCuadricula ? "grid grid-cols-2 gap-2 sm:gap-3" : "flex flex-col gap-2 sm:gap-3"}>{filtrados.map((item) => {
         const estadoEtiqueta = item.status === "aceptado" ? "Aceptado" : item.status === "rechazado" ? "Rechazado" : "En revisión";
         const estadoTono = item.status === "aceptado" ? "ok" : item.status === "rechazado" ? "danger" : "warn";
+        const nombreDeTipo = NOMBRE_DE_TIPO[item.fileType];
 
         return (
           <button key={item.id} type="button" onClick={() => router.push(`/mis-aportes/${item.campaignId}/${item.id}`)} className="block w-full rounded-lg text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600">
@@ -163,7 +165,7 @@ export default function MisAportesPage() {
                     aporteId={item.id}
                     tipo={item.fileType}
                     sinArchivo={item.sinArchivo}
-                    alt={`Vista previa de ${item.fileType} en ${item.campaignName}`}
+                    alt={`Vista previa de ${nombreDeTipo.toLowerCase()} en ${item.campaignName}`}
                     className="mb-2.5 aspect-video w-full max-w-60 mx-auto object-cover"
                   />
                   <div className="h-[72px] overflow-hidden">
@@ -179,18 +181,18 @@ export default function MisAportesPage() {
                     )}
                   </div>
                   <dl className="mt-auto grid grid-cols-2 gap-2 border-t border-system-200 pt-3 text-[12px]">
-                    <div><dt className="text-system-500">Tipo</dt><dd className="mt-0.5 font-semibold capitalize text-system-900">{item.fileType}</dd></div>
+                    <div><dt className="text-system-500">Tipo</dt><dd className="mt-0.5 font-semibold text-system-900">{nombreDeTipo}</dd></div>
                     <div><dt className="text-system-500">Fecha</dt><dd className="mt-0.5 font-mono text-system-900">{new Date(item.submittedAt).toLocaleDateString("es-MX", { day: "numeric", month: "short" })}</dd></div>
                   </dl>
                 </>
               ) : (
                 <>
-                  <MiniaturaDeAporte aporteId={item.id} tipo={item.fileType} sinArchivo={item.sinArchivo} alt={`Vista previa de ${item.fileType} en ${item.campaignName}`} className="h-12 w-12 shrink-0" />
+                  <MiniaturaDeAporte aporteId={item.id} tipo={item.fileType} sinArchivo={item.sinArchivo} alt={`Vista previa de ${nombreDeTipo.toLowerCase()} en ${item.campaignName}`} className="h-12 w-12 shrink-0" />
                   <div className="min-w-0 flex-1 overflow-hidden">
                     <div className="flex min-w-0 items-center gap-2 overflow-hidden text-[12px]">
                       <span className="truncate font-bold text-system-900">{item.campaignName}</span>
                       <span className="shrink-0 text-system-400">•</span>
-                      <span className="shrink-0 text-[11px] font-medium uppercase tracking-[0.08em] text-system-500">{item.fileType}</span>
+                      <span className="shrink-0 text-[11px] font-medium uppercase tracking-[0.08em] text-system-500">{nombreDeTipo}</span>
                     </div>
                     <div className="mt-1 flex min-w-0 items-center gap-2 overflow-hidden text-[11px] text-system-600">
                       <span className="truncate">{item.campaignTematica || "Sin temática"}</span>

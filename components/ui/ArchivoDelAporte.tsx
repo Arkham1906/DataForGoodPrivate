@@ -18,8 +18,6 @@ function etiquetaDeTipo(tipo: string) {
       return "Audio";
     case "texto":
       return "TXT";
-    case "documento":
-      return "DOC";
     default:
       return "Archivo";
   }
@@ -46,7 +44,7 @@ export function MiniaturaDeAporte({
 
   if (tipo === "foto") {
     // eslint-disable-next-line @next/next/no-img-element -- archivo servido por la API con sesión; next/image no aporta aquí
-    return <img src={src} alt={alt} className={`${className} rounded-lg border border-system-300 bg-system-100 object-cover`} />;
+    return <img loading="lazy" src={src} alt={alt} className={`${className} rounded-lg border border-system-300 bg-system-100 object-cover`} />;
   }
 
   if (tipo === "video") {

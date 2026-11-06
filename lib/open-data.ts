@@ -1,5 +1,6 @@
 import { pool } from "@/lib/db";
-import { columnaDeTipos } from "@/lib/campanas/tipos-de-campana";
+import { columnaDeTipos, condicionDeTipos } from "@/lib/campanas/tipos-de-campana";
+import { NOMBRE_DE_TIPO } from "@/lib/campanas/sistema-opciones";
 import type { DataType } from "@/types";
 import { quienOrganiza } from "@/lib/campanas/organizacion";
 import { textoDelProposito } from "@/lib/campanas/proposito";
@@ -7,7 +8,7 @@ import { sqlDatosPublicados } from "@/lib/campanas/datos-abiertos";
 
 /**
  * Un "conjunto de datos abierto" es una campaña terminada que la supervisión
- * decidió publicar (lib/supervision/datos-abiertos.ts), con el tamaño, los formatos, la calidad y las
+ * decidió publicar (lib/supervision/datos-abiertos.ts), con el tamaño y las
  * descargas calculados en vivo a partir de `aportes` (ver dominio.md, § 9).
  *
  * TODO(dominio): publicar no anonimiza ni congela el conjunto; esta lectura
@@ -24,8 +25,6 @@ export interface OpenDataset {
   proposito: string | null;
   dataTypes: DataType[];
   approvedContributions: number;
-  /** Rechazados de la campaña: con los aprobados dan la calidad (no van en la descarga). */
-  rejectedContributions: number;
   /** Aprobados con archivo que sigue en MinIO: los que suman al tamaño y salen en el ZIP. */
   filesCount: number;
   locationCity: string;
@@ -33,13 +32,9 @@ export interface OpenDataset {
   /** Para todo el país (lib/campanas/ubicacion.ts). */
   todoElPais: boolean;
   closedAt: string | null; // ISO date (end_date)
-  /** Tipos MIME reales de los archivos aceptados, mapeados a una etiqueta corta (JPG, PNG...). */
-  formats: string[];
   sizeBytes: number;
   sizeLabel: string;
   downloads: number;
-  /** Aceptados / (aceptados + rechazados) de la campaña, escalado a 0-10. `null` si no hay dictámenes todavía. */
-  quality: number | null;
   /** La campaña tuvo un supervisor asignado que la llevó a "activa" antes de finalizarse. */
   verified: boolean;
   license: string;
@@ -102,29 +97,29 @@ export function formatBytes(bytes: number): string {
   return `${unit === 0 ? value : value.toFixed(value < 10 ? 1 : 0)} ${units[unit]}`;
 }
 
-export type OpenDataOrder = "recientes" | "cobertura" | "descargas" | "calidad";
+export type OpenDataOrder = "recientes" | "cobertura" | "descargas";
 
 export interface OpenDataFilters {
   q?: string;
   tematica?: string;
   locationState?: string;
+  /** Uno o varios: salen los conjuntos cuya campaña pidió todos (como /explorar, 2026-11-06). */
+  tipos?: string[];
   orden?: OpenDataOrder;
 }
 
 const SELECT = `
   SELECT c.id, c.name, c.description, c.tematica, c.tag, c.proposito, c.proposito_otro, ${columnaDeTipos("c")},
-         est.approved_contributions, est.rejected_contributions,
+         est.approved_contributions,
          c.location_city, c.location_state, c.todo_el_pais, c.organizer, c.creator_name,
          c.end_date, c.supervisor_id, c.supervisado_por_root, est.downloads_count,
          COALESCE(f.size_bytes, 0) AS size_bytes,
-         COALESCE(f.archivos, 0) AS archivos,
-         COALESCE(f.formats, ARRAY[]::text[]) AS formats
+         COALESCE(f.archivos, 0) AS archivos
   FROM campanas c
   JOIN campana_estadisticas est ON est.campana_id = c.id
   LEFT JOIN LATERAL (
     SELECT SUM(ar.tamano_bytes)::bigint AS size_bytes,
-           COUNT(*)::int AS archivos,
-           array_agg(DISTINCT ar.mime) FILTER (WHERE ar.mime IS NOT NULL) AS formats
+           COUNT(*)::int AS archivos
     FROM aportes a
     JOIN archivos ar ON ar.id = a.archivo_id
     -- Solo archivos que siguen en MinIO: uno borrado por moderación no entra al ZIP.
@@ -134,10 +129,7 @@ const SELECT = `
 
 function mapDataset(row: Record<string, unknown>): OpenDataset {
   const approved = Number(row.approved_contributions ?? 0);
-  const rejected = Number(row.rejected_contributions ?? 0);
-  const dictamenes = approved + rejected;
   const sizeBytes = Number(row.size_bytes ?? 0);
-  const formats = (Array.isArray(row.formats) ? (row.formats as string[]) : []).map(formatMime).sort();
 
   return {
     id: String(row.id ?? ""),
@@ -148,17 +140,14 @@ function mapDataset(row: Record<string, unknown>): OpenDataset {
     proposito: textoDelProposito(row.proposito, row.proposito_otro),
     dataTypes: Array.isArray(row.data_types) ? (row.data_types as DataType[]) : [],
     approvedContributions: approved,
-    rejectedContributions: rejected,
     filesCount: Number(row.archivos ?? 0),
     locationCity: String(row.location_city ?? ""),
     locationState: String(row.location_state ?? ""),
     todoElPais: row.todo_el_pais === true,
     closedAt: row.end_date ? new Date(String(row.end_date)).toISOString().slice(0, 10) : null,
-    formats,
     sizeBytes,
     sizeLabel: formatBytes(sizeBytes),
     downloads: Number(row.downloads_count ?? 0),
-    quality: dictamenes > 0 ? Math.round((approved / dictamenes) * 100) / 10 : null,
     verified: row.supervisor_id != null || Boolean(row.supervisado_por_root),
     license: OPEN_DATA_LICENSE,
   };
@@ -168,7 +157,6 @@ const ORDER_SQL: Record<OpenDataOrder, string> = {
   recientes: "c.end_date DESC NULLS LAST",
   cobertura: "est.approved_contributions DESC",
   descargas: "est.downloads_count DESC",
-  calidad: "(est.approved_contributions::float / NULLIF(est.approved_contributions + est.rejected_contributions, 0)) DESC NULLS LAST",
 };
 
 // La landing (app/page.tsx) llama estas dos con revalidate = 300, así que se
@@ -196,6 +184,10 @@ export async function buscarConjuntosAbiertos(
       valores.push(filtros.locationState);
       // Una campaña para todo el país también vale en ese estado.
       condiciones.push(`(c.location_state = $${valores.length} OR c.todo_el_pais)`);
+    }
+    if (filtros.tipos?.length) {
+      valores.push(filtros.tipos);
+      condiciones.push(condicionDeTipos("c", `$${valores.length}`));
     }
 
     const orderBy = ORDER_SQL[filtros.orden ?? "recientes"];
@@ -237,6 +229,23 @@ export async function obtenerTematicasDelCatalogo(): Promise<{ valor: string; to
      ORDER BY total DESC, valor ASC`
   );
   return result.rows;
+}
+
+/**
+ * Tipos de dato de las campañas publicadas, para las facetas del catálogo (2026-11-06, como /explorar). Con
+ * tipos elegidos, cada número dice cuántos quedan al sumar ese tipo; salen siempre todos, también en 0, para
+ * que la lista no cambie al filtrar.
+ */
+export async function obtenerTiposDelCatalogo(elegidos: string[] = []): Promise<{ valor: string; total: number }[]> {
+  const result = await pool.query(
+    `SELECT t.tipo AS valor, COUNT(*)::int AS total
+     FROM campanas JOIN campana_tipos t ON t.campana_id = campanas.id
+     WHERE ${sqlDatosPublicados("campanas")} AND ${condicionDeTipos("campanas", "$1")}
+     GROUP BY t.tipo`,
+    [elegidos]
+  );
+  const totales = new Map<string, number>(result.rows.map((r) => [r.valor, r.total]));
+  return Object.keys(NOMBRE_DE_TIPO).map((valor) => ({ valor, total: totales.get(valor) ?? 0 }));
 }
 
 /** Estados presentes entre las campañas publicadas, para las facetas del catálogo. */

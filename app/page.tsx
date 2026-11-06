@@ -2,6 +2,8 @@
 // Datos: cifras con SQL directo (lib/db.ts) y conjuntos destacados de lib/open-data.ts.
 // Se arma en cada visita y se actualiza en vivo (ActualizacionEnVivo, 2026-10-31; antes revalidate = 300). Las
 // consultas van en try/catch: si la BD no responde, las cifras salen en 0 en vez de tumbar la página.
+// Diseño del 2026-11-06 (a pedido del usuario, con kaggle.com como referencia de estructura y estilo): portada
+// centrada con ilustración propia, secciones con etiqueta en mono y mucho aire, tarjetas con pie y pestañas.
 
 import Link from "next/link";
 import PublicHeader from "@/components/layout/PublicHeader";
@@ -9,20 +11,22 @@ import PublicFooter from "@/components/layout/PublicFooter";
 import ActualizacionEnVivo from "@/components/layout/ActualizacionEnVivo";
 import ButtonLink from "@/components/ui/ButtonLink";
 import ContadorAnimado from "@/components/ui/ContadorAnimado";
-import Card from "@/components/ui/Card";
-import ProgressBar from "@/components/ui/ProgressBar";
 import Tag from "@/components/ui/Tag";
+import FranjaDeCampo from "@/components/landing/FranjaDeCampo";
+import TarjetaDeConjunto from "@/components/landing/TarjetaDeConjunto";
+import PalabraRotativa from "@/components/landing/PalabraRotativa";
+import PestanasDeCampanas, { type CampanaDePortada, type PestanaDeCampanas } from "@/components/landing/PestanasDeCampanas";
 import { retraso } from "@/lib/animaciones";
 import { pool } from "@/lib/db";
 import { activateScheduledCampaigns, finalizeExpiredCampaigns } from "@/lib/campaign-date";
 import { porcentajeDeMeta } from "@/lib/campanas/meta";
+import { quienOrganiza } from "@/lib/campanas/organizacion";
 import { ZONA_DE_CAMPANAS } from "@/lib/fecha-de-tepic";
 import TablaDeLideres from "@/components/gamificacion/TablaDeLideres";
 import { obtenerTablaDeLideres, tablaTieneDatos } from "@/lib/gamificacion/clasificacion";
 import { DATA_TYPE_LABELS, buscarConjuntosAbiertos, contarConjuntosPublicados } from "@/lib/open-data";
+import type { DataType } from "@/types";
 
-// Página pública: se regenera cada cinco minutos y el resto del tiempo se
-// sirve estática, para no golpear la base de datos en cada visita.
 // En vivo (2026-10-31): se arma en cada visita, sin la caché de cinco minutos de antes.
 export const dynamic = "force-dynamic";
 
@@ -46,11 +50,18 @@ const PASOS = [
   },
 ];
 
-const COVER_GRADIENTS = [
-  "from-brand-600 to-brand-600/40",
-  "from-success-700 to-success-700/40",
-  "from-warning-500 to-warning-500/40",
+const PUBLICOS = ["organizaciones", "voluntarios", "investigadores", "comunidades"];
+
+// Solo promesas que el sistema cumple (dominio.md § 5 y § 9).
+const GARANTIAS = [
+  "Cada aporte lo revisa una persona antes de contar",
+  "Los datos abiertos no incluyen quién aportó",
+  "La supervisión decide qué se publica",
 ];
+
+const ANCHO = "mx-auto max-w-[1180px] px-6";
+const TITULO_DE_SECCION = "text-[28px] font-semibold leading-tight tracking-tight text-system-900 md:text-[34px]";
+const ETIQUETA_DE_SECCION = "mb-3 font-mono text-[13px] text-system-600";
 
 interface CifrasReales {
   campanasCreadas: number;
@@ -103,37 +114,47 @@ async function obtenerCifras(): Promise<CifrasReales> {
   }
 }
 
-interface CampanaDestacada {
-  id: string;
-  name: string;
-  tag: string;
-  approvedContributions: number;
-  goalContributions: number;
-  participants: number;
+const FECHA_CORTA = new Intl.DateTimeFormat("es-MX", { day: "numeric", month: "short", timeZone: "UTC" });
+
+/** Las 4 campañas activas de cada pestaña. Los ORDER BY son constantes, no vienen del usuario. */
+const ORDENES_DE_LA_VITRINA = [
+  { clave: "participacion", nombre: "Más participación", sql: "est.participants DESC, est.current_contributions DESC" },
+  { clave: "recientes", nombre: "Recientes", sql: "c.start_date DESC NULLS LAST, c.id DESC" },
+  { clave: "por-cerrar", nombre: "Por cerrar", sql: "c.end_date ASC NULLS LAST, c.id" },
+];
+
+async function campanasDeLaVitrina(orden: string): Promise<CampanaDePortada[]> {
+  const result = await pool.query(
+    `SELECT c.id, c.name, c.description, c.organizer, c.creator_name, c.goal_contributions,
+            to_char(c.end_date, 'YYYY-MM-DD') AS cierre, est.approved_contributions, est.participants,
+            (SELECT COALESCE(array_agg(t.tipo ORDER BY t.tipo), '{}') FROM campana_tipos t WHERE t.campana_id = c.id) AS tipos
+     FROM campanas c
+     JOIN campana_estadisticas est ON est.campana_id = c.id
+     WHERE c.status = 'activa'
+     ORDER BY ${orden}
+     LIMIT 4`
+  );
+  return result.rows.map((row) => ({
+    id: String(row.id),
+    name: String(row.name ?? ""),
+    description: String(row.description ?? ""),
+    organizer: quienOrganiza({ organizer: row.organizer, creatorName: row.creator_name }),
+    tipos: (row.tipos as DataType[]).map((tipo) => DATA_TYPE_LABELS[tipo] ?? tipo),
+    pct: porcentajeDeMeta(Number(row.approved_contributions ?? 0), Number(row.goal_contributions ?? 0)),
+    participants: Number(row.participants ?? 0),
+    cierre: row.cierre ? FECHA_CORTA.format(new Date(`${row.cierre}T00:00:00Z`)) : null,
+  }));
 }
 
-/** Campañas activas con más participación, para la vitrina de la landing. */
-async function obtenerCampanasDestacadas(): Promise<CampanaDestacada[]> {
+/** Pestañas de la vitrina; vacío si no hay campañas activas o la BD no responde. */
+async function obtenerVitrina(): Promise<PestanaDeCampanas[]> {
   try {
     // Una programada cuya hora de inicio ya llegó entra sin esperar a la tarea de cada minuto.
     await activateScheduledCampaigns();
     await finalizeExpiredCampaigns();
-    const result = await pool.query(
-      `SELECT c.id, c.name, COALESCE(NULLIF(c.tag, ''), c.tematica) AS tag, est.approved_contributions, c.goal_contributions, est.participants
-       FROM campanas c
-       JOIN campana_estadisticas est ON est.campana_id = c.id
-       WHERE c.status = 'activa'
-       ORDER BY est.participants DESC, est.current_contributions DESC
-       LIMIT 3`
-    );
-    return result.rows.map((row) => ({
-      id: String(row.id),
-      name: String(row.name ?? ""),
-      tag: String(row.tag ?? ""),
-      approvedContributions: Number(row.approved_contributions ?? 0),
-      goalContributions: Number(row.goal_contributions ?? 0),
-      participants: Number(row.participants ?? 0),
-    }));
+    const listas = await Promise.all(ORDENES_DE_LA_VITRINA.map((o) => campanasDeLaVitrina(o.sql)));
+    if (listas[0].length === 0) return [];
+    return ORDENES_DE_LA_VITRINA.map((o, i) => ({ clave: o.clave, nombre: o.nombre, campanas: listas[i] }));
   } catch {
     return [];
   }
@@ -149,7 +170,7 @@ interface AporteReciente {
 function comoHashtag(texto: string): string {
   const limpio = texto
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
@@ -188,219 +209,260 @@ async function obtenerAportesRecientes(): Promise<AporteReciente[]> {
   }
 }
 
+/** Encabezado de sección: etiqueta en mono, título, texto y un enlace a la derecha. */
+function EncabezadoDeSeccion({
+  id,
+  etiqueta,
+  titulo,
+  texto,
+  enlace,
+}: {
+  id: string;
+  etiqueta?: string;
+  titulo: string;
+  texto: string;
+  enlace?: { href: string; texto: string };
+}) {
+  return (
+    <div className="landing-revelar mb-8 flex flex-wrap items-end justify-between gap-4">
+      <div className="max-w-2xl">
+        {etiqueta && <p className={ETIQUETA_DE_SECCION}>{etiqueta}</p>}
+        <h2 id={id} className={TITULO_DE_SECCION}>
+          {titulo}
+        </h2>
+        <p className="mt-3 text-[15px] leading-relaxed text-system-600">{texto}</p>
+      </div>
+      {enlace && (
+        <ButtonLink href={enlace.href} variant="secondary" size="sm">
+          {enlace.texto} →
+        </ButtonLink>
+      )}
+    </div>
+  );
+}
+
 export default async function LandingPage() {
-  const [{ conjuntos: destacados }, totalConjuntos, aportesRecientes, cifras, campanasDestacadas] = await Promise.all([
+  const [{ conjuntos: destacados }, totalConjuntos, aportesRecientes, cifras, vitrina] = await Promise.all([
     buscarConjuntosAbiertos({ orden: "cobertura" }),
     contarConjuntosPublicados(),
     obtenerAportesRecientes(),
     obtenerCifras(),
-    obtenerCampanasDestacadas(),
+    obtenerVitrina(),
   ]);
   // Tabla de líderes (datos reales de la BD). Sin datos (BD vacía o recién construida), la sección no se pinta.
   const tabla = await obtenerTablaDeLideres();
   const tablaDeLideres = tablaTieneDatos(tabla) ? tabla : null;
+  const campanaDestacada = vitrina[0]?.campanas[0];
 
   return (
-    <div className="min-h-screen bg-system-50">
-      <PublicHeader mostrarComoFunciona={false} />
+    <div className="min-h-screen bg-white">
+      <PublicHeader mostrarInicio={false} variante="portada" />
 
       {/* Todo el contenido va en <main> (antes las secciones de abajo quedaban fuera de toda región). */}
       <main id="contenido">
-      <section className="mx-auto max-w-4xl px-6 pb-24 pt-16 text-center">
-        <p className="landing-entrada mb-4 font-mono text-[10.5px] uppercase tracking-widest text-brand-600">
-          Plataforma de crowdsourcing de datos
-        </p>
-        <h1 style={retraso(90)} className="landing-entrada mx-auto max-w-2xl text-[46px] font-extrabold leading-[1.08] tracking-tight text-system-900">
-          Cada dato cuenta, cuando lo cuenta la comunidad
-        </h1>
-        <p style={retraso(180)} className="landing-entrada mx-auto mt-5 max-w-xl text-[16.5px] leading-relaxed text-system-600">
-          <span className="marca-animada">DataForGood</span> conecta organizaciones con personas dispuestas a aportar
-          información en campo —fotos, audio o texto— para causas sociales,
-          ambientales y comunitarias.
-        </p>
+        <section className="pt-14 text-center md:pt-20">
+          <div className="mx-auto max-w-3xl px-6">
+            <p className="landing-entrada mb-4 font-mono text-[13px] text-system-600">
+              <PalabraRotativa inicio="DataForGood es para" palabras={PUBLICOS} />
+            </p>
+            <h1
+              style={retraso(90)}
+              className="landing-entrada text-[36px] font-semibold leading-[1.1] tracking-tight text-system-900 md:text-[48px]"
+            >
+              Cada dato cuenta, cuando lo cuenta la comunidad
+            </h1>
+            <p style={retraso(180)} className="landing-entrada mx-auto mt-5 max-w-xl text-[17px] leading-relaxed text-system-600 md:text-[19px]">
+              <span className="marca-animada">DataForGood</span> conecta a quienes quieren ayudar con quienes están en el lugar de los hechos.
+              Crea una campaña y deja que tu comunidad la alimente con fotos, videos, audios, documentos o testimonios para causas
+              sociales, ambientales y comunitarias.
+            </p>
+            <div style={retraso(270)} className="landing-entrada mt-8 flex flex-wrap justify-center gap-2.5">
+              <ButtonLink href="/registro" variant="primary">
+                Crear una campaña
+              </ButtonLink>
+              <ButtonLink href="/explorar" variant="secondary">
+                Explorar campañas
+              </ButtonLink>
+            </div>
+          </div>
 
-        <div style={retraso(270)} className="landing-entrada mt-8 flex flex-wrap justify-center gap-2.5">
-          <ButtonLink href="/registro" variant="primary">
-            Crear una campaña
-          </ButtonLink>
-          <ButtonLink href="/explorar" variant="secondary">
-            Explorar campañas
-          </ButtonLink>
-        </div>
+          <FranjaDeCampo style={retraso(360)} className="landing-entrada mt-12 h-[260px] md:h-[300px]">
+            {campanaDestacada && (
+              <div className={`${ANCHO} relative flex h-full items-end justify-center pb-5 md:justify-end`}>
+                <Link
+                  href={`/campanas/${campanaDestacada.id}`}
+                  className="landing-tarjeta w-full max-w-[320px] rounded-[18px] bg-white p-4 text-left shadow-sm"
+                >
+                  <span className="flex items-center justify-between gap-2">
+                    <Tag tone="info">Campaña activa</Tag>
+                    {campanaDestacada.cierre && (
+                      <span className="font-mono text-[12px] text-system-500">Cierra el {campanaDestacada.cierre}</span>
+                    )}
+                  </span>
+                  <span className="mt-2.5 block truncate text-[14.5px] font-medium text-system-900">{campanaDestacada.name}</span>
+                </Link>
+              </div>
+            )}
+          </FranjaDeCampo>
+        </section>
 
-        {aportesRecientes.length > 0 ? (
-          <div className="mt-14 grid grid-cols-2 gap-4 md:grid-cols-4">
-            {aportesRecientes.map((post, i) => (
-              <div
-                key={post.id}
-                className="landing-entrada landing-tarjeta flex flex-col justify-between rounded-lg border border-system-200 bg-white p-4 text-left"
-                style={{ minHeight: 140, ...retraso(380 + i * 90) }}
-              >
-                <p className="text-[13px] leading-snug text-system-900">
-                  &ldquo;{post.description.length > 90 ? `${post.description.slice(0, 90)}…` : post.description}&rdquo;
-                </p>
-                <div className="mt-3 flex items-center justify-between">
-                  <div>
-                    <p className="text-[12px] font-medium text-brand-600">{comoHashtag(post.tag)}</p>
-                    <p className="font-mono text-[11px] text-system-500">
-                      {new Date(post.submittedAt).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}
-                    </p>
-                  </div>
-                  <Tag tone="ok">Aprobado</Tag>
-                </div>
+        <section aria-label="La plataforma en cifras" className={`${ANCHO} py-12`}>
+          <p className="mb-6 text-center font-mono text-[13px] text-system-600">DataForGood, en cifras reales</p>
+          <div className="grid grid-cols-2 gap-6 text-center sm:grid-cols-4">
+            {[
+              { valor: cifras.campanasCreadas, etiqueta: "Campañas publicadas" },
+              { valor: cifras.participantes, etiqueta: "Participantes" },
+              { valor: cifras.datosRecolectados, etiqueta: "Aportes aprobados" },
+              { valor: cifras.organizaciones, etiqueta: "Organizaciones" },
+            ].map((k) => (
+              <div key={k.etiqueta}>
+                <ContadorAnimado valor={k.valor} className="block text-[30px] font-semibold tracking-tight text-system-900" />
+                <p className="mt-1 text-[13px] text-system-600">{k.etiqueta}</p>
               </div>
             ))}
           </div>
-        ) : (
-          <p className="mt-14 text-[13px] text-system-500">
-            Todavía no hay aportes aprobados que mostrar aquí.
-          </p>
-        )}
-      </section>
-
-      <section className="w-full bg-system-900" aria-label="La plataforma en cifras">
-        <div className="mx-auto grid max-w-4xl grid-cols-2 gap-6 px-6 py-8 sm:grid-cols-4">
-          {[
-            { valor: cifras.campanasCreadas, etiqueta: "Campañas publicadas" },
-            { valor: cifras.participantes, etiqueta: "Participantes" },
-            { valor: cifras.datosRecolectados, etiqueta: "Aportes aprobados" },
-            { valor: cifras.organizaciones, etiqueta: "Organizaciones" },
-          ].map((k) => (
-            <div key={k.etiqueta}>
-              <ContadorAnimado valor={k.valor} className="block font-mono text-2xl font-extrabold text-white" />
-              <p className="mt-1 font-mono text-[10.5px] uppercase tracking-widest text-white/60">
-                {k.etiqueta}
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section id="como-funciona" className="mx-auto max-w-4xl px-6 pb-24 pt-16">
-        <div className="landing-revelar mb-9 text-center">
-          <p className="mb-2.5 font-mono text-[10.5px] uppercase tracking-widest text-system-500">
-            El proceso
-          </p>
-          <h2 className="text-[28px] font-extrabold tracking-tight text-system-900">
-            Tres pasos, de la idea al dato
-          </h2>
-        </div>
-        <ol className="grid grid-cols-1 gap-6 sm:grid-cols-3">
-          {PASOS.map((p) => (
-            <li key={p.numero} className="landing-revelar">
-              <p className="mb-1.5 font-mono text-[11px] text-system-500" aria-hidden="true">
-                {p.numero}
-              </p>
-              <h3 className="mb-1 text-[13.5px] font-semibold text-system-900">{p.titulo}</h3>
-              <p className="text-[13px] leading-relaxed text-system-600">{p.texto}</p>
-            </li>
-          ))}
-        </ol>
-      </section>
-
-      {campanasDestacadas.length > 0 && (
-        <section className="mx-auto max-w-4xl px-6 pb-24" aria-label="Campañas destacadas">
-          <div className="landing-revelar mb-5 flex flex-wrap items-end justify-between gap-3">
-            <h2 className="text-2xl font-extrabold text-system-900">Campañas destacadas</h2>
-            <Link href="/explorar" className="text-[13px] font-semibold text-brand-600 hover:underline">
-              Ver todas →
-            </Link>
-          </div>
-          <div className="grid grid-cols-1 gap-3 text-left sm:grid-cols-3">
-            {campanasDestacadas.map((c, i) => {
-              const pct = porcentajeDeMeta(c.approvedContributions, c.goalContributions);
-              return (
-                <Link key={c.id} href={`/campanas/${c.id}`} className="landing-revelar block rounded-lg">
-                  <Card className="landing-tarjeta h-full hover:border-brand-600">
-                    <div className={`-mx-4 -mt-4 mb-3 h-24 rounded-t-lg bg-gradient-to-br ${COVER_GRADIENTS[i % COVER_GRADIENTS.length]}`} />
-                    <div className="mb-2 flex items-start justify-between gap-2">
-                      <p className="text-[15px] font-bold text-system-900">{c.name}</p>
-                      <Tag tone="ok">Activa</Tag>
-                    </div>
-                    <ProgressBar pct={pct} tone="ok" />
-                    <p className="mt-2 font-mono text-[11px] text-system-500">
-                      {nf.format(c.participants)} participantes · {pct}% de la meta
-                    </p>
-                  </Card>
-                </Link>
-              );
-            })}
-          </div>
         </section>
-      )}
 
-      {tablaDeLideres && (
-        <section className="mx-auto max-w-4xl px-6 pb-24" aria-labelledby="tabla-de-lideres">
-          <div className="landing-revelar mb-5 flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <h2 id="tabla-de-lideres" className="text-2xl font-extrabold text-system-900">Tabla de líderes</h2>
-              <p className="mt-1 max-w-md text-[13.5px] text-system-600">
-                Quienes más aportan a la comunidad. Solo cuentan los aportes aprobados.
-              </p>
+        {vitrina.length > 0 && (
+          <section aria-labelledby="campanas-destacadas" className={`${ANCHO} py-12 md:py-20`}>
+            <EncabezadoDeSeccion
+              id="campanas-destacadas"
+              etiqueta="Campañas destacadas"
+              titulo="Súmate a lo que está pasando"
+              texto="Campañas activas que reciben aportes ahora mismo."
+              enlace={{ href: "/explorar", texto: "Ver todas" }}
+            />
+            <div className="landing-revelar">
+              <PestanasDeCampanas pestanas={vitrina} />
             </div>
-            <ButtonLink href="/leaderboard" variant="secondary" size="sm">
-              Ver tabla completa →
+          </section>
+        )}
+
+        {destacados.length > 0 && (
+          <section aria-labelledby="datos-abiertos" className={`${ANCHO} py-12 md:py-20`}>
+            <EncabezadoDeSeccion
+              id="datos-abiertos"
+              etiqueta="Datos abiertos"
+              titulo="Lo que se recolecta vuelve a todos"
+              texto={`Cuando una campaña cierra y la supervisión lo aprueba, sus aportes se publican como un conjunto consultable. ${nf.format(totalConjuntos)} ${totalConjuntos === 1 ? "conjunto disponible" : "conjuntos disponibles"}.`}
+              enlace={{ href: "/datos", texto: "Explorar el catálogo" }}
+            />
+            <ul className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              {destacados.slice(0, 4).map((c, i) => (
+                <li key={c.id} className="landing-revelar">
+                  <TarjetaDeConjunto conjunto={c} indice={i} />
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {tablaDeLideres && (
+          <section aria-labelledby="tabla-de-lideres" className="bg-system-100">
+            <div className={`${ANCHO} py-14 md:py-20`}>
+              <EncabezadoDeSeccion
+                id="tabla-de-lideres"
+                titulo="Quienes más aportan a la comunidad"
+                texto="Solo cuentan los aportes aprobados."
+                enlace={{ href: "/leaderboard", texto: "Ver tabla completa" }}
+              />
+              <div className="landing-revelar">
+                <TablaDeLideres tabla={tablaDeLideres} />
+              </div>
+            </div>
+          </section>
+        )}
+
+        <section id="como-funciona" aria-labelledby="titulo-como-funciona" className={`${ANCHO} py-14 md:py-24`}>
+          <div className="landing-revelar mx-auto max-w-2xl text-center">
+            <h2 id="titulo-como-funciona" className={TITULO_DE_SECCION}>
+              Tres pasos, de la idea al dato
+            </h2>
+            <p className="mt-3 text-[15px] leading-relaxed text-system-600">
+              Tú defines qué necesitas, la comunidad lo recolecta y tú decides qué sirve.
+            </p>
+            <ButtonLink href="/registro" variant="secondary" size="sm" className="mt-6">
+              Crear una campaña →
             </ButtonLink>
           </div>
-          <div className="landing-revelar">
-            <TablaDeLideres tabla={tablaDeLideres} />
-          </div>
-        </section>
-      )}
-
-      {destacados.length > 0 && (
-        <section className="mx-auto max-w-4xl px-6 pb-24" aria-label="Datos abiertos">
-          <div className="landing-revelar mb-5 flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <h2 className="text-2xl font-extrabold text-system-900">Datos abiertos</h2>
-              <p className="mt-1 max-w-md text-left text-[13.5px] text-system-600">
-                Cuando una campaña cierra, sus aportes aprobados se publican como un conjunto
-                consultable. {nf.format(totalConjuntos)}{" "}
-                {totalConjuntos === 1 ? "conjunto disponible" : "conjuntos disponibles"}.
-              </p>
-            </div>
-            <Link href="/datos" className="text-[13px] font-semibold text-brand-600 hover:underline">
-              Explorar el catálogo →
-            </Link>
-          </div>
-          <div className="grid grid-cols-1 gap-3 text-left sm:grid-cols-3">
-            {destacados.slice(0, 3).map((c) => (
-              <Link key={c.id} href={`/datos/${c.id}`} className="landing-revelar block rounded-lg">
-                <Card className="landing-tarjeta h-full hover:border-brand-600">
-                  <p className="text-[14px] font-bold text-system-900">{c.name}</p>
-                  <p className="mt-1 text-[12px] text-system-600">
-                    {c.organizer}
-                  </p>
-                  <div className="mt-2.5 flex flex-wrap gap-1.5">
-                    {(c.formats.length > 0 ? c.formats : c.dataTypes.map((dt) => DATA_TYPE_LABELS[dt] ?? dt))
-                      .slice(0, 3)
-                      .map((f) => (
-                        <Tag key={f}>{f}</Tag>
-                      ))}
-                  </div>
-                  <p className="mt-2.5 font-mono text-[11px] text-system-500">
-                    {nf.format(c.approvedContributions)} aportes · {c.sizeLabel} ·{" "}
-                    {nf.format(c.downloads)} descargas
-                  </p>
-                </Card>
-              </Link>
+          <ol className="mx-auto mt-12 grid max-w-4xl grid-cols-1 gap-4 md:grid-cols-3">
+            {PASOS.map((p, i) => (
+              <li
+                key={p.numero}
+                className={`landing-revelar rounded-[18px] border-2 border-system-900 bg-white p-5 ${i === 1 ? "md:mt-8" : i === 2 ? "md:mt-16" : ""}`}
+              >
+                <p className="mb-6 font-mono text-[13px] text-system-600" aria-hidden="true">
+                  {p.numero}
+                </p>
+                <h3 className="mb-1.5 text-[16px] font-semibold text-system-900">{p.titulo}</h3>
+                <p className="text-[13.5px] leading-relaxed text-system-600">{p.texto}</p>
+              </li>
             ))}
+          </ol>
+        </section>
+
+        {aportesRecientes.length > 0 && (
+          <section aria-labelledby="aportes-recientes" className={`${ANCHO} pb-14 md:pb-24`}>
+            <EncabezadoDeSeccion
+              id="aportes-recientes"
+              etiqueta="Desde el campo"
+              titulo="Lo último que aportó la comunidad"
+              texto="Aportes ya aprobados, sin datos de quién los envió."
+            />
+            <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {aportesRecientes.map((post) => (
+                <li
+                  key={post.id}
+                  className="landing-revelar landing-tarjeta flex min-h-[150px] flex-col justify-between rounded-[18px] border border-system-200 bg-white p-4"
+                >
+                  <p className="text-[14px] leading-snug text-system-900">
+                    &ldquo;{post.description.length > 90 ? `${post.description.slice(0, 90)}…` : post.description}&rdquo;
+                  </p>
+                  <div className="mt-4 flex items-center justify-between">
+                    <div>
+                      <p className="text-[12px] font-medium text-brand-600">{comoHashtag(post.tag)}</p>
+                      <p className="font-mono text-[11px] text-system-500">
+                        {new Date(post.submittedAt).toLocaleTimeString("es-MX", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          timeZone: ZONA_DE_CAMPANAS,
+                        })}
+                      </p>
+                    </div>
+                    <Tag tone="ok">Aprobado</Tag>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        <section aria-labelledby="sobre-dataforgood" className="border-t border-system-200">
+          <div className={`${ANCHO} grid grid-cols-1 gap-10 py-14 md:grid-cols-2 md:py-20`}>
+            <div className="landing-revelar">
+              <p className={ETIQUETA_DE_SECCION}>Acerca de DataForGood</p>
+              <h2 id="sobre-dataforgood" className={TITULO_DE_SECCION}>
+                ¿Tienes un proyecto con impacto social?
+              </h2>
+              <p className="mt-3 text-[15px] leading-relaxed text-system-600">
+                Publica tu primera campaña y empieza a recolectar datos en minutos.
+              </p>
+              <ButtonLink href="/registro" variant="primary" className="mt-6">
+                Comenzar ahora
+              </ButtonLink>
+            </div>
+            <ul className="landing-revelar flex flex-col justify-center gap-3">
+              {GARANTIAS.map((g) => (
+                <li key={g} className="flex items-start gap-2.5 text-[15px] text-system-900">
+                  <span aria-hidden="true" className="font-bold text-success-700">
+                    ✓
+                  </span>
+                  {g}
+                </li>
+              ))}
+            </ul>
           </div>
         </section>
-      )}
-
-      <section className="landing-brillo w-full bg-system-900 px-6 py-16 text-center">
-        <h2 className="mx-auto max-w-xl text-[26px] font-extrabold tracking-tight text-white">
-          ¿Tienes un proyecto con impacto social?
-        </h2>
-        <p className="mt-2.5 text-[13px] text-white/65">
-          Publica tu primera campaña y empieza a recolectar datos en minutos.
-        </p>
-        <ButtonLink href="/registro" variant="primary" className="mt-6 inline-flex">
-          Comenzar ahora
-        </ButtonLink>
-      </section>
-
       </main>
 
       <ActualizacionEnVivo />

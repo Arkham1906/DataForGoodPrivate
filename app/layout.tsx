@@ -27,7 +27,7 @@ export const metadata: Metadata = {
   // Cada pantalla declara el suyo y queda "Título · DataForGood" (WCAG 2.4.2: títulos que dicen dónde estás).
   title: { default: "DataForGood — Plataforma de crowdsourcing de datos", template: PLANTILLA_DE_TITULO },
   description:
-    "DataForGood conecta organizaciones con personas dispuestas a aportar información en campo para causas sociales, ambientales y comunitarias.",
+    "DataForGood conecta a quienes quieren ayudar con quienes están en el lugar de los hechos. Crea una campaña y deja que tu comunidad la alimente con fotos, videos, audios, documentos o testimonios para causas sociales, ambientales y comunitarias.",
   // Favicon (public/icono.svg: el logo sin metadatos; el PNG para navegadores sin SVG) e ícono y modo
   // "app" al agregarla a la pantalla de inicio del iPhone (requisito para el push en iOS).
   // Las rutas de metadata no llevan el basePath solas.

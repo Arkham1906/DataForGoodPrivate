@@ -10,6 +10,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Field, Input, Textarea } from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
+import VentanaDeConfirmacion from "@/components/ui/VentanaDeConfirmacion";
 import ButtonLink from "@/components/ui/ButtonLink";
 import Tag from "@/components/ui/Tag";
 import VentanaDeProblemas, { type ProblemaDeFormulario } from "@/components/ui/VentanaDeProblemas";
@@ -37,6 +38,7 @@ import { ETIQUETA_DE_CAMPANA } from "@/lib/campanas/sistema-opciones";
 import { GuiaDePasos, TarjetaDePaso, type Paso } from "./PasosDeCampana";
 import PedirUbicacion, { type ControlDeUbicacion } from "@/components/ui/PedirUbicacion";
 import AvisoSinTematicas from "@/components/campanas/AvisoSinTematicas";
+import { AvisoDeUbicacionAlCrear } from "@/components/campanas/AvisoDeUbicacion";
 import type { ZonaDetectada } from "@/lib/ubicacion/en-el-navegador";
 import { PLURALES_DE_TIPO, repartoSugerido } from "@/lib/campanas/reparto-sugerido";
 import { maximosDesdeLaCuota } from "@/lib/campanas/cuota-por-tipo";
@@ -546,6 +548,7 @@ function CampanaFormulario({
   const [intento, setIntento] = useState<"borrador" | "revision" | null>(null);
   const [problemasDelServidor, setProblemasDelServidor] = useState<Problema[]>([]);
   const [ventanaDeProblemas, setVentanaDeProblemas] = useState<Problema[] | null>(null);
+  const [confirmarCancelar, setConfirmarCancelar] = useState(false);
   const propositoEditado =
     proposito !== (editingCampaign?.proposito ?? "") ||
     propositoOtro !== (editingCampaign?.propositoOtro ?? "");
@@ -1055,13 +1058,14 @@ function CampanaFormulario({
       </div>
 
       {!editingCampaign && (
-        <AvisoSinTematicas sinTematicas={sinTematicas} clave="dfg:aviso-sin-tematicas-al-crear">
+        <AvisoSinTematicas sinTematicas={sinTematicas}>
           <p>
             Aún no eliges temáticas de interés. Agrégalas para mostrarte primero las campañas que te interesan y
             avisarte cuando se abra una nueva. Si vas ahora, lo que llevas de esta campaña no se guarda.
           </p>
         </AvisoSinTematicas>
       )}
+      {!editingCampaign && <AvisoDeUbicacionAlCrear />}
 
       {/* Al corregir una rechazada, el motivo a la vista (2026-10-22, lib/campanas/rechazo.ts). */}
       {status === "rechazada" && (
@@ -1937,9 +1941,10 @@ function CampanaFormulario({
               {campanasEnRevision} de {MAX_CAMPANAS_EN_REVISION} campañas en revisión
             </p>
             <div className="flex w-full flex-nowrap justify-end gap-1.5 sm:w-auto sm:gap-2.5">
-              <ButtonLink href="/mis-campanas" variant="secondary" size="sm" className="whitespace-nowrap px-2 sm:px-3.5">
+              {/* Sale sin guardar, tras confirmar: al editar (2026-10-31) y al crear (2026-11-04), a pedido del usuario. */}
+              <Button type="button" variant={editingCampaign ? "secondary" : "danger"} size="sm" className="whitespace-nowrap px-2 sm:px-3.5" onClick={() => setConfirmarCancelar(true)}>
                 Cancelar
-              </ButtonLink>
+              </Button>
               {!edicionLimitada && !enviarRevisionAlGuardar && (
                 <Button type="submit" size="sm" className="whitespace-nowrap px-2 sm:px-3.5" aria-label="Guardar borrador" onClick={(e) => handleSubmit(e, true)}>
                   <span className="sm:hidden">Borrador</span>
@@ -1963,6 +1968,26 @@ function CampanaFormulario({
           </div>
         </form>
       </div>
+
+      <VentanaDeConfirmacion
+        abierto={confirmarCancelar}
+        titulo={editingCampaign ? "¿Cancelar los cambios?" : "¿Cancelar la campaña nueva?"}
+        textoConfirmar={editingCampaign ? "Sí, descartar cambios" : "Sí, descartar campaña"}
+        textoCancelar={editingCampaign ? "Cancelar" : "Seguir editando"}
+        textoOcupado="Saliendo…"
+        peligro
+        onCancelar={() => setConfirmarCancelar(false)}
+        onConfirmar={() => router.push("/mis-campanas")}
+      >
+        {editingCampaign ? (
+          <p>
+            Lo que cambiaste y no guardaste se pierde; la campaña queda como estaba.
+            {editaEnPausa ? " Sigue pausada: puedes reanudarla desde Mis campañas." : ""}
+          </p>
+        ) : (
+          <p>Lo que llenaste se pierde. Si quieres retomarla después, usa “Guardar borrador”.</p>
+        )}
+      </VentanaDeConfirmacion>
 
       <VentanaDeProblemas
         abierto={ventanaDeProblemas !== null}

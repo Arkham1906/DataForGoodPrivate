@@ -73,7 +73,6 @@ export default async function InicioPage() {
   const avisoSinTematicas = (
     <AvisoSinTematicas
       sinTematicas={usuario.intereses.length === 0}
-      clave="dfg:aviso-sin-tematicas-inicio"
       siCerrado={
         !conParaTi && (
           <p className="text-[13px] text-system-600">

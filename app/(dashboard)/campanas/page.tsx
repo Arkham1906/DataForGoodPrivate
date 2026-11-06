@@ -17,7 +17,7 @@
 // "Campañas para ti", con todas las favoritas activas; sin favoritas no sale.
 // Aviso de temáticas (2026-11-02, a pedido del usuario): si la persona no tiene temáticas de interés (las
 // omitió al crear su cuenta), sale el recuadro campanas/AvisoSinTematicas (mismo estilo que el de ubicación),
-// que la lleva a "Mis intereses" de /cuenta; "Ahora no" lo oculta durante la sesión del navegador.
+// que la lleva a "Mis intereses" de /cuenta; "Ahora no" lo oculta hasta recargar o volver a entrar.
 // Ubicación real (2026-10-31; lib/ubicacion/): si la persona activó "Usar mi ubicación"
 // (components/campanas/AvisoDeUbicacion), "Tu localidad" pasa a "Cerca de ti": su municipio detectado (GET
 // /api/ubicacion), todo su estado y todo el país, y la lista abre así. Sin zona, sigue el estado del perfil.
@@ -269,7 +269,7 @@ export default function CampanasPage() {
   const paraTiVisibles = (filtroParaTi.activo ? ptCoinciden : ptCoinciden.slice(0, CAMPANAS_PARA_TI)).map((r) => r.p);
   // Van debajo del título de "Campañas para ti" si la sección no tiene qué mostrar; si no, después de ella.
   const avisoSinTematicas = (
-    <AvisoSinTematicas sinTematicas={sinTematicas} clave="dfg:aviso-sin-tematicas">
+    <AvisoSinTematicas sinTematicas={sinTematicas}>
       <p>
         Aún no eliges temáticas de interés. Agrégalas para mostrarte primero las campañas que te interesan y
         avisarte cuando se abra una nueva.
