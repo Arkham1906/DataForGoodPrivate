@@ -101,7 +101,8 @@
 | Archivo | Qué hace | Lo usa |
 | --- | --- | --- |
 | `datos-abiertos.ts` (2026-11-04) | Publicar o no los datos de una campaña terminada: `decidirDatosAbiertos` y `marcarDatosPorDecidir` (tarea de cada minuto) | `PATCH /api/campanas/[id]`, `lib/supervision/acciones-root.ts`, `instrumentation-node.ts` |
-| `similares.ts` (2026-11-04) | Campañas de la misma temática que una en revisión, para que la supervisión decida si se acepta | `GET /api/campanas/[id]/similares`, `/supervisar/[campaignId]` |
+| `parecido.ts` 🟢 (2026-11-07) | `compararCampanas()` y `esSimilar()`: en qué se parecen dos campañas (temática, subtemática, nombre, descripción, tipos de dato) | `similares.ts`, `supervision/CampanasSimilares` |
+| `similares.ts` (2026-11-04) | Campañas parecidas a una en revisión, de la más parecida a la menos, para que la supervisión decida si se acepta | `GET /api/campanas/[id]/similares`, `/supervisar/[campaignId]` |
 | `decision.ts` | **Reglas del dictamen**, compartidas por supervisores y SuperUsuario: tomar una campaña (`tomarCampanaParaSupervisar`) y aceptarla, rechazarla o reportarla (`registrarDecisionDeCampana`). Notifica al creador y escribe en la bitácora | `PATCH /api/campanas/[id]`, `acciones-root.ts` |
 | `root.ts` | Guardia `exigirSesionRoot()` y consultas de `/supervisar` | Páginas de `(panel)` |
 | `estado-por-supervision.ts` | **Pausar (con motivo), reanudar o finalizar (con motivo)** una campaña desde la supervisión (`cambiarEstadoPorSupervision`): permisos, transiciones, bitácora y aviso al creador (2026-10-15) | `PATCH /api/campanas/[id]`, `acciones-root.ts` |
@@ -203,10 +204,10 @@ Subtemáticas de una temática (Protección animal → Perros, Gatos...).
 | Archivo | Qué hace | Lo usa |
 | --- | --- | --- |
 | `reglas.ts` 🟢 | `MAXIMO_DE_ETIQUETAS_POR_CAMPANA` (5), `MAXIMO_DE_ETIQUETAS_EN_PERFIL` (20), `MAXIMO_DE_ETIQUETAS_NUEVAS_EN_PERFIL` (5, 2026-10-28) y tipos (`EtiquetaNueva`) | Formulario de campaña, perfil, tarjetas |
-| `desde-texto.ts` 🟢 | `etiquetasEnElTexto()`: ids de las etiquetas que menciona el texto de intereses (2026-10-28) | `ui/SubtematicasDelPerfil` |
+| `desde-texto.ts` 🟢 | `etiquetasEnElTexto()`: ids de las etiquetas que menciona el texto de intereses (2026-10-28), también por sus sinónimos (2026-11-07) | `ui/SubtematicasDelPerfil` |
 | `base.ts` 🟢 | `ETIQUETAS_BASE`: etiquetas de cada temática base, sembradas una vez por temática (2026-10-28) | `lib/db-schema.ts` |
 | `catalogo.ts` | `etiquetasVisibles(usuarioId?)` (con las pendientes propias, 2026-10-28), `tematicasConEtiquetas(usuarioId?)` (con las temáticas pendientes propias, 2026-10-29), `validarEtiquetasNuevas()`, `guardarEtiquetasDeCampana()`, `quitarEtiquetasDeOtraTematica()`, `etiquetasDeCampanas()`, `agregarEtiquetas()` (pone `etiquetas` en las filas antes de mapearlas; las pendientes solo para creador, supervisor y SuperUsuario), perfil (`etiquetasDelUsuario`, `guardarEtiquetasDelUsuario`, `recortarEtiquetasDelUsuario`) y panel (`listarEtiquetasDelPanel`, `crearEtiqueta`, `renombrarEtiqueta`, `borrarEtiqueta`, `aprobarEtiqueta`, `rechazarEtiqueta`...) | `/api/campanas`, `/api/usuarios/[id]`, `/api/etiquetas`, `lib/campanas/publicas.ts`, `lib/supervision/root.ts`, `/sistema/tematicas` |
-| `sinonimos.ts` 🟢 | `SINONIMOS_DE_ETIQUETAS` y `etiquetaEquivalente()` (2026-11-04): al proponer, un sinónimo de una etiqueta de la temática se vuelve esa | `catalogo.ts`, `ui/SelectorDeEtiquetas`, `ui/SubtematicasDelPerfil` |
+| `sinonimos.ts` 🟢 | `SINONIMOS_DE_ETIQUETAS`, `etiquetaEquivalente()` y `terminosDeEtiqueta()` (2026-11-04): al proponer, un sinónimo de una etiqueta de la temática se vuelve esa; desde el 2026-11-07 también otro orden, faltas de ortografía y erratas | `catalogo.ts`, `ui/SelectorDeEtiquetas`, `ui/SubtematicasDelPerfil` |
 | `acciones-etiquetas.ts` | Server actions del panel: crear, editar, borrar, ocultar/mostrar, aprobar/rechazar; sesión raíz y bitácora `etiqueta.*` | `/sistema/tematicas` |
 
 ### `notificaciones/`

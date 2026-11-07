@@ -255,9 +255,17 @@ function textoDeZona(zona: ZonaDetectada): string {
   return `${zona.municipio ? `${zona.municipio}, ` : "Todo el estado de "}${zona.estado}`;
 }
 
+/** Ruta para `returnTo`, sin basePath: window.location lo trae y router.push lo vuelve a poner. */
 function rutaActualParaRegreso(): string {
   if (typeof window === "undefined") return "/mis-campanas/nueva";
-  return `${window.location.pathname}${window.location.search}`;
+  const { pathname, search } = window.location;
+  const ruta = BASE_PATH && pathname.startsWith(`${BASE_PATH}/`) ? pathname.slice(BASE_PATH.length) : pathname;
+  return `${ruta}${search}`;
+}
+
+/** Para comparar los máximos por persona sin que importe el orden de los tipos. */
+function maximosOrdenados(maximos: Partial<Record<DataType, number>>): [string, number | undefined][] {
+  return Object.entries(maximos).sort(([a], [b]) => a.localeCompare(b));
 }
 
 
@@ -615,7 +623,7 @@ function CampanaFormulario({
       if (guardado.metaPorTipo !== undefined) setMetaPorTipo(guardado.metaPorTipo);
       if (guardado.limites !== undefined) setLimites(guardado.limites);
       if (guardado.topes !== undefined) setTopes(guardado.topes);
-      if (!editingCampaign && guardado.startDate !== undefined) setStartDate(guardado.startDate);
+      if (!edicionLimitada && guardado.startDate !== undefined) setStartDate(guardado.startDate);
       if (guardado.endDate !== undefined) setEndDate(guardado.endDate);
       if (guardado.duracionEnMeses !== undefined) setDuracionEnMeses(guardado.duracionEnMeses);
       if (guardado.modoFinalizacion !== undefined) setModoFinalizacion(guardado.modoFinalizacion);
@@ -625,7 +633,7 @@ function CampanaFormulario({
       if (guardado.locationCity !== undefined) setLocationCity(guardado.locationCity);
       if (guardado.modoDeLugar !== undefined) setModoDeLugar(guardado.modoDeLugar);
     });
-  }, [claveBorrador, editingCampaign, organizacionPerfil]);
+  }, [claveBorrador, editingCampaign, edicionLimitada, organizacionPerfil]);
 
   useEffect(() => {
     if (!borradorLeido.current) return;
@@ -711,7 +719,7 @@ function CampanaFormulario({
   // todos los problemas (problemasDe), se marcan sus campos y pasos en rojo y se explican en una
   // ventana de la app (ui/VentanaDeProblemas). Después del primer intento se recalculan mientras se
   // corrige; los del servidor (400) se quedan hasta el siguiente intento.
-  const [intento, setIntento] = useState<"borrador" | "revision" | null>(null);
+  const [intento, setIntento] = useState<"borrador" | "revision" | "reanudar" | null>(null);
   const [problemasDelServidor, setProblemasDelServidor] = useState<Problema[]>([]);
   const [ventanaDeProblemas, setVentanaDeProblemas] = useState<Problema[] | null>(null);
   const [cancelando, setCancelando] = useState(false);
@@ -755,9 +763,23 @@ function CampanaFormulario({
     opciones: c.opciones.map((o) => o.trim()),
     ...(c.tipo ? { tipo: c.tipo } : {}),
   }));
+  // Los máximos con los que abrió el formulario: una campaña con meta por tipo sin máximos guardados
+  // abre con su cuota repartida (ver `topes`), y eso no cuenta como un cambio.
+  const metaPorTipoOriginal = Object.keys(editingCampaign?.limitePorTipo ?? {}).length > 0;
+  const maximosGuardados = editingCampaign?.cuotaPorTipo ?? {};
+  const maximosOriginales: Partial<Record<DataType, number>> =
+    !editingCampaign || !metaPorTipoOriginal
+      ? {}
+      : Object.keys(maximosGuardados).length > 0
+        ? maximosGuardados
+        : maximosDesdeLaCuota(editingCampaign.dataTypes, editingCampaign.quotaPerUser);
+  // La cuota y sus máximos sí cuentan como cambio amplio (2026-11-07): "Guardar y reanudar" no los
+  // manda, y antes ese cambio se perdía sin avisar.
   const soloMetaYFechaCambiables =
     editaEnPausa &&
     !pausadaPorSupervision &&
+    cuotaFinal === (editingCampaign?.quotaPerUser ?? 0) &&
+    JSON.stringify(maximosOrdenados(cuotaPorTipo)) === JSON.stringify(maximosOrdenados(maximosOriginales)) &&
     JSON.stringify({
       name,
       description,
@@ -1006,7 +1028,7 @@ function CampanaFormulario({
   // Solo se exige completo al enviar a revisión o al editar una campaña ya
   // aceptada/activa/pausada: un borrador puede quedar a medias a propósito
   // (es justo lo que permite seguir trabajando con la cola de revisión llena).
-  function problemasDe(asDraft: boolean): Problema[] {
+  function problemasDe(asDraft: boolean, reanudar = false): Problema[] {
     const lista: Problema[] = [];
     const agregar = (campo: CampoDeCampana, mensaje: string | null | undefined) => {
       if (mensaje && !lista.some((p) => p.campo === campo && p.mensaje === mensaje)) lista.push({ campo, mensaje });
@@ -1022,6 +1044,10 @@ function CampanaFormulario({
       revisarMeta();
       if (!fechaFinFormulario) agregar("fin", "Falta la fecha de finalización");
       else agregar("fin", errorDeFinAntesDeInicio(fechaInicioFormulario, fechaFinFormulario));
+      // Reanudada con el cierre vencido, se finalizaría sola en el siguiente minuto.
+      if (reanudar && fechaFinFormulario && !inicioEnElFuturo(fechaFinFormulario, endTime)) {
+        agregar("fin", "La fecha de finalización ya pasó: pon una futura para reanudar la campaña");
+      }
       return lista;
     }
     if (editaEnPausa) {
@@ -1088,8 +1114,9 @@ function CampanaFormulario({
     e.preventDefault();
     if (soloLectura) return;
 
-    const lista = problemasDe(asDraft);
-    setIntento(asDraft ? "borrador" : "revision");
+    const reanudar = estadoPausada === "activa";
+    const lista = problemasDe(asDraft, reanudar);
+    setIntento(asDraft ? "borrador" : reanudar ? "reanudar" : "revision");
     setProblemasDelServidor([]);
     if (lista.length > 0) {
       setVentanaDeProblemas(lista);
@@ -1222,7 +1249,10 @@ function CampanaFormulario({
 
   const inicioMovido = editaEnPausa && startDate !== (editingCampaign?.startDate ?? "");
   // Problemas a la vista: después del primer intento de guardar, se recalculan mientras se corrige.
-  const errores: Problema[] = [...(intento ? problemasDe(intento === "borrador") : []), ...problemasDelServidor];
+  const errores: Problema[] = [
+    ...(intento ? problemasDe(intento === "borrador", intento === "reanudar") : []),
+    ...problemasDelServidor,
+  ];
   const errorDe = (campo: CampoDeCampana) =>
     errores.filter((p) => p.campo === campo).map((p) => p.mensaje).join(". ") || null;
   const pasosConProblemas = new Set(errores.map((p) => PASO_DEL_CAMPO[p.campo]).filter(Boolean));
@@ -1551,7 +1581,9 @@ function CampanaFormulario({
                     aria-label="Fecha de inicio"
                     onChange={cambiarInicio}
                     required
-                    disabled={Boolean(editingCampaign) || contenidoBloqueado}
+                    // Bloqueado desde que se publicó (activa, aceptada, pausada). Borrador, en revisión y
+                    // rechazada lo necesitan: con el inicio vencido no se podrían guardar ni reenviar.
+                    disabled={edicionLimitada}
                   />
                 </div>
               </Field>

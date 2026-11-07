@@ -755,11 +755,12 @@ paths:
           `aceptada` y `activa`: solo `goalContributions`, `endDate` y `endTime`. `pausada` (2026-10-22): además
           `name`, `description`, `tematica`, `dataTypes`, `quotaPerUser`, `startDate`, `startTime`,
           `organizer`, `proposito`, `checklistSecciones`, `todoElPais` y la ubicación. Si la pausó el creador hay que mandar
-          todos los campos: pasa a `en_revision` en la misma petición (400 con 5 en revisión o con el cierre vencido). Si la pausó la supervisión admite cambios parciales, sigue
+          todos los campos: pasa a `en_revision` en la misma petición (400 con 5 en revisión o con el cierre vencido), salvo con `status` `activa` o `pausada` y solo
+          `goalContributions`, `metaPorTipo`, `limitePorTipo`, `endDate` y `endTime`: se guarda sin revisión (2026-11-06). Si la pausó la supervisión admite cambios parciales, sigue
           pausada y se avisa a su supervisor (`status: "en_revision"` da 403); solo la supervisión la reanuda, tras esos ajustes.
         - **Pausar y reanudar (solo el creador):** `{ "status": "pausada" }` sobre una `activa` y
-          `{ "status": "activa" }` sobre una `pausada`, sin otros campos. Una pausada no recibe aportes
-          ni aparece en las listas públicas. Reanudar da 400 si su fecha de cierre ya pasó
+          `{ "status": "activa" }` sobre una `pausada`, sin otros campos (o con los de arriba). Una pausada no recibe aportes
+          ni aparece en las listas públicas. Reanudar da 400 si la fecha de cierre que queda ya pasó (la de la petición, si llega)
           y también si su inicio todavía no llega: entonces se programa
           con `{ "status": "aceptada" }` (vuelve a "aceptada" y se activa sola a su hora; 400 si el inicio ya
           llegó, mismas condiciones de cierre). Si la pausó la supervisión, el creador no la reanuda
@@ -1146,8 +1147,10 @@ paths:
       tags: [Campañas]
       summary: Campañas similares a una en revisión
       description: |
-        Las demás campañas de la misma temática (hasta 12, primero las abiertas; sin borradores ni
-        rechazadas), para decidir si una campaña en revisión se acepta. Solo el rol de supervisor. Fuera de
+        Las campañas parecidas por temática, subtemática, nombre, descripción y tipos de dato (2026-11-07):
+        las de la misma temática y las de otra con nombre, descripción o subtemática parecidos, hasta 12, de la
+        más parecida a la menos, cada una con `etiquetas` y `coincidencias`; solo activas, programadas (`aceptada`) y finalizadas.
+        Para decidir si una campaña en revisión se acepta. Solo el rol de supervisor. Fuera de
         revisión responde una lista vacía.
       parameters:
         - { name: id, in: path, required: true, schema: { type: integer } }

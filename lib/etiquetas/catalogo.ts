@@ -431,7 +431,10 @@ async function errorDeNombreDeTematica(db: Db, clave: string): Promise<string | 
   return r.rows[0] ? `«${r.rows[0].nombre}» ya es una temática: usa una etiqueta más específica.` : null;
 }
 
-/** Mismo nombre o, desde el 2026-11-04, sinónimo de otra de la temática (./sinonimos.ts). */
+/**
+ * Mismo nombre o, desde el 2026-11-04, sinónimo de otra de la temática (./sinonimos.ts). Sin erratas: aquí
+ * un parecido bloquearía al SuperUsuario sin salida, y él sí puede querer dos nombres que se parecen.
+ */
 async function errorDeRepetida(tematicaId: number, nombre: string, sinContarId?: number): Promise<string | null> {
   const r = await pool.query<{ nombre: string; oculta: boolean }>(
     `SELECT nombre, oculta FROM etiquetas WHERE tematica_id = $1 AND ($2::int IS NULL OR id <> $2)`,
@@ -439,7 +442,7 @@ async function errorDeRepetida(tematicaId: number, nombre: string, sinContarId?:
   );
   const clave = claveDeTematica(nombre);
   const igual = r.rows.find((f) => claveDeTematica(f.nombre) === clave);
-  const equivalente = igual ? null : etiquetaEquivalente(nombre, r.rows.map((f) => f.nombre));
+  const equivalente = igual ? null : etiquetaEquivalente(nombre, r.rows.map((f) => f.nombre), { erratas: false });
   const fila = igual ?? r.rows.find((f) => f.nombre === equivalente);
   if (!fila) return null;
   const inicio = igual ? `Ya existe «${fila.nombre}» en esta temática` : `«${nombre}» es lo mismo que «${fila.nombre}», que ya existe en esta temática`;

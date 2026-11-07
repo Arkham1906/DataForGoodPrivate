@@ -448,10 +448,19 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
           );
         }
         // Reanudar: si su cierre ya pasó mientras estaba pausada,
-        // finalizeExpiredCampaigns la cerraría en la siguiente lectura.
-        if (hasCampaignEnded(normalizeCampaignDate(existing.rows[0].end_date), normalizeCampaignTime(existing.rows[0].end_time))) {
+        // finalizeExpiredCampaigns la cerraría en la siguiente lectura. Con "Guardar y reanudar" la
+        // fecha nueva llega en esta misma petición (2026-11-07): vale esa, no la que estaba guardada.
+        const traeFin = "endDate" in body || "end_date" in body;
+        const traeHoraDeFin = "endTime" in body || "end_time" in body;
+        const finQueQueda = traeFin ? body.endDate ?? body.end_date : existing.rows[0].end_date;
+        const horaDeFinQueQueda = traeHoraDeFin ? body.endTime ?? body.end_time : existing.rows[0].end_time;
+        if (hasCampaignEnded(normalizeCampaignDate(finQueQueda), normalizeCampaignTime(horaDeFinQueQueda))) {
           return NextResponse.json(
-            { error: "La fecha de cierre ya pasó. Edita la campaña y pon una nueva antes de reanudarla" },
+            {
+              error: traeFin
+                ? "La fecha de finalización ya pasó: pon una futura para reanudar la campaña"
+                : "La fecha de cierre ya pasó. Edita la campaña y pon una nueva antes de reanudarla",
+            },
             { status: 400 }
           );
         }
@@ -837,9 +846,15 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         otraVez: currentStatus === "rechazada" || enviarRevisionDesdePausa,
       });
     }
-    // Se editó estando pausada. Si la pausó la supervisión (sigue pausada), un cambio real cuenta como
-    // ajustes: habilita "Reanudar" y avisa a quien la supervisa.
-    if (currentStatus === "pausada" && (result.rows[0].status === "en_revision" || result.rows[0].status === "pausada")) {
+    // Se editó estando pausada: queda en la bitácora, también con "Guardar y reanudar" (2026-11-07). Solo si
+    // la pausó la supervisión (sigue pausada), un cambio real cuenta como ajustes: habilita "Reanudar" y
+    // avisa a quien la supervisa. La pausa del creador no pide ajustes a nadie.
+    if (
+      currentStatus === "pausada" &&
+      (result.rows[0].status === "en_revision" ||
+        result.rows[0].status === "pausada" ||
+        (result.rows[0].status === "activa" && guardadoLimitadoDePausada))
+    ) {
       const antes = existing.rows[0];
       const despues = result.rows[0];
       const valor = (v: unknown) => JSON.stringify(v === null || v === undefined ? "" : v);
@@ -852,7 +867,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
           objetivo: { tipo: "campana", id: Number(id) },
           detalle: { campos },
         });
-        if (result.rows[0].status === "pausada") {
+        if (pausadaPorSupervision && result.rows[0].status === "pausada") {
           const marcada = await pool.query(`UPDATE campanas SET ajustes_en = NOW() WHERE id = $1 RETURNING ajustes_en`, [id]);
           result.rows[0].ajustes_en = marcada.rows[0].ajustes_en;
           avisarAjustesEnPausa({ id: Number(id), creadorId: Number(user.id), supervisorId: despues.supervisor_id, campos });
