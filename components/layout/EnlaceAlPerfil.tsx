@@ -53,7 +53,7 @@ export default function EnlaceAlPerfil({ avatar, nombre }: { avatar: DatosDeAvat
       onPointerDown={(e) => {
         if (e.button === 0) setOndas((n) => n + 1);
       }}
-      className="perfil-enlace flex items-center gap-2.5"
+      className="perfil-enlace flex min-w-0 items-center gap-2.5"
     >
       <span className="perfil-clic relative grid place-items-center rounded-full">
         <ViewTransition name="perfil-avatar" share="perfil-viaje" default="none">
@@ -61,9 +61,9 @@ export default function EnlaceAlPerfil({ avatar, nombre }: { avatar: DatosDeAvat
         </ViewTransition>
         {ondas > 0 && <span key={ondas} aria-hidden="true" className="perfil-clic-onda" />}
       </span>
-      <div className="hidden sm:block">
+      <div className="hidden min-w-0 sm:block">
         <ViewTransition name="perfil-nombre" share="perfil-viaje" default="none">
-          <p className="w-fit text-[13px] font-semibold text-system-900">{nombre}</p>
+          <p className="max-w-[min(28vw,16rem)] truncate text-[13px] font-semibold text-system-900" title={nombre}>{nombre}</p>
         </ViewTransition>
         <p className="text-[11.5px] text-system-500">Ver perfil</p>
       </div>

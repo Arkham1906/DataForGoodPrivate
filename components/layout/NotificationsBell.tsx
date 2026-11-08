@@ -162,9 +162,9 @@ export default function NotificationsBell() {
         <div
           role="dialog"
           aria-label="Notificaciones"
-          className="absolute right-0 top-11 z-20 w-[21rem] max-w-[calc(100vw-2rem)] rounded-lg border border-system-200 bg-white shadow-lg max-md:fixed max-md:left-3 max-md:right-3 max-md:top-[var(--dashboard-topbar-height,76px)] max-md:w-auto max-md:max-w-none"
+          className="absolute right-0 top-11 z-20 w-[21rem] max-w-[calc(100vw-2rem)] overflow-x-hidden rounded-lg border border-system-200 bg-white shadow-lg max-md:fixed max-md:left-3 max-md:right-3 max-md:top-[var(--dashboard-topbar-height,76px)] max-md:w-auto max-md:max-w-none"
         >
-          <div className="flex items-center justify-between gap-2 border-b border-system-200 px-3 py-2.5">
+          <div className="flex min-w-0 items-center justify-between gap-2 border-b border-system-200 px-3 py-2.5">
             <p className="text-sm font-bold text-system-900">Notificaciones</p>
             {noLeidas > 0 && (
               <button type="button" onClick={() => void marcarTodas()} className="text-[11.5px] font-bold text-brand-600 hover:underline">
@@ -178,13 +178,13 @@ export default function NotificationsBell() {
           {items.length === 0 ? (
             <p className="px-3 py-6 text-center text-[12.5px] text-system-600">No tienes notificaciones.</p>
           ) : (
-            <ul className="max-h-96 divide-y divide-system-200 overflow-y-auto max-md:max-h-[calc(100dvh-var(--dashboard-topbar-height,76px)-7rem)]">
+            <ul className="max-h-96 divide-y divide-system-200 overflow-x-hidden overflow-y-auto max-md:max-h-[calc(100dvh-var(--dashboard-topbar-height,76px)-7rem)]">
               {items.map((item) => (
                 <li key={item.id} className={item.readAt ? "" : "bg-brand-50"}>
                   <button
                     type="button"
                     onClick={() => void abrir(item)}
-                    className="notificacion-hover flex w-full gap-2.5 px-3 py-2.5 text-left"
+                    className="notificacion-hover flex min-w-0 w-full gap-2.5 px-3 py-2.5 text-left"
                   >
                     <span
                       aria-hidden

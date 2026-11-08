@@ -40,10 +40,10 @@ export default async function PanelLayout({ children }: { children: ReactNode })
     <div className="min-h-screen bg-system-50">
       <ActualizacionEnVivo />
       <Topbar identificador={process.env.ROOT_USER_ID ?? "raíz"} />
-      <div className="dashboard-shell flex">
+      <div className="dashboard-shell flex min-w-0">
         <Sidebar reportesPendientes={reportes} tematicasPendientes={tematicas} />
         <main id="contenido" className="min-w-0 flex-1">
-          <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
+          <div className="mx-auto w-full min-w-0 max-w-7xl px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
             {children}
           </div>
         </main>

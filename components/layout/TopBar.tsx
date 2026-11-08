@@ -10,14 +10,14 @@ import NotificationsBell from "./NotificationsBell";
 
 export default function TopBar({ usuario }: { usuario: SessionUser }) {
   return (
-    <header className="dashboard-user-topbar dashboard-topbar flex items-center justify-between gap-4 border-b border-system-200 bg-white px-4 py-3 sm:px-6">
+    <header className="dashboard-user-topbar dashboard-topbar flex flex-wrap items-center justify-between gap-4 border-b border-system-200 bg-white px-4 py-3 sm:px-6 max-md:flex-nowrap">
       <Link href="/inicio" className="flex shrink-0 items-center">
         <Logo />
       </Link>
 
-      <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-4">
+      <div className="ml-auto flex min-w-0 shrink-0 items-center gap-2 sm:gap-4">
         <NotificationsBell />
-        <div className="flex items-center gap-2.5">
+        <div className="min-w-0 flex items-center gap-2.5">
           <EnlaceAlPerfil
             avatar={datosDeAvatar({ ...usuario, nombre: usuario.nombre ?? "" })}
             nombre={`${usuario.nombre ?? ""} ${usuario.apellidos ?? ""}`.trim()}
