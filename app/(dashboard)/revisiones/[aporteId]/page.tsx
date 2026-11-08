@@ -6,9 +6,10 @@
 // La decisión del revisor es final, igual que la del creador (dominio.md § 5).
 // Aporte anónimo sin decisión: "Contenido inapropiado" al rechazar o "Marcar como inapropiado" sin decidir
 // (POST /api/aportes/[id]/inapropiado). Banear, bloquear o borrar archivos es solo del creador.
-// "Reportar a supervisión" (POST /api/aportes/[id]/reportar, con motivo; desde el 2026-10-19 rechaza el aporte): entra a
+// "Reportar aporte" (POST /api/aportes/[id]/reportar con motivo y/o descripción; rechaza el aporte): entra a
 // la bandeja de Reportes y avisa solo a los supervisores (2026-10-15). Solo aportes con cuenta. Uno por
-// aporte, antes o después de decidirlo.
+// aporte, antes o después de decidirlo. Desde el 2026-11-07 reemplaza a "Reportar a supervisión" y
+// "Reportar a quien aportó", que hacían lo mismo.
 // Quien aportó ve su aporte en /mis-aportes/[campanaId]/[aporteId] (2026-10-31, a pedido del usuario: desde Mis
 // aportes caía aquí y el menú marcaba Revisión de aportes): esa ruta reutiliza esta pantalla con el menú y el
 // regreso de Mis aportes, y si quien aportó abre /revisiones/[aporteId] se le lleva allá.
@@ -23,7 +24,7 @@ import Tag from "@/components/ui/Tag";
 import type { Contribution } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
 import { formatearTamano } from "@/lib/aportes/archivo";
-import { MAXIMO_MOTIVO_DE_REPORTE, MOTIVOS_DE_RECHAZO, MOTIVOS_DE_REPORTE } from "@/lib/aportes/motivos-de-rechazo";
+import { MOTIVOS_DE_RECHAZO } from "@/lib/aportes/motivos-de-rechazo";
 import ReportarAPlataforma from "@/components/ui/ReportarAPlataforma";
 import { MOTIVOS_DE_REPORTE_DE_APORTE } from "@/lib/reportes/motivos";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
@@ -51,9 +52,8 @@ export default function RevisionAportePage() {
   const [rechazando, setRechazando] = useState(false);
   const [motivo, setMotivo] = useState("");
   const [motivoPropio, setMotivoPropio] = useState("");
-  const [reportando, setReportando] = useState(false);
-  const [motivoDeReporte, setMotivoDeReporte] = useState("");
-  const [detalleDeReporte, setDetalleDeReporte] = useState("");
+  // Para volver a leer el aporte después de reportarlo (el reporte lo rechaza).
+  const [vuelta, setVuelta] = useState(0);
   const [aviso, setAviso] = useState<string | null>(null);
   const [inapropiado, setInapropiado] = useState(false);
   const [calificacion, setCalificacion] = useState<CalificacionDeAporte | 0>(0);
@@ -81,11 +81,12 @@ export default function RevisionAportePage() {
     }
 
     void load();
-  }, [aporteId, recarga, desdeMisAportes, router]);
+  }, [aporteId, recarga, vuelta, desdeMisAportes, router]);
 
   async function decidir(status: "aceptado" | "rechazado", rejectionReason?: string) {
-    if (!calificacion) {
-      setError("Califica el aporte de 1 a 5 estrellas antes de guardar la decisión");
+    // Solo se califica al aceptar (2026-11-07): un rechazo no pide estrellas.
+    if (status === "aceptado" && !calificacion) {
+      setError("Califica el aporte de 1 a 5 estrellas antes de aceptarlo");
       return;
     }
     setSubmitting(true);
@@ -94,7 +95,12 @@ export default function RevisionAportePage() {
       const response = await fetch(`${BASE_PATH}/api/aportes/${aporteId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status, rejectionReason, calificacion, ...(status === "rechazado" && inapropiado ? { inapropiado: true } : {}) }),
+        body: JSON.stringify({
+          status,
+          rejectionReason,
+          ...(status === "aceptado" ? { calificacion } : {}),
+          ...(status === "rechazado" && inapropiado ? { inapropiado: true } : {}),
+        }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error ?? "No se pudo guardar la decisión");
@@ -102,32 +108,6 @@ export default function RevisionAportePage() {
       router.refresh();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se pudo guardar la decisión");
-      setSubmitting(false);
-    }
-  }
-
-  async function confirmarReporte(e: React.FormEvent) {
-    e.preventDefault();
-    // Motivo de la lista y, si se escribió, el detalle: "Contenido ofensivo... — Insultos en la descripción".
-    const motivoCompleto = [motivoDeReporte, detalleDeReporte.trim()].filter(Boolean).join(" — ");
-    setSubmitting(true);
-    setError(null);
-    try {
-      const response = await fetch(`${BASE_PATH}/api/aportes/${aporteId}/reportar`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ motivo: motivoCompleto }),
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error ?? "No se pudo enviar el reporte");
-      setItem((actual) =>
-        actual ? { ...actual, reporte: { motivo: motivoCompleto, revisor: "Tú", en: new Date().toISOString() } } : actual
-      );
-      setReportando(false);
-      setAviso(payload.message ?? "Reporte enviado a supervisión");
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "No se pudo enviar el reporte");
-    } finally {
       setSubmitting(false);
     }
   }
@@ -179,9 +159,6 @@ export default function RevisionAportePage() {
 
   const yaDecidido = item.status === "aceptado" || item.status === "rechazado";
   const puedeRechazar = Boolean(motivo) || motivoPropio.trim().length > 0;
-  const puedeReportar =
-    (Boolean(motivoDeReporte) || detalleDeReporte.trim().length > 0) &&
-    motivoDeReporte.length + detalleDeReporte.trim().length + 3 <= MAXIMO_MOTIVO_DE_REPORTE;
   const statusTone = item.status === "aceptado" ? "ok" : item.status === "rechazado" ? "danger" : "warn";
   const submittedAt = new Date(item.submittedAt);
   const calificacionMostrada = item.calificacion != null;
@@ -277,11 +254,12 @@ export default function RevisionAportePage() {
               <div className="flex justify-between gap-4"><dt className="text-system-600">Tipo</dt><dd className="text-system-900">{item.fileType}</dd></div>
               {(calificacionMostrada || !item.canReview) && <div className="flex justify-between gap-4"><dt className="text-system-600">Calificación</dt><dd className="text-[16px]"><EstrellasDeCalificacion valor={calificacionVisual} mostrarVacias={!item.canReview} /></dd></div>}
             </dl>
-            {item.canReview && !yaDecidido && (
+            {item.canReview && !yaDecidido && !rechazando && (
               <div className="border-t border-system-200 pt-4 text-center">
                 <p className="mb-2 text-[12.5px] font-semibold text-system-900">
                   Calificación del aporte <span className="text-error-700">*</span>
                 </p>
+                <p className="mb-2 text-[11.5px] text-system-500">Obligatoria para aceptarlo; al rechazar no se pide.</p>
                 <div className="flex justify-center">
                   <SelectorDeCalificacion value={calificacion} onChange={setCalificacion} disabled={submitting} />
                 </div>
@@ -343,7 +321,7 @@ export default function RevisionAportePage() {
             <Button type="button" variant="ghost" onClick={() => setRechazando(false)} disabled={submitting}>
               Cancelar
             </Button>
-            <Button variant="danger" type="submit" disabled={!puedeRechazar || !calificacion || submitting}>
+            <Button variant="danger" type="submit" disabled={!puedeRechazar || submitting}>
               Confirmar rechazo
             </Button>
           </div>
@@ -356,53 +334,6 @@ export default function RevisionAportePage() {
         <p className="mt-6 rounded border border-warning-500 bg-warning-50 p-3 text-[12.5px] text-warning-800">
           Reportado a supervisión · {item.reporte.motivo}
         </p>
-      ) : item.canReview && reportando ? (
-        <form onSubmit={(e) => void confirmarReporte(e)} className="mt-6 rounded-lg border border-warning-500 bg-white p-4">
-          <p className="text-[13px] font-medium text-system-900">
-            Reportar a supervisión <span className="text-error-700">*</span>
-          </p>
-          <p className="mb-3 mt-1 text-[11.5px] text-system-500">
-            Si el contenido es inapropiado o quien lo envió abusa de la campaña, avisa a los supervisores: lo
-            revisan y deciden si le dan un aviso.{" "}
-            {item.campanaFinalizada ? (
-              "La campaña ya finalizó: el aporte no cambia, solo queda el reporte."
-            ) : (
-              <>
-                <strong className="text-system-900">Al reportarlo, el aporte se rechaza</strong> (aunque ya estuviera aceptado).
-              </>
-            )}{" "}
-            Quien creó la campaña no recibe este reporte.
-          </p>
-          <select
-            value={motivoDeReporte}
-            onChange={(e) => setMotivoDeReporte(e.target.value)}
-            className="mb-2.5 w-full rounded border border-system-300 bg-white px-3 py-2.5 text-[13px] text-system-900 outline-none focus:border-brand-600"
-          >
-            <option value="">Selecciona un motivo ▾</option>
-            {MOTIVOS_DE_REPORTE.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
-          <Field label="Describe lo que viste (opcional si elegiste un motivo)">
-            <Textarea
-              rows={3}
-              maxLength={MAXIMO_MOTIVO_DE_REPORTE}
-              value={detalleDeReporte}
-              onChange={(e) => setDetalleDeReporte(e.target.value)}
-              placeholder="Qué tiene de inapropiado el aporte o qué hace quien lo envió"
-            />
-          </Field>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Button type="button" variant="ghost" onClick={() => setReportando(false)} disabled={submitting}>
-              Cancelar
-            </Button>
-            <Button variant="danger" type="submit" disabled={!puedeReportar || submitting}>
-              Enviar reporte
-            </Button>
-          </div>
-        </form>
       ) : null}
 
       {item.canReview && (
@@ -434,24 +365,21 @@ export default function RevisionAportePage() {
         </div>
       )}
 
-      {/* Reportar a la plataforma (2026-10-12): solo aportes con cuenta. Va a /reportes; si el
-          SuperUsuario lo confirma, quien aportó recibe un aviso (lib/usuarios/escala-de-avisos.ts). */}
-      {item.canReview && item.userId && (
+      {/* "Reportar aporte" (2026-11-07: une "Reportar a supervisión" y "Reportar a quien aportó"). Solo
+          aportes con cuenta y uno por aporte; va a la bandeja de la supervisión, que decide si da un aviso
+          (lib/usuarios/escala-de-avisos.ts). Ya reportado, se ve el recuadro de arriba. */}
+      {item.canReview && item.userId && !item.reporte && (
         <div className="mt-4 flex flex-col items-center gap-3">
-          {!item.reporte && (
-            <Button variant="ghost" disabled={submitting || reportando} onClick={() => setReportando(true)}>
-              Reportar a supervisión
-            </Button>
-          )}
           <ReportarAPlataforma
-            url={`/api/aportes/${item.id}/reportar-participante`}
+            url={`/api/aportes/${item.id}/reportar`}
             motivos={MOTIVOS_DE_REPORTE_DE_APORTE}
-            titulo="Reportar a quien aportó"
-            explicacion={`Para faltas graves de la cuenta (acoso, contenido ilegal, abuso repetido). Lo revisa la supervisión, que decide si le da un aviso. ${item.campanaFinalizada ? "La campaña ya finalizó, así que este aporte no cambia." : "Al reportarlo, este aporte se rechaza."} Esa persona no sabrá quién la reportó.`}
-            placeholder="Qué hizo quien envió el aporte"
-            yaReportado={Boolean(item.participanteReportado)}
-            textoYaReportado="Ya reportaste a quien envió este aporte. La supervisión lo está revisando."
+            titulo="Reportar aporte"
+            explicacion={`Para contenido inapropiado o faltas de quien lo envió (acoso, contenido ilegal, abuso repetido). Lo revisa la supervisión, que decide si le da un aviso a la cuenta. ${item.campanaFinalizada ? "La campaña ya finalizó, así que este aporte no cambia." : "Al reportarlo, este aporte se rechaza (aunque ya estuviera aceptado)."} Esa persona no sabrá quién la reportó, y quien creó la campaña no recibe este reporte.`}
+            placeholder="Qué tiene de inapropiado el aporte o qué hizo quien lo envió"
+            yaReportado={false}
+            textoYaReportado="Este aporte ya se reportó. La supervisión lo está revisando."
             enVentana
+            onReportado={() => setVuelta((v) => v + 1)}
           />
         </div>
       )}

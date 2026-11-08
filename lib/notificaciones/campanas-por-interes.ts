@@ -126,8 +126,8 @@ function leInteresa(campana: Campana, persona: Candidato): boolean {
 
 /**
  * La temática de la campaña está en los intereses de la persona y vive en su estado (y en su
- * municipio, si la campaña tiene uno); si es para todo el país, basta la temática. También la usa
- * el resumen mensual (./periodicas.ts).
+ * municipio, si la campaña tiene uno); si es para todo el país, basta la temática. (El resumen
+ * mensual ya no la usa desde el 2026-11-07: solo cuenta lo de la persona.)
  */
 export function coincideConPersona(
   campana: { tematica?: unknown; location_state?: unknown; location_city?: unknown; todo_el_pais?: unknown },

@@ -39,7 +39,7 @@ export const OPCIONES_DE_PREFERENCIAS: {
     clave: "resumenMensual",
     columna: "resumen_mensual",
     titulo: "Newsletter",
-    encendida: "El día 1, un resumen del mes: tus aportes aceptados, campañas de tus temáticas y datos abiertos.",
+    encendida: "El día 1, un resumen del mes: cuántos de tus aportes se aceptaron.",
     apagada: "No recibes el resumen mensual.",
   },
 ];

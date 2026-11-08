@@ -13,7 +13,6 @@ import { borrarArchivo } from "@/lib/minio";
 import { notificar } from "@/lib/notificaciones/notificaciones";
 import { avisarAvanceDeCampana } from "@/lib/notificaciones/socializacion";
 import { ESTADOS_SIN_DECISION, tieneDecision } from "@/lib/aportes/decision";
-import { yaReporto } from "@/lib/reportes/reportes";
 import { calificacionDesde } from "@/lib/aportes/calificacion";
 import { actualizarMisiones } from "@/lib/gamificacion/misiones";
 
@@ -44,7 +43,7 @@ function mapAporte(row: Record<string, unknown>) {
   };
 }
 
-/** "Reportar a supervisión" del revisor. Solo para los revisores: ni el creador ni quien aportó lo ven. */
+/** "Reportar aporte". Lo ven los revisores y el creador si lo hizo él; quien aportó nunca. */
 function mapReporte(row: Record<string, unknown>) {
   return row.reporte_en
     ? {
@@ -58,12 +57,18 @@ function mapReporte(row: Record<string, unknown>) {
 async function loadAporteWithCampaign(id: string) {
   const result = await pool.query(
     `SELECT a.*, ${columnasDeArchivo("a")}, ${columnaDeRespuestas("a")}, c.creator_id AS campaign_creator_id, c.name AS campaign_name, c.collection_mode AS campaign_collection_mode, c.status AS campaign_status, ${columnaDeChecklists("c", "campaign_checklist_secciones")},
-            rs.created_at AS reporte_en, COALESCE(rs.descripcion, rs.motivo) AS reporte_motivo,
+            rs.created_at AS reporte_en, NULLIF(CONCAT_WS(' — ', rs.motivo, rs.descripcion), '') AS reporte_motivo,
             TRIM(CONCAT(ru.nombre, ' ', ru.apellidos)) AS reporte_revisor, rs.reportado_por AS reporte_por_id
      FROM aportes a
      JOIN campanas c ON c.id = a.campaign_id
-     -- "Reportar a supervisión" (2026-10-30: en reportes con origen 'supervision', antes aportes.reporte_*).
-     LEFT JOIN reportes rs ON rs.tipo = 'aporte' AND rs.aporte_id = a.id AND rs.origen = 'supervision'
+     -- "Reportar aporte": uno por aporte (2026-11-07). Toma el de origen 'supervision' y, si no hay, uno de
+     -- los que dejó antes "Reportar a quien aportó" (origen 'usuario').
+     LEFT JOIN LATERAL (
+       SELECT r.* FROM reportes r
+       WHERE r.tipo = 'aporte' AND r.aporte_id = a.id
+       ORDER BY (r.origen = 'supervision') DESC, r.created_at
+       LIMIT 1
+     ) rs ON TRUE
      LEFT JOIN usuarios ru ON ru.id = rs.reportado_por
      WHERE a.id = $1
      LIMIT 1`,
@@ -118,10 +123,6 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
           : {}),
         // Con la campaña finalizada, reportar ya no rechaza el aporte (rechazarPorReporte).
         ...(canReview ? { campanaFinalizada: row.campaign_status === "finalizada" } : {}),
-        // Ya reportó a quien aportó a la plataforma (POST /api/aportes/[id]/reportar-participante).
-        ...(isCampaignCreator || isReviewer
-          ? { participanteReportado: await yaReporto({ tipo: "aporte", id: Number(row.id) }, Number(user.id)) }
-          : {}),
       },
     });
   } catch (error) {
@@ -161,9 +162,10 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     }
 
     const rejectionReason = body.rejectionReason ?? body.rejection_reason ?? null;
-    // De 1 a 5 estrellas (2026-10-31; antes bien, muy_bueno o excelente).
-    const calificacion = calificacionDesde(body.calificacion);
-    if (calificacion === null) {
+    // De 1 a 5 estrellas (2026-10-31; antes bien, muy_bueno o excelente). Solo al aceptar
+    // (2026-11-07, a pedido del usuario): un aporte rechazado no se califica y queda en NULL.
+    const calificacion = status === "aceptado" ? calificacionDesde(body.calificacion) : null;
+    if (status === "aceptado" && calificacion === null) {
       return NextResponse.json({ error: "calificacion debe ser un número entero de 1 a 5 (estrellas)" }, { status: 400 });
     }
     const comoRevisor = isReviewer && !isCampaignCreator;

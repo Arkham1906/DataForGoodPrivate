@@ -41,6 +41,7 @@ export type AccionAuditada =
   | "campana.inscribirse"
   // Reportes de campañas y de participantes (lib/reportes/reportes.ts y lib/moderacion/acciones.ts).
   | "campana.reportar"
+  // Ya no se escribe (2026-11-07: "Reportar a quien aportó" se unió en aporte.reportar); queda por las filas viejas.
   | "aporte.reportar_participante"
   | "reporte.descartar"
   | "campana.desbanear"

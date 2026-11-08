@@ -1,8 +1,9 @@
 "use client";
 
 // Formulario de reporte a la plataforma (2026-10-12): motivo de la lista y/o descripción, con POST a
-// `url`. Lo usan "Reportar campaña" (/campanas/[id]) y "Reportar a quien aportó" (detalle de un aporte
-// del creador y del revisor). El reporte llega a la bandeja del SuperUsuario (/reportes). Uno por persona:
+// `url`. Lo usan "Reportar campaña" (/campanas/[id]) y "Reportar aporte" (detalle de un aporte del creador
+// y del revisor, 2026-11-07). El reporte llega a la bandeja de la supervisión. Uno por persona (campaña) o
+// por aporte:
 // con `yaReportado` solo muestra el aviso. Con `enVentana` (2026-10-16, "Reportar campaña") el formulario
 // se abre en una ventana emergente (ui/VentanaDeConfirmacion) en vez de desplegarse en la página.
 
@@ -22,6 +23,7 @@ export default function ReportarAPlataforma({
   yaReportado,
   textoYaReportado,
   enVentana = false,
+  onReportado,
   className = "",
 }: {
   /** Ruta de la API sin basePath, p. ej. `/api/campanas/116/reportar`. */
@@ -34,6 +36,8 @@ export default function ReportarAPlataforma({
   textoYaReportado: string;
   /** Abre el formulario en una ventana emergente en vez de desplegarlo en la página. */
   enVentana?: boolean;
+  /** Después de enviarlo (o de un 409): p. ej. recargar el aporte, que el reporte rechazó. */
+  onReportado?: () => void;
   className?: string;
 }) {
   const [reportado, setReportado] = useState(yaReportado);
@@ -61,6 +65,7 @@ export default function ReportarAPlataforma({
       setReportado(true);
       setAbierto(false);
       setAviso(payload.message ?? "Gracias. El equipo de DataForGood revisará tu reporte.");
+      onReportado?.();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se pudo enviar el reporte");
     } finally {

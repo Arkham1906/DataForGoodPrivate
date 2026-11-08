@@ -3,8 +3,9 @@
 //     Tepic, si a la persona le falta cuota en campañas activas donde ya aportó, o que guardó y
 //     cierran en 7 días o menos. Sin nada pendiente no se manda.
 //   - resumen_mensual ("Newsletter", encendido por defecto): el día 1 desde las 9:00, lo del mes
-//     anterior: sus aportes aceptados, campañas nuevas de sus temáticas en su zona y conjuntos de
-//     datos abiertos publicados. Si todo es cero no se manda.
+//     anterior, solo de la persona: sus aportes aceptados. Desde el 2026-11-07 (a pedido del usuario)
+//     ya no cuenta campañas nuevas de sus temáticas en su zona ni datos abiertos publicados en la
+//     plataforma. Sin aportes aceptados no se manda.
 // No hay cron: instrumentation-node.ts llama a enviarAvisosPeriodicos() al arrancar y cada hora.
 // usuario_preferencias.ultimo_recordatorio / ultimo_resumen (2026-10-30; antes en usuarios) guardan el periodo ya enviado; se marcan con un
 // UPDATE ... RETURNING antes de enviar, así cada persona recibe uno por periodo aunque la tarea
@@ -15,7 +16,6 @@ import { pool } from "@/lib/db";
 import { SQL_SANCION_BLOQUEANTE } from "@/lib/sanciones";
 import { ZONA_DE_CAMPANAS, ahoraEnZona } from "@/lib/campaign-date";
 import { fechaCorta } from "@/lib/campanas/especial-reglas";
-import { coincideConPersona } from "./campanas-por-interes";
 import { mensajeDelResumen } from "./mensaje-del-resumen";
 import { notificar } from "./notificaciones";
 
@@ -114,29 +114,15 @@ function normalizar(valor: Date | string): string {
 async function enviarResumenes(): Promise<void> {
   const mes = mesDelResumen();
   if (!mes) return;
-  const { rows: personas } = await pool.query<{ id: number; intereses: unknown; state: string | null; city: string | null }>(
+  const { rows: personas } = await pool.query<{ id: number }>(
     `UPDATE usuario_preferencias up SET ultimo_resumen = $1
        FROM usuarios u
       WHERE u.id = up.usuario_id AND up.resumen_mensual AND ${CUENTA_ACTIVA}
         AND up.ultimo_resumen IS DISTINCT FROM $1::date
-      RETURNING u.id, u.intereses, u.state, u.city`,
+      RETURNING u.id`,
     [mes.periodo],
   );
   if (personas.length === 0) return;
-
-  // Lo de toda la plataforma se lee una vez. Las fechas de campaña son días de Tepic.
-  const [campanas, datos] = await Promise.all([
-    pool.query<{ creator_id: number; tematica: string; location_state: string; location_city: string; todo_el_pais: boolean }>(
-      `SELECT creator_id, tematica, location_state, location_city, todo_el_pais FROM campanas
-        WHERE status IN ('activa', 'pausada', 'finalizada') AND start_date >= $1::date AND start_date < $2::date`,
-      [mes.inicio, mes.periodo],
-    ),
-    pool.query<{ n: number }>(
-      `SELECT COUNT(*)::int AS n FROM campana_datos_abiertos WHERE estado = 'publicada' AND decidido_en >= $1::date AND decidido_en < $2::date`,
-      [mes.inicio, mes.periodo],
-    ),
-  ]);
-  const conjuntos = datos.rows[0]?.n ?? 0;
 
   await enTandas(personas, async (persona) => {
     // El mes de Tepic, como instantes (reviewed_at es TIMESTAMPTZ desde el 2026-10-30).
@@ -148,15 +134,15 @@ async function enviarResumenes(): Promise<void> {
       [persona.id, mes.inicio, mes.periodo, ZONA_DE_CAMPANAS],
     );
     const misAceptados = aceptados.rows[0]?.n ?? 0;
-    const deMiZona = campanas.rows.filter((c) => Number(c.creator_id) !== Number(persona.id) && coincideConPersona(c, persona)).length;
-    if (misAceptados === 0 && deMiZona === 0 && conjuntos === 0) return;
+    // Solo lo de la persona (2026-11-07): sin aportes aceptados en el mes no hay nada que contarle.
+    if (misAceptados === 0) return;
 
     await notificar({
       usuarioId: persona.id,
       tipo: "resumen_mensual",
       titulo: `Tu resumen de ${mes.nombre}`,
-      mensaje: mensajeDelResumen(mes.nombre, misAceptados, deMiZona, conjuntos),
-      enlace: conjuntos > 0 && misAceptados === 0 && deMiZona === 0 ? "/datos" : "/campanas",
+      mensaje: mensajeDelResumen(mes.nombre, misAceptados),
+      enlace: "/mis-aportes",
       metadata: { mes: mes.inicio },
     });
   });

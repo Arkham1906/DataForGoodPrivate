@@ -6,18 +6,17 @@
 // baneo) desde .../sanciones/[usuarioId]?reportes=<clave> de /supervisar o /supervision (aplicarSancion,
 // lib/moderacion/acciones.ts).
 // La persona reportada no se entera del reporte ni de quién lo hizo; solo recibe el aviso si se confirma.
-// Desde el 2026-10-19, el reporte de aporte también rechaza el aporte (rechazarPorReporte de lib/aportes/reporte.ts):
-// a quien aportó le llega el rechazo, no el reporte.
-// Lo usan POST /api/campanas/[id]/reportar, POST /api/aportes/[id]/reportar-participante, los GET de
-// campaña y aporte, la bandeja, la pantalla de sanción y el layout del panel.
+// El de aporte se guarda en lib/aportes/reporte.ts (reportarASupervision, "Reportar aporte"; uno por
+// aporte desde el 2026-11-07, cuando se quitó "Reportar a quien aportó" y su reportarParticipante) y
+// también rechaza el aporte: a quien aportó le llega el rechazo, no el reporte.
+// Lo usan POST /api/campanas/[id]/reportar, los GET de campaña, la bandeja, la pantalla de sanción y el
+// layout del panel.
 
 import { pool } from "@/lib/db";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { avisarReporteASupervisores } from "@/lib/notificaciones/avisos-a-supervisores";
-import { avisarRechazoPorReporte, rechazarPorReporte } from "@/lib/aportes/reporte";
 import {
   MAXIMO_DESCRIPCION_DE_REPORTE,
-  MOTIVOS_DE_REPORTE_DE_APORTE,
   MOTIVOS_DE_REPORTE_DE_CAMPANA,
   escribirClaveDeReportes,
   type ClaveDeReportes,
@@ -89,93 +88,6 @@ export async function reportarCampana(entrada: {
     motivo: motivo || null,
   });
   return { ok: true };
-}
-
-/** Guarda el reporte del creador o de un revisor contra quien envió el aporte y rechaza el aporte. Uno por persona y aporte. */
-export async function reportarParticipante(entrada: {
-  aporteId: number;
-  usuarioId: number;
-  /** Nombre de quien reporta: si es revisor, queda como quien rechazó el aporte. */
-  nombre: string;
-  motivo: unknown;
-  descripcion: unknown;
-}): Promise<ResultadoDeReporte> {
-  const motivo = texto(entrada.motivo);
-  const descripcion = texto(entrada.descripcion);
-  const error = errorDeMotivo(motivo, descripcion, MOTIVOS_DE_REPORTE_DE_APORTE);
-  if (error) return { ok: false, status: 400, error };
-
-  const { rows } = await pool.query<{ campaign_id: number; user_id: number | null; creator_id: number; puede: boolean }>(
-    `SELECT a.campaign_id, a.user_id, c.creator_id,
-            (c.creator_id = $2 OR EXISTS (
-              SELECT 1 FROM campana_revisores r
-              WHERE r.campana_id = a.campaign_id AND r.usuario_id = $2 AND r.estado = 'aceptado'
-            )) AS puede
-     FROM aportes a JOIN campanas c ON c.id = a.campaign_id
-     WHERE a.id = $1`,
-    [entrada.aporteId, entrada.usuarioId],
-  );
-  const aporte = rows[0];
-  if (!aporte) return { ok: false, status: 404, error: "Aporte no encontrado" };
-  if (!aporte.puede) {
-    return { ok: false, status: 403, error: "Solo quien creó la campaña o un revisor puede reportar a quien aportó" };
-  }
-  if (aporte.user_id == null) {
-    return { ok: false, status: 400, error: "Un aporte sin cuenta no se reporta: bloquea el dispositivo desde la campaña" };
-  }
-  if (Number(aporte.user_id) === entrada.usuarioId) {
-    return { ok: false, status: 403, error: "No puedes reportarte a ti" };
-  }
-
-  // El reporte y el rechazo del aporte van juntos.
-  const client = await pool.connect();
-  let reporteId: number;
-  let rechazo: Awaited<ReturnType<typeof rechazarPorReporte>>;
-  try {
-    await client.query("BEGIN");
-    const guardado = await client.query<{ id: number }>(
-      `INSERT INTO reportes (tipo, campana_id, aporte_id, reportado_id, reportado_por, motivo, descripcion)
-       VALUES ('aporte', $1, $2, $3, $4, $5, $6)
-       ON CONFLICT (aporte_id, reportado_por) WHERE tipo = 'aporte' DO NOTHING
-       RETURNING id`,
-      [aporte.campaign_id, entrada.aporteId, aporte.user_id, entrada.usuarioId, motivo || null, descripcion || null],
-    );
-    if (guardado.rowCount === 0) {
-      await client.query("ROLLBACK");
-      return { ok: false, status: 409, error: "Ya reportaste a quien envió este aporte" };
-    }
-    reporteId = guardado.rows[0].id;
-    rechazo = await rechazarPorReporte(client, {
-      aporteId: entrada.aporteId,
-      motivo: [motivo, descripcion].filter(Boolean).join(" — "),
-      actor: { id: entrada.usuarioId, nombre: entrada.nombre, esRevisor: Number(aporte.creator_id) !== entrada.usuarioId },
-    });
-    await client.query("COMMIT");
-  } catch (error) {
-    await client.query("ROLLBACK").catch(() => {});
-    throw error;
-  } finally {
-    client.release();
-  }
-
-  await registrarAuditoria({
-    actor: { tipo: "usuario", id: entrada.usuarioId },
-    accion: "aporte.reportar_participante",
-    objetivo: { tipo: "aporte", id: entrada.aporteId },
-    detalle: { reporteId, reportadoId: aporte.user_id, motivo: motivo || null, rechazado: rechazo.rechazado },
-  });
-  await avisarRechazoPorReporte(rechazo, entrada.aporteId);
-  avisarReporteASupervisores({
-    tipo: "aporte",
-    campanaId: Number(aporte.campaign_id),
-    aporteId: entrada.aporteId,
-    reportadoId: Number(aporte.user_id),
-    reportadoPor: entrada.usuarioId,
-    motivo: motivo || null,
-    // Si reporta un revisor, el creador de la campaña no se entera (2026-10-15).
-    excluir: [Number(aporte.creator_id)],
-  });
-  return { ok: true, rechazado: rechazo.rechazado };
 }
 
 /** Si la persona ya hizo el reporte de esa campaña o aporte (para no ofrecérselo otra vez). */

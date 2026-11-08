@@ -1,22 +1,23 @@
-// "Reportar a supervisión" (antes "Reportar al creador"): el revisor o el creador (2026-10-19) reportan a quien envió un
-// aporte. Desde el 2026-10-15 (a pedido del usuario) ya no avisa al creador de la campaña: el reporte entra
-// a la bandeja de Reportes de la supervisión (tabla `reportes`, tipo `aporte`, contra quien lo envió) y
-// les llega a los supervisores como `reporte_nuevo`. Ahí se da el aviso o se descarta.
-// Solo aportes con cuenta (los anónimos se marcan como inapropiados). Uno por aporte; se puede antes o
-// después de decidirlo: es el reporte con `origen = 'supervision'` (hasta el 2026-10-30, `aportes.reporte_*`). Desde el 2026-10-19
-// reportar también rechaza el aporte (rechazarPorReporte). Lo usa POST /api/aportes/[id]/reportar.
+// "Reportar aporte" (2026-11-07, a pedido del usuario: une "Reportar a supervisión" y "Reportar a quien
+// aportó", que hacían lo mismo). El revisor o el creador reportan a quien envió un aporte. No avisa al
+// creador de la campaña (2026-10-15): el reporte entra a la bandeja de Reportes de la supervisión (tabla
+// `reportes`, tipo `aporte`, `origen = 'supervision'`, contra quien lo envió) y les llega a los supervisores
+// como `reporte_nuevo`. Ahí se da el aviso o se descarta.
+// Solo aportes con cuenta (los anónimos se marcan como inapropiados). **Uno por aporte**, sea quien sea quien
+// lo reporte (decisión del usuario); se puede antes o después de decidirlo. Reportar también rechaza el
+// aporte (rechazarPorReporte, 2026-10-19). Lo usa POST /api/aportes/[id]/reportar.
 
 import type { PoolClient } from "pg";
 import { pool } from "@/lib/db";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { avisarReporteASupervisores } from "@/lib/notificaciones/avisos-a-supervisores";
 import { notificar } from "@/lib/notificaciones/notificaciones";
-import { MAXIMO_MOTIVO_DE_REPORTE } from "@/lib/aportes/motivos-de-rechazo";
+import { MAXIMO_DESCRIPCION_DE_REPORTE, MOTIVOS_DE_REPORTE_DE_APORTE } from "@/lib/reportes/motivos";
 import { recalcularContadores } from "@/lib/aportes/comun";
 
 /**
- * Reportar un aporte lo rechaza (2026-10-19, a pedido del usuario): "Reportar a supervisión" y
- * "Reportar a quien aportó" (lib/reportes/reportes.ts), del revisor o del creador. Va dentro de la
+ * Reportar un aporte lo rechaza (2026-10-19, a pedido del usuario): "Reportar aporte"
+ * (reportarASupervision), del revisor o del creador. Va dentro de la
  * transacción del reporte. Pendiente o aceptado pasa a rechazado (excepción a "la decisión no se cambia",
  * decidida por el usuario): deja de contar en la campaña y no sale en datos abiertos. Si la campaña ya
  * finalizó, sus datos ya se publicaron: solo queda el reporte. Uno ya rechazado no cambia.
@@ -75,16 +76,36 @@ export type ResultadoDeReporte =
   | { ok: true; rechazado: boolean }
   | { ok: false; status: 400 | 403 | 404 | 409; error: string };
 
+/**
+ * Motivo de MOTIVOS_DE_REPORTE_DE_APORTE y/o descripción; al menos uno. Un `motivo` que no está en la
+ * lista se toma como descripción (así llegaba antes, redactado o "lista — detalle").
+ */
+function motivoYDescripcion(motivoCrudo: unknown, descripcionCruda: unknown): { motivo: string; descripcion: string } | { error: string } {
+  const texto = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+  let motivo = texto(motivoCrudo);
+  let descripcion = texto(descripcionCruda);
+  if (motivo && !MOTIVOS_DE_REPORTE_DE_APORTE.includes(motivo)) {
+    descripcion = [motivo, descripcion].filter(Boolean).join(" — ");
+    motivo = "";
+  }
+  if (!motivo && !descripcion) return { error: "Elige un motivo o describe por qué reportas este aporte" };
+  if (descripcion.length > MAXIMO_DESCRIPCION_DE_REPORTE) {
+    return { error: `La descripción no puede pasar de ${MAXIMO_DESCRIPCION_DE_REPORTE} caracteres` };
+  }
+  return { motivo, descripcion };
+}
+
 export async function reportarASupervision(entrada: {
   aporteId: number;
   revisor: { id: number; nombre: string };
   motivo: unknown;
+  descripcion?: unknown;
 }): Promise<ResultadoDeReporte> {
-  const motivo = typeof entrada.motivo === "string" ? entrada.motivo.trim() : "";
-  if (!motivo) return { ok: false, status: 400, error: "Indica por qué reportas este aporte" };
-  if (motivo.length > MAXIMO_MOTIVO_DE_REPORTE) {
-    return { ok: false, status: 400, error: `El motivo no puede pasar de ${MAXIMO_MOTIVO_DE_REPORTE} caracteres` };
-  }
+  const validado = motivoYDescripcion(entrada.motivo, entrada.descripcion);
+  if ("error" in validado) return { ok: false, status: 400, error: validado.error };
+  const { motivo: motivoDeLista, descripcion } = validado;
+  // Lo que ve quien aportó como motivo del rechazo y los supervisores en el aviso.
+  const motivo = [motivoDeLista, descripcion].filter(Boolean).join(" — ");
 
   const { rows } = await pool.query<{ campaign_id: number; creator_id: number; user_id: number | null; es_revisor: boolean }>(
     `SELECT a.campaign_id, a.user_id, c.creator_id,
@@ -112,26 +133,27 @@ export async function reportarASupervision(entrada: {
   let rechazo: Awaited<ReturnType<typeof rechazarPorReporte>>;
   try {
     await client.query("BEGIN");
-    // A la bandeja, con origen 'supervision'. Uno por aporte aunque dos personas reporten a la vez: lo
-    // cuida el índice único reportes_aporte_uno_a_supervision (23505). Si esta persona ya había usado
-    // "Reportar a quien aportó", ese reporte pasa a ser el de supervisión (conserva su descripción).
-    let guardado;
-    try {
-      guardado = await client.query(
-        `INSERT INTO reportes (tipo, campana_id, aporte_id, reportado_id, reportado_por, descripcion, origen)
-         VALUES ('aporte', $1, $2, $3, $4, $5, 'supervision')
-         ON CONFLICT (aporte_id, reportado_por) WHERE tipo = 'aporte'
-         DO UPDATE SET origen = 'supervision', descripcion = COALESCE(reportes.descripcion, EXCLUDED.descripcion)
-         WHERE reportes.origen <> 'supervision'`,
-        [fila.campaign_id, entrada.aporteId, fila.user_id, entrada.revisor.id, motivo]
-      );
-    } catch (error) {
-      if ((error as { code?: string }).code !== "23505") throw error;
-      guardado = { rowCount: 0 };
+    // Uno por aporte (2026-11-07, decisión del usuario), también contra los reportes de antes que hizo
+    // "Reportar a quien aportó" (origen 'usuario', uno por persona). Si dos personas reportan a la vez, lo
+    // cuida el índice único reportes_aporte_uno_a_supervision (23505).
+    const previo = await client.query(`SELECT 1 FROM reportes WHERE tipo = 'aporte' AND aporte_id = $1 LIMIT 1`, [
+      entrada.aporteId,
+    ]);
+    let guardado = { rowCount: 0 as number | null };
+    if (!previo.rowCount) {
+      try {
+        guardado = await client.query(
+          `INSERT INTO reportes (tipo, campana_id, aporte_id, reportado_id, reportado_por, motivo, descripcion, origen)
+           VALUES ('aporte', $1, $2, $3, $4, $5, $6, 'supervision')`,
+          [fila.campaign_id, entrada.aporteId, fila.user_id, entrada.revisor.id, motivoDeLista || null, descripcion || null]
+        );
+      } catch (error) {
+        if ((error as { code?: string }).code !== "23505") throw error;
+      }
     }
-    if (guardado.rowCount === 0) {
+    if (!guardado.rowCount) {
       await client.query("ROLLBACK");
-      return { ok: false, status: 409, error: "Este aporte ya se reportó a supervisión" };
+      return { ok: false, status: 409, error: "Este aporte ya se reportó" };
     }
     rechazo = await rechazarPorReporte(client, {
       aporteId: entrada.aporteId,

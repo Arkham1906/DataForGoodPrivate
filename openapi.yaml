@@ -1597,54 +1597,26 @@ paths:
       - $ref: "#/components/parameters/Id"
     post:
       tags: [Aportes]
-      summary: Reportar un aporte a supervisión (revisor aceptado o creador)
+      summary: Reportar aporte (revisor aceptado o creador)
       description: |
         El revisor o el creador (desde el 2026-10-19) reportan a quien envió el aporte. Entra a la bandeja
         de Reportes de la supervisión y avisa solo a los supervisores (`reporte_nuevo`); el creador de la
         campaña no recibe aviso (desde el 2026-10-15). Desde el 2026-10-19 **rechaza el aporte** (aunque
         estuviera aceptado; no en una campaña finalizada) y avisa a quien aportó. No banea. Solo aportes con cuenta (anónimo: 400).
-        Uno por aporte; se puede antes o después de decidirlo. No se puede reportar un aporte propio.
-        Bitácora `aporte.reportar`.
+        Uno por aporte, lo haya hecho quien sea (2026-11-07: une "Reportar a supervisión" y "Reportar a
+        quien aportó", cuyo /reportar-participante se quitó); se puede antes o después de decidirlo. No se
+        puede reportar un aporte propio. Bitácora `aporte.reportar`.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [motivo]
-              properties:
-                motivo: { type: string, maxLength: 500, description: "Motivo de la lista y/o descripción" }
-      responses:
-        "200": { $ref: "#/components/responses/Message" }
-        "400": { $ref: "#/components/responses/BadRequest" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "403": { $ref: "#/components/responses/Forbidden" }
-        "404": { $ref: "#/components/responses/NotFound" }
-        "409":
-          description: Este aporte ya se reportó a supervisión
-          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
-
-  /api/aportes/{id}/reportar-participante:
-    parameters:
-      - $ref: "#/components/parameters/Id"
-    post:
-      tags: [Aportes]
-      summary: Reportar a la plataforma a quien envió el aporte (creador o revisor aceptado)
-      description: |
-        Va a Reportes de la supervisión, que lo descarta o lo confirma con un aviso (escala: mensaje,
-        2 días, 7 días, baneo y lista negra). Quien aportó no se entera del reporte, pero desde el
-        2026-10-19 **el aporte se rechaza** (aunque estuviera aceptado; no en una campaña finalizada). Solo aportes
-        con cuenta (anónimo: 400). Uno por persona y aporte. Bitácora `aporte.reportar_participante`.
-        Distinto de /reportar ("Reportar a supervisión" del revisor, que también entra a la bandeja).
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
+              description: Al menos uno de los dos.
               properties:
                 motivo:
                   type: string
+                  description: De la lista; uno que no esté en ella se toma como descripción.
                   enum:
                     - Contenido ofensivo o inapropiado
                     - Contenido ilegal o peligroso
@@ -1653,13 +1625,13 @@ paths:
                     - Acoso o amenazas
                 descripcion: { type: string, maxLength: 500 }
       responses:
-        "201": { $ref: "#/components/responses/Message" }
+        "200": { $ref: "#/components/responses/Message" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
-          description: Ya reportaste a quien envió este aporte
+          description: Este aporte ya se reportó
           content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
 
   /api/aportes/{id}/inapropiado:

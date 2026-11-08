@@ -183,6 +183,8 @@ export async function restaurarAcceso(zona: ZonaDeModeracion, sancionId: string)
       tipo: "sancion_restaurada",
       titulo: "Recuperaste el acceso a tu cuenta",
       mensaje: "La administración levantó la sanción de tu cuenta. Ya puedes volver a participar.",
+      // "Ver" lleva a su cuenta (2026-11-07, a pedido del usuario).
+      enlace: "/cuenta",
       metadata: { sancionId: numericId, tipo: result.rows[0].tipo },
     });
   } catch (error) {

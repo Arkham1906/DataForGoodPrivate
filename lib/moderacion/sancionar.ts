@@ -181,6 +181,8 @@ export async function avisarSancion(usuarioId: number, s: SancionAplicada, motiv
           }`
         : ""
     }`,
+    // "Ver" lleva a su cuenta (2026-11-07, a pedido del usuario).
+    enlace: "/cuenta",
     metadata: {
       sancionId: aviso?.id ?? bloqueo?.id,
       tipo: aviso ? "AVISO" : s.tipo,

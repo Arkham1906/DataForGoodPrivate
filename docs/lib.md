@@ -64,7 +64,7 @@
 | `limpiar-archivo.ts` | `limpiarArchivo(file, tipos)`: el tipo lo decide la firma del contenido y debe coincidir con la extensión. Fotos con `imagen.ts`; PDF sin Info ni XMP (`pdf-lib`; rechaza cifrados); .docx, .pptx y .xlsx sin propiedades ni autores (`jszip`; rechaza macros); .xls se comprueba y va tal cual (2026-10-26); .txt a UTF-8; video y audio tal cual | `comun.ts` |
 | `imagen.ts` | `limpiarImagen()`: comprueba la firma JPG/PNG y vuelve a codificar con `sharp`, quitando EXIF (GPS), ICC y XMP | `limpiar-archivo.ts` |
 | `anonimato.ts` | Cookie `anonimo_id` y `hashDeDispositivo()` | Aporte anónimo, `/c/[token]`, sanciones |
-| `reporte.ts` | "Reportar a supervisión" (`reportarASupervision`): el revisor o el creador reportan a quien envió el aporte; guarda el motivo en `reportes` (`origen = 'supervision'`), rechaza el aporte, lo agrega a la bandeja de Reportes y avisa solo a los supervisores. No banea | `POST /api/aportes/[id]/reportar` |
+| `reporte.ts` | "Reportar aporte" (`reportarASupervision`, 2026-11-07): el revisor o el creador reportan a quien envió el aporte, uno por aporte; guarda motivo y descripción en `reportes` (`origen = 'supervision'`), rechaza el aporte, lo agrega a la bandeja de Reportes y avisa solo a los supervisores. No banea | `POST /api/aportes/[id]/reportar` |
 | `decision.ts` | Sin `pg`: `tieneDecision()` y `ESTADOS_SIN_DECISION`, la regla de que una decisión no se cambia | API de aportes, `sanciones-anonimas.ts`, pantallas |
 | `motivos-de-rechazo.ts` | Sin `pg`: listas de motivos para rechazar y para reportar | Pantallas del creador y del revisor |
 | `sanciones-anonimas.ts` | Sanciones a personas sin cuenta: marcar inapropiado, bloqueo por campaña, bloqueo global automático (3 inapropiados en 30 días → 30 días), borrar archivo, listar y quitar bloqueos | API de aportes y de baneos, `/usuarios/sanciones` |
@@ -147,7 +147,7 @@
 
 | Archivo | Qué hace | Lo usa |
 | --- | --- | --- |
-| `reportes.ts` | Reportes: `reportarCampana` (contra el creador), `reportarParticipante` (contra quien aportó; creador o revisor), `yaReporto`, `listarReportes` (agrupados por caso), `contarReportesPendientes`, `reportesPendientesContra`, `sqlDeClave` | `POST /api/campanas/[id]/reportar`, `POST /api/aportes/[id]/reportar-participante`, GET de campaña y de aporte, `.../reportes` y `.../sanciones/[usuarioId]` de `/supervisar` y `/supervision`, layout del panel (contador de "Modo supervisor"), `aplicarSancion`. `listarReportes` y `contarReportesPendientes` reciben la cuenta del supervisor para no mostrarle reportes contra él |
+| `reportes.ts` | Reportes: `reportarCampana` (contra el creador), `yaReporto` (`reportarParticipante` se quitó el 2026-11-07: el de aporte es `reportarASupervision` de `lib/aportes/reporte.ts`), `listarReportes` (agrupados por caso), `contarReportesPendientes`, `reportesPendientesContra`, `sqlDeClave` | `POST /api/campanas/[id]/reportar`, GET de campaña, `.../reportes` y `.../sanciones/[usuarioId]` de `/supervisar` y `/supervision`, layout del panel (contador de "Modo supervisor"), `aplicarSancion`. `listarReportes` y `contarReportesPendientes` reciben la cuenta del supervisor para no mostrarle reportes contra él |
 | `motivos.ts` 🟢 | Motivos para reportar una campaña o un aporte, largo máximo, estados y la clave del caso (`campana-116`, `aporte-55`) | `/campanas/[id]`, detalle del aporte, bandejas de reportes |
 
 ### `moderacion/` (2026-10-13)

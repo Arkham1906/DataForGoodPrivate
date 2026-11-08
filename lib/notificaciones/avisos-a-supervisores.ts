@@ -1,8 +1,8 @@
 // Avisos a los supervisores en la campana de notificaciones (2026-10-15, a pedido del usuario). Antes un
 // reporte solo subía un contador junto a "Supervisión" en el menú (ya quitado), sin decir de qué se trataba,
 // y una campaña por revisar no avisaba de ninguna forma.
-//   - reporte_nuevo: un reporte de campaña o de aporte (reportarCampana y reportarParticipante de
-//     lib/reportes/reportes.ts) o "Reportar a supervisión" del revisor (lib/aportes/reporte.ts).
+//   - reporte_nuevo: un reporte de campaña (reportarCampana de lib/reportes/reportes.ts) o "Reportar
+//     aporte" del revisor o el creador (reportarASupervision de lib/aportes/reporte.ts).
 //     Lleva a /supervision/reportes.
 //   - campana_por_revisar: una campaña entra a revisión (el creador la envía desde POST, PUT o PATCH de
 //     /api/campanas, o el SuperUsuario revierte una decisión y la regresa a la fila con revertirAccion).

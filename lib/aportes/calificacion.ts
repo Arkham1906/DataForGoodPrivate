@@ -1,5 +1,5 @@
-// Calificación que quien revisa asigna al aporte al tomar una decisión (obligatoria al aceptar y al
-// rechazar). Desde el 2026-10-31 (a pedido del usuario) es un rating de 1 a 5 estrellas, guardado como
+// Calificación que quien revisa asigna al aporte al aceptarlo (obligatoria; desde el 2026-11-07, a pedido
+// del usuario, rechazar ya no la pide y el aporte rechazado queda en NULL). Desde el 2026-10-31 (a pedido del usuario) es un rating de 1 a 5 estrellas, guardado como
 // SMALLINT en aportes.calificacion; antes eran tres textos, que se pasaron así: bien → 3,
 // muy_bueno → 4, excelente → 5 (ensureAportesTable). Sin imports de servidor.
 
