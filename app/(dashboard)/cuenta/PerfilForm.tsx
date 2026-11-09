@@ -108,6 +108,11 @@ export default function PerfilForm({
     return () => apartado.classList.remove(destino.clase);
   }, []);
 
+  // El rojo de las temáticas se quita al elegir la primera (2026-11-09, decisión del usuario).
+  useEffect(() => {
+    if (intereses.length > 0) document.getElementById("mis-intereses")?.classList.remove("tematicas-resaltadas");
+  }, [intereses]);
+
   // Los valores guardados: a ellos vuelve "Descartar cambios".
   const [guardado, setGuardado] = useState({
     nombre: usuario.nombre,

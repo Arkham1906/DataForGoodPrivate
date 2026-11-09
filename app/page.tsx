@@ -21,6 +21,7 @@ import { pool } from "@/lib/db";
 import { activateScheduledCampaigns, finalizeExpiredCampaigns } from "@/lib/campaign-date";
 import { porcentajeDeMeta } from "@/lib/campanas/meta";
 import { quienOrganiza } from "@/lib/campanas/organizacion";
+import { sqlDatosPublicados } from "@/lib/campanas/datos-abiertos";
 import { ZONA_DE_CAMPANAS } from "@/lib/fecha-de-tepic";
 import TablaDeLideres from "@/components/gamificacion/TablaDeLideres";
 import { obtenerTablaDeLideres, tablaTieneDatos } from "@/lib/gamificacion/clasificacion";
@@ -86,21 +87,22 @@ async function obtenerCifras(): Promise<CifrasReales> {
   try {
     // Qué cuenta cada cifra (2026-10-24, decisiones del usuario; antes contaba todas las campañas, todos
     // los aportes, solo personas con cuenta y creadores distintos):
-    //   - campañas: solo las publicadas (activa, pausada, finalizada), sin borradores, en revisión,
-    //     programadas ni rechazadas;
+    //   - campañas: solo las finalizadas cuyos datos publicó su supervisor o el SuperUsuario, igual que
+    //     /datos (2026-11-09, decisión del usuario; antes activa, pausada y finalizada);
     //   - participantes: personas con cuenta y dispositivos sin cuenta (anonimo_id) con al menos un aporte
     //     aprobado (2026-11-03, a pedido del usuario; antes contaba cualquier aporte, también rechazados);
     //     la expresión debe ser idéntica a la del índice aportes_participante_aprobado_idx;
     //   - datos: solo aportes aprobados, como la meta y los datos abiertos;
-    //   - organizaciones: quién organiza las campañas publicadas (la organización escrita o, si no hay,
-    //     el nombre del creador, como quienOrganiza()), sin distinguir mayúsculas.
+    //   - organizaciones: quién organiza las campañas activas y finalizadas (2026-11-09, decisión del usuario;
+    //     antes también las pausadas): la organización escrita o, si no hay, el nombre del creador, como
+    //     quienOrganiza(), sin distinguir mayúsculas.
     const result = await pool.query(`
       SELECT
-        (SELECT COUNT(*)::int FROM campanas WHERE status IN ('activa', 'pausada', 'finalizada')) AS campanas_creadas,
+        (SELECT COUNT(*)::int FROM campanas WHERE ${sqlDatosPublicados("campanas")}) AS campanas_creadas,
         (SELECT COUNT(DISTINCT COALESCE(user_id::text, anonimo_id))::int FROM aportes WHERE status = 'aceptado') AS participantes,
         (SELECT COUNT(*)::int FROM aportes WHERE status = 'aceptado') AS datos_recolectados,
         (SELECT COUNT(DISTINCT lower(COALESCE(NULLIF(trim(organizer), ''), NULLIF(trim(creator_name), ''))))::int
-           FROM campanas WHERE status IN ('activa', 'pausada', 'finalizada')) AS organizaciones
+           FROM campanas WHERE status IN ('activa', 'finalizada')) AS organizaciones
     `);
     const row = result.rows[0] ?? {};
     return {

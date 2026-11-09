@@ -87,7 +87,8 @@ export default async function TematicasPage({ searchParams }: { searchParams: Pr
                     ? "Base"
                     : `${t.origen === "panel" ? "Creada aquí" : t.aprobada ? "De un usuario" : "Propuesta por un usuario"} · ${fecha.format(new Date(t.creadaEl))}`} ·{" "}
                   {formatearNumero(t.personas)} {t.personas === 1 ? "persona" : "personas"} ·{" "}
-                  {formatearNumero(t.campanas)} {t.campanas === 1 ? "campaña" : "campañas"}
+                  {/* Solo las activas (2026-11-09, decisión del usuario); el total sigue valiendo para editar o borrar. */}
+                  {formatearNumero(t.campanasActivas)} {t.campanasActivas === 1 ? "campaña activa" : "campañas activas"}
                 </p>
               </div>
               <div className="flex items-center gap-2">

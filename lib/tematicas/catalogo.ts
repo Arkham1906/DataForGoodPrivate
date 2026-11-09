@@ -124,8 +124,10 @@ export type TematicaDelPanel = {
   creadaEl: string;
   /** Perfiles que la tienen entre sus intereses. */
   personas: number;
-  /** Campañas (de cualquier estado) con esa temática. */
+  /** Campañas (de cualquier estado) con esa temática: es lo que cuenta para editarla, borrarla o rechazarla. */
   campanas: number;
+  /** Campañas activas con esa temática: lo que se muestra en la lista (2026-11-09, decisión del usuario). */
+  campanasActivas: number;
 };
 
 /**
@@ -144,10 +146,13 @@ export async function listarTematicasDelPanel(q?: string): Promise<TematicaDelPa
     created_at: Date;
     personas: string;
     campanas: string;
+    campanas_activas: string;
   }>(
     `SELECT t.id, t.nombre, t.origen, t.oculta, t.aprobada, t.created_at,
             (SELECT COUNT(*) FROM usuarios u WHERE u.intereses ? t.nombre) AS personas,
-            (SELECT COUNT(*) FROM campanas c WHERE COALESCE(NULLIF(c.tematica, ''), c.tag) = t.nombre) AS campanas
+            (SELECT COUNT(*) FROM campanas c WHERE COALESCE(NULLIF(c.tematica, ''), c.tag) = t.nombre) AS campanas,
+            (SELECT COUNT(*) FROM campanas c
+              WHERE COALESCE(NULLIF(c.tematica, ''), c.tag) = t.nombre AND c.status = 'activa') AS campanas_activas
      FROM tematicas t
      WHERE $1 = '' OR t.clave LIKE '%' || $1 || '%'
      ORDER BY NOT t.aprobada AND NOT t.oculta DESC, t.origen <> 'base' DESC, CASE WHEN t.origen <> 'base' THEN t.created_at END DESC, t.id`,
@@ -163,6 +168,7 @@ export async function listarTematicasDelPanel(q?: string): Promise<TematicaDelPa
     creadaEl: r.created_at.toISOString(),
     personas: Number(r.personas),
     campanas: Number(r.campanas),
+    campanasActivas: Number(r.campanas_activas),
   }));
 }
 
