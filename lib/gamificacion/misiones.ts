@@ -300,7 +300,7 @@ const FECHA_Y_HORA = new Intl.DateTimeFormat("es-MX", {
 });
 const FECHA = new Intl.DateTimeFormat("es-MX", { day: "numeric", month: "short", timeZone: ZONA_DE_CAMPANAS });
 
-function textoDeTiempoRestante(ms: number): string {
+export function textoDeTiempoRestante(ms: number): string {
   const minutos = Math.max(0, Math.ceil(ms / 60_000));
   const dias = Math.floor(minutos / 1440);
   const horas = Math.floor((minutos % 1440) / 60);

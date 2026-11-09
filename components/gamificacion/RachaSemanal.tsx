@@ -32,7 +32,7 @@ const TEXTO_DEL_DIA: Record<EstadoDeDiaDeRacha, string> = {
 export default function RachaSemanal({ racha, accion }: { racha: ResumenDeRacha; accion?: ReactNode }) {
   return (
     <>
-      <h2 className="text-lg font-extrabold text-system-900">Racha</h2>
+      <h2 className="text-lg font-extrabold text-system-900">Días de racha</h2>
       <p className="font-mono text-2xl font-extrabold leading-none text-system-900">
         {racha.actual > 0 ? `${racha.actual} ${racha.actual === 1 ? "día" : "días"}` : "Sin racha"}
       </p>

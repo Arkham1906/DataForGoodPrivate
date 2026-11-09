@@ -176,7 +176,7 @@ export default function CalendarioDeRacha({ racha }: { racha: ResumenDeRacha }) 
   return (
     <>
       <button type="button" onClick={abrir} aria-haspopup="dialog" className="self-start py-1 text-[12.5px] font-bold text-brand-700 hover:underline">
-        Ver calendario de la racha
+        Ver calendario de racha
       </button>
       <dialog
         ref={dialogo}

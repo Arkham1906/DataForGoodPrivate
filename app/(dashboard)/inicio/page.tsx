@@ -196,55 +196,6 @@ export default async function InicioPage() {
             )}
           </div>
         </section>
-
-        <section aria-labelledby="inicio-notificaciones">
-          <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
-            <h2 id="inicio-notificaciones" className="text-lg font-extrabold text-system-900">
-              Notificaciones sin leer
-              {resumen.notificacionesSinLeer > 0 && (
-                <span className="ml-2 align-middle font-mono text-[12px] font-bold text-system-500">
-                  {nf.format(resumen.notificacionesSinLeer)}
-                </span>
-              )}
-            </h2>
-            <Link href="/notificaciones" className="text-[13px] font-semibold text-brand-600 hover:underline">
-              Ver todas →
-            </Link>
-          </div>
-          <div className={CAJA_DE_LISTA}>
-            {resumen.notificaciones.length === 0 ? (
-              <p className="p-4 text-[13px] text-system-600">Estás al día: no tienes notificaciones sin leer.</p>
-            ) : (
-              <ul className="divide-y divide-system-200">
-                {resumen.notificaciones.map((n) => {
-                  const contenido = (
-                    <>
-                      <span className="flex items-center justify-between gap-2">
-                        <span className="min-w-0 truncate text-[13.5px] font-semibold text-system-900">{n.title}</span>
-                        <span className="shrink-0 font-mono text-[11px] text-system-500">{fechaDeNotificacion(n.createdAt)}</span>
-                      </span>
-                      <span className="mt-0.5 line-clamp-2 block text-[12px] text-system-600">{n.message}</span>
-                      <span className="mt-1.5 block">
-                        <Tag tone={tonoDeNotificacion(n.type)}>{n.campaignName ?? "Tu cuenta"}</Tag>
-                      </span>
-                    </>
-                  );
-                  return (
-                    <li key={n.id}>
-                      {n.href ? (
-                        <Link href={n.href} className="block px-4 py-3 hover:bg-system-50">
-                          {contenido}
-                        </Link>
-                      ) : (
-                        <div className="px-4 py-3">{contenido}</div>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
-        </section>
       </div>
     </div>
   );

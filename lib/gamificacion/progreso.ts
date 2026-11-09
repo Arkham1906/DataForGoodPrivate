@@ -15,6 +15,7 @@ import { pool } from "@/lib/db";
 import { ZONA_DE_CAMPANAS, hoyEnTepic } from "@/lib/fecha-de-tepic";
 import { asegurarMisionesVigentes } from "./misiones";
 import { recompensaDesde, textoDeRecompensa } from "./misiones-reglas";
+import { textoDeTiempoRestante } from "./misiones";
 import type {
   DiaDeRacha,
   EstadoDeDiaDeRacha,
@@ -143,7 +144,8 @@ export async function obtenerResumenDeProgreso(usuarioId: number | string): Prom
         completada: boolean;
         entregada: boolean;
         renueva_a: string;
-        recompensa: unknown;
+        recompensa: unknown
+        renueva_en_segundos: number;
       }>(
         `SELECT mi.id::text AS id, m.nombre, m.recompensa, mi.objetivo, mi.progreso,
                 (mi.completada_en IS NOT NULL) AS completada,
@@ -153,7 +155,8 @@ export async function obtenerResumenDeProgreso(usuarioId: number | string): Prom
          JOIN misiones m ON m.id = mi.mision_id
          WHERE mi.usuario_id = $1 AND m.periodicidad = 'diaria'
            AND mi.periodo_inicio <= NOW() AND mi.periodo_fin > NOW()
-         ORDER BY mi.periodo_fin, mi.id`,
+         ORDER BY mi.periodo_fin, mi.id,
+         GREATEST(0, EXTRACT(EPOCH FROM (mi.periodo_fin - NOW())))::int AS renueva_en_segundos,`,
         [usuarioId, ZONA_DE_CAMPANAS],
       ),
       pool.query<{ dia: string; estado: string }>(
@@ -233,6 +236,7 @@ export async function obtenerResumenDeProgreso(usuarioId: number | string): Prom
     }
 
     const activoFila = potenciadoresR.rows.find((f) => f.estado === "activo" && (f.segundos ?? 0) > 0);
+    const faltan = misionesR.rows[0]?.renueva_en_segundos;
     const misiones: MisionDeHoy[] = misionesR.rows.map((m) => ({
       id: m.id,
       nombre: m.nombre,
@@ -260,7 +264,7 @@ export async function obtenerResumenDeProgreso(usuarioId: number | string): Prom
           : null,
         enEspera: potenciadoresR.rows.filter((f) => f.estado === "espera").length,
       },
-      misiones: { diarias: misiones, seRenuevanA: misionesR.rows[0]?.renueva_a ?? null },
+      misiones: { diarias: misiones, seRenuevanA: faltan == null ? null : textoDeTiempoRestante(faltan * 1000), },
       racha: {
         actual: p.racha_actual,
         maxima: p.racha_maxima,
