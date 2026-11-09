@@ -4,6 +4,8 @@
 // como estaban. Aquí solo se valida; no hay imports de servidor.
 
 import datosDeMisiones from "@/lib/datos/misiones.json";
+import datosDeMedallas from "@/lib/datos/medallas.json";
+import { GRUPOS_DE_MEDALLA, MEDIDAS_DE_MEDALLA, type GrupoDeMedalla, type MedidaDeMedalla } from "./medallas";
 import datosDeRangos from "@/lib/datos/rangos.json";
 import {
   MEDIDAS_DE_MISION,
@@ -33,6 +35,18 @@ export type MisionDelCatalogo = {
 };
 
 export type SeleccionDelCatalogo = Record<Periodicidad, number>;
+
+export type MedallaDelCatalogo = {
+  /** Identifica la medalla para siempre: el historial de quien la ganó cuelga de ella. No se cambia. */
+  clave: string;
+  nombre: string;
+  grupo: GrupoDeMedalla;
+  mide: MedidaDeMedalla;
+  activa: boolean;
+  descripcion: string;
+  /** En orden: el primero es el nivel 1. Cada umbral, mayor que el anterior. */
+  niveles: { nombre: string; umbral: number }[];
+};
 
 const esEntero = (v: unknown, minimo: number): v is number => Number.isInteger(v) && (v as number) >= minimo;
 const esTexto = (v: unknown): v is string => typeof v === "string" && v.trim().length > 0;
@@ -88,6 +102,41 @@ export function erroresDeMisiones(misiones: MisionDelCatalogo[], seleccion: Sele
   return errores;
 }
 
+export function erroresDeMedallas(medallas: MedallaDelCatalogo[]): string[] {
+  const errores: string[] = [];
+  if (!Array.isArray(medallas) || medallas.length === 0) return ["La lista de medallas está vacía."];
+  const claves = new Set<string>();
+  const nombres = new Set<string>();
+  for (const m of medallas) {
+    const quien = `Medalla ${m.clave ?? "sin clave"}`;
+    if (!esTexto(m.clave) || !/^[a-z0-9_]+$/.test(m.clave)) errores.push(`${quien}: la clave usa minúsculas, números y _.`);
+    if (claves.has(m.clave)) errores.push(`${quien}: clave repetida.`);
+    claves.add(m.clave);
+    if (!esTexto(m.nombre)) errores.push(`${quien}: falta el nombre.`);
+    else if (nombres.has(m.nombre)) errores.push(`${quien}: el nombre «${m.nombre}» ya lo usa otra medalla.`);
+    nombres.add(m.nombre);
+    if (!GRUPOS_DE_MEDALLA.includes(m.grupo)) errores.push(`${quien}: «grupo» debe ser ${GRUPOS_DE_MEDALLA.join(" o ")}.`);
+    if (!MEDIDAS_DE_MEDALLA.includes(m.mide)) {
+      errores.push(`${quien}: «mide» debe ser ${MEDIDAS_DE_MEDALLA.join(", ")}. Una medida nueva necesita su cálculo en el código.`);
+    }
+    if (typeof m.activa !== "boolean") errores.push(`${quien}: activa debe ser true o false.`);
+    if (!esTexto(m.descripcion)) errores.push(`${quien}: falta la descripción.`);
+    if (!Array.isArray(m.niveles) || m.niveles.length === 0) {
+      errores.push(`${quien}: necesita al menos un nivel.`);
+      continue;
+    }
+    m.niveles.forEach((n, i) => {
+      if (!esTexto(n?.nombre)) errores.push(`${quien}, nivel ${i + 1}: falta el nombre.`);
+      if (!esEntero(n?.umbral, 1)) errores.push(`${quien}, nivel ${i + 1}: el umbral debe ser un entero mayor que 0.`);
+      else if (i > 0 && n.umbral <= m.niveles[i - 1].umbral) {
+        errores.push(`${quien}, nivel ${i + 1}: el umbral debe ser mayor que el del nivel ${i}.`);
+      }
+    });
+  }
+  return errores;
+}
+
+export const MEDALLAS_DEL_CATALOGO = datosDeMedallas.medallas as MedallaDelCatalogo[];
 export const RANGOS_DEL_CATALOGO = datosDeRangos.rangos as RangoDelCatalogo[];
 export const MISIONES_DEL_CATALOGO = datosDeMisiones.misiones as MisionDelCatalogo[];
 /** Cuántas misiones salen al azar en cada periodo. */

@@ -4,9 +4,9 @@
 // rango_ascensos, potenciadores, mision_instancias y racha_dias. Los tipos están en ./progreso-tipos.ts y
 // ./rangos.ts (sin imports de servidor).
 //
-// Esta función NO calcula ni concede nada (RNF-GAM-06): el servidor que otorgue EXP, rangos y rachas es otro
-// proceso; aquí solo se lee lo que ya está guardado. Mientras ese proceso no exista, las tablas están en sus
-// valores iniciales (rango 1, 0 EXP) y las misiones no tienen catálogo (DA-GAM-06): la pantalla lo muestra vacío.
+// Esta función no calcula EXP ni rangos (RNF-GAM-06): eso lo hacen lib/gamificacion/recompensas.ts al aceptar un
+// aporte y lib/gamificacion/evaluacion.ts. Antes de leer abre las misiones del periodo y repite la evaluación de
+// rango y medallas (idempotente): si una evaluación anterior falló, se pone al día aquí.
 //
 // Visibilidad (RF-GAM-78, RNF-GAM-14): de los rangos que se leen, solo el actual y el siguiente salen con
 // nombre y descripción; del avistado salen el número, la pista y los requisitos. Nunca se envía nada del resto.
@@ -14,6 +14,7 @@
 import { pool } from "@/lib/db";
 import { hoyEnTepic } from "@/lib/fecha-de-tepic";
 import { asegurarMisionesVigentes } from "./misiones";
+import { evaluarProgresoDe } from "./evaluacion";
 import { recompensaDesde, textoDeRecompensa } from "./misiones-reglas";
 import { textoDeTiempoRestante } from "./misiones";
 import type {
@@ -102,38 +103,39 @@ function diasDeRacha(hoy: string, filas: { dia: string; estado: string }[]): Dia
 export async function obtenerResumenDeProgreso(usuarioId: number | string): Promise<ResumenDeProgreso | null> {
   try {
     await asegurarMisionesVigentes(usuarioId);
+    await evaluarProgresoDe(usuarioId);
     const hoy = hoyEnTepic();
     const [progresoR, rangosR, ascensosR, potenciadoresR, misionesR, rachaR] = await Promise.all([
       pool.query<FilaDeProgreso>(
         `SELECT p.rango_actual, p.exp_total, p.aportes_aceptados, p.aportes_excelentes, p.aportes_excepcionales,
                 p.misiones_completadas, p.racha_actual, p.racha_maxima, p.protectores,
                 (SELECT MAX(numero) FROM rangos)::int AS total_rangos
-         FROM usuario_progreso p WHERE p.usuario_id = $1`,
+          FROM usuario_progreso p WHERE p.usuario_id = $1`,
         [usuarioId],
       ),
       // Actual, siguiente y avistado: el avistado necesita al siguiente para calcular su pista.
       pool.query<FilaDeRango>(
         `SELECT r.numero, r.nombre, r.descripcion, r.etapa_avatar, r.req_exp, r.req_aportes, r.req_excelentes,
                 r.req_excepcionales, r.req_racha, r.req_misiones
-         FROM rangos r
-         WHERE r.numero BETWEEN (SELECT rango_actual FROM usuario_progreso WHERE usuario_id = $1)
-                            AND (SELECT rango_actual FROM usuario_progreso WHERE usuario_id = $1) + 2
-         ORDER BY r.numero`,
+          FROM rangos r
+          WHERE r.numero BETWEEN (SELECT rango_actual FROM usuario_progreso WHERE usuario_id = $1)
+                              AND (SELECT rango_actual FROM usuario_progreso WHERE usuario_id = $1) + 2
+          ORDER BY r.numero`,
         [usuarioId],
       ),
       pool.query<{ rango: number; alcanzado_en: Date }>(
         `SELECT a.rango, a.alcanzado_en
-         FROM rango_ascensos a
-         WHERE a.usuario_id = $1
-           AND a.rango >= (SELECT rango_actual FROM usuario_progreso WHERE usuario_id = $1) - 1`,
+          FROM rango_ascensos a
+          WHERE a.usuario_id = $1
+            AND a.rango >= (SELECT rango_actual FROM usuario_progreso WHERE usuario_id = $1) - 1`,
         [usuarioId],
       ),
       // Los segundos salen del reloj de la base (RNF-GAM-12), no del navegador.
       pool.query<{ estado: string; bonificacion: number; duracion_minutos: number; segundos: number | null }>(
         `SELECT estado, bonificacion::float8 AS bonificacion, duracion_minutos,
                 CASE WHEN estado = 'activo' THEN GREATEST(0, EXTRACT(EPOCH FROM (vence_en - NOW())))::int END AS segundos
-         FROM potenciadores
-         WHERE usuario_id = $1 AND estado IN ('activo', 'espera')`,
+          FROM potenciadores
+          WHERE usuario_id = $1 AND estado IN ('activo', 'espera')`,
         [usuarioId],
       ),
       pool.query<{
@@ -160,8 +162,8 @@ export async function obtenerResumenDeProgreso(usuarioId: number | string): Prom
           ),
       pool.query<{ dia: string; estado: string }>(
         `SELECT to_char(dia, 'YYYY-MM-DD') AS dia, estado
-         FROM racha_dias
-         WHERE usuario_id = $1 AND dia BETWEEN ($2::date - 6) AND $2::date`,
+          FROM racha_dias
+          WHERE usuario_id = $1 AND dia BETWEEN ($2::date - 6) AND $2::date`,
         [usuarioId, hoy],
       ),
     ]);

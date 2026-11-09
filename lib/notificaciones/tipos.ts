@@ -10,6 +10,9 @@ export type TipoDeNotificacion =
   | "racha_interrumpida"
   // Se completó una misión y su recompensa ya se entregó (lib/gamificacion/misiones.ts, RF-GAM-61).
   | "mision_completada"
+  // Subió de rango, o una medalla subió de nivel (lib/gamificacion/evaluacion.ts, RF-GAM-49, 61, 62; 2026-11-09).
+  | "rango_ascenso"
+  | "medalla_nivel"
   | "campana_baneo"
   | "campana_desbaneo"
   // Sobre mis campañas

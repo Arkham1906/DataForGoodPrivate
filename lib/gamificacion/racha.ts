@@ -5,28 +5,69 @@
 //
 // Los aportes anónimos no tienen user_id: no cuentan (RN-GAM-26). Tampoco los anteriores al arranque de la gamificación
 // para la persona, usuario_progreso.creado_en: sin racha retroactiva (RF-GAM-66).
-// Pendiente: un cambio de racha debe evaluar el ascenso de rango (RF-GAM-18), y ese proceso aún no existe.
+//
+// Fénix (2026-11-09, decisión del responsable): cuando la racha se pierde y un aporte la reaviva, se registra un evento
+// racha_recuperada, uno por cada interrupción (su clave lleva el día de la interrupción). Si la racha cambió, al final
+// se evalúan rango y medallas (RF-GAM-18, 47; lib/gamificacion/evaluacion.ts).
 
 import type { PoolClient } from "pg";
 import { pool } from "@/lib/db";
 import { ZONA_DE_CAMPANAS, hoyEnTepic } from "@/lib/fecha-de-tepic";
 import { notificar } from "@/lib/notificaciones/notificaciones";
+import { evaluarProgresoDe } from "./evaluacion";
+import { RACHA_PERDIDA_MINIMA_PARA_FENIX } from "./medallas";
 import { calcularRacha, diaDeRuptura, sumarDias } from "./racha-reglas";
 
 const USUARIOS_POR_REVISION = 500;
 
-function registrarInterrupcion(client: Pick<PoolClient, "query">, usuarioId: number | string, dia: string) {
+function registrarInterrupcion(client: Pick<PoolClient, "query">, usuarioId: number | string, dia: string, dias: number) {
   return client.query(
-    `INSERT INTO racha_eventos (usuario_id, tipo, dia, clave_idempotencia)
-     VALUES ($1, 'racha_interrumpida', $2::date, $3)
-     ON CONFLICT (clave_idempotencia) DO NOTHING`,
-    [usuarioId, dia, `racha:interrumpida:${usuarioId}:${dia}`],
+    `INSERT INTO racha_eventos (usuario_id, tipo, dia, detalle, clave_idempotencia)
+      VALUES ($1, 'racha_interrumpida', $2::date, $3::jsonb, $4)
+      ON CONFLICT (clave_idempotencia) DO NOTHING`,
+    [usuarioId, dia, JSON.stringify({ dias }), `racha:interrumpida:${usuarioId}:${dia}`],
   );
+}
+
+/**
+ * Si la racha actual empezó después de la última interrupción, un aporte la reavivó: se registra una vez por
+ * interrupción. Devuelve true si se registró ahora. Las interrupciones de antes del 2026-11-09 no guardan cuántos días
+ * se perdieron: cuentan como si alcanzaran el mínimo.
+ */
+async function registrarRecuperacion(
+  client: Pick<PoolClient, "query">,
+  usuarioId: number | string,
+  inicioDeLaRacha: string,
+): Promise<boolean> {
+  const { rows } = await client.query<{ dia: string; dias: number }>(
+    `SELECT to_char(dia, 'YYYY-MM-DD') AS dia, COALESCE((detalle->>'dias')::int, $3) AS dias
+      FROM racha_eventos
+      WHERE usuario_id = $1 AND tipo = 'racha_interrumpida' AND dia < $2::date
+      ORDER BY dia DESC
+      LIMIT 1`,
+    [usuarioId, inicioDeLaRacha, RACHA_PERDIDA_MINIMA_PARA_FENIX],
+  );
+  const interrupcion = rows[0];
+  if (!interrupcion || interrupcion.dias < RACHA_PERDIDA_MINIMA_PARA_FENIX) return false;
+  const nuevo = await client.query(
+    `INSERT INTO racha_eventos (usuario_id, tipo, dia, detalle, clave_idempotencia)
+      VALUES ($1, 'racha_recuperada', $2::date, $3::jsonb, $4)
+      ON CONFLICT (clave_idempotencia) DO NOTHING
+      RETURNING id`,
+    [
+      usuarioId,
+      inicioDeLaRacha,
+      JSON.stringify({ interrupcion: interrupcion.dia, diasPerdidos: interrupcion.dias }),
+      `racha:recuperada:${usuarioId}:${interrupcion.dia}`,
+    ],
+  );
+  return nuevo.rows.length > 0;
 }
 
 /** Nunca lanza: un fallo aquí no debe tumbar el envío del aporte; revisarRachas() lo corrige en su siguiente pasada. */
 export async function actualizarRacha(usuarioId: number | string): Promise<void> {
   let diasPerdidos = 0;
+  let cambio = false;
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -34,7 +75,7 @@ export async function actualizarRacha(usuarioId: number | string): Promise<void>
     const { rows } = await client.query<{ racha_actual: number; racha_maxima: number; ultimo: string | null; desde: string }>(
       `SELECT racha_actual, racha_maxima, to_char(ultimo_dia_activo, 'YYYY-MM-DD') AS ultimo,
               to_char(creado_en AT TIME ZONE $2, 'YYYY-MM-DD') AS desde
-       FROM usuario_progreso WHERE usuario_id = $1 FOR UPDATE`,
+        FROM usuario_progreso WHERE usuario_id = $1 FOR UPDATE`,
       [usuarioId, ZONA_DE_CAMPANAS],
     );
     const progreso = rows[0];
@@ -45,13 +86,13 @@ export async function actualizarRacha(usuarioId: number | string): Promise<void>
 
     const aportesR = await client.query<{ dia: string }>(
       `SELECT DISTINCT to_char(submitted_at AT TIME ZONE $2, 'YYYY-MM-DD') AS dia
-       FROM aportes
-       WHERE user_id = $1 AND (submitted_at AT TIME ZONE $2)::date >= $3::date`,
+        FROM aportes
+        WHERE user_id = $1 AND (submitted_at AT TIME ZONE $2)::date >= $3::date`,
       [usuarioId, ZONA_DE_CAMPANAS, progreso.desde],
     );
     const diasR = await client.query<{ dia: string; estado: string }>(
       `SELECT to_char(dia, 'YYYY-MM-DD') AS dia, estado FROM racha_dias
-       WHERE usuario_id = $1 AND estado IN ('confirmado', 'provisional')`,
+        WHERE usuario_id = $1 AND estado IN ('confirmado', 'provisional')`,
       [usuarioId],
     );
 
@@ -66,7 +107,7 @@ export async function actualizarRacha(usuarioId: number | string): Promise<void>
       if (confirmados.has(dia)) continue;
       await client.query(
         `INSERT INTO racha_dias (usuario_id, dia, estado) VALUES ($1, $2::date, 'confirmado')
-         ON CONFLICT (usuario_id, dia) DO UPDATE SET estado = 'confirmado', actualizado_en = NOW()`,
+          ON CONFLICT (usuario_id, dia) DO UPDATE SET estado = 'confirmado', actualizado_en = NOW()`,
         [usuarioId, dia],
       );
     }
@@ -74,15 +115,22 @@ export async function actualizarRacha(usuarioId: number | string): Promise<void>
     const ruptura = diaDeRuptura({ rachaAnterior: progreso.racha_actual, ultimoDiaAnterior: progreso.ultimo, dias: racha.dias, hoy });
     if (ruptura) {
       diasPerdidos = progreso.racha_actual;
-      await registrarInterrupcion(client, usuarioId, ruptura);
+      await registrarInterrupcion(client, usuarioId, ruptura, progreso.racha_actual);
+    }
+
+    // Primer día de la racha actual: termina hoy o, si hoy aún no tiene aportes, ayer.
+    if (racha.actual > 0) {
+      const ultimoDeLaRacha = racha.dias.has(hoy) ? hoy : sumarDias(hoy, -1);
+      if (await registrarRecuperacion(client, usuarioId, sumarDias(ultimoDeLaRacha, 1 - racha.actual))) cambio = true;
     }
 
     const maxima = Math.max(progreso.racha_maxima, racha.mayor);
     if (racha.actual !== progreso.racha_actual || maxima !== progreso.racha_maxima || racha.ultimoDia !== progreso.ultimo) {
+      cambio = true;
       await client.query(
         `UPDATE usuario_progreso
-         SET racha_actual = $2, racha_maxima = $3, ultimo_dia_activo = $4::date, actualizado_en = NOW()
-         WHERE usuario_id = $1`,
+          ET racha_actual = $2, racha_maxima = $3, ultimo_dia_activo = $4::date, actualizado_en = NOW()
+          WHERE usuario_id = $1`,
         [usuarioId, racha.actual, maxima, racha.ultimoDia],
       );
     }
@@ -94,6 +142,9 @@ export async function actualizarRacha(usuarioId: number | string): Promise<void>
   } finally {
     client.release();
   }
+
+  // La racha actual es requisito de rango y la máxima y las recuperaciones miden medallas (RF-GAM-18, 47).
+  if (cambio) await evaluarProgresoDe(usuarioId);
 
   // Aviso de RF-GAM-61, ya confirmado el cambio. Reconoce lo logrado: no presiona (RF-GAM-62).
   if (diasPerdidos > 0) {

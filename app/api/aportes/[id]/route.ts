@@ -15,6 +15,8 @@ import { avisarAvanceDeCampana } from "@/lib/notificaciones/socializacion";
 import { ESTADOS_SIN_DECISION, tieneDecision } from "@/lib/aportes/decision";
 import { calificacionDesde } from "@/lib/aportes/calificacion";
 import { actualizarMisiones } from "@/lib/gamificacion/misiones";
+import { recompensarAporteAceptado } from "@/lib/gamificacion/recompensas";
+import { enviarAvisos } from "@/lib/gamificacion/evaluacion";
 
 // Una sola instancia (dominio.md § 5): el creador y el revisor aceptado deciden igual, aceptado o rechazado.
 const ALLOWED_STATUS = new Set(["aceptado", "rechazado"]);
@@ -59,19 +61,19 @@ async function loadAporteWithCampaign(id: string) {
     `SELECT a.*, ${columnasDeArchivo("a")}, ${columnaDeRespuestas("a")}, c.creator_id AS campaign_creator_id, c.name AS campaign_name, c.collection_mode AS campaign_collection_mode, c.status AS campaign_status, ${columnaDeChecklists("c", "campaign_checklist_secciones")},
             rs.created_at AS reporte_en, NULLIF(CONCAT_WS(' — ', rs.motivo, rs.descripcion), '') AS reporte_motivo,
             TRIM(CONCAT(ru.nombre, ' ', ru.apellidos)) AS reporte_revisor, rs.reportado_por AS reporte_por_id
-     FROM aportes a
-     JOIN campanas c ON c.id = a.campaign_id
-     -- "Reportar aporte": uno por aporte (2026-11-07). Toma el de origen 'supervision' y, si no hay, uno de
-     -- los que dejó antes "Reportar a quien aportó" (origen 'usuario').
-     LEFT JOIN LATERAL (
-       SELECT r.* FROM reportes r
-       WHERE r.tipo = 'aporte' AND r.aporte_id = a.id
-       ORDER BY (r.origen = 'supervision') DESC, r.created_at
-       LIMIT 1
-     ) rs ON TRUE
-     LEFT JOIN usuarios ru ON ru.id = rs.reportado_por
-     WHERE a.id = $1
-     LIMIT 1`,
+      FROM aportes a
+      JOIN campanas c ON c.id = a.campaign_id
+      -- "Reportar aporte": uno por aporte (2026-11-07). Toma el de origen 'supervision' y, si no hay, uno de
+      -- los que dejó antes "Reportar a quien aportó" (origen 'usuario').
+      LEFT JOIN LATERAL (
+        SELECT r.* FROM reportes r
+        WHERE r.tipo = 'aporte' AND r.aporte_id = a.id
+        ORDER BY (r.origen = 'supervision') DESC, r.created_at
+        LIMIT 1
+      ) rs ON TRUE
+      LEFT JOIN usuarios ru ON ru.id = rs.reportado_por
+      WHERE a.id = $1
+      LIMIT 1`,
     [id]
   );
   return result.rowCount ? result.rows[0] : null;
@@ -187,9 +189,12 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const nuevoEstado = status;
     const firstPassBy = comoRevisor ? `${user.nombre} ${user.apellidos}`.trim() : row.first_pass_by ?? null;
 
-    // El cambio y el recálculo de contadores van juntos, con la campaña bloqueada.
+    // El cambio y el recálculo de contadores van juntos, con la campaña bloqueada. La recompensa de gamificación
+    // (EXP, contadores, bono, rango y medallas) va en la misma transacción, con su propio SAVEPOINT: si falla, la
+    // aceptación se guarda igual y la recompensa se reintenta (lib/gamificacion/recompensas.ts).
     const client = await pool.connect();
     let result;
+    let avisosDeProgreso: Awaited<ReturnType<typeof recompensarAporteAceptado>> = [];
     try {
       await client.query("BEGIN");
       await client.query(`SELECT 1 FROM campanas WHERE id = $1 FOR NO KEY UPDATE`, [row.campaign_id]);
@@ -219,6 +224,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         return NextResponse.json({ error: "Este aporte ya tiene una decisión" }, { status: 409 });
       }
       await recalcularContadores(row.campaign_id, client);
+      if (nuevoEstado === "aceptado" && row.user_id != null) avisosDeProgreso = await recompensarAporteAceptado(client, id);
       await client.query("COMMIT");
     } catch (error) {
       await client.query("ROLLBACK").catch(() => {});
@@ -260,6 +266,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
             },
       );
     }
+
+    // Rango y medallas nuevos, después del aviso de la aceptación (RF-GAM-49, 61, 62).
+    await enviarAvisos(avisosDeProgreso);
 
     // Se relee: la marca de inapropiado pudo cambiar después del UPDATE.
     const final = inapropiado || nuevoEstado === "aceptado" ? (await loadAporteWithCampaign(id)) ?? result.rows[0] : result.rows[0];

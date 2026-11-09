@@ -3,7 +3,7 @@
 // apunta a ella (se ocultan «Ver tu trayectoria», «Ver tu historial de EXP» y «Ver tus medallas»). Al construir
 // una pantalla, basta con poner aquí su ruta. Sin imports de servidor.
 
-export type PantallaDeProgreso = "resumen" | "trayectoria" | "misiones" | "medallas" | "avatar" | "historial";
+export type PantallaDeProgreso = "resumen" | "trayectoria" | "misiones" | "medallas" | "avatar" | "historial" | "leaderboard";
 
 export const PANTALLAS_DE_PROGRESO: readonly { clave: PantallaDeProgreso; etiqueta: string; href: string | null }[] = [
   { clave: "resumen", etiqueta: "Resumen", href: "/progreso" },
@@ -12,6 +12,7 @@ export const PANTALLAS_DE_PROGRESO: readonly { clave: PantallaDeProgreso; etique
   { clave: "medallas", etiqueta: "Medallas", href: null },
   { clave: "avatar", etiqueta: "Avatar e inventario", href: null },
   { clave: "historial", etiqueta: "Historial de EXP", href: null },
+  { clave: "leaderboard", etiqueta: "Líderes", href: "/progreso/leaderboard"}
 ];
 
 export function rutaDePantalla(clave: PantallaDeProgreso): string | null {

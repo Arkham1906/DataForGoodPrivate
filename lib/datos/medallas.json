@@ -1,0 +1,164 @@
+{
+  "medallas": [
+    {
+      "clave": "bosque_de_datos",
+      "nombre": "Bosque de Datos",
+      "grupo": "hitos",
+      "mide": "aportes_aceptados",
+      "activa": true,
+      "descripcion": "Crece con cada aporte aceptado.",
+      "niveles": [
+        { "nombre": "Semilla", "umbral": 5 },
+        { "nombre": "Brote", "umbral": 25 },
+        { "nombre": "Arbusto", "umbral": 75 },
+        { "nombre": "Árbol", "umbral": 150 },
+        { "nombre": "Bosque", "umbral": 400 }
+      ]
+    },
+    {
+      "clave": "supernova",
+      "nombre": "Supernova",
+      "grupo": "hitos",
+      "mide": "aportes_excepcionales",
+      "activa": true,
+      "descripcion": "Reconoce los aportes de calidad excepcional.",
+      "niveles": [
+        { "nombre": "Chispa", "umbral": 1 },
+        { "nombre": "Destello", "umbral": 5 },
+        { "nombre": "Centella", "umbral": 12 },
+        { "nombre": "Aurora", "umbral": 25 },
+        { "nombre": "Supernova", "umbral": 50 }
+      ]
+    },
+    {
+      "clave": "llama_constante",
+      "nombre": "Llama Constante",
+      "grupo": "hitos",
+      "mide": "racha_maxima",
+      "activa": true,
+      "descripcion": "Se alimenta de la racha máxima, en días.",
+      "niveles": [
+        { "nombre": "Pabilo", "umbral": 3 },
+        { "nombre": "Vela", "umbral": 7 },
+        { "nombre": "Antorcha", "umbral": 14 },
+        { "nombre": "Hoguera", "umbral": 30 },
+        { "nombre": "Faro", "umbral": 100 }
+      ]
+    },
+    {
+      "clave": "cumbres",
+      "nombre": "Cumbres",
+      "grupo": "hitos",
+      "mide": "campanas_completadas",
+      "activa": true,
+      "descripcion": "Avanza al completar la cuota de campañas.",
+      "niveles": [
+        { "nombre": "Colina", "umbral": 1 },
+        { "nombre": "Loma", "umbral": 3 },
+        { "nombre": "Cerro", "umbral": 7 },
+        { "nombre": "Montaña", "umbral": 15 },
+        { "nombre": "Cordillera", "umbral": 30 }
+      ]
+    },
+    {
+      "clave": "brujula_de_causas",
+      "nombre": "Brújula de Causas",
+      "grupo": "hitos",
+      "mide": "campanas_distintas",
+      "activa": true,
+      "descripcion": "Premia el primer aporte aceptado en campañas distintas.",
+      "niveles": [
+        { "nombre": "Mapa", "umbral": 1 },
+        { "nombre": "Brújula", "umbral": 3 },
+        { "nombre": "Sextante", "umbral": 8 },
+        { "nombre": "Astrolabio", "umbral": 15 },
+        { "nombre": "Rosa de los Vientos", "umbral": 30 }
+      ]
+    },
+    {
+      "clave": "energia_de_impacto",
+      "nombre": "Energía de Impacto",
+      "grupo": "hitos",
+      "mide": "exp_total",
+      "activa": true,
+      "descripcion": "Evoluciona con la EXP total acumulada.",
+      "niveles": [
+        { "nombre": "Pila", "umbral": 250 },
+        { "nombre": "Dínamo", "umbral": 1000 },
+        { "nombre": "Turbina", "umbral": 3000 },
+        { "nombre": "Reactor", "umbral": 8000 },
+        { "nombre": "Sol", "umbral": 20000 }
+      ]
+    },
+    {
+      "clave": "orquesta_de_datos",
+      "nombre": "Orquesta de Datos",
+      "grupo": "adicionales",
+      "mide": "tipos_distintos",
+      "activa": true,
+      "descripcion": "Premia tener aportes aceptados de tipos de dato distintos.",
+      "niveles": [
+        { "nombre": "Dúo", "umbral": 2 },
+        { "nombre": "Trío", "umbral": 3 },
+        { "nombre": "Cuarteto", "umbral": 4 },
+        { "nombre": "Quinteto", "umbral": 5 },
+        { "nombre": "Orquesta", "umbral": 6 }
+      ]
+    },
+    {
+      "clave": "pulso_firme",
+      "nombre": "Pulso Firme",
+      "grupo": "adicionales",
+      "mide": "aceptados_consecutivos",
+      "activa": true,
+      "descripcion": "Aportes aceptados seguidos, sin un rechazo entre ellos, por hora de envío.",
+      "niveles": [
+        { "nombre": "Nivel 1", "umbral": 5 },
+        { "nombre": "Nivel 2", "umbral": 10 },
+        { "nombre": "Nivel 3", "umbral": 25 },
+        { "nombre": "Nivel 4", "umbral": 50 },
+        { "nombre": "Nivel 5", "umbral": 100 }
+      ]
+    },
+    {
+      "clave": "fenix",
+      "nombre": "Fénix",
+      "grupo": "adicionales",
+      "mide": "rachas_recuperadas",
+      "activa": true,
+      "descripcion": "Reavivar tu racha con un aporte después de perderla.",
+      "niveles": [
+        { "nombre": "Ceniza", "umbral": 1 },
+        { "nombre": "Brasa", "umbral": 3 },
+        { "nombre": "Fénix", "umbral": 5 }
+      ]
+    },
+    {
+      "clave": "carga_maxima",
+      "nombre": "Carga Máxima",
+      "grupo": "adicionales",
+      "mide": "aportes_en_potenciador",
+      "activa": true,
+      "descripcion": "Aportes aceptados enviados durante un solo potenciador.",
+      "niveles": [
+        { "nombre": "Nivel 1", "umbral": 3 },
+        { "nombre": "Nivel 2", "umbral": 5 },
+        { "nombre": "Nivel 3", "umbral": 8 }
+      ]
+    },
+    {
+      "clave": "aliado_de_causas",
+      "nombre": "Aliado de Causas",
+      "grupo": "adicionales",
+      "mide": "tematicas_distintas",
+      "activa": true,
+      "descripcion": "Premia tener aportes aceptados en temáticas distintas.",
+      "niveles": [
+        { "nombre": "Nivel 1", "umbral": 2 },
+        { "nombre": "Nivel 2", "umbral": 4 },
+        { "nombre": "Nivel 3", "umbral": 6 },
+        { "nombre": "Nivel 4", "umbral": 8 }
+      ]
+    }
+  ]
+}

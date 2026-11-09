@@ -8,6 +8,7 @@ import { activateScheduledCampaigns, finalizeExpiredCampaigns } from "@/lib/camp
 import { escucharCambiosDeLaBase } from "@/lib/en-vivo-postgres";
 import { marcarDatosPorDecidir } from "@/lib/supervision/datos-abiertos";
 import { revisarRachas } from "@/lib/gamificacion/racha";
+import { repararRecompensasPendientes } from "@/lib/gamificacion/recompensas";
 
 const UNA_HORA_MS = 60 * 60 * 1000;
 const UN_MINUTO_MS = 60 * 1000;
@@ -52,14 +53,19 @@ function programarBajasVencidas(): void {
   setInterval(avisos, UNA_HORA_MS).unref();
 }
 
-/** Lo que cambia la racha con el paso del tiempo (lib/gamificacion/racha.ts): los días sin aportes. */
+/**
+ * Lo que la gamificación hace sola, cada minuto: la racha que cambia con el paso del tiempo (los días sin aportes,
+ * lib/gamificacion/racha.ts) y las recompensas de aportes aceptados que quedaron sin dar por un fallo
+ * (lib/gamificacion/recompensas.ts, RNF-GAM-08).
+ */
 function programarRachas(): void {
   const marca = globalThis as typeof globalThis & { __rachasProgramadas?: boolean };
   if (marca.__rachasProgramadas) return;
   marca.__rachasProgramadas = true;
 
-  void revisarRachas();
-  setInterval(revisarRachas, UN_MINUTO_MS).unref();
+  const correr = () => revisarRachas().then(repararRecompensasPendientes);
+  void correr();
+  setInterval(correr, UN_MINUTO_MS).unref();
 }
 
 export async function crearEsquemaAlArrancar(): Promise<void> {

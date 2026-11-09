@@ -28,13 +28,12 @@ type Opcion = { href: string; label: string; Icono: ComponentType<SVGProps<SVGSV
 const NAV_ITEMS: Opcion[] = [
   // Inicio (2026-10-24): la primera pantalla al iniciar sesión.
   { href: "/inicio", label: "Inicio", Icono: IconoInicio },
+  // Mi progreso (2026-11-02, decisión del responsable): solo lo de la gamificación (rango, misiones, racha).
+  { href: "/progreso", label: "Mi progreso", Icono: IconoProgreso },
   // "Explorar campañas" desde el 2026-10-27 (antes "Explorar"), a pedido del usuario.
   { href: "/campanas", label: "Explorar campañas", Icono: IconoBuscar },
   { href: "/mis-aportes", label: "Mis aportes", Icono: IconoAportes },
   { href: "/mis-campanas", label: "Mis campañas", Icono: IconoCampanas },
-  // Mi progreso (2026-11-02, decisión del responsable): solo lo de la gamificación (rango, misiones, racha).
-  { href: "/progreso", label: "Mi progreso", Icono: IconoProgreso },
-  { href: "/leaderboard", label: "Líderes", Icono: IconoLeaderboard },
 ];
 
 // Sin contador de reportes junto a "Supervisión" (2026-10-15, a pedido del usuario): cada reporte llega

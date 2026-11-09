@@ -5,7 +5,16 @@ import { claveDeTematica } from "@/lib/tematicas/analizar";
 import { ETIQUETAS_BASE } from "@/lib/etiquetas/base";
 import { ensureAvisosDeCambios } from "@/lib/en-vivo-postgres";
 import { ESTRELLAS_MAXIMAS } from "@/lib/aportes/calificacion";
-import { MISIONES_DEL_CATALOGO, RANGOS_DEL_CATALOGO, erroresDeMisiones, erroresDeRangos } from "@/lib/gamificacion/catalogos";
+import {
+  MEDALLAS_DEL_CATALOGO,
+  MISIONES_DEL_CATALOGO,
+  RANGOS_DEL_CATALOGO,
+  erroresDeMedallas,
+  erroresDeMisiones,
+  erroresDeRangos,
+  type MedallaDelCatalogo,
+} from "@/lib/gamificacion/catalogos";
+import { PARAMETROS_GAMIFICACION_V2 } from "@/lib/gamificacion/exp-reglas";
 import { PROPOSITOS } from "@/lib/campanas/proposito";
 import { TIPOS_DE_SANCION } from "@/lib/sanciones";
 import { DESTINOS_DE_APORTES } from "@/lib/usuarios/baja-opciones";
@@ -1483,6 +1492,7 @@ const lista = (valores: Iterable<string>) => Array.from(valores, (v) => `'${v.re
  * Los límites que garantiza la base (un potenciador activo por persona, 0 a 3 protectores) están en
  * las tablas, no aquí. No hay tipo "ubicación": se descartó (propuesta P1).
  */
+/** Versión 1 (SRS v1.1, tres calidades): se conserva sembrada como histórico; la vigente es la v2 (exp-reglas.ts). */
 const PARAMETROS_GAMIFICACION_V1 = {
   expBase: { texto: 10, foto: 20, documento: 20, audio: 30, video: 30 },
   multiplicadorCalidad: { buena: 1.0, excelente: 1.5, excepcional: 2.0 },
@@ -1491,82 +1501,6 @@ const PARAMETROS_GAMIFICACION_V1 = {
   ventanasHoras: { correccionCalidad: 24, racha: 72 },
   bonoCuota: { porcentaje: 25, minimo: 10, maximo: 150, cuotaMinima: 3 },
 };
-
-type MedallaBase = {
-  clave: string;
-  nombre: string;
-  mide: string;
-  descripcion: string;
-  /** false = se siembra pero no se evalúa hasta cerrar su decisión abierta. */
-  activa: boolean;
-  /** [nombre del nivel, umbral]; el nivel es la posición (1, 2, 3...). */
-  niveles: ReadonlyArray<readonly [string, number]>;
-};
-
-/**
- * Las 11 medallas del SRS v1.1, tabla 4.4 (50 niveles). Las descripciones son provisionales: el
- * SuperUsuario las puede editar (medallas.descripcion) sin que el arranque las pise.
- */
-const MEDALLAS_BASE: ReadonlyArray<MedallaBase> = [
-  {
-    clave: "bosque_de_datos", nombre: "Bosque de Datos", mide: "aportes_aceptados", activa: true,
-    descripcion: "Crece con cada aporte aceptado.",
-    niveles: [["Semilla", 5], ["Brote", 25], ["Arbusto", 75], ["Árbol", 150], ["Bosque", 400]],
-  },
-  {
-    clave: "supernova", nombre: "Supernova", mide: "aportes_excepcionales", activa: true,
-    descripcion: "Reconoce los aportes de calidad excepcional.",
-    niveles: [["Chispa", 1], ["Destello", 5], ["Centella", 12], ["Aurora", 25], ["Supernova", 50]],
-  },
-  {
-    clave: "llama_constante", nombre: "Llama Constante", mide: "racha_maxima", activa: true,
-    descripcion: "Se alimenta de la racha máxima, en días.",
-    niveles: [["Pabilo", 3], ["Vela", 7], ["Antorcha", 14], ["Hoguera", 30], ["Faro", 100]],
-  },
-  {
-    clave: "cumbres", nombre: "Cumbres", mide: "campanas_completadas", activa: true,
-    descripcion: "Avanza al completar la cuota de campañas.",
-    niveles: [["Colina", 1], ["Loma", 3], ["Cerro", 7], ["Montaña", 15], ["Cordillera", 30]],
-  },
-  {
-    clave: "brujula_de_causas", nombre: "Brújula de Causas", mide: "campanas_distintas", activa: true,
-    descripcion: "Premia el primer aporte aceptado en campañas distintas.",
-    niveles: [["Mapa", 1], ["Brújula", 3], ["Sextante", 8], ["Astrolabio", 15], ["Rosa de los Vientos", 30]],
-  },
-  {
-    clave: "energia_de_impacto", nombre: "Energía de Impacto", mide: "exp_total", activa: true,
-    descripcion: "Evoluciona con la EXP total acumulada.",
-    niveles: [["Pila", 250], ["Dínamo", 1000], ["Turbina", 3000], ["Reactor", 8000], ["Sol", 20000]],
-  },
-  {
-    // Propuesta P1: sin el tipo "ubicación" hay 5 tipos, así que el nivel 6 (Orquesta) no se puede
-    // alcanzar hasta que el SRS se ajuste. Se siembra como está en el SRS.
-    clave: "orquesta_de_datos", nombre: "Orquesta de Datos", mide: "tipos_distintos", activa: true,
-    descripcion: "Premia tener aportes aceptados de tipos de dato distintos.",
-    niveles: [["Dúo", 2], ["Trío", 3], ["Cuarteto", 4], ["Quinteto", 5], ["Orquesta", 6]],
-  },
-  {
-    // PENDIENTE DA-GAM-15 (secuencia, desorden de decisiones, reinicio): inactiva hasta cerrarse.
-    clave: "pulso_firme", nombre: "Pulso Firme", mide: "aceptados_consecutivos", activa: false,
-    descripcion: "Aportes aceptados consecutivos sin rechazo.",
-    niveles: [["Nivel 1", 5], ["Nivel 2", 10], ["Nivel 3", 25], ["Nivel 4", 50], ["Nivel 5", 100]],
-  },
-  {
-    clave: "fenix", nombre: "Fénix", mide: "rachas_recuperadas", activa: true,
-    descripcion: "Recuperar una racha de al menos 7 días después de perderla.",
-    niveles: [["Ceniza", 1], ["Brasa", 3], ["Fénix", 5]],
-  },
-  {
-    clave: "carga_maxima", nombre: "Carga Máxima", mide: "aportes_en_potenciador", activa: true,
-    descripcion: "Aportes aceptados enviados durante un solo potenciador.",
-    niveles: [["Nivel 1", 3], ["Nivel 2", 5], ["Nivel 3", 8]],
-  },
-  {
-    clave: "aliado_de_causas", nombre: "Aliado de Causas", mide: "tematicas_distintas", activa: true,
-    descripcion: "Premia tener aportes aceptados en temáticas distintas.",
-    niveles: [["Nivel 1", 2], ["Nivel 2", 4], ["Nivel 3", 6], ["Nivel 4", 8]],
-  },
-];
 
 /**
  * Columnas nuevas en tablas que ya existen. Van aquí, juntas, y no dentro de cada ensure*, para que
@@ -1604,6 +1538,9 @@ async function ensureGamificacionColumnas(): Promise<void> {
     CREATE INDEX IF NOT EXISTS aportes_usuario_envio_idx ON aportes (user_id, submitted_at);
     ALTER TABLE medallas ADD COLUMN IF NOT EXISTS clave VARCHAR(60) UNIQUE;
     ALTER TABLE medallas ADD COLUMN IF NOT EXISTS mide VARCHAR(40);
+    -- Sección de la pantalla (hitos o adicionales) y orden de lib/datos/medallas.json (2026-11-09).
+    ALTER TABLE medallas ADD COLUMN IF NOT EXISTS grupo VARCHAR(20);
+    ALTER TABLE medallas ADD COLUMN IF NOT EXISTS orden SMALLINT;
     ALTER TABLE medallas ALTER COLUMN file_type DROP NOT NULL;
     ALTER TABLE medallas ALTER COLUMN file_path DROP NOT NULL;
     ALTER TABLE medallas_usuario ADD COLUMN IF NOT EXISTS nivel_actual SMALLINT NOT NULL DEFAULT 1;
@@ -1614,7 +1551,9 @@ async function ensureGamificacionColumnas(): Promise<void> {
     COMMENT ON COLUMN usuarios.level IS 'OBSOLETA (gamificación SRS v1.1): histórico. El rango está en usuario_progreso.rango_actual.';
     COMMENT ON COLUMN usuarios.streak_days IS 'OBSOLETA (gamificación SRS v1.1): histórico. La racha está en usuario_progreso.racha_actual.';
     COMMENT ON COLUMN campanas.xp_per_contribution IS 'OBSOLETA (gamificación SRS v1.1): la EXP base sale de parametros_gamificacion.';
-    COMMENT ON COLUMN aportes.calificacion IS 'OBSOLETA para la gamificación: histórico. La calidad que da EXP es aportes.calidad.';
+    COMMENT ON COLUMN aportes.calificacion IS 'Calificación de 1 a 5 (SRS v1.2): su multiplicador da la EXP del aporte (lib/gamificacion/recompensas.ts).';
+    COMMENT ON COLUMN aportes.calidad IS 'OBSOLETA (SRS v1.2): la escala que da EXP es aportes.calificacion.';
+    COMMENT ON COLUMN aportes.exp_otorgada IS 'EXP que dio el aporte al aceptarse; 0 si no le tocaba; NULL si aún no se procesa (lib/gamificacion/recompensas.ts).';
   `);
 }
 
@@ -1643,6 +1582,16 @@ export async function ensureParametrosGamificacionTable(): Promise<void> {
      VALUES (1, $1::jsonb, 'Valores iniciales del SRS v1.1')
      ON CONFLICT (version) DO NOTHING`,
     [JSON.stringify(PARAMETROS_GAMIFICACION_V1)],
+  );
+  // Versión 2 (2026-11-09, SRS v1.2: calificación de 1 a 5 con cinco multiplicadores). Es la primera que usa el
+  // cálculo de EXP (lib/gamificacion/recompensas.ts), así que al sembrarla se activa el módulo: lanzamiento_en es ese
+  // momento si ninguna versión lo tenía. Lo aceptado antes no da EXP (RF-GAM-67).
+  await pool.query(
+    `INSERT INTO parametros_gamificacion (version, valores, nota, lanzamiento_en)
+     VALUES (2, $1::jsonb, 'SRS v1.2: calificación de 1 a 5 (tabla 4.2a)',
+             COALESCE((SELECT MIN(lanzamiento_en) FROM parametros_gamificacion), NOW()))
+     ON CONFLICT (version) DO NOTHING`,
+    [JSON.stringify(PARAMETROS_GAMIFICACION_V2)],
   );
 }
 
@@ -2031,6 +1980,7 @@ export async function ensureExpMovimientosTable(): Promise<void> {
       movimiento_original_id BIGINT REFERENCES exp_movimientos(id),
       exp_base INTEGER,
       calidad VARCHAR(12) CHECK (calidad IN ('buena', 'excelente', 'excepcional')),
+      calificacion SMALLINT CHECK (calificacion BETWEEN 1 AND 5),
       mult_calidad NUMERIC(4, 2),
       mult_campana NUMERIC(4, 2),
       potenciador_id INTEGER REFERENCES potenciadores(id) ON DELETE SET NULL,
@@ -2046,15 +1996,17 @@ export async function ensureExpMovimientosTable(): Promise<void> {
     CREATE INDEX IF NOT EXISTS exp_movimientos_mision_idx ON exp_movimientos (mision_instancia_id);
     CREATE INDEX IF NOT EXISTS exp_movimientos_potenciador_idx ON exp_movimientos (potenciador_id);
     CREATE INDEX IF NOT EXISTS exp_movimientos_original_idx ON exp_movimientos (movimiento_original_id);
+    -- Calificación de 1 a 5 usada en el cálculo (SRS v1.2, anexo A.5; 2026-11-09). calidad queda como histórico.
+    ALTER TABLE exp_movimientos ADD COLUMN IF NOT EXISTS calificacion SMALLINT CHECK (calificacion BETWEEN 1 AND 5);
     CREATE OR REPLACE FUNCTION dfg_exp_movimientos_inalterable() RETURNS trigger AS $$
     BEGIN
       IF TG_OP = 'DELETE' THEN
         RAISE EXCEPTION 'exp_movimientos es inalterable: registra un ajuste en vez de borrar';
       END IF;
-      IF (OLD.tipo, OLD.exp, OLD.motivo, OLD.exp_base, OLD.calidad, OLD.mult_calidad, OLD.mult_campana,
+      IF (OLD.tipo, OLD.exp, OLD.motivo, OLD.exp_base, OLD.calidad, OLD.calificacion, OLD.mult_calidad, OLD.mult_campana,
           OLD.bonificacion_potenciador, OLD.factor, OLD.parametros_version, OLD.clave_idempotencia, OLD.creado_en)
          IS DISTINCT FROM
-         (NEW.tipo, NEW.exp, NEW.motivo, NEW.exp_base, NEW.calidad, NEW.mult_calidad, NEW.mult_campana,
+         (NEW.tipo, NEW.exp, NEW.motivo, NEW.exp_base, NEW.calidad, NEW.calificacion, NEW.mult_calidad, NEW.mult_campana,
           NEW.bonificacion_potenciador, NEW.factor, NEW.parametros_version, NEW.clave_idempotencia, NEW.creado_en) THEN
         RAISE EXCEPTION 'exp_movimientos es inalterable: registra un ajuste en vez de editar';
       END IF;
@@ -2069,11 +2021,9 @@ export async function ensureExpMovimientosTable(): Promise<void> {
 /**
  * Niveles de medalla y su historial (RF-GAM-46 a 49; tabla 4.4).
  *   - medalla_niveles: nivel, nombre, umbral e ilustración (una por nivel; NULL hasta tener los
- *     recursos gráficos, tabla 4.5). Se siembran las 11 medallas del SRS (50 niveles). Si una medalla
- *     ya existía con ese nombre (creada desde el panel) solo se le pone su clave.
+ *     recursos gráficos, tabla 4.5). El catálogo sale de lib/datos/medallas.json (sincronizarMedallas).
  *   - medalla_ascensos: cuándo se alcanzó cada nivel y si ya se vio la celebración (RF-GAM-84). Un nivel
  *     alcanzado no se retira (RF-GAM-47): la llave foránea a medalla_niveles no tiene cascada.
- * Pulso Firme se siembra inactiva hasta cerrar DA-GAM-15.
  */
 export async function ensureMedallaNivelesTables(): Promise<void> {
   await pool.query(`
@@ -2099,27 +2049,66 @@ export async function ensureMedallaNivelesTables(): Promise<void> {
     );
     CREATE INDEX IF NOT EXISTS medalla_ascensos_pendientes_idx ON medalla_ascensos (usuario_id) WHERE celebracion_vista_en IS NULL;
   `);
-  for (const m of MEDALLAS_BASE) {
-    await pool.query(
-      `INSERT INTO medallas (clave, nombre, descripcion, mide, criterio, activa)
-       VALUES ($1, $2, $3, $4, $5::jsonb, $6)
-       ON CONFLICT DO NOTHING`,
-      [m.clave, m.nombre, m.descripcion, m.mide, JSON.stringify({ mide: m.mide }), m.activa],
-    );
-    await pool.query(
-      `UPDATE medallas SET clave = $1, mide = COALESCE(mide, $3)
-        WHERE nombre = $2 AND clave IS NULL AND NOT EXISTS (SELECT 1 FROM medallas WHERE clave = $1)`,
-      [m.clave, m.nombre, m.mide],
-    );
-    await pool.query(
-      `INSERT INTO medalla_niveles (medalla_id, nivel, nombre, umbral)
-       SELECT md.id, n.nivel, n.nombre, n.umbral
-         FROM medallas md, unnest($2::smallint[], $3::text[], $4::int[]) AS n(nivel, nombre, umbral)
-        WHERE md.clave = $1
-       ON CONFLICT (medalla_id, nivel) DO NOTHING`,
-      [m.clave, m.niveles.map((_, i) => i + 1), m.niveles.map((n) => n[0]), m.niveles.map((n) => n[1])],
-    );
+  await sincronizarMedallas();
+}
+
+async function sincronizarMedallas(): Promise<void> {
+  const errores = erroresDeMedallas(MEDALLAS_DEL_CATALOGO);
+  if (errores.length > 0) {
+    console.error(`lib/datos/medallas.json no se aplicó:\n${errores.join("\n")}`);
+    return;
   }
+  for (const [orden, m] of MEDALLAS_DEL_CATALOGO.entries()) {
+    try {
+      await sincronizarMedalla(m, orden + 1);
+    } catch (error) {
+      // P. ej. un nombre que ya usa otra medalla de la base (medallas.nombre es UNIQUE): no debe impedir el arranque.
+      console.error(`medallas.json: no se pudo aplicar ${m.clave}; se queda como estaba.`, error);
+    }
+  }
+  await pool.query(`UPDATE medallas SET activa = false WHERE activa AND clave IS NOT NULL AND clave <> ALL($1::text[])`, [
+    MEDALLAS_DEL_CATALOGO.map((m) => m.clave),
+  ]);
+}
+
+async function sincronizarMedalla(m: MedallaDelCatalogo, orden: number): Promise<void> {
+  await pool.query(
+    `UPDATE medallas SET clave = $1
+      WHERE nombre = $2 AND clave IS NULL AND NOT EXISTS (SELECT 1 FROM medallas WHERE clave = $1)`,
+    [m.clave, m.nombre],
+  );
+  await pool.query(
+    `INSERT INTO medallas (clave, nombre, descripcion, mide, grupo, orden, criterio, activa)
+     VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8)
+     ON CONFLICT (clave) DO UPDATE SET
+       nombre = EXCLUDED.nombre, descripcion = EXCLUDED.descripcion, mide = EXCLUDED.mide, grupo = EXCLUDED.grupo,
+       orden = EXCLUDED.orden, criterio = EXCLUDED.criterio, activa = EXCLUDED.activa`,
+    [m.clave, m.nombre, m.descripcion, m.mide, m.grupo, orden, JSON.stringify({ mide: m.mide }), m.activa],
+  );
+  await pool.query(
+    `INSERT INTO medalla_niveles (medalla_id, nivel, nombre, umbral)
+     SELECT md.id, n.nivel, n.nombre, n.umbral
+       FROM medallas md, unnest($2::smallint[], $3::text[], $4::int[]) AS n(nivel, nombre, umbral)
+      WHERE md.clave = $1
+     ON CONFLICT (medalla_id, nivel) DO UPDATE SET nombre = EXCLUDED.nombre, umbral = EXCLUDED.umbral`,
+    [m.clave, m.niveles.map((_, i) => i + 1), m.niveles.map((n) => n.nombre), m.niveles.map((n) => n.umbral)],
+  );
+  const sobrantes = await pool.query<{ nivel: number; alcanzado: boolean }>(
+    `SELECT n.nivel, EXISTS (SELECT 1 FROM medalla_ascensos a WHERE a.medalla_id = n.medalla_id AND a.nivel = n.nivel) AS alcanzado
+       FROM medalla_niveles n JOIN medallas md ON md.id = n.medalla_id
+      WHERE md.clave = $1 AND n.nivel > $2`,
+    [m.clave, m.niveles.length],
+  );
+  const conservados = sobrantes.rows.filter((n) => n.alcanzado).map((n) => n.nivel);
+  if (conservados.length > 0) {
+    console.warn(`medallas.json: ${m.clave} ya no tiene los niveles ${conservados.join(", ")}, pero alguien los alcanzó: se conservan.`);
+  }
+  await pool.query(
+    `DELETE FROM medalla_niveles n USING medallas md
+      WHERE md.id = n.medalla_id AND md.clave = $1 AND n.nivel > $2
+        AND NOT EXISTS (SELECT 1 FROM medalla_ascensos a WHERE a.medalla_id = n.medalla_id AND a.nivel = n.nivel)`,
+    [m.clave, m.niveles.length],
+  );
 }
 
 /**
@@ -2243,6 +2232,9 @@ function restricciones(): ReadonlyArray<[tabla: string, nombre: string, condicio
     ["reportes", "reportes_origen_check", `origen IN ('usuario', 'rechazo', 'supervision')`],
     ["sanciones", "sanciones_tipo_check", `tipo IN (${lista(TIPOS_DE_SANCION)})`],
     ["usuarios", "usuarios_avatar_check", `avatar IN ('masculino', 'femenino', 'otro', 'foto')`],
+    // racha_recuperada (2026-11-09): un aporte reavivó la racha después de perderla (medalla Fénix, lib/gamificacion/racha.ts).
+    ["racha_eventos", "racha_eventos_tipo_check",
+      `tipo IN ('protector_consumido', 'protector_devuelto', 'dia_consolidado', 'dia_descartado', 'racha_interrumpida', 'racha_recuperada')`],
     ["usuarios", "usuarios_baja_destino_aportes_check",
       `baja_destino_aportes IN (${lista(DESTINOS_DE_APORTES.map((d) => d.valor))})`],
   ];

@@ -13,6 +13,7 @@ import { pool } from "@/lib/db";
 import { ZONA_DE_CAMPANAS, hoyEnTepic } from "@/lib/fecha-de-tepic";
 import { notificar } from "@/lib/notificaciones/notificaciones";
 import { SELECCION_DE_MISIONES } from "./catalogos";
+import { evaluarProgresoDe } from "./evaluacion";
 import {
   DURACION_MS,
   avanceDeMision,
@@ -225,6 +226,9 @@ export async function actualizarMisiones(usuarioId: number | string, instantes: 
   } finally {
     client.release();
   }
+
+  // Las misiones completadas son requisito de rango y su EXP mide Energía de Impacto (RF-GAM-18, 47).
+  if (completadas.length > 0) await evaluarProgresoDe(usuarioId);
 
   for (const { nombre, recompensa } of completadas) {
     await notificar({

@@ -2,9 +2,9 @@
 // la persona con sesión. Lo común con /inicio sigue en obtenerResumenDeProgreso() (./progreso.ts); esto agrega las
 // fichas de los 20 rangos, el camino, la distribución de calificaciones, las medallas y el calendario.
 //
-// Esta función NO calcula ni concede nada (RNF-GAM-06): lee lo guardado. Mientras no exista el proceso que otorga EXP,
-// rangos y rachas, esas tablas siguen en sus valores iniciales. La distribución de calificaciones es la excepción: sale
-// de aportes.calificacion, que ya se guarda al revisar, así que puede mostrar aportes que el rango aún no cuenta.
+// Esta función NO calcula ni concede nada (RNF-GAM-06): lee lo guardado. EXP, contadores, rangos y medallas los
+// escriben lib/gamificacion/recompensas.ts y lib/gamificacion/evaluacion.ts. La distribución de calificaciones sale de
+// aportes.calificacion, así que también muestra los aceptados antes del lanzamiento, que el rango no cuenta (RF-GAM-67).
 //
 // Visibilidad (RF-GAM-78, RNF-GAM-14): la consulta lee el catálogo, pero de un rango avistado o por descubrir solo
 // salen el número y los requisitos: fichas y eslabones se arman aquí, con tipos que no admiten más.
@@ -13,6 +13,7 @@ import { pool } from "@/lib/db";
 import { NOMBRES_DE_ESTRELLAS, calificacionDesde, type CalificacionDeAporte } from "@/lib/aportes/calificacion";
 import { ZONA_DE_CAMPANAS, hoyEnTepic } from "@/lib/fecha-de-tepic";
 import { medallasMasCercanas, type MedallaConAvance, type NivelDeMedalla } from "./medallas";
+import { valoresDeMedallas } from "./evaluacion";
 import { RANGOS_EN_EL_CAMINO } from "./mi-progreso-tipos";
 import type {
   AporteDelDia,
@@ -143,7 +144,7 @@ export async function obtenerDatosDeResumen(
   progreso: ResumenDeProgreso,
 ): Promise<DatosDeResumen | null> {
   try {
-    const [cifrasR, rangosR, ascensosR, calificacionesR, medallasR, nivelesR, contadoresR] = await Promise.all([
+    const [cifrasR, rangosR, ascensosR, calificacionesR, medallasR, nivelesR, valores] = await Promise.all([
       pool.query<{
         exp_total: number;
         aportes_aceptados: number;
@@ -152,13 +153,13 @@ export async function obtenerDatosDeResumen(
         campanas_completadas: number;
       }>(
         `SELECT exp_total, aportes_aceptados, aportes_excepcionales, racha_maxima, campanas_completadas
-         FROM usuario_progreso WHERE usuario_id = $1`,
+          FROM usuario_progreso WHERE usuario_id = $1`,
         [usuarioId],
       ),
       pool.query<FilaDeRango>(
         `SELECT numero, nombre, descripcion, etapa_avatar, req_exp, req_aportes, req_excelentes,
                 req_excepcionales, req_racha, req_misiones
-         FROM rangos ORDER BY numero`,
+          FROM rangos ORDER BY numero`,
       ),
       pool.query<{ rango: number; alcanzado_en: Date }>(
         `SELECT rango, alcanzado_en FROM rango_ascensos WHERE usuario_id = $1`,
@@ -167,8 +168,8 @@ export async function obtenerDatosDeResumen(
       // Los aportes anónimos no llevan user_id: quedan fuera (RN-GAM-26).
       pool.query<{ calificacion: number | null; cuenta: number }>(
         `SELECT calificacion, COUNT(*)::int AS cuenta
-         FROM aportes WHERE user_id = $1 AND status = 'aceptado'
-         GROUP BY calificacion`,
+          FROM aportes WHERE user_id = $1 AND status = 'aceptado'
+          GROUP BY calificacion`,
         [usuarioId],
       ),
       pool.query<{
@@ -181,45 +182,30 @@ export async function obtenerDatosDeResumen(
       }>(
         `SELECT m.id, m.clave, m.nombre, m.mide, COALESCE(mu.nivel_actual, 0)::int AS nivel_actual,
                 COALESCE(mu.valor_actual, 0)::int AS valor_actual
-         FROM medallas m
-         LEFT JOIN medallas_usuario mu ON mu.medalla_id = m.id AND mu.usuario_id = $1
-         WHERE m.activa AND m.clave IS NOT NULL
-         ORDER BY m.id`,
+          FROM medallas m
+          LEFT JOIN medallas_usuario mu ON mu.medalla_id = m.id AND mu.usuario_id = $1
+          WHERE m.activa AND m.clave IS NOT NULL
+          ORDER BY m.id`,
         [usuarioId],
       ),
       pool.query<NivelDeMedalla & { medalla_id: number }>(
         `SELECT medalla_id, nivel, nombre, umbral FROM medalla_niveles ORDER BY medalla_id, nivel`,
       ),
-      pool.query<{ dimension: string; cuantos: number }>(
-        `SELECT dimension, COUNT(*)::int AS cuantos
-         FROM usuario_contadores WHERE usuario_id = $1 AND valor > 0
-         GROUP BY dimension`,
-        [usuarioId],
-      ),
+      // Los mismos valores con los que se conceden los niveles (lib/gamificacion/evaluacion.ts).
+      valoresDeMedallas(pool, usuarioId),
     ]);
 
     const cifras = cifrasR.rows[0];
     if (!cifras) return null;
     const ascenso = (rango: number) => ascensosR.rows.find((a) => a.rango === rango)?.alcanzado_en ?? null;
-    const contador = (dimension: string) => contadoresR.rows.find((c) => c.dimension === dimension)?.cuantos ?? 0;
 
-    // Lo que ya se lleva en otras tablas se lee de ahí; lo demás, del valor guardado en la medalla.
-    const valorPorMedida: Record<string, number> = {
-      aportes_aceptados: cifras.aportes_aceptados,
-      aportes_excepcionales: cifras.aportes_excepcionales,
-      racha_maxima: cifras.racha_maxima,
-      campanas_completadas: cifras.campanas_completadas,
-      exp_total: cifras.exp_total,
-      campanas_distintas: contador("campana"),
-      tipos_distintos: contador("tipo"),
-      tematicas_distintas: contador("tematica"),
-    };
     const medallas: MedallaConAvance[] = medallasR.rows.map((m) => ({
       clave: m.clave,
       nombre: m.nombre,
       mide: m.mide,
       nivelActual: m.nivel_actual,
-      valor: Math.max(m.valor_actual, (m.mide && valorPorMedida[m.mide]) || 0),
+      // El valor de hoy: Pulso Firme puede bajar si llega un rechazo tardío; el nivel guardado no baja (RF-GAM-47).
+      valor: (m.mide && valores[m.mide]) || 0,
       niveles: nivelesR.rows.filter((n) => n.medalla_id === m.id),
     }));
 
@@ -271,7 +257,7 @@ export async function obtenerCalendarioDeRacha(
       `SELECT to_char(creado_en AT TIME ZONE $2, 'YYYY-MM') AS primer_mes,
               CASE WHEN racha_actual > 0
                 THEN to_char(ultimo_dia_activo - (racha_actual - 1), 'YYYY-MM-DD') END AS inicio_de_racha
-       FROM usuario_progreso WHERE usuario_id = $1`,
+        FROM usuario_progreso WHERE usuario_id = $1`,
       [usuarioId, ZONA_DE_CAMPANAS],
     );
     const primerMes = cuentaR.rows[0]?.primer_mes;
@@ -313,21 +299,21 @@ export async function obtenerCalendarioDeRacha(
         `SELECT e.id::text AS id, e.tipo,
                 to_char(COALESCE(e.dia, (e.creado_en AT TIME ZONE $4)::date), 'YYYY-MM-DD') AS fecha,
                 a.description AS aporte
-         FROM racha_eventos e
-         LEFT JOIN aportes a ON a.id = e.aporte_id
-         WHERE e.usuario_id = $1
-           AND COALESCE(e.dia, (e.creado_en AT TIME ZONE $4)::date) >= $2::date
-           AND COALESCE(e.dia, (e.creado_en AT TIME ZONE $4)::date) < $3::date
-         ORDER BY e.creado_en DESC, e.id DESC`,
+          FROM racha_eventos e
+          LEFT JOIN aportes a ON a.id = e.aporte_id
+          WHERE e.usuario_id = $1
+            AND COALESCE(e.dia, (e.creado_en AT TIME ZONE $4)::date) >= $2::date
+            AND COALESCE(e.dia, (e.creado_en AT TIME ZONE $4)::date) < $3::date
+          ORDER BY e.creado_en DESC, e.id DESC`,
         [usuarioId, inicio, fin, ZONA_DE_CAMPANAS],
       ),
       // El primero que se envió ese día, sea cual sea el resultado de su revisión (RF-GAM-102).
       pool.query<{ description: string; campana: string }>(
         `SELECT a.description, c.name AS campana
-         FROM aportes a JOIN campanas c ON c.id = a.campaign_id
-         WHERE a.user_id = $1 AND to_char(a.submitted_at AT TIME ZONE $3, 'YYYY-MM-DD') = $2
-         ORDER BY a.submitted_at, a.id
-         LIMIT 1`,
+          FROM aportes a JOIN campanas c ON c.id = a.campaign_id
+          WHERE a.user_id = $1 AND to_char(a.submitted_at AT TIME ZONE $3, 'YYYY-MM-DD') = $2
+          ORDER BY a.submitted_at, a.id
+          LIMIT 1`,
         [usuarioId, diaDeInicio, ZONA_DE_CAMPANAS],
       ),
     ]);
