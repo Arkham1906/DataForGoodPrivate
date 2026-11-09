@@ -12,7 +12,7 @@
 // nombre y descripción; del avistado salen el número, la pista y los requisitos. Nunca se envía nada del resto.
 
 import { pool } from "@/lib/db";
-import { ZONA_DE_CAMPANAS, hoyEnTepic } from "@/lib/fecha-de-tepic";
+import { hoyEnTepic } from "@/lib/fecha-de-tepic";
 import { asegurarMisionesVigentes } from "./misiones";
 import { recompensaDesde, textoDeRecompensa } from "./misiones-reglas";
 import { textoDeTiempoRestante } from "./misiones";
@@ -144,21 +144,20 @@ export async function obtenerResumenDeProgreso(usuarioId: number | string): Prom
         completada: boolean;
         entregada: boolean;
         renueva_a: string;
-        recompensa: unknown
+        recompensa: unknown;
         renueva_en_segundos: number;
       }>(
         `SELECT mi.id::text AS id, m.nombre, m.recompensa, mi.objetivo, mi.progreso,
-                (mi.completada_en IS NOT NULL) AS completada,
-                (mi.recompensa_entregada_en IS NOT NULL) AS entregada,
-                to_char(mi.periodo_fin AT TIME ZONE $2, 'HH24:MI') AS renueva_a
-         FROM mision_instancias mi
-         JOIN misiones m ON m.id = mi.mision_id
-         WHERE mi.usuario_id = $1 AND m.periodicidad = 'diaria'
-           AND mi.periodo_inicio <= NOW() AND mi.periodo_fin > NOW()
-         ORDER BY mi.periodo_fin, mi.id,
-         GREATEST(0, EXTRACT(EPOCH FROM (mi.periodo_fin - NOW())))::int AS renueva_en_segundos,`,
-        [usuarioId, ZONA_DE_CAMPANAS],
-      ),
+          (mi.completada_en IS NOT NULL) AS completada,
+          (mi.recompensa_entregada_en IS NOT NULL) AS entregada,
+          GREATEST(0, EXTRACT(EPOCH FROM (mi.periodo_fin - NOW())))::int AS renueva_en_segundos
+        FROM mision_instancias mi
+        JOIN misiones m ON m.id = mi.mision_id
+        WHERE mi.usuario_id = $1 AND m.periodicidad = 'diaria'
+          AND mi.periodo_inicio <= NOW() AND mi.periodo_fin > NOW()
+        ORDER BY mi.periodo_fin, mi.id`,
+          [usuarioId],
+          ),
       pool.query<{ dia: string; estado: string }>(
         `SELECT to_char(dia, 'YYYY-MM-DD') AS dia, estado
          FROM racha_dias

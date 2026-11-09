@@ -21,7 +21,7 @@ export default function MisionesDeHoy({ misiones }: { misiones: ResumenDeMisione
       <div className="flex flex-wrap items-baseline justify-between gap-x-2">
         <h2 className="text-lg font-extrabold text-system-900">Misiones de hoy</h2>
         {misiones.seRenuevanA && (
-          <span className="text-[12.5px] text-brand-800">Se renuevan a las {misiones.seRenuevanA}</span>
+          <span className="text-[12.5px] text-brand-800">Se renuevan en {misiones.seRenuevanA}</span>
         )}
       </div>
       {misiones.diarias.length === 0 ? (
