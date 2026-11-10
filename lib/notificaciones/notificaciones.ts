@@ -14,7 +14,8 @@ const TIPOS_DE_APORTES: ReadonlySet<TipoDeNotificacion> = new Set([
   "aporte_aceptado",
   "aporte_rechazado",
   "racha_interrumpida",
-  // Sus aportes aceptados pasaron a datos abiertos (2026-11-09).
+  "racha_en_riesgo",
+  "racha_por_empezar",
   "datos_publicados_aporte",
 ]);
 

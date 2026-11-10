@@ -1649,9 +1649,12 @@ export async function ensureUsuarioProgresoTable(): Promise<void> {
       racha_maxima INTEGER NOT NULL DEFAULT 0 CHECK (racha_maxima >= 0),
       ultimo_dia_activo DATE,
       protectores SMALLINT NOT NULL DEFAULT 0 CHECK (protectores BETWEEN 0 AND 3),
+      aviso_racha_dia DATE,
       creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       actualizado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+    -- Día del último aviso para cuidar o empezar la racha (2026-11-10, lib/gamificacion/racha.ts): uno por día.
+    ALTER TABLE usuario_progreso ADD COLUMN IF NOT EXISTS aviso_racha_dia DATE;
     CREATE OR REPLACE FUNCTION dfg_crear_progreso() RETURNS trigger AS $$
     BEGIN
       INSERT INTO usuario_progreso (usuario_id) VALUES (NEW.id) ON CONFLICT DO NOTHING;

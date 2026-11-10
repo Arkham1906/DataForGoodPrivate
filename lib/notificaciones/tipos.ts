@@ -13,6 +13,10 @@ export type TipoDeNotificacion =
   // Subió de rango, o una medalla subió de nivel (lib/gamificacion/evaluacion.ts, RF-GAM-49, 61, 62; 2026-11-09).
   | "rango_ascenso"
   | "medalla_nivel"
+  // A las 16:00 sin aporte de hoy (lib/gamificacion/racha.ts, RF-GAM-61; 2026-11-10): con racha de 2 días o más,
+  // para cuidarla; sin racha, para empezarla.
+  | "racha_en_riesgo"
+  | "racha_por_empezar"
   | "campana_baneo"
   | "campana_desbaneo"
   // Sobre mis campañas

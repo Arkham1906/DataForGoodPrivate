@@ -7,7 +7,7 @@ import { enviarAvisosPeriodicos } from "@/lib/notificaciones/periodicas";
 import { activateScheduledCampaigns, finalizeExpiredCampaigns } from "@/lib/campaign-date";
 import { escucharCambiosDeLaBase } from "@/lib/en-vivo-postgres";
 import { marcarDatosPorDecidir } from "@/lib/supervision/datos-abiertos";
-import { revisarRachas } from "@/lib/gamificacion/racha";
+import { avisarRachas, revisarRachas } from "@/lib/gamificacion/racha";
 import { repararRecompensasPendientes } from "@/lib/gamificacion/recompensas";
 
 const UNA_HORA_MS = 60 * 60 * 1000;
@@ -55,15 +55,16 @@ function programarBajasVencidas(): void {
 
 /**
  * Lo que la gamificación hace sola, cada minuto: la racha que cambia con el paso del tiempo (los días sin aportes,
- * lib/gamificacion/racha.ts) y las recompensas de aportes aceptados que quedaron sin dar por un fallo
- * (lib/gamificacion/recompensas.ts, RNF-GAM-08).
+ * lib/gamificacion/racha.ts), los avisos para cuidar o empezar la racha (desde las 16:00, uno por día) y las
+ * recompensas de aportes aceptados que quedaron sin dar por un fallo (lib/gamificacion/recompensas.ts, RNF-GAM-08).
  */
 function programarRachas(): void {
   const marca = globalThis as typeof globalThis & { __rachasProgramadas?: boolean };
   if (marca.__rachasProgramadas) return;
   marca.__rachasProgramadas = true;
 
-  const correr = () => revisarRachas().then(repararRecompensasPendientes);
+  // Primero la racha (una rota ayer queda en 0), después los avisos de las 16:00 y las recompensas pendientes.
+  const correr = () => revisarRachas().then(() => avisarRachas()).then(repararRecompensasPendientes);
   void correr();
   setInterval(correr, UN_MINUTO_MS).unref();
 }

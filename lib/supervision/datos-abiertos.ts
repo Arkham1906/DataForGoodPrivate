@@ -67,7 +67,7 @@ export async function marcarDatosPorDecidir(): Promise<void> {
 async function avisarAQuienesAportaron(campanaId: string | number, nombre: string, creadorId: number | null): Promise<void> {
   const { rows } = await pool.query<{ user_id: number }>(
     `SELECT DISTINCT a.user_id
-       FROM aportes a JOIN usuarios u ON u.id = a.user_id
+        FROM aportes a JOIN usuarios u ON u.id = a.user_id
       WHERE a.campaign_id = $1 AND a.status = 'aceptado' AND a.user_id IS NOT NULL
         AND a.user_id IS DISTINCT FROM $2
         AND u.eliminada_en IS NULL AND u.baja_solicitada_en IS NULL`,
@@ -100,7 +100,7 @@ export async function decidirDatosAbiertos(
   }>(
     `SELECT c.status, c.name, c.creator_id, c.supervisor_id,
             (SELECT COUNT(*)::int FROM aportes a WHERE a.campaign_id = c.id AND a.status = 'aceptado') AS aprobados
-     FROM campanas c WHERE c.id = $1 LIMIT 1`,
+      FROM campanas c WHERE c.id = $1 LIMIT 1`,
     [campanaId],
   );
   if (existente.rowCount === 0) return { ok: false, status: 404, error: "Campaña no encontrada" };

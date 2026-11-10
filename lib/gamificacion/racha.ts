@@ -12,7 +12,8 @@
 
 import type { PoolClient } from "pg";
 import { pool } from "@/lib/db";
-import { ZONA_DE_CAMPANAS, hoyEnTepic } from "@/lib/fecha-de-tepic";
+import { ZONA_DE_CAMPANAS, ahoraEnZona, hoyEnTepic } from "@/lib/fecha-de-tepic";
+import { SQL_SANCION_BLOQUEANTE } from "@/lib/sanciones";
 import { notificar } from "@/lib/notificaciones/notificaciones";
 import { evaluarProgresoDe } from "./evaluacion";
 import { RACHA_PERDIDA_MINIMA_PARA_FENIX } from "./medallas";
@@ -162,6 +163,61 @@ export async function actualizarRacha(usuarioId: number | string): Promise<void>
  * Personas cuya racha hay que recalcular sin que hayan enviado nada: pasó un día sin aportes, o quedó algo por corregir
  * (un envío cuya actualización falló, o un día provisional de la versión anterior). Corre en instrumentation-node.ts.
  */
+export const HORA_DE_AVISOS_DE_RACHA = 1;
+export const RACHA_MINIMA_PARA_AVISO = 2;
+const DIAS_DE_ACCESO_PARA_INVITAR = 14
+
+export async function avisarRachas(momento?: { hoy: string; hora: number }): Promise<void> {
+  try {
+    const hoy = momento?.hoy ?? hoyEnTepic();
+    const hora = momento?.hora ?? ahoraEnZona().hour;
+    if (hora < HORA_DE_AVISOS_DE_RACHA) return;
+    const { rows } = await pool.query<{ usuario_id: number; racha_actual: number }>(
+      `UPDATE usuario_progreso p SET aviso_racha_dia = $1::date
+        WHERE p.usuario_id IN (
+          SELECT p2.usuario_id
+            FROM usuario_progreso p2
+            JOIN usuarios u ON u.id = p2.usuario_id
+            WHERE p2.aviso_racha_dia IS DISTINCT FROM $1::date
+              AND p2.ultimo_dia_activo IS DISTINCT FROM $1::date
+              AND u.baja_solicitada_en IS NULL AND u.eliminada_en IS NULL
+              AND u.primer_inicio_sesion_en IS NOT NULL
+              AND NOT ${SQL_SANCION_BLOQUEANTE}
+              AND ((p2.racha_actual >= $3 AND p2.ultimo_dia_activo = $2::date)
+                OR (p2.racha_actual = 0 AND EXISTS (
+                      SELECT 1 FROM sessions s
+                        WHERE s.usuario_id = u.id AND s.created_at >= NOW() - make_interval(days => $4))))
+            LIMIT ${USUARIOS_POR_REVISION})
+          AND p.aviso_racha_dia IS DISTINCT FROM $1::date
+        RETURNING p.usuario_id, p.racha_actual`,
+      [hoy, sumarDias(hoy, -1), RACHA_MINIMA_PARA_AVISO, DIAS_DE_ACCESO_PARA_INVITAR],
+    );
+    // Reconocen lo logrado, sin presionar (RF-GAM-62).
+    for (const { usuario_id, racha_actual } of rows) {
+      await notificar(
+        racha_actual > 0
+          ? {
+              usuarioId: usuario_id,
+              tipo: "racha_en_riesgo",
+              titulo: "Tu racha sigue viva",
+              mensaje: `Llevas ${racha_actual} días seguidos aportando. Un aporte hoy la mantiene.`,
+              enlace: "/campanas",
+              metadata: { racha: racha_actual },
+            }
+          : {
+              usuarioId: usuario_id,
+              tipo: "racha_por_empezar",
+              titulo: "Empieza una racha",
+              mensaje: "Un aporte hoy es tu primer día de racha. Cada día seguido suma.",
+              enlace: "/campanas",
+            },
+      );
+    }
+  } catch (error) {
+    console.error("Error mandando los avisos de racha", error);
+  }
+}
+
 export async function revisarRachas(): Promise<void> {
   try {
     const hoy = hoyEnTepic();
