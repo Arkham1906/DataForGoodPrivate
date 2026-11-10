@@ -1,12 +1,12 @@
-// Catálogos en JSON (2026-11-04): lib/datos/rangos.json y lib/datos/misiones.json son la fuente de los rangos y las
-// misiones. Para cambiarlos basta editar el JSON y volver a construir la app: al arrancar, ensureGamificacion() los
-// valida y los copia a las tablas `rangos` y `misiones`. Con un error, se registra en el log y las tablas se quedan
-// como estaban. Aquí solo se valida; no hay imports de servidor.
+// Catálogos en JSON (2026-11-04): lib/datos/rangos.json, lib/datos/misiones.json y, desde el 2026-11-09,
+// lib/datos/medallas.json son la fuente de los rangos, las misiones y las medallas. Para cambiarlos basta editar el
+// JSON y volver a construir la app: al arrancar, ensureGamificacion() los valida y los copia a sus tablas. Con un
+// error, se registra en el log y las tablas se quedan como estaban. Aquí solo se valida; no hay imports de servidor.
 
-import datosDeMisiones from "@/lib/datos/misiones.json";
 import datosDeMedallas from "@/lib/datos/medallas.json";
-import { GRUPOS_DE_MEDALLA, MEDIDAS_DE_MEDALLA, type GrupoDeMedalla, type MedidaDeMedalla } from "./medallas";
+import datosDeMisiones from "@/lib/datos/misiones.json";
 import datosDeRangos from "@/lib/datos/rangos.json";
+import { GRUPOS_DE_MEDALLA, MEDIDAS_DE_MEDALLA, type GrupoDeMedalla, type MedidaDeMedalla } from "./medallas";
 import {
   MEDIDAS_DE_MISION,
   TIPOS_DE_APORTE,
@@ -112,6 +112,7 @@ export function erroresDeMedallas(medallas: MedallaDelCatalogo[]): string[] {
     if (!esTexto(m.clave) || !/^[a-z0-9_]+$/.test(m.clave)) errores.push(`${quien}: la clave usa minúsculas, números y _.`);
     if (claves.has(m.clave)) errores.push(`${quien}: clave repetida.`);
     claves.add(m.clave);
+    // medallas.nombre es UNIQUE en la base.
     if (!esTexto(m.nombre)) errores.push(`${quien}: falta el nombre.`);
     else if (nombres.has(m.nombre)) errores.push(`${quien}: el nombre «${m.nombre}» ya lo usa otra medalla.`);
     nombres.add(m.nombre);

@@ -1,6 +1,6 @@
 // Franja con la ilustración de campo (2026-11-06): en la portada de la landing lleva la campaña destacada; en
-// /explorar, /datos y /leaderboard, el buscador o las categorías encima. `redondeada` es para usarla dentro de
-// una columna (/leaderboard también se ve en el marco de la app); sin ella va a todo el ancho.
+// /explorar, /datos y /progreso/leaderboard, el buscador o las categorías encima. `redondeada` es para usarla dentro de
+// una columna (/progreso/leaderboard, dentro del marco de la app); sin ella va a todo el ancho.
 
 import type { CSSProperties, ReactNode } from "react";
 import IlustracionDeCampo from "@/components/landing/IlustracionDeCampo";

@@ -129,7 +129,7 @@ export async function actualizarRacha(usuarioId: number | string): Promise<void>
       cambio = true;
       await client.query(
         `UPDATE usuario_progreso
-          ET racha_actual = $2, racha_maxima = $3, ultimo_dia_activo = $4::date, actualizado_en = NOW()
+          SET racha_actual = $2, racha_maxima = $3, ultimo_dia_activo = $4::date, actualizado_en = NOW()
           WHERE usuario_id = $1`,
         [usuarioId, racha.actual, maxima, racha.ultimoDia],
       );

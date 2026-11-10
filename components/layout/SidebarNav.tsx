@@ -17,7 +17,6 @@ import {
   IconoInicio,
   IconoProgreso,
   IconoRevisar,
-  IconoLeaderboard
 } from "@/components/sistema/icons";
 import { claseDeOpcionMarcada, useIndicadorDeMenu } from "@/components/ui/useIndicadorDeMenu";
 import type { SessionUser } from "@/lib/session";

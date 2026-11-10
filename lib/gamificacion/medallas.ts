@@ -1,4 +1,8 @@
-/** Días que debía tener la racha perdida para que reavivarla cuente en Fénix (decisión del 2026-11-09: cualquiera). */
+// Reglas de las medallas (2026-11-04; SRS v1.3: RF-GAM-46 a 49, tabla 4.4). Lógica pura que usan
+// lib/gamificacion/mi-progreso.ts (medallas cerca de subir) y lib/gamificacion/evaluacion.ts (qué nivel toca);
+// sin imports de servidor. Los umbrales NO se escriben aquí: salen de medalla_niveles (RNF-GAM-05). Conceder un
+// nivel lo hace solo el servidor, en evaluacion.ts (RNF-GAM-06).
+
 /** Días que debía tener la racha perdida para que reavivarla cuente en Fénix (decisión del 2026-11-09: cualquiera). */
 export const RACHA_PERDIDA_MINIMA_PARA_FENIX = 1;
 

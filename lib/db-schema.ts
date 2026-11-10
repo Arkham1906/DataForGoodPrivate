@@ -2052,6 +2052,14 @@ export async function ensureMedallaNivelesTables(): Promise<void> {
   await sincronizarMedallas();
 }
 
+/**
+ * Copia lib/datos/medallas.json a `medallas` y `medalla_niveles` (2026-11-09). El JSON manda en nombre, descripción,
+ * grupo, orden, medida, activa y niveles. Lo ganado no se toca (RF-GAM-47):
+ *   - una medalla que sale del JSON se desactiva, no se borra: puede tener ganadores;
+ *   - un nivel que sale del JSON se borra solo si nadie lo alcanzó; si alguien lo tiene se conserva y se avisa en el log;
+ *   - un umbral nuevo vale para lo que se gane después: no retira niveles ya registrados.
+ * Una medalla creada antes desde el panel con el mismo nombre (sin clave) recibe la clave del JSON.
+ */
 async function sincronizarMedallas(): Promise<void> {
   const errores = erroresDeMedallas(MEDALLAS_DEL_CATALOGO);
   if (errores.length > 0) {

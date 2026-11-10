@@ -1,6 +1,6 @@
 // Estructura de la zona de usuario con sesión: TopBar + SidebarNav + VigilanteDeSesion +
 // ActualizacionEnVivo + DetectorDeUbicacion (zona por GPS) + <main id="contenido">. La usan el layout de (dashboard) y las pantallas
-// públicas que, si hay sesión, deben verse igual que el resto de la app (p. ej. /leaderboard).
+// públicas que, si hay sesión, deben verse igual que el resto de la app (hoy ninguna: /leaderboard pasó a /progreso/leaderboard el 2026-11-09).
 // Server Component: no valida la sesión, recibe el usuario ya validado por quien lo llama.
 
 import type { ReactNode } from "react";

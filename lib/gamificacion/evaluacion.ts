@@ -74,7 +74,7 @@ export async function valoresDeMedallas(client: Consultor, usuarioId: number | s
     aportes_en_potenciador: potenciadorR.rows[0]?.n ?? 0,
     aceptados_consecutivos: mayorSecuenciaSinRechazo(decisionesR.rows.map((d) => d.status)),
     // Si se agrega una medida a MEDIDAS_DE_MEDALLA sin su cálculo, esto no compila.
-  }satisfies Record<MedidaDeMedalla,number>;
+  } satisfies Record<MedidaDeMedalla, number>;
 }
 
 type FilaDeRango = {
@@ -189,10 +189,10 @@ async function evaluarMedallas(client: Consultor, usuarioId: number | string): P
     valor_guardado: number | null;
   }>(
     `SELECT m.id, m.clave, m.nombre, m.mide, COALESCE(mu.nivel_actual, 0)::int AS nivel, mu.valor_actual AS valor_guardado
-     FROM medallas m
-     LEFT JOIN medallas_usuario mu ON mu.medalla_id = m.id AND mu.usuario_id = $1
-     WHERE m.activa AND m.clave IS NOT NULL AND m.mide IS NOT NULL
-     ORDER BY m.id`,
+      FROM medallas m
+      LEFT JOIN medallas_usuario mu ON mu.medalla_id = m.id AND mu.usuario_id = $1
+      WHERE m.activa AND m.clave IS NOT NULL AND m.mide IS NOT NULL
+      ORDER BY m.id`,
     [usuarioId],
   );
   if (medallas.length === 0) return [];
@@ -209,17 +209,17 @@ async function evaluarMedallas(client: Consultor, usuarioId: number | string): P
     if (alcanzado > m.nivel) {
       await client.query(
         `INSERT INTO medallas_usuario (usuario_id, medalla_id, nivel_actual, valor_actual, actualizado_en)
-         VALUES ($1, $2, $3, $4, NOW())
-         ON CONFLICT (usuario_id, medalla_id) DO UPDATE
-           SET nivel_actual = GREATEST(medallas_usuario.nivel_actual, EXCLUDED.nivel_actual),
-               valor_actual = EXCLUDED.valor_actual, actualizado_en = NOW()`,
+          VALUES ($1, $2, $3, $4, NOW())
+          ON CONFLICT (usuario_id, medalla_id) DO UPDATE
+            SET nivel_actual = GREATEST(medallas_usuario.nivel_actual, EXCLUDED.nivel_actual),
+                valor_actual = EXCLUDED.valor_actual, actualizado_en = NOW()`,
         [usuarioId, m.id, alcanzado, valor],
       );
       // Uno por nivel, también los intermedios: cada uno tiene su fecha y su celebración (RF-GAM-84).
       for (let nivel = m.nivel + 1; nivel <= alcanzado; nivel++) {
         await client.query(
           `INSERT INTO medalla_ascensos (usuario_id, medalla_id, nivel) VALUES ($1, $2, $3)
-           ON CONFLICT (usuario_id, medalla_id, nivel) DO NOTHING`,
+            ON CONFLICT (usuario_id, medalla_id, nivel) DO NOTHING`,
           [usuarioId, m.id, nivel],
         );
       }

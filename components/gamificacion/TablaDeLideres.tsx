@@ -4,8 +4,6 @@
 // temática; las 3 primeras en el Podio y el resto en ListaDeLideres. Cliente solo para cambiar de
 // categoría y de temática sin recargar: la landing (Server Component) le pasa toda la tabla ya armada
 // con obtenerTablaDeLideres() (lib/gamificacion/clasificacion.ts).
-// Desde el 2026-11-06 (a pedido del usuario) el filtro va como en /leaderboard: sobre la franja de campo, en
-// una tarjeta blanca. El menú público ya no enlaza a /leaderboard: la tabla se encuentra al bajar por la landing.
 // Transiciones del filtro (2026-11-06, a pedido del usuario: "que no se vea esa aparición"): la pastilla se
 // desliza entre las categorías, el selector de temática se abre de a poco, la tabla se desvanece antes de
 // cambiar y su alto se anima. Con movimiento reducido, todo cambia de golpe.

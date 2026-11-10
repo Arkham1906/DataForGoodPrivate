@@ -2,6 +2,30 @@
 // aporte con cuenta: EXP con la fórmula de RF-GAM-03 (lib/gamificacion/exp-reglas.ts) y los parámetros vigentes,
 // un movimiento en exp_movimientos con todo lo usado en el cálculo, los contadores de usuario_progreso y
 // usuario_contadores, el bono de cuota si se completó y, al final, la evaluación de rango y medallas (evaluacion.ts).
+//
+//   - recompensarAporteAceptado(client, aporteId): dentro de la transacción que acepta el aporte (PATCH
+//     /api/aportes/[id]), con un SAVEPOINT: si algo falla aquí, la aceptación se guarda igual y el aporte queda con
+//     exp_otorgada NULL para que lo retome repararRecompensasPendientes().
+//   - repararRecompensasPendientes(): corre cada minuto en instrumentation-node.ts (RNF-GAM-08).
+//
+// Idempotencia (RF-GAM-08, RNF-GAM-02): aportes.exp_otorgada marca el aporte como procesado (0 si no le tocaba EXP)
+// y la clave `aporte:<id>` de exp_movimientos impide un segundo movimiento. El candado sobre usuario_progreso ordena
+// dos aceptaciones simultáneas de la misma persona (RNF-GAM-03). Orden de candados: el aporte (FOR NO KEY UPDATE, el
+// mismo que toma el UPDATE de la aceptación: no choca con las llaves foráneas que apuntan a él) y después
+// usuario_progreso. FOR UPDATE sobre el aporte podría trabarse con una transacción de misiones que ya tiene
+// usuario_progreso e inserta una fila que referencia ese aporte.
+//
+// Sin EXP ni contadores (exp_otorgada = 0): aceptado antes del lanzamiento (RF-GAM-67; esos ni se tocan), campaña que
+// no está activa ni pausada (RF-GAM-05, 57; finalizada pendiente de DA-GAM-08), cuenta suspendida o baneada (RF-GAM-59)
+// o con la baja en curso (RF-GAM-60). Los anónimos no tienen user_id: no se procesan (RF-GAM-04).
+//
+// TODO(dominio): una campaña con cuota menor a la mínima (3) no da bono (RF-GAM-38) y aquí tampoco cuenta como
+// campaña completada (Cumbres). El SRS no lo dice; se tomó así porque RF-GAM-39 liga la campaña completada al bono.
+// TODO(dominio): la cuota es campanas.quota_per_user, como en las misiones; falta confirmar que es la meta por
+// persona y no un límite (SRS, anexo A.4).
+// TODO(dominio): el multiplicador de campaña es el del día de envío (como el potenciador, RN-GAM-04); el SRS no lo
+// dice y dominio.md § 7 hablaba del día de aprobación. El «tope diario de XP» de dominio.md § 7 no tiene valor y no
+// está en el SRS: no se aplica.
 
 import type { PoolClient } from "pg";
 import { pool } from "@/lib/db";

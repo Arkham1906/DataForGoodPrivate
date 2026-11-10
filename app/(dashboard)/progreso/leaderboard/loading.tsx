@@ -1,4 +1,4 @@
-// Esqueleto de /progreso/misiones. El título y las pestañas ya están en ../layout.tsx.
+// Esqueleto de /progreso/leaderboard (pestaña Líderes). El título y las pestañas ya están en ../layout.tsx.
 
 import Skeleton from "@/components/ui/Skeleton";
 

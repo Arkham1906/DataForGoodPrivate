@@ -56,8 +56,11 @@ const nextConfig: NextConfig = {
   // http://localhost:3000/ se manda a la app. En producción el proxy solo
   // reenvía /dataforgood/..., así que esto no interfiere con otros sitios.
   async redirects() {
-    if (!basePath) return [];
-    return [{ source: "/", destination: basePath, basePath: false, permanent: false }];
+    // La tabla de líderes pasó a ser una pestaña de Mi progreso (2026-11-09): los enlaces viejos siguen sirviendo.
+    // Los parámetros (?categoria=, ?tematica=, ?pagina=) pasan solos.
+    const lideres = { source: "/leaderboard", destination: "/progreso/leaderboard", permanent: false };
+    if (!basePath) return [lideres];
+    return [{ source: "/", destination: basePath, basePath: false, permanent: false }, lideres];
   },
   env: {
     // Lo lee lib/base-path.ts para prefijar fetch, <img>, <a> y redirects.

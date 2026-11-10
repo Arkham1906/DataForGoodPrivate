@@ -1,5 +1,5 @@
 // Encabezado de las pantallas públicas (2026-11-03): etiqueta en mono, título y texto de entrada, con la
-// misma animación escalonada en todas. Lo usan /explorar, /datos, /leaderboard, /contacto, /sobre-nosotros,
+// misma animación escalonada en todas. Lo usan /explorar, /datos, /contacto, /sobre-nosotros,
 // /terminos y /privacidad. `centrado` (2026-11-06) es el estilo de la landing, hoy en todas ellas: título más
 // ligero y al centro.
 // Sirve en servidor y cliente.

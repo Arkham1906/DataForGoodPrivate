@@ -100,6 +100,7 @@ export const config = {
     "/mis-aportes/:path*",
     "/mis-campanas/:path*",
     "/cuenta/:path*",
+    "/progreso/:path*",
     "/notificaciones/:path*",
     "/supervision/:path*",
     "/sistema/:path*",

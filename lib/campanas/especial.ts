@@ -97,10 +97,9 @@ export async function quitarEspecial(campanaId: number, usuarioId: number): Prom
 }
 
 /**
- * Para la gamificación: multiplicador de XP de un aporte aprobado en `fecha` ("YYYY-MM-DD",
- * hora de Tepic; por defecto hoy). 1 si la campaña no es especial o la fecha cae fuera del
- * periodo. TODO(gamificación): usarlo al otorgar el XP de un aporte aprobado; el tope diario
- * por usuario sigue vigente (dominio.md § 7) y el bono por cuota es BONO_POR_CUOTA.
+ * Para la gamificación: multiplicador de EXP en `fecha` ("YYYY-MM-DD", hora de Tepic; por defecto hoy). 1 si la
+ * campaña no es especial o la fecha cae fuera del periodo. Desde el 2026-11-09 lo usa lib/gamificacion/recompensas.ts
+ * con el día de envío del aporte. El bono por cuota ya no es BONO_POR_CUOTA: es el proporcional del SRS (RF-GAM-37).
  */
 export async function multiplicadorDeXp(campanaId: number, fecha: string = hoyEnTepic()): Promise<number> {
   const r = await pool.query(

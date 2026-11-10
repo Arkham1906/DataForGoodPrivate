@@ -366,7 +366,7 @@ export default async function LandingPage() {
                 id="tabla-de-lideres"
                 titulo="Quienes más aportan a la comunidad"
                 texto="Solo cuentan los aportes aprobados."
-                enlace={{ href: "/leaderboard", texto: "Ver tabla completa" }}
+                enlace={{ href: "/progreso/leaderboard", texto: "Ver tabla completa" }}
               />
               <div className="landing-revelar">
                 <TablaDeLideres tabla={tablaDeLideres} />
