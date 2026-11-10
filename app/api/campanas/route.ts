@@ -104,6 +104,7 @@ function mapCampaign(row: Record<string, unknown>) {
     propositoOtro: row.proposito_otro ? String(row.proposito_otro) : null,
     status: String(row.status ?? "borrador"),
     dataTypes,
+    permiteAnonimos: row.permite_anonimos !== false,
     // Formatos de "Archivo" que acepta (2026-10-28); [] = todos.
     formatosDeDocumento: normalizarFormatosDeDocumento(row.formatos_de_documento),
     collectionMode: String(row.collection_mode ?? "checklist"),

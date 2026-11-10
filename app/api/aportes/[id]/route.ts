@@ -198,6 +198,29 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     try {
       await client.query("BEGIN");
       await client.query(`SELECT 1 FROM campanas WHERE id = $1 FOR NO KEY UPDATE`, [row.campaign_id]);
+      if (nuevoEstado === "aceptado" && row.user_id == null && row.anonimo_id != null) {
+        const { rows: campanas } = await client.query<{ goal_contributions: number }>(
+          `SELECT goal_contributions FROM campanas WHERE id = $1`,
+          [row.campaign_id],
+        );
+        const limiteAnonimos = Math.floor(Number(campanas[0]?.goal_contributions ?? 0) * 0.1);
+        const { rows: aportesAnonimos } = await client.query<{ total: number }>(
+          `SELECT COUNT(*)::int AS total
+             FROM aportes
+            WHERE campaign_id = $1
+              AND user_id IS NULL
+              AND anonimo_id IS NOT NULL
+              AND status = 'aceptado'`,
+          [row.campaign_id],
+        );
+        if (Number(aportesAnonimos[0]?.total ?? 0) >= limiteAnonimos) {
+          await client.query("ROLLBACK");
+          return NextResponse.json(
+            { error: "Se alcanzó el límite de aportes anónimos aceptados de esta campaña (10% de la meta)." },
+            { status: 409 },
+          );
+        }
+      }
       result = await client.query(
         `UPDATE aportes SET
           status = $2,

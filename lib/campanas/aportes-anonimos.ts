@@ -49,6 +49,26 @@ const VENTANA_MS = 60 * 60 * 1000;
 // TODO(dominio): valor elegido sin consulta (2026-10-01). Segundos mínimos entre dos aportes
 // sin cuenta del mismo dispositivo, en cualquier campaña.
 export const ESPERA_ENTRE_APORTES_SEGUNDOS = 60;
+const PORCENTAJE_MAXIMO_DE_APORTES_ANONIMOS = 0.1;
+
+/** Tope de aportes anónimos para la campaña; no limita aportes enviados con cuenta. */
+function limiteDeAportesAnonimos(meta: number): number {
+  return Math.floor(meta * PORCENTAJE_MAXIMO_DE_APORTES_ANONIMOS);
+}
+
+/** Cuenta solo los aportes anónimos aceptados; los pendientes y rechazados no ocupan el límite. */
+async function contarAportesAnonimos(
+  campanaId: number,
+  client: Pick<PoolClient, "query"> = pool,
+): Promise<number> {
+  const { rows } = await client.query<{ total: number }>(
+    `SELECT COUNT(*)::int AS total
+       FROM aportes
+      WHERE campaign_id = $1 AND user_id IS NULL AND anonimo_id IS NOT NULL AND status = 'aceptado'`,
+    [campanaId],
+  );
+  return Number(rows[0]?.total ?? 0);
+}
 
 /**
  * Aportes sin cuenta que un dispositivo puede enviar a cada campaña (2026-11-09, decisión del usuario:
@@ -179,6 +199,14 @@ export async function enviarAporteAnonimo(entrada: {
   if (!campana.permiteAnonimos) {
     return { ok: false, status: 403, error: "Esta campaña solo recibe aportes con cuenta." };
   }
+  const limiteAnonimos = limiteDeAportesAnonimos(campana.meta);
+  if ((await contarAportesAnonimos(campana.id)) >= limiteAnonimos) {
+    return {
+      ok: false,
+      status: 400,
+      error: "Esta campaña alcanzó su límite de aportes anónimos (10% de la meta). Aún puedes aportar con una cuenta.",
+    };
+  }
 
   if (topeAlcanzado(entrada.ip)) {
     return { ok: false, status: 429, error: "Se enviaron demasiados aportes desde tu red. Intenta más tarde." };
@@ -240,6 +268,8 @@ export async function enviarAporteAnonimo(entrada: {
     persona: `dispositivo:${anonimoId}`,
     tipo,
     cuota,
+    limiteAnonimos: limiteDeAportesAnonimos,
+    contarAnonimos: (client) => contarAportesAnonimos(campana.id, client),
     archivoSubido: guardado?.relativePath ?? null,
     comprobar: async (client) => {
       // Candado por dispositivo (el de la cuota es por campaña): dos envíos simultáneos a
@@ -281,6 +311,9 @@ export async function enviarAporteAnonimo(entrada: {
     },
   });
   if (!insertado.ok) {
+    if (insertado.motivo === "limite_anonimos") {
+      return { ok: false, status: 400, error: insertado.error };
+    }
     if (insertado.motivo === "espera") {
       return { ok: false, status: 429, error: insertado.error, esperaSegundos: insertado.esperaSegundos };
     }

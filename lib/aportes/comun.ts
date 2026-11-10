@@ -151,7 +151,8 @@ export async function guardarArchivoDelAporte(
  * La cuota por persona es general (del 2026-10-21 al 2026-10-27 se repartía por tipo; se quitó a
  * pedido del usuario). Desde el 2026-10-28 la campaña puede tener un límite TOTAL por tipo de dato
  * (lib/campanas/limite-por-tipo.ts): se revisa con la fila de la campaña bloqueada, así dos personas
- * que mandan a la vez el último lugar de un tipo no lo pasan.
+ * que mandan a la vez el último lugar de un tipo no lo pasan. El tope de aportes anónimos, cuando se
+ * entrega, también se verifica bajo el mismo bloqueo; las personas con cuenta no están sujetas a él.
  *
  * Si no se inserta, borra de MinIO el archivo que se acababa de subir.
  */
@@ -162,6 +163,10 @@ export async function insertarAporteConCuota<T>(entrada: {
   /** Identifica a la persona dentro de la campaña: `usuario:<id>` o `dispositivo:<hash>`. */
   persona: string;
   cuota: number;
+  /** Calcula el tope de anónimos desde la meta actual de la campaña, bajo el candado. */
+  limiteAnonimos?: (meta: number) => number;
+  /** Cuenta los aportes anónimos recibidos; se comprueba bajo el bloqueo de la campaña. */
+  contarAnonimos?: (client: PoolClient) => Promise<number>;
   /** Cuántos aportes tiene ya esta persona en la campaña. */
   contar: (client: PoolClient) => Promise<number>;
   /** Cuántos aportes de `tipo` tiene ya esta persona, para el tope por persona del tipo (2026-10-31). */
@@ -173,6 +178,7 @@ export async function insertarAporteConCuota<T>(entrada: {
 }): Promise<
   | { ok: true; fila: T; yaEnviados: number }
   | { ok: false; motivo: "cuota" }
+  | { ok: false; motivo: "limite_anonimos"; error: string }
   | { ok: false; motivo: "tipo_lleno"; error: string }
   | { ok: false; motivo: "cuota_del_tipo"; error: string }
   | { ok: false; motivo: "espera"; error: string; esperaSegundos: number }
@@ -194,9 +200,23 @@ export async function insertarAporteConCuota<T>(entrada: {
       await client.query("ROLLBACK");
       return { ok: false, motivo: "cuota" };
     }
-    // Límite total del tipo: con la campaña bloqueada (el mismo candado que toma recalcularContadores)
-    // y contando en la tabla, no en el contador desnormalizado.
-    await client.query(`SELECT 1 FROM campanas WHERE id = $1 FOR NO KEY UPDATE`, [entrada.campaignId]);
+    // Los topes de campaña se verifican bajo el mismo candado que toma recalcularContadores.
+    const { rows: filasCampana } = await client.query<{ goal_contributions: number }>(
+      `SELECT goal_contributions FROM campanas WHERE id = $1 FOR NO KEY UPDATE`,
+      [entrada.campaignId],
+    );
+    if (entrada.limiteAnonimos) {
+      if (!entrada.contarAnonimos) throw new Error("Falta contar los aportes anónimos de la campaña");
+      const metaActual = Number(filasCampana[0]?.goal_contributions ?? 0);
+      if ((await entrada.contarAnonimos(client)) >= entrada.limiteAnonimos(metaActual)) {
+        await client.query("ROLLBACK");
+        return {
+          ok: false,
+          motivo: "limite_anonimos",
+          error: "Esta campaña alcanzó su límite de aportes anónimos (10% de la meta). Aún puedes aportar con una cuenta.",
+        };
+      }
+    }
     const campana = await client.query<{ limite: number | null; cuota_por_persona: number | null }>(
       `SELECT limite, cuota_por_persona FROM campana_tipos WHERE campana_id = $1 AND tipo = $2`,
       [entrada.campaignId, entrada.tipo],

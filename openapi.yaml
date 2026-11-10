@@ -1413,7 +1413,10 @@ paths:
         forma de la IP. Cuota: la cuota por persona de la campaña, contada por dispositivo con la
         cookie `anonimo_id` (se crea en la primera respuesta exitosa); además, un tope de 20 aportes
         anónimos por IP por hora, y 60 segundos de espera entre dos aportes del mismo
-        dispositivo (en cualquier campaña). Solo responde cuántos aportes le quedan y la espera.
+        dispositivo (en cualquier campaña). Los aportes anónimos aceptados están limitados al 10%
+        de la meta de la campaña, redondeado hacia abajo; los pendientes y rechazados no cuentan.
+        Este límite no aplica a aportes con cuenta. Si se alcanza responde 400. Solo responde cuántos aportes le
+        quedan y la espera.
       requestBody:
         required: true
         content:
@@ -1519,7 +1522,9 @@ paths:
         `rejectionReason` es obligatorio al rechazar. `inapropiado: true` (creador o revisor) marca un aporte
         anónimo como contenido inapropiado al rechazarlo; con 3 marcados en 30 días, el
         dispositivo queda bloqueado 30 días en toda la plataforma (el mensaje lo
-        avisa). Si se acepta, se quita la marca.
+        avisa). Si se acepta, se quita la marca. Un aporte anónimo solo se puede aceptar mientras
+        no se haya alcanzado el límite del 10% de la meta contando solo aportes anónimos aceptados
+        (409); los pendientes y rechazados no consumen el cupo.
       requestBody:
         required: true
         content:
@@ -1540,6 +1545,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { description: Aporte ya decidido o límite de aportes anónimos aceptados alcanzado }
     delete:
       tags: [Aportes]
       summary: Eliminar mi aporte en revisión
@@ -2273,6 +2279,7 @@ components:
               pendiente: { type: boolean }
         status: { $ref: "#/components/schemas/CampaignStatus" }
         dataTypes: { type: array, items: { $ref: "#/components/schemas/DataType" } }
+        permiteAnonimos: { type: boolean, description: "Si /c/{token} permite aportes sin cuenta" }
         collectionMode: { $ref: "#/components/schemas/CollectionMode", description: "Obsoleto: se deriva de checklistSecciones" }
         checklistOpciones: { type: array, items: { type: string }, description: "Obsoleto: usa checklistSecciones" }
         checklistSecciones: { type: array, items: { $ref: "#/components/schemas/ChecklistSeccion" } }

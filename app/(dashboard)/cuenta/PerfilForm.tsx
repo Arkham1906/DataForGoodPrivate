@@ -4,6 +4,7 @@
 // Desde el 2026-10-20 (a pedido del usuario) los campos se editan directamente, sin "Editar
 // perfil": al cambiar algo aparecen "Descartar cambios" y "Guardar cambios", que guarda con
 // PATCH /api/usuarios/[id] (solo la propia cuenta) y avisa con un mensaje al centro de la pantalla.
+// Los cambios pendientes se conservan como borrador local por usuario y se restauran con un aviso.
 // El correo no se puede cambiar.
 // Intereses: texto libre del que salen las temáticas (ui/InteresesDesdeTexto).
 // La foto o ícono se cambia con el lápiz sobre el avatar (EditarAvatar, en page.tsx).
@@ -11,7 +12,7 @@
 // en GET /api/especialidades (ui/CampoDeEspecialidad, 2026-10-26: se elige o se escribe; una nueva se ofrece a todos).
 
 import { useRouter } from "next/navigation";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { startTransition, type ReactNode, useEffect, useRef, useState } from "react";
 import Button from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Input";
 import InteresesDesdeTexto, { type ControlDeIntereses } from "@/components/ui/InteresesDesdeTexto";
@@ -43,12 +44,58 @@ type Usuario = {
 
 // Tiempo que se queda en pantalla el aviso de "Cambios guardados".
 const DURACION_DEL_AVISO_MS = 2500;
+const VERSION_BORRADOR_PERFIL = 1;
 
 // Un select deshabilitado (municipio sin estado) se ve tenue.
 const CLASE_SELECT =
   "w-full rounded border border-system-300 bg-white px-3.5 py-3 text-sm text-system-900 outline-none transition-colors focus:border-brand-600 disabled:cursor-default disabled:opacity-50";
 // El correo, que no se edita: fondo hundido y sin cursor de texto.
 const CLASE_BLOQUEADO = "disabled:cursor-default disabled:bg-system-100";
+
+type BorradorPerfil = {
+  version: number;
+  usuarioId: number;
+  nombre: string;
+  apellidos: string;
+  state: string;
+  city: string;
+  specialty: string;
+  organizacion: string;
+  intereses: string[];
+  interesesTexto: string;
+  etiquetas: number[];
+  etiquetasNuevas: EtiquetaNueva[];
+  tematicasNuevas: string[];
+};
+
+function esBorradorPerfil(valor: unknown, usuarioId: number): valor is BorradorPerfil {
+  if (!valor || typeof valor !== "object") return false;
+  const borrador = valor as Partial<BorradorPerfil>;
+  return (
+    borrador.version === VERSION_BORRADOR_PERFIL &&
+    borrador.usuarioId === usuarioId &&
+    typeof borrador.nombre === "string" &&
+    typeof borrador.apellidos === "string" &&
+    typeof borrador.state === "string" &&
+    typeof borrador.city === "string" &&
+    typeof borrador.specialty === "string" &&
+    typeof borrador.organizacion === "string" &&
+    typeof borrador.interesesTexto === "string" &&
+    Array.isArray(borrador.intereses) &&
+    borrador.intereses.every((tema) => typeof tema === "string") &&
+    Array.isArray(borrador.etiquetas) &&
+    borrador.etiquetas.every((etiqueta) => Number.isInteger(etiqueta)) &&
+    Array.isArray(borrador.etiquetasNuevas) &&
+    borrador.etiquetasNuevas.every(
+      (etiqueta) =>
+        etiqueta &&
+        typeof etiqueta.tematica === "string" &&
+        typeof etiqueta.nombre === "string",
+    ) &&
+    Array.isArray(borrador.tematicasNuevas) &&
+    borrador.tematicasNuevas.every((tema) => typeof tema === "string")
+  );
+}
 
 export default function PerfilForm({
   usuario,
@@ -89,6 +136,10 @@ export default function PerfilForm({
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState("");
   const [avisoVisible, setAvisoVisible] = useState(false);
+  const [borradorListo, setBorradorListo] = useState(false);
+  const [borradorRestaurado, setBorradorRestaurado] = useState(false);
+  const [errorPersistencia, setErrorPersistencia] = useState("");
+  const claveBorrador = `dfg:cuenta-borrador:${usuario.id}`;
 
   useEffect(() => {
     // Quien llega desde un aviso ve en rojo lo que falta: la organización o, desde el 2026-11-03, las temáticas.
@@ -142,6 +193,97 @@ export default function PerfilForm({
     tematicasNuevas.length > 0;
 
   useEffect(() => {
+    try {
+      const texto = localStorage.getItem(claveBorrador);
+      if (!texto) {
+        startTransition(() => setBorradorListo(true));
+        return;
+      }
+
+      const valor: unknown = JSON.parse(texto);
+      if (!esBorradorPerfil(valor, usuario.id)) {
+        localStorage.removeItem(claveBorrador);
+        startTransition(() => {
+          setBorradorListo(true);
+          setErrorPersistencia("No se pudo recuperar el borrador de tu perfil porque sus datos no son válidos.");
+        });
+        return;
+      }
+
+      startTransition(() => {
+        setNombre(valor.nombre);
+        setApellidos(valor.apellidos);
+        setState(valor.state);
+        setCity(valor.city);
+        setSpecialty(valor.specialty);
+        setOrganizacion(valor.organizacion);
+        setIntereses(valor.intereses);
+        setInteresesTexto(valor.interesesTexto);
+        setEtiquetas(valor.etiquetas);
+        setEtiquetasNuevas(valor.etiquetasNuevas);
+        setTematicasNuevas(valor.tematicasNuevas);
+        setBorradorRestaurado(true);
+        setBorradorListo(true);
+      });
+    } catch (errorDeLectura) {
+      console.error("No se pudo recuperar el borrador del perfil", errorDeLectura);
+      startTransition(() => {
+        setBorradorListo(true);
+        setErrorPersistencia("No se pudo recuperar el borrador de tu perfil guardado en este dispositivo.");
+      });
+    }
+  }, [claveBorrador, usuario.id]);
+
+  useEffect(() => {
+    if (!borradorListo) return;
+    try {
+      if (!hayCambios) {
+        localStorage.removeItem(claveBorrador);
+        return;
+      }
+      const borrador: BorradorPerfil = {
+        version: VERSION_BORRADOR_PERFIL,
+        usuarioId: usuario.id,
+        nombre,
+        apellidos,
+        state,
+        city,
+        specialty,
+        organizacion,
+        intereses,
+        interesesTexto,
+        etiquetas,
+        etiquetasNuevas,
+        tematicasNuevas,
+      };
+      localStorage.setItem(claveBorrador, JSON.stringify(borrador));
+      if (errorPersistencia) startTransition(() => setErrorPersistencia(""));
+    } catch (errorDeEscritura) {
+      console.error("No se pudo conservar el borrador del perfil", errorDeEscritura);
+      startTransition(() =>
+        setErrorPersistencia("No se pudieron conservar tus cambios en este dispositivo. Guarda antes de salir de esta página."),
+      );
+    }
+  }, [
+    apellidos,
+    borradorListo,
+    city,
+    etiquetas,
+    etiquetasNuevas,
+    errorPersistencia,
+    hayCambios,
+    intereses,
+    interesesTexto,
+    nombre,
+    organizacion,
+    specialty,
+    state,
+    tematicasNuevas,
+    usuario.id,
+    claveBorrador,
+  ]);
+
+  useEffect(() => {
     if (!avisoVisible) return;
     const temporizador = setTimeout(() => setAvisoVisible(false), DURACION_DEL_AVISO_MS);
     return () => clearTimeout(temporizador);
@@ -167,6 +309,7 @@ export default function PerfilForm({
     setTematicasNuevas([]);
     setErrorDeEtiquetas(null);
     setError("");
+    setBorradorRestaurado(false);
     // Vuelve a montar los intereses: lo analizado de un texto descartado no cuenta.
     setVecesGuardado((n) => n + 1);
   }
@@ -231,6 +374,13 @@ export default function PerfilForm({
       setTematicasNuevas([]);
       setVecesGuardado((n) => n + 1);
       setGuardado({ ...cambios, specialty: especialidad, organizacion: organizacionGuardada, intereses: guardados, etiquetas: etiquetasGuardadas });
+      setBorradorRestaurado(false);
+      try {
+        localStorage.removeItem(claveBorrador);
+      } catch (errorDeLimpieza) {
+        console.error("No se pudo limpiar el borrador guardado del perfil", errorDeLimpieza);
+        setErrorPersistencia("El perfil se guardó, pero no se pudo borrar su copia temporal de este dispositivo.");
+      }
       setAvisoVisible(true);
       const returnTo = new URLSearchParams(window.location.search).get("returnTo");
       if (returnTo && destinoSeguro(returnTo) === returnTo) {
@@ -255,6 +405,17 @@ export default function PerfilForm({
           </div>
         </div>
       </section>
+
+      {borradorRestaurado && (
+        <p role="status" className="rounded border border-warning-700/30 bg-warning-50 px-4 py-3 text-[13px] text-system-800">
+          Tienes cambios sin guardar. Recuperamos las ediciones anteriores de tu perfil en este dispositivo.
+        </p>
+      )}
+      {errorPersistencia && (
+        <p role="alert" className="rounded border border-error-700 bg-error-50 px-4 py-3 text-[13px] text-error-700">
+          {errorPersistencia}
+        </p>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2">
         <section className="rounded-lg border border-system-200 bg-white p-5">

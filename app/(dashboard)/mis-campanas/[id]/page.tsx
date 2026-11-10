@@ -16,6 +16,7 @@ import Tag from "@/components/ui/Tag";
 import VentanaDeConfirmacion from "@/components/ui/VentanaDeConfirmacion";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import { AvisoNoEncontrado } from "@/components/ui/AvisoNoEncontrado";
+import PermitirAnonimos from "@/app/(dashboard)/campanas/[id]/permitir-anonimos";
 import { BASE_PATH } from "@/lib/base-path";
 import { MAX_CAMPANAS_EN_REVISION } from "@/lib/campanas/cola-de-revision";
 import { textoDeDatosAbiertos } from "@/lib/campanas/datos-abiertos";
@@ -244,6 +245,15 @@ export default function DetalleDeMisCampanasPage() {
         {campana.status !== "en_revision" && (
           <section className="rounded-lg border border-system-200 bg-white p-5 max-md:p-4">
             <h2 className="mb-4 text-[11px] font-semibold uppercase tracking-wide text-system-500">Solo para ti, como creador</h2>
+            {["activa", "pausada"].includes(campana.status) && (
+              <PermitirAnonimos
+                campanaId={campana.id}
+                inicial={campana.permiteAnonimos !== false}
+                onCambio={(permiteAnonimos) =>
+                  setCampana((actual) => (actual ? { ...actual, permiteAnonimos } : actual))
+                }
+              />
+            )}
             {campana.status === "rechazada" && (
               <div className="mb-4 rounded-lg border border-error-200 bg-error-50 p-3 text-[12.5px]">
                 <p className="font-semibold text-error-700">

@@ -60,6 +60,8 @@ export interface Campaign {
   propositoOtro?: string | null;
   status: CampaignStatus;
   dataTypes: DataType[];
+  /** Si `/c/[token]` permite aportes sin cuenta (2026-10-01). */
+  permiteAnonimos?: boolean;
   /** Formatos de "Archivo" que acepta (2026-10-28): "pdf" | "word" | "powerpoint" | "excel"; [] = todos. */
   formatosDeDocumento?: ("pdf" | "word" | "powerpoint" | "excel")[];
   collectionMode?: CollectionMode;

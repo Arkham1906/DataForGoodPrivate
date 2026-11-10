@@ -8,7 +8,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ComponentType, SVGProps } from "react";
+import { Fragment, type ComponentType, type SVGProps } from "react";
 import {
   IconoAportes,
   IconoBuscar,
@@ -21,7 +21,12 @@ import {
 import { claseDeOpcionMarcada, useIndicadorDeMenu } from "@/components/ui/useIndicadorDeMenu";
 import type { SessionUser } from "@/lib/session";
 
-type Opcion = { href: string; label: string; Icono: ComponentType<SVGProps<SVGSVGElement>> };
+type Opcion = {
+  href: string;
+  label: string;
+  Icono: ComponentType<SVGProps<SVGSVGElement>>;
+  apartado?: boolean;
+};
 
 // Todas las opciones se marcan en azul (accent), el color principal del sistema.
 const NAV_ITEMS: Opcion[] = [
@@ -43,8 +48,17 @@ export default function SidebarNav({ usuario }: { usuario: SessionUser }) {
 
   const opciones: Opcion[] = [
     ...NAV_ITEMS,
-    ...(roles.includes("supervisor") ? [{ href: "/supervision", label: "Supervisión", Icono: IconoEscudo }] : []),
-    ...(roles.includes("revisor") ? [{ href: "/revisiones", label: "Revisor de aportes", Icono: IconoRevisar }] : []),
+    ...(roles.includes("supervisor")
+      ? [{ href: "/supervision", label: "Supervisión", Icono: IconoEscudo, apartado: true }]
+      : []),
+    ...(roles.includes("revisor")
+      ? [{
+          href: "/revisiones",
+          label: "Revisor de aportes",
+          Icono: IconoRevisar,
+          apartado: true,
+        }]
+      : []),
   ];
 
   const activo = opciones.find((o) => pathname.startsWith(o.href))?.href ?? null;
@@ -60,19 +74,21 @@ export default function SidebarNav({ usuario }: { usuario: SessionUser }) {
         {opciones.map((item) => {
           const marcada = visual === item.href;
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              data-menu-clave={item.href}
-              aria-current={activo === item.href ? "page" : undefined}
-              onClick={alElegir(item.href)}
-              className={`group relative flex items-center gap-2.5 rounded-pill px-3.5 py-2.5 text-sm font-medium transition-colors duration-300 ${
-                marcada ? claseDeOpcionMarcada() : "text-system-600 hover:bg-system-100 hover:text-system-900"
-              }`}
-            >
-              <item.Icono className="h-4 w-4 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transition-none" />
-              {item.label}
-            </Link>
+            <Fragment key={item.href}>
+              {item.apartado ? <span aria-hidden="true" className="my-1.5 border-t border-system-200" /> : null}
+              <Link
+                href={item.href}
+                data-menu-clave={item.href}
+                aria-current={activo === item.href ? "page" : undefined}
+                onClick={alElegir(item.href)}
+                className={`group relative flex items-center gap-2.5 rounded-pill px-3.5 py-2.5 text-sm font-medium transition-colors duration-300 ${
+                  marcada ? claseDeOpcionMarcada() : "text-system-600 hover:bg-system-100 hover:text-system-900"
+                }`}
+              >
+                <item.Icono className="h-4 w-4 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transition-none" />
+                {item.label}
+              </Link>
+            </Fragment>
           );
         })}
       </nav>

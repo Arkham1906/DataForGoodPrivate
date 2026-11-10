@@ -1,8 +1,8 @@
 "use client";
 
-// Interruptor "Permitir aportes sin cuenta" del cuadro Compartir (compartir.tsx). Solo lo ve
-// el creador. Llama a PATCH /api/campanas/[id]/enlace { permiteAnonimos }. Apagarlo no toca
-// los aportes anónimos ya recibidos: solo hace que /c/[token] pida iniciar sesión.
+// Interruptor "Permitir aportes sin cuenta" de Compartir y de las tarjetas de /mis-campanas.
+// Solo lo ve el creador. Llama a PATCH /api/campanas/[id]/enlace { permiteAnonimos }. Apagarlo
+// no toca los aportes anónimos ya recibidos: solo hace que /c/[token] pida iniciar sesión.
 
 import { useState } from "react";
 import { BASE_PATH } from "@/lib/base-path";
@@ -11,10 +11,12 @@ export default function PermitirAnonimos({
   campanaId,
   inicial,
   onCambio,
+  compacto = false,
 }: {
   campanaId: string;
   inicial: boolean;
   onCambio: (permitir: boolean) => void;
+  compacto?: boolean;
 }) {
   const [permitir, setPermitir] = useState(inicial);
   const [guardando, setGuardando] = useState(false);
@@ -41,19 +43,28 @@ export default function PermitirAnonimos({
   }
 
   return (
-    <div className="mb-4 rounded-lg border border-system-200 px-3.5 py-3">
+    <div
+      className={
+        compacto
+          ? "relative z-10 mb-2 rounded-lg border border-system-200 bg-system-50 px-2.5 py-2"
+          : "mb-4 rounded-lg border border-system-200 px-3.5 py-3"
+      }
+    >
       <label className="flex cursor-pointer items-start gap-2.5 text-[13px] text-system-900">
         <input
           type="checkbox"
+          role="switch"
           checked={permitir}
           disabled={guardando}
           onChange={(e) => void cambiar(e.target.checked)}
-          className="mt-0.5"
+          className="relative mt-0.5 h-6 w-11 shrink-0 cursor-pointer appearance-none rounded-full bg-system-300 transition-colors before:absolute before:left-1 before:top-1 before:size-4 before:rounded-full before:bg-white before:shadow-sm before:transition-transform checked:bg-brand-600 checked:before:translate-x-5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:cursor-wait disabled:opacity-60"
         />
         <span>
-          <span className="font-medium">Permitir aportes sin cuenta</span>
-          <span className="block text-[11.5px] text-system-500">
-            Quien abra el enlace puede aportar de forma anónima. Si lo apagas, tendrá que iniciar sesión.
+          <span className={`font-medium ${compacto ? "text-[11.5px]" : ""}`}>Permitir aportes sin cuenta</span>
+          <span className={`block text-system-500 ${compacto ? "text-[10px]" : "text-[11.5px]"}`}>
+            {permitir
+              ? "Quien tenga el enlace podrá aportar sin iniciar sesión. Al desactivarlo, los aportes recibidos se conservan."
+              : "Los aportes anónimos están desactivados; quien tenga el enlace deberá iniciar sesión."}
           </span>
         </span>
       </label>
