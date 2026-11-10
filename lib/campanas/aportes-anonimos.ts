@@ -49,14 +49,23 @@ const VENTANA_MS = 60 * 60 * 1000;
 // TODO(dominio): valor elegido sin consulta (2026-10-01). Segundos mínimos entre dos aportes
 // sin cuenta del mismo dispositivo, en cualquier campaña.
 export const ESPERA_ENTRE_APORTES_SEGUNDOS = 60;
+
+// Tope de aportes sin cuenta por campaña (2026-11-10): el 10% de la meta, redondeado hacia abajo.
+// No limita los aportes con cuenta. Esta es la única copia de la regla y de su mensaje.
 const PORCENTAJE_MAXIMO_DE_APORTES_ANONIMOS = 0.1;
+const MENSAJE_LIMITE_ANONIMOS =
+  "Esta campaña alcanzó su límite de aportes anónimos (10% de la meta). Aún puedes aportar con una cuenta.";
 
 /** Tope de aportes anónimos para la campaña; no limita aportes enviados con cuenta. */
 function limiteDeAportesAnonimos(meta: number): number {
   return Math.floor(meta * PORCENTAJE_MAXIMO_DE_APORTES_ANONIMOS);
 }
 
-/** Cuenta solo los aportes anónimos aceptados; los pendientes y rechazados no ocupan el límite. */
+/**
+ * Lugares ocupados del tope: los anónimos aceptados y los que esperan revisión (decisión del
+ * usuario, 2026-11-10). Solo un rechazo libera el lugar. Como el pendiente ya ocupa su lugar al
+ * enviarse, aceptarlo no cambia la cuenta y la revisión no vuelve a comprobar el tope.
+ */
 async function contarAportesAnonimos(
   campanaId: number,
   client: Pick<PoolClient, "query"> = pool,
@@ -64,7 +73,7 @@ async function contarAportesAnonimos(
   const { rows } = await client.query<{ total: number }>(
     `SELECT COUNT(*)::int AS total
        FROM aportes
-      WHERE campaign_id = $1 AND user_id IS NULL AND anonimo_id IS NOT NULL AND status = 'aceptado'`,
+      WHERE campaign_id = $1 AND user_id IS NULL AND anonimo_id IS NOT NULL AND status <> 'rechazado'`,
     [campanaId],
   );
   return Number(rows[0]?.total ?? 0);
@@ -199,13 +208,9 @@ export async function enviarAporteAnonimo(entrada: {
   if (!campana.permiteAnonimos) {
     return { ok: false, status: 403, error: "Esta campaña solo recibe aportes con cuenta." };
   }
-  const limiteAnonimos = limiteDeAportesAnonimos(campana.meta);
-  if ((await contarAportesAnonimos(campana.id)) >= limiteAnonimos) {
-    return {
-      ok: false,
-      status: 400,
-      error: "Esta campaña alcanzó su límite de aportes anónimos (10% de la meta). Aún puedes aportar con una cuenta.",
-    };
+  // Aviso rápido antes de subir nada; la comprobación que cuenta va dentro de la transacción.
+  if ((await contarAportesAnonimos(campana.id)) >= limiteDeAportesAnonimos(campana.meta)) {
+    return { ok: false, status: 400, error: MENSAJE_LIMITE_ANONIMOS };
   }
 
   if (topeAlcanzado(entrada.ip)) {
@@ -312,7 +317,7 @@ export async function enviarAporteAnonimo(entrada: {
   });
   if (!insertado.ok) {
     if (insertado.motivo === "limite_anonimos") {
-      return { ok: false, status: 400, error: insertado.error };
+      return { ok: false, status: 400, error: MENSAJE_LIMITE_ANONIMOS };
     }
     if (insertado.motivo === "espera") {
       return { ok: false, status: 429, error: insertado.error, esperaSegundos: insertado.esperaSegundos };

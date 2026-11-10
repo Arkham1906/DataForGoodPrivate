@@ -3,15 +3,18 @@
 // Pantalla /campanas/[id]: detalle de una campaña.
 // Componente cliente. Datos: GET /api/campanas?id= (incluye viewer: creador, baneado, aportes propios).
 // Acción: guardar/quitar de favoritos con POST/DELETE /api/campanas/[id]/guardar.
-// Para aportar hay que inscribirse una vez (viewer.inscrito): las casillas de los acuerdos van aquí
-// (ui/AcuerdosDeAporte, POST /api/campanas/[id]/inscripcion); ya inscrito, sale "Realizar un aporte".
+// Para aportar hay que inscribirse una vez (viewer.inscrito): sin inscripción, "Realizar un aporte" abre la ventana
+// de los acuerdos (ui/AcuerdosDeAporte, VentanaDeInscripcion; POST /api/campanas/[id]/inscripcion) y al aceptarlos
+// lleva al formulario (2026-11-10, a pedido del usuario); ya inscrito, va directo.
 // "Compartir" abre el cuadro de compartir.tsx (enlace público /c/[token] y QR).
 // "Reportar campaña" (reportar.tsx) para quien no la creó: va a la bandeja del SuperUsuario.
+// Compartir, Favorita (estrella) y Reportar (bandera) son íconos (ui/BotonDeIcono) en la fila de la temática
+// (2026-11-10, a pedido del usuario).
 
 import { textoDeUbicacion } from "@/lib/campanas/ubicacion";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 import ProgressBar from "@/components/ui/ProgressBar";
 import RutaDeTematica from "@/components/ui/RutaDeTematica";
@@ -23,9 +26,10 @@ import { porcentajeDeMeta } from "@/lib/campanas/meta";
 import { avisoDePausa } from "@/lib/campanas/pausa";
 import CompartirCampana from "./compartir";
 import ReportarCampana from "./reportar";
+import BotonDeIcono, { IconoEstrella } from "@/components/ui/BotonDeIcono";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import { AvisoNoEncontrado } from "@/components/ui/AvisoNoEncontrado";
-import { InscripcionACampana } from "@/components/ui/AcuerdosDeAporte";
+import { VentanaDeInscripcion } from "@/components/ui/AcuerdosDeAporte";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 import { repartoSugerido } from "@/lib/campanas/reparto-sugerido";
 import { resumenDeCuotaPorTipo } from "@/lib/campanas/cuota-por-tipo";
@@ -34,6 +38,9 @@ import { textoDelProposito } from "@/lib/campanas/proposito";
 
 export default function CampaignDetailPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
+  // Ventana de los acuerdos para inscribirse (2026-11-10).
+  const [aceptandoAcuerdos, setAceptandoAcuerdos] = useState(false);
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [isCreator, setIsCreator] = useState(false);
   const [baneado, setBaneado] = useState(false);
@@ -45,6 +52,8 @@ export default function CampaignDetailPage() {
   const [noEncontrada, setNoEncontrada] = useState(false);
   const [saved, setSaved] = useState(false);
   const [guardando, setGuardando] = useState(false);
+  // "Gracias…" tras reportar con la bandera (2026-11-10).
+  const [avisoDeReporte, setAvisoDeReporte] = useState<string | null>(null);
 
   // Vuelve a leer cuando algo cambia en la base (actualización en vivo).
   const recarga = useRecargaEnVivo();
@@ -116,10 +125,31 @@ export default function CampaignDetailPage() {
           ← Volver a campañas
         </Link>
 
-        <div className="mb-2 flex items-center justify-between">
+        {/* Compartir, Favorita y Reportar como íconos en la fila de la temática (2026-11-10, a pedido del usuario;
+            antes, botones con texto: Compartir aquí, Favorita bajo "Realizar un aporte" y Reportar al final). */}
+        <div className="mb-2 flex items-center justify-between gap-3">
           <RutaDeTematica tematica={campaign.tematica || campaign.tag} etiquetas={campaign.etiquetas} />
-          <CompartirCampana campanaId={campaign.id} nombre={campaign.name} tematica={campaign.tematica || campaign.tag} />
+          <div className="flex shrink-0 items-center gap-2">
+            <CompartirCampana campanaId={campaign.id} nombre={campaign.name} tematica={campaign.tematica || campaign.tag} />
+            <BotonDeIcono
+              etiqueta={saved ? "Quitar de favoritas" : "Marcar como favorita"}
+              aria-pressed={saved}
+              disabled={guardando}
+              onClick={alternarGuardado}
+              className={saved ? "!text-warning-500" : ""}
+            >
+              <IconoEstrella rellena={saved} />
+            </BotonDeIcono>
+            {!isCreator && (
+              <ReportarCampana campanaId={campaign.id} yaReportada={yaReportada} onReportada={setAvisoDeReporte} />
+            )}
+          </div>
         </div>
+        {avisoDeReporte && (
+          <p role="status" className="mb-2 text-right text-[12.5px] text-system-600">
+            {avisoDeReporte}
+          </p>
+        )}
 
         <h1 className="mb-2 text-[26px] font-extrabold text-system-900">{campaign.name}</h1>
 
@@ -280,11 +310,23 @@ export default function CampaignDetailPage() {
                   {motivoDeBaneo && <span className="mt-1 block font-semibold">Motivo: {motivoDeBaneo}</span>}
                 </p>
               ) : campaign.status === "activa" && !inscrito ? (
-                <InscripcionACampana
-                  campanaId={campaign.id}
-                  onInscrito={() => setInscrito(true)}
-                  proposito={textoDelProposito(campaign.proposito, campaign.propositoOtro)}
-                />
+                // Sin inscribirse, "Realizar un aporte" abre la ventana de los acuerdos; al aceptarlos va al
+                // formulario (2026-11-10, a pedido del usuario; antes las casillas iban aquí mismo).
+                <>
+                  <Button variant="primary" className="w-full" onClick={() => setAceptandoAcuerdos(true)} aria-haspopup="dialog">
+                    Realizar un aporte
+                  </Button>
+                  <p className="mt-2 text-center text-[11.5px] text-system-500">
+                    Antes aceptas los acuerdos de la campaña; solo se piden una vez.
+                  </p>
+                  <VentanaDeInscripcion
+                    abierta={aceptandoAcuerdos}
+                    onCerrar={() => setAceptandoAcuerdos(false)}
+                    campanaId={campaign.id}
+                    onInscrito={() => router.push(`/campanas/${campaign.id}/aportar`)}
+                    proposito={textoDelProposito(campaign.proposito, campaign.propositoOtro)}
+                  />
+                </>
               ) : campaign.status === "activa" ? (
                 <Link href={`/campanas/${campaign.id}/aportar`}>
                   <Button variant="primary" className="w-full">Realizar un aporte</Button>
@@ -294,17 +336,9 @@ export default function CampaignDetailPage() {
               ) : (
                 <p className="rounded-lg bg-system-100 p-3 text-center text-[12.5px] text-system-600">Esta campaña no está recibiendo aportes.</p>
               )}
-              <Button variant="secondary" className="mt-2.5 w-full" disabled={guardando} onClick={alternarGuardado}>
-                {saved ? "Campaña favorita" : "Marcar como favorita"}
-              </Button>
             </div>
           </section>
         </div>
-        {!isCreator && (
-          <div className="mt-4 flex justify-start">
-            <ReportarCampana campanaId={campaign.id} yaReportada={yaReportada} />
-          </div>
-        )}
       </div>
     </div>
   );

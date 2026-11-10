@@ -78,7 +78,8 @@
 | `publicas.ts` | Búsqueda de campañas activas y pausadas (estas después, desde el 2026-10-24) con filtros | `/explorar` |
 | `panel.ts` | Métricas de una campaña (aportes por estado, participantes, avance) | Paneles de `/supervision`, `/supervisar`, `/sistema/campanas/[id]` |
 | `baneos.ts` | Baneos por campaña: consultar, listar, quitar | API de baneos, `/api/aportes`, `/usuarios/[id]` |
-| `aportes-anonimos.ts` | Aporte **sin cuenta** desde `/c/[token]`: valida enlace, campaña e interruptor `permite_anonimos`, límite por campaña del 10% de la meta aplicado a aportes aceptados (pendientes y rechazados no cuentan; la aceptación también se valida bajo el bloqueo de la campaña), sin limitar aportes con cuenta; además, bloqueos del dispositivo, cuota por dispositivo (se guarda el hash de la cookie), espera entre aportes del dispositivo (`ESPERA_ENTRE_APORTES_SEGUNDOS`), tope por IP en memoria (`TOPE_POR_IP_POR_HORA`, se poda cada minuto) y guarda el aporte sin datos personales, sin ninguna forma de la IP (los límites por IP viven en memoria). Bitácora `aporte.anonimo_enviar` sin IP | `POST /api/c/[token]/aportes`, `/c/[token]` |
+| `cuota-pendiente.ts` | `campanasConCuotaPendiente(usuarioId, { favoritasQueCierranAntesDe, limite })` (2026-11-10): activas donde le faltan aportes para su cuota (donde ya aportó o favoritas que cierran pronto; sin las propias ni las que la banearon) | Recordatorio semanal (`notificaciones/periodicas.ts`), aviso del menú lateral |
+| `aportes-anonimos.ts` | Aporte **sin cuenta** desde `/c/[token]`: valida enlace, campaña e interruptor `permite_anonimos`, límite por campaña del 10% de la meta (cuentan los aceptados y los pendientes de revisión; solo un rechazo libera el lugar; se revisa al enviar, con la campaña bloqueada; única copia de la regla), sin limitar aportes con cuenta; además, bloqueos del dispositivo, cuota por dispositivo (se guarda el hash de la cookie), espera entre aportes del dispositivo (`ESPERA_ENTRE_APORTES_SEGUNDOS`), tope por IP en memoria (`TOPE_POR_IP_POR_HORA`, se poda cada minuto) y guarda el aporte sin datos personales, sin ninguna forma de la IP (los límites por IP viven en memoria). Bitácora `aporte.anonimo_enviar` sin IP | `POST /api/c/[token]/aportes`, `/c/[token]` |
 | `enlaces.ts` | Enlace público `/c/[token]`: `asegurarEnlaceVigente` (se genera solo al quedar activa la campaña), `regenerarEnlace` (creador), buscar por token, contar visitas, atribuir aportes y generar el QR (SVG/PNG con `qrcode`). Todo en transacción con la campaña bloqueada. No autoriza: el llamador comprueba antes | `/api/campanas/[id]/{enlace,qr}`, `/c/[token]`, `POST /api/aportes`, `lib/supervision/decision.ts`, `lib/campaign-date.ts`, `PATCH`/`PUT /api/campanas/[id]` |
 | `estado-del-creador.ts` | Qué estado puede pedir el creador (`borrador`/`en_revision`), cola de 5 en revisión (`cola-de-revision.ts`, sin imports de servidor), XP fijo | `POST /api/campanas`, `PATCH`/`PUT /api/campanas/[id]` |
 | `ubicacion.ts` 🟢 | `textoDeUbicacion()` ("Centro, Tepic, Nayarit" o "Todo el país") y `TEXTO_TODO_EL_PAIS` (2026-10-21) | Detalle de campaña, Mis aportes, supervisión, `/explorar`, `/datos`, `/c/[token]`, CSV de datos abiertos |
@@ -112,6 +113,7 @@
 
 | Archivo | Qué hace | Lo usa |
 | --- | --- | --- |
+| `aviso-del-menu.ts` | `avisoDelMenuParaUsuario(usuario)` (2026-11-10): recuadro azul del menú lateral: invita a participar con un solo aviso (cuota pendiente; si no, una campaña que cierra pronto y necesita aportes, primero de sus temáticas); sin nada, la frase de siempre. No repite lo que ya llega como notificación | `layout/ShellDeUsuario` → `layout/SidebarNav` |
 | `inicio.ts` | `obtenerResumenDeInicio(usuario)`: datos de `/inicio` (cifras, campañas para ti, aportes recientes y notificaciones sin leer) | `/inicio` |
 | `tabla-roles.ts` | Roles en la tabla `usuario_roles` (2026-10-30): `columnaDeRoles(alias)` (devuelve `role` como antes), `condicionDeRol(alias, rol)`, `agregarRol`, `quitarRol` | Sesión, API de usuarios, panel, revisores |
 | `directorio.ts` | Búsqueda de usuarios, ficha, estado de la cuenta, lista de sanciones (`listarSanciones`) | `/usuarios/**` |
@@ -233,6 +235,7 @@ Subtemáticas de una temática (Protección animal → Perros, Gatos...).
 | Archivo | Qué hace | Lo usa |
 | --- | --- | --- |
 | `metricas.ts` | Cifras generales del sistema | `/sistema` |
+| `aviso-del-menu.ts` | `avisoDelMenuParaRoot({ reportes, tematicas })` (2026-11-10): pendientes del SuperUsuario para el recuadro azul del menú (campañas por supervisar, datos abiertos que solo él decide, temáticas, reportes), un renglón con enlace por cada uno; sin pendientes, la frase de siempre | Layout de `(panel)` → `sistema/Sidebar` |
 
 ## Fuera de `lib/`
 

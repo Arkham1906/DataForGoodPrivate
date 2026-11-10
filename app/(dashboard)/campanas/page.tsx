@@ -8,16 +8,19 @@
 // subtemática, tipo de dato y orden; sin vigencia.
 // Filas de botones (2026-11-02, a pedido del usuario: regresan sin quitar la barra; campanas/FilasDeFiltros): Todas, Tu
 // localidad y hasta 5 temáticas (las de tus intereses primero, con ★; el resto en
-// "Más temáticas", campanas/MasTematicas); con una temática, sus subtemáticas; y los tipos de dato. Van arriba
-// de "Campañas para ti" y filtran SOLO esa sección (2026-11-02, a pedido del usuario), con su propio estado:
-// la barra filtra solo la lista de abajo. La sección pide todas las recomendadas en orden
+// "Más temáticas", campanas/MasTematicas); con una temática, sus subtemáticas; y los tipos de dato. Desde el
+// 2026-11-10 (a pedido del usuario) van debajo del título "Campañas para ti" (antes, arriba de él) y filtran SOLO
+// esa sección, con su propio estado: la barra filtra solo la lista de abajo.
+// Tres partes separadas por una línea (2026-11-10, a pedido del usuario): "Campañas favoritas", "Campañas para
+// ti" (con sus filtros y sus avisos) y "Todas las campañas" (título visible, barra de filtros y lista). La sección pide todas las recomendadas en orden
 // (?paraTi=true&todas=true): sin filtro muestra las CAMPANAS_PARA_TI primeras; con filtro, todas las que
 // coinciden. Sin "Favoritas" en estos botones (2026-11-02, a pedido del usuario; sigue en el select de la barra).
 // "Campañas favoritas" (2026-11-04, a pedido del usuario; antes "Guardadas"): sección sin filtros, arriba de
 // "Campañas para ti", con todas las favoritas activas; sin favoritas no sale.
 // Aviso de temáticas (2026-11-02, a pedido del usuario): si la persona no tiene temáticas de interés (las
 // omitió al crear su cuenta), sale el recuadro campanas/AvisoSinTematicas (mismo estilo que el de ubicación),
-// que la lleva a "Mis intereses" de /cuenta; "Ahora no" lo oculta hasta recargar o volver a entrar.
+// que la lleva a "Mis intereses" de /cuenta; "Ahora no" lo oculta hasta recargar o volver a entrar. Desde el
+// 2026-11-10 (a pedido del usuario) va arriba de todo, antes de "Campañas favoritas".
 // Ubicación real (2026-10-31; lib/ubicacion/): si la persona activó "Usar mi ubicación"
 // (components/campanas/AvisoDeUbicacion), "Tu localidad" pasa a "Cerca de ti": su municipio detectado (GET
 // /api/ubicacion), todo su estado y todo el país, y la lista abre así. Sin zona, sigue el estado del perfil.
@@ -76,6 +79,11 @@ function guardarVistaDeCampanas(vistaCuadricula: boolean): void {
     // Si el navegador bloquea el almacenamiento, la selección dura mientras la página siga abierta.
   }
   window.dispatchEvent(new Event(EVENTO_VISTA_CAMPANAS));
+}
+
+/** Línea entre las partes de la pantalla: favoritas, para ti y todas las campañas (2026-11-10). */
+function Separador() {
+  return <hr className="mb-8 mt-3 border-system-200 max-md:mb-6 max-md:mt-2" />;
 }
 
 // Cuántas muestra "Campañas para ti" sin filtro (las mismas que CAMPANAS_PARA_TI de lib/usuarios/inicio.ts, que no se
@@ -267,7 +275,8 @@ export default function CampanasPage() {
   // Sin filtro, las CAMPANAS_PARA_TI primeras; con filtro, todas las que coinciden (2026-11-02).
   const ptCoinciden = recomendadas.filter((r) => idsParaTi.has(String(r.c.id)));
   const paraTiVisibles = (filtroParaTi.activo ? ptCoinciden : ptCoinciden.slice(0, CAMPANAS_PARA_TI)).map((r) => r.p);
-  // Van debajo del título de "Campañas para ti" si la sección no tiene qué mostrar; si no, después de ella.
+  // El de temáticas va arriba de todo, antes de "Campañas favoritas" (2026-11-10, a pedido del usuario). El de
+  // ubicación va debajo del título de "Campañas para ti" si la sección no tiene qué mostrar; si no, después de ella.
   const avisoSinTematicas = (
     <AvisoSinTematicas sinTematicas={sinTematicas}>
       <p>
@@ -307,40 +316,45 @@ export default function CampanasPage() {
         </div>
       </div>
 
-      {!cargando && !error && favoritas.length > 0 && (
-        <section aria-labelledby="campanas-favoritas" className="mb-8 max-md:mb-6">
-          <h2 id="campanas-favoritas" className="mb-3 text-lg font-extrabold text-system-900">
-            Campañas favoritas
-          </h2>
-          <div className={vistaCuadricula ? "grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-3" : "flex flex-col gap-3"}>
-            {favoritas.map((campaign) => (
-              <CampaignCard key={campaign.id} campaign={campaign} compact={!vistaCuadricula} mobileCompact={vistaCuadricula} hrefAlAbrir={`/campanas/${campaign.id}`} />
-            ))}
-          </div>
-        </section>
-      )}
+      {/* Arriba de todo, antes de "Campañas favoritas" (2026-11-10, a pedido del usuario). */}
+      {!cargando && !error && avisoSinTematicas}
 
-      {!cargando && !error && conParaTi && recomendadas.length > 0 && (
-        <FilasDeFiltros
-          filtro={filtroParaTi}
-          lugar={lugarDelFiltro}
-          cercaDeTi={zona !== null}
-          esDeMisIntereses={esDeMisIntereses}
-          className="mb-4"
-        />
+      {!cargando && !error && favoritas.length > 0 && (
+        <>
+          <section aria-labelledby="campanas-favoritas" className="mb-6 max-md:mb-5">
+            <h2 id="campanas-favoritas" className="mb-3 text-lg font-extrabold text-system-900">
+              Campañas favoritas
+            </h2>
+            <div className={vistaCuadricula ? "grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-3" : "flex flex-col gap-3"}>
+              {favoritas.map((campaign) => (
+                <CampaignCard key={campaign.id} campaign={campaign} compact={!vistaCuadricula} mobileCompact={vistaCuadricula} hrefAlAbrir={`/campanas/${campaign.id}`} />
+              ))}
+            </div>
+          </section>
+          <Separador />
+        </>
       )}
 
       {!cargando && !error && (
         <CampanasParaTi
           id="campanas-para-ti"
           campanas={conParaTi ? paraTiVisibles : []}
+          filtros={
+            conParaTi && recomendadas.length > 0 ? (
+              <FilasDeFiltros
+                filtro={filtroParaTi}
+                lugar={lugarDelFiltro}
+                cercaDeTi={zona !== null}
+                esDeMisIntereses={esDeMisIntereses}
+                className="mb-4"
+              />
+            ) : null
+          }
           vacio={
             !conParaTi ? (
-              // Sin temáticas ni ubicación: el título sigue y debajo van los dos avisos (2026-11-04, a pedido del usuario).
-              <>
-                {avisoSinTematicas}
-                {avisoDeUbicacion}
-              </>
+              // Sin temáticas ni ubicación: el título sigue y debajo va el aviso de ubicación (2026-11-04, a pedido del
+              // usuario; el de temáticas pasó arriba de "Campañas favoritas" el 2026-11-10).
+              avisoDeUbicacion
             ) : filtroParaTi.activo ? (
               <p className="text-sm text-system-600">
                 {filtroParaTi.vista === TU_LOCALIDAD && !lugarDelFiltro
@@ -352,13 +366,17 @@ export default function CampanasPage() {
             )
           }
           vistaCuadricula={vistaCuadricula}
-          className="mb-8 max-md:mb-6"
+          className="mb-6 max-md:mb-5"
         />
       )}
 
-      {!cargando && !error && conParaTi && avisoSinTematicas}
-
       {!cargando && !error && conParaTi && avisoDeUbicacion}
+
+      {!cargando && !error && <Separador />}
+
+      <h2 id="todas-las-campanas" className="mb-3 text-lg font-extrabold text-system-900">
+        Todas las campañas
+      </h2>
 
       {!cargando && !error && (
         <BarraDeFiltros
@@ -404,8 +422,6 @@ export default function CampanasPage() {
         </p>
       ) : (
         <div className={vistaCuadricula ? "grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-3" : "flex flex-col gap-3"}>
-          {/* Las tarjetas usan h3: este h2 evita saltar del h1 al h3. */}
-          <h2 className="sr-only">Lista de campañas</h2>
           {filtered.map((campaign) => (
             <CampaignCard key={campaign.id} campaign={campaign} compact={!vistaCuadricula} mobileCompact={vistaCuadricula} hrefAlAbrir={`/campanas/${campaign.id}`} />
           ))}

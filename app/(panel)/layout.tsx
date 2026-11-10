@@ -14,6 +14,7 @@ import { contarReportesPendientes } from "@/lib/reportes/reportes";
 import { contarTematicasPendientes } from "@/lib/tematicas/catalogo";
 import { contarEtiquetasPendientes } from "@/lib/etiquetas/catalogo";
 import { tituloDeSeccion } from "@/lib/titulo";
+import { avisoDelMenuParaRoot } from "@/lib/sistema/aviso-del-menu";
 
 export const dynamic = "force-dynamic";
 
@@ -35,13 +36,15 @@ export default async function PanelLayout({ children }: { children: ReactNode })
     contarEtiquetasPendientes(),
   ]);
   const tematicas = tematicasPendientes + etiquetasPendientes;
+  // Recuadro azul del menú: los pendientes del panel (2026-11-10).
+  const aviso = await avisoDelMenuParaRoot({ reportes, tematicas });
 
   return (
     <div className="min-h-screen bg-system-50">
       <ActualizacionEnVivo />
       <Topbar identificador={process.env.ROOT_USER_ID ?? "raíz"} />
       <div className="dashboard-shell flex min-w-0">
-        <Sidebar reportesPendientes={reportes} tematicasPendientes={tematicas} />
+        <Sidebar reportesPendientes={reportes} tematicasPendientes={tematicas} aviso={aviso} />
         <main id="contenido" className="min-w-0 flex-1">
           <div className="mx-auto w-full min-w-0 max-w-7xl px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
             {children}

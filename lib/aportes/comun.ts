@@ -165,7 +165,7 @@ export async function insertarAporteConCuota<T>(entrada: {
   cuota: number;
   /** Calcula el tope de anónimos desde la meta actual de la campaña, bajo el candado. */
   limiteAnonimos?: (meta: number) => number;
-  /** Cuenta los aportes anónimos recibidos; se comprueba bajo el bloqueo de la campaña. */
+  /** Cuenta los lugares ocupados del tope de anónimos; se comprueba bajo el bloqueo de la campaña. */
   contarAnonimos?: (client: PoolClient) => Promise<number>;
   /** Cuántos aportes tiene ya esta persona en la campaña. */
   contar: (client: PoolClient) => Promise<number>;
@@ -178,7 +178,7 @@ export async function insertarAporteConCuota<T>(entrada: {
 }): Promise<
   | { ok: true; fila: T; yaEnviados: number }
   | { ok: false; motivo: "cuota" }
-  | { ok: false; motivo: "limite_anonimos"; error: string }
+  | { ok: false; motivo: "limite_anonimos" }
   | { ok: false; motivo: "tipo_lleno"; error: string }
   | { ok: false; motivo: "cuota_del_tipo"; error: string }
   | { ok: false; motivo: "espera"; error: string; esperaSegundos: number }
@@ -210,11 +210,7 @@ export async function insertarAporteConCuota<T>(entrada: {
       const metaActual = Number(filasCampana[0]?.goal_contributions ?? 0);
       if ((await entrada.contarAnonimos(client)) >= entrada.limiteAnonimos(metaActual)) {
         await client.query("ROLLBACK");
-        return {
-          ok: false,
-          motivo: "limite_anonimos",
-          error: "Esta campaña alcanzó su límite de aportes anónimos (10% de la meta). Aún puedes aportar con una cuenta.",
-        };
+        return { ok: false, motivo: "limite_anonimos" };
       }
     }
     const campana = await client.query<{ limite: number | null; cuota_por_persona: number | null }>(

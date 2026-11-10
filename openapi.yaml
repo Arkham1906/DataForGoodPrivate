@@ -1413,9 +1413,9 @@ paths:
         forma de la IP. Cuota: la cuota por persona de la campaña, contada por dispositivo con la
         cookie `anonimo_id` (se crea en la primera respuesta exitosa); además, un tope de 20 aportes
         anónimos por IP por hora, y 60 segundos de espera entre dos aportes del mismo
-        dispositivo (en cualquier campaña). Los aportes anónimos aceptados están limitados al 10%
-        de la meta de la campaña, redondeado hacia abajo; los pendientes y rechazados no cuentan.
-        Este límite no aplica a aportes con cuenta. Si se alcanza responde 400. Solo responde cuántos aportes le
+        dispositivo (en cualquier campaña). Los aportes anónimos aceptados y pendientes de revisión
+        están limitados al 10% de la meta de la campaña, redondeado hacia abajo; solo un rechazo
+        libera el lugar. Este límite no aplica a aportes con cuenta. Si se alcanza responde 400. Solo responde cuántos aportes le
         quedan y la espera.
       requestBody:
         required: true
@@ -1522,9 +1522,8 @@ paths:
         `rejectionReason` es obligatorio al rechazar. `inapropiado: true` (creador o revisor) marca un aporte
         anónimo como contenido inapropiado al rechazarlo; con 3 marcados en 30 días, el
         dispositivo queda bloqueado 30 días en toda la plataforma (el mensaje lo
-        avisa). Si se acepta, se quita la marca. Un aporte anónimo solo se puede aceptar mientras
-        no se haya alcanzado el límite del 10% de la meta contando solo aportes anónimos aceptados
-        (409); los pendientes y rechazados no consumen el cupo.
+        avisa). Si se acepta, se quita la marca. El tope del 10% de aportes anónimos se revisa al
+        enviarlos (el pendiente ya ocupa su lugar), así que aceptar uno no lo vuelve a comprobar.
       requestBody:
         required: true
         content:
@@ -1545,7 +1544,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
-        "409": { description: Aporte ya decidido o límite de aportes anónimos aceptados alcanzado }
+        "409": { description: Aporte ya decidido }
     delete:
       tags: [Aportes]
       summary: Eliminar mi aporte en revisión

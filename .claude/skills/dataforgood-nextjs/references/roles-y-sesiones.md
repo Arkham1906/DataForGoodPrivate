@@ -59,7 +59,7 @@ No hay una función central: cada route handler lo comprueba con SQL. Si agregas
 | Aceptar o rechazar un aporte (decisión final) | Creador o revisor aceptado de esa campaña, si el aporte aún no tiene decisión. Decidido, nadie lo modifica |
 | Ver el archivo de un aporte | Quien aportó, el creador, o un revisor aceptado si el aporte está `pendiente` o si él lo decidió (`app/api/aportes/[id]/archivo/route.ts`) |
 | Aportar | Campaña `activa`, sin baneo en `campana_baneados`, cuota disponible y sin ser el creador |
-| Aportar sin cuenta (persona anónima) | Solo desde `/c/[token]` con enlace vigente, campaña `activa` con `permite_anonimos` y sin bloqueo del dispositivo; un aporte por dispositivo y campaña (2026-11-09; el siguiente pide crear una cuenta), 60 s de espera entre aportes del mismo dispositivo y tope por IP (`lib/campanas/aportes-anonimos.ts`). No ve ni modifica nada más |
+| Aportar sin cuenta (persona anónima) | Solo desde `/c/[token]` con enlace vigente, campaña `activa` con `permite_anonimos` y sin bloqueo del dispositivo; un aporte por dispositivo y campaña (2026-11-09; el siguiente pide crear una cuenta), anónimos aceptados y pendientes hasta el 10% de la meta (2026-11-10), 60 s de espera entre aportes del mismo dispositivo y tope por IP (`lib/campanas/aportes-anonimos.ts`). No ve ni modifica nada más |
 | Reportar un aporte al creador | Revisor aceptado de esa campaña (no el creador). Banear sigue siendo del creador |
 | Marcar un aporte anónimo como inapropiado | Creador o revisor aceptado, antes de la decisión o al rechazar (`PATCH /api/aportes/[id]` o `POST /api/aportes/[id]/inapropiado`) |
 | Bloquear el dispositivo de un aporte anónimo en la campaña, borrar su archivo, apagar los aportes sin cuenta | Solo el creador |
