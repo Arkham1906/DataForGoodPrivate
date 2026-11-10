@@ -21,6 +21,8 @@ export interface CampanaDePortada {
   participants: number;
   /** "12 dic", o null si no tiene fecha de cierre. */
   cierre: string | null;
+  /** Día de creación en Tepic, "3 nov" (2026-11-09). */
+  creada: string;
 }
 
 export interface PestanaDeCampanas {
@@ -61,7 +63,11 @@ function TarjetaDeCampana({ campana }: { campana: CampanaDePortada }) {
       </div>
 
       <div className="flex items-center justify-between gap-2 border-t border-system-200 px-4 py-3 text-[12px] text-system-500">
-        <span>{campana.cierre ? `Cierra el ${campana.cierre}` : "Sin fecha de cierre"}</span>
+        {/* Creación y cierre, una debajo de otra: en 4 columnas no caben en una línea junto a las personas. */}
+        <span className="flex min-w-0 flex-col leading-snug">
+          <span>Creada el {campana.creada}</span>
+          <span>{campana.cierre ? `Cierra el ${campana.cierre}` : "Sin fecha de cierre"}</span>
+        </span>
         <span className="shrink-0 font-mono">
           {nf.format(campana.participants)} {campana.participants === 1 ? "persona" : "personas"}
         </span>

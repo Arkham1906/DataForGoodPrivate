@@ -59,6 +59,32 @@ export async function marcarDatosPorDecidir(): Promise<void> {
   }
 }
 
+/**
+ * Al publicarse los datos (2026-11-09, a pedido del usuario): a cada persona con cuenta que tiene al menos un aporte
+ * aceptado en la campaña, que es lo que entra al conjunto. Sin el creador (ya recibe datos_publicados) ni cuentas
+ * eliminadas o con la baja pedida. Los anónimos no tienen a quién avisar.
+ */
+async function avisarAQuienesAportaron(campanaId: string | number, nombre: string, creadorId: number | null): Promise<void> {
+  const { rows } = await pool.query<{ user_id: number }>(
+    `SELECT DISTINCT a.user_id
+       FROM aportes a JOIN usuarios u ON u.id = a.user_id
+      WHERE a.campaign_id = $1 AND a.status = 'aceptado' AND a.user_id IS NOT NULL
+        AND a.user_id IS DISTINCT FROM $2
+        AND u.eliminada_en IS NULL AND u.baja_solicitada_en IS NULL`,
+    [campanaId, creadorId],
+  );
+  for (const { user_id } of rows) {
+    await notificar({
+      usuarioId: user_id,
+      tipo: "datos_publicados_aporte",
+      titulo: "Tus aportes ya son datos abiertos",
+      mensaje: `Se publicaron los datos de "${nombre}", donde participaste. Lo que aportaste ya está disponible para consultar y descargar.`,
+      campanaId,
+      enlace: `/datos/${campanaId}`,
+    });
+  }
+}
+
 export async function decidirDatosAbiertos(
   campanaId: string | number,
   decision: DecisionDeDatosAbiertos,
@@ -130,25 +156,29 @@ export async function decidirDatosAbiertos(
     detalle: { motivo: motivo || null, aportesAprobados: campana.aprobados },
   });
 
+  // Títulos "de tu campaña" (2026-11-09, a pedido del usuario): "tus datos" sonaba a sus datos personales.
+  // Publicados, llevan al conjunto en /datos/[id]; no publicados, a /mis-campanas (no hay conjunto que ver).
   if (campana.creator_id) {
     await notificar({
       usuarioId: campana.creator_id,
       campanaId,
-      enlace: "/mis-campanas",
+      enlace: publica ? `/datos/${campanaId}` : "/mis-campanas",
       metadata: motivo ? { motivo } : {},
       ...(publica
         ? {
             tipo: "datos_publicados" as const,
-            titulo: "Se publicaron tus datos abiertos",
-            mensaje: `La supervisión publicó los datos de "${campana.name}" en Datos abiertos.`,
+            titulo: "Se publicaron los datos de tu campaña",
+            mensaje: `La supervisión publicó los datos de "${campana.name}" en Datos abiertos. Ya cualquiera puede consultarlos y descargarlos.`,
           }
         : {
             tipo: "datos_no_publicados" as const,
-            titulo: "Tus datos no se publicaron",
+            titulo: "Los datos de tu campaña no se publicaron",
             mensaje: `La supervisión decidió no publicar los datos de "${campana.name}". Motivo: ${motivo}`,
           }),
     });
   }
+
+  if (publica) await avisarAQuienesAportaron(campanaId, campana.name, campana.creator_id);
 
   return { ok: true, mensaje: publica ? "Datos publicados" : "Decisión registrada: los datos no se publican" };
 }

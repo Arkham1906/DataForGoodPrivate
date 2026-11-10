@@ -66,14 +66,14 @@ const ETIQUETA_DE_SECCION = "mb-3 font-mono text-[13px] text-system-600";
 
 interface CifrasReales {
   campanasCreadas: number;
-  participantes: number;
+  usuariosRegistrados: number;
   datosRecolectados: number;
   organizaciones: number;
 }
 
 const CIFRAS_VACIAS: CifrasReales = {
   campanasCreadas: 0,
-  participantes: 0,
+  usuariosRegistrados: 0,
   datosRecolectados: 0,
   organizaciones: 0,
 };
@@ -89,9 +89,10 @@ async function obtenerCifras(): Promise<CifrasReales> {
     // los aportes, solo personas con cuenta y creadores distintos):
     //   - campañas: solo las finalizadas cuyos datos publicó su supervisor o el SuperUsuario, igual que
     //     /datos (2026-11-09, decisión del usuario; antes activa, pausada y finalizada);
-    //   - participantes: personas con cuenta y dispositivos sin cuenta (anonimo_id) con al menos un aporte
-    //     aprobado (2026-11-03, a pedido del usuario; antes contaba cualquier aporte, también rechazados);
-    //     la expresión debe ser idéntica a la del índice aportes_participante_aprobado_idx;
+    //   - usuarios registrados: todas las cuentas con el correo verificado, sin las ya eliminadas (2026-11-09,
+    //     a pedido del usuario: "todos", no solo quienes aportaron o crearon una campaña; antes "Participantes",
+    //     personas y dispositivos sin cuenta con al menos un aporte aprobado). Las que están en baja todavía
+    //     cuentan: siguen registradas hasta que se eliminan;
     //   - datos: solo aportes aprobados, como la meta y los datos abiertos;
     //   - organizaciones: quién organiza las campañas activas y finalizadas (2026-11-09, decisión del usuario;
     //     antes también las pausadas): la organización escrita o, si no hay, el nombre del creador, como
@@ -99,7 +100,7 @@ async function obtenerCifras(): Promise<CifrasReales> {
     const result = await pool.query(`
       SELECT
         (SELECT COUNT(*)::int FROM campanas WHERE ${sqlDatosPublicados("campanas")}) AS campanas_creadas,
-        (SELECT COUNT(DISTINCT COALESCE(user_id::text, anonimo_id))::int FROM aportes WHERE status = 'aceptado') AS participantes,
+        (SELECT COUNT(*)::int FROM usuarios WHERE email_verificado AND eliminada_en IS NULL) AS usuarios_registrados,
         (SELECT COUNT(*)::int FROM aportes WHERE status = 'aceptado') AS datos_recolectados,
         (SELECT COUNT(DISTINCT lower(COALESCE(NULLIF(trim(organizer), ''), NULLIF(trim(creator_name), ''))))::int
            FROM campanas WHERE status IN ('activa', 'finalizada')) AS organizaciones
@@ -107,7 +108,7 @@ async function obtenerCifras(): Promise<CifrasReales> {
     const row = result.rows[0] ?? {};
     return {
       campanasCreadas: Number(row.campanas_creadas ?? 0),
-      participantes: Number(row.participantes ?? 0),
+      usuariosRegistrados: Number(row.usuarios_registrados ?? 0),
       datosRecolectados: Number(row.datos_recolectados ?? 0),
       organizaciones: Number(row.organizaciones ?? 0),
     };
@@ -129,12 +130,14 @@ async function campanasDeLaVitrina(orden: string): Promise<CampanaDePortada[]> {
   const result = await pool.query(
     `SELECT c.id, c.name, c.description, c.organizer, c.creator_name, c.goal_contributions,
             to_char(c.end_date, 'YYYY-MM-DD') AS cierre, est.approved_contributions, est.participants,
+            to_char(c.created_at AT TIME ZONE $1, 'YYYY-MM-DD') AS creada,
             (SELECT COALESCE(array_agg(t.tipo ORDER BY t.tipo), '{}') FROM campana_tipos t WHERE t.campana_id = c.id) AS tipos
      FROM campanas c
      JOIN campana_estadisticas est ON est.campana_id = c.id
      WHERE c.status = 'activa'
      ORDER BY ${orden}
-     LIMIT 4`
+     LIMIT 4`,
+    [ZONA_DE_CAMPANAS]
   );
   return result.rows.map((row) => ({
     id: String(row.id),
@@ -145,6 +148,8 @@ async function campanasDeLaVitrina(orden: string): Promise<CampanaDePortada[]> {
     pct: porcentajeDeMeta(Number(row.approved_contributions ?? 0), Number(row.goal_contributions ?? 0)),
     participants: Number(row.participants ?? 0),
     cierre: row.cierre ? FECHA_CORTA.format(new Date(`${row.cierre}T00:00:00Z`)) : null,
+    // Fecha de creación (2026-11-09, a pedido del usuario), en el día de Tepic.
+    creada: FECHA_CORTA.format(new Date(`${row.creada}T00:00:00Z`)),
   }));
 }
 
@@ -302,6 +307,7 @@ export default async function LandingPage() {
                     )}
                   </span>
                   <span className="mt-2.5 block truncate text-[14.5px] font-medium text-system-900">{campanaDestacada.name}</span>
+                  <span className="mt-1 block font-mono text-[12px] text-system-500">Creada el {campanaDestacada.creada}</span>
                 </Link>
               </div>
             )}
@@ -313,7 +319,7 @@ export default async function LandingPage() {
           <div className="grid grid-cols-2 gap-6 text-center sm:grid-cols-4">
             {[
               { valor: cifras.campanasCreadas, etiqueta: "Campañas publicadas" },
-              { valor: cifras.participantes, etiqueta: "Participantes" },
+              { valor: cifras.usuariosRegistrados, etiqueta: "Usuarios registrados" },
               { valor: cifras.datosRecolectados, etiqueta: "Aportes aprobados" },
               { valor: cifras.organizaciones, etiqueta: "Organizaciones" },
             ].map((k) => (
@@ -345,8 +351,8 @@ export default async function LandingPage() {
             <EncabezadoDeSeccion
               id="datos-abiertos"
               etiqueta="Datos abiertos"
-              titulo="Lo que se recolecta vuelve a todos"
-              texto={`Cuando una campaña cierra y la supervisión lo aprueba, sus aportes se publican como un conjunto consultable. ${nf.format(totalConjuntos)} ${totalConjuntos === 1 ? "conjunto disponible" : "conjuntos disponibles"}.`}
+              titulo="Datos de campañas, abiertos para todos"
+              texto={`Cuando una campaña termina y la supervisión lo aprueba, la información que reunió se publica como un conjunto de datos que cualquiera puede consultar y descargar. ${nf.format(totalConjuntos)} ${totalConjuntos === 1 ? "conjunto disponible" : "conjuntos disponibles"}.`}
               enlace={{ href: "/datos", texto: "Explorar el catálogo" }}
             />
             <ul className="grid grid-cols-1 gap-4 lg:grid-cols-2">

@@ -52,6 +52,8 @@ export type TipoDeNotificacion =
   | "datos_por_decidir"
   | "datos_publicados"
   | "datos_no_publicados"
+  // A quien tiene aportes aceptados en la campaña: se publicaron sus datos (2026-11-09).
+  | "datos_publicados_aporte"
   // Campañas para participar (lib/notificaciones/campanas-por-interes.ts)
   | "campana_nueva"
   | "campana_especial"
@@ -147,6 +149,7 @@ export function categoriaDeNotificacion(tipo: string): CategoriaDeNotificacion {
     case "aporte_aceptado":
     case "campana_aceptada":
     case "datos_publicados":
+    case "datos_publicados_aporte":
     case "campana_iniciada":
     case "campana_reanudada":
     case "revisor_acepto":

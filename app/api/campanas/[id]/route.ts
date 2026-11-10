@@ -320,6 +320,13 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       !pausadaPorSupervision &&
       !guardadoLimitadoDePausada &&
       (estadoSolicitado === "en_revision" || editaCampanaPausada);
+    // Programada (aceptada, esperando su inicio; 2026-11-10, a pedido del usuario): se edita como la que pausó
+    // el creador. Meta, límites y fin se guardan y sigue programada; cualquier otro cambio vuelve a revisión.
+    const enviarRevisionDesdeProgramada =
+      currentStatus === "aceptada" &&
+      (estadoSolicitado === "en_revision" ||
+        Object.keys(body).some((key) => key !== "status" && !CAMPOS_DE_EDICION_LIMITADA.has(key)));
+    const enviarRevisionAlEditar = enviarRevisionDesdePausa || enviarRevisionDesdeProgramada;
     // Pausada con inicio futuro que el creador activa ya (2026-11-01): su inicio se adelanta a ahora (Tepic).
     let inicioAdelantado: { fecha: string; hora: string } | null = null;
 
@@ -381,50 +388,53 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       // si llegaron, endDate/endTime.
     }
 
-    if (currentStatus === "activa" || currentStatus === "pausada") {
-      if (enviarRevisionDesdePausa) {
-        // Cola de revisión llena: una pausada no se guarda como borrador, así que sigue pausada sin cambios.
-        if (await colaDeRevisionLlena(user.id)) {
-          return NextResponse.json(
-            { error: `Ya tienes ${MAX_CAMPANAS_EN_REVISION} campañas en revisión: no puedes enviar estos cambios hasta que la supervisión acepte o rechace alguna. La campaña sigue pausada.` },
-            { status: 400 }
-          );
-        }
-        const camposRequeridos = [
-          "name",
-          "description",
-          "tematica",
-          "proposito",
-          "propositoOtro",
-          "etiquetas",
-          "dataTypes",
-          "checklistSecciones",
-          "goalContributions",
-          "quotaPerUser",
-          "startDate",
-          "endDate",
-          "todoElPais",
-          "locationState",
-          "locationCity",
-          "locationColonia",
-        ];
-        if (camposRequeridos.some((campo) => !(campo in body))) {
-          return NextResponse.json({ error: "Para enviar a revisión, guarda todos los datos de la campaña" }, { status: 400 });
-        }
-        // Con el cierre vencido, al aprobarse se activaría y finalizaría sola (2026-11-04).
-        if (hasCampaignEnded(normalizeCampaignDate(body.endDate), normalizeCampaignTime(body.endTime ?? existing.rows[0].end_time))) {
-          return NextResponse.json(
-            { error: "La fecha de finalización ya pasó: pon una nueva para enviarla a revisión" },
-            { status: 400 }
-          );
-        }
-        const camposNoPermitidos = Object.keys(body).filter(
-          (key) => key !== "status" && !CAMPOS_EDITABLES_EN_PAUSA.has(key)
+    // Pausada por el creador o programada que vuelve a revisión con la edición.
+    if (enviarRevisionAlEditar) {
+      const comoQueda = currentStatus === "aceptada" ? "programada" : "pausada";
+      // Cola de revisión llena: no se guarda como borrador, así que sigue pausada o programada sin cambios.
+      if (await colaDeRevisionLlena(user.id)) {
+        return NextResponse.json(
+          { error: `Ya tienes ${MAX_CAMPANAS_EN_REVISION} campañas en revisión: no puedes enviar estos cambios hasta que la supervisión acepte o rechace alguna. La campaña sigue ${comoQueda}.` },
+          { status: 400 }
         );
-        if (camposNoPermitidos.length > 0) {
-          return NextResponse.json({ error: "Con la campaña pausada hay campos que no se pueden modificar" }, { status: 400 });
-        }
       }
+      const camposRequeridos = [
+        "name",
+        "description",
+        "tematica",
+        "proposito",
+        "propositoOtro",
+        "etiquetas",
+        "dataTypes",
+        "checklistSecciones",
+        "goalContributions",
+        "quotaPerUser",
+        "startDate",
+        "endDate",
+        "todoElPais",
+        "locationState",
+        "locationCity",
+        "locationColonia",
+      ];
+      if (camposRequeridos.some((campo) => !(campo in body))) {
+        return NextResponse.json({ error: "Para enviar a revisión, guarda todos los datos de la campaña" }, { status: 400 });
+      }
+      // Con el cierre vencido, al aprobarse se activaría y finalizaría sola (2026-11-04).
+      if (hasCampaignEnded(normalizeCampaignDate(body.endDate), normalizeCampaignTime(body.endTime ?? existing.rows[0].end_time))) {
+        return NextResponse.json(
+          { error: "La fecha de finalización ya pasó: pon una nueva para enviarla a revisión" },
+          { status: 400 }
+        );
+      }
+      const camposNoPermitidos = Object.keys(body).filter(
+        (key) => key !== "status" && !CAMPOS_EDITABLES_EN_PAUSA.has(key)
+      );
+      if (camposNoPermitidos.length > 0) {
+        return NextResponse.json({ error: `Con la campaña ${comoQueda} hay campos que no se pueden modificar` }, { status: 400 });
+      }
+    }
+
+    if (currentStatus === "activa" || currentStatus === "pausada") {
       // El creador puede finalizarla, pausarla (activa) o reanudarla (pausada)
       // desde /mis-campanas, sin tocar ningún otro campo a la vez. Una pausada
       // cuyo inicio se movió al futuro se programa (2026-10-27): vuelve a
@@ -533,9 +543,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       });
     }
 
-    if (currentStatus === "aceptada") {
-      // Ya la aprobó el supervisor pero todavía no empieza: igual que activa
-      // o pausada, solo se ajusta la meta de aportes y la fecha/hora de fin.
+    if (currentStatus === "aceptada" && !enviarRevisionDesdeProgramada) {
+      // Ya la aprobó el supervisor pero todavía no empieza: sin volver a revisión solo se ajusta la meta,
+      // los límites y la fecha/hora de fin (lo demás la manda a revisión, enviarRevisionDesdeProgramada).
       // No tiene el atajo de "finalizar" porque aún no arrancó a recolectar.
       const camposNoPermitidos = Object.keys(body).filter((key) => !CAMPOS_DE_EDICION_LIMITADA.has(key));
       if (camposNoPermitidos.length > 0) {
@@ -560,7 +570,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const description = "description" in body ? String(body.description ?? "").trim() : null;
     let tematica = "tematica" in body || "tag" in body ? String(body.tematica ?? body.tag ?? "").trim() : null;
     let status = "status" in body ? normalizeCampaignStatus(body.status) : null;
-    if (enviarRevisionDesdePausa) status = "en_revision";
+    if (enviarRevisionAlEditar) status = "en_revision";
     const dataTypes = "dataTypes" in body || "data_types" in body ? normalizeDataTypes(body.dataTypes ?? body.data_types) : null;
     // Formatos de "Archivo" (2026-10-28): si llegan o cambian los tipos; sin "documento", [].
     const formatosDeDocumento =
@@ -664,8 +674,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       }
     }
     // Pausada: casi siempre ya empezó, así que su inicio (en el pasado) se conserva; solo
-    // si se mueve, el nuevo no puede ser antes de hoy. Nombre, descripción y temática no se vacían.
-    if (currentStatus === "pausada" && (status === null || enviarRevisionDesdePausa)) {
+    // si se mueve, el nuevo no puede ser antes de hoy (igual en la programada que vuelve a revisión). Nombre, descripción y temática no se vacían.
+    if ((currentStatus === "pausada" && (status === null || enviarRevisionDesdePausa)) || enviarRevisionDesdeProgramada) {
       if (startDate !== undefined && startDate !== normalizeCampaignDate(existing.rows[0].start_date)) {
         const errorDeInicio = errorDeInicioPasado(startDate);
         if (errorDeInicio) return NextResponse.json({ error: errorDeInicio }, { status: 400 });
@@ -711,7 +721,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     // se revisa el que llega o, si no llega, el que ya tenía.
     const traeProposito = "proposito" in body || "propositoOtro" in body;
     let propositoNuevo: { proposito: string | null; otro: string | null } | null = null;
-    if (traeProposito || ((ESTADOS_CON_EDICION_COMPLETA.has(currentStatus) || enviarRevisionDesdePausa) && effectiveStatus !== "borrador")) {
+    if (traeProposito || ((ESTADOS_CON_EDICION_COMPLETA.has(currentStatus) || enviarRevisionAlEditar) && effectiveStatus !== "borrador")) {
       const validado = validarProposito(
         traeProposito ? body.proposito : existing.rows[0].proposito,
         traeProposito ? body.propositoOtro ?? body.proposito_otro : existing.rows[0].proposito_otro,
@@ -736,7 +746,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     // Etiquetas (subtemáticas, 2026-10-27): se validan y guardan antes del UPDATE, con la temática
     // que va a quedar; si hay un error, no cambia nada. En pausa se comparan para el aviso al supervisor.
     const tematicaQueQueda = tematica || String(existing.rows[0].tematica ?? existing.rows[0].tag ?? "");
-    const etiquetasAntes = currentStatus === "pausada" ? await nombresDeEtiquetasDeCampana(Number(id)) : [];
+    const etiquetasAntes = currentStatus === "pausada" || enviarRevisionDesdeProgramada ? await nombresDeEtiquetasDeCampana(Number(id)) : [];
     if ("etiquetas" in body) {
       const errorDeEtiquetas = await guardarEtiquetasDeCampana(pool, {
         campanaId: Number(id),
@@ -789,8 +799,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         pausa_por = CASE WHEN $5 IN ('en_revision', 'activa') AND status = 'pausada' AND pausa_por = 'creador' THEN NULL WHEN $5 = 'pausada' AND status <> 'pausada' THEN 'creador' ELSE pausa_por END,
         pausa_motivo = CASE WHEN $5 IN ('en_revision', 'activa') AND status = 'pausada' AND pausa_por = 'creador' THEN NULL WHEN $5 = 'pausada' AND status <> 'pausada' THEN NULL ELSE pausa_motivo END,
         pausada_en = CASE WHEN $5 IN ('en_revision', 'activa') AND status = 'pausada' AND pausa_por = 'creador' THEN NULL WHEN $5 = 'pausada' AND status <> 'pausada' THEN NOW() ELSE pausada_en END,
-        supervisor_id = CASE WHEN $5 = 'en_revision' AND status = 'pausada' THEN NULL ELSE supervisor_id END,
-        supervisado_por_root = CASE WHEN $5 = 'en_revision' AND status = 'pausada' THEN false ELSE supervisado_por_root END,
+        supervisor_id = CASE WHEN $5 = 'en_revision' AND status IN ('pausada', 'aceptada') THEN NULL ELSE supervisor_id END,
+        supervisado_por_root = CASE WHEN $5 = 'en_revision' AND status IN ('pausada', 'aceptada') THEN false ELSE supervisado_por_root END,
         updated_at = NOW()
       WHERE id = $1
       RETURNING *, ${columnasCalculadas()}`,
@@ -843,17 +853,18 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       avisarCampanaPorRevisar({
         id: Number(id),
         creadorId: Number(user.id),
-        otraVez: currentStatus === "rechazada" || enviarRevisionDesdePausa,
+        otraVez: currentStatus === "rechazada" || enviarRevisionAlEditar,
       });
     }
     // Se editó estando pausada: queda en la bitácora, también con "Guardar y reanudar" (2026-11-07). Solo si
     // la pausó la supervisión (sigue pausada), un cambio real cuenta como ajustes: habilita "Reanudar" y
     // avisa a quien la supervisa. La pausa del creador no pide ajustes a nadie.
     if (
-      currentStatus === "pausada" &&
+      (currentStatus === "aceptada" && result.rows[0].status === "en_revision") ||
+      (currentStatus === "pausada" &&
       (result.rows[0].status === "en_revision" ||
         result.rows[0].status === "pausada" ||
-        (result.rows[0].status === "activa" && guardadoLimitadoDePausada))
+        (result.rows[0].status === "activa" && guardadoLimitadoDePausada)))
     ) {
       const antes = existing.rows[0];
       const despues = result.rows[0];
@@ -863,7 +874,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       if (campos.length > 0) {
         await registrarAuditoria({
           actor: { tipo: "usuario", id: Number(user.id) },
-          accion: "campana.editar_pausada",
+          accion: currentStatus === "aceptada" ? "campana.editar_programada" : "campana.editar_pausada",
           objetivo: { tipo: "campana", id: Number(id) },
           detalle: { campos },
         });

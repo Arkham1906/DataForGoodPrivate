@@ -25,7 +25,7 @@ export const OPCIONES_DE_PREFERENCIAS: {
     clave: "avisosAportes",
     columna: "avisos_aportes",
     titulo: "Aportes",
-    encendida: "Te avisamos cuando aceptan o rechazan uno de tus aportes.",
+    encendida: "Te avisamos cuando aceptan o rechazan uno de tus aportes, y cuando se publican en datos abiertos.",
     apagada: "No recibes avisos del estado de tus aportes; los ves en Mis aportes.",
   },
   {

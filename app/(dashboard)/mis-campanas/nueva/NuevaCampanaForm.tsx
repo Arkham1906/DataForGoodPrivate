@@ -348,7 +348,9 @@ export default function NuevaCampanaForm() {
     !editingCampaign ||
     editingCampaign.status === "borrador" ||
     editingCampaign.status === "rechazada" ||
-    (editingCampaign.status === "pausada" && editingCampaign.pausa?.por !== "supervision");
+    (editingCampaign.status === "pausada" && editingCampaign.pausa?.por !== "supervision") ||
+    // Programada (2026-11-10): sus cambios amplios vuelven a revisión.
+    editingCampaign.status === "aceptada";
   const colaLlena = vaARevision && campanasEnRevision >= MAX_CAMPANAS_EN_REVISION;
 
   // Mientras carga, no se monta el formulario: sus campos leen
@@ -419,17 +421,21 @@ function CampanaFormulario({
   // aceptada (aprobada, esperando su fecha de inicio) solo permiten ajustar
   // meta y fecha de finalización, sin tocar su estado; pausada permite casi
   // todo y al guardar pasa a revisión, salvo que solo cambien meta/límites o fin;
+  // aceptada (programada, 2026-11-10) igual que la pausada, y también puede mover su inicio;
   // finalizada queda en solo lectura.
   const status = editingCampaign?.status;
   const soloLectura = status === "finalizada";
   const edicionLimitada = status === "activa" || status === "pausada" || status === "aceptada";
   const edicionCompleta = !edicionLimitada && !soloLectura;
   const editaEnPausa = status === "pausada";
+  // Aceptada que espera su inicio: se edita como la pausada (2026-11-10, a pedido del usuario).
+  const editaProgramada = status === "aceptada";
+  const edicionAmplia = editaEnPausa || editaProgramada;
   // La que pausó la supervisión sigue pausada al guardar: solo la supervisión la reanuda (2026-11-04).
   const pausadaPorSupervision = editaEnPausa && editingCampaign?.pausa?.por === "supervision";
-  const enviarRevisionAlGuardar = editaEnPausa && !pausadaPorSupervision;
-  // Lo que solo se edita por completo o en pausa (nombre, temática, tipos, cuota, inicio, ubicación).
-  const contenidoBloqueado = edicionLimitada && !editaEnPausa;
+  const enviarRevisionAlGuardar = (editaEnPausa && !pausadaPorSupervision) || editaProgramada;
+  // Lo que solo se edita por completo, en pausa o programada (nombre, temática, tipos, cuota, ubicación).
+  const contenidoBloqueado = edicionLimitada && !edicionAmplia;
 
   const [name, setName] = useState(editingCampaign?.name ?? "");
   const [description, setDescription] = useState(editingCampaign?.description ?? "");
@@ -583,6 +589,8 @@ function CampanaFormulario({
   const hoyLocal = useSyncExternalStore(suscribirSinCambios, fechaLocalActual, fechaEnServidor);
   const [inicioModificado, setInicioModificado] = useState(false);
   const fechaInicioFormulario = startDate || (!editingCampaign && !inicioModificado ? hoyLocal : "");
+  // Solo la programada puede mover su inicio (la pausada lo tiene bloqueado en el formulario).
+  const inicioMovido = edicionAmplia && startDate !== (editingCampaign?.startDate ?? "");
   const fechaFinFormulario =
     editingCampaign
       ? endDate
@@ -776,8 +784,9 @@ function CampanaFormulario({
   // La cuota y sus máximos sí cuentan como cambio amplio (2026-11-07): "Guardar y reanudar" no los
   // manda, y antes ese cambio se perdía sin avisar.
   const soloMetaYFechaCambiables =
-    editaEnPausa &&
+    edicionAmplia &&
     !pausadaPorSupervision &&
+    !inicioMovido &&
     cuotaFinal === (editingCampaign?.quotaPerUser ?? 0) &&
     JSON.stringify(maximosOrdenados(cuotaPorTipo)) === JSON.stringify(maximosOrdenados(maximosOriginales)) &&
     JSON.stringify({
@@ -812,7 +821,9 @@ function CampanaFormulario({
       });
 
   // Una pausada no se guarda como borrador: con la cola llena, sigue pausada sin estos cambios.
-  const avisoDeColaLlena = editaEnPausa
+  // Lo que dice el botón principal: la programada que solo cambia meta/límites o fin se guarda sin revisión.
+  const vaARevisionAlGuardar = !edicionLimitada || (enviarRevisionAlGuardar && !(editaProgramada && soloMetaYFechaCambiables));
+  const avisoDeColaLlena = edicionAmplia
     ? `Ya tienes ${MAX_CAMPANAS_EN_REVISION} campañas en revisión: no puedes enviar estos cambios hasta que la supervisión acepte o rechace alguna`
     : `Ya tienes ${MAX_CAMPANAS_EN_REVISION} campañas en revisión: guárdala como borrador y envíala cuando la supervisión acepte o rechace alguna`;
 
@@ -1050,7 +1061,7 @@ function CampanaFormulario({
       }
       return lista;
     }
-    if (editaEnPausa) {
+    if (edicionAmplia) {
       if (!name.trim()) agregar("nombre", "Falta el nombre de la campaña");
       if (!description.trim()) agregar("descripcion", "Falta la descripción");
       if (!theme) agregar("tematica", "Elige una temática");
@@ -1139,7 +1150,7 @@ function CampanaFormulario({
           limitePorTipo,
           endDate: fechaFinFormulario,
         }
-      : editaEnPausa
+      : edicionAmplia && !(editaProgramada && soloMetaYFechaCambiables)
       ? {
           status: enviarRevisionAlGuardar ? "en_revision" : undefined,
           ...(propositoEditado || enviarRevisionAlGuardar
@@ -1247,7 +1258,6 @@ function CampanaFormulario({
     }
   }
 
-  const inicioMovido = editaEnPausa && startDate !== (editingCampaign?.startDate ?? "");
   // Problemas a la vista: después del primer intento de guardar, se recalculan mientras se corrige.
   const errores: Problema[] = [
     ...(intento ? problemasDe(intento === "borrador", intento === "reanudar") : []),
@@ -1330,10 +1340,12 @@ function CampanaFormulario({
                 : colaLlena
                 ? "La campaña está pausada. Tu cola de revisión está llena: todavía no puedes enviar cambios."
                 : "La campaña está pausada: puedes editar sus datos. Al guardar, pasará a revisión y no recibirá aportes hasta que la supervisión decida."
+              : editaProgramada
+              ? colaLlena
+                ? "La campaña está programada. Tu cola de revisión está llena: por ahora solo puedes ajustar la meta, los límites y la fecha de finalización."
+                : "La campaña está programada: puedes editar sus datos. Si solo cambias la meta, los límites o la fecha de finalización, sigue programada; cualquier otro cambio la manda a revisión y no empezará hasta que la supervisión lo acepte."
               : edicionLimitada
-              ? status === "aceptada"
-                ? "La campaña ya fue aceptada y espera su fecha de inicio: solo puedes ajustar la meta de aportes y la fecha de finalización."
-                : "La campaña ya está en curso: solo puedes ajustar la meta de aportes y la fecha de finalización. Para cambiar lo demás, páusala."
+              ? "La campaña ya está en curso: solo puedes ajustar la meta de aportes y la fecha de finalización. Para cambiar lo demás, páusala."
               : "Completa los cinco pasos y envíala a revisión. Puedes guardarla como borrador en cualquier momento."}
           </p>
         </div>
@@ -1374,6 +1386,8 @@ function CampanaFormulario({
             <b>Ya tienes {MAX_CAMPANAS_EN_REVISION} campañas en revisión.</b>{" "}
             {editaEnPausa
               ? "No puedes enviar cambios hasta que la supervisión acepte o rechace alguna. Mientras tanto, puedes reanudarla sin cambios desde Mis campañas."
+              : editaProgramada
+              ? "No puedes enviar cambios a revisión hasta que la supervisión acepte o rechace alguna. Mientras tanto, puedes ajustar la meta, los límites y la fecha de finalización: sigue programada."
               : "Puedes guardar esta como borrador y enviarla cuando la supervisión acepte o rechace alguna."}
           </p>
           <Link href="/mis-campanas">
@@ -1577,13 +1591,14 @@ function CampanaFormulario({
                 <div data-campo="inicio" className="flex gap-2">
                   <CampoDeFecha
                     value={fechaInicioFormulario}
-                    min={edicionLimitada ? undefined : editingCampaign ? hoyEnTepic() : hoyLocal || undefined}
+                    min={edicionLimitada && !editaProgramada ? undefined : editingCampaign ? hoyEnTepic() : hoyLocal || undefined}
                     aria-label="Fecha de inicio"
                     onChange={cambiarInicio}
                     required
-                    // Bloqueado desde que se publicó (activa, aceptada, pausada). Borrador, en revisión y
-                    // rechazada lo necesitan: con el inicio vencido no se podrían guardar ni reenviar.
-                    disabled={edicionLimitada}
+                    // Bloqueado desde que empezó (activa, pausada). Borrador, en revisión y rechazada lo
+                    // necesitan: con el inicio vencido no se podrían guardar ni reenviar. La programada
+                    // (2026-11-10) lo puede mover; si lo mueve, vuelve a revisión.
+                    disabled={edicionLimitada && !editaProgramada}
                   />
                 </div>
               </Field>
@@ -2202,11 +2217,15 @@ function CampanaFormulario({
           )}
           {edicionLimitada && (
             <div className="mb-6 max-w-lg rounded-lg bg-system-100 p-4 text-[12.5px] text-system-600">
-              {enviarRevisionAlGuardar
+              {editaProgramada && soloMetaYFechaCambiables
+                ? "La campaña está programada: estos cambios se guardan y sigue programada. Si cambias algo más, pasará a En revisión y no empezará hasta que la supervisión lo acepte."
+                : editaProgramada
+                ? `${colaLlena ? "Cuando haya un lugar en tu cola de revisión, al guardar" : "Al guardar"}, la campaña pasará a En revisión y no empezará hasta que la supervisión acepte los cambios.`
+                : enviarRevisionAlGuardar
                 ? `${colaLlena ? "Cuando haya un lugar en tu cola de revisión, al guardar" : "Al guardar"}, la campaña pasará a En revisión. No recibirá aportes nuevos mientras la supervisión revisa los cambios.`
                 : pausadaPorSupervision
                 ? "La pausó la supervisión: los cambios se guardan, sigue pausada y solo quien la supervisa puede reanudarla."
-                : `La campaña está ${status === "aceptada" ? "aceptada" : "activa"}: los cambios se guardan y mantiene su estado actual.`}
+                : "La campaña está activa: los cambios se guardan y mantiene su estado actual."}
               {editaEnPausa &&
                 ` Los aportes que ya llegaron no cambian, aunque su tipo de dato ya no se pida. ${
                   pausadaPorSupervision ? "Quien la supervisa recibe un aviso de lo que cambiaste." : "La supervisión recibe la campaña para revisar los cambios."
@@ -2244,7 +2263,7 @@ function CampanaFormulario({
                 </Button>
               )}
               {/* Siempre activo (2026-10-27): si falta algo, al tocarlo se explica qué. */}
-              {soloMetaYFechaCambiables ? (
+              {soloMetaYFechaCambiables && editaEnPausa ? (
                 <>
                   <Button
                     variant="secondary"
@@ -2271,12 +2290,10 @@ function CampanaFormulario({
                   type="submit"
                   size="sm"
                   className="whitespace-nowrap px-2 sm:px-3.5"
-                  aria-label={enviarRevisionAlGuardar || !edicionLimitada ? "Enviar a revisión" : "Guardar cambios"}
+                  aria-label={vaARevisionAlGuardar ? "Enviar a revisión" : "Guardar cambios"}
                 >
-                  <span className="sm:hidden">{enviarRevisionAlGuardar || !edicionLimitada ? "Enviar" : "Guardar"}</span>
-                  <span className="hidden sm:inline">
-                    {enviarRevisionAlGuardar ? "Enviar a revisión" : edicionLimitada ? "Guardar cambios" : "Enviar a revisión"}
-                  </span>
+                  <span className="sm:hidden">{vaARevisionAlGuardar ? "Enviar" : "Guardar"}</span>
+                  <span className="hidden sm:inline">{vaARevisionAlGuardar ? "Enviar a revisión" : "Guardar cambios"}</span>
                 </Button>
               )}
             </div>

@@ -10,7 +10,13 @@ import { enviarPush } from "./push";
 import { publicarAviso } from "@/lib/en-vivo";
 
 /** Avisos que se apagan con la preferencia "Aportes" (usuario_preferencias.avisos_aportes). */
-const TIPOS_DE_APORTES: ReadonlySet<TipoDeNotificacion> = new Set(["aporte_aceptado", "aporte_rechazado", "racha_interrumpida"]);
+const TIPOS_DE_APORTES: ReadonlySet<TipoDeNotificacion> = new Set([
+  "aporte_aceptado",
+  "aporte_rechazado",
+  "racha_interrumpida",
+  // Sus aportes aceptados pasaron a datos abiertos (2026-11-09).
+  "datos_publicados_aporte",
+]);
 
 /**
  * Las que llegan aunque la persona apague "Notificaciones" (usuario_preferencias.notificaciones_activas, 2026-10-19):

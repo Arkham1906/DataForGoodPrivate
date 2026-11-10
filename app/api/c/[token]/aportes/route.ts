@@ -15,8 +15,9 @@ import { getSessionUser } from "@/lib/session";
 // POST (multipart/form-data: file, description, caracteristicas[], aceptaUso=si,
 // confirmaContenido=si; sin las dos casillas responde 400; file es opcional si la campaña
 // acepta texto; 413 si el cuerpo pasa del archivo más grande permitido): envía el aporte como
-// "Anónimo". Cuota por dispositivo (cookie anonimo_id, se crea aquí si no existe), tope por IP
-// y espera entre aportes del mismo dispositivo (429 con esperaSegundos y Retry-After).
+// "Anónimo". Un aporte por dispositivo y campaña (cookie anonimo_id, se crea aquí si no existe;
+// el segundo responde 403 con pideCuenta: true, 2026-11-09), tope por IP y espera entre aportes
+// del mismo dispositivo (429 con esperaSegundos y Retry-After).
 export async function POST(request: Request, context: { params: Promise<{ token: string }> }) {
   try {
     const { token } = await context.params;
@@ -47,7 +48,12 @@ export async function POST(request: Request, context: { params: Promise<{ token:
 
     if (!resultado.ok) {
       return NextResponse.json(
-        { error: resultado.error, ...(resultado.esperaSegundos ? { esperaSegundos: resultado.esperaSegundos } : {}) },
+        {
+          error: resultado.error,
+          ...(resultado.esperaSegundos ? { esperaSegundos: resultado.esperaSegundos } : {}),
+          // Ya usó su aporte sin cuenta en esta campaña (2026-11-09): la pantalla invita a registrarse.
+          ...(resultado.pideCuenta ? { pideCuenta: true } : {}),
+        },
         {
           status: resultado.status,
           ...(resultado.esperaSegundos ? { headers: { "Retry-After": String(resultado.esperaSegundos) } } : {}),

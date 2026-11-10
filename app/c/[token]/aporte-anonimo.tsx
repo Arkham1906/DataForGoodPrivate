@@ -2,13 +2,16 @@
 
 // Formulario de /c/[token] para aportar SIN cuenta. Envía a POST /api/c/[token]/aportes,
 // que valida el enlace, la cuota por dispositivo, el tope por IP y la espera entre aportes.
-// Después de enviar, la persona solo ve cuántos aportes le quedan y una cuenta regresiva
-// hasta el siguiente: no puede consultar ni editar lo que mandó.
+// Sin cuenta se envía UN aporte por campaña desde cada dispositivo (2026-11-09, a pedido del usuario):
+// al enviarlo, el formulario se cambia por la invitación a crear una cuenta o iniciar sesión para
+// seguir aportando. La persona no puede consultar ni editar lo que mandó.
 // Sin cuenta no hay inscripción: las dos casillas de los acuerdos (ui/AcuerdosDeAporte) van en el
-// formulario, sin ventana, y se quedan marcadas entre aportes de la misma visita (2026-10-15).
+// formulario, sin ventana (2026-10-15).
 
 import { useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
+import ButtonLink from "@/components/ui/ButtonLink";
+import Card from "@/components/ui/Card";
 import IndicadorDeCarga from "@/components/ui/IndicadorDeCarga";
 import { CasillasDeAcuerdos, SIN_ACUERDOS, acuerdosCompletos, agregarAcuerdos } from "@/components/ui/AcuerdosDeAporte";
 import { Field, Textarea } from "@/components/ui/Input";
@@ -23,10 +26,11 @@ export default function AporteAnonimo({
   secciones,
   tipos,
   formatosDeDocumento = [],
-  cuota,
   restantesIniciales,
   esperaInicial,
   proposito,
+  entrar,
+  registro,
 }: {
   token: string;
   secciones: SeccionDeChecklist[];
@@ -34,12 +38,15 @@ export default function AporteAnonimo({
   tipos: TipoDeArchivo[];
   /** Formatos de "Archivo" que acepta (2026-10-28); [] = todos. */
   formatosDeDocumento?: FormatoDeDocumento[];
-  cuota: number;
+  /** Aportes sin cuenta que le quedan a este dispositivo en la campaña (0 o 1). */
   restantesIniciales: number;
   /** Segundos que faltan para poder enviar otro (lo calcula el servidor). */
   esperaInicial: number;
   /** Para qué se usarán los datos, para el acuerdo de uso (2026-10-27). */
   proposito?: string | null;
+  /** /entrar y /registro con ?next= a aportar con la cuenta. */
+  entrar: string;
+  registro: string;
 }) {
   const [restantes, setRestantes] = useState(restantesIniciales);
   const [espera, setEspera] = useState(esperaInicial);
@@ -89,6 +96,11 @@ export default function AporteAnonimo({
           setEspera(Number(payload.esperaSegundos));
           return;
         }
+        // Ya había usado su aporte sin cuenta (p. ej. desde otra pestaña): que se registre.
+        if (payload.pideCuenta) {
+          setRestantes(0);
+          return;
+        }
         throw new Error(payload.error ?? "No se pudo enviar el aporte");
       }
       setRestantes(Number(payload.data?.restantes ?? 0));
@@ -105,12 +117,29 @@ export default function AporteAnonimo({
     }
   }
 
+  // Ya usó su aporte sin cuenta: para el siguiente, que se registre (o entre).
   if (restantes <= 0) {
     return (
-      <p className="rounded-lg border border-success-700 bg-success-50 p-3.5 text-[13px] text-success-700">
-        {enviado ? "¡Gracias! Tu aporte quedó pendiente de revisión. " : ""}
-        Ya enviaste los {cuota} {cuota === 1 ? "aporte" : "aportes"} que permite esta campaña desde este dispositivo.
-      </p>
+      <Card className="mt-5">
+        {enviado && (
+          <p className="mb-4 rounded-lg border border-success-700 bg-success-50 p-3.5 text-[13px] text-success-700" role="status">
+            ¡Gracias! Tu aporte quedó pendiente de revisión.
+          </p>
+        )}
+        <h2 className="mb-1 text-[15px] font-bold text-system-900">¿Quieres enviar otro aporte?</h2>
+        <p className="mb-4 text-[12.5px] text-system-600">
+          Sin cuenta puedes enviar un aporte a cada campaña{enviado ? "" : ", y ya enviaste el tuyo desde este dispositivo"}.
+          Crea una cuenta para seguir aportando a esta campaña y ver tus aportes en tu historial.
+        </p>
+        <div className="flex gap-2.5 max-md:flex-col">
+          <ButtonLink href={registro} variant="primary" className="flex-1">
+            Crear una cuenta
+          </ButtonLink>
+          <ButtonLink href={entrar} className="flex-1">
+            Ya tengo cuenta
+          </ButtonLink>
+        </div>
+      </Card>
     );
   }
 
@@ -123,63 +152,78 @@ export default function AporteAnonimo({
     espera === 0;
 
   return (
-    <form onSubmit={(e) => void enviar(e)}>
-      {enviado && (
-        <p className="mb-4 rounded-lg border border-success-700 bg-success-50 p-3.5 text-[13px] text-success-700" role="status">
-          ¡Gracias! Tu aporte quedó pendiente de revisión. Puedes enviar {restantes} más.
+    <>
+      <Card className="mt-5">
+        <h2 className="mb-1 text-[15px] font-bold text-system-900">Aporta sin crear una cuenta</h2>
+        <p className="mb-4 text-[12.5px] text-system-600">
+          No pedimos tu nombre ni tu correo: el aporte se registra como anónimo. Las fotos y los documentos se
+          guardan sin sus metadatos (ubicación, fecha, modelo del teléfono, autor). Sin cuenta puedes enviar un
+          aporte a esta campaña; para enviar más, crea una cuenta.
         </p>
-      )}
+        <form onSubmit={(e) => void enviar(e)}>
+          <SelectorDeArchivo
+            className="mb-4"
+            tipos={tipos}
+            formatosDeDocumento={formatosDeDocumento}
+            archivo={archivo}
+            error={errorArchivo}
+            reinicio={vuelta}
+            onCambio={(elegido, problema) => {
+              setArchivo(elegido);
+              setErrorArchivo(problema);
+            }}
+          />
 
-      <SelectorDeArchivo
-        className="mb-4"
-        tipos={tipos}
-        formatosDeDocumento={formatosDeDocumento}
-        archivo={archivo}
-        error={errorArchivo}
-        reinicio={vuelta}
-        onCambio={(elegido, problema) => {
-          setArchivo(elegido);
-          setErrorArchivo(problema);
-        }}
-      />
+          <Field label="Descripción" required>
+            <Textarea
+              rows={4}
+              value={descripcion}
+              onChange={(e) => setDescripcion(e.target.value)}
+              placeholder="Describe lo que aportas"
+              maxLength={LARGO_MAXIMO_DESCRIPCION}
+              required
+            />
+          </Field>
+          <p className="mb-4 text-right font-mono text-[11px] text-system-500">
+            {descripcion.length} / {LARGO_MAXIMO_DESCRIPCION}
+          </p>
 
-      <Field label="Descripción" required>
-        <Textarea
-          rows={4}
-          value={descripcion}
-          onChange={(e) => setDescripcion(e.target.value)}
-          placeholder="Describe lo que aportas"
-          maxLength={LARGO_MAXIMO_DESCRIPCION}
-          required
-        />
-      </Field>
-      <p className="mb-4 text-right font-mono text-[11px] text-system-500">
-        {descripcion.length} / {LARGO_MAXIMO_DESCRIPCION}
-      </p>
+          <ChecklistsDelAporte visibles={visibles} faltaArchivo={faltaArchivo} marcadas={marcadas} onAlternar={alternar} />
 
-      <ChecklistsDelAporte visibles={visibles} faltaArchivo={faltaArchivo} marcadas={marcadas} onAlternar={alternar} />
+          <div className="mb-4 rounded-lg border border-system-200 bg-white p-3.5">
+            <CasillasDeAcuerdos acuerdos={acuerdos} onCambio={setAcuerdos} deshabilitado={enviando} proposito={proposito} />
+          </div>
 
-      <div className="mb-4 rounded-lg border border-system-200 bg-white p-3.5">
-        <CasillasDeAcuerdos acuerdos={acuerdos} onCambio={setAcuerdos} deshabilitado={enviando} proposito={proposito} />
+          {error && (
+            <p className="mb-3 rounded border border-error-700 bg-error-50 p-2 text-[12px] text-error-700" role="alert">
+              {error}
+            </p>
+          )}
+
+          <Button variant="primary" type="submit" className="w-full" disabled={!puedeEnviar}>
+            {enviando ? (
+              <span className="inline-flex items-center gap-2">
+                <IndicadorDeCarga />
+                Enviando…
+              </span>
+            ) : espera > 0 ? `Podrás enviar en ${espera} s` : "Enviar aporte sin cuenta"}
+          </Button>
+          <p className="mt-2 text-center text-[11.5px] text-system-500">
+            Se registra como anónimo y queda pendiente de revisión. Es tu único aporte sin cuenta a esta campaña.
+          </p>
+        </form>
+      </Card>
+      <div className="mt-5 flex flex-col gap-2.5">
+        <p className="text-center text-[12px] text-system-500">¿Prefieres que tus aportes queden en tu historial?</p>
+        <div className="flex gap-2.5 max-md:flex-col">
+          <ButtonLink href={entrar} className="flex-1">
+            Iniciar sesión
+          </ButtonLink>
+          <ButtonLink href={registro} className="flex-1">
+            Crear una cuenta
+          </ButtonLink>
+        </div>
       </div>
-
-      {error && (
-        <p className="mb-3 rounded border border-error-700 bg-error-50 p-2 text-[12px] text-error-700" role="alert">
-          {error}
-        </p>
-      )}
-
-      <Button variant="primary" type="submit" className="w-full" disabled={!puedeEnviar}>
-        {enviando ? (
-          <span className="inline-flex items-center gap-2">
-            <IndicadorDeCarga />
-            Enviando…
-          </span>
-        ) : espera > 0 ? `Podrás enviar otro en ${espera} s` : "Enviar aporte sin cuenta"}
-      </Button>
-      <p className="mt-2 text-center text-[11.5px] text-system-500">
-        Se registra como anónimo y queda pendiente de revisión. Te quedan {restantes} de {cuota} desde este dispositivo.
-      </p>
-    </form>
+    </>
   );
 }

@@ -8,8 +8,10 @@
 //   - El aporte no lleva datos personales: user_id NULL, participante "Anónimo", sin correo,
 //     sin nombre de archivo, y fotos y documentos sin metadatos (lib/aportes/limpiar-archivo.ts;
 //     video y audio se guardan tal cual).
-//   - Cuota por dispositivo: la misma cuota por persona de la campaña, contada por una cookie
-//     anónima (lib/aportes/anonimato.ts). En la BD solo va su sha256 (aportes.anonimo_id).
+//   - Cuota por dispositivo: UN aporte por campaña (APORTES_SIN_CUENTA_POR_CAMPANA, 2026-11-09, a
+//     pedido del usuario; antes era la misma cuota por persona de la campaña). Para enviar más hay
+//     que crear una cuenta o iniciar sesión. Se cuenta por una cookie anónima
+//     (lib/aportes/anonimato.ts). En la BD solo va su sha256 (aportes.anonimo_id).
 //   - La IP no se guarda en la BD de ninguna forma. Los límites por IP viven en memoria
 //     (se reinician con cada despliegue): el tope por hora y la espera sin cookie.
 //   - Tope por IP (TOPE_POR_IP_POR_HORA) contra quien borre la cookie para inundar la campaña.
@@ -47,6 +49,20 @@ const VENTANA_MS = 60 * 60 * 1000;
 // TODO(dominio): valor elegido sin consulta (2026-10-01). Segundos mínimos entre dos aportes
 // sin cuenta del mismo dispositivo, en cualquier campaña.
 export const ESPERA_ENTRE_APORTES_SEGUNDOS = 60;
+
+/**
+ * Aportes sin cuenta que un dispositivo puede enviar a cada campaña (2026-11-09, decisión del usuario:
+ * uno por campaña; el siguiente pide registrarse). Si la cuota por persona de la campaña es menor, manda esa.
+ */
+export const APORTES_SIN_CUENTA_POR_CAMPANA = 1;
+
+/** Cuántos aportes sin cuenta acepta la campaña por dispositivo. */
+export function cuotaSinCuenta(cuotaPorPersona: number): number {
+  return Math.max(0, Math.min(APORTES_SIN_CUENTA_POR_CAMPANA, cuotaPorPersona));
+}
+
+export const MENSAJE_CUOTA_SIN_CUENTA =
+  "Ya enviaste tu aporte sin cuenta a esta campaña. Para enviar más, crea una cuenta o inicia sesión.";
 
 /**
  * Ventana en memoria, como el límite de /root: se reinicia con cada despliegue y no se
@@ -144,7 +160,7 @@ export const MENSAJE_BLOQUEADO = "No puedes enviar aportes sin cuenta a esta cam
 
 export type ResultadoDeAporteAnonimo =
   | { ok: true; restantes: number; esperaSegundos: number; dispositivo: string; dispositivoNuevo: boolean }
-  | { ok: false; status: number; error: string; esperaSegundos?: number };
+  | { ok: false; status: number; error: string; esperaSegundos?: number; pideCuenta?: boolean };
 
 export async function enviarAporteAnonimo(entrada: {
   token: string;
@@ -175,6 +191,13 @@ export async function enviarAporteAnonimo(entrada: {
     return { ok: false, status: 403, error: MENSAJE_BLOQUEADO };
   }
 
+  // Aviso rápido antes de subir nada; la comprobación que cuenta va dentro de la transacción. Antes que la
+  // espera: si ya usó su aporte sin cuenta en esta campaña, lo que toca es pedirle la cuenta, no que espere.
+  const cuota = cuotaSinCuenta(campana.cuotaPorPersona);
+  if ((await aportesDelDispositivo(campana.id, dispositivo)) >= cuota) {
+    return { ok: false, status: 403, error: MENSAJE_CUOTA_SIN_CUENTA, pideCuenta: true };
+  }
+
   // Aviso rápido de la espera, antes de subir nada; la comprobación que cuenta va en la transacción.
   const faltan = await segundosDeEspera(anonimoId);
   if (faltan > 0) return { ok: false, status: 429, error: mensajeDeEspera(faltan), esperaSegundos: faltan };
@@ -189,12 +212,6 @@ export async function enviarAporteAnonimo(entrada: {
   // Límite total por tipo de dato (2026-10-28): aviso antes de subir; solo se aceptan los tipos con lugar.
   const conLugar = tiposConLugarParaElAporte(entrada.archivo, campana.tiposDeArchivo, campana.limitePorTipo, campana.enviadosPorTipo);
   if (!conLugar.ok) return { ok: false, status: 400, error: conLugar.error };
-
-  // Aviso rápido antes de subir nada; la comprobación que cuenta va dentro de la transacción.
-  const MENSAJE_CUOTA = "Ya enviaste todos los aportes que permite esta campaña";
-  if ((await aportesDelDispositivo(campana.id, dispositivo)) >= campana.cuotaPorPersona) {
-    return { ok: false, status: 400, error: MENSAJE_CUOTA };
-  }
 
   // Sin cookie: espera por IP (en memoria). Se reserva aquí, ya validado el envío.
   if (dispositivoNuevo) {
@@ -222,7 +239,7 @@ export async function enviarAporteAnonimo(entrada: {
     campaignId: campana.id,
     persona: `dispositivo:${anonimoId}`,
     tipo,
-    cuota: campana.cuotaPorPersona,
+    cuota,
     archivoSubido: guardado?.relativePath ?? null,
     comprobar: async (client) => {
       // Candado por dispositivo (el de la cuota es por campaña): dos envíos simultáneos a
@@ -270,8 +287,9 @@ export async function enviarAporteAnonimo(entrada: {
     if (insertado.motivo === "tipo_lleno" || insertado.motivo === "cuota_del_tipo") return { ok: false, status: 400, error: insertado.error };
     return {
       ok: false,
-      status: 400,
-      error: MENSAJE_CUOTA,
+      status: 403,
+      error: MENSAJE_CUOTA_SIN_CUENTA,
+      pideCuenta: true,
     };
   }
   contarEnvio(entrada.ip);
@@ -287,7 +305,7 @@ export async function enviarAporteAnonimo(entrada: {
 
   return {
     ok: true,
-    restantes: campana.cuotaPorPersona - insertado.yaEnviados - 1,
+    restantes: Math.max(0, cuota - insertado.yaEnviados - 1),
     esperaSegundos: ESPERA_ENTRE_APORTES_SEGUNDOS,
     dispositivo,
     dispositivoNuevo,

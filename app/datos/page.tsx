@@ -92,9 +92,9 @@ export default async function CatalogoDeDatosPage({
       <main id="contenido">
         <div className="mx-auto max-w-[1180px] px-6 pt-14 md:pt-20">
           <EncabezadoPublico centrado etiqueta="Datos abiertos" titulo="Conjuntos de datos de la comunidad">
-            {nf.format(total)} {total === 1 ? "conjunto publicado" : "conjuntos publicados"} a
-            partir de campañas ya cerradas. Cada uno reúne solo aportes aprobados, sin datos que
-            identifiquen a quien participó.
+            {nf.format(total)} {total === 1 ? "conjunto listo" : "conjuntos listos"} para explorar y
+            descargar. Nacen de campañas ciudadanas y reúnen solo aportes aprobados: úsalos para
+            investigar, enseñar o tomar mejores decisiones.
           </EncabezadoPublico>
         </div>
 

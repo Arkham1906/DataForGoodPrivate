@@ -235,6 +235,12 @@ export default function PestanasDeSupervision({
     </div>
   );
 
+  // Datos abiertos que nadie más decidirá (2026-11-09, a pedido del usuario): las que supervisa el SuperUsuario o
+  // que no tienen supervisor. El SuperUsuario no tiene cuenta y no recibe datos_por_decidir: se le avisa aquí.
+  const datosPorDecidirTuyos = todasFinalizadas.filter(
+    (c) => c.datosAbiertos?.estado === "pendiente" && c.supervision !== "otro",
+  ).length;
+
   const tabs: { key: TabKey; label: string; count: number }[] = [
     { key: "pending", label: "Por supervisar", count: todasPendientes.length },
     { key: "supervised", label: "Campañas supervisadas", count: todasSupervisadas.length },
@@ -255,6 +261,26 @@ export default function PestanasDeSupervision({
           </p>
         </div>
       </div>
+
+      {datosPorDecidirTuyos > 0 && (
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warning-500 bg-warning-50 p-4" role="status">
+          <p className="text-[13px] text-warning-900">
+            <span className="font-bold">
+              {datosPorDecidirTuyos === 1
+                ? "1 campaña terminada espera tu decisión"
+                : `${datosPorDecidirTuyos} campañas terminadas esperan tu decisión`}
+            </span>{" "}
+            sobre sus datos abiertos. Nadie más puede decidirlo: las supervisas tú o no tienen supervisor.
+          </p>
+          <button
+            type="button"
+            onClick={() => setActiveTab("finished")}
+            className="shrink-0 rounded-pill border border-system-300 bg-white px-3.5 py-1.5 text-[13px] font-semibold text-system-900 hover:border-brand-600"
+          >
+            Ver campañas finalizadas
+          </button>
+        </div>
+      )}
 
       <div
         role="group"

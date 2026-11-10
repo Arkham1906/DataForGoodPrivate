@@ -37,6 +37,8 @@ export type AccionAuditada =
   | "campana.pausar"
   // El creador editó su campaña pausada (PATCH /api/campanas/[id]); detalle.campos dice qué cambió.
   | "campana.editar_pausada"
+  // El creador editó una programada y volvió a revisión (2026-11-10).
+  | "campana.editar_programada"
   // Aceptó los acuerdos al inscribirse para aportar (lib/campanas/inscripciones.ts).
   | "campana.inscribirse"
   // Reportes de campañas y de participantes (lib/reportes/reportes.ts y lib/moderacion/acciones.ts).

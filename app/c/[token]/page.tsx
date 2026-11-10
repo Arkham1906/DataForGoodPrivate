@@ -4,7 +4,8 @@
 // Si el enlace sirve y la campaña está activa, invita a aportar:
 //   - con sesión: botón a /campanas/[id]/aportar?enlace=<token> (aporta con su cuenta);
 //   - sin sesión: formulario anónimo (aporte-anonimo.tsx → POST /api/c/[token]/aportes),
-//     con la cuota por dispositivo, y la opción de entrar o registrarse con ?next=.
+//     UN aporte por dispositivo y campaña (2026-11-09), y la opción de entrar o registrarse con
+//     ?next=. Ya enviado ese aporte, el formulario se cambia por la invitación a crear una cuenta.
 //     Sin formulario (solo el aviso) si el creador apagó los aportes sin cuenta o si el
 //     dispositivo está bloqueado (lib/aportes/sanciones-anonimas.ts).
 // Es TODO lo que ve una persona anónima: la campaña compartida y su formulario.
@@ -30,6 +31,7 @@ import { resumenDeCuotaPorTipo, tiposDentroDeSuCuota, type MiosPorTipo } from "@
 import {
   MENSAJE_BLOQUEADO,
   aportesDelDispositivo,
+  cuotaSinCuenta,
   bloqueoParaLaPagina,
   esperaDelDispositivo,
 } from "@/lib/campanas/aportes-anonimos";
@@ -116,7 +118,7 @@ export default async function EnlacePublicoPage({ params }: { params: Promise<{ 
         campana={resultado.campana}
         token={resultado.enlace.token}
         conSesion={usuario !== null}
-        restantes={Math.max(0, resultado.campana.cuotaPorPersona - usados)}
+        restantes={Math.max(0, cuotaSinCuenta(resultado.campana.cuotaPorPersona) - usados)}
         misPorTipo={misPorTipo}
         espera={espera}
         sinFormulario={usuario ? null : await motivoSinFormulario(resultado.campana, dispositivo, misPorTipo)}
@@ -212,46 +214,48 @@ function Invitacion({
       ) : (
         <>
           {sinFormulario ? (
-            <p className="mt-5 rounded-lg bg-system-100 p-3.5 text-[12.5px] text-system-600">{sinFormulario}</p>
+            <>
+              <p className="mt-5 rounded-lg bg-system-100 p-3.5 text-[12.5px] text-system-600">{sinFormulario}</p>
+              <div className="mt-5 flex flex-col gap-2.5">
+                <p className="text-center text-[12px] text-system-500">Puedes aportar con una cuenta.</p>
+                <BotonesDeCuenta entrar={conDestino("/entrar", aportar)} registro={conDestino("/registro", aportar)} />
+              </div>
+            </>
           ) : (
-            <Card className="mt-5">
-              <h2 className="mb-1 text-[15px] font-bold text-system-900">Aporta sin crear una cuenta</h2>
-              <p className="mb-4 text-[12.5px] text-system-600">
-                No pedimos tu nombre ni tu correo: el aporte se registra como anónimo. Las fotos y los documentos se
-                guardan sin sus metadatos (ubicación, fecha, modelo del teléfono, autor).
-              </p>
-              <AporteAnonimo
-                token={token}
-                secciones={campana.secciones}
-                tipos={tiposDentroDeSuCuota(
-                  tiposConLugar(campana.tiposDeArchivo, campana.limitePorTipo, campana.enviadosPorTipo),
-                  campana.cuotaPorTipo,
-                  misPorTipo,
-                )}
-                formatosDeDocumento={campana.formatosDeDocumento}
-                cuota={campana.cuotaPorPersona}
-                restantesIniciales={restantes}
-                esperaInicial={espera}
-                proposito={campana.proposito}
-              />
-            </Card>
+            // El formulario y la invitación a crear una cuenta van juntos: al enviar el aporte sin cuenta,
+            // el formulario se cambia por la invitación sin recargar.
+            <AporteAnonimo
+              token={token}
+              secciones={campana.secciones}
+              tipos={tiposDentroDeSuCuota(
+                tiposConLugar(campana.tiposDeArchivo, campana.limitePorTipo, campana.enviadosPorTipo),
+                campana.cuotaPorTipo,
+                misPorTipo,
+              )}
+              formatosDeDocumento={campana.formatosDeDocumento}
+              restantesIniciales={restantes}
+              esperaInicial={espera}
+              proposito={campana.proposito}
+              entrar={conDestino("/entrar", aportar)}
+              registro={conDestino("/registro", aportar)}
+            />
           )}
-          <div className="mt-5 flex flex-col gap-2.5">
-            <p className="text-center text-[12px] text-system-500">
-              {sinFormulario ? "Puedes aportar con una cuenta." : "¿Prefieres que tus aportes queden en tu historial?"}
-            </p>
-            <div className="flex gap-2.5 max-md:flex-col">
-              <ButtonLink href={conDestino("/entrar", aportar)} className="flex-1">
-                Iniciar sesión
-              </ButtonLink>
-              <ButtonLink href={conDestino("/registro", aportar)} className="flex-1">
-                Crear una cuenta
-              </ButtonLink>
-            </div>
-          </div>
         </>
       )}
     </>
+  );
+}
+
+function BotonesDeCuenta({ entrar, registro }: { entrar: string; registro: string }) {
+  return (
+    <div className="flex gap-2.5 max-md:flex-col">
+      <ButtonLink href={entrar} className="flex-1">
+        Iniciar sesión
+      </ButtonLink>
+      <ButtonLink href={registro} className="flex-1">
+        Crear una cuenta
+      </ButtonLink>
+    </div>
   );
 }
 
