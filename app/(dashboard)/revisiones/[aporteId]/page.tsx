@@ -29,6 +29,7 @@ import ReportarAPlataforma from "@/components/ui/ReportarAPlataforma";
 import { MOTIVOS_DE_REPORTE_DE_APORTE } from "@/lib/reportes/motivos";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import ArchivoDelAporte from "@/components/ui/ArchivoDelAporte";
+import BotonPantallaCompletaDeAporte from "@/components/ui/BotonPantallaCompletaDeAporte";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 import SelectorDeCalificacion from "@/components/aportes/SelectorDeCalificacion";
 import type { CalificacionDeAporte } from "@/lib/aportes/calificacion";
@@ -166,9 +167,9 @@ export default function RevisionAportePage() {
   const puedeEliminar = !item.canReview && (item.status === "pendiente" || item.status === "espera_final");
 
   return (
-    <div className="mx-auto max-w-4xl">
+    <div className="mx-auto w-full max-w-6xl">
       {desdeMisAportes ? (
-        <Link href={`/mis-aportes/${item.campaignId}`} className="mb-5 inline-block text-[13px] text-system-600 hover:text-system-900">
+        <Link href="/mis-aportes" className="mb-5 inline-block text-[13px] text-system-600 hover:text-system-900">
           ← Volver a mis aportes
         </Link>
       ) : (
@@ -213,18 +214,28 @@ export default function RevisionAportePage() {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(280px,.9fr)]">
         <section className="rounded-lg border border-system-200 bg-white p-5 shadow-sm">
           <p className="mb-3 text-[12.5px] font-semibold text-system-900">Archivo enviado</p>
-          {item.archivoBorrado ? (
-            <div className="flex aspect-video items-center justify-center rounded-lg border border-dashed border-system-300 bg-system-100 text-[12.5px] text-system-500">
-              El creador borró este archivo
-            </div>
-          ) : (
-            <ArchivoDelAporte
-              aporteId={item.id}
-              tipo={item.fileType}
-              sinArchivo={item.sinArchivo}
-              alt={`Archivo del aporte de ${item.participantName}`}
-            />
-          )}
+          <div className="relative">
+            {item.archivoBorrado ? (
+              <div className="flex aspect-video items-center justify-center rounded-lg border border-dashed border-system-300 bg-system-100 text-[12.5px] text-system-500">
+                El creador borró este archivo
+              </div>
+            ) : (
+              <BotonPantallaCompletaDeAporte
+                aporteId={item.id}
+                tipo={item.fileType}
+                sinArchivo={item.sinArchivo}
+                alt={`Archivo del aporte de ${item.participantName}`}
+                descripcion={item.description}
+              >
+                <ArchivoDelAporte
+                  aporteId={item.id}
+                  tipo={item.fileType}
+                  sinArchivo={item.sinArchivo}
+                  alt={`Archivo del aporte de ${item.participantName}`}
+                />
+              </BotonPantallaCompletaDeAporte>
+            )}
+          </div>
           <p className="mt-3 font-mono text-[11.5px] text-system-500">
             {item.fileType} {item.fileSizeBytes ? `· ${formatearTamano(item.fileSizeBytes)}` : ""}
           </p>

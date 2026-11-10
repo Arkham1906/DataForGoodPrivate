@@ -5,11 +5,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import Tag from "@/components/ui/Tag";
 import ArchivoDelAporte from "@/components/ui/ArchivoDelAporte";
+import BotonPantallaCompletaDeAporte from "@/components/ui/BotonPantallaCompletaDeAporte";
 import { pool } from "@/lib/db";
 import { columnaDeRespuestas } from "@/lib/campanas/tabla-checklists";
 import { columnasDeArchivo } from "@/lib/aportes/tabla-archivos";
 import { exigirUsuario } from "@/lib/session";
-import { BASE_PATH } from "@/lib/base-path";
 import { formatearTamano } from "@/lib/aportes/archivo";
 import type { Metadata } from "next";
 import EstrellasDeCalificacion from "@/components/aportes/EstrellasDeCalificacion";
@@ -62,18 +62,21 @@ export default async function ReviewerContributionDetailPage({ params }: { param
             <div className="flex aspect-video items-center justify-center rounded-lg border border-dashed border-system-300 bg-system-100 text-[12.5px] text-system-500">
               El creador borró este archivo
             </div>
-          ) : contribution.file_type === "foto" && contribution.file_path ? (
-            <a href={`${BASE_PATH}/api/aportes/${aporteId}/archivo`} target="_blank" rel="noreferrer" className="block">
-              <ArchivoDelAporte aporteId={aporteId} tipo="foto" alt={`Imagen aportada por ${contribution.participant_name}`} />
-              <span className="mt-3 inline-block text-[12.5px] font-bold text-brand-600">Abrir imagen en tamaño completo</span>
-            </a>
           ) : (
-            <ArchivoDelAporte
+            <BotonPantallaCompletaDeAporte
               aporteId={aporteId}
-              tipo={String(contribution.file_type)}
+              tipo={contribution.file_type}
               sinArchivo={!contribution.file_path}
               alt={`Archivo aportado por ${contribution.participant_name}`}
-            />
+              descripcion={contribution.description}
+            >
+              <ArchivoDelAporte
+                aporteId={aporteId}
+                tipo={String(contribution.file_type)}
+                sinArchivo={!contribution.file_path}
+                alt={`Archivo aportado por ${contribution.participant_name}`}
+              />
+            </BotonPantallaCompletaDeAporte>
           )}
           <p className="mt-3 font-mono text-[11.5px] text-system-500">{contribution.file_type}{fileSize}</p>
         </section>

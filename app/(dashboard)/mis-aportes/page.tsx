@@ -3,7 +3,7 @@
 // Listado global de los aportes del usuario común, sin agruparlos por campaña.
 
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Button from "@/components/ui/Button";
 import ButtonLink from "@/components/ui/ButtonLink";
 import Tag from "@/components/ui/Tag";
@@ -94,7 +94,6 @@ export default function MisAportesPage() {
   const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
   const vistaCuadricula = useSyncExternalStore(suscribirVistaDeMisAportes, leerVistaDeMisAportes, () => false);
   const recarga = useRecargaEnVivo();
-  const router = useRouter();
 
   useEffect(() => {
     let activo = true;
@@ -155,10 +154,10 @@ export default function MisAportesPage() {
         const estadoEtiqueta = item.status === "aceptado" ? "Aceptado" : item.status === "rechazado" ? "Rechazado" : "En revisión";
         const estadoTono = item.status === "aceptado" ? "ok" : item.status === "rechazado" ? "danger" : "warn";
         const nombreDeTipo = NOMBRE_DE_TIPO[item.fileType];
+        const href = `/mis-aportes/${item.campaignId}/${item.id}`;
 
         return (
-          <button key={item.id} type="button" onClick={() => router.push(`/mis-aportes/${item.campaignId}/${item.id}`)} className="block w-full rounded-lg text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600">
-              <article className={vistaCuadricula ? "flex h-full flex-col rounded-lg border border-system-200 bg-white p-4 shadow-sm transition-colors hover:border-brand-600 max-md:p-3" : "flex items-center gap-3 rounded-lg border border-system-200 bg-white p-2.5 shadow-sm transition-colors hover:border-brand-600 max-md:gap-2 max-md:p-2.5"}>
+          <article key={item.id} className={vistaCuadricula ? "flex h-full flex-col rounded-lg border border-system-200 bg-white p-4 shadow-sm transition-colors hover:border-brand-600 max-md:p-3" : "flex items-center gap-3 rounded-lg border border-system-200 bg-white p-2.5 shadow-sm transition-colors hover:border-brand-600 max-md:gap-2 max-md:p-2.5"}>
               {vistaCuadricula ? (
                 <>
                   <MiniaturaDeAporte
@@ -168,27 +167,29 @@ export default function MisAportesPage() {
                     alt={`Vista previa de ${nombreDeTipo.toLowerCase()} en ${item.campaignName}`}
                     className="mb-2.5 aspect-video w-full max-w-60 mx-auto object-cover"
                   />
-                  <div className="h-[72px] overflow-hidden">
-                    <h2 className="line-clamp-2 text-[13px] leading-5 font-bold text-system-900">{item.campaignName}</h2>
-                    <Tag tone={estadoTono} className="mt-1">{estadoEtiqueta}</Tag>
-                  </div>
-                  <p className="mt-1 line-clamp-1 text-[12.5px] text-system-600">{item.campaignTematica || "Sin temática"}</p>
-                  <div className="mt-1 flex min-h-4 items-center whitespace-nowrap text-[11px]">
-                    {item.calificacion != null ? (
-                      <EstrellasDeCalificacion valor={item.calificacion} className="text-[13px]" />
-                    ) : (
-                      <span className="text-system-500">Sin calificación</span>
-                    )}
-                  </div>
-                  <dl className="mt-auto grid grid-cols-2 gap-2 border-t border-system-200 pt-3 text-[12px]">
-                    <div><dt className="text-system-500">Tipo</dt><dd className="mt-0.5 font-semibold text-system-900">{nombreDeTipo}</dd></div>
-                    <div><dt className="text-system-500">Fecha</dt><dd className="mt-0.5 font-mono text-system-900">{new Date(item.submittedAt).toLocaleDateString("es-MX", { day: "numeric", month: "short" })}</dd></div>
-                  </dl>
+                  <Link href={href} className="flex flex-1 flex-col text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600">
+                    <div className="h-[72px] overflow-hidden">
+                      <h2 className="line-clamp-2 text-[13px] leading-5 font-bold text-system-900">{item.campaignName}</h2>
+                      <Tag tone={estadoTono} className="mt-1">{estadoEtiqueta}</Tag>
+                    </div>
+                    <p className="mt-1 line-clamp-1 text-[12.5px] text-system-600">{item.campaignTematica || "Sin temática"}</p>
+                    <div className="mt-1 flex min-h-4 items-center whitespace-nowrap text-[11px]">
+                      {item.calificacion != null ? (
+                        <EstrellasDeCalificacion valor={item.calificacion} className="text-[13px]" />
+                      ) : (
+                        <span className="text-system-500">Sin calificación</span>
+                      )}
+                    </div>
+                    <dl className="mt-auto grid grid-cols-2 gap-2 border-t border-system-200 pt-3 text-[12px]">
+                      <div><dt className="text-system-500">Tipo</dt><dd className="mt-0.5 font-semibold text-system-900">{nombreDeTipo}</dd></div>
+                      <div><dt className="text-system-500">Fecha</dt><dd className="mt-0.5 font-mono text-system-900">{new Date(item.submittedAt).toLocaleDateString("es-MX", { day: "numeric", month: "short" })}</dd></div>
+                    </dl>
+                  </Link>
                 </>
               ) : (
                 <>
                   <MiniaturaDeAporte aporteId={item.id} tipo={item.fileType} sinArchivo={item.sinArchivo} alt={`Vista previa de ${nombreDeTipo.toLowerCase()} en ${item.campaignName}`} className="h-12 w-12 shrink-0" />
-                  <div className="min-w-0 flex-1 overflow-hidden">
+                  <Link href={href} className="min-w-0 flex-1 overflow-hidden text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600">
                     <div className="flex min-w-0 items-center gap-2 overflow-hidden text-[12px]">
                       <span className="truncate font-bold text-system-900">{item.campaignName}</span>
                       <span className="shrink-0 text-system-400">•</span>
@@ -216,12 +217,11 @@ export default function MisAportesPage() {
                         <span className="mt-1 block text-[11px] text-system-500">Sin calificación</span>
                       )}
                     </span>
-                  </div>
+                  </Link>
                   <Tag tone={estadoTono} className="hidden shrink-0 md:inline-flex">{estadoEtiqueta}</Tag>
                 </>
               )}
-            </article>
-          </button>
+          </article>
         );
       })}</div>}
     </>}
