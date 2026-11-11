@@ -129,7 +129,7 @@ export async function guardarEtiquetasDeCampana(
   const ids: number[] = [];
   for (const [clave, nombre] of pedidas) {
     // Tal cual o, si no, un sinónimo de una que ya está en la temática (2026-11-04): se usa esa.
-    const equivalente = porClave.has(clave) ? null : etiquetaEquivalente(nombre, [...porClave.values()].map((f) => f.nombre));
+    const equivalente = porClave.has(clave) ? null : etiquetaEquivalente(nombre, [...porClave.values()].map((f) => f.nombre), { tematica });
     const fila = porClave.get(equivalente ? claveDeTematica(equivalente) : clave);
     if (fila) {
       const id = Number(fila.id);
@@ -314,7 +314,7 @@ export async function guardarEtiquetasDelUsuario(
       if (!tematica.rows[0]) continue;
       // Un sinónimo de una que ya está en la temática (2026-11-04) se vuelve esa.
       const deLaTematica = await cliente.query<{ nombre: string }>(`SELECT nombre FROM etiquetas WHERE tematica_id = $1`, [tematica.rows[0].id]);
-      const nombreFinal = etiquetaEquivalente(nueva.nombre, deLaTematica.rows.map((f) => f.nombre)) ?? nueva.nombre;
+      const nombreFinal = etiquetaEquivalente(nueva.nombre, deLaTematica.rows.map((f) => f.nombre), { tematica: nueva.tematica }) ?? nueva.nombre;
       const clave = claveDeTematica(nombreFinal);
       // ON CONFLICT: ya existe en esa temática (aprobada, pendiente u oculta): se toma esa.
       const fila = await cliente.query<{ id: number; aprobada: boolean; oculta: boolean }>(
@@ -442,7 +442,9 @@ async function errorDeRepetida(tematicaId: number, nombre: string, sinContarId?:
   );
   const clave = claveDeTematica(nombre);
   const igual = r.rows.find((f) => claveDeTematica(f.nombre) === clave);
-  const equivalente = igual ? null : etiquetaEquivalente(nombre, r.rows.map((f) => f.nombre), { erratas: false });
+  // Con las variantes del diccionario de esa temática (2026-11-11).
+  const tematica = igual ? undefined : (await pool.query<{ nombre: string }>(`SELECT nombre FROM tematicas WHERE id = $1`, [tematicaId])).rows[0]?.nombre;
+  const equivalente = igual ? null : etiquetaEquivalente(nombre, r.rows.map((f) => f.nombre), { erratas: false, tematica });
   const fila = igual ?? r.rows.find((f) => f.nombre === equivalente);
   if (!fila) return null;
   const inicio = igual ? `Ya existe «${fila.nombre}» en esta temática` : `«${nombre}» es lo mismo que «${fila.nombre}», que ya existe en esta temática`;

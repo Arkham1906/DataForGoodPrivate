@@ -3,6 +3,7 @@
 // Pantalla /campanas/[id]/aportar: formulario para enviar un aporte (archivo, descripción, checklists).
 // Componente cliente. Datos: GET /api/campanas?id= y GET /api/aportes?campaignId=&mine=true (cuota usada).
 // El archivo sigue los tipos de la campaña (components/ui/SelectorDeArchivo); con "texto" es opcional.
+// Sin archivo (solo texto, 2026-11-11): "Título del texto" + "Texto" (components/aportes/CamposDelAporte).
 // Acción: POST /api/aportes (multipart/form-data). El servidor valida cuota, baneo, tipo, tamaño y que
 // la persona esté inscrita (aceptó los acuerdos una vez; antes salía una ventana en cada aporte). Si llega
 // sin inscribirse (p. ej. desde /c/[token]), arriba del formulario van las casillas (ui/AcuerdosDeAporte).
@@ -10,8 +11,8 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { Field, Textarea } from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
+import CamposDelAporte, { camposDelAporteCompletos } from "@/components/aportes/CamposDelAporte";
 import type { Campaign } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
@@ -47,6 +48,7 @@ export default function AportarPage() {
   const [file, setFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [description, setDescription] = useState("");
+  const [texto, setTexto] = useState("");
   const [caracteristicas, setCaracteristicas] = useState<string[]>([]);
   const [inscrito, setInscrito] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -126,6 +128,8 @@ export default function AportarPage() {
   // La API ya convierte las campañas viejas (lista plana) en un checklist sin título. Solo se
   // muestran los del tipo de lo que se manda (2026-10-28).
   const { visibles, faltaArchivo } = seccionesParaElAporte(campaign.checklistSecciones ?? [], tipos, file);
+  // Sin archivo en una campaña que acepta texto: título + texto en vez de descripción (2026-11-11).
+  const soloTexto = !file && archivoEsOpcional(tipos);
 
   function toggleCaracteristica(value: string) {
     setCaracteristicas((current) =>
@@ -145,6 +149,8 @@ export default function AportarPage() {
       formData.set("campaignId", campaign.id);
       formData.set("description", description);
       if (file) formData.set("file", file);
+      // Solo texto (2026-11-11): description es el título y el texto va aparte; el servidor lo guarda como .txt.
+      else if (soloTexto) formData.set("texto", texto);
       // Solo lo marcado en los checklists que se ven (cambiar de archivo puede esconder alguno).
       respuestasValidas(caracteristicas, visibles).forEach((item) => formData.append("caracteristicas", item));
       if (enlace) formData.set("enlace", enlace);
@@ -160,7 +166,7 @@ export default function AportarPage() {
     }
   }
 
-  const canSubmit = inscrito && !quotaReached && !todoLleno && !sinTiposPropios && (Boolean(file) || archivoEsOpcional(tipos)) && description.trim().length > 0 && description.length <= 1000 && !submitting;
+  const canSubmit = inscrito && !quotaReached && !todoLleno && !sinTiposPropios && (Boolean(file) || archivoEsOpcional(tipos)) && camposDelAporteCompletos(soloTexto, description, texto) && !submitting;
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -220,19 +226,13 @@ export default function AportarPage() {
         />
 
         <div>
-          <Field label="Descripción" required>
-            <Textarea
-              rows={4}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe qué se ve en el contenido"
-              maxLength={1000}
-              required
-            />
-          </Field>
-          <p className="mb-4 text-right text-[11px] font-mono text-system-500">
-            {description.length} / 1000
-          </p>
+          <CamposDelAporte
+            soloTexto={soloTexto}
+            descripcion={description}
+            onDescripcion={setDescription}
+            texto={texto}
+            onTexto={setTexto}
+          />
 
           <ChecklistsDelAporte
             visibles={visibles}

@@ -44,7 +44,6 @@ type AporteAceptado = {
   id: string;
   participantId: string;
   participantName: string;
-  participantEmail: string;
   description: string;
   fileType: string;
   submittedAt: string;
@@ -127,10 +126,7 @@ export default function VistaAportesAceptados({
             )}
             <div className="flex min-w-0 flex-1 flex-col gap-2">
               <div className="flex min-w-0 items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="truncate text-[13px] font-bold text-system-900">{aporte.participantName}</p>
-                  <p className="truncate font-mono text-[10px] text-system-500">{aporte.participantEmail || "Sin correo"}</p>
-                </div>
+                <p className="min-w-0 truncate text-[13px] font-bold text-system-900">{aporte.participantName}</p>
                 <Tag tone="ok">Aceptado</Tag>
               </div>
               <div className={vistaCuadricula ? "min-h-20" : "min-w-0"}>

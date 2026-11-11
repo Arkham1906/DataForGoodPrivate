@@ -8,6 +8,8 @@ import { pool } from "@/lib/db";
 import { borrarArchivo, guardarArchivo, type SavedUpload } from "@/lib/minio";
 import { limpiarArchivo } from "@/lib/aportes/limpiar-archivo";
 import {
+  LARGO_MAXIMO_TEXTO_DEL_APORTE,
+  LARGO_MAXIMO_TITULO_DEL_TEXTO,
   TAMANO_MAXIMO as TAMANO_MAXIMO_DE_ARCHIVO,
   archivoEsOpcional,
   documentoPermitido,
@@ -44,6 +46,30 @@ export function cuerpoDemasiadoGrande(request: Request): boolean {
 }
 
 export const MENSAJE_CUERPO_GRANDE = "El archivo es demasiado grande para subirlo.";
+
+/**
+ * Aporte de solo texto (2026-11-11, a pedido del usuario). Sin archivo y en una campaña que acepta
+ * texto, la persona escribe un título (va en `description`) y el texto en su propio campo; aquí el
+ * texto se vuelve un .txt, que sigue el mismo camino que uno subido (limpieza, MinIO, límites por
+ * tipo, vista previa, ZIP de datos abiertos). Con archivo, el texto se ignora. Devuelve el archivo a
+ * usar o el error para la persona.
+ */
+export function archivoDelTexto(
+  archivo: FormDataEntryValue | null,
+  entrada: { texto: string; titulo: string; tipos: TipoDeArchivo[] },
+): { ok: true; archivo: FormDataEntryValue | null } | { ok: false; error: string } {
+  if (archivo instanceof File && archivo.size > 0) return { ok: true, archivo };
+  if (!archivoEsOpcional(entrada.tipos)) return { ok: true, archivo };
+  const texto = entrada.texto.replace(/\r\n?/g, "\n").replace(/^\s*\n|\s+$/g, "");
+  if (!texto.trim()) return { ok: false, error: "Escribe el texto de tu aporte." };
+  if (texto.length > LARGO_MAXIMO_TEXTO_DEL_APORTE) {
+    return { ok: false, error: `El texto no puede superar ${LARGO_MAXIMO_TEXTO_DEL_APORTE.toLocaleString("es-MX")} caracteres.` };
+  }
+  if (entrada.titulo.length > LARGO_MAXIMO_TITULO_DEL_TEXTO) {
+    return { ok: false, error: `El título del texto no puede superar ${LARGO_MAXIMO_TITULO_DEL_TEXTO} caracteres.` };
+  }
+  return { ok: true, archivo: new File([texto], "texto.txt", { type: "text/plain" }) };
+}
 
 /**
  * Aviso rápido del límite por tipo de dato (2026-10-28), antes de subir nada: con el tipo que dice

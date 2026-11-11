@@ -25,6 +25,7 @@ import type { PoolClient } from "pg";
 import { pool } from "@/lib/db";
 import {
   LARGO_MAXIMO_DESCRIPCION,
+  archivoDelTexto,
   errorDeArchivo,
   guardarArchivoDelAporte,
   insertarAporteConCuota,
@@ -196,6 +197,8 @@ export async function enviarAporteAnonimo(entrada: {
   dispositivo: string | null;
   ip: string;
   descripcion: string;
+  /** Solo texto (2026-11-11): el texto, que se guarda como .txt; `descripcion` es su título. */
+  texto?: string;
   caracteristicas: string[];
   archivo: FormDataEntryValue | null;
 }): Promise<ResultadoDeAporteAnonimo> {
@@ -240,10 +243,14 @@ export async function enviarAporteAnonimo(entrada: {
   if (descripcion.length > LARGO_MAXIMO_DESCRIPCION) {
     return { ok: false, status: 400, error: "La descripción no puede superar 1000 caracteres" };
   }
-  const errorArchivo = errorDeArchivo(entrada.archivo, campana.tiposDeArchivo, campana.formatosDeDocumento);
+  // Solo texto (2026-11-11): el texto se vuelve un .txt y sigue el camino de un archivo subido.
+  const conTexto = archivoDelTexto(entrada.archivo, { texto: entrada.texto ?? "", titulo: descripcion, tipos: campana.tiposDeArchivo });
+  if (!conTexto.ok) return { ok: false, status: 400, error: conTexto.error };
+  const archivo = conTexto.archivo;
+  const errorArchivo = errorDeArchivo(archivo, campana.tiposDeArchivo, campana.formatosDeDocumento);
   if (errorArchivo) return { ok: false, status: 400, error: errorArchivo };
   // Límite total por tipo de dato (2026-10-28): aviso antes de subir; solo se aceptan los tipos con lugar.
-  const conLugar = tiposConLugarParaElAporte(entrada.archivo, campana.tiposDeArchivo, campana.limitePorTipo, campana.enviadosPorTipo);
+  const conLugar = tiposConLugarParaElAporte(archivo, campana.tiposDeArchivo, campana.limitePorTipo, campana.enviadosPorTipo);
   if (!conLugar.ok) return { ok: false, status: 400, error: conLugar.error };
 
   // Sin cookie: espera por IP (en memoria). Se reserva aquí, ya validado el envío.
@@ -254,7 +261,7 @@ export async function enviarAporteAnonimo(entrada: {
 
   // Tope por persona de cada tipo (2026-10-31), contado por dispositivo como la cuota general.
   const dentroDeSuCuota = tiposDentroDeLaCuotaParaElAporte(
-    entrada.archivo,
+    archivo,
     conLugar.tipos,
     campana.tiposDeArchivo,
     campana.cuotaPorTipo,
@@ -262,7 +269,7 @@ export async function enviarAporteAnonimo(entrada: {
   );
   if (!dentroDeSuCuota.ok) return { ok: false, status: 400, error: dentroDeSuCuota.error };
 
-  const subida = await guardarArchivoDelAporte(entrada.archivo, campana.id, dentroDeSuCuota.tipos, campana.formatosDeDocumento);
+  const subida = await guardarArchivoDelAporte(archivo, campana.id, dentroDeSuCuota.tipos, campana.formatosDeDocumento);
   if (!subida.ok) return { ok: false, status: 400, error: subida.error };
   const { tipo, guardado } = subida.archivo;
   // Solo respuestas de los checklists del tipo real del archivo ("Título: opción"; 2026-10-28).

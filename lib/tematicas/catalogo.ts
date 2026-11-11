@@ -189,13 +189,22 @@ export async function contarTematicasPendientes(): Promise<number> {
   return Number(result.rows[0]?.n ?? 0);
 }
 
-/** Aprueba una temática pendiente: desde ahora se ofrece a todos. Devuelve su nombre, o null si no existe. */
-export async function aprobar(id: number): Promise<string | null> {
+/**
+ * Aprueba una temática pendiente: desde ahora se ofrece a todos. Devuelve su nombre. Desde el
+ * 2026-11-11 no se aprueba si ya es una subtemática (propuestas hechas antes de que se revisara al
+ * proponer): el SuperUsuario la rechaza.
+ */
+export async function aprobar(id: number): Promise<ResultadoDelCatalogo<{ nombre: string }>> {
+  const actual = await pool.query<{ clave: string }>(`SELECT clave FROM tematicas WHERE id = $1`, [id]);
+  if (!actual.rows[0]) return { ok: false, error: "La temática no existe." };
+  const choca = await errorDeSubtematica(actual.rows[0].clave);
+  if (choca) return { ok: false, error: `${choca} Recházala.` };
   const result = await pool.query<{ nombre: string }>(
     `UPDATE tematicas SET aprobada = true, oculta = false WHERE id = $1 RETURNING nombre`,
     [id],
   );
-  return result.rows[0]?.nombre ?? null;
+  const nombre = result.rows[0]?.nombre;
+  return nombre ? { ok: true, nombre } : { ok: false, error: "La temática no existe." };
 }
 
 /** Campaña que cambió de temática porque el SuperUsuario rechazó la suya (para avisar a su creador). */
@@ -351,6 +360,23 @@ export async function revisarPropuestas(
     }
   }
 
+  // No se propone como temática lo que ya es subtemática (2026-11-11): se elige su temática y se marca ahí.
+  for (const nombre of porCrear) {
+    const sub = await pool.query<{ nombre: string; tematica: string }>(
+      `SELECT e.nombre, t.nombre AS tematica
+       FROM etiquetas e JOIN tematicas t ON t.id = e.tematica_id
+       WHERE e.clave = $1 AND e.aprobada AND NOT e.oculta AND t.aprobada AND NOT t.oculta
+       LIMIT 1`,
+      [claveDeTematica(nombre)],
+    );
+    if (sub.rows[0]) {
+      return {
+        ok: false,
+        error: `«${sub.rows[0].nombre}» ya existe como subtemática de «${sub.rows[0].tematica}»: elige «${sub.rows[0].tematica}» y márcala ahí.`,
+      };
+    }
+  }
+
   if (porCrear.length > 0) {
     const suyas = await pool.query<{ n: number }>(
       `SELECT COUNT(*)::int AS n FROM tematicas WHERE creada_por = $1 AND NOT aprobada AND NOT oculta`,
@@ -425,6 +451,25 @@ export function validarNombreDeTematica(entrada: unknown): { ok: true; nombre: s
   return { ok: true, nombre };
 }
 
+/**
+ * Una temática no se llama igual que una subtemática (etiqueta) de cualquier temática (2026-11-11, a
+ * pedido del usuario). La regla al revés ya existía (lib/etiquetas/catalogo.ts: una etiqueta no se llama
+ * como una temática), pero nada impedía proponer o aprobar la temática "Videojuegos" cuando ya era
+ * subtemática de Entretenimiento. Devuelve el error para el panel, o null.
+ */
+async function errorDeSubtematica(clave: string): Promise<string | null> {
+  const r = await pool.query<{ nombre: string; tematica: string }>(
+    `SELECT e.nombre, t.nombre AS tematica
+     FROM etiquetas e JOIN tematicas t ON t.id = e.tematica_id
+     WHERE e.clave = $1
+     ORDER BY e.aprobada DESC, e.id
+     LIMIT 1`,
+    [clave],
+  );
+  const fila = r.rows[0];
+  return fila ? `«${fila.nombre}» ya es una subtemática de «${fila.tematica}»: no puede ser también una temática.` : null;
+}
+
 /** Error de "ya existe" con el nombre de la que choca, y si está oculta, cómo recuperarla. */
 async function errorDeRepetida(clave: string, sinContarId?: number): Promise<string | null> {
   const r = await pool.query<{ nombre: string; oculta: boolean }>(
@@ -432,7 +477,7 @@ async function errorDeRepetida(clave: string, sinContarId?: number): Promise<str
     [clave, sinContarId ?? null],
   );
   const fila = r.rows[0];
-  if (!fila) return null;
+  if (!fila) return errorDeSubtematica(clave);
   return fila.oculta
     ? `Ya existe «${fila.nombre}», oculta. Usa "Mostrar" para volver a ofrecerla.`
     : `Ya existe «${fila.nombre}».`;

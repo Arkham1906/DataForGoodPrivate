@@ -16,6 +16,7 @@ import { actualizarMisiones } from "@/lib/gamificacion/misiones";
 import {
   LARGO_MAXIMO_DESCRIPCION,
   MENSAJE_CUERPO_GRANDE,
+  archivoDelTexto,
   cuerpoDemasiadoGrande,
   errorDeArchivo,
   guardarArchivoDelAporte,
@@ -162,7 +163,7 @@ export async function POST(request: Request) {
     const campaignId = String(formData.get("campaignId") ?? "").trim();
     const description = String(formData.get("description") ?? "").trim();
     const rawCaracteristicas = formData.getAll("caracteristicas").map(String);
-    const file = formData.get("file");
+    const archivoSubido = formData.get("file");
     const tokenDeEnlace = String(formData.get("enlace") ?? "").trim().toLowerCase();
 
     if (!campaignId || !description) {
@@ -183,6 +184,10 @@ export async function POST(request: Request) {
     const tipos = tiposAceptados(campaign.data_types);
     // Con los formatos de "Archivo" que acepta la campaña (2026-10-28; [] = todos).
     const formatosDeDocumento = normalizarFormatosDeDocumento(campaign.formatos_de_documento);
+    // Solo texto (2026-11-11): `description` es el título y el campo `texto` se guarda como un .txt.
+    const conTexto = archivoDelTexto(archivoSubido, { texto: String(formData.get("texto") ?? ""), titulo: description, tipos });
+    if (!conTexto.ok) return NextResponse.json({ error: conTexto.error }, { status: 400 });
+    const file = conTexto.archivo;
     const errorArchivo = errorDeArchivo(file, tipos, formatosDeDocumento);
     if (errorArchivo) {
       return NextResponse.json({ error: errorArchivo }, { status: 400 });

@@ -85,6 +85,15 @@ export const TAMANO_MAXIMO = Math.max(...ORDEN.map((t) => FORMATOS[t].tamanoMaxi
 export const LARGO_MAXIMO_DESCRIPCION = 1000;
 
 /**
+ * Aporte de solo texto (2026-11-11, a pedido del usuario): sin archivo, la descripción pasa a ser el
+ * título del texto y el texto se escribe en su propio campo. El servidor lo guarda como un .txt
+ * (lib/aportes/comun.ts, archivoDelTexto), igual que si se hubiera subido uno: así sale en las vistas
+ * previas y en el ZIP de datos abiertos como aporte-NNN.txt.
+ */
+export const LARGO_MAXIMO_TITULO_DEL_TEXTO = 150;
+export const LARGO_MAXIMO_TEXTO_DEL_APORTE = 10000;
+
+/**
  * Los tipos de la campaña que se pueden subir, en orden fijo. Una campaña sin tipos
  * (de antes de que existiera la columna) acepta fotos, como siempre.
  */

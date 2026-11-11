@@ -259,7 +259,7 @@ export default function RevisionAportePage() {
             </div>
             {item.caracteristicas && item.caracteristicas.length > 0 && (
               <div>
-                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-system-500">Checklist del aporte</p>
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-system-500">Características</p>
                 <div className="flex flex-wrap gap-2">
                   {item.caracteristicas.map((feature) => <Tag key={feature}>{feature}</Tag>)}
                 </div>

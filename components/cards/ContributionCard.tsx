@@ -8,6 +8,7 @@ import type { Contribution } from "@/types";
 import { formatearTamano } from "@/lib/aportes/archivo";
 import EstrellasDeCalificacion from "@/components/aportes/EstrellasDeCalificacion";
 import ArchivoDelAporte from "@/components/ui/ArchivoDelAporte";
+import TextoDelAporte from "@/components/ui/TextoDelAporte";
 import { BASE_PATH } from "@/lib/base-path";
 
 const STATUS_TONE: Record<Contribution["status"], { label: string; tone: "ok" | "warn" | "danger" | "default" }> = {
@@ -103,6 +104,9 @@ export default function ContributionCard({
               className="pointer-events-none aspect-video max-h-80 w-full rounded-lg border border-system-300 bg-system-900 object-contain"
               aria-label={`Vista previa del video de tu aporte en ${contribution.campaignName}`}
             />
+          ) : contribution.fileType === "texto" && !contribution.sinArchivo ? (
+            // Desde el 2026-11-11 el texto se guarda como .txt y se ve aquí mismo.
+            <TextoDelAporte src={`${BASE_PATH}/api/aportes/${contribution.id}/archivo`} alto="aspect-video max-h-80" />
           ) : (
             <div className="flex aspect-video max-h-80 items-center justify-center rounded-lg border border-system-300 bg-system-100 text-sm font-semibold text-system-700">
               {contribution.sinArchivo ? "Aporte de texto" : contribution.fileType === "audio" ? "Audio" : "Archivo"}

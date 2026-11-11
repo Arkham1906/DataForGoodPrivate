@@ -12,7 +12,8 @@ import { enviarAporteAnonimo } from "@/lib/campanas/aportes-anonimos";
 import { ipDelCliente } from "@/lib/ip";
 import { getSessionUser } from "@/lib/session";
 
-// POST (multipart/form-data: file, description, caracteristicas[], aceptaUso=si,
+// POST (multipart/form-data: file, description, texto (solo texto, 2026-11-11: se guarda como .txt y
+// description es su título), caracteristicas[], aceptaUso=si,
 // confirmaContenido=si; sin las dos casillas responde 400; file es opcional si la campaña
 // acepta texto; 413 si el cuerpo pasa del archivo más grande permitido): envía el aporte como
 // "Anónimo". Un aporte por dispositivo y campaña (cookie anonimo_id, se crea aquí si no existe;
@@ -42,6 +43,8 @@ export async function POST(request: Request, context: { params: Promise<{ token:
       dispositivo: dispositivoValido(cookieStore.get(COOKIE_ANONIMO)?.value),
       ip: ipDelCliente(request.headers),
       descripcion: String(formData.get("description") ?? ""),
+      // Solo texto (2026-11-11): el texto va aparte y description es su título.
+      texto: String(formData.get("texto") ?? ""),
       caracteristicas: formData.getAll("caracteristicas").map(String),
       archivo: formData.get("file"),
     });

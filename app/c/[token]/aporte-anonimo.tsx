@@ -14,9 +14,9 @@ import ButtonLink from "@/components/ui/ButtonLink";
 import Card from "@/components/ui/Card";
 import IndicadorDeCarga from "@/components/ui/IndicadorDeCarga";
 import { CasillasDeAcuerdos, SIN_ACUERDOS, acuerdosCompletos, agregarAcuerdos } from "@/components/ui/AcuerdosDeAporte";
-import { Field, Textarea } from "@/components/ui/Input";
 import SelectorDeArchivo from "@/components/ui/SelectorDeArchivo";
-import { LARGO_MAXIMO_DESCRIPCION, archivoEsOpcional, type FormatoDeDocumento, type TipoDeArchivo } from "@/lib/aportes/archivo";
+import CamposDelAporte, { camposDelAporteCompletos } from "@/components/aportes/CamposDelAporte";
+import { archivoEsOpcional, type FormatoDeDocumento, type TipoDeArchivo } from "@/lib/aportes/archivo";
 import { BASE_PATH } from "@/lib/base-path";
 import { respuestasValidas, seccionesParaElAporte, type SeccionDeChecklist } from "@/lib/campanas/checklist";
 import ChecklistsDelAporte from "@/components/aportes/ChecklistsDelAporte";
@@ -53,6 +53,7 @@ export default function AporteAnonimo({
   const [archivo, setArchivo] = useState<File | null>(null);
   const [errorArchivo, setErrorArchivo] = useState<string | null>(null);
   const [descripcion, setDescripcion] = useState("");
+  const [texto, setTexto] = useState("");
   const [marcadas, setMarcadas] = useState<string[]>([]);
   const [acuerdos, setAcuerdos] = useState(SIN_ACUERDOS);
   const [enviando, setEnviando] = useState(false);
@@ -71,6 +72,8 @@ export default function AporteAnonimo({
 
   // Solo los checklists del tipo de lo que se manda (2026-10-28).
   const { visibles, faltaArchivo } = seccionesParaElAporte(secciones, tipos, archivo);
+  // Sin archivo en una campaña que acepta texto: título + texto en vez de descripción (2026-11-11).
+  const soloTexto = !archivo && archivoEsOpcional(tipos);
 
   function alternar(valor: string) {
     setMarcadas((actual) => (actual.includes(valor) ? actual.filter((v) => v !== valor) : [...actual, valor]));
@@ -84,6 +87,8 @@ export default function AporteAnonimo({
     try {
       const datos = new FormData();
       if (archivo) datos.set("file", archivo);
+      // Solo texto (2026-11-11): description es el título y el texto va aparte; el servidor lo guarda como .txt.
+      else if (soloTexto) datos.set("texto", texto);
       datos.set("description", descripcion);
       // Solo lo marcado en los checklists que se ven (cambiar de archivo puede esconder alguno).
       respuestasValidas(marcadas, visibles).forEach((valor) => datos.append("caracteristicas", valor));
@@ -108,6 +113,7 @@ export default function AporteAnonimo({
       setEnviado(true);
       setArchivo(null);
       setDescripcion("");
+      setTexto("");
       setMarcadas([]);
       setVuelta((v) => v + 1);
     } catch (cause) {
@@ -145,8 +151,7 @@ export default function AporteAnonimo({
 
   const puedeEnviar =
     (Boolean(archivo) || archivoEsOpcional(tipos)) &&
-    descripcion.trim().length > 0 &&
-    descripcion.length <= LARGO_MAXIMO_DESCRIPCION &&
+    camposDelAporteCompletos(soloTexto, descripcion, texto) &&
     acuerdosCompletos(acuerdos) &&
     !enviando &&
     espera === 0;
@@ -174,19 +179,14 @@ export default function AporteAnonimo({
             }}
           />
 
-          <Field label="Descripción" required>
-            <Textarea
-              rows={4}
-              value={descripcion}
-              onChange={(e) => setDescripcion(e.target.value)}
-              placeholder="Describe lo que aportas"
-              maxLength={LARGO_MAXIMO_DESCRIPCION}
-              required
-            />
-          </Field>
-          <p className="mb-4 text-right font-mono text-[11px] text-system-500">
-            {descripcion.length} / {LARGO_MAXIMO_DESCRIPCION}
-          </p>
+          <CamposDelAporte
+            soloTexto={soloTexto}
+            descripcion={descripcion}
+            onDescripcion={setDescripcion}
+            texto={texto}
+            onTexto={setTexto}
+            placeholderDescripcion="Describe lo que aportas"
+          />
 
           <ChecklistsDelAporte visibles={visibles} faltaArchivo={faltaArchivo} marcadas={marcadas} onAlternar={alternar} />
 

@@ -13,6 +13,7 @@ import { exigirUsuario } from "@/lib/session";
 import { formatearTamano } from "@/lib/aportes/archivo";
 import type { Metadata } from "next";
 import EstrellasDeCalificacion from "@/components/aportes/EstrellasDeCalificacion";
+import { ANONIMO } from "../anonimo";
 
 export const metadata: Metadata = { title: "Aporte revisado" };
 
@@ -20,18 +21,23 @@ export default async function ReviewerContributionDetailPage({ params }: { param
   const { campaignId, userId, aporteId } = await params;
   const reviewer = await exigirUsuario();
 
+  // userId es el id de quien aportó o ANONIMO para un aporte sin cuenta (user_id NULL).
+  const anonimo = userId === ANONIMO;
+  if (!/^\d+$/.test(campaignId) || !/^\d+$/.test(aporteId) || (!anonimo && !/^\d+$/.test(userId))) notFound();
+
+  // Sin el correo de quien aportó: el revisor no lo ve (igual que en GET /api/aportes).
   const result = await pool.query(
-    `SELECT a.id, a.participant_name, a.participant_email, a.description, a.file_type, ${columnasDeArchivo("a")},
+    `SELECT a.id, a.participant_name, a.description, a.file_type, ${columnasDeArchivo("a")},
             ${columnaDeRespuestas("a")}, a.calificacion, a.submitted_at, a.reviewed_at,
             c.name AS campaign_name
      FROM aportes a
      JOIN campanas c ON c.id = a.campaign_id
      JOIN campana_revisores cr ON cr.campana_id = c.id
-     WHERE a.id = $1 AND a.campaign_id = $2 AND a.user_id = $3
-       AND a.first_pass_by_user_id = $4 AND a.status = 'aceptado'
-       AND cr.usuario_id = $4 AND cr.estado = 'aceptado'
+     WHERE a.id = $1 AND a.campaign_id = $2 AND ${anonimo ? "a.user_id IS NULL" : "a.user_id = $4"}
+       AND a.first_pass_by_user_id = $3 AND a.status = 'aceptado'
+       AND cr.usuario_id = $3 AND cr.estado = 'aceptado'
      LIMIT 1`,
-    [aporteId, campaignId, userId, reviewer.id]
+    anonimo ? [aporteId, campaignId, reviewer.id] : [aporteId, campaignId, reviewer.id, userId]
   );
   if (result.rowCount === 0) notFound();
 
@@ -88,9 +94,8 @@ export default async function ReviewerContributionDetailPage({ params }: { param
           <h2 className="text-[15px] font-extrabold text-system-900">Datos del aporte</h2>
           <dl className="mt-4 space-y-3 text-[13px]">
             <div className="flex justify-between gap-4 border-b border-system-200 pb-3"><dt className="text-system-600">Participante</dt><dd className="text-right font-medium text-system-900">{contribution.participant_name}</dd></div>
-            <div className="flex justify-between gap-4 border-b border-system-200 pb-3"><dt className="text-system-600">Correo</dt><dd className="text-right text-system-900">{contribution.participant_email || "Sin correo"}</dd></div>
             <div className="border-b border-system-200 pb-3"><dt className="text-system-600">Descripción</dt><dd className="mt-1 leading-6 text-system-900">{contribution.description}</dd></div>
-            {features.length > 0 && <div className="border-b border-system-200 pb-3"><dt className="text-system-600">Checklist del aporte</dt><dd className="mt-2 flex flex-wrap gap-1.5">{features.map((item: string) => <Tag key={item}>{item}</Tag>)}</dd></div>}
+            {features.length > 0 && <div className="border-b border-system-200 pb-3"><dt className="text-system-600">Características</dt><dd className="mt-2 flex flex-wrap gap-1.5">{features.map((item: string) => <Tag key={item}>{item}</Tag>)}</dd></div>}
             <div className="flex justify-between gap-4 border-b border-system-200 pb-3"><dt className="text-system-600">Enviado</dt><dd className="text-right font-mono">{new Date(contribution.submitted_at).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" })}</dd></div>
             {calificacion && <div className="flex justify-between gap-4 border-b border-system-200 pb-3"><dt className="text-system-600">Calificación</dt><dd className="text-right text-[16px]"><EstrellasDeCalificacion valor={contribution.calificacion} /></dd></div>}
             <div className="flex justify-between gap-4"><dt className="text-system-600">Aceptado</dt><dd className="text-right font-mono">{contribution.reviewed_at ? new Date(contribution.reviewed_at).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" }) : "Sin dato"}</dd></div>

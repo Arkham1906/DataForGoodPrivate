@@ -8,6 +8,7 @@ import { columnasDeArchivo } from "@/lib/aportes/tabla-archivos";
 import { exigirUsuario } from "@/lib/session";
 import type { Metadata } from "next";
 import VistaAportesAceptados from "./[userId]/aportes/VistaAportesAceptados";
+import { ANONIMO } from "./[userId]/aportes/anonimo";
 
 export const metadata: Metadata = { title: "Aportes aceptados" };
 
@@ -16,21 +17,23 @@ export default async function ReviewerUsersPage({ params }: { params: Promise<{ 
   const reviewer = await exigirUsuario();
   const campaignResult = await pool.query(`SELECT c.id, c.name FROM campanas c JOIN campana_revisores cr ON cr.campana_id = c.id WHERE c.id = $1 AND cr.usuario_id = $2 AND cr.estado = 'aceptado' LIMIT 1`, [campaignId, reviewer.id]);
   if (campaignResult.rowCount === 0) notFound();
+  // Incluye los aportes sin cuenta (user_id NULL, 2026-11-11, decisión del usuario): cuentan en
+  // "Aportes aceptados" de la campaña y su detalle va por el segmento ANONIMO. Sin correo: el
+  // revisor no lo ve, igual que en GET /api/aportes.
   const result = await pool.query(
-    `SELECT a.id, a.user_id AS participant_id, a.participant_name, a.participant_email,
+    `SELECT a.id, a.user_id AS participant_id, a.participant_name,
             a.description, a.file_type, ${columnasDeArchivo("a")}, a.submitted_at, a.reviewed_at
      FROM aportes a
      WHERE a.campaign_id = $1 AND a.first_pass_by_user_id = $2
-       AND a.status = 'aceptado' AND a.user_id IS NOT NULL
+       AND a.status = 'aceptado'
        AND a.user_id IS DISTINCT FROM $2
      ORDER BY a.reviewed_at DESC`,
     [campaignId, reviewer.id],
   );
   const contributions = result.rows.map((contribution) => ({
     id: String(contribution.id),
-    participantId: String(contribution.participant_id),
-    participantName: contribution.participant_name ?? "Usuario",
-    participantEmail: contribution.participant_email ?? "",
+    participantId: contribution.participant_id == null ? ANONIMO : String(contribution.participant_id),
+    participantName: contribution.participant_name ?? (contribution.participant_id == null ? "Anónimo" : "Usuario"),
     description: contribution.description ?? "",
     fileType: contribution.file_type,
     submittedAt: new Date(contribution.submitted_at).toISOString(),
