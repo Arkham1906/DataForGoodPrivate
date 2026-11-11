@@ -15,7 +15,7 @@ import { textoDeUbicacion } from "@/lib/campanas/ubicacion";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import Button from "@/components/ui/Button";
+import Button, { buttonClasses } from "@/components/ui/Button";
 import ProgressBar from "@/components/ui/ProgressBar";
 import RutaDeTematica from "@/components/ui/RutaDeTematica";
 import type { Campaign } from "@/types";
@@ -190,9 +190,9 @@ export default function CampaignDetailPage() {
           </div>
         )}
 
-        <div className="mb-6 rounded-lg bg-brand-800 p-5 text-white">
-          <h2 className="text-base font-bold">¿De qué trata esta campaña?</h2>
-          <p className="mt-1 text-[13px] text-white/85">{campaign.description}</p>
+        <div className="mb-6 rounded-lg border border-system-200 bg-white p-5">
+          <h2 className="text-base font-bold text-system-900">¿De qué trata esta campaña?</h2>
+          <p className="mt-1 text-[13px] text-system-600">{campaign.description}</p>
         </div>
 
         <h2 className="mb-2 mt-6 text-lg font-bold text-system-900">¿Qué puedes aportar?</h2>
@@ -277,65 +277,69 @@ export default function CampaignDetailPage() {
             </dl>
           </section>
 
-          <section className="rounded-lg border border-system-200 bg-white p-5 lg:grid lg:grid-cols-2 lg:gap-x-8">
-            <h3 className="mb-1 text-[15px] font-bold text-system-900 lg:col-span-2">
-              Tu participación hace la diferencia
-            </h3>
-            <p className="mb-4 text-[12.5px] text-system-600 lg:col-span-2">
-              Esta campaña no recibe dinero. Aquí se comparte conocimiento.
-            </p>
-
-            <div className="min-w-0">
-              <ProgressBar pct={pct} />
-              <p className="mt-2 mb-4 font-mono text-[12.5px] text-system-600">
-                {campaign.approvedContributions} de {campaign.goalContributions} aportes aprobados · tu
-                cuota: {campaign.quotaPerUser}
-                {/* Solo sugerencia (2026-10-27): la cuota vale para cualquier tipo. */}
-                {resumenDeCuotaPorTipo(campaign.dataTypes, campaign.cuotaPorTipo ?? {})
-                  ? ` (${resumenDeCuotaPorTipo(campaign.dataTypes, campaign.cuotaPorTipo ?? {})})`
-                  : repartoSugerido(campaign.quotaPerUser, campaign.dataTypes) ? ` (sugerido: ${repartoSugerido(campaign.quotaPerUser, campaign.dataTypes)})` : ""}
-                {/* Límite total por tipo de dato (2026-10-28). */}
-                {resumenDeLimites(campaign.dataTypes, campaign.limitePorTipo ?? {}, campaign.enviadosPorTipo ?? {})
-                  ? ` · máximo ${resumenDeLimites(campaign.dataTypes, campaign.limitePorTipo ?? {}, campaign.enviadosPorTipo ?? {})}`
-                  : ""}
-              </p>
-            </div>
-
-            <div className="min-w-0 lg:self-center">
-              {isCreator ? (
-                <p className="rounded-lg bg-system-100 p-3 text-center text-[12.5px] text-system-600">Creaste esta campaña, por lo que no puedes aportar en ella.</p>
-              ) : baneado ? (
-                <p className="rounded-lg bg-error-50 p-3 text-center text-[12.5px] text-error-700">
-                  Quien creó esta campaña te retiró la posibilidad de aportar en ella.
-                  {motivoDeBaneo && <span className="mt-1 block font-semibold">Motivo: {motivoDeBaneo}</span>}
+          {/* Tu participación (2026-11-10, a pedido del usuario): el texto a la izquierda y la acción en
+              una columna fija a la derecha, centrada con el texto; la nota de los acuerdos va con el
+              resto del texto para que el botón no quede desacomodado. Abajo de lg todo se apila. */}
+          <section className="rounded-lg border border-system-200 bg-white p-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-8">
+              <div className="min-w-0 flex-1">
+                <h3 className="mb-1 text-[15px] font-bold text-system-900">Tu participación hace la diferencia</h3>
+                <p className="mb-4 text-[12.5px] text-system-600">
+                  Esta campaña no recibe dinero. Aquí se comparte conocimiento.
                 </p>
-              ) : campaign.status === "activa" && !inscrito ? (
-                // Sin inscribirse, "Realizar un aporte" abre la ventana de los acuerdos; al aceptarlos va al
-                // formulario (2026-11-10, a pedido del usuario; antes las casillas iban aquí mismo).
-                <>
-                  <Button variant="primary" className="w-full" onClick={() => setAceptandoAcuerdos(true)} aria-haspopup="dialog">
-                    Realizar un aporte
-                  </Button>
-                  <p className="mt-2 text-center text-[11.5px] text-system-500">
-                    Antes aceptas los acuerdos de la campaña; solo se piden una vez.
+                <ProgressBar pct={pct} />
+                <p className="mt-2 font-mono text-[12.5px] text-system-600">
+                  {campaign.approvedContributions} de {campaign.goalContributions} aportes aprobados · tu
+                  cuota: {campaign.quotaPerUser}
+                  {/* Solo sugerencia (2026-10-27): la cuota vale para cualquier tipo. */}
+                  {resumenDeCuotaPorTipo(campaign.dataTypes, campaign.cuotaPorTipo ?? {})
+                    ? ` (${resumenDeCuotaPorTipo(campaign.dataTypes, campaign.cuotaPorTipo ?? {})})`
+                    : repartoSugerido(campaign.quotaPerUser, campaign.dataTypes) ? ` (sugerido: ${repartoSugerido(campaign.quotaPerUser, campaign.dataTypes)})` : ""}
+                  {/* Límite total por tipo de dato (2026-10-28). */}
+                  {resumenDeLimites(campaign.dataTypes, campaign.limitePorTipo ?? {}, campaign.enviadosPorTipo ?? {})
+                    ? ` · máximo ${resumenDeLimites(campaign.dataTypes, campaign.limitePorTipo ?? {}, campaign.enviadosPorTipo ?? {})}`
+                    : ""}
+                </p>
+                {!isCreator && !baneado && campaign.status === "activa" && !inscrito && (
+                  <p className="mt-1 text-[12px] text-system-500">
+                    Antes de aportar aceptas los acuerdos de la campaña; solo se piden una vez.
                   </p>
-                  <VentanaDeInscripcion
-                    abierta={aceptandoAcuerdos}
-                    onCerrar={() => setAceptandoAcuerdos(false)}
-                    campanaId={campaign.id}
-                    onInscrito={() => router.push(`/campanas/${campaign.id}/aportar`)}
-                    proposito={textoDelProposito(campaign.proposito, campaign.propositoOtro)}
-                  />
-                </>
-              ) : campaign.status === "activa" ? (
-                <Link href={`/campanas/${campaign.id}/aportar`}>
-                  <Button variant="primary" className="w-full">Realizar un aporte</Button>
-                </Link>
-              ) : campaign.status === "pausada" ? (
-                <p className="rounded-lg bg-system-100 p-3 text-center text-[12.5px] text-system-600">{avisoDePausa(campaign.pausa, "Podrás aportar cuando se reanude.")}</p>
-              ) : (
-                <p className="rounded-lg bg-system-100 p-3 text-center text-[12.5px] text-system-600">Esta campaña no está recibiendo aportes.</p>
-              )}
+                )}
+              </div>
+
+              <div className="w-full shrink-0 sm:w-64">
+                {isCreator ? (
+                  <p className="rounded-lg bg-system-100 p-3 text-center text-[12.5px] text-system-600">Creaste esta campaña, por lo que no puedes aportar en ella.</p>
+                ) : baneado ? (
+                  <p className="rounded-lg bg-error-50 p-3 text-center text-[12.5px] text-error-700">
+                    Quien creó esta campaña te retiró la posibilidad de aportar en ella.
+                    {motivoDeBaneo && <span className="mt-1 block font-semibold">Motivo: {motivoDeBaneo}</span>}
+                  </p>
+                ) : campaign.status === "activa" && !inscrito ? (
+                  // Sin inscribirse, "Realizar un aporte" abre la ventana de los acuerdos; al aceptarlos va al
+                  // formulario (2026-11-10, a pedido del usuario; antes las casillas iban aquí mismo).
+                  <>
+                    <Button variant="primary" className="w-full" onClick={() => setAceptandoAcuerdos(true)} aria-haspopup="dialog">
+                      Realizar un aporte
+                    </Button>
+                    <VentanaDeInscripcion
+                      abierta={aceptandoAcuerdos}
+                      onCerrar={() => setAceptandoAcuerdos(false)}
+                      campanaId={campaign.id}
+                      onInscrito={() => router.push(`/campanas/${campaign.id}/aportar`)}
+                      proposito={textoDelProposito(campaign.proposito, campaign.propositoOtro)}
+                    />
+                  </>
+                ) : campaign.status === "activa" ? (
+                  <Link href={`/campanas/${campaign.id}/aportar`} className={buttonClasses("primary", "md", "w-full")}>
+                    Realizar un aporte
+                  </Link>
+                ) : campaign.status === "pausada" ? (
+                  <p className="rounded-lg bg-system-100 p-3 text-center text-[12.5px] text-system-600">{avisoDePausa(campaign.pausa, "Podrás aportar cuando se reanude.")}</p>
+                ) : (
+                  <p className="rounded-lg bg-system-100 p-3 text-center text-[12.5px] text-system-600">Esta campaña no está recibiendo aportes.</p>
+                )}
+              </div>
             </div>
           </section>
         </div>
