@@ -1,4 +1,4 @@
-// Clases compartidas por los catálogos públicos con el estilo de la landing (/explorar y /datos; /progreso/leaderboard
+// Clases compartidas por los catálogos públicos con el estilo de la landing (/explorar y /datos; /leaderboard
 // usa las de orden para sus categorías). La opción elegida va en oscuro, como las pestañas de la landing. En
 // móvil, los filtros son una fila con scroll horizontal (`dashboard-nav`); en escritorio, una columna.
 

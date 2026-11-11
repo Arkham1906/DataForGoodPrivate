@@ -41,6 +41,12 @@ const TEXTOS: Record<ClaveDeRequisito, { etiqueta: string; plural: string; nuevo
   misiones: { etiqueta: "Misiones completadas", plural: "misiones completadas", nuevo: "una misión completada" },
 };
 
+/**
+ * Cómo cuenta la racha (SRS v1.3: RF-GAM-25, 27, RN-GAM-39). Es el único requisito que no depende de la aceptación,
+ * por eso lleva una ayuda junto a su etiqueta en la trayectoria y en la ficha del rango siguiente.
+ */
+export const TEXTO_DE_LA_RACHA = "Cuenta cada día en que envías al menos un aporte, aunque después lo rechacen.";
+
 /** Etiquetas cortas de cada requisito, para el bloque de rango de /progreso. */
 export const ETIQUETAS_CORTAS: Record<ClaveDeRequisito, string> = {
   exp: "EXP",
@@ -149,7 +155,7 @@ function frase(clave: ClaveDeRequisito, faltan: number): string {
 export function textoQueFalta(avances: AvanceDeRequisito[]): string {
   const pendientes = avances.filter((a) => !a.cumplido);
   if (pendientes.length === 0) {
-    return "Ya cumples todo: el ascenso se registra en cuanto el sistema lo compruebe.";
+    return "Ya cumples todo. Subirás en cuanto el sistema lo compruebe.";
   }
   const plural = pendientes.length > 1 || pendientes[0].faltan !== 1;
   return `${plural ? "Te faltan" : "Te falta"} ${unirConY(pendientes.map((a) => frase(a.clave, a.faltan)))}.`;
@@ -253,9 +259,27 @@ export function fechaCortaDeAscenso(fecha: Date | null): string {
   return fecha ? FECHA_CORTA.format(fecha) : "";
 }
 
+/** «hoy» o «21 oct», en la zona de las campañas; texto vacío sin fecha registrada: no se inventa. */
+export function fechaDelRecorrido(fecha: Date | null, ahora: Date = new Date()): string {
+  if (!fecha) return "";
+  return DIA_EN_ZONA.format(fecha) === DIA_EN_ZONA.format(ahora) ? "hoy" : FECHA_CORTA.format(fecha);
+}
+
 /**
- * «Alcanzado el 21 oct, 11 días después del rango 8.» El rango 1 se tiene desde que se crea la cuenta (RF-GAM-17).
- * Sin fecha registrada devuelve un texto vacío: no se inventa.
+ * Lo que tardó un ascenso, para «Tu recorrido» de la trayectoria (RF-GAM-83): «11 días después», «El mismo día» o
+ * «Al crear tu cuenta» (rango 1, RF-GAM-17). Texto vacío si falta alguna de las dos fechas.
+ */
+export function lapsoDeAscenso(numero: number, alcanzadoEn: Date | null, anteriorEn: Date | null): string {
+  if (numero <= 1) return "Al crear tu cuenta";
+  if (!alcanzadoEn || !anteriorEn) return "";
+  const dias = diasEntre(DIA_EN_ZONA.format(anteriorEn), DIA_EN_ZONA.format(alcanzadoEn));
+  if (dias <= 0) return "El mismo día";
+  return `${dias} ${dias === 1 ? "día" : "días"} después`;
+}
+
+/**
+ * «Lo alcanzaste el 21 oct, 11 días después del rango 8.» (textos de la v11, 2026-11-10). El rango 1 se tiene desde
+ * que se crea la cuenta (RF-GAM-17). Sin fecha registrada devuelve un texto vacío: no se inventa.
  */
 export function textoDeAscenso(
   numero: number,
@@ -263,13 +287,13 @@ export function textoDeAscenso(
   anteriorEn: Date | null,
   ahora: Date = new Date(),
 ): string {
-  if (numero <= 1) return "Alcanzado al crear tu cuenta.";
+  if (numero <= 1) return "Lo tienes desde que creaste tu cuenta.";
   if (!alcanzadoEn) return "";
   const dia = DIA_EN_ZONA.format(alcanzadoEn);
   const cuando = dia === DIA_EN_ZONA.format(ahora) ? "hoy" : `el ${FECHA_CORTA.format(alcanzadoEn)}`;
-  if (!anteriorEn) return `Alcanzado ${cuando}.`;
+  if (!anteriorEn) return `Lo alcanzaste ${cuando}.`;
   const dias = diasEntre(DIA_EN_ZONA.format(anteriorEn), dia);
   const despues =
     dias <= 0 ? `el mismo día que el rango ${numero - 1}` : `${dias} ${dias === 1 ? "día" : "días"} después del rango ${numero - 1}`;
-  return `Alcanzado ${cuando}, ${despues}.`;
+  return `Lo alcanzaste ${cuando}, ${despues}.`;
 }

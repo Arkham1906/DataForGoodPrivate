@@ -1,7 +1,3 @@
-// Datos del Resumen de /progreso y del calendario de racha (2026-11-04; diseño v10, SRS v1.2). Solo lectura y solo de
-// la persona con sesión. Lo común con /inicio sigue en obtenerResumenDeProgreso() (./progreso.ts); esto agrega las
-// fichas de los 20 rangos, el camino, la distribución de calificaciones, las medallas y el calendario.
-//
 // Esta función NO calcula ni concede nada (RNF-GAM-06): lee lo guardado. EXP, contadores, rangos y medallas los
 // escriben lib/gamificacion/recompensas.ts y lib/gamificacion/evaluacion.ts. La distribución de calificaciones sale de
 // aportes.calificacion, así que también muestra los aceptados antes del lanzamiento, que el rango no cuenta (RF-GAM-67).
@@ -20,6 +16,9 @@ import type {
   CalendarioDeRachaDelMes,
   CaminoDeRangos,
   DatosDeResumen,
+  DatosDeTrayectoria,
+  EslabonDeLaTrayectoria,
+  HitoDelRecorrido,
   DiaDelCalendario,
   EventoDeRacha,
   ResumenDeCalificaciones,
@@ -27,12 +26,17 @@ import type {
 import { requisitosDe, type FilaDeRango } from "./progreso";
 import type { EstadoDeDiaDeRacha, ResumenDeProgreso } from "./progreso-tipos";
 import {
+  CLAVES_DE_REQUISITO,
   estadoDeRango,
   fechaCortaDeAscenso,
+  fechaDelRecorrido,
+  lapsoDeAscenso,
   nombreCortoDeRango,
   requisitosDeRango,
   textoDeAscenso,
+  type ClaveDeRequisito,
   type FichaDeRango,
+  type ValoresPorRequisito,
 } from "./rangos";
 
 const MEDALLAS_CERCA = 3;
@@ -55,17 +59,45 @@ const TEXTO_DE_EVENTO: Record<string, string> = {
   racha_interrumpida: "Racha interrumpida.",
 };
 
+type FilaDeAscenso = { rango: number; alcanzado_en: Date; requisitos: unknown };
+
+/**
+ * Los ascensos de una persona: la fecha de cada uno y lo que pidió. Lo que pidió sale de rango_ascensos.requisitos,
+ * que evaluacion.ts guarda al subir para que un cambio posterior del catálogo no lo altere (RF-GAM-64, 83); el
+ * catálogo vigente solo se usa si falta la fila o el dato guardado no es válido (por ejemplo, el rango 1).
+ */
+async function leerAscensos(usuarioId: number | string) {
+  const { rows } = await pool.query<FilaDeAscenso>(
+    `SELECT rango, alcanzado_en, requisitos FROM rango_ascensos WHERE usuario_id = $1`,
+    [usuarioId],
+  );
+  const fila = (rango: number) => rows.find((a) => a.rango === rango);
+  return {
+    fecha: (rango: number): Date | null => fila(rango)?.alcanzado_en ?? null,
+    pidio: (r: FilaDeRango): ValoresPorRequisito => {
+      const guardado = fila(r.numero)?.requisitos as Partial<Record<ClaveDeRequisito, unknown>> | null | undefined;
+      const valido =
+        !!guardado && CLAVES_DE_REQUISITO.every((c) => typeof guardado[c] === "number" && Number.isFinite(guardado[c]));
+      return valido ? (guardado as ValoresPorRequisito) : requisitosDe(r);
+    },
+  };
+}
+
+type Ascensos = Awaited<ReturnType<typeof leerAscensos>>;
+
 /** Una ficha por rango: los alcanzados se completan aquí; actual, siguiente y avistado ya vienen armadas. */
 function fichasDeLaTrayectoria(
   rangos: FilaDeRango[],
   actual: number,
-  ascenso: (rango: number) => Date | null,
+  ascensos: Ascensos,
   armadas: FichaDeRango[],
 ): FichaDeRango[] {
+  const ascenso = ascensos.fecha;
   const fichas: FichaDeRango[] = [];
   for (const r of rangos) {
     const estado = estadoDeRango(r.numero, actual);
-    const requisitos = requisitosDeRango(requisitosDe(r));
+    // Alcanzado y actual: lo que se pidió al subir. Los demás: el catálogo vigente.
+    const requisitos = requisitosDeRango(estado === "alcanzado" || estado === "actual" ? ascensos.pidio(r) : requisitosDe(r));
     if (estado === "alcanzado") {
       fichas.push({
         estado,
@@ -80,7 +112,7 @@ function fichasDeLaTrayectoria(
       fichas.push({ estado, numero: r.numero, requisitos });
     } else {
       const armada = armadas.find((f) => f.numero === r.numero);
-      if (armada) fichas.push(armada);
+      if (armada) fichas.push(armada.estado === "actual" ? { ...armada, requisitos } : armada);
     }
   }
   return fichas;
@@ -161,10 +193,7 @@ export async function obtenerDatosDeResumen(
                 req_excepcionales, req_racha, req_misiones
           FROM rangos ORDER BY numero`,
       ),
-      pool.query<{ rango: number; alcanzado_en: Date }>(
-        `SELECT rango, alcanzado_en FROM rango_ascensos WHERE usuario_id = $1`,
-        [usuarioId],
-      ),
+      leerAscensos(usuarioId),
       // Los aportes anónimos no llevan user_id: quedan fuera (RN-GAM-26).
       pool.query<{ calificacion: number | null; cuenta: number }>(
         `SELECT calificacion, COUNT(*)::int AS cuenta
@@ -197,7 +226,7 @@ export async function obtenerDatosDeResumen(
 
     const cifras = cifrasR.rows[0];
     if (!cifras) return null;
-    const ascenso = (rango: number) => ascensosR.rows.find((a) => a.rango === rango)?.alcanzado_en ?? null;
+    const ascenso = ascensosR.fecha;
 
     const medallas: MedallaConAvance[] = medallasR.rows.map((m) => ({
       clave: m.clave,
@@ -212,12 +241,98 @@ export async function obtenerDatosDeResumen(
     return {
       expTotal: cifras.exp_total,
       camino: caminoDeRangos(rangosR.rows, progreso, ascenso),
-      fichas: fichasDeLaTrayectoria(rangosR.rows, progreso.rangoActual, ascenso, progreso.fichas),
+      fichas: fichasDeLaTrayectoria(rangosR.rows, progreso.rangoActual, ascensosR, progreso.fichas),
       calificaciones: resumenDeCalificaciones(calificacionesR.rows),
       medallasCerca: medallasMasCercanas(medallas, MEDALLAS_CERCA),
     };
   } catch (error) {
     console.error("Error armando el resumen de Mi progreso", error);
+    return null;
+  }
+}
+
+// -------------
+// Trayectoria 
+// -------------
+
+/** Los 20 rangos como tarjetas del camino. De avistado y por descubrir solo salen número, estado y EXP que piden. */
+function eslabonesDeLaTrayectoria(
+  rangos: FilaDeRango[],
+  progreso: ResumenDeProgreso,
+  ascensos: Ascensos,
+): EslabonDeLaTrayectoria[] {
+  const actual = progreso.rangoActual;
+  const ascenso = ascensos.fecha;
+  return rangos.map((r) => {
+    const estado = estadoDeRango(r.numero, actual);
+    const visible = estado === "alcanzado" || estado === "actual" || estado === "siguiente";
+    const detalle =
+      estado === "alcanzado"
+        ? fechaCortaDeAscenso(ascenso(r.numero)) || "Alcanzado"
+        : estado === "actual"
+          ? "Tu rango"
+          : estado === "siguiente"
+            ? `${progreso.siguiente?.cumplidos ?? 0} de ${progreso.siguiente?.activos ?? 0} requisitos`
+            : estado === "avistado"
+              ? "Tiene pista"
+              : r.numero === progreso.totalDeRangos
+                ? "El último"
+                : "Por descubrir";
+    return {
+      numero: r.numero,
+      estado,
+      nombreCorto: visible ? nombreCortoDeRango(r.nombre) : null,
+      detalle,
+      // Alcanzado y actual: la EXP que se pidió al subir (RF-GAM-83); los demás, la del catálogo.
+      expQuePide: estado === "alcanzado" || estado === "actual" ? ascensos.pidio(r).exp : r.req_exp,
+    };
+  });
+}
+
+/** Lo que la pestaña Trayectoria muestra además de ResumenDeProgreso; null si falla (se loguea el error). */
+export async function obtenerDatosDeTrayectoria(
+  usuarioId: number | string,
+  progreso: ResumenDeProgreso,
+): Promise<DatosDeTrayectoria | null> {
+  try {
+    const [rangosR, ascensosR] = await Promise.all([
+      pool.query<FilaDeRango>(
+        `SELECT numero, nombre, descripcion, etapa_avatar, req_exp, req_aportes, req_excelentes,
+                req_excepcionales, req_racha, req_misiones
+          FROM rangos ORDER BY numero`,
+      ),
+      leerAscensos(usuarioId),
+    ]);
+    const rangos = rangosR.rows;
+    const actual = progreso.rangoActual;
+    const ascenso = ascensosR.fecha;
+
+    const recorrido: HitoDelRecorrido[] = rangos
+      .filter((r) => r.numero <= actual)
+      .sort((a, b) => b.numero - a.numero)
+      .map((r) => ({
+        numero: r.numero,
+        nombre: r.nombre,
+        // El rango 1 no tiene fila en rango_ascensos: se tiene desde que se crea la cuenta (RF-GAM-17).
+        fecha: r.numero === 1 ? "" : fechaDelRecorrido(ascenso(r.numero)),
+        lapso: lapsoDeAscenso(r.numero, ascenso(r.numero), ascenso(r.numero - 1)),
+      }));
+
+    const tabla = rangos.map((r) => {
+      const estado = estadoDeRango(r.numero, actual);
+      const visible = estado === "alcanzado" || estado === "actual" || estado === "siguiente";
+      const requisitos = estado === "alcanzado" || estado === "actual" ? ascensosR.pidio(r) : requisitosDe(r);
+      return { numero: r.numero, estado, nombre: visible ? r.nombre : null, requisitos };
+    });
+
+    return {
+      eslabones: eslabonesDeLaTrayectoria(rangos, progreso, ascensosR),
+      recorrido,
+      tabla,
+      fichas: fichasDeLaTrayectoria(rangos, actual, ascensosR, progreso.fichas),
+    };
+  } catch (error) {
+    console.error("Error armando la trayectoria de Mi progreso", error);
     return null;
   }
 }
