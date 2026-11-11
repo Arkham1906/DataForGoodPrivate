@@ -172,7 +172,7 @@ async function evaluarRango(client: Consultor, usuarioId: number | string): Prom
       tipo: "rango_ascenso",
       titulo: "Subiste de rango",
       mensaje,
-      enlace: "/progreso",
+      enlace: rutaDePantalla("trayectoria") ?? "/progreso",
       metadata: { rango: final.numero, rangos: alcanzados.map((r) => r.numero) },
     },
   ];
