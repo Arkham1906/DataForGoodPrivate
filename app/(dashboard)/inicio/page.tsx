@@ -32,6 +32,7 @@ import BotonCrearCampana from "@/components/campanas/BotonCrearCampana";
 import AvisoSinTematicas from "@/components/campanas/AvisoSinTematicas";
 import ResumenDeRango from "@/components/gamificacion/ResumenDeRango";
 import ResumenDeHoy from "@/components/gamificacion/ResumenDeHoy";
+import { rutaDePantalla } from "@/lib/gamificacion/pantallas-de-progreso";
 
 export const metadata: Metadata = { title: "Inicio" };
 
@@ -99,7 +100,11 @@ export default async function InicioPage() {
 
       {progreso && (
         <>
-          <ResumenDeRango progreso={progreso} enlaces={{ trayectoria: "/progreso" }} idDelTitulo="inicio-rango" />
+          <ResumenDeRango
+            progreso={progreso}
+            enlaces={{ trayectoria: rutaDePantalla("trayectoria") ?? "/progreso" }}
+            idDelTitulo="inicio-rango"
+          />
           <ResumenDeHoy progreso={progreso} />
         </>
       )}

@@ -5,7 +5,7 @@
 import type { CalificacionDeAporte } from "@/lib/aportes/calificacion";
 import type { MedallaCercaDeSubir } from "./medallas";
 import type { EstadoDeDiaDeRacha } from "./progreso-tipos";
-import type { EstadoDeRango, FichaDeRango } from "./rangos";
+import type { EstadoDeRango, FichaDeRango, ValoresPorRequisito } from "./rangos";
 
 /** Rangos que se ven a la vez en el camino del bloque de rango. */
 export const RANGOS_EN_EL_CAMINO = 6;
@@ -56,9 +56,46 @@ export type DatosDeResumen = {
   medallasCerca: MedallaCercaDeSubir[];
 };
 
-// ---------------------------------------------------------------------------------------------------
-// Calendario de la racha (RF-GAM-85, 86): lo devuelve GET /api/progreso/racha?mes=YYYY-MM.
-// ---------------------------------------------------------------------------------------------------
+// ------------------------------------
+// Trayectoria (/progreso/trayectoria
+// ------------------------------------
+
+/** Tamaño de los tramos con que el teléfono agrupa los rangos (anexo B): solo ordenan la lista, no tienen nombre. */
+export const RANGOS_POR_TRAMO = 5;
+
+/** Una tarjeta del camino de los 20 rangos: un eslabón más la EXP que pide (dato público, RF-GAM-80). */
+export type EslabonDeLaTrayectoria = EslabonDelCamino & { expQuePide: number };
+
+/** Un rango alcanzado (o el actual) en «Tu recorrido» (RF-GAM-83). */
+export type HitoDelRecorrido = {
+  numero: number;
+  nombre: string;
+  /** «hoy», «21 oct» o "" sin fecha registrada. */
+  fecha: string;
+  /** «11 días después», «El mismo día», «Al crear tu cuenta» o "". */
+  lapso: string;
+};
+
+/** Una fila de «Requisitos de los 20 rangos» (RF-GAM-80). `nombre` es null en avistado y por descubrir. */
+export type FilaDeRequisitosDeRango = {
+  numero: number;
+  estado: EstadoDeRango;
+  nombre: string | null;
+  requisitos: ValoresPorRequisito;
+};
+
+export type DatosDeTrayectoria = {
+  eslabones: EslabonDeLaTrayectoria[];
+  /** Del rango actual al 1. */
+  recorrido: HitoDelRecorrido[];
+  tabla: FilaDeRequisitosDeRango[];
+  /** Una ficha por rango (RF-GAM-78, RNF-GAM-14). */
+  fichas: FichaDeRango[];
+};
+
+// ------------------------
+// Calendario de la racha.
+// ------------------------
 
 export type AporteDelDia = {
   id: number;

@@ -3,9 +3,6 @@
 // Server Component: todo lo que muestra viene de obtenerResumenDeProgreso() (lib/gamificacion/progreso.ts);
 // la única parte con estado es CaminoCompacto (la ficha de rango). Hecho de piezas pequeñas para que un cambio
 // al avatar, a la insignia o a la barra no toque este archivo (TarjetaDeAvatar, InsigniaDeRango, BarraDeRequisitos).
-//
-// `enlaces` solo lleva las pantallas que ya existen: no se enlaza a ninguna que aún no esté (hoy, la trayectoria
-// completa y el historial de EXP son parte de /progreso, en las siguientes entregas).
 
 import Link from "next/link";
 import ButtonLink from "@/components/ui/ButtonLink";
