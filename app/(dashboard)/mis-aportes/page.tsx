@@ -129,6 +129,18 @@ export default function MisAportesPage() {
 
   const propsDeFiltros = { tipo, campanaId, tematica, estado, fecha, campanas, tematicas, onTipo: setTipo, onCampana: setCampanaId, onTematica: setTematica, onEstado: setEstado, onFecha: setFecha };
 
+  const botonCambiarVista = (
+    <div role="group" aria-label="Cambiar vista de aportes" className="relative flex shrink-0 gap-0 overflow-hidden rounded-lg border border-system-300 bg-system-100 p-1">
+      <span aria-hidden="true" className={`pointer-events-none absolute left-[3px] top-[3px] z-0 h-8 w-8 rounded-md bg-brand-600 shadow-inner transition-transform duration-200 ease-out motion-reduce:transition-none ${vistaCuadricula ? "translate-x-full" : "translate-x-0"}`} />
+      <Button type="button" size="sm" className={`!relative !z-10 !size-8 !rounded-md !border-transparent !bg-transparent !p-0 ${!vistaCuadricula ? "!text-white" : "!text-system-600 hover:!bg-white"}`} onClick={() => guardarVistaDeMisAportes(false)} aria-label="Vista de lista" aria-pressed={!vistaCuadricula} title="Vista de lista">
+        <svg aria-hidden="true" viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" strokeLinecap="round" strokeLinejoin="round" /></svg>
+      </Button>
+      <Button type="button" size="sm" className={`!relative !z-10 !size-8 !rounded-md !border-transparent !bg-transparent !p-0 ${vistaCuadricula ? "!text-white" : "!text-system-600 hover:!bg-white"}`} onClick={() => guardarVistaDeMisAportes(true)} aria-label="Vista cuadriculada" aria-pressed={vistaCuadricula} title="Vista cuadriculada">
+        <svg aria-hidden="true" viewBox="0 0 24 24" className="h-3 w-3" fill="currentColor"><rect x="4" y="4" width="6" height="6" rx="1" /><rect x="14" y="4" width="6" height="6" rx="1" /><rect x="4" y="14" width="6" height="6" rx="1" /><rect x="14" y="14" width="6" height="6" rx="1" /></svg>
+      </Button>
+    </div>
+  );
+
   return <div>
     <div className="mb-6 flex items-start justify-between gap-4 max-md:mb-4 max-md:gap-3">
       <div><h1 className="text-2xl font-extrabold text-system-900 max-md:text-xl">Mis aportes</h1><p className="mt-1 text-[13px] text-system-600">Todos tus aportes en un solo listado, con filtros por tipo, fecha y temática.</p></div>
@@ -136,17 +148,18 @@ export default function MisAportesPage() {
     </div>
 
     {error ? <p className="rounded-lg bg-error-50 p-4 text-sm text-error-700">{error}</p> : cargando ? <p className="rounded-lg border border-system-200 bg-white p-6 text-sm text-system-600" role="status">Cargando tus aportes…</p> : items.length === 0 ? <p className="rounded-lg border border-dashed border-system-300 p-6 text-sm text-system-600">Todavía no has enviado aportes. Explora una campaña para empezar a participar.</p> : <>
-      <div className="mb-5 hidden items-end gap-3 lg:flex">
+      <div className="mb-3 hidden lg:flex">
         <div className="min-w-0 flex-1 rounded-lg border border-system-200 bg-white p-3">
           <div className="grid grid-cols-5 items-end gap-2"><CamposDeFiltros {...propsDeFiltros} /></div>
           {hayFiltros && <div className="mt-2 flex items-center justify-between gap-3"><p className="text-[12px] text-system-500">{filtrados.length} de {items.length} aportes</p><Button size="sm" onClick={limpiarFiltros}>Limpiar filtros</Button></div>}
         </div>
-        <Button type="button" size="sm" className="!size-10 !rounded-lg !p-0" onClick={() => guardarVistaDeMisAportes(!vistaCuadricula)} aria-label={vistaCuadricula ? "Cambiar a vista de lista" : "Cambiar a vista cuadriculada"} title={vistaCuadricula ? "Vista de lista" : "Vista cuadriculada"}>
-          {vistaCuadricula ? <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" /></svg> : <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor"><rect x="4" y="4" width="6" height="6" rx="1" /><rect x="14" y="4" width="6" height="6" rx="1" /><rect x="4" y="14" width="6" height="6" rx="1" /><rect x="14" y="14" width="6" height="6" rx="1" /></svg>}
-        </Button>
       </div>
 
-      <div className="mb-5 flex gap-2 lg:hidden"><Button type="button" size="sm" onClick={() => setFiltrosAbiertos(true)} aria-haspopup="dialog" aria-expanded={filtrosAbiertos}><svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 6h16M7 12h10M10 18h4" strokeLinecap="round" /></svg>Filtros{hayFiltros ? ` (${filtrados.length})` : ""}</Button><Button type="button" size="sm" className="!size-10 !rounded-lg !p-0" onClick={() => guardarVistaDeMisAportes(!vistaCuadricula)} aria-label={vistaCuadricula ? "Cambiar a vista de lista" : "Cambiar a vista cuadriculada"} title={vistaCuadricula ? "Vista de lista" : "Vista cuadriculada"}>{vistaCuadricula ? <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" strokeLinecap="round" strokeLinejoin="round" /></svg> : <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="4" width="6" height="6" rx="1" /><rect x="14" y="4" width="6" height="6" rx="1" /><rect x="4" y="14" width="6" height="6" rx="1" /><rect x="14" y="14" width="6" height="6" rx="1" /></svg>}</Button></div>
+      <div className="mb-5 flex gap-2 lg:hidden"><Button type="button" size="sm" onClick={() => setFiltrosAbiertos(true)} aria-haspopup="dialog" aria-expanded={filtrosAbiertos}><svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 6h16M7 12h10M10 18h4" strokeLinecap="round" /></svg>Filtros{hayFiltros ? ` (${filtrados.length})` : ""}</Button></div>
+
+      <div className="mb-4 flex justify-end">
+        {botonCambiarVista}
+      </div>
 
       {filtrosAbiertos && <div className="fixed inset-0 z-50 flex items-end bg-system-900/40 p-3 lg:hidden" role="dialog" aria-modal="true" aria-labelledby="titulo-filtros"><div className="max-h-[90vh] w-full overflow-y-auto rounded-xl bg-white p-4 shadow-xl"><div className="mb-4 flex items-center justify-between gap-3"><h2 id="titulo-filtros" className="text-base font-extrabold text-system-900">Filtrar mis aportes</h2><button type="button" onClick={() => setFiltrosAbiertos(false)} className="rounded-full p-2 text-xl leading-none text-system-600 hover:bg-system-100" aria-label="Cerrar filtros">×</button></div><div className="grid gap-3 sm:grid-cols-2"><CamposDeFiltros {...propsDeFiltros} /></div><div className="mt-5 flex items-center justify-between gap-3 border-t border-system-200 pt-4"><p className="text-[12px] text-system-500">{hayFiltros ? `${filtrados.length} de ${items.length} aportes` : "Sin filtros"}</p><div className="flex gap-2"><Button size="sm" onClick={limpiarFiltros}>Limpiar</Button><Button variant="primary" size="sm" onClick={() => setFiltrosAbiertos(false)}>Aplicar</Button></div></div></div></div>}
 
