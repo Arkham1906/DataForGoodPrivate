@@ -6,10 +6,8 @@ import ButtonLink from "@/components/ui/ButtonLink";
 import ProgressBar from "@/components/ui/ProgressBar";
 import Tag from "@/components/ui/Tag";
 import { rutaDePantalla } from "@/lib/gamificacion/pantallas-de-progreso";
-import type { HitoDelRecorrido } from "@/lib/gamificacion/mi-progreso-tipos";
 import {
   TEXTO_DE_LA_RACHA,
-  type FichaDeRangoAvistado,
   type FichaDeRangoSiguiente,
 } from "@/lib/gamificacion/rangos";
 import InsigniaDeRango from "./InsigniaDeRango";
@@ -155,71 +153,6 @@ export function TrayectoriaCompleta({ total }: { total: number }) {
           Aportar a una campaña
         </ButtonLink>
       </div>
-    </section>
-  );
-}
-
-export function TarjetaDelAvistado({ ficha, onAbrir }: { ficha: FichaDeRangoAvistado; onAbrir: (numero: number) => void }) {
-  return (
-    <section aria-labelledby="avistado-titulo" className="flex flex-col gap-2.5 rounded-lg bg-brand-50 p-5">
-      <p className="text-[12.5px] font-bold text-brand-700">Avistado</p>
-      <div className="flex items-center gap-3.5">
-        <InsigniaDeRango numero={ficha.numero} estado="avistado" tamano="md" />
-        <div>
-          <h2 id="avistado-titulo" className="text-xl font-extrabold text-brand-950">
-            Rango {ficha.numero}
-          </h2>
-          <p className="text-[13px] text-brand-800">Nombre por descubrir</p>
-        </div>
-      </div>
-      <p className="text-[15px] font-bold text-brand-950">{ficha.pista}</p>
-      <button
-        type="button"
-        onClick={() => onAbrir(ficha.numero)}
-        aria-haspopup="dialog"
-        className="self-start py-1.5 text-[13.5px] font-bold text-brand-700 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
-      >
-        Ver todo lo que pide
-      </button>
-    </section>
-  );
-}
-
-export function RecorridoDeRangos({
-  recorrido,
-  actual,
-  onAbrir,
-}: {
-  recorrido: HitoDelRecorrido[];
-  actual: number;
-  onAbrir: (numero: number) => void;
-}) {
-  return (
-    <section aria-labelledby="recorrido-titulo" className={`flex flex-[1_1_auto] flex-col gap-1.5 px-4 pt-5 pb-3.5 ${TARJETA}`}>
-      <h2 id="recorrido-titulo" className="mx-2 mb-1 text-lg font-extrabold text-system-900">
-        Tu recorrido
-      </h2>
-      <ol className="flex max-h-[360px] flex-col gap-0.5 overflow-y-auto">
-        {recorrido.map((h) => (
-          <li key={h.numero}>
-            <button
-              type="button"
-              onClick={() => onAbrir(h.numero)}
-              aria-haspopup="dialog"
-              aria-current={h.numero === actual ? "step" : undefined}
-              aria-label={`Rango ${h.numero}, ${h.nombre}${h.numero === actual ? ", tu rango actual" : ""}${h.fecha ? `, alcanzado ${h.fecha === "hoy" ? "hoy" : `el ${h.fecha}`}` : ""}${h.lapso ? `, ${h.lapso.toLowerCase()}` : ""}. Abre su ficha.`}
-              className="grid w-full grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-3 rounded-[12px] p-2 text-left hover:bg-system-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
-            >
-              <InsigniaDeRango numero={h.numero} estado={h.numero === actual ? "actual" : "alcanzado"} tamano="sm" />
-              <span className="min-w-0 text-sm font-semibold text-system-900">{h.nombre}</span>
-              <span className="text-right">
-                {h.fecha && <span className="block text-[12.5px] font-semibold text-system-900">{h.fecha}</span>}
-                {h.lapso && <span className="block text-[11.5px] text-system-500">{h.lapso}</span>}
-              </span>
-            </button>
-          </li>
-        ))}
-      </ol>
     </section>
   );
 }

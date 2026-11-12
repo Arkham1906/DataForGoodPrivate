@@ -60,9 +60,6 @@ export type DatosDeResumen = {
 // Trayectoria (/progreso/trayectoria
 // ------------------------------------
 
-/** Tamaño de los tramos con que el teléfono agrupa los rangos (anexo B): solo ordenan la lista, no tienen nombre. */
-export const RANGOS_POR_TRAMO = 5;
-
 /** Una tarjeta del camino de los 20 rangos: un eslabón más la EXP que pide (dato público, RF-GAM-80). */
 export type EslabonDeLaTrayectoria = EslabonDelCamino & { expQuePide: number };
 
