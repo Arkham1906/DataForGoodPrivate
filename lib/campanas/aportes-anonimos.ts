@@ -1,10 +1,11 @@
-// Aporte de una persona SIN cuenta, desde el enlace público de una campaña (/c/[token]).
-// Lo llaman POST /api/c/[token]/aportes (enviar) y la página /c/[token] (cuántos le quedan).
+// Aporte de una persona SIN cuenta: desde el enlace público de una campaña (/c/[token]) o, desde el
+// 2026-11-11, desde su ficha (/participa/[id], sin enlace). Lo llaman POST /api/c/[token]/aportes y
+// POST /api/campanas/[id]/aporte-sin-cuenta (enviar), y esas dos páginas (cuántos le quedan).
 //
 // Reglas (decididas el 2026-10-01, dominio.md § 6 y puntos abiertos 7 y 18):
-//   - Solo con un enlace VIGENTE de una campaña ACTIVA que permita aportes sin cuenta
-//     (campanas.permite_anonimos). Sin enlace no hay forma de aportar sin cuenta: la
-//     persona anónima no ve ni toca nada más del sistema.
+//   - Solo en una campaña ACTIVA que permita aportes sin cuenta (campanas.permite_anonimos), con un
+//     enlace VIGENTE (/c/[token]) o desde su ficha pública (/participa/[id]). La persona anónima no ve
+//     ni toca nada más del sistema.
 //   - El aporte no lleva datos personales: user_id NULL, participante "Anónimo", sin correo,
 //     sin nombre de archivo, y fotos y documentos sin metadatos (lib/aportes/limpiar-archivo.ts;
 //     video y audio se guardan tal cual).
@@ -39,7 +40,7 @@ import { guardarRespuestas } from "@/lib/campanas/tabla-checklists";
 import { bloqueoDelDispositivo } from "@/lib/aportes/sanciones-anonimas";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { respuestasValidas, seccionesDelTipo } from "@/lib/campanas/checklist";
-import { buscarEnlacePorToken } from "@/lib/campanas/enlaces";
+import { buscarCampanaParaAportarSinCuenta, buscarEnlacePorToken, type CampanaDelEnlace } from "@/lib/campanas/enlaces";
 import { avisoDePausa } from "@/lib/campanas/pausa";
 
 // TODO(dominio): valor elegido sin consulta. Aportes anónimos por IP en una hora, sumando
@@ -54,8 +55,9 @@ export const ESPERA_ENTRE_APORTES_SEGUNDOS = 60;
 // Tope de aportes sin cuenta por campaña (2026-11-10): el 10% de la meta, redondeado hacia abajo.
 // No limita los aportes con cuenta. Esta es la única copia de la regla y de su mensaje.
 const PORCENTAJE_MAXIMO_DE_APORTES_ANONIMOS = 0.1;
-const MENSAJE_LIMITE_ANONIMOS =
-  "Esta campaña alcanzó su límite de aportes anónimos (10% de la meta). Aún puedes aportar con una cuenta.";
+// Sin la invitación a la cuenta: /c/[token] y la ficha la ponen debajo, con sus botones.
+const AVISO_TOPE_ANONIMO_LLENO = "Esta campaña alcanzó su límite de aportes anónimos (10% de la meta).";
+const MENSAJE_LIMITE_ANONIMOS = `${AVISO_TOPE_ANONIMO_LLENO} Aún puedes aportar con una cuenta.`;
 
 /** Tope de aportes anónimos para la campaña; no limita aportes enviados con cuenta. */
 function limiteDeAportesAnonimos(meta: number): number {
@@ -78,6 +80,15 @@ async function contarAportesAnonimos(
     [campanaId],
   );
   return Number(rows[0]?.total ?? 0);
+}
+
+/**
+ * El aviso del tope si ya no cabe otro aporte anónimo, o null si cabe. Lo usan /c/[token] (en vez del
+ * formulario) y la ficha /campanas/[id] sin sesión (en vez de "Aportar sin cuenta"), para que nadie llene
+ * el formulario y suba el archivo para enterarse al enviar (2026-11-11, a pedido del usuario).
+ */
+export async function avisoDeTopeAnonimoLleno(campanaId: number, meta: number): Promise<string | null> {
+  return (await contarAportesAnonimos(campanaId)) >= limiteDeAportesAnonimos(meta) ? AVISO_TOPE_ANONIMO_LLENO : null;
 }
 
 /**
@@ -192,8 +203,27 @@ export type ResultadoDeAporteAnonimo =
   | { ok: true; restantes: number; esperaSegundos: number; dispositivo: string; dispositivoNuevo: boolean }
   | { ok: false; status: number; error: string; esperaSegundos?: number; pideCuenta?: boolean };
 
+/**
+ * De dónde viene: el enlace del creador (/c/[token]; el aporte guarda enlace_id) o la ficha de la
+ * campaña (/participa/[id], 2026-11-11; sin enlace_id: no cuenta como aporte recibido por el enlace).
+ */
+export type OrigenDelAporteAnonimo = { token: string } | { campanaId: number };
+
+async function campanaDelOrigen(
+  origen: OrigenDelAporteAnonimo,
+): Promise<{ campana: CampanaDelEnlace; enlaceId: number | null } | { ok: false; status: number; error: string }> {
+  if ("campanaId" in origen) {
+    const campana = await buscarCampanaParaAportarSinCuenta(origen.campanaId);
+    return campana ? { campana, enlaceId: null } : { ok: false, status: 404, error: "Campaña no encontrada" };
+  }
+  const resultado = await buscarEnlacePorToken(origen.token.toLowerCase());
+  if (resultado.tipo === "inexistente") return { ok: false, status: 404, error: "Enlace no válido" };
+  if (resultado.tipo !== "valido") return { ok: false, status: 410, error: "Este enlace ya no permite aportar" };
+  return { campana: resultado.campana, enlaceId: resultado.enlace.id };
+}
+
 export async function enviarAporteAnonimo(entrada: {
-  token: string;
+  origen: OrigenDelAporteAnonimo;
   dispositivo: string | null;
   ip: string;
   descripcion: string;
@@ -202,10 +232,9 @@ export async function enviarAporteAnonimo(entrada: {
   caracteristicas: string[];
   archivo: FormDataEntryValue | null;
 }): Promise<ResultadoDeAporteAnonimo> {
-  const resultado = await buscarEnlacePorToken(entrada.token.toLowerCase());
-  if (resultado.tipo === "inexistente") return { ok: false, status: 404, error: "Enlace no válido" };
-  if (resultado.tipo !== "valido") return { ok: false, status: 410, error: "Este enlace ya no permite aportar" };
-  const { campana, enlace } = resultado;
+  const delOrigen = await campanaDelOrigen(entrada.origen);
+  if ("ok" in delOrigen) return delOrigen;
+  const { campana, enlaceId } = delOrigen;
   if (campana.status === "pausada") return { ok: false, status: 409, error: avisoDePausa(campana.pausa, "Vuelve a intentarlo más tarde.") };
   if (campana.status !== "activa") return { ok: false, status: 409, error: "Esta campaña ya no está recibiendo aportes" };
   if (!campana.permiteAnonimos) {
@@ -312,7 +341,7 @@ export async function enviarAporteAnonimo(entrada: {
           campana.id,
           descripcion,
           archivoId,
-          enlace.id,
+          enlaceId,
           anonimoId,
           tipo,
         ]
@@ -344,7 +373,7 @@ export async function enviarAporteAnonimo(entrada: {
     actor: { tipo: "anonimo" },
     accion: "aporte.anonimo_enviar",
     objetivo: { tipo: "aporte", id: insertado.fila },
-    detalle: { campanaId: campana.id, enlaceId: enlace.id },
+    detalle: { campanaId: campana.id, enlaceId, desde: enlaceId === null ? "ficha" : "enlace" },
     guardarIp: false,
   });
 

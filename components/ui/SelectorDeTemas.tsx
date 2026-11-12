@@ -20,7 +20,7 @@ import Button from "@/components/ui/Button";
 import Tag from "@/components/ui/Tag";
 import IconoDeTematica from "@/components/ui/IconoDeTematica";
 import { claveDeTematica, LARGO_DEL_NOMBRE, MAXIMO_DE_TEMATICAS_PROPUESTAS } from "@/lib/tematicas/analizar";
-import { tematicaEquivalente } from "@/lib/tematicas/equivalente";
+import { avisoDeTematicaExistente, tematicaEquivalente } from "@/lib/tematicas/equivalente";
 import { esInapropiada } from "@/lib/tematicas/filtro";
 
 /** El mismo criterio que validarNombreDeTematica del servidor, para avisar antes de guardar. */
@@ -201,7 +201,8 @@ export default function SelectorDeTemas({
     setBorrador((prev) => (unica ? [existente] : prev.includes(existente) ? prev : [...prev, existente]));
     setBusqueda("");
     setAvisoDePropuesta(null);
-    volverAlCatalogo(`«${escrito}» se parece a «${existente}», que ya existe: la marcamos para ti.`);
+    // Mensaje pedido por el usuario (2026-11-12): "Esa temática ya existe, es «…»".
+    volverAlCatalogo(avisoDeTematicaExistente(existente));
   }
 
   function proponerBusqueda() {
@@ -248,7 +249,7 @@ export default function SelectorDeTemas({
     if (existente) {
       setBorrador((prev) => (unica ? [existente] : prev.includes(existente) ? prev : [...prev, existente]));
       setBusqueda("");
-      volverAlCatalogo(`«${existente}» ya está en el catálogo: la marcamos para ti.`);
+      volverAlCatalogo(avisoDeTematicaExistente(existente));
       return;
     }
     const equivalente = tematicaEquivalente(nombre, opciones);
@@ -430,10 +431,11 @@ export default function SelectorDeTemas({
                   setAvisoDelCatalogo(null);
                 }}
                 onKeyDown={(e) => {
-                  // Enter no envía el formulario de la página; sin coincidencias, propone lo escrito.
+                  // Enter no envía el formulario de la página. Si lo escrito se parece a una que ya existe, la
+                  // marca (2026-11-12, aunque la lista muestre otras); sin coincidencias, propone lo escrito.
                   if (e.key === "Enter") {
                     e.preventDefault();
-                    if (puedeProponer && visibles.length === 0) proponerBusqueda();
+                    if (parecida || (puedeProponer && visibles.length === 0)) proponerBusqueda();
                   }
                 }}
                 placeholder={proponerEnBuscador ? "Buscar o proponer una temática" : "Buscar temática"}
@@ -452,7 +454,7 @@ export default function SelectorDeTemas({
                   {parecida ? (
                     <>
                       <p className="text-[12.5px] text-system-600">
-                        «{propuestaPosible}» se parece a «{parecida}», que ya existe.
+                        Esa temática ya existe, es «{parecida}».
                       </p>
                       <Button type="button" size="sm" className="mt-2" onClick={proponerBusqueda}>
                         Elegir «{parecida}»

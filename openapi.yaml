@@ -668,7 +668,7 @@ paths:
       description: "Usa uno de los filtros a la vez. Sin filtros (y con `id`) solo devuelve lo que quien consulta puede ver (`lib/campanas/visibilidad.ts`, 2026-10-20): cualquiera ve las activas, pausadas y finalizadas; el creador, las suyas; un supervisor, además las que están en revisión y las que supervisa; el revisor aceptado, esa campaña; la sesión raíz, todas. Con `id` de una que no puede ver responde 404."
       security: []
       parameters:
-        - { name: id, in: query, schema: { type: integer }, description: "Una sola campaña. La respuesta trae `viewer`; para visitas sin sesión incluye `enlaceAnonimo` solo si está activa y permite aportes sin cuenta." }
+        - { name: id, in: query, schema: { type: integer }, description: "Una sola campaña. La respuesta trae `viewer`; sin sesión (o con una vencida) trae `conSesion: false`, `aporteSinCuenta` (true si está activa, permite aportes sin cuenta y aún cabe otro anónimo: la ficha lleva a /participa/{id}) y `topeAnonimoLleno` (el aviso si el tope del 10% de la meta ya se llenó; si no, null). No crea ni renueva el enlace del creador." }
         - { name: available, in: query, schema: { type: boolean }, description: Campañas en las que puedo aportar (excluye aquellas de las que el creador me baneó) }
         - { name: mine, in: query, schema: { type: boolean }, description: "Campañas que creé (requiere sesión); incluye `canDelete` para indicar si la campaña no tiene aportes." }
         - { name: supervised, in: query, schema: { type: boolean }, description: Campañas que superviso (requiere sesión) }
@@ -1477,6 +1477,42 @@ paths:
           description: |
             Tope de aportes anónimos por IP alcanzado, o el dispositivo envió otro hace menos de
             60 segundos. En ese caso trae `esperaSegundos` y el encabezado `Retry-After`.
+
+  /api/campanas/{id}/aporte-sin-cuenta:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    post:
+      tags: [Aportes]
+      summary: Aporte anónimo (sin cuenta) desde la ficha pública de la campaña
+      description: |
+        2026-11-11. Lo usa /participa/{id}, a donde lleva "Aportar sin cuenta" de /campanas/{id} sin sesión
+        (desde /explorar). Mismo cuerpo, reglas y respuestas que POST /api/c/{token}/aportes (campaña activa
+        que permita aportes sin cuenta, un aporte por dispositivo, tope del 10% de la meta, espera y tope
+        por IP), pero sin el enlace del creador: el aporte va sin `enlace_id` y no cuenta en las visitas ni en
+        los aportes recibidos por el enlace. 404 si la campaña no existe o no es pública; sin 410.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [description, aceptaUso, confirmaContenido]
+              properties:
+                description: { type: string, maxLength: 1000 }
+                texto: { type: string, description: Solo texto; se guarda como .txt y description es su título }
+                aceptaUso: { type: string, enum: [si] }
+                confirmaContenido: { type: string, enum: [si] }
+                caracteristicas: { type: array, items: { type: string } }
+                file: { type: string, format: binary }
+      responses:
+        "201": { description: "Aporte enviado; queda pendiente de revisión (igual que POST /api/c/{token}/aportes)" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { description: "La campaña no permite aportes sin cuenta, el dispositivo está bloqueado o ya envió su aporte (`pideCuenta: true`)" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { description: "Hay sesión iniciada, o la campaña ya no recibe aportes" }
+        "413": { description: El cuerpo de la petición pasa del archivo más grande permitido }
+        "429": { description: "Tope por IP o espera entre aportes; trae `esperaSegundos` y `Retry-After`" }
+
 
   /api/aportes/{id}:
     parameters:

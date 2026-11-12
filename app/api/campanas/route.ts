@@ -23,7 +23,7 @@ import { guardarChecklists } from "@/lib/campanas/tabla-checklists";
 import { XP_POR_APORTE, errorDeEstadoPedido } from "@/lib/campanas/estado-del-creador";
 import { pausaDesdeFila } from "@/lib/campanas/pausa";
 import { datosAbiertosDesdeFila } from "@/lib/campanas/datos-abiertos";
-import { asegurarEnlaceVigente, estaVigente, obtenerEnlaceActual } from "@/lib/campanas/enlaces";
+import { avisoDeTopeAnonimoLleno } from "@/lib/campanas/aportes-anonimos";
 import { rechazoDesdeFila } from "@/lib/campanas/rechazo";
 import { ESTADOS_PUBLICOS, condicionDeVisibilidad } from "@/lib/campanas/visibilidad";
 import { agregarEtiquetas, guardarEtiquetasDeCampana } from "@/lib/etiquetas/catalogo";
@@ -160,7 +160,7 @@ function ajustarBanner(value: unknown, minimo: number, maximo: number, predeterm
   return Number.isFinite(numero) ? Math.min(maximo, Math.max(minimo, numero)) : predeterminado;
 }
 
-// GET: campañas. Modos por query: ?id= (una, con viewer; visitantes elegibles reciben enlaceAnonimo), ?mine=true (creadas por ti),
+// GET: campañas. Modos por query: ?id= (una, con viewer; sin sesión, aporteSinCuenta y topeAnonimoLleno), ?mine=true (creadas por ti),
 // ?misAportes=true (aportaste o guardaste), ?available=true (puedes aportar), ?supervised=true (supervisas),
 // ?paraTi=true ("Campañas para ti": hasta 3, como en /inicio; otra forma, CampanaParaTi de lib/usuarios/inicio.ts);
 // con &todas=true, todas en el orden de recomendación (/campanas las filtra y muestra 3; 2026-11-02).
@@ -228,17 +228,20 @@ export async function GET(request: Request) {
       if (result.rowCount === 0) return NextResponse.json({ error: "Campaña no encontrada" }, { status: 404 });
       await agregarEtiquetas(result.rows, user, await hasRootSession());
       const campaign = conIsSaved(result.rows[0]);
-      let enlaceAnonimo: string | null = null;
-      if (!user && campaign.status === "activa" && campaign.permiteAnonimos) {
-        await asegurarEnlaceVigente(Number(campaign.id));
-        const enlace = await obtenerEnlaceActual(Number(campaign.id));
-        if (enlace && estaVigente(enlace)) enlaceAnonimo = enlace.token;
-      }
+      // Visita sin sesión (2026-11-11): "Aportar sin cuenta" lleva a /participa/[id], que no usa el enlace
+      // del creador (antes aquí se renovaba el enlace y sus visitas se mezclaban). Con el tope de anónimos
+      // lleno no se ofrece: la ficha muestra el aviso.
+      const sinCuentaPosible = !user && campaign.status === "activa" && campaign.permiteAnonimos;
+      const topeAnonimoLleno = sinCuentaPosible
+        ? await avisoDeTopeAnonimoLleno(Number(campaign.id), Number(campaign.goalContributions))
+        : null;
+      const aporteSinCuenta = sinCuentaPosible && !topeAnonimoLleno;
       return NextResponse.json({
         data: campaign,
         viewer: {
           conSesion: user !== null,
-          enlaceAnonimo,
+          aporteSinCuenta,
+          topeAnonimoLleno,
           isCreator: user ? campaign.creatorId === String(user.id) : false,
           isMySupervision: user ? campaign.supervisorId === String(user.id) : false,
           // Baneado de esta campaña por su creador: la pantalla avisa antes de que intente aportar,

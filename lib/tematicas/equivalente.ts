@@ -31,3 +31,11 @@ export function tematicaEquivalente(escrito: string, catalogo: string[]): string
   );
   return porSignificado.size === 1 ? [...porSignificado][0] : null;
 }
+
+/**
+ * Aviso al marcar la temática que ya existe en lugar de proponer la escrita (igual o parecida).
+ * Texto pedido por el usuario (2026-11-12): "Esa temática ya existe, es «…»".
+ */
+export function avisoDeTematicaExistente(existente: string): string {
+  return `Esa temática ya existe, es «${existente}». La marcamos para ti.`;
+}

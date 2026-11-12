@@ -1,6 +1,7 @@
 "use client";
 
-// Formulario de /c/[token] para aportar SIN cuenta. Envía a POST /api/c/[token]/aportes,
+// Formulario para aportar SIN cuenta, de /c/[token] y /participa/[id] (../ficha-publica.tsx). Envía a
+// urlDeEnvio (POST /api/c/[token]/aportes o, desde la ficha, POST /api/campanas/[id]/aporte-sin-cuenta),
 // que valida el enlace, la cuota por dispositivo, el tope por IP y la espera entre aportes.
 // Sin cuenta se envía UN aporte por campaña desde cada dispositivo (2026-11-09, a pedido del usuario):
 // al enviarlo, el formulario se cambia por la invitación a crear una cuenta o iniciar sesión para
@@ -22,7 +23,7 @@ import { respuestasValidas, seccionesParaElAporte, type SeccionDeChecklist } fro
 import ChecklistsDelAporte from "@/components/aportes/ChecklistsDelAporte";
 
 export default function AporteAnonimo({
-  token,
+  urlDeEnvio,
   secciones,
   tipos,
   formatosDeDocumento = [],
@@ -32,7 +33,8 @@ export default function AporteAnonimo({
   entrar,
   registro,
 }: {
-  token: string;
+  /** A dónde se envía, sin BASE_PATH (2026-11-11). */
+  urlDeEnvio: string;
   secciones: SeccionDeChecklist[];
   /** Tipos de archivo que acepta la campaña; con "texto", el archivo es opcional. */
   tipos: TipoDeArchivo[];
@@ -93,7 +95,7 @@ export default function AporteAnonimo({
       // Solo lo marcado en los checklists que se ven (cambiar de archivo puede esconder alguno).
       respuestasValidas(marcadas, visibles).forEach((valor) => datos.append("caracteristicas", valor));
       agregarAcuerdos(datos, acuerdos);
-      const response = await fetch(`${BASE_PATH}/api/c/${encodeURIComponent(token)}/aportes`, { method: "POST", body: datos });
+      const response = await fetch(`${BASE_PATH}${urlDeEnvio}`, { method: "POST", body: datos });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
         // La espera no es un error: el botón muestra la cuenta regresiva.

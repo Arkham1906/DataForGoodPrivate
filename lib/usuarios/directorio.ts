@@ -216,7 +216,8 @@ export async function buscarUsuarios(opciones: {
   pagina?: number;
 }): Promise<{ filas: FilaDeUsuario[]; total: number; pagina: number }> {
   const pagina = Math.max(1, opciones.pagina ?? 1);
-  const q = (opciones.q ?? "").trim();
+  // Espacios repetidos a uno: "QA   REVISOR" busca lo mismo que "QA REVISOR".
+  const q = (opciones.q ?? "").trim().replace(/\s+/g, " ");
   const rol = (opciones.rol ?? "").trim();
   const estado = (opciones.estado ?? "").trim() as EstadoDeCuenta | "";
 
@@ -231,8 +232,12 @@ export async function buscarUsuarios(opciones: {
     if (q) {
       valores.push(`%${q}%`);
       const posicion = valores.length;
+      // También el nombre completo (2026-11-12): "QA REVISOR" no coincidía porque nombre ("QA") y
+      // apellidos ("REVISOR") se comparaban por separado.
       condiciones.push(
-        `(u.nombre ILIKE $${posicion} OR u.apellidos ILIKE $${posicion} OR u.email ILIKE $${posicion} OR CAST(u.id AS TEXT) = $${posicion + 1})`,
+        `(u.nombre ILIKE $${posicion} OR u.apellidos ILIKE $${posicion}
+          OR concat_ws(' ', NULLIF(btrim(u.nombre), ''), NULLIF(btrim(u.apellidos), '')) ILIKE $${posicion}
+          OR u.email ILIKE $${posicion} OR CAST(u.id AS TEXT) = $${posicion + 1})`,
       );
       valores.push(q);
     }

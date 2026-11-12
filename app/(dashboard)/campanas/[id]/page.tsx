@@ -9,7 +9,8 @@
 // "Compartir" abre el cuadro de compartir.tsx (enlace público /c/[token] y QR).
 // "Reportar campaña" (reportar.tsx) para quien no la creó: va a la bandeja del SuperUsuario.
 // Compartir, Favorita (estrella) y Reportar (bandera) son íconos (ui/BotonDeIcono) en la fila de la temática
-// (2026-11-10, a pedido del usuario).
+// (2026-11-10, a pedido del usuario). Sin sesión (2026-11-11) los tres van deshabilitados y, con el tope de
+// anónimos lleno (viewer.topeAnonimoLleno), la ficha da el aviso en vez de "Aportar sin cuenta".
 
 import { textoDeUbicacion } from "@/lib/campanas/ubicacion";
 import Link from "next/link";
@@ -26,7 +27,8 @@ import { porcentajeDeMeta } from "@/lib/campanas/meta";
 import { avisoDePausa } from "@/lib/campanas/pausa";
 import CompartirCampana from "./compartir";
 import ReportarCampana from "./reportar";
-import BotonDeIcono, { IconoEstrella } from "@/components/ui/BotonDeIcono";
+import BotonDeIcono, { IconoBandera, IconoCompartir, IconoEstrella } from "@/components/ui/BotonDeIcono";
+import { conDestino } from "@/lib/redireccion";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import { AvisoNoEncontrado } from "@/components/ui/AvisoNoEncontrado";
 import { VentanaDeInscripcion } from "@/components/ui/AcuerdosDeAporte";
@@ -43,7 +45,8 @@ export default function CampaignDetailPage() {
   const [aceptandoAcuerdos, setAceptandoAcuerdos] = useState(false);
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [conSesion, setConSesion] = useState<boolean | null>(null);
-  const [enlaceAnonimo, setEnlaceAnonimo] = useState<string | null>(null);
+  const [aporteSinCuenta, setAporteSinCuenta] = useState(false);
+  const [topeAnonimoLleno, setTopeAnonimoLleno] = useState<string | null>(null);
   const [isCreator, setIsCreator] = useState(false);
   const [baneado, setBaneado] = useState(false);
   const [motivoDeBaneo, setMotivoDeBaneo] = useState<string | null>(null);
@@ -71,7 +74,8 @@ export default function CampaignDetailPage() {
         if (!response.ok) throw new Error(payload.error ?? "No se pudo cargar la campaña");
         setCampaign(payload.data as Campaign);
         setConSesion(Boolean(payload.viewer?.conSesion));
-        setEnlaceAnonimo(payload.viewer?.enlaceAnonimo ?? null);
+        setAporteSinCuenta(Boolean(payload.viewer?.aporteSinCuenta));
+        setTopeAnonimoLleno(payload.viewer?.topeAnonimoLleno ?? null);
         setIsCreator(Boolean(payload.viewer?.isCreator));
         setBaneado(Boolean(payload.viewer?.baneado));
         setMotivoDeBaneo(payload.viewer?.motivoDeBaneo ?? null);
@@ -125,8 +129,9 @@ export default function CampaignDetailPage() {
   return (
     <div className="mx-auto w-full max-w-6xl">
       <div className="min-w-0">
-        <Link href="/campanas" className="mb-4 inline-block text-[13px] text-system-600 hover:text-system-900">
-          ← Volver a campañas
+        {/* Sin sesión /campanas pide entrar: se vuelve a /explorar, de donde llegó (2026-11-11). */}
+        <Link href={conSesion ? "/campanas" : "/explorar"} className="mb-4 inline-block text-[13px] text-system-600 hover:text-system-900">
+          {conSesion ? "← Volver a campañas" : "← Volver a explorar"}
         </Link>
 
         {/* Compartir, Favorita y Reportar como íconos en la fila de la temática (2026-11-10, a pedido del usuario;
@@ -135,6 +140,21 @@ export default function CampaignDetailPage() {
 
         <div className="mb-2 flex items-center justify-between gap-3">
           <RutaDeTematica tematica={campaign.tematica || campaign.tag} etiquetas={campaign.etiquetas} />
+          {!conSesion ? (
+            // Sin sesión (ficha abierta desde /explorar) se ven deshabilitados: los tres piden una cuenta
+            // (2026-11-11, a pedido del usuario).
+            <div className="flex shrink-0 items-center gap-2">
+              <BotonDeIcono etiqueta="Inicia sesión para compartir la campaña" disabled>
+                <IconoCompartir />
+              </BotonDeIcono>
+              <BotonDeIcono etiqueta="Inicia sesión para marcarla como favorita" disabled>
+                <IconoEstrella />
+              </BotonDeIcono>
+              <BotonDeIcono etiqueta="Inicia sesión para reportar la campaña" disabled>
+                <IconoBandera />
+              </BotonDeIcono>
+            </div>
+          ) : (
           <div className="flex shrink-0 items-center gap-2">
             <CompartirCampana campanaId={campaign.id} nombre={campaign.name} tematica={campaign.tematica || campaign.tag} />
             <BotonDeIcono
@@ -150,6 +170,7 @@ export default function CampaignDetailPage() {
               <ReportarCampana campanaId={campaign.id} yaReportada={yaReportada} onReportada={setAvisoDeReporte} />
             )}
           </div>
+          )}
         </div>
         {avisoDeReporte && (
           <p role="status" className="mb-2 text-right text-[12.5px] text-system-600">
@@ -323,8 +344,19 @@ export default function CampaignDetailPage() {
                     <p className="rounded-lg bg-system-100 p-3 text-center text-[12.5px] text-system-600">
                       Esta campaña solo recibe aportes con cuenta.
                     </p>
-                  ) : campaign.status === "activa" && enlaceAnonimo ? (
-                    <Link href={`/c/${enlaceAnonimo}`} className={buttonClasses("primary", "md", "w-full")}>
+                  ) : campaign.status === "activa" && topeAnonimoLleno ? (
+                    // Tope del 10% de anónimos lleno (2026-11-11): el aviso en vez de "Aportar sin cuenta".
+                    <div className="flex flex-col gap-2.5">
+                      <p className="rounded-lg bg-system-100 p-3 text-center text-[12.5px] text-system-600">{topeAnonimoLleno}</p>
+                      <Link
+                        href={conDestino("/entrar", `/campanas/${campaign.id}/aportar`)}
+                        className={buttonClasses("primary", "md", "w-full")}
+                      >
+                        Iniciar sesión para aportar
+                      </Link>
+                    </div>
+                  ) : campaign.status === "activa" && aporteSinCuenta ? (
+                    <Link href={`/participa/${campaign.id}`} className={buttonClasses("primary", "md", "w-full")}>
                       Aportar sin cuenta
                     </Link>
                   ) : campaign.status === "activa" ? (

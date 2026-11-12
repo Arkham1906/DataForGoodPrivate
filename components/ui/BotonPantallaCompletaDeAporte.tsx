@@ -7,6 +7,8 @@ import type { ReactNode } from "react";
 import Button from "@/components/ui/Button";
 import { BASE_PATH } from "@/lib/base-path";
 import type { DataType } from "@/types";
+import { MarcaDeAgua, useProteccionDeAportes } from "@/components/aportes/ProteccionDeAportes";
+import TextoDelAporte from "@/components/ui/TextoDelAporte";
 
 const MIME_PDF = "application/pdf";
 const MIME_DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -14,7 +16,12 @@ const MIME_PPTX = "application/vnd.openxmlformats-officedocument.presentationml.
 const MIME_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 const MIME_XLS = "application/vnd.ms-excel";
 
-function envolverHtmlAislado(contenido: string) {
+// `protegido` (pantallas de revisión, 2026-11-12): sin seleccionar texto ni arrastrar imágenes dentro de la
+// vista previa; el iframe no tiene scripts, así que no se puede bloquear de otra forma.
+function envolverHtmlAislado(contenido: string, protegido = false) {
+  const sinCopiar = protegido
+    ? "html, body { -webkit-user-select: none; user-select: none; } img { -webkit-user-drag: none; pointer-events: none; }"
+    : "";
   return `<!doctype html>
     <html lang="es">
       <head>
@@ -26,6 +33,7 @@ function envolverHtmlAislado(contenido: string) {
           img { height: auto; max-width: 100%; }
           table { border-collapse: collapse; max-width: 100%; }
           td, th { border: 1px solid #cbd5e1; padding: 6px 10px; }
+          ${sinCopiar}
         </style>
       </head>
       <body>${contenido}</body>
@@ -57,6 +65,7 @@ export default function BotonPantallaCompletaDeAporte({
   sinArchivo?: boolean;
   children: ReactNode;
 }) {
+  const proteccion = useProteccionDeAportes();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const solicitudRef = useRef(0);
   const solicitudAbortadaRef = useRef<AbortController | null>(null);
@@ -103,7 +112,7 @@ export default function BotonPantallaCompletaDeAporte({
       }
 
       if (solicitud === solicitudRef.current && !abortController.signal.aborted) {
-        setHtmlDocumento(envolverHtmlAislado(html));
+        setHtmlDocumento(envolverHtmlAislado(html, proteccion !== null));
       }
     } catch (error) {
       if (!abortController.signal.aborted && solicitud === solicitudRef.current) {
@@ -190,6 +199,8 @@ export default function BotonPantallaCompletaDeAporte({
         className="fixed inset-0 m-0 h-dvh max-h-none w-screen max-w-none border-0 bg-system-950 p-4 text-white backdrop:bg-system-950/90"
         aria-label={alt}
       >
+        {/* La ventana va por encima de todo y taparía la marca de agua de la página (2026-11-12). */}
+        {proteccion && abierto && <MarcaDeAgua marca={proteccion.marca} clara />}
         <div className={`relative flex h-full w-full items-center justify-center ${tipo === "documento" ? "pt-12" : ""}`}>
           <button
             type="button"
@@ -223,7 +234,14 @@ export default function BotonPantallaCompletaDeAporte({
               <audio src={src} controls preload="metadata" className="w-full" aria-label={alt} />
             </div>
           ) : tipo === "texto" ? (
-            <iframe src={src} title={alt} sandbox="" className="h-full w-full rounded-lg bg-white" />
+            proteccion ? (
+              // Protegida (2026-11-12): en un iframe el texto se podría seleccionar y copiar.
+              <div className="h-full w-full max-w-4xl">
+                <TextoDelAporte src={src} alto="h-full" />
+              </div>
+            ) : (
+              <iframe src={src} title={alt} sandbox="" className="h-full w-full rounded-lg bg-white" />
+            )
           ) : tipo === "documento" ? (
             cargandoDocumento ? (
               <p role="status" className="text-sm text-system-100">Preparando vista previa en este dispositivo…</p>
