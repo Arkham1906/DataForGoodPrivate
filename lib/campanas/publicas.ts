@@ -13,6 +13,11 @@ export type CampanaPublica = {
   id: string;
   name: string;
   description: string;
+  hasBanner: boolean;
+  bannerVersion?: string;
+  bannerScale: number;
+  bannerPositionX: number;
+  bannerPositionY: number;
   tematica: string;
   /** Subtemáticas aprobadas (2026-10-27). */
   etiquetas: string[];
@@ -63,6 +68,11 @@ function mapCampana(row: Record<string, unknown>): CampanaPublica {
     id: String(row.id),
     name: String(row.name ?? ""),
     description: String(row.description ?? ""),
+    hasBanner: Boolean(row.banner_path),
+    bannerVersion: row.updated_at ? String(row.updated_at) : undefined,
+    bannerScale: Number(row.banner_scale ?? 1),
+    bannerPositionX: Number(row.banner_position_x ?? 50),
+    bannerPositionY: Number(row.banner_position_y ?? 50),
     tematica: String(row.tematica ?? ""),
     etiquetas: [],
     organizer: String(row.organizer ?? ""),
@@ -118,7 +128,7 @@ export async function buscarCampanasParaExplorar(filtros: FiltrosDeCampanas): Pr
     }
 
     const result = await pool.query(
-      `SELECT id, name, description, tematica, organizer, creator_name, location_city, location_state, todo_el_pais, ${columnaDeTipos()},
+      `SELECT id, name, description, banner_path, banner_scale, banner_position_x, banner_position_y, tematica, organizer, creator_name, location_city, location_state, todo_el_pais, ${columnaDeTipos()},
               est.approved_contributions, goal_contributions, est.participants, end_date, status
        FROM campanas
        JOIN campana_estadisticas est ON est.campana_id = campanas.id

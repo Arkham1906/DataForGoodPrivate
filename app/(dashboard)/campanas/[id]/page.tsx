@@ -3,16 +3,20 @@
 // Pantalla /campanas/[id]: detalle de una campaña.
 // Componente cliente. Datos: GET /api/campanas?id= (incluye viewer: creador, baneado, aportes propios).
 // Acción: guardar/quitar de favoritos con POST/DELETE /api/campanas/[id]/guardar.
-// Para aportar hay que inscribirse una vez (viewer.inscrito): las casillas de los acuerdos van aquí
-// (ui/AcuerdosDeAporte, POST /api/campanas/[id]/inscripcion); ya inscrito, sale "Realizar un aporte".
+// Para aportar hay que inscribirse una vez (viewer.inscrito): sin inscripción, "Realizar un aporte" abre la ventana
+// de los acuerdos (ui/AcuerdosDeAporte, VentanaDeInscripcion; POST /api/campanas/[id]/inscripcion) y al aceptarlos
+// lleva al formulario (2026-11-10, a pedido del usuario); ya inscrito, va directo.
 // "Compartir" abre el cuadro de compartir.tsx (enlace público /c/[token] y QR).
 // "Reportar campaña" (reportar.tsx) para quien no la creó: va a la bandeja del SuperUsuario.
+// Compartir, Favorita (estrella) y Reportar (bandera) son íconos (ui/BotonDeIcono) en la fila de la temática
+// (2026-11-10, a pedido del usuario). Sin sesión (2026-11-11) los tres van deshabilitados y, con el tope de
+// anónimos lleno (viewer.topeAnonimoLleno), la ficha da el aviso en vez de "Aportar sin cuenta".
 
 import { textoDeUbicacion } from "@/lib/campanas/ubicacion";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
-import Button from "@/components/ui/Button";
+import { useParams, useRouter } from "next/navigation";
+import Button, { buttonClasses } from "@/components/ui/Button";
 import ProgressBar from "@/components/ui/ProgressBar";
 import RutaDeTematica from "@/components/ui/RutaDeTematica";
 import type { Campaign } from "@/types";
@@ -23,9 +27,11 @@ import { porcentajeDeMeta } from "@/lib/campanas/meta";
 import { avisoDePausa } from "@/lib/campanas/pausa";
 import CompartirCampana from "./compartir";
 import ReportarCampana from "./reportar";
+import BotonDeIcono, { IconoBandera, IconoCompartir, IconoEstrella } from "@/components/ui/BotonDeIcono";
+import { conDestino } from "@/lib/redireccion";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import { AvisoNoEncontrado } from "@/components/ui/AvisoNoEncontrado";
-import { InscripcionACampana } from "@/components/ui/AcuerdosDeAporte";
+import { VentanaDeInscripcion } from "@/components/ui/AcuerdosDeAporte";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 import { repartoSugerido } from "@/lib/campanas/reparto-sugerido";
 import { resumenDeCuotaPorTipo } from "@/lib/campanas/cuota-por-tipo";
@@ -34,7 +40,13 @@ import { textoDelProposito } from "@/lib/campanas/proposito";
 
 export default function CampaignDetailPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
+  // Ventana de los acuerdos para inscribirse (2026-11-10).
+  const [aceptandoAcuerdos, setAceptandoAcuerdos] = useState(false);
   const [campaign, setCampaign] = useState<Campaign | null>(null);
+  const [conSesion, setConSesion] = useState<boolean | null>(null);
+  const [aporteSinCuenta, setAporteSinCuenta] = useState(false);
+  const [topeAnonimoLleno, setTopeAnonimoLleno] = useState<string | null>(null);
   const [isCreator, setIsCreator] = useState(false);
   const [baneado, setBaneado] = useState(false);
   const [motivoDeBaneo, setMotivoDeBaneo] = useState<string | null>(null);
@@ -45,6 +57,8 @@ export default function CampaignDetailPage() {
   const [noEncontrada, setNoEncontrada] = useState(false);
   const [saved, setSaved] = useState(false);
   const [guardando, setGuardando] = useState(false);
+  // "Gracias…" tras reportar con la bandera (2026-11-10).
+  const [avisoDeReporte, setAvisoDeReporte] = useState<string | null>(null);
 
   // Vuelve a leer cuando algo cambia en la base (actualización en vivo).
   const recarga = useRecargaEnVivo();
@@ -59,6 +73,9 @@ export default function CampaignDetailPage() {
         }
         if (!response.ok) throw new Error(payload.error ?? "No se pudo cargar la campaña");
         setCampaign(payload.data as Campaign);
+        setConSesion(Boolean(payload.viewer?.conSesion));
+        setAporteSinCuenta(Boolean(payload.viewer?.aporteSinCuenta));
+        setTopeAnonimoLleno(payload.viewer?.topeAnonimoLleno ?? null);
         setIsCreator(Boolean(payload.viewer?.isCreator));
         setBaneado(Boolean(payload.viewer?.baneado));
         setMotivoDeBaneo(payload.viewer?.motivoDeBaneo ?? null);
@@ -112,16 +129,57 @@ export default function CampaignDetailPage() {
   return (
     <div className="mx-auto w-full max-w-6xl">
       <div className="min-w-0">
-        <Link href="/campanas" className="mb-4 inline-block text-[13px] text-system-600 hover:text-system-900">
-          ← Volver a campañas
+        {/* Sin sesión /campanas pide entrar: se vuelve a /explorar, de donde llegó (2026-11-11). */}
+        <Link href={conSesion ? "/campanas" : "/explorar"} className="mb-4 inline-block text-[13px] text-system-600 hover:text-system-900">
+          {conSesion ? "← Volver a campañas" : "← Volver a explorar"}
         </Link>
 
-        <div className="mb-2 flex items-center justify-between">
-          <RutaDeTematica tematica={campaign.tematica || campaign.tag} etiquetas={campaign.etiquetas} />
-          <CompartirCampana campanaId={campaign.id} nombre={campaign.name} tematica={campaign.tematica || campaign.tag} />
-        </div>
-
+        {/* Compartir, Favorita y Reportar como íconos en la fila de la temática (2026-11-10, a pedido del usuario;
+            antes, botones con texto: Compartir aquí, Favorita bajo "Realizar un aporte" y Reportar al final). */}
         <h1 className="mb-2 text-[26px] font-extrabold text-system-900">{campaign.name}</h1>
+
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <RutaDeTematica tematica={campaign.tematica || campaign.tag} etiquetas={campaign.etiquetas} />
+          {!conSesion ? (
+            // Sin sesión (ficha abierta desde /explorar) se ven deshabilitados: los tres piden una cuenta
+            // (2026-11-11, a pedido del usuario).
+            <div className="flex shrink-0 items-center gap-2">
+              <BotonDeIcono etiqueta="Inicia sesión para compartir la campaña" disabled>
+                <IconoCompartir />
+              </BotonDeIcono>
+              <BotonDeIcono etiqueta="Inicia sesión para marcarla como favorita" disabled>
+                <IconoEstrella />
+              </BotonDeIcono>
+              <BotonDeIcono etiqueta="Inicia sesión para reportar la campaña" disabled>
+                <IconoBandera />
+              </BotonDeIcono>
+            </div>
+          ) : (
+          <div className="flex shrink-0 items-center gap-2">
+            <CompartirCampana campanaId={campaign.id} nombre={campaign.name} tematica={campaign.tematica || campaign.tag} />
+            <BotonDeIcono
+              etiqueta={saved ? "Quitar de favoritas" : "Marcar como favorita"}
+              aria-pressed={saved}
+              disabled={guardando}
+              onClick={alternarGuardado}
+              className={saved ? "!text-warning-500" : ""}
+            >
+              <IconoEstrella rellena={saved} />
+            </BotonDeIcono>
+            {!isCreator && (
+              <ReportarCampana campanaId={campaign.id} yaReportada={yaReportada} onReportada={setAvisoDeReporte} />
+            )}
+          </div>
+          )}
+        </div>
+        {avisoDeReporte && (
+          <p role="status" className="mb-2 text-right text-[12.5px] text-system-600">
+            {avisoDeReporte}
+          </p>
+        )}
+
+        <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.9fr)]">
+          <div className="order-2 min-w-0 lg:order-2">
 
         <div className="mb-6 flex flex-wrap gap-5 text-[13px] text-system-600">
           <span>
@@ -160,17 +218,15 @@ export default function CampaignDetailPage() {
           </div>
         )}
 
-        <div className="mb-6 rounded-lg bg-brand-800 p-5 text-white">
-          <h2 className="text-base font-bold">¿De qué trata esta campaña?</h2>
-          <p className="mt-1 text-[13px] text-white/85">{campaign.description}</p>
+        <div className="mb-4 rounded-lg border border-system-200 bg-white p-3.5">
+          <h2 className="text-[15px] font-bold text-system-900">¿De qué trata esta campaña?</h2>
+          <p className="mt-1 text-[12px] leading-5 text-system-600">{campaign.description}</p>
         </div>
-
-        <h2 className="mb-2 mt-6 text-lg font-bold text-system-900">¿Qué puedes aportar?</h2>
+          <h2 className="mb-2 mt-5 text-lg font-bold text-system-900">¿Qué puedes aportar?</h2>
         <p className="mb-3 text-[13px] text-system-600">
           Comparte la información que tengas. Cada aporte es valioso.
         </p>
-        {/* Sale de la campaña: sus tipos de dato, la descripción (siempre obligatoria) y sus
-            checklists. Antes eran dos tarjetas fijas del prototipo (árboles). */}
+        {/* Sale de la campaña: sus tipos de dato y sus checklists. */}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {campaign.dataTypes
             .filter((tipo) => tipo !== "texto")
@@ -184,12 +240,6 @@ export default function CampaignDetailPage() {
                 </p>
               </div>
             ))}
-          <div className="rounded-lg border border-system-200 bg-white p-4">
-            <p className="text-[14px] font-bold text-system-900">Descripción</p>
-            <p className="mt-1 text-[12px] text-system-500">
-              Qué observaste y dónde, con tus palabras. Es obligatoria.
-            </p>
-          </div>
           {(campaign.checklistSecciones ?? []).map((seccion, i) => (
             <div key={`${seccion.tipo ?? ""}-${seccion.titulo || i}`} className="rounded-lg border border-system-200 bg-white p-4">
               <p className="text-[14px] font-bold text-system-900">{seccion.titulo || "Marca lo que aplique"}</p>
@@ -199,6 +249,17 @@ export default function CampaignDetailPage() {
               <p className="mt-1 text-[12px] text-system-500">{seccion.opciones.join(" · ")}</p>
             </div>
           ))}
+        </div>
+          </div>
+          {campaign.hasBanner && (
+            <div className="order-1 overflow-hidden rounded-xl border border-system-200 bg-system-50 p-2 lg:order-1 lg:mt-1">
+              <img
+                src={`${BASE_PATH}/api/campanas/${campaign.id}/banner?v=${encodeURIComponent(campaign.bannerVersion ?? "")}`}
+                alt={`Banner de ${campaign.name}`}
+                className="h-auto max-h-[460px] min-h-[260px] w-full rounded-lg bg-system-100 object-contain"
+              />
+            </div>
+          )}
         </div>
 
         <div className="mt-6 flex flex-col gap-4">
@@ -247,64 +308,101 @@ export default function CampaignDetailPage() {
             </dl>
           </section>
 
-          <section className="rounded-lg border border-system-200 bg-white p-5 lg:grid lg:grid-cols-2 lg:gap-x-8">
-            <h3 className="mb-1 text-[15px] font-bold text-system-900 lg:col-span-2">
-              Tu participación hace la diferencia
-            </h3>
-            <p className="mb-4 text-[12.5px] text-system-600 lg:col-span-2">
-              Esta campaña no recibe dinero. Aquí se comparte conocimiento.
-            </p>
-
-            <div className="min-w-0">
-              <ProgressBar pct={pct} />
-              <p className="mt-2 mb-4 font-mono text-[12.5px] text-system-600">
-                {campaign.approvedContributions} de {campaign.goalContributions} aportes aprobados · tu
-                cuota: {campaign.quotaPerUser}
-                {/* Solo sugerencia (2026-10-27): la cuota vale para cualquier tipo. */}
-                {resumenDeCuotaPorTipo(campaign.dataTypes, campaign.cuotaPorTipo ?? {})
-                  ? ` (${resumenDeCuotaPorTipo(campaign.dataTypes, campaign.cuotaPorTipo ?? {})})`
-                  : repartoSugerido(campaign.quotaPerUser, campaign.dataTypes) ? ` (sugerido: ${repartoSugerido(campaign.quotaPerUser, campaign.dataTypes)})` : ""}
-                {/* Límite total por tipo de dato (2026-10-28). */}
-                {resumenDeLimites(campaign.dataTypes, campaign.limitePorTipo ?? {}, campaign.enviadosPorTipo ?? {})
-                  ? ` · máximo ${resumenDeLimites(campaign.dataTypes, campaign.limitePorTipo ?? {}, campaign.enviadosPorTipo ?? {})}`
-                  : ""}
-              </p>
-            </div>
-
-            <div className="min-w-0 lg:self-center">
-              {isCreator ? (
-                <p className="rounded-lg bg-system-100 p-3 text-center text-[12.5px] text-system-600">Creaste esta campaña, por lo que no puedes aportar en ella.</p>
-              ) : baneado ? (
-                <p className="rounded-lg bg-error-50 p-3 text-center text-[12.5px] text-error-700">
-                  Quien creó esta campaña te retiró la posibilidad de aportar en ella.
-                  {motivoDeBaneo && <span className="mt-1 block font-semibold">Motivo: {motivoDeBaneo}</span>}
+          {/* Tu participación (2026-11-10, a pedido del usuario): el texto a la izquierda y la acción en
+              una columna fija a la derecha, centrada con el texto; la nota de los acuerdos va con el
+              resto del texto para que el botón no quede desacomodado. Abajo de lg todo se apila. */}
+          <section className="rounded-lg border border-system-200 bg-white p-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-8">
+              <div className="min-w-0 flex-1">
+                <h3 className="mb-1 text-[15px] font-bold text-system-900">Tu participación hace la diferencia</h3>
+                <p className="mb-4 text-[12.5px] text-system-600">
+                  Esta campaña no recibe dinero. Aquí se comparte conocimiento.
                 </p>
-              ) : campaign.status === "activa" && !inscrito ? (
-                <InscripcionACampana
-                  campanaId={campaign.id}
-                  onInscrito={() => setInscrito(true)}
-                  proposito={textoDelProposito(campaign.proposito, campaign.propositoOtro)}
-                />
-              ) : campaign.status === "activa" ? (
-                <Link href={`/campanas/${campaign.id}/aportar`}>
-                  <Button variant="primary" className="w-full">Realizar un aporte</Button>
-                </Link>
-              ) : campaign.status === "pausada" ? (
-                <p className="rounded-lg bg-system-100 p-3 text-center text-[12.5px] text-system-600">{avisoDePausa(campaign.pausa, "Podrás aportar cuando se reanude.")}</p>
-              ) : (
-                <p className="rounded-lg bg-system-100 p-3 text-center text-[12.5px] text-system-600">Esta campaña no está recibiendo aportes.</p>
-              )}
-              <Button variant="secondary" className="mt-2.5 w-full" disabled={guardando} onClick={alternarGuardado}>
-                {saved ? "Campaña favorita" : "Marcar como favorita"}
-              </Button>
+                <ProgressBar pct={pct} />
+                <p className="mt-2 font-mono text-[12.5px] text-system-600">
+                  {campaign.approvedContributions} de {campaign.goalContributions} aportes aprobados · tu
+                  cuota: {campaign.quotaPerUser}
+                  {/* Solo sugerencia (2026-10-27): la cuota vale para cualquier tipo. */}
+                  {resumenDeCuotaPorTipo(campaign.dataTypes, campaign.cuotaPorTipo ?? {})
+                    ? ` (${resumenDeCuotaPorTipo(campaign.dataTypes, campaign.cuotaPorTipo ?? {})})`
+                    : repartoSugerido(campaign.quotaPerUser, campaign.dataTypes) ? ` (sugerido: ${repartoSugerido(campaign.quotaPerUser, campaign.dataTypes)})` : ""}
+                  {/* Límite total por tipo de dato (2026-10-28). */}
+                  {resumenDeLimites(campaign.dataTypes, campaign.limitePorTipo ?? {}, campaign.enviadosPorTipo ?? {})
+                    ? ` · máximo ${resumenDeLimites(campaign.dataTypes, campaign.limitePorTipo ?? {}, campaign.enviadosPorTipo ?? {})}`
+                    : ""}
+                </p>
+                {!isCreator && !baneado && campaign.status === "activa" && !inscrito && (
+                  <p className="mt-1 text-[12px] text-system-500">
+                    Antes de aportar aceptas los acuerdos de la campaña; solo se piden una vez.
+                  </p>
+                )}
+              </div>
+
+              <div className="w-full shrink-0 sm:w-64">
+                {!conSesion ? (
+                  campaign.status === "activa" && !campaign.permiteAnonimos ? (
+                    <p className="rounded-lg bg-system-100 p-3 text-center text-[12.5px] text-system-600">
+                      Esta campaña solo recibe aportes con cuenta.
+                    </p>
+                  ) : campaign.status === "activa" && topeAnonimoLleno ? (
+                    // Tope del 10% de anónimos lleno (2026-11-11): el aviso en vez de "Aportar sin cuenta".
+                    <div className="flex flex-col gap-2.5">
+                      <p className="rounded-lg bg-system-100 p-3 text-center text-[12.5px] text-system-600">{topeAnonimoLleno}</p>
+                      <Link
+                        href={conDestino("/entrar", `/campanas/${campaign.id}/aportar`)}
+                        className={buttonClasses("primary", "md", "w-full")}
+                      >
+                        Iniciar sesión para aportar
+                      </Link>
+                    </div>
+                  ) : campaign.status === "activa" && aporteSinCuenta ? (
+                    <Link href={`/participa/${campaign.id}`} className={buttonClasses("primary", "md", "w-full")}>
+                      Aportar sin cuenta
+                    </Link>
+                  ) : campaign.status === "activa" ? (
+                    <p className="rounded-lg bg-system-100 p-3 text-center text-[12.5px] text-system-600">
+                      Los aportes sin cuenta no están disponibles en este momento.
+                    </p>
+                  ) : (
+                    <p className="rounded-lg bg-system-100 p-3 text-center text-[12.5px] text-system-600">
+                      Esta campaña no está recibiendo aportes.
+                    </p>
+                  )
+                ) : isCreator ? (
+                  <p className="rounded-lg bg-system-100 p-3 text-center text-[12.5px] text-system-600">Creaste esta campaña, por lo que no puedes aportar en ella.</p>
+                ) : baneado ? (
+                  <p className="rounded-lg bg-error-50 p-3 text-center text-[12.5px] text-error-700">
+                    Quien creó esta campaña te retiró la posibilidad de aportar en ella.
+                    {motivoDeBaneo && <span className="mt-1 block font-semibold">Motivo: {motivoDeBaneo}</span>}
+                  </p>
+                ) : campaign.status === "activa" && !inscrito ? (
+                  // Sin inscribirse, "Realizar un aporte" abre la ventana de los acuerdos; al aceptarlos va al
+                  // formulario (2026-11-10, a pedido del usuario; antes las casillas iban aquí mismo).
+                  <>
+                    <Button variant="primary" className="w-full" onClick={() => setAceptandoAcuerdos(true)} aria-haspopup="dialog">
+                      Realizar un aporte
+                    </Button>
+                    <VentanaDeInscripcion
+                      abierta={aceptandoAcuerdos}
+                      onCerrar={() => setAceptandoAcuerdos(false)}
+                      campanaId={campaign.id}
+                      onInscrito={() => router.push(`/campanas/${campaign.id}/aportar`)}
+                      proposito={textoDelProposito(campaign.proposito, campaign.propositoOtro)}
+                    />
+                  </>
+                ) : campaign.status === "activa" ? (
+                  <Link href={`/campanas/${campaign.id}/aportar`} className={buttonClasses("primary", "md", "w-full")}>
+                    Realizar un aporte
+                  </Link>
+                ) : campaign.status === "pausada" ? (
+                  <p className="rounded-lg bg-system-100 p-3 text-center text-[12.5px] text-system-600">{avisoDePausa(campaign.pausa, "Podrás aportar cuando se reanude.")}</p>
+                ) : (
+                  <p className="rounded-lg bg-system-100 p-3 text-center text-[12.5px] text-system-600">Esta campaña no está recibiendo aportes.</p>
+                )}
+              </div>
             </div>
           </section>
         </div>
-        {!isCreator && (
-          <div className="mt-4 flex justify-start">
-            <ReportarCampana campanaId={campaign.id} yaReportada={yaReportada} />
-          </div>
-        )}
       </div>
     </div>
   );

@@ -1,27 +1,14 @@
 "use client";
-
-// Ficha de rango en ventana (2026-11-02; SRS v1.1: RF-GAM-22, 78 a 83): el detalle de un rango según su estado.
-// Actual y alcanzado: cuándo se alcanzó, lo que pidió y lo que se recibió. Siguiente: avance por requisito y lo que
-// se recibirá. Avistado: la pista y lo que pedirá. Por descubrir: solo lo que pedirá. Solo pinta lo que el servidor
-// envió en cada ficha (RNF-GAM-14): avistado y por descubrir no traen nombre, descripción ni etapa, así que aquí no
-// hay forma de mostrarlos. Textos según la v1.2 (2026-11-04): nada promete ni advierte una reversión.
-//
-// Ventana <dialog> nativo, como EditarAvatar y PreferenciasDeComunicacion: Esc la cierra, el foco vuelve al
-// botón que la abrió y el clic en el fondo la cierra. `abierta` es el número del rango que se ve (null =
-// cerrada); ‹ › recorren las fichas que recibe. El estado lo lleva quien la usa (CaminoCompacto).
-//
-// Pendiente (no se inventa): «Lo que recibiste» solo muestra etapa e insignia; las demás recompensas del rango
-// y el coleccionable exclusivo dependen del catálogo de objetos (DA-GAM-09). La descripción sale cuando exista
-// (DA-GAM-23).
-
 import { useEffect, useRef, type ReactNode } from "react";
+import AyudaEmergente from "@/components/ui/AyudaEmergente";
 import ButtonLink from "@/components/ui/ButtonLink";
 import ProgressBar from "@/components/ui/ProgressBar";
 import Tag from "@/components/ui/Tag";
-import type {
-  AvanceDeRequisito,
-  FichaDeRango as DatosDeFicha,
-  RequisitoDeRango,
+import {
+  TEXTO_DE_LA_RACHA,
+  type AvanceDeRequisito,
+  type FichaDeRango as DatosDeFicha,
+  type RequisitoDeRango,
 } from "@/lib/gamificacion/rangos";
 import InsigniaDeRango from "./InsigniaDeRango";
 
@@ -94,7 +81,10 @@ function ListaDeAvance({ requisitos }: { requisitos: AvanceDeRequisito[] }) {
         <li key={r.clave}>
           <div className="flex items-center gap-2.5 text-sm">
             <Marca cumplido={r.cumplido} />
-            <span className="flex-1 text-system-900">{r.etiqueta}</span>
+            <span className="flex flex-1 items-center gap-1 text-system-900">
+              {r.etiqueta}
+              {r.clave === "racha" && <AyudaEmergente etiqueta="Cómo cuenta la racha">{TEXTO_DE_LA_RACHA}</AyudaEmergente>}
+            </span>
             <span className={`font-mono text-[13px] font-semibold ${r.cumplido ? "text-success-800" : "text-system-900"}`}>
               {r.textoAvance}
             </span>
@@ -126,20 +116,18 @@ function Cuerpo({ ficha, total }: { ficha: DatosDeFicha; total: number }) {
     const esActual = ficha.estado === "actual";
     return (
       <>
-        <p id="ficha-rango-intro" className="text-sm text-system-700">
-          {esActual
-            ? "Tu rango actual. Es permanente: no se pierde por inactividad ni por perder la racha."
-            : "Un rango que ya es tuyo, para siempre."}
-        </p>
-        {ficha.textoDeAscenso && <p className="text-[13px] font-semibold text-system-900">{ficha.textoDeAscenso}</p>}
+        <div id="ficha-rango-intro" className="space-y-1">
+          <p className="text-sm font-semibold text-system-900">{ficha.textoDeAscenso || "Ya alcanzaste este rango."}</p>
+          {esActual && <p className="text-[13px] text-system-700">Es tuyo aunque dejes de aportar o pierdas la racha.</p>}
+        </div>
         <Descripcion texto={ficha.descripcion} />
         <Seccion id="ficha-rango-pidio" titulo="Lo que pidió">
           {ficha.requisitos.length === 0 ? (
-            <p className="text-sm text-system-600">No pide nada: es el punto de partida de toda trayectoria.</p>
+            <p className="text-sm text-system-600">No pide nada.</p>
           ) : (
             <>
               <ListaDeMetas requisitos={ficha.requisitos} cumplidos />
-              <p className="text-[12px] text-system-500">Todos se cumplieron a la vez el día del ascenso.</p>
+              <p className="text-[12px] text-system-500">Los cumpliste todos el día que subiste.</p>
             </>
           )}
         </Seccion>
@@ -147,9 +135,9 @@ function Cuerpo({ ficha, total }: { ficha: DatosDeFicha; total: number }) {
           <ul className="space-y-2">
             <Recompensa
               titulo={`Etapa ${ficha.etapaDelAvatar} de tu avatar`}
-              detalle={esActual ? "Es la etapa que tiene hoy tu avatar." : "Tu avatar ya pasó por esta etapa y no retrocede."}
+              detalle={esActual ? "La que tiene tu avatar hoy." : "Tu avatar ya pasó por ella y no retrocede."}
             />
-            <Recompensa titulo="Insignia del rango" detalle="El emblema de este rango." />
+            <Recompensa titulo={`Insignia del rango ${ficha.numero}`} detalle="Su emblema, aparte de tu avatar." />
           </ul>
         </Seccion>
       </>
@@ -160,28 +148,32 @@ function Cuerpo({ ficha, total }: { ficha: DatosDeFicha; total: number }) {
     const ultimo = ficha.numero >= total;
     return (
       <>
-        <p id="ficha-rango-intro" className="text-sm text-system-700">
-          Tu siguiente rango. Cumples {ficha.cumplidos} de {ficha.requisitos.length} requisitos; todos deben cumplirse a la
-          vez. La racha cuenta en el momento de la comprobación.
-        </p>
+        <div id="ficha-rango-intro" className="space-y-1">
+          <p className="text-sm font-bold text-system-900">{ficha.textoQueFalta}</p>
+          <p className="text-[13px] text-system-700">
+            Cumples {ficha.cumplidos} de {ficha.requisitos.length}. Subes en cuanto cumplas todos a la vez; la racha se toma
+            tal como esté en ese momento.
+          </p>
+        </div>
         <Descripcion texto={ficha.descripcion} />
         <Seccion id="ficha-rango-pide" titulo="Lo que pide y tu avance">
           <ListaDeAvance requisitos={ficha.requisitos} />
-          <p className="text-[12px] text-system-500">
-            Los aportes de 5★ cuentan también como de 4★ o más. Lo que ganas con un aporte aceptado no se revierte.
-          </p>
+          <p className="text-[12px] text-system-500">Un aporte de 5★ también cuenta en «4★ o más».</p>
         </Seccion>
-        <Seccion id="ficha-rango-recibiras" titulo="Lo que recibirás">
+        <Seccion id="ficha-rango-recibiras" titulo="Al subir recibes">
           <ul className="space-y-2">
-            <Recompensa titulo={`Etapa ${ficha.etapaDelAvatar} de tu avatar`} detalle="Tu avatar evoluciona al alcanzar el rango." />
+            <Recompensa titulo={`Etapa ${ficha.etapaDelAvatar} de tu avatar`} detalle="Tu avatar evoluciona y no retrocede." />
+            <Recompensa titulo={`Insignia del rango ${ficha.numero}`} detalle="Su emblema, aparte de tu avatar." />
             <Recompensa
-              titulo={ultimo ? "Completas la trayectoria" : `Se revela el rango ${ficha.numero + 1}`}
-              detalle={!ultimo && ficha.numero + 2 <= total ? `Y avistas el ${ficha.numero + 2} con su pista.` : undefined}
+              titulo={ultimo ? `Los ${total} rangos completos` : `El rango ${ficha.numero + 1} completo`}
+              detalle={
+                ultimo ? "No queda ninguno por descubrir." : ficha.numero + 2 <= total ? `Y la pista del ${ficha.numero + 2}.` : undefined
+              }
             />
           </ul>
         </Seccion>
         <ButtonLink href="/campanas" variant="primary" size="sm" className="self-start">
-          Buscar campañas para aportar
+          Aportar a una campaña
         </ButtonLink>
       </>
     );
@@ -190,19 +182,19 @@ function Cuerpo({ ficha, total }: { ficha: DatosDeFicha; total: number }) {
   if (ficha.estado === "oculto") {
     return (
       <>
-        <p id="ficha-rango-intro" className="text-sm text-system-700">
-          Un rango por descubrir. Puedes consultar lo que pedirá; lo demás se revela al acercarte.
-        </p>
+        <div id="ficha-rango-intro" className="space-y-1">
+          <p className="text-sm text-system-700">
+            De este rango solo puedes ver lo que pedirá. Su nombre, su insignia y sus recompensas aparecen cuando alcances
+            el rango {ficha.numero - 1}.
+          </p>
+          {ficha.numero >= total && <p className="text-[13px] text-system-700">Es el último rango de la trayectoria.</p>}
+        </div>
         <Seccion id="ficha-rango-pedira" titulo="Lo que pedirá">
           <ListaDeMetas requisitos={ficha.requisitos} cumplidos={false} />
           <p className="text-[12px] text-system-500">
-            Requisitos vigentes del catálogo. Pueden cambiar en nuevas versiones sin afectar a los rangos ya alcanzados.
+            Estos requisitos pueden ajustarse más adelante. Un cambio nunca te quita un rango que ya tengas.
           </p>
         </Seccion>
-        <p className="text-[12.5px] text-system-600">
-          Su nombre, su insignia y lo que recibirás se revelan al alcanzar el rango {ficha.numero - 1}.
-          {ficha.numero >= total && " Es el último rango de la trayectoria."}
-        </p>
       </>
     );
   }
@@ -210,21 +202,18 @@ function Cuerpo({ ficha, total }: { ficha: DatosDeFicha; total: number }) {
   return (
     <>
       <p id="ficha-rango-intro" className="text-sm text-system-700">
-        Ya sabes que existe y qué es lo nuevo que pedirá. Su nombre y su insignia siguen ocultos.
+        Ya puedes ver lo que pedirá. Su nombre y su insignia aparecen cuando alcances el rango {ficha.numero - 1}.
       </p>
-      <div className="rounded-r-lg border-l-4 border-brand-600 bg-brand-50 px-4 py-3">
-        <p className="text-sm font-semibold text-system-900">Pista: {ficha.pista}</p>
-        <p className="text-[12px] text-system-600">Es el único rango oculto con pista.</p>
+      <div className="rounded-lg bg-brand-50 px-4 py-3">
+        <p className="text-sm font-bold text-brand-950">Pista: {ficha.pista}</p>
+        <p className="text-[12px] text-brand-800">Los rangos más lejanos no tienen pista.</p>
       </div>
       <Seccion id="ficha-rango-pedira" titulo="Lo que pedirá">
         <ListaDeMetas requisitos={ficha.requisitos} cumplidos={false} />
         <p className="text-[12px] text-system-500">
-          Requisitos vigentes del catálogo. Pueden cambiar en nuevas versiones sin afectar a los rangos ya alcanzados.
+          Estos requisitos pueden ajustarse más adelante. Un cambio nunca te quita un rango que ya tengas.
         </p>
       </Seccion>
-      <p className="text-[12.5px] text-system-600">
-        Su nombre, su insignia y lo que recibirás se revelan al alcanzar el rango {ficha.numero - 1}.
-      </p>
     </>
   );
 }

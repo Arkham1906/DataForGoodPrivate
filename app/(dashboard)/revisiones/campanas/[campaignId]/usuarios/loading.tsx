@@ -4,5 +4,5 @@
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
 
 export default function Loading() {
-  return <PantallaEsqueleto tipo="tabla" etiqueta="Cargando participantes…" />;
+  return <PantallaEsqueleto tipo="tabla" etiqueta="Cargando aportes aceptados…" />;
 }

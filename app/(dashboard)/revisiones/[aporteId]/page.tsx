@@ -29,6 +29,7 @@ import ReportarAPlataforma from "@/components/ui/ReportarAPlataforma";
 import { MOTIVOS_DE_REPORTE_DE_APORTE } from "@/lib/reportes/motivos";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import ArchivoDelAporte from "@/components/ui/ArchivoDelAporte";
+import BotonPantallaCompletaDeAporte from "@/components/ui/BotonPantallaCompletaDeAporte";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 import SelectorDeCalificacion from "@/components/aportes/SelectorDeCalificacion";
 import type { CalificacionDeAporte } from "@/lib/aportes/calificacion";
@@ -84,6 +85,11 @@ export default function RevisionAportePage() {
   }, [aporteId, recarga, vuelta, desdeMisAportes, router]);
 
   async function decidir(status: "aceptado" | "rechazado", rejectionReason?: string) {
+    if (!item) {
+      setError("No se pudo identificar la campaña del aporte");
+      return;
+    }
+
     // Solo se califica al aceptar (2026-11-07): un rechazo no pide estrellas.
     if (status === "aceptado" && !calificacion) {
       setError("Califica el aporte de 1 a 5 estrellas antes de aceptarlo");
@@ -104,7 +110,7 @@ export default function RevisionAportePage() {
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error ?? "No se pudo guardar la decisión");
-      router.push("/revisiones");
+      router.push(`/revisiones/campanas/${item.campaignId}`);
       router.refresh();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se pudo guardar la decisión");
@@ -166,15 +172,15 @@ export default function RevisionAportePage() {
   const puedeEliminar = !item.canReview && (item.status === "pendiente" || item.status === "espera_final");
 
   return (
-    <div className="mx-auto max-w-4xl">
+    <div className="mx-auto w-full max-w-6xl">
       {desdeMisAportes ? (
-        <Link href={`/mis-aportes/${item.campaignId}`} className="mb-5 inline-block text-[13px] text-system-600 hover:text-system-900">
+        <Link href="/mis-aportes" className="mb-5 inline-block text-[13px] text-system-600 hover:text-system-900">
           ← Volver a mis aportes
         </Link>
       ) : (
-        <Link href="/revisiones" className="mb-5 inline-block text-[13px] text-system-600 hover:text-system-900">
+        <button type="button" onClick={() => router.back()} className="mb-5 inline-block text-[13px] text-system-600 hover:text-system-900">
           ← Volver a revisiones
-        </Link>
+        </button>
       )}
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
@@ -213,18 +219,28 @@ export default function RevisionAportePage() {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(280px,.9fr)]">
         <section className="rounded-lg border border-system-200 bg-white p-5 shadow-sm">
           <p className="mb-3 text-[12.5px] font-semibold text-system-900">Archivo enviado</p>
-          {item.archivoBorrado ? (
-            <div className="flex aspect-video items-center justify-center rounded-lg border border-dashed border-system-300 bg-system-100 text-[12.5px] text-system-500">
-              El creador borró este archivo
-            </div>
-          ) : (
-            <ArchivoDelAporte
-              aporteId={item.id}
-              tipo={item.fileType}
-              sinArchivo={item.sinArchivo}
-              alt={`Archivo del aporte de ${item.participantName}`}
-            />
-          )}
+          <div className="relative">
+            {item.archivoBorrado ? (
+              <div className="flex aspect-video items-center justify-center rounded-lg border border-dashed border-system-300 bg-system-100 text-[12.5px] text-system-500">
+                El creador borró este archivo
+              </div>
+            ) : (
+              <BotonPantallaCompletaDeAporte
+                aporteId={item.id}
+                tipo={item.fileType}
+                sinArchivo={item.sinArchivo}
+                alt={`Archivo del aporte de ${item.participantName}`}
+                descripcion={item.description}
+              >
+                <ArchivoDelAporte
+                  aporteId={item.id}
+                  tipo={item.fileType}
+                  sinArchivo={item.sinArchivo}
+                  alt={`Archivo del aporte de ${item.participantName}`}
+                />
+              </BotonPantallaCompletaDeAporte>
+            )}
+          </div>
           <p className="mt-3 font-mono text-[11.5px] text-system-500">
             {item.fileType} {item.fileSizeBytes ? `· ${formatearTamano(item.fileSizeBytes)}` : ""}
           </p>
@@ -244,7 +260,7 @@ export default function RevisionAportePage() {
             {item.caracteristicas && item.caracteristicas.length > 0 && (
               <div>
                 <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-system-500">Características</p>
-                 <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2">
                   {item.caracteristicas.map((feature) => <Tag key={feature}>{feature}</Tag>)}
                 </div>
               </div>

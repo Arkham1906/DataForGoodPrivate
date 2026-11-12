@@ -5,6 +5,8 @@ import { absoluteUrl } from "@/lib/app-url";
 const SESSION_COOKIE = "session_token";
 const ROOT_SESSION_COOKIE = "root_session_token";
 const METODOS_SEGUROS = new Set(["GET", "HEAD", "OPTIONS"]);
+// Lo lee app/(dashboard)/layout.tsx: la ficha /campanas/[id] se muestra sin sesión.
+const ENCABEZADO_DETALLE_PUBLICO = "x-public-campaign-detail";
 
 /**
  * Protección CSRF para las mutaciones de /api. La cookie de sesión va con
@@ -80,6 +82,19 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // El encabezado del detalle público solo lo pone este proxy: si lo manda el navegador se borra
+  // (2026-11-11). Antes pasaba tal cual y, escrito a mano, abría sin sesión cualquier pantalla de usuario.
+  const encabezados = new Headers(request.headers);
+  encabezados.delete(ENCABEZADO_DETALLE_PUBLICO);
+
+  // El detalle de una campaña pública se puede consultar sin cuenta (desde /explorar), también con una
+  // cookie de sesión vencida o inválida: el layout decide con la sesión real. Las acciones para participar
+  // siguen protegidas por sus propios endpoints y las demás pantallas de usuario siguen pidiendo sesión.
+  if (/^\/campanas\/[1-9]\d*$/.test(pathname)) {
+    encabezados.set(ENCABEZADO_DETALLE_PUBLICO, "1");
+    return NextResponse.next({ request: { headers: encabezados } });
+  }
+
   const hasSession = Boolean(request.cookies.get(SESSION_COOKIE)?.value);
 
   if (!hasSession) {
@@ -89,7 +104,7 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(absoluteUrl(`/entrar?next=${destino}`));
   }
 
-  return NextResponse.next();
+  return NextResponse.next({ request: { headers: encabezados } });
 }
 
 export const config = {
@@ -102,6 +117,8 @@ export const config = {
     "/cuenta/:path*",
     "/progreso/:path*",
     "/notificaciones/:path*",
+    // Faltaba (2026-11-11): toda la zona de usuario pasa por aquí para que nadie meta el encabezado.
+    "/revisiones/:path*",
     "/supervision/:path*",
     "/sistema/:path*",
   ],

@@ -16,6 +16,9 @@ import { sqlDatosPublicados } from "@/lib/campanas/datos-abiertos";
  * mismo número que su fila. El contador de descargas sube en cada ZIP
  * generado, no cuando el navegador termina de bajarlo. Desde el 2026-10-27 lleva también LEEME.txt
  * con la campaña, su propósito (para qué se recolectaron los datos) y la licencia.
+ * Desde el 2026-11-11 (a pedido del usuario) los textos salen como aporte-NNN.txt: los aportes de
+ * solo texto nuevos ya se guardan como .txt (su descripción es el título) y los anteriores, que
+ * tenían el texto en la descripción, se convierten aquí.
  */
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   try {
@@ -77,6 +80,12 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
           // queda en la tabla con la columna de archivo vacía.
           console.error(`No se pudo leer el archivo del aporte ${row.id} para el ZIP`, fileError);
         }
+      } else if (String(row.file_type ?? "") === "texto" && String(row.description ?? "").trim()) {
+        // Aporte de solo texto anterior al 2026-11-11: el texto estaba en la descripción y no hay
+        // archivo. Sale como .txt, igual que los nuevos (que ya se guardan como .txt).
+        const nombre = `aporte-${String(numero).padStart(3, "0")}.txt`;
+        archive.append(Buffer.from(String(row.description), "utf-8"), { name: nombre });
+        archivo = nombre;
       }
       filas.push({
         numero,

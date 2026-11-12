@@ -5,6 +5,8 @@
 // y/o explicación; con "Otro" o "Ya existe una campaña similar", la explicación es obligatoria. La casilla "Sancionar al creador" agrega un
 // aviso, una suspensión o el baneo (components/moderacion/OpcionesDeSancion); esa sanción queda en
 // reportes y sanciones de la supervisión. Las reglas se vuelven a validar en lib/supervision/decision.ts.
+// Con "Ya existe una campaña similar" (2026-11-11, a pedido del usuario) se marcan a cuáles de las campañas
+// similares se parece (al menos una, si hay): el creador las ve nombradas en el mensaje del rechazo.
 
 import { useId, useState, type FormEvent } from "react";
 
@@ -16,38 +18,63 @@ import {
   MOTIVO_CAMPANA_SIMILAR,
   motivoExigeExplicacion,
 } from "@/lib/reportes/motivos";
+import type { CampanaSimilar } from "@/lib/supervision/similares";
 
 export type RechazoPedido = {
   motivoDeLista: string;
   motivo: string;
   sancion: SancionElegida | null;
+  /** Ids de las campañas a las que se parece; solo con MOTIVO_CAMPANA_SIMILAR. */
+  similares: string[];
 };
+
+/** Lo que el formulario necesita de cada campaña similar. */
+export type SimilarParaRechazo = Pick<CampanaSimilar, "id" | "name" | "status">;
 
 export default function FormularioDeRechazo({
   ocupado,
+  similares = [],
   onCancelar,
   onConfirmar,
 }: {
   ocupado: boolean;
+  /** Las campañas similares que ve la supervisión (lib/supervision/similares.ts), de la más parecida a la menos. */
+  similares?: SimilarParaRechazo[];
   onCancelar: () => void;
   onConfirmar: (rechazo: RechazoPedido) => void;
 }) {
   const idMotivo = useId();
   const idExplicacion = useId();
   const idSancionar = useId();
+  const idParecidas = useId();
   const [motivoDeLista, setMotivoDeLista] = useState("");
   const [explicacion, setExplicacion] = useState("");
   const [sancionar, setSancionar] = useState(false);
   const [sancion, setSancion] = useState<SancionElegida>(SANCION_POR_DEFECTO);
+  const [elegidas, setElegidas] = useState<string[]>([]);
 
+  const porSimilar = motivoDeLista === MOTIVO_CAMPANA_SIMILAR;
+  const pideParecidas = porSimilar && similares.length > 0;
+  // Solo las que siguen en la lista (si la lista se recarga en vivo), en el orden de la lista.
+  const parecidas = similares.filter((c) => elegidas.includes(c.id)).map((c) => c.id);
   const conTexto = explicacion.trim().length > 0;
   const exigeExplicacion = motivoExigeExplicacion(motivoDeLista);
-  const completo = (Boolean(motivoDeLista) || conTexto) && (!exigeExplicacion || conTexto);
+  const completo =
+    (Boolean(motivoDeLista) || conTexto) && (!exigeExplicacion || conTexto) && (!pideParecidas || parecidas.length > 0);
+
+  function alternar(id: string) {
+    setElegidas((actual) => (actual.includes(id) ? actual.filter((x) => x !== id) : [...actual, id]));
+  }
 
   function enviar(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!completo || ocupado) return;
-    onConfirmar({ motivoDeLista, motivo: explicacion.trim(), sancion: sancionar ? sancion : null });
+    onConfirmar({
+      motivoDeLista,
+      motivo: explicacion.trim(),
+      sancion: sancionar ? sancion : null,
+      similares: porSimilar ? parecidas : [],
+    });
   }
 
   return (
@@ -70,6 +97,41 @@ export default function FormularioDeRechazo({
         ))}
       </select>
 
+      {pideParecidas && (
+        <fieldset className="mb-3" aria-describedby={`${idParecidas}-pista`}>
+          <legend className="mb-1 block text-[13px] font-semibold text-system-900">
+            ¿A cuál se parece? <span className="text-error-700">*</span>
+          </legend>
+          <p id={`${idParecidas}-pista`} className="mb-2 text-[12px] text-system-600">
+            Marca una o varias de las campañas similares: el creador las verá en el mensaje del rechazo.
+          </p>
+          <div className="flex flex-col gap-1.5 rounded border border-system-300 bg-white p-2.5">
+            {similares.map((c) => (
+              <label key={c.id} className="flex cursor-pointer items-start gap-2.5 text-[13px] text-system-900">
+                <input
+                  type="checkbox"
+                  checked={elegidas.includes(c.id)}
+                  onChange={() => alternar(c.id)}
+                  disabled={ocupado}
+                  className="mt-0.5"
+                />
+                <span className="min-w-0 break-words">
+                  {c.name}{" "}
+                  <span className="text-[12px] text-system-500">
+                    ({c.status === "aceptada" ? "programada" : c.status})
+                  </span>
+                </span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
+      {porSimilar && similares.length === 0 && (
+        <p className="mb-3 text-[12px] text-system-600">
+          No hay campañas similares en la lista: explica en el texto a cuál se parece.
+        </p>
+      )}
+
       <label htmlFor={idExplicacion} className="mb-1.5 block text-[13px] font-semibold text-system-900">
         Explicación {exigeExplicacion ? <span className="text-error-700">*</span> : <span className="font-normal text-system-500">(opcional si elegiste un motivo)</span>}
       </label>
@@ -79,7 +141,13 @@ export default function FormularioDeRechazo({
         maxLength={MAXIMO_EXPLICACION_DE_RECHAZO}
         value={explicacion}
         onChange={(event) => setExplicacion(event.target.value)}
-        placeholder={motivoDeLista === MOTIVO_CAMPANA_SIMILAR ? "Explica al creador con qué campaña se parece y por qué se rechaza" : "Explica al creador por qué se rechaza la campaña"}
+        placeholder={
+          pideParecidas
+            ? "Explica al creador en qué se parecen y por qué se rechaza"
+            : porSimilar
+              ? "Explica al creador con qué campaña se parece y por qué se rechaza"
+              : "Explica al creador por qué se rechaza la campaña"
+        }
         disabled={ocupado}
       />
 

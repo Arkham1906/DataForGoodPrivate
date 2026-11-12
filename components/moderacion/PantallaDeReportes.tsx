@@ -3,9 +3,10 @@
 // /reportes del panel. Reportes de campañas (contra su creador) y de aportes (contra quien los envió).
 // Server Component; la página de cada zona comprueba antes la sesión (exigirModerador).
 // Datos: listarReportes() y contarReportesPendientes() (lib/reportes/reportes.ts), sin los reportes contra el
-// supervisor que modera; ?estado=resueltos muestra los ya resueltos. La lista agrupada por caso está en
-// ListaDeReportes (cliente). Acciones: "Dar aviso a <persona>" lleva a .../sanciones/[usuarioId]?reportes=<clave>
-// (el aviso queda en la lista de sanciones y resuelve los reportes); "Descartar" en BotonDescartar.
+// supervisor que modera; los reportes de aportes solo se muestran a quien supervisa esa campaña.
+// ?estado=resueltos muestra los ya resueltos. La lista agrupada por caso está en
+// ListaDeReportes (cliente). Acciones: "Elegir sanción para <persona>" lleva a .../sanciones/[usuarioId]?reportes=<clave>
+// (aviso, suspensión o baneo, y resuelve los reportes); "Descartar" en BotonDescartar.
 
 import Link from "next/link";
 
@@ -36,8 +37,12 @@ export default async function PantallaDeReportes({
   const rutas = rutasDeModeracion(zona);
   const filtro: FiltroDeReportes = estado === "resueltos" ? "resueltos" : "pendientes";
   const propia = cuentaDelModerador(moderador);
+  const supervisorId = zona === "supervision" && moderador.tipo === "usuario" ? moderador.usuarioId : null;
 
-  const [grupos, pendientes] = await Promise.all([listarReportes(filtro, propia), contarReportesPendientes(propia)]);
+  const [grupos, pendientes] = await Promise.all([
+    listarReportes(filtro, propia, supervisorId),
+    contarReportesPendientes(propia, supervisorId),
+  ]);
 
   const paraLista: GrupoParaLista[] = grupos.map((g) => ({
     clave: g.clave,

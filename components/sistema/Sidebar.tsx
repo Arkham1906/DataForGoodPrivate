@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { Fragment, type ComponentType, type SVGProps } from "react";
 
 import { claseDeOpcionMarcada, useIndicadorDeMenu } from "@/components/ui/useIndicadorDeMenu";
+import AvisoDelMenu, { type AvisoDelMenu as AvisoDelMenuTipo } from "@/components/layout/AvisoDelMenu";
 
 import {
   IconoAportes,
@@ -70,9 +71,12 @@ const MENU: Entrada[] = [
 export default function Sidebar({
   reportesPendientes = 0,
   tematicasPendientes = 0,
+  aviso,
 }: {
   reportesPendientes?: number;
   tematicasPendientes?: number;
+  /** Recuadro azul del pie (2026-11-10): lo arma el layout con avisoDelMenuParaRoot(). */
+  aviso: AvisoDelMenuTipo;
 }) {
   const pendientes: Record<string, { numero: number; texto: string }> = {
     "/supervisar": { numero: reportesPendientes, texto: "reportes pendientes" },
@@ -125,13 +129,9 @@ export default function Sidebar({
         })}
       </nav>
 
-      {/* Nota, no botón: fondo claro y franja lateral para no confundirse con la opción activa del menú. */}
-      <div className="dashboard-sidebar-callout mt-5 rounded-r-lg border-l-4 border-brand-600 bg-brand-50 px-4 py-3.5">
-        <p className="text-[12.5px] leading-relaxed text-system-600">
-          Revisa con criterio: cada validación sostiene la calidad de los datos.
-        </p>
-        <p className="mt-2 text-[13px] font-semibold text-brand-800">Gracias por moderar</p>
-      </div>
+      {/* Nota, no botón: fondo claro y franja lateral para no confundirse con la opción activa del menú. Desde el
+          2026-11-10, los pendientes del panel (lib/sistema/aviso-del-menu.ts); sin pendientes, la frase de siempre. */}
+      <AvisoDelMenu aviso={aviso} className="mt-5" />
     </aside>
   );
 }

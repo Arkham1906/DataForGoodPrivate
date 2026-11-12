@@ -43,6 +43,8 @@ import { cuotaPorTipoDesdeFila, errorDeMaximoSobreLimite, resolverCuotaYMaximos,
 import { normalizarFormatosDeDocumento } from "@/lib/aportes/archivo";
 import { columnasCalculadas, guardarTiposDeCampana } from "@/lib/campanas/tipos-de-campana";
 import { guardarChecklists } from "@/lib/campanas/tabla-checklists";
+import { limpiarImagen, type ImagenLimpia } from "@/lib/aportes/imagen";
+import { borrarArchivo, guardarArchivo } from "@/lib/minio";
 import { asegurarEnlaceVigente } from "@/lib/campanas/enlaces";
 import { errorDeOrganizacion } from "@/lib/campanas/organizacion";
 import { estaTerminada } from "@/lib/campanas/terminada";
@@ -99,6 +101,11 @@ function mapCampaign(row: Record<string, unknown>) {
     supervisedByRoot: Boolean(row.supervisado_por_root),
     name: String(row.name ?? ""),
     description: String(row.description ?? ""),
+    hasBanner: Boolean(row.banner_path),
+    bannerVersion: row.updated_at ? String(row.updated_at) : undefined,
+    bannerScale: Number(row.banner_scale ?? 1),
+    bannerPositionX: Number(row.banner_position_x ?? 50),
+    bannerPositionY: Number(row.banner_position_y ?? 50),
     tematica: String(row.tematica ?? row.tag ?? ""),
     tag: String(row.tag ?? String(row.tematica ?? "")),
     // Subtemáticas (2026-10-27): las pone agregarEtiquetas antes de mapear.
@@ -143,6 +150,11 @@ function mapCampaign(row: Record<string, unknown>) {
     daysRemaining: calculateCampaignDaysRemaining(row.end_date ?? row.endDate),
     hasReviewerAssigned: Boolean(row.has_reviewer_assigned),
   };
+}
+
+function ajustarBanner(value: unknown, minimo: number, maximo: number, predeterminado: number) {
+  const numero = Number(value);
+  return Number.isFinite(numero) ? Math.min(maximo, Math.max(minimo, numero)) : predeterminado;
 }
 
 // GET: detalle de una campaña + viewer.isCreator. Pública solo si está activa, pausada o
@@ -194,12 +206,36 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
 
 // Actualización parcial (Insomnia: PATCH { "status": "activa" }, o cualquier subconjunto de campos editables)
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
+  let bannerNuevoRuta = "";
   try {
     const { id } = await context.params;
     const user = await getSessionUser();
     if (!user) return NextResponse.json({ error: "Debes iniciar sesion" }, { status: 401 });
 
-    const body = await request.json().catch(() => ({}));
+    let body: Record<string, unknown> = {};
+    let bannerImagen: ImagenLimpia | null = null;
+    if (request.headers.get("content-type")?.includes("multipart/form-data")) {
+      const form = await request.formData();
+      try {
+        body = JSON.parse(String(form.get("payload") ?? "{}")) as Record<string, unknown>;
+      } catch {
+        return NextResponse.json({ error: "Los datos de la campaña no son válidos" }, { status: 400 });
+      }
+      const entrada = form.get("banner");
+      if (entrada instanceof File && entrada.size > 0) {
+        if (entrada.size > 5 * 1024 * 1024) return NextResponse.json({ error: "El banner no puede superar los 5 MB" }, { status: 400 });
+        const limpio = await limpiarImagen(entrada);
+        if (!limpio.ok) return NextResponse.json({ error: limpio.error }, { status: 400 });
+        bannerImagen = limpio.imagen;
+        body = { ...body, banner: true };
+      }
+    } else {
+      body = await request.json().catch(() => ({}));
+    }
+    const bannerScale = "bannerScale" in body ? ajustarBanner(body.bannerScale, 0.75, 2, 1) : null;
+    const bannerPositionX = "bannerPositionX" in body ? ajustarBanner(body.bannerPositionX, 0, 100, 50) : null;
+    const bannerPositionY = "bannerPositionY" in body ? ajustarBanner(body.bannerPositionY, 0, 100, 50) : null;
+    const bannerAjustado = bannerImagen !== null || bannerScale !== null || bannerPositionX !== null || bannerPositionY !== null;
     const accion = String(body.action ?? body.accion ?? "").trim().toLowerCase();
 
     // Toma explícita en exclusiva. El dictamen también toma una campaña libre si se elige aceptar/rechazar directamente.
@@ -232,11 +268,12 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         return NextResponse.json({ error: "Solo un supervisor puede decidir esta campaña" }, { status: 403 });
       }
 
-      // Al rechazar: motivoDeLista y/o motivo (explicación), y sancion opcional al creador (2026-10-16).
+      // Al rechazar: motivoDeLista y/o motivo (explicación), y sancion opcional al creador (2026-10-16);
+      // con "Ya existe una campaña similar", similares: ids de las campañas a las que se parece (2026-11-11).
       const resultado = await registrarDecisionDeCampana(
         id,
         accion as AccionDeSupervision,
-        { motivoDeLista: body.motivoDeLista, motivo: body.motivo ?? body.reason, sancion: body.sancion },
+        { motivoDeLista: body.motivoDeLista, motivo: body.motivo ?? body.reason, sancion: body.sancion, similares: body.similares },
         { tipo: "usuario", usuarioId: Number(user.id) },
         { tomarSiEstaLibre: true },
       );
@@ -302,6 +339,15 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     // La que pausó la supervisión no vuelve a revisión al editarla (2026-11-04, decisión del usuario): sigue
     // pausada, con su motivo y su supervisor, y solo la supervisión la reanuda cuando se hicieron los ajustes.
     const pausadaPorSupervision = currentStatus === "pausada" && existing.rows[0].pausa_por === "supervision";
+    if (currentStatus === "pausada" && estadoSolicitado === "borrador") {
+      return NextResponse.json({ error: "Una campaña pausada no puede volver a guardarse como borrador; envíala a revisión" }, { status: 400 });
+    }
+    if (pausadaPorSupervision && bannerAjustado) {
+      return NextResponse.json(
+        { error: "La supervisión pausó esta campaña: el banner se podrá cambiar cuando la supervisión la reanude" },
+        { status: 403 },
+      );
+    }
     if (pausadaPorSupervision && estadoSolicitado === "en_revision") {
       return NextResponse.json(
         { error: "La supervisión pausó esta campaña: guarda los ajustes y la supervisión decidirá si la reanuda" },
@@ -571,6 +617,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     let tematica = "tematica" in body || "tag" in body ? String(body.tematica ?? body.tag ?? "").trim() : null;
     let status = "status" in body ? normalizeCampaignStatus(body.status) : null;
     if (enviarRevisionAlEditar) status = "en_revision";
+    if (bannerAjustado) status = "en_revision";
     const dataTypes = "dataTypes" in body || "data_types" in body ? normalizeDataTypes(body.dataTypes ?? body.data_types) : null;
     // Formatos de "Archivo" (2026-10-28): si llegan o cambian los tipos; sin "documento", [].
     const formatosDeDocumento =
@@ -773,6 +820,16 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     // Checklists (tabla campana_checklists, 2026-10-30), antes del UPDATE para que su RETURNING ya los traiga.
     if (seccionesNuevas) await guardarChecklists(pool, id, seccionesNuevas);
 
+    const bannerAnterior = String(existing.rows[0].banner_path ?? "");
+    if (bannerImagen) {
+      const guardado = await guardarArchivo(bannerImagen.contenido, {
+        subdir: `campanas/${user.id}`,
+        extension: bannerImagen.extension,
+        mimeType: bannerImagen.mimeType,
+      });
+      bannerNuevoRuta = guardado.relativePath;
+    }
+
     const result = await pool.query(
       `UPDATE campanas SET
         name = COALESCE($2, name),
@@ -795,12 +852,16 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         todo_el_pais = COALESCE($18::boolean, todo_el_pais),
         proposito = CASE WHEN $19::boolean THEN $20 ELSE proposito END,
         proposito_otro = CASE WHEN $19::boolean THEN $21 ELSE proposito_otro END,
+        banner_path = COALESCE($22, banner_path),
+        banner_scale = COALESCE($23, banner_scale),
+        banner_position_x = COALESCE($24, banner_position_x),
+        banner_position_y = COALESCE($25, banner_position_y),
         -- La pausó el creador (sin motivo). "status" a la derecha es el estado anterior.
         pausa_por = CASE WHEN $5 IN ('en_revision', 'activa') AND status = 'pausada' AND pausa_por = 'creador' THEN NULL WHEN $5 = 'pausada' AND status <> 'pausada' THEN 'creador' ELSE pausa_por END,
         pausa_motivo = CASE WHEN $5 IN ('en_revision', 'activa') AND status = 'pausada' AND pausa_por = 'creador' THEN NULL WHEN $5 = 'pausada' AND status <> 'pausada' THEN NULL ELSE pausa_motivo END,
         pausada_en = CASE WHEN $5 IN ('en_revision', 'activa') AND status = 'pausada' AND pausa_por = 'creador' THEN NULL WHEN $5 = 'pausada' AND status <> 'pausada' THEN NOW() ELSE pausada_en END,
-        supervisor_id = CASE WHEN $5 = 'en_revision' AND status IN ('pausada', 'aceptada') THEN NULL ELSE supervisor_id END,
-        supervisado_por_root = CASE WHEN $5 = 'en_revision' AND status IN ('pausada', 'aceptada') THEN false ELSE supervisado_por_root END,
+        supervisor_id = CASE WHEN $5 = 'en_revision' AND (status IN ('pausada', 'aceptada') OR $26::boolean) THEN NULL ELSE supervisor_id END,
+        supervisado_por_root = CASE WHEN $5 = 'en_revision' AND (status IN ('pausada', 'aceptada') OR $26::boolean) THEN false ELSE supervisado_por_root END,
         updated_at = NOW()
       WHERE id = $1
       RETURNING *, ${columnasCalculadas()}`,
@@ -826,8 +887,18 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         propositoNuevo !== null,
         propositoNuevo?.proposito ?? null,
         propositoNuevo?.otro ?? null,
+        bannerNuevoRuta || null,
+        bannerScale,
+        bannerPositionX,
+        bannerPositionY,
+        Boolean(bannerAjustado),
       ]
     );
+
+    if (bannerNuevoRuta) {
+      if (bannerAnterior && bannerAnterior !== bannerNuevoRuta) await borrarArchivo(bannerAnterior).catch(() => {});
+      bannerNuevoRuta = "";
+    }
 
     // Se reactivó: pierde la decisión de datos abiertos y se vuelve a decidir al terminar (2026-11-04).
     if (estaTerminada(currentStatus) && !estaTerminada(String(result.rows[0].status))) {
@@ -892,6 +963,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       data: mapCampaign(result.rows[0]),
     });
   } catch (error) {
+    if (bannerNuevoRuta) await borrarArchivo(bannerNuevoRuta).catch(() => {});
     console.error("Error actualizando campaña", error);
     return NextResponse.json({ error: "No se pudo actualizar la campaña" }, { status: 500 });
   }

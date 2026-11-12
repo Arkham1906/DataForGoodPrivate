@@ -19,6 +19,9 @@ const TIPOS_DE_APORTES: ReadonlySet<TipoDeNotificacion> = new Set([
   "datos_publicados_aporte",
 ]);
 
+const CONDICION_DE_REPORTE_DE_APORTE_VISIBLE =
+  "(n.tipo <> 'reporte_nuevo' OR n.metadata->>'reporte' IS DISTINCT FROM 'aporte' OR c.supervisor_id = n.usuario_id)";
+
 /**
  * Las que llegan aunque la persona apague "Notificaciones" (usuario_preferencias.notificaciones_activas, 2026-10-19):
  * cambian lo que puede hacer en su cuenta, y la invitación de revisor solo se acepta desde la notificación.
@@ -110,7 +113,8 @@ export async function listarNotificaciones(
         LEFT JOIN campanas c ON c.id = n.campana_id
         LEFT JOIN campana_revisores cr
           ON n.tipo = 'invitacion_revisor' AND cr.campana_id = n.campana_id AND cr.usuario_id = n.usuario_id
-        WHERE n.usuario_id = $1 AND ($2::boolean IS FALSE OR n.leida_en IS NULL)
+        WHERE n.usuario_id = $1 AND ${CONDICION_DE_REPORTE_DE_APORTE_VISIBLE}
+          AND ($2::boolean IS FALSE OR n.leida_en IS NULL)
         ORDER BY n.created_at DESC, n.id DESC
         LIMIT $3 OFFSET $4`,
       [usuarioId, soloNoLeidas, porPagina, (pagina - 1) * porPagina],
@@ -119,7 +123,9 @@ export async function listarNotificaciones(
       `SELECT COUNT(*) FILTER (WHERE $2::boolean IS FALSE OR n.leida_en IS NULL)::int AS total,
               COUNT(*) FILTER (WHERE n.leida_en IS NULL)::int AS no_leidas,
               COUNT(*) FILTER (WHERE ${condicionLimpiable("$3")})::int AS limpiables
-        FROM notificaciones n WHERE n.usuario_id = $1`,
+        FROM notificaciones n
+        LEFT JOIN campanas c ON c.id = n.campana_id
+        WHERE n.usuario_id = $1 AND ${CONDICION_DE_REPORTE_DE_APORTE_VISIBLE}`,
       [usuarioId, soloNoLeidas, DIAS_PARA_NOTIFICACION_VIEJA],
     ),
   ]);

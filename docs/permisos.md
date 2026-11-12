@@ -113,10 +113,10 @@ No hay una función central: cada handler lo comprueba con SQL. Si agregas una r
 
 ### Persona anónima (sin cuenta)
 
-Puede participar **solo si le comparten una campaña** (enlace o QR `/c/[token]`). No tiene sesión ni rol.
+Puede participar si le comparten una campaña (enlace o QR `/c/[token]`) o, desde el 2026-11-11, desde la ficha de una campaña abierta en `/explorar` (`/campanas/[id]` → `/participa/[id]`). No tiene sesión ni rol.
 
-- **Ve:** únicamente `/c/[token]`, con la ficha de la campaña y el formulario. Todo lo demás de la app le pide iniciar sesión, y la API le responde 401.
-- **Puede:** enviar aportes con `POST /api/c/[token]/aportes`, solo con un enlace vigente de una campaña activa.
+- **Ve:** `/c/[token]` y `/participa/[id]`, con la ficha de la campaña y el formulario, y `/campanas/[id]` sin el armazón (Compartir, Favorita y Reportar deshabilitados). `proxy.ts` borra el encabezado `x-public-campaign-detail` que mande el navegador; solo lo pone él en `/campanas/[id]`. Todo lo demás de la app le pide iniciar sesión, y la API le responde 401.
+- **Puede:** enviar aportes con `POST /api/c/[token]/aportes` (enlace vigente) o `POST /api/campanas/[id]/aporte-sin-cuenta` (desde la ficha), solo en una campaña activa.
 - **No puede:** ver sus aportes después, consultar archivos, ver el enlace o el QR desde la app, ni modificar nada.
 - **Límites:** la cuota por persona de la campaña, contada por dispositivo (cookie `anonimo_id`), 60 segundos de espera entre dos aportes del mismo dispositivo, y 20 aportes por IP por hora (`lib/campanas/aportes-anonimos.ts`). No puede aportar si el creador apagó "Permitir aportes sin cuenta" o si su dispositivo está bloqueado. Sin cookie, además espera 60 s desde el último aporte anónimo de su IP (en memoria).
 - **Privacidad:** el aporte se guarda como "Anónimo", sin correo ni nombre de archivo, y la foto sin metadatos. De la cookie solo se guarda su hash. La IP no se guarda en ningún lado (ni en la bitácora): los límites por IP viven en memoria.

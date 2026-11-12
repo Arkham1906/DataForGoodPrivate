@@ -444,7 +444,7 @@ paths:
                   description: >-
                     Temáticas que la persona propone porque no estaban (2026-10-29); también van en `intereses`.
                     Las que no existen se dan de alta pendientes hasta que el SuperUsuario las revisa (máximo 3
-                    pendientes por persona; 400 si un nombre no pasa la validación).
+                    pendientes por persona; 400 si un nombre no pasa la validación). Desde el 2026-11-11, una que se parece a una existente (por nombre o significado: "Medioambiente", "Ecología") no se propone: se cambia por la existente, también en `intereses`.
             example: { interesesTexto: "Me gusta andar en bici y la fotografía", intereses: [Movilidad, Cultura] }
       responses:
         "200": { description: Perfil actualizado (con `intereses` ya con el nombre del catálogo) }
@@ -668,7 +668,7 @@ paths:
       description: "Usa uno de los filtros a la vez. Sin filtros (y con `id`) solo devuelve lo que quien consulta puede ver (`lib/campanas/visibilidad.ts`, 2026-10-20): cualquiera ve las activas, pausadas y finalizadas; el creador, las suyas; un supervisor, además las que están en revisión y las que supervisa; el revisor aceptado, esa campaña; la sesión raíz, todas. Con `id` de una que no puede ver responde 404."
       security: []
       parameters:
-        - { name: id, in: query, schema: { type: integer }, description: "Una sola campaña. La respuesta trae además `viewer: { isCreator, isMySupervision, baneado, motivoDeBaneo, yaReportada }` (`baneado`: el creador te baneó de esta campaña; `yaReportada`: ya la reportaste)" }
+        - { name: id, in: query, schema: { type: integer }, description: "Una sola campaña. La respuesta trae `viewer`; sin sesión (o con una vencida) trae `conSesion: false`, `aporteSinCuenta` (true si está activa, permite aportes sin cuenta y aún cabe otro anónimo: la ficha lleva a /participa/{id}) y `topeAnonimoLleno` (el aviso si el tope del 10% de la meta ya se llenó; si no, null). No crea ni renueva el enlace del creador." }
         - { name: available, in: query, schema: { type: boolean }, description: Campañas en las que puedo aportar (excluye aquellas de las que el creador me baneó) }
         - { name: mine, in: query, schema: { type: boolean }, description: "Campañas que creé (requiere sesión); incluye `canDelete` para indicar si la campaña no tiene aportes." }
         - { name: supervised, in: query, schema: { type: boolean }, description: Campañas que superviso (requiere sesión) }
@@ -770,7 +770,10 @@ paths:
         - **Supervisor:** `{ "action": "tomar" }` para tomarla, o `{ "action": "aceptada" }` (400 si su fecha de cierre ya pasó) /
           `{ "action": "rechazada", "motivoDeLista": "...", "motivo": "...", "sancion": { "tipo": "...", "dias": 2 } }`
           para decidir. Al rechazar: `motivoDeLista` (uno de los motivos de reportar campaña u "Otro") y/o `motivo`
-          (explicación, hasta 500; obligatoria con "Otro"). `sancion` es opcional: `STRIKE` (aviso, sigue la escala),
+          (explicación, hasta 500; obligatoria con "Otro" y con "Ya existe una campaña similar"). Con "Ya existe una
+          campaña similar" (2026-11-11), `similares`: ids de las campañas a las que se parece, de las de
+          `GET /api/campanas/{id}/similares` (al menos una si hay; 400 si alguna no está entre ellas); el motivo
+          las nombra y el creador las ve en el rechazo. `sancion` es opcional: `STRIKE` (aviso, sigue la escala),
           `SUSPENSION_TEMPORAL` con `dias` 2 o 7, o `BANEO_DE_CAMPANA`; deja un reporte ya resuelto en la
           bandeja de la supervisión. `reportada` ya no se acepta (2026-10-16).
         - **Supervisor que la supervisa (2026-10-15):** `{ "action": "pausar" | "finalizar", "motivo": "..." }`
@@ -791,6 +794,10 @@ paths:
                     action: { type: string, enum: [tomar, aceptada, rechazada, pausar, reanudar, finalizar] }
                     motivo: { type: string, maxLength: 500 }
                     motivoDeLista: { type: string, description: "Solo al rechazar: motivo de la lista." }
+                    similares:
+                      type: array
+                      items: { type: string, pattern: '^\d{1,9}$' }
+                      description: 'Solo al rechazar con "Ya existe una campaña similar": ids de las campañas a las que se parece.'
                     sancion:
                       type: object
                       description: Solo al rechazar. Sanción al creador.
@@ -805,6 +812,7 @@ paths:
               programar: { value: { status: aceptada } }
               tomar: { value: { action: tomar } }
               rechazar: { value: { action: rechazada, motivoDeLista: Pide datos personales o sensibles, motivo: Pide la CURP de cada participante } }
+              rechazarPorSimilar: { value: { action: rechazada, motivoDeLista: Ya existe una campaña similar, motivo: Las dos piden fotos de baches en Tepic, similares: ["12"] } }
               rechazarConSancion: { value: { action: rechazada, motivoDeLista: Engaño o fraude, pide datos para otro fin, sancion: { tipo: SUSPENSION_TEMPORAL, dias: 2 } } }
               pausarComoSupervisor: { value: { action: pausar, motivo: Pide datos personales en la descripción } }
               reanudarComoSupervisor: { value: { action: reanudar } }
@@ -1413,9 +1421,9 @@ paths:
         forma de la IP. Cuota: la cuota por persona de la campaña, contada por dispositivo con la
         cookie `anonimo_id` (se crea en la primera respuesta exitosa); además, un tope de 20 aportes
         anónimos por IP por hora, y 60 segundos de espera entre dos aportes del mismo
-        dispositivo (en cualquier campaña). Los aportes anónimos aceptados están limitados al 10%
-        de la meta de la campaña, redondeado hacia abajo; los pendientes y rechazados no cuentan.
-        Este límite no aplica a aportes con cuenta. Si se alcanza responde 400. Solo responde cuántos aportes le
+        dispositivo (en cualquier campaña). Los aportes anónimos aceptados y pendientes de revisión
+        están limitados al 10% de la meta de la campaña, redondeado hacia abajo; solo un rechazo
+        libera el lugar. Este límite no aplica a aportes con cuenta. Si se alcanza responde 400. Solo responde cuántos aportes le
         quedan y la espera.
       requestBody:
         required: true
@@ -1470,6 +1478,42 @@ paths:
             Tope de aportes anónimos por IP alcanzado, o el dispositivo envió otro hace menos de
             60 segundos. En ese caso trae `esperaSegundos` y el encabezado `Retry-After`.
 
+  /api/campanas/{id}/aporte-sin-cuenta:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    post:
+      tags: [Aportes]
+      summary: Aporte anónimo (sin cuenta) desde la ficha pública de la campaña
+      description: |
+        2026-11-11. Lo usa /participa/{id}, a donde lleva "Aportar sin cuenta" de /campanas/{id} sin sesión
+        (desde /explorar). Mismo cuerpo, reglas y respuestas que POST /api/c/{token}/aportes (campaña activa
+        que permita aportes sin cuenta, un aporte por dispositivo, tope del 10% de la meta, espera y tope
+        por IP), pero sin el enlace del creador: el aporte va sin `enlace_id` y no cuenta en las visitas ni en
+        los aportes recibidos por el enlace. 404 si la campaña no existe o no es pública; sin 410.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [description, aceptaUso, confirmaContenido]
+              properties:
+                description: { type: string, maxLength: 1000 }
+                texto: { type: string, description: Solo texto; se guarda como .txt y description es su título }
+                aceptaUso: { type: string, enum: [si] }
+                confirmaContenido: { type: string, enum: [si] }
+                caracteristicas: { type: array, items: { type: string } }
+                file: { type: string, format: binary }
+      responses:
+        "201": { description: "Aporte enviado; queda pendiente de revisión (igual que POST /api/c/{token}/aportes)" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { description: "La campaña no permite aportes sin cuenta, el dispositivo está bloqueado o ya envió su aporte (`pideCuenta: true`)" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { description: "Hay sesión iniciada, o la campaña ya no recibe aportes" }
+        "413": { description: El cuerpo de la petición pasa del archivo más grande permitido }
+        "429": { description: "Tope por IP o espera entre aportes; trae `esperaSegundos` y `Retry-After`" }
+
+
   /api/aportes/{id}:
     parameters:
       - $ref: "#/components/parameters/Id"
@@ -1522,9 +1566,8 @@ paths:
         `rejectionReason` es obligatorio al rechazar. `inapropiado: true` (creador o revisor) marca un aporte
         anónimo como contenido inapropiado al rechazarlo; con 3 marcados en 30 días, el
         dispositivo queda bloqueado 30 días en toda la plataforma (el mensaje lo
-        avisa). Si se acepta, se quita la marca. Un aporte anónimo solo se puede aceptar mientras
-        no se haya alcanzado el límite del 10% de la meta contando solo aportes anónimos aceptados
-        (409); los pendientes y rechazados no consumen el cupo.
+        avisa). Si se acepta, se quita la marca. El tope del 10% de aportes anónimos se revisa al
+        enviarlos (el pendiente ya ocupa su lugar), así que aceptar uno no lo vuelve a comprobar.
       requestBody:
         required: true
         content:
@@ -1545,7 +1588,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
-        "409": { description: Aporte ya decidido o límite de aportes anónimos aceptados alcanzado }
+        "409": { description: Aporte ya decidido }
     delete:
       tags: [Aportes]
       summary: Eliminar mi aporte en revisión
@@ -2014,6 +2057,23 @@ paths:
           description: La invitación ya no está disponible
           content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
 
+  /api/notificaciones/{id}/rechazar:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    post:
+      tags: [Revisiones y notificaciones]
+      summary: Rechazar una invitación para ser revisor
+      description: |
+        (2026-11-11) Deja la invitación como rechazada, borra su notificación y avisa al creador
+        (`revisor_rechazo`). El creador puede volver a invitar a la persona.
+      responses:
+        "200": { $ref: "#/components/responses/Message" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: La invitación ya no está disponible (ya aceptada, rechazada o cancelada)
+          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+
   # ---------------------------------------------------------------- Datos abiertos
   /api/datos/{id}/descarga:
     parameters:
@@ -2188,7 +2248,7 @@ components:
           type: boolean
           description: >-
             true si `tematica` es una propuesta del creador (2026-10-29): si no existe, se da de alta pendiente
-            hasta que el SuperUsuario la revisa (máximo 3 pendientes por persona). Si ya existe, no hace nada.
+            hasta que el SuperUsuario la revisa (máximo 3 pendientes por persona). Si ya existe, no hace nada; si se parece a una existente (2026-11-11), se guarda con esa.
         proposito:
           type: string
           enum: [investigacion_cientifica, desarrollo_ia, monitoreo, prevencion, diagnostico, educacion, planeacion, toma_de_decisiones, concientizacion, desarrollo_tecnologico, politicas_publicas, otro]
@@ -2346,7 +2406,7 @@ components:
         type:
           type: string
           description: Evento que la generó (TipoDeNotificacion en lib/notificaciones/tipos.ts)
-          enum: [aporte_aceptado, aporte_rechazado, campana_baneo, campana_desbaneo, campana_aceptada, campana_rechazada, campana_reportada, campana_iniciada, campana_nueva, campana_especial, recordatorio_semanal, resumen_mensual, campana_finalizada, revisor_acepto, aporte_reportado, invitacion_revisor, rol_asignado, rol_revocado, sancion_aplicada, sancion_restaurada]
+          enum: [aporte_aceptado, aporte_rechazado, campana_baneo, campana_desbaneo, campana_aceptada, campana_rechazada, campana_reportada, campana_iniciada, campana_nueva, campana_especial, recordatorio_semanal, resumen_mensual, campana_finalizada, revisor_acepto, revisor_rechazo, aporte_reportado, invitacion_revisor, rol_asignado, rol_revocado, sancion_aplicada, sancion_restaurada]
         title: { type: string }
         message: { type: string }
         campaignId: { type: [string, "null"] }

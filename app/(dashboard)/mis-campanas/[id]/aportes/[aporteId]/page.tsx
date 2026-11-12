@@ -20,6 +20,7 @@ import Tag from "@/components/ui/Tag";
 import type { Contribution } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
 import ArchivoDelAporte from "@/components/ui/ArchivoDelAporte";
+import BotonPantallaCompletaDeAporte from "@/components/ui/BotonPantallaCompletaDeAporte";
 import { MOTIVOS_DE_RECHAZO } from "@/lib/aportes/motivos-de-rechazo";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import ReportarAPlataforma from "@/components/ui/ReportarAPlataforma";
@@ -270,7 +271,15 @@ export default function RevisionAportePage() {
             Archivo borrado
           </div>
         ) : (
-          <ArchivoDelAporte aporteId={item.id} tipo={item.fileType} sinArchivo={item.sinArchivo} alt="Archivo del aporte" alto="h-44 lg:h-72" />
+          <BotonPantallaCompletaDeAporte
+            aporteId={item.id}
+            tipo={item.fileType}
+            sinArchivo={item.sinArchivo}
+            alt="Archivo del aporte"
+            descripcion={item.description}
+          >
+            <ArchivoDelAporte aporteId={item.id} tipo={item.fileType} sinArchivo={item.sinArchivo} alt="Archivo del aporte" alto="h-44 lg:h-72" />
+          </BotonPantallaCompletaDeAporte>
         )}
 
         <div>

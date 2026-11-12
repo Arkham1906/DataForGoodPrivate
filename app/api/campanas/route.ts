@@ -23,14 +23,17 @@ import { guardarChecklists } from "@/lib/campanas/tabla-checklists";
 import { XP_POR_APORTE, errorDeEstadoPedido } from "@/lib/campanas/estado-del-creador";
 import { pausaDesdeFila } from "@/lib/campanas/pausa";
 import { datosAbiertosDesdeFila } from "@/lib/campanas/datos-abiertos";
+import { avisoDeTopeAnonimoLleno } from "@/lib/campanas/aportes-anonimos";
 import { rechazoDesdeFila } from "@/lib/campanas/rechazo";
-import { condicionDeVisibilidad } from "@/lib/campanas/visibilidad";
+import { ESTADOS_PUBLICOS, condicionDeVisibilidad } from "@/lib/campanas/visibilidad";
 import { agregarEtiquetas, guardarEtiquetasDeCampana } from "@/lib/etiquetas/catalogo";
 import { validarProposito } from "@/lib/campanas/proposito";
 import { crearPropuestas, revisarTematicaDeCampana } from "@/lib/tematicas/catalogo";
 import { hasRootSession } from "@/lib/rootSession";
 import { campanasParaTi } from "@/lib/usuarios/inicio";
 import { activateScheduledCampaigns, ahoraEnZona, calculateCampaignDaysRemaining, errorDeFinAntesDeInicio, errorDeInicioPasado, finalizeExpiredCampaigns, normalizeCampaignDate, normalizeCampaignTime } from "@/lib/campaign-date";
+import { limpiarImagen, type ImagenLimpia } from "@/lib/aportes/imagen";
+import { borrarArchivo, guardarArchivo } from "@/lib/minio";
 
 async function obtenerIdsGuardados(usuarioId: number): Promise<Set<number>> {
   const result = await pool.query<{ campana_id: number }>(
@@ -95,6 +98,11 @@ function mapCampaign(row: Record<string, unknown>) {
     latestSupervisionAction: row.latest_supervision_action ? String(row.latest_supervision_action) : null,
     name: String(row.name ?? ""),
     description: String(row.description ?? ""),
+    hasBanner: Boolean(row.banner_path),
+    bannerVersion: row.updated_at ? String(row.updated_at) : undefined,
+    bannerScale: Number(row.banner_scale ?? 1),
+    bannerPositionX: Number(row.banner_position_x ?? 50),
+    bannerPositionY: Number(row.banner_position_y ?? 50),
     tematica: String(row.tematica ?? row.tag ?? ""),
     tag: String(row.tag ?? String(row.tematica ?? "")),
     // Subtemáticas (2026-10-27): las pone agregarEtiquetas antes de mapear; las pendientes solo para el creador y la supervisión.
@@ -147,7 +155,12 @@ function mapCampaign(row: Record<string, unknown>) {
   };
 }
 
-// GET: campañas. Modos por query: ?id= (una, con bloque viewer), ?mine=true (creadas por ti),
+function ajustarBanner(value: unknown, minimo: number, maximo: number, predeterminado: number) {
+  const numero = Number(value);
+  return Number.isFinite(numero) ? Math.min(maximo, Math.max(minimo, numero)) : predeterminado;
+}
+
+// GET: campañas. Modos por query: ?id= (una, con viewer; sin sesión, aporteSinCuenta y topeAnonimoLleno), ?mine=true (creadas por ti),
 // ?misAportes=true (aportaste o guardaste), ?available=true (puedes aportar), ?supervised=true (supervisas),
 // ?paraTi=true ("Campañas para ti": hasta 3, como en /inicio; otra forma, CampanaParaTi de lib/usuarios/inicio.ts);
 // con &todas=true, todas en el orden de recomendación (/campanas las filtra y muestra 3; 2026-11-02).
@@ -215,9 +228,20 @@ export async function GET(request: Request) {
       if (result.rowCount === 0) return NextResponse.json({ error: "Campaña no encontrada" }, { status: 404 });
       await agregarEtiquetas(result.rows, user, await hasRootSession());
       const campaign = conIsSaved(result.rows[0]);
+      // Visita sin sesión (2026-11-11): "Aportar sin cuenta" lleva a /participa/[id], que no usa el enlace
+      // del creador (antes aquí se renovaba el enlace y sus visitas se mezclaban). Con el tope de anónimos
+      // lleno no se ofrece: la ficha muestra el aviso.
+      const sinCuentaPosible = !user && campaign.status === "activa" && campaign.permiteAnonimos;
+      const topeAnonimoLleno = sinCuentaPosible
+        ? await avisoDeTopeAnonimoLleno(Number(campaign.id), Number(campaign.goalContributions))
+        : null;
+      const aporteSinCuenta = sinCuentaPosible && !topeAnonimoLleno;
       return NextResponse.json({
         data: campaign,
         viewer: {
+          conSesion: user !== null,
+          aporteSinCuenta,
+          topeAnonimoLleno,
           isCreator: user ? campaign.creatorId === String(user.id) : false,
           isMySupervision: user ? campaign.supervisorId === String(user.id) : false,
           // Baneado de esta campaña por su creador: la pantalla avisa antes de que intente aportar,
@@ -240,10 +264,16 @@ export async function GET(request: Request) {
                   -- Eliminar (2026-11-01): borrador, sin aportes o todos en revisión; nunca finalizada (lib/campanas/eliminar.ts).
                   ${sqlPuedeEliminar("c")} AS can_delete,
                   r.motivo AS rechazo_motivo, r.created_at AS rechazo_en, r.por_superusuario AS rechazo_por_root,
-                  s.tipo AS rechazo_sancion_tipo, s.dias AS rechazo_sancion_dias
+                  s.tipo AS rechazo_sancion_tipo, s.dias AS rechazo_sancion_dias,
+                  -- Las campañas a las que se parece, si se rechazó por similar (2026-11-11).
+                  (SELECT COALESCE(jsonb_agg(jsonb_build_object(
+                            'id', p.id, 'nombre', p.name, 'estado', p.status,
+                            'abrible', p.status = ANY($2::text[])) ORDER BY rs.orden), '[]'::jsonb)
+                     FROM rechazo_campanas_similares rs JOIN campanas p ON p.id = rs.campana_id
+                    WHERE rs.dictamen_id = r.id) AS rechazo_similares
            FROM campanas c
            LEFT JOIN LATERAL (
-             SELECT cs.motivo, cs.created_at, cs.por_superusuario
+             SELECT cs.id, cs.motivo, cs.created_at, cs.por_superusuario
              FROM campana_supervisores cs
              WHERE cs.campana_id = c.id AND cs.accion = 'rechazada' AND c.status = 'rechazada'
              ORDER BY cs.created_at DESC, cs.id DESC
@@ -257,7 +287,7 @@ export async function GET(request: Request) {
            ) s ON true
            WHERE c.creator_id = $1
            ORDER BY c.created_at DESC`,
-          [user!.id],
+          [user!.id, [...ESTADOS_PUBLICOS]],
         )
       : available
         ? await pool.query(
@@ -303,7 +333,30 @@ export async function POST(request: Request) {
         { status: 403 }
       );
     }
-    const body = await request.json().catch(() => ({}));
+    let body: Record<string, unknown> = {};
+    let bannerFile: File | null = null;
+    let bannerImagen: ImagenLimpia | null = null;
+    if (request.headers.get("content-type")?.includes("multipart/form-data")) {
+      const form = await request.formData();
+      try {
+        body = JSON.parse(String(form.get("payload") ?? "{}")) as Record<string, unknown>;
+      } catch {
+        return NextResponse.json({ error: "Los datos de la campaña no son válidos" }, { status: 400 });
+      }
+      const entrada = form.get("banner");
+      bannerFile = entrada instanceof File && entrada.size > 0 ? entrada : null;
+    } else {
+      body = await request.json().catch(() => ({}));
+    }
+
+    if (bannerFile) {
+      if (bannerFile.size > 5 * 1024 * 1024) {
+        return NextResponse.json({ error: "El banner no puede superar los 5 MB" }, { status: 400 });
+      }
+      const bannerLimpio = await limpiarImagen(bannerFile);
+      if (!bannerLimpio.ok) return NextResponse.json({ error: bannerLimpio.error }, { status: 400 });
+      bannerImagen = bannerLimpio.imagen;
+    }
 
     const name = String(body.name ?? "").trim();
     const description = String(body.description ?? "").trim();
@@ -325,6 +378,9 @@ export async function POST(request: Request) {
     const tag = tematica;
 
     const creatorId = Number(sessionUser.id);
+    const bannerScale = ajustarBanner(body.bannerScale, 0.75, 2, 1);
+    const bannerPositionX = ajustarBanner(body.bannerPositionX, 0, 100, 50);
+    const bannerPositionY = ajustarBanner(body.bannerPositionY, 0, 100, 50);
     const creator = `${sessionUser.nombre} ${sessionUser.apellidos}`.trim();
     if (!creator) {
       return NextResponse.json(
@@ -487,6 +543,22 @@ export async function POST(request: Request) {
           proposito.otro,
         ]
       );
+      if (bannerImagen) {
+        const guardado = await guardarArchivo(bannerImagen.contenido, {
+          subdir: `campanas/${creatorId}`,
+          extension: bannerImagen.extension,
+          mimeType: bannerImagen.mimeType,
+        });
+        try {
+          await cliente.query(
+            `UPDATE campanas SET banner_path = $2, banner_scale = $3, banner_position_x = $4, banner_position_y = $5, updated_at = NOW() WHERE id = $1`,
+            [result.rows[0].id, guardado.relativePath, bannerScale, bannerPositionX, bannerPositionY],
+          );
+        } catch (error) {
+          await borrarArchivo(guardado.relativePath).catch(() => {});
+          throw error;
+        }
+      }
       // Checklists (tabla campana_checklists, 2026-10-30).
       await guardarChecklists(cliente, result.rows[0].id, checklistSecciones);
       // Tipos de dato con su límite y formatos (tabla campana_tipos, 2026-10-30).

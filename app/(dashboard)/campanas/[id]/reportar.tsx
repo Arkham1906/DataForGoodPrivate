@@ -3,12 +3,21 @@
 // "Reportar campaña" de /campanas/[id] (2026-10-12), con ui/ReportarAPlataforma y
 // POST /api/campanas/[id]/reportar. El reporte llega a la bandeja del SuperUsuario (/reportes); quien
 // creó la campaña no se entera ni sabe quién la reportó. Uno por persona y campaña. El formulario se abre
-// en una ventana emergente (2026-10-16).
+// en una ventana emergente (2026-10-16). Desde el 2026-11-10 (a pedido del usuario) es un ícono de bandera en la
+// fila de la temática, junto a Compartir y Favorita; el aviso de gracias lo muestra la página (onReportado).
 
 import ReportarAPlataforma from "@/components/ui/ReportarAPlataforma";
 import { MOTIVOS_DE_REPORTE_DE_CAMPANA } from "@/lib/reportes/motivos";
 
-export default function ReportarCampana({ campanaId, yaReportada }: { campanaId: string; yaReportada: boolean }) {
+export default function ReportarCampana({
+  campanaId,
+  yaReportada,
+  onReportada,
+}: {
+  campanaId: string;
+  yaReportada: boolean;
+  onReportada?: (aviso: string) => void;
+}) {
   return (
     <ReportarAPlataforma
       url={`/api/campanas/${encodeURIComponent(campanaId)}/reportar`}
@@ -19,6 +28,8 @@ export default function ReportarCampana({ campanaId, yaReportada }: { campanaId:
       yaReportado={yaReportada}
       textoYaReportado="Ya reportaste esta campaña. El equipo de DataForGood lo está revisando."
       enVentana
+      comoIcono
+      onReportado={onReportada}
     />
   );
 }

@@ -237,6 +237,10 @@ export async function ensureCampanasTable(): Promise<void> {
       supervisor_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
       name VARCHAR(200) NOT NULL,
       description TEXT NOT NULL,
+      banner_path VARCHAR(500),
+      banner_scale NUMERIC(4, 2) NOT NULL DEFAULT 1,
+      banner_position_x NUMERIC(5, 2) NOT NULL DEFAULT 50,
+      banner_position_y NUMERIC(5, 2) NOT NULL DEFAULT 50,
       tematica VARCHAR(120) NOT NULL,
       tag VARCHAR(120) NOT NULL,
       status VARCHAR(50) NOT NULL DEFAULT 'borrador',
@@ -274,6 +278,10 @@ export async function ensureCampanasTable(): Promise<void> {
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS supervisor_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS name VARCHAR(200);
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS description TEXT;
+    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS banner_path VARCHAR(500);
+    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS banner_scale NUMERIC(4, 2) NOT NULL DEFAULT 1;
+    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS banner_position_x NUMERIC(5, 2) NOT NULL DEFAULT 50;
+    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS banner_position_y NUMERIC(5, 2) NOT NULL DEFAULT 50;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS tematica VARCHAR(120);
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS tag VARCHAR(120);
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'borrador';
@@ -438,6 +446,19 @@ export async function ensureCampanaSupervisoresTable(): Promise<void> {
           CHECK (supervisor_id IS NOT NULL OR por_superusuario);
       END IF;
     END $$;
+  `);
+
+  // Rechazo por "Ya existe una campaña similar" (2026-11-11, a pedido del usuario): las campañas a las que
+  // se parece, elegidas por la supervisión de las similares (lib/supervision/similares.ts), para que el creador
+  // las vea en el mismo mensaje del rechazo. Si una se borra, sale de la lista (los nombres quedan en el motivo).
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS rechazo_campanas_similares (
+      dictamen_id INTEGER NOT NULL REFERENCES campana_supervisores(id) ON DELETE CASCADE,
+      campana_id INTEGER NOT NULL REFERENCES campanas(id) ON DELETE CASCADE,
+      orden SMALLINT NOT NULL DEFAULT 0,
+      PRIMARY KEY (dictamen_id, campana_id)
+    );
+    CREATE INDEX IF NOT EXISTS rechazo_campanas_similares_campana_id_idx ON rechazo_campanas_similares (campana_id);
   `);
 }
 

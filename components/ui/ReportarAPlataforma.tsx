@@ -5,10 +5,13 @@
 // y del revisor, 2026-11-07). El reporte llega a la bandeja de la supervisión. Uno por persona (campaña) o
 // por aporte:
 // con `yaReportado` solo muestra el aviso. Con `enVentana` (2026-10-16, "Reportar campaña") el formulario
-// se abre en una ventana emergente (ui/VentanaDeConfirmacion) en vez de desplegarse en la página.
+// se abre en una ventana emergente (ui/VentanaDeConfirmacion) en vez de desplegarse en la página. Con `comoIcono`
+// (2026-11-10, a pedido del usuario; "Reportar campaña") el botón es una bandera (ui/BotonDeIcono): ya reportado, la
+// bandera queda rellena y deshabilitada, y el aviso de gracias lo muestra quien lo usa (onReportado recibe el texto).
 
 import { useState } from "react";
 import Button from "@/components/ui/Button";
+import BotonDeIcono, { IconoBandera } from "@/components/ui/BotonDeIcono";
 import { Field, Textarea } from "@/components/ui/Input";
 import VentanaDeConfirmacion from "@/components/ui/VentanaDeConfirmacion";
 import { BASE_PATH } from "@/lib/base-path";
@@ -23,6 +26,7 @@ export default function ReportarAPlataforma({
   yaReportado,
   textoYaReportado,
   enVentana = false,
+  comoIcono = false,
   onReportado,
   className = "",
 }: {
@@ -36,8 +40,10 @@ export default function ReportarAPlataforma({
   textoYaReportado: string;
   /** Abre el formulario en una ventana emergente en vez de desplegarlo en la página. */
   enVentana?: boolean;
-  /** Después de enviarlo (o de un 409): p. ej. recargar el aporte, que el reporte rechazó. */
-  onReportado?: () => void;
+  /** El botón es solo una bandera (va con enVentana). */
+  comoIcono?: boolean;
+  /** Después de enviarlo (o de un 409), con el aviso de gracias: p. ej. recargar el aporte, que el reporte rechazó. */
+  onReportado?: (aviso: string) => void;
   className?: string;
 }) {
   const [reportado, setReportado] = useState(yaReportado);
@@ -64,8 +70,9 @@ export default function ReportarAPlataforma({
       if (!response.ok && response.status !== 409) throw new Error(payload.error ?? "No se pudo enviar el reporte");
       setReportado(true);
       setAbierto(false);
-      setAviso(payload.message ?? "Gracias. El equipo de DataForGood revisará tu reporte.");
-      onReportado?.();
+      const gracias = payload.message ?? "Gracias. El equipo de DataForGood revisará tu reporte.";
+      setAviso(gracias);
+      onReportado?.(gracias);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se pudo enviar el reporte");
     } finally {
@@ -78,6 +85,14 @@ export default function ReportarAPlataforma({
     setError(null);
   }
 
+  if (reportado && comoIcono) {
+    return (
+      <BotonDeIcono etiqueta={textoYaReportado} disabled className={`!text-error-700 ${className}`}>
+        <IconoBandera rellena />
+      </BotonDeIcono>
+    );
+  }
+
   if (reportado) {
     return (
       <p role="status" className={`rounded-lg bg-system-100 p-3 text-center text-[12.5px] text-system-600 ${className}`}>
@@ -86,7 +101,11 @@ export default function ReportarAPlataforma({
     );
   }
 
-  const botonParaAbrir = (
+  const botonParaAbrir = comoIcono ? (
+    <BotonDeIcono etiqueta={titulo} onClick={() => setAbierto(true)} aria-haspopup="dialog" className={`hover:!text-error-700 ${className}`}>
+      <IconoBandera />
+    </BotonDeIcono>
+  ) : (
     <button
       type="button"
       onClick={() => setAbierto(true)}

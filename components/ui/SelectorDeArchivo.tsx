@@ -81,7 +81,8 @@ export default function SelectorDeArchivo({
       </label>
       {opcional && (
         <p className="mt-1.5 text-[11.5px] text-system-500">
-          Puedes enviar solo la descripción.
+          {/* Desde el 2026-11-11 sin archivo se escribe un texto con título (aportes/CamposDelAporte). */}
+          Sin archivo, puedes enviar solo un texto.
           {archivo && (
             <button type="button" className="ml-1 font-semibold text-brand-600 hover:underline" onClick={() => {
                 setVaciado((v) => v + 1);

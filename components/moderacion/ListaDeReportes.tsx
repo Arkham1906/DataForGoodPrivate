@@ -4,8 +4,9 @@
 // /supervision/reportes, antes /reportes), con el mismo patrón que /aportes y la lista de sanciones:
 // cada caso (una campaña reportada o un aporte reportado) ocupa un renglón resumen (a quién se reporta,
 // cuántos reportes, por qué motivos) aunque tenga uno solo, y al hacer clic se despliegan sus reportes.
-// Con reportes pendientes, al pie van "Dar aviso a <persona>" (.../sanciones/[usuarioId]?reportes=<clave>)
-// y "Descartar". En escritorio, renglones con rejilla y, al desplegar, una tabla; en móvil, tarjetas.
+// Con reportes pendientes, al pie va "Elegir sanción para <persona>" (.../sanciones/[usuarioId]?reportes=<clave>)
+// y "Descartar". Los reportes de campaña abren la ficha de supervisión con el caso ligado para que su
+// supervisor pueda sancionar al creador o pausar/finalizar la campaña desde la misma ficha. En escritorio, renglones con rejilla y, al desplegar, una tabla; en móvil, tarjetas.
 
 import Link from "next/link";
 import { useState } from "react";
@@ -102,7 +103,7 @@ function PieDelGrupo({ g, zona }: { g: GrupoParaLista; zona: ZonaDeModeracion })
             href={rutasDeModeracion(zona).sancionar(g.reportado.id, g.clave)}
             className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-pill border border-error-700 bg-white px-3.5 py-2 text-[12.5px] font-bold text-error-700 transition-colors hover:bg-error-50"
           >
-            Dar aviso a {g.reportado.nombre}
+            Elegir sanción para {g.reportado.nombre}
           </Link>
         ) : (
           <p className="text-[12px] text-system-500">La cuenta reportada ya no existe: solo se puede descartar.</p>
@@ -188,8 +189,18 @@ export default function ListaDeReportes({ grupos, zona }: { grupos: GrupoParaLis
               </button>
               {abierto && (
                 <div id={idPanel} className="space-y-3 border-t border-system-200 bg-system-50 p-3">
-                  <Link href={rutas.campana(g.campana.id)} className="block text-[12px] font-semibold text-brand-600 hover:underline">
-                    Ver la campaña
+                  <Link
+                    href={
+                      g.tipo === "campana"
+                        ? rutas.campanaReportada(
+                            g.campana.id,
+                            g.reportes.some((r) => r.estado === "pendiente") ? g.clave : undefined,
+                          )
+                        : rutas.campana(g.campana.id)
+                    }
+                    className="block text-[12px] font-semibold text-brand-600 hover:underline"
+                  >
+                    {g.tipo === "campana" ? "Abrir campaña para supervisar" : "Ver la campaña"}
                   </Link>
                   {g.reportes.map((r) => (
                     <TarjetaDeReporte key={r.id} r={r} />
@@ -244,8 +255,18 @@ export default function ListaDeReportes({ grupos, zona }: { grupos: GrupoParaLis
                   <span className="mt-1 block"><Motivos g={g} /></span>
                 </div>
                 <div className="text-right">
-                  <Link href={rutas.campana(g.campana.id)} className="whitespace-nowrap text-[12.5px] font-semibold text-brand-600 hover:underline">
-                    Ver campaña<span className="sr-only"> {g.campana.nombre}</span>
+                  <Link
+                    href={
+                      g.tipo === "campana"
+                        ? rutas.campanaReportada(
+                            g.campana.id,
+                            g.reportes.some((r) => r.estado === "pendiente") ? g.clave : undefined,
+                          )
+                        : rutas.campana(g.campana.id)
+                    }
+                    className="whitespace-nowrap text-[12.5px] font-semibold text-brand-600 hover:underline"
+                  >
+                    {g.tipo === "campana" ? "Abrir campaña" : "Ver campaña"}<span className="sr-only"> {g.campana.nombre}</span>
                   </Link>
                 </div>
               </div>

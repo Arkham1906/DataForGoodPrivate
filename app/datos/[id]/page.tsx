@@ -15,6 +15,7 @@ import Tag from "@/components/ui/Tag";
 import { retraso } from "@/lib/animaciones";
 import { DATA_TYPE_LABELS, obtenerConjuntoAbierto } from "@/lib/open-data";
 import { BotonDeDescarga, ContadorDeDescargas } from "./descargas";
+import EtiquetasDelConjunto from "./etiquetas";
 
 // En vivo (2026-10-31): se arma en cada visita, sin la caché de cinco minutos de antes.
 export const dynamic = "force-dynamic";
@@ -85,12 +86,19 @@ export default async function ConjuntoAbiertoPage({
           </p>
         )}
 
-        <div style={retraso(240)} className="landing-entrada mt-6 flex flex-wrap gap-1.5">
-          <Tag>{conjunto.tematica || "Sin temática"}</Tag>
-          <Tag>{conjunto.license}</Tag>
-          {(conjunto.locationCity || conjunto.locationState || conjunto.todoElPais) && (
-            <Tag>{textoDeUbicacion({ todoElPais: conjunto.todoElPais, municipio: conjunto.locationCity, estado: conjunto.locationState })}</Tag>
-          )}
+        {/* Con su explicación al pasar el cursor; la licencia despliega qué permite (2026-11-11). */}
+        <div style={retraso(240)} className="landing-entrada mt-6">
+          <EtiquetasDelConjunto
+            tematica={conjunto.tematica}
+            licencia={conjunto.license}
+            ubicacion={
+              conjunto.locationCity || conjunto.locationState || conjunto.todoElPais
+                ? textoDeUbicacion({ todoElPais: conjunto.todoElPais, municipio: conjunto.locationCity, estado: conjunto.locationState })
+                : null
+            }
+            todoElPais={Boolean(conjunto.todoElPais)}
+            nombre={conjunto.name}
+          />
         </div>
 
         {/* Las 2 métricas salen de obtenerConjuntoAbierto(); cada una dice de dónde sale su número. */}

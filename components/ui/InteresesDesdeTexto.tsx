@@ -15,6 +15,9 @@
 // Desde el 2026-10-29 (a pedido del usuario) "Agregar temáticas" deja proponer una que no está: va en
 // `nuevas` (el formulario la manda como `tematicasNuevas` en PATCH /api/usuarios/[id]) y queda pendiente
 // hasta que el SuperUsuario la revisa; las ya propuestas (`propias` del catálogo) se marcan "por aprobar".
+// Desde el 2026-11-11 (a pedido del usuario) proponer va aparte del buscador (`proponerAparte` de
+// SelectorDeTemas): mosaico "+ Proponer temática" dentro de la ventana, con el aviso de que la
+// administración la evalúa; lo propuesto sale primero. Las elegidas se ven como mosaicos con ícono.
 
 import { useEffect, useId, useImperativeHandle, useRef, useState, type Ref } from "react";
 import Button from "@/components/ui/Button";
@@ -136,7 +139,7 @@ export default function InteresesDesdeTexto({
         !texto.trim()
           ? "Escribe primero qué te gusta hacer."
           : encontradas.length === 0
-            ? 'No reconocimos temas en tu texto. Prueba con otras palabras o elige de la lista en "Agregar temáticas".'
+            ? 'No reconocimos temas en tu texto. Prueba con otras palabras o toca "Agregar temáticas" para elegirlas o proponer una nueva.'
             : "Esas temáticas ya estaban en tu lista.",
       );
     }
@@ -215,6 +218,7 @@ export default function InteresesDesdeTexto({
           quitables
           deshabilitado={deshabilitado}
           proponer={Boolean(onNuevas)}
+          proponerAparte
           pendientes={propias}
           nuevas={propuestasSinGuardar}
         />

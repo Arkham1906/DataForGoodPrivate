@@ -19,10 +19,12 @@ import {
 import {
   MAXIMO_EXPLICACION_DE_RECHAZO,
   MOTIVOS_DE_RECHAZO_DE_CAMPANA,
+  MOTIVO_CAMPANA_SIMILAR,
   OTRO_MOTIVO,
   motivoExigeExplicacion,
   textoDelMotivoDeRechazo,
 } from "@/lib/reportes/motivos";
+import { obtenerCampanasSimilares } from "@/lib/supervision/similares";
 
 export type AccionDeSupervision = "aceptada" | "rechazada";
 
@@ -114,7 +116,43 @@ export type EntradaDeDecision = {
   motivo?: unknown;
   /** Sanción al creador al rechazar: { tipo: "STRIKE" | "SUSPENSION_TEMPORAL" | "BANEO_DE_CAMPANA", dias? }. */
   sancion?: unknown;
+  /**
+   * Con "Ya existe una campaña similar" (2026-11-11, a pedido del usuario): ids de las campañas a las que
+   * se parece, de las que muestra la supervisión (obtenerCampanasSimilares). El creador las ve en el rechazo.
+   */
+  similares?: unknown;
 };
+
+type CampanaParecida = { id: number; nombre: string };
+
+/**
+ * Las campañas similares que eligió la supervisión, comprobadas contra las que de verdad se le parecen
+ * ahora: no se puede nombrar cualquier campaña. Si hay similares, hay que elegir al menos una; si no hay
+ * ninguna (se parece a una pausada o en revisión, que no salen en la lista), basta la explicación.
+ */
+async function elegirCampanasParecidas(
+  campanaId: number | string,
+  valor: unknown,
+): Promise<{ ok: true; campanas: CampanaParecida[] } | { ok: false; error: string }> {
+  const pedidas = Array.isArray(valor) ? valor.map((v) => String(v).trim()) : [];
+  if (pedidas.some((id) => !/^\d{1,9}$/.test(id))) return { ok: false, error: "Campaña similar inválida" };
+  const ids = Array.from(new Set(pedidas));
+
+  const disponibles = (await obtenerCampanasSimilares(campanaId))?.campanas ?? [];
+  if (disponibles.length === 0) return { ok: true, campanas: [] };
+  if (ids.length === 0) return { ok: false, error: "Elige a qué campaña o campañas se parece" };
+
+  const porId = new Map(disponibles.map((c) => [c.id, c]));
+  const campanas: CampanaParecida[] = [];
+  for (const id of ids) {
+    const encontrada = porId.get(id);
+    if (!encontrada) {
+      return { ok: false, error: "Una de las campañas elegidas ya no está entre las similares. Vuelve a cargar la página" };
+    }
+    campanas.push({ id: Number(encontrada.id), nombre: encontrada.name });
+  }
+  return { ok: true, campanas };
+}
 
 /** La sanción pedida, o null si no se pidió. Lo inválido lo rechaza errorDeSancionPedida. */
 function leerSancionPedida(valor: unknown): SancionPedida | null {
@@ -265,7 +303,13 @@ async function rechazar(
   if (explicacion && explicacion.length > MAXIMO_EXPLICACION_DE_RECHAZO) {
     return { ok: false, status: 400, error: `La explicación no puede pasar de ${MAXIMO_EXPLICACION_DE_RECHAZO} caracteres` };
   }
-  const motivo = textoDelMotivoDeRechazo(lista, explicacion);
+  let parecidas: CampanaParecida[] = [];
+  if (lista === MOTIVO_CAMPANA_SIMILAR) {
+    const elegidas = await elegirCampanasParecidas(campana.id, entrada.similares);
+    if (!elegidas.ok) return { ok: false, status: 400, error: elegidas.error };
+    parecidas = elegidas.campanas;
+  }
+  const motivo = textoDelMotivoDeRechazo(lista, explicacion, parecidas.map((c) => c.nombre));
 
   const pedida = leerSancionPedida(entrada.sancion);
   const detalleDeSancion = `Campaña "${campana.name}" rechazada por la supervisión. Motivo: ${motivo}`;
@@ -298,11 +342,19 @@ async function rechazar(
       return { ok: false, status: 409, error: "La campaña cambió mientras tanto. Vuelve a cargar la página" };
     }
 
-    await client.query(
+    const dictamen = await client.query<{ id: number }>(
       `INSERT INTO campana_supervisores (campana_id, supervisor_id, por_superusuario, accion, motivo, created_at)
-       VALUES ($1, $2, $3, 'rechazada', $4, NOW())`,
+       VALUES ($1, $2, $3, 'rechazada', $4, NOW())
+       RETURNING id`,
       [campana.id, supervisorId, porRoot, motivo],
     );
+    if (parecidas.length > 0) {
+      await client.query(
+        `INSERT INTO rechazo_campanas_similares (dictamen_id, campana_id, orden)
+         SELECT $1, ids.id, ids.orden - 1 FROM unnest($2::int[]) WITH ORDINALITY AS ids(id, orden)`,
+        [dictamen.rows[0].id, parecidas.map((c) => c.id)],
+      );
+    }
 
     if (pedida) {
       let firma = "SuperUsuario";
@@ -363,6 +415,7 @@ async function rechazar(
     detalle: {
       accion: "rechazada",
       motivo,
+      ...(parecidas.length > 0 ? { similares: parecidas.map((c) => c.id) } : {}),
       estadoAnterior: "en_revision",
       estadoNuevo: "rechazada",
       ...(sancion ? { sancion: { tipo: sancion.tipo, sancionId: sancion.sancionId } } : {}),
@@ -372,7 +425,7 @@ async function rechazar(
   await notificar({
     usuarioId: campana.creator_id,
     campanaId: campana.id,
-    metadata: { motivo },
+    metadata: { motivo, ...(parecidas.length > 0 ? { similares: parecidas } : {}) },
     tipo: "campana_rechazada",
     titulo: "Campaña rechazada",
     mensaje: `Tu campaña "${campana.name}" fue rechazada. Motivo: ${motivo}`,

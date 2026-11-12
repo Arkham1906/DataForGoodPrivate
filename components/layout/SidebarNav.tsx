@@ -20,6 +20,7 @@ import {
 } from "@/components/sistema/icons";
 import { claseDeOpcionMarcada, useIndicadorDeMenu } from "@/components/ui/useIndicadorDeMenu";
 import type { SessionUser } from "@/lib/session";
+import AvisoDelMenu, { type AvisoDelMenu as AvisoDelMenuTipo } from "@/components/layout/AvisoDelMenu";
 
 type Opcion = {
   href: string;
@@ -42,7 +43,7 @@ const NAV_ITEMS: Opcion[] = [
 
 // Sin contador de reportes junto a "Supervisión" (2026-10-15, a pedido del usuario): cada reporte llega
 // como notificación a la campana (lib/notificaciones/avisos-a-supervisores.ts).
-export default function SidebarNav({ usuario }: { usuario: SessionUser }) {
+export default function SidebarNav({ usuario, aviso }: { usuario: SessionUser; aviso: AvisoDelMenuTipo }) {
   const pathname = usePathname();
   const roles = Array.isArray(usuario.role) ? usuario.role : [];
 
@@ -94,12 +95,8 @@ export default function SidebarNav({ usuario }: { usuario: SessionUser }) {
       </nav>
 
       {/* Nota, no botón: fondo claro y franja lateral para no confundirse con la opción activa del menú. */}
-      <div className="dashboard-sidebar-callout mt-6 rounded-r-lg border-l-4 border-brand-600 bg-brand-50 px-4 py-3.5">
-        <p className="text-[13px] leading-snug text-system-600">
-          Cada aporte transforma datos en impacto para tu comunidad.
-        </p>
-        <p className="mt-2 text-[13px] font-semibold text-brand-800">¡Súmate!</p>
-      </div>
+      {/* "Tu siguiente paso" (2026-11-10): lo calcula ShellDeUsuario con lib/usuarios/aviso-del-menu.ts. */}
+      <AvisoDelMenu aviso={aviso} className="mt-6" />
     </aside>
   );
 }

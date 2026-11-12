@@ -75,14 +75,15 @@ export default function SelectorDeEtiquetas({
       setAviso(`«${limpia}» ya está marcada.`);
       return;
     }
-    const tematica = tematicas.find((t) => claveDeTematica(t) === clave);
-    if (tematica) {
-      setAviso(`«${tematica}» ya es una temática: usa una etiqueta más específica.`);
+    const esTematica = tematicas.find((t) => claveDeTematica(t) === clave);
+    if (esTematica) {
+      setAviso(`«${esTematica}» ya es una temática: usa una etiqueta más específica.`);
       return;
     }
-    // Sinónimo de una del catálogo o de una ya elegida: se usa esa en vez de proponer otra.
+    // Sinónimo de una del catálogo o de una ya elegida: se usa esa en vez de proponer otra (con las
+    // variantes del diccionario de la temática de la campaña, 2026-11-11).
     const existenteIgual = opciones.some((o) => claveDeTematica(o) === clave);
-    const equivalente = existenteIgual ? null : etiquetaEquivalente(limpia, [...opciones, ...seleccionadas]);
+    const equivalente = existenteIgual ? null : etiquetaEquivalente(limpia, [...opciones, ...seleccionadas], { tematica });
     if (equivalente) {
       if (claves.has(claveDeTematica(equivalente))) {
         setNota(`«${limpia}» es lo mismo que «${equivalente}», que ya está marcada.`);

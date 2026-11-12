@@ -36,6 +36,8 @@ export type TipoDeNotificacion =
   // El SuperUsuario revirtió la aceptación o el rechazo (lib/usuarios/acciones-supervisor.ts).
   | "campana_en_revision"
   | "revisor_acepto"
+  // Al creador: la persona invitada rechazó revisar los aportes (app/api/notificaciones/[id]/rechazar, 2026-11-11).
+  | "revisor_rechazo"
   | "aporte_reportado"
   // Al creador, cada 10 aportes recibidos; reemplaza al anterior de la campaña (./hitos-de-aportes.ts).
   | "aportes_recibidos"
@@ -174,7 +176,7 @@ export function categoriaDeNotificacion(tipo: string): CategoriaDeNotificacion {
     case "recordatorio_semanal":
     case "resumen_mensual":
       return "novedad";
-    // Solo para que lo sepas: campana_finalizada, rol_revocado, revisor_quitado, campana_en_revision,
+    // Solo para que lo sepas: campana_finalizada, rol_revocado, revisor_quitado, revisor_rechazo, campana_en_revision,
     // supervision_revertida, etiqueta_rechazada, tematica_rechazada y los que ya no se crean (campana_reportada, aporte_reportado).
     default:
       return "aviso";

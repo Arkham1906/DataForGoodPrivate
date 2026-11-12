@@ -104,7 +104,7 @@ export default function CampaignContributionsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="mx-auto max-w-6xl">
       <Link
         href="/mis-aportes"
         className="mb-4 inline-block text-[13px] text-system-600 hover:text-system-900"
@@ -135,9 +135,14 @@ export default function CampaignContributionsPage() {
         </div>
       </div>
 
-      <div className="mb-4 flex flex-wrap gap-2">
+      <div
+        role="group"
+        aria-label="Filtrar aportes por estado"
+        tabIndex={0}
+        className="dashboard-nav mb-4 flex w-full min-w-0 max-w-full touch-pan-x flex-nowrap gap-2 overflow-x-auto overscroll-x-contain pb-2 [-webkit-overflow-scrolling:touch] max-md:gap-1.5 md:flex-wrap md:overflow-visible md:pb-0"
+      >
         {[{ id: "todos", label: "Todos", count: visible.length }, { id: "aceptados", label: "Aceptados", count: accepted.length }, { id: "revision", label: "En revisión", count: pending.length }, { id: "rechazados", label: "Rechazados", count: rejected.length }].map((filter) => (
-          <button key={filter.id} type="button" onClick={() => setStatusFilter(filter.id)} className={`rounded-pill border px-3 py-1.5 text-[12.5px] font-semibold ${statusFilter === filter.id ? "border-brand-600 bg-brand-600 text-white" : "border-system-300 bg-white text-system-600"}`}>
+          <button key={filter.id} type="button" aria-pressed={statusFilter === filter.id} onClick={() => setStatusFilter(filter.id)} className={`shrink-0 whitespace-nowrap rounded-pill border px-3.5 py-1.5 text-[13px] font-semibold transition-colors max-md:px-2.5 max-md:py-1 max-md:text-[12px] ${statusFilter === filter.id ? "border-brand-600 bg-brand-600 text-white" : "border-system-300 bg-white text-system-600 hover:border-brand-600"}`}>
             {filter.label} <span className="ml-1 font-mono">{filter.count}</span>
           </button>
         ))}

@@ -41,11 +41,12 @@ export async function eliminarCampana(entrada: {
   let nombre = "";
   let participantes: number[] = [];
   let rutas: string[] = [];
+  let bannerRuta = "";
   let estado = "";
   try {
     await client.query("BEGIN");
-    const campana = await client.query<{ status: string; name: string; puede: boolean }>(
-      `SELECT c.status, c.name, ${sqlPuedeEliminar("c")} AS puede FROM campanas c WHERE c.id = $1 AND c.creator_id = $2 FOR UPDATE`,
+    const campana = await client.query<{ status: string; name: string; banner_path: string | null; puede: boolean }>(
+      `SELECT c.status, c.name, c.banner_path, ${sqlPuedeEliminar("c")} AS puede FROM campanas c WHERE c.id = $1 AND c.creator_id = $2 FOR UPDATE`,
       [entrada.campanaId, entrada.usuarioId],
     );
     if (campana.rowCount === 0) {
@@ -53,6 +54,7 @@ export async function eliminarCampana(entrada: {
       return { ok: false, status: 404, error: "Campaña no encontrada" };
     }
     ({ status: estado, name: nombre } = campana.rows[0]);
+    bannerRuta = campana.rows[0].banner_path ?? "";
 
     const datos = await client.query<{ aportes: number; participantes: number[] | null; rutas: string[] | null }>(
       `SELECT COUNT(*)::int AS aportes,
@@ -94,7 +96,8 @@ export async function eliminarCampana(entrada: {
 
   // Después del COMMIT: archivos, avisos y bitácora. Ninguno deshace el borrado si falla.
   let archivosSinBorrar = 0;
-  for (const ruta of rutas) {
+  const rutasParaBorrar = bannerRuta ? [...rutas, bannerRuta] : rutas;
+  for (const ruta of rutasParaBorrar) {
     await borrarArchivo(ruta).catch(() => {
       archivosSinBorrar += 1;
     });
@@ -114,7 +117,7 @@ export async function eliminarCampana(entrada: {
     actor: { tipo: "usuario", id: entrada.usuarioId },
     accion: "campana.eliminar",
     objetivo: { tipo: "campana", id: entrada.campanaId },
-    detalle: { estado, nombre, aportes, archivos: rutas.length, archivosSinBorrar, avisados: participantes.length },
+    detalle: { estado, nombre, aportes, archivos: rutasParaBorrar.length, archivosSinBorrar, avisados: participantes.length },
   });
   return { ok: true, aportes };
 }

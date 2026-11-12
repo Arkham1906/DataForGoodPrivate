@@ -56,9 +56,9 @@ export async function revisarTematica(id: number, aprobada: boolean, reemplazo?:
   let detalle: Record<string, unknown>;
   let rechazo: Awaited<ReturnType<typeof rechazar>> | null = null;
   if (aprobada) {
-    const nombre = await aprobar(id);
-    if (!nombre) return { ok: false, error: "La temática no existe." };
-    detalle = { nombre };
+    const aprobacion = await aprobar(id);
+    if (!aprobacion.ok) return aprobacion;
+    detalle = { nombre: aprobacion.nombre };
   } else {
     rechazo = await rechazar(id, typeof reemplazo === "string" ? reemplazo : undefined);
     if (!rechazo.ok) return rechazo;

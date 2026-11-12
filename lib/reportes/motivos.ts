@@ -31,9 +31,29 @@ export function motivoExigeExplicacion(motivo: string | null): boolean {
 /** Largo máximo de la explicación del rechazo. */
 export const MAXIMO_EXPLICACION_DE_RECHAZO = 500;
 
-/** El motivo del rechazo como lo lee el creador: "Motivo de la lista. Explicación", o solo uno de los dos. */
-export function textoDelMotivoDeRechazo(motivoDeLista: string | null, explicacion: string | null): string {
-  const lista = motivoDeLista && motivoDeLista !== OTRO_MOTIVO ? motivoDeLista : null;
+/** «A», «A» y «B», «A», «B» y «C». */
+function listaDeNombres(nombres: string[]): string {
+  const citados = nombres.map((n) => `«${n}»`);
+  return citados.length <= 1 ? (citados[0] ?? "") : `${citados.slice(0, -1).join(", ")} y ${citados[citados.length - 1]}`;
+}
+
+/**
+ * El motivo del rechazo como lo lee el creador: "Motivo de la lista. Explicación", o solo uno de los dos.
+ * Con "Ya existe una campaña similar" y las campañas que eligió la supervisión (2026-11-11, a pedido del
+ * usuario), el motivo las nombra: "Ya existe una campaña similar: «A». Explicación".
+ */
+export function textoDelMotivoDeRechazo(
+  motivoDeLista: string | null,
+  explicacion: string | null,
+  nombresDeSimilares: string[] = [],
+): string {
+  let lista = motivoDeLista && motivoDeLista !== OTRO_MOTIVO ? motivoDeLista : null;
+  if (lista === MOTIVO_CAMPANA_SIMILAR && nombresDeSimilares.length > 0) {
+    lista =
+      nombresDeSimilares.length === 1
+        ? `${MOTIVO_CAMPANA_SIMILAR}: ${listaDeNombres(nombresDeSimilares)}`
+        : `Ya existen campañas similares: ${listaDeNombres(nombresDeSimilares)}`;
+  }
   if (lista && explicacion) return `${lista}. ${explicacion}`;
   return lista ?? explicacion ?? "";
 }

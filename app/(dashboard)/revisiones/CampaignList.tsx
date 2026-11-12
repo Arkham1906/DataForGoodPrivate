@@ -6,7 +6,8 @@
 // aplicados en el navegador con lib/campanas/filtro-local.ts.
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import Button from "@/components/ui/Button";
 import Tag from "@/components/ui/Tag";
 import BarraDeFiltros, { type ValoresDeFiltros } from "@/components/campanas/BarraDeFiltros";
 import { BASE_PATH } from "@/lib/base-path";
@@ -32,11 +33,43 @@ type ReviewCampaign = {
 
 const tematicaDe = (campaign: ReviewCampaign) => campaign.tag;
 
+const CLAVE_VISTA_REVISIONES = "dfg:revisiones:campanas:vista";
+const EVENTO_VISTA_REVISIONES = "dfg:revisiones:campanas:vista-cambio";
+let vistaCuadriculaEnMemoria = true;
+
+function leerVistaCuadricula(): boolean {
+  try {
+    return window.localStorage.getItem(CLAVE_VISTA_REVISIONES) !== "lista";
+  } catch {
+    return vistaCuadriculaEnMemoria;
+  }
+}
+
+function suscribirVista(alCambiar: () => void): () => void {
+  window.addEventListener("storage", alCambiar);
+  window.addEventListener(EVENTO_VISTA_REVISIONES, alCambiar);
+  return () => {
+    window.removeEventListener("storage", alCambiar);
+    window.removeEventListener(EVENTO_VISTA_REVISIONES, alCambiar);
+  };
+}
+
+function guardarVistaCuadricula(vistaCuadricula: boolean): void {
+  vistaCuadriculaEnMemoria = vistaCuadricula;
+  try {
+    window.localStorage.setItem(CLAVE_VISTA_REVISIONES, vistaCuadricula ? "cuadricula" : "lista");
+  } catch {
+    // La preferencia se conserva en memoria si el navegador bloquea el almacenamiento.
+  }
+  window.dispatchEvent(new Event(EVENTO_VISTA_REVISIONES));
+}
+
 export default function CampaignList({ completed = false }: { completed?: boolean }) {
   const [campaigns, setCampaigns] = useState<ReviewCampaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filtros, setFiltros] = useState<FiltrosLocales>(FILTROS_VACIOS);
+  const vistaCuadricula = useSyncExternalStore(suscribirVista, leerVistaCuadricula, () => true);
 
   // Vuelve a leer cuando algo cambia en la base (actualización en vivo).
   const recarga = useRecargaEnVivo();
@@ -75,8 +108,7 @@ export default function CampaignList({ completed = false }: { completed?: boolea
   return (
     <div className="mx-auto max-w-5xl lg:mx-0 lg:max-w-none">
       <div className="mb-6">
-        <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-600">Revisor de aportes</p>
-        <h1 className="mt-2 text-2xl font-extrabold text-system-900">Mis campañas</h1>
+        <h1 className="text-2xl font-extrabold text-system-900 max-md:text-xl">Revisor de aportes</h1>
         <p className="mt-1 text-[13px] text-system-600">Administra las campañas que tienes asignadas para revisar.</p>
       </div>
 
@@ -93,8 +125,45 @@ export default function CampaignList({ completed = false }: { completed?: boolea
       />
 
       <div className="mb-4 flex items-center justify-between gap-3">
-        <h2 className="text-lg font-extrabold text-system-900">{title}</h2>
-        {!loading && <Tag tone={completed ? "default" : "on"}>{visibleCampaigns.length}</Tag>}
+        <div className="flex min-w-0 items-center gap-2">
+          <h2 className="truncate text-lg font-extrabold text-system-900">{title}</h2>
+          {!loading && <Tag tone={completed ? "default" : "on"}>{visibleCampaigns.length}</Tag>}
+        </div>
+        <div role="group" aria-label="Cambiar vista de campañas" className="relative flex shrink-0 gap-0 overflow-hidden rounded-lg border border-system-300 bg-system-100 p-1">
+          <span
+            aria-hidden="true"
+            className={`pointer-events-none absolute left-[5px] top-[5px] z-0 h-10 w-10 rounded-md bg-brand-600 shadow-inner transition-transform duration-200 ease-out motion-reduce:transition-none ${vistaCuadricula ? "translate-x-full" : "translate-x-0"}`}
+          />
+          <Button
+            type="button"
+            size="sm"
+            className={`!relative !z-10 !size-10 !rounded-md !border-transparent !bg-transparent !p-0 hover:!bg-transparent ${!vistaCuadricula ? "!text-white" : "!text-system-600"}`}
+            onClick={() => guardarVistaCuadricula(false)}
+            aria-label="Vista de lista"
+            aria-pressed={!vistaCuadricula}
+            title="Vista de lista"
+          >
+            <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" />
+            </svg>
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            className={`!relative !z-10 !size-10 !rounded-md !border-transparent !bg-transparent !p-0 hover:!bg-transparent ${vistaCuadricula ? "!text-white" : "!text-system-600"}`}
+            onClick={() => guardarVistaCuadricula(true)}
+            aria-label="Vista cuadriculada"
+            aria-pressed={vistaCuadricula}
+            title="Vista cuadriculada"
+          >
+            <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
+              <rect x="4" y="4" width="6" height="6" rx="1" />
+              <rect x="14" y="4" width="6" height="6" rx="1" />
+              <rect x="4" y="14" width="6" height="6" rx="1" />
+              <rect x="14" y="14" width="6" height="6" rx="1" />
+            </svg>
+          </Button>
+        </div>
       </div>
 
       {loading ? (
@@ -107,18 +176,18 @@ export default function CampaignList({ completed = false }: { completed?: boolea
           {avisoSinResultados(tabCampaigns.length, `No tienes campañas ${completed ? "finalizadas" : "en curso"} asignadas.`)}
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className={vistaCuadricula ? "grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3" : "flex flex-col gap-3"}>
           {visibleCampaigns.map((campaign) => (
-            <Link key={campaign.id} href={`/revisiones/campanas/${campaign.id}`} className="block rounded-lg border border-system-200 bg-white p-5 shadow-sm transition-colors hover:border-brand-600">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <h3 className="text-[16px] font-extrabold text-system-900">{campaign.name}</h3>
+            <Link key={campaign.id} href={`/revisiones/campanas/${campaign.id}`} className={vistaCuadricula ? "flex h-full min-w-0 flex-col rounded-lg border border-system-200 bg-white p-5 shadow-sm transition-colors hover:border-brand-600" : "block rounded-lg border border-system-200 bg-white p-5 shadow-sm transition-colors hover:border-brand-600"}>
+              <div className={vistaCuadricula ? "flex min-h-32 flex-col justify-between gap-4" : "flex flex-wrap items-start justify-between gap-4"}>
+                <div className="min-w-0">
+                  <h3 className="line-clamp-2 text-[16px] font-extrabold text-system-900">{campaign.name}</h3>
                   <p className="mt-1 text-[12.5px] text-system-600">{campaign.tag || "Sin temática"} · {campaign.participants} participantes</p>
-                  {campaign.description && <p className="mt-3 line-clamp-2 max-w-2xl text-[13px] leading-5 text-system-600">{campaign.description}</p>}
+                  {campaign.description && <p className={vistaCuadricula ? "mt-3 line-clamp-3 text-[13px] leading-5 text-system-600" : "mt-3 line-clamp-2 max-w-2xl text-[13px] leading-5 text-system-600"}>{campaign.description}</p>}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className={vistaCuadricula ? "flex items-center justify-between gap-2 border-t border-system-100 pt-3" : "flex items-center gap-2"}>
                   {!completed && <Tag tone="warn">{campaign.pendingContributions} pendientes</Tag>}
-                  <span className="text-[12.5px] font-bold text-brand-600">Abrir campaña →</span>
+                  <span className="ml-auto text-[12.5px] font-bold text-brand-600">Abrir campaña →</span>
                 </div>
               </div>
             </Link>

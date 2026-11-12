@@ -216,7 +216,8 @@ export async function buscarUsuarios(opciones: {
   pagina?: number;
 }): Promise<{ filas: FilaDeUsuario[]; total: number; pagina: number }> {
   const pagina = Math.max(1, opciones.pagina ?? 1);
-  const q = (opciones.q ?? "").trim();
+  // Espacios repetidos a uno: "QA   REVISOR" busca lo mismo que "QA REVISOR".
+  const q = (opciones.q ?? "").trim().replace(/\s+/g, " ");
   const rol = (opciones.rol ?? "").trim();
   const estado = (opciones.estado ?? "").trim() as EstadoDeCuenta | "";
 
@@ -231,8 +232,12 @@ export async function buscarUsuarios(opciones: {
     if (q) {
       valores.push(`%${q}%`);
       const posicion = valores.length;
+      // También el nombre completo (2026-11-12): "QA REVISOR" no coincidía porque nombre ("QA") y
+      // apellidos ("REVISOR") se comparaban por separado.
       condiciones.push(
-        `(u.nombre ILIKE $${posicion} OR u.apellidos ILIKE $${posicion} OR u.email ILIKE $${posicion} OR CAST(u.id AS TEXT) = $${posicion + 1})`,
+        `(u.nombre ILIKE $${posicion} OR u.apellidos ILIKE $${posicion}
+          OR concat_ws(' ', NULLIF(btrim(u.nombre), ''), NULLIF(btrim(u.apellidos), '')) ILIKE $${posicion}
+          OR u.email ILIKE $${posicion} OR CAST(u.id AS TEXT) = $${posicion + 1})`,
       );
       valores.push(q);
     }
@@ -402,8 +407,10 @@ export async function obtenerReporteDeSancion(
 }
 
 /**
- * Todas las sanciones de los usuarios que siguen existiendo (2026-10-08), de la
- * más reciente a la más vieja. Vienen de dos lados:
+ * Sanciones de los usuarios que siguen existiendo (2026-10-08), de la más reciente
+ * a la más vieja. Con `supervisorId`, incluye sanciones ligadas a reportes de sus campañas,
+ * baneos por campaña dentro de sus campañas supervisadas y sanciones aplicadas por ese supervisor
+ * al resolver reportes. Vienen de dos lados:
  *   - De la cuenta (tabla `sanciones`): avisos (STRIKE) y baneos que aplica el
  *     moderador (SuperUsuario o supervisor) desde .../sanciones/[usuarioId], y la suspensión o el baneo que
  *     trae cada aviso (escala de avisos). Si se dieron al confirmar reportes,
@@ -415,7 +422,7 @@ export async function obtenerReporteDeSancion(
  * Solo una suspensión o un baneo de cuenta vigentes se pueden restaurar desde
  * aquí (`restaurable`). El baneo por campaña lo quita su creador.
  */
-export async function listarSanciones(): Promise<RegistroDeSancion[]> {
+export async function listarSanciones(supervisorId?: number): Promise<RegistroDeSancion[]> {
   try {
     const [cuenta, campana] = await Promise.all([
       pool.query<{
@@ -452,7 +459,20 @@ export async function listarSanciones(): Promise<RegistroDeSancion[]> {
            FROM reportes r WHERE r.sancion_id = s.id
            HAVING COUNT(*) > 0
          ) rep ON true
-         LEFT JOIN campanas c ON c.id = rep.campana_id`,
+         LEFT JOIN campanas c ON c.id = rep.campana_id
+         WHERE ($1::int IS NULL OR EXISTS (
+           SELECT 1 FROM reportes r
+           JOIN campanas rc ON rc.id = r.campana_id
+           WHERE r.sancion_id = s.id AND rc.supervisor_id = $1
+         ) OR EXISTS (
+           SELECT 1 FROM audit_log a
+           WHERE a.accion = 'sancion.aplicar' AND a.actor_tipo = 'usuario' AND a.actor_id = $1
+             AND a.objetivo_tipo = 'usuario' AND a.objetivo_id = s.usuario_id::text
+             AND (a.detalle->>'avisoId' = s.id::text OR a.detalle->'bloqueo'->>'sancionId' = s.id::text)
+             AND CASE WHEN jsonb_typeof(a.detalle->'reportes') = 'array'
+                      THEN jsonb_array_length(a.detalle->'reportes') > 0 ELSE false END
+         ))`,
+        [supervisorId ?? null],
       ),
       pool.query<{
         clave: string;
@@ -480,6 +500,7 @@ export async function listarSanciones(): Promise<RegistroDeSancion[]> {
          LEFT JOIN campanas c ON c.id::text = a.detalle->>'campanaId'
          LEFT JOIN usuarios q ON q.id = a.actor_id
          WHERE a.accion = 'campana.banear'
+           AND ($1::int IS NULL OR c.supervisor_id = $1)
          UNION ALL
          SELECT 'cb' || b.id, b.created_at, b.motivo, c.id, c.name, NULL,
                 COALESCE(NULLIF(TRIM(q.nombre || ' ' || q.apellidos), ''), c.creator_name), NULL,
@@ -488,11 +509,13 @@ export async function listarSanciones(): Promise<RegistroDeSancion[]> {
          JOIN usuarios u ON u.id = b.usuario_id
          JOIN campanas c ON c.id = b.campana_id
          LEFT JOIN usuarios q ON q.id = b.baneado_por
-         WHERE NOT EXISTS (
+         WHERE ($1::int IS NULL OR c.supervisor_id = $1)
+           AND NOT EXISTS (
            SELECT 1 FROM audit_log a
            WHERE a.accion = 'campana.banear' AND a.objetivo_tipo = 'usuario'
              AND a.objetivo_id = b.usuario_id::text AND a.detalle->>'campanaId' = b.campana_id::text
          )`,
+        [supervisorId ?? null],
       ),
     ]);
 

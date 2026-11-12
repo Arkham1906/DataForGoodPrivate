@@ -3,7 +3,7 @@
 // Lista de /notificaciones con sus acciones. Abrir una notificación la marca como leída y lleva a su enlace;
 // cada una se puede marcar como leída o no leída (PATCH /api/notificaciones/[id]) o borrar (DELETE).
 // "Marcar todas como leídas": PATCH /api/notificaciones. "Limpiar leídas y viejas" (con confirmación): DELETE /api/notificaciones.
-// Invitación de revisor: POST /api/notificaciones/[id]/aceptar.
+// Invitación de revisor: POST /api/notificaciones/[id]/aceptar o, desde el 2026-11-11, /rechazar (borra la invitación).
 // Tras cada cambio refresca la página y avisa a la campana (EVENTO_NOTIFICACIONES) para que actualice su contador.
 
 import { useState } from "react";
@@ -103,6 +103,12 @@ export default function ListaDeNotificaciones({
     }
   }
 
+  async function rechazar(item: Notificacion) {
+    if (await enviar(`rechazar-${item.id}`, `/api/notificaciones/${item.id}/rechazar`, { method: "POST" }, "No se pudo rechazar la invitación")) {
+      router.refresh();
+    }
+  }
+
   return (
     <div className="space-y-3">
       {/* Qué significa cada color (2026-10-27). */}
@@ -189,9 +195,23 @@ export default function ListaDeNotificaciones({
 
                 <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-[12px] font-semibold">
                   {item.invitationPending && (
-                    <Button size="sm" variant="primary" onClick={() => void aceptar(item)} disabled={ocupado === item.id}>
-                      {ocupado === item.id ? "Aceptando…" : "Aceptar invitación"}
-                    </Button>
+                    <>
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        onClick={() => void aceptar(item)}
+                        disabled={ocupado === item.id || ocupado === `rechazar-${item.id}`}
+                      >
+                        {ocupado === item.id ? "Aceptando…" : "Aceptar invitación"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => void rechazar(item)}
+                        disabled={ocupado === item.id || ocupado === `rechazar-${item.id}`}
+                      >
+                        {ocupado === `rechazar-${item.id}` ? "Rechazando…" : "Rechazar"}
+                      </Button>
+                    </>
                   )}
                   {item.href && (
                     <button type="button" onClick={() => void abrir(item)} className="inline-flex min-h-6 min-w-6 items-center text-brand-600 hover:underline">

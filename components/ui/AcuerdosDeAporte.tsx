@@ -4,8 +4,9 @@
 // en cada aporte). Dos casillas cortas, "Acepto el acuerdo de confirmación" y "Acepto el acuerdo de uso del
 // aporte", y "Leer los acuerdos", que abre una ventana (<dialog> nativo) con el texto completo
 // (lib/aportes/consentimiento.ts).
-//   - InscripcionACampana: con cuenta, se aceptan una sola vez al inscribirse (POST /api/campanas/[id]/inscripcion).
-//     En /campanas/[id] y, si aún no se inscribió, arriba de /campanas/[id]/aportar.
+//   - Con cuenta, se aceptan una sola vez al inscribirse (POST /api/campanas/[id]/inscripcion). En /campanas/[id],
+//     VentanaDeInscripcion: ventana emergente al dar "Realizar un aporte" (2026-11-10, a pedido del usuario; antes
+//     las casillas iban en la página). Si llega a /campanas/[id]/aportar sin inscribirse, InscripcionACampana arriba.
 //   - CasillasDeAcuerdos + agregarAcuerdos: sin cuenta (/c/[token]), en el formulario de cada aporte.
 // El servidor vuelve a exigirlos en los dos casos.
 
@@ -140,16 +141,8 @@ export function agregarAcuerdos(datos: FormData, acuerdos: Acuerdos) {
   if (acuerdos.confirmaContenido) datos.set(CAMPO_CONFIRMA_CONTENIDO, "si");
 }
 
-/** Bloque "Inscríbete para aportar": casillas y botón. Llama a onInscrito cuando el servidor lo confirma. */
-export function InscripcionACampana({
-  campanaId,
-  onInscrito,
-  proposito,
-}: {
-  campanaId: string;
-  onInscrito: () => void;
-  proposito?: string | null;
-}) {
+/** Envía la inscripción con los dos acuerdos; la comparten el bloque y la ventana. */
+function useInscripcion(campanaId: string, onInscrito: () => void) {
   const [acuerdos, setAcuerdos] = useState(SIN_ACUERDOS);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -175,31 +168,165 @@ export function InscripcionACampana({
     }
   }
 
+  return { acuerdos, setAcuerdos, enviando, error, setError, inscribirme };
+}
+
+/** Botón de inscribirse: en rojo y sin efecto hasta aceptar los dos acuerdos (2026-11-04, a pedido del usuario). */
+function BotonDeInscripcion({
+  acuerdos,
+  enviando,
+  onClick,
+  texto,
+  className = "",
+}: {
+  acuerdos: Acuerdos;
+  enviando: boolean;
+  onClick: () => void;
+  texto: string;
+  className?: string;
+}) {
+  return (
+    <Button
+      variant="primary"
+      className={`${className} ${acuerdosCompletos(acuerdos) ? "" : "!border-error-700 !bg-error-700 !text-white disabled:!opacity-100"}`}
+      disabled={!acuerdosCompletos(acuerdos) || enviando}
+      onClick={onClick}
+    >
+      {enviando ? (
+        <span className="inline-flex items-center gap-2">
+          <IndicadorDeCarga />
+          Inscribiendo…
+        </span>
+      ) : (
+        texto
+      )}
+    </Button>
+  );
+}
+
+function AvisoDeError({ error }: { error: string | null }) {
+  if (!error) return null;
+  return (
+    <p role="alert" className="rounded border border-error-700 bg-error-50 p-2 text-[12px] text-error-700">
+      {error}
+    </p>
+  );
+}
+
+/** Bloque "Inscríbete para aportar" dentro de la página: casillas y botón (arriba de /campanas/[id]/aportar). */
+export function InscripcionACampana({
+  campanaId,
+  onInscrito,
+  proposito,
+}: {
+  campanaId: string;
+  onInscrito: () => void;
+  proposito?: string | null;
+}) {
+  const { acuerdos, setAcuerdos, enviando, error, inscribirme } = useInscripcion(campanaId, onInscrito);
+
   return (
     <div className="flex flex-col gap-3">
       <p className="text-[12.5px] text-system-600">
         Para aportar, inscríbete aceptando estos acuerdos. Solo se piden una vez en esta campaña.
       </p>
       <CasillasDeAcuerdos acuerdos={acuerdos} onCambio={setAcuerdos} deshabilitado={enviando} proposito={proposito} />
-      {error && (
-        <p role="alert" className="rounded border border-error-700 bg-error-50 p-2 text-[12px] text-error-700">
-          {error}
-        </p>
-      )}
-      {/* En rojo y sin efecto hasta aceptar los dos acuerdos (2026-11-04, a pedido del usuario). */}
-      <Button
-        variant="primary"
-        className={`w-full ${acuerdosCompletos(acuerdos) ? "" : "!border-error-700 !bg-error-700 !text-white disabled:!opacity-100"}`}
-        disabled={!acuerdosCompletos(acuerdos) || enviando}
+      <AvisoDeError error={error} />
+      <BotonDeInscripcion
+        acuerdos={acuerdos}
+        enviando={enviando}
         onClick={() => void inscribirme()}
-      >
-        {enviando ? (
-          <span className="inline-flex items-center gap-2">
-            <IndicadorDeCarga />
-            Inscribiendo…
-          </span>
-        ) : "Inscribirme para aportar"}
-      </Button>
+        texto="Inscribirme para aportar"
+        className="w-full"
+      />
     </div>
+  );
+}
+
+/**
+ * Ventana emergente de inscripción (2026-11-10, a pedido del usuario; antes las casillas iban en la página de
+ * /campanas/[id]). Muestra las dos casillas y "Leer los acuerdos" (CasillasDeAcuerdos); al aceptar inscribe y llama a
+ * onInscrito (la página lleva al formulario de aporte). Cancelar, Esc o clic en el fondo la cierran sin inscribir.
+ */
+export function VentanaDeInscripcion({
+  abierta,
+  onCerrar,
+  campanaId,
+  onInscrito,
+  proposito,
+}: {
+  abierta: boolean;
+  onCerrar: () => void;
+  campanaId: string;
+  onInscrito: () => void;
+  proposito?: string | null;
+}) {
+  const dialogo = useRef<HTMLDialogElement>(null);
+  const { acuerdos, setAcuerdos, enviando, error, setError, inscribirme } = useInscripcion(campanaId, onInscrito);
+
+  useEffect(() => {
+    const el = dialogo.current;
+    if (!el) return;
+    if (abierta && !el.open) el.showModal();
+    if (!abierta && el.open) el.close();
+  }, [abierta]);
+
+  function cerrar() {
+    if (enviando) return;
+    setError(null);
+    onCerrar();
+  }
+
+  return (
+    <dialog
+      ref={dialogo}
+      aria-labelledby="inscripcion-titulo"
+      // React hace llegar aquí también el cancel/close de la ventana "Leer los acuerdos" (está dentro): solo cuentan
+      // los de esta misma ventana, o al cerrar el texto se cerraría todo.
+      onCancel={(e) => {
+        if (e.target !== e.currentTarget) return;
+        // Esc: lo cierra cerrar() (y no mientras se envía).
+        e.preventDefault();
+        cerrar();
+      }}
+      onClose={(e) => {
+        if (e.target === e.currentTarget && abierta) onCerrar();
+      }}
+      // Clic en el fondo (fuera de la caja): se cierra.
+      onClick={(e) => {
+        if (e.target === dialogo.current) cerrar();
+      }}
+      className="m-auto w-[calc(100%-2rem)] max-w-lg rounded-lg border border-system-200 bg-white p-0 text-system-900 shadow-lg backdrop:bg-system-900/40"
+    >
+      <div className="flex max-h-[85vh] flex-col">
+        <div className="border-b border-system-200 p-5">
+          <h2 id="inscripcion-titulo" className="text-lg font-extrabold text-system-900">
+            Acuerdos para aportar
+          </h2>
+          <p className="mt-1 text-[12.5px] text-system-600">
+            Para aportar en esta campaña, acepta los dos acuerdos. Solo se piden una vez.
+          </p>
+        </div>
+        {/* Solo las casillas y "Leer los acuerdos", que abre el texto completo encima (a pedido del usuario el
+            mismo día: sin desplegar los dos acuerdos aquí). */}
+        <div className="flex flex-col gap-3 p-5">
+          <CasillasDeAcuerdos acuerdos={acuerdos} onCambio={setAcuerdos} deshabilitado={enviando} proposito={proposito} />
+          <AvisoDeError error={error} />
+          <div className="flex flex-wrap justify-end gap-2">
+            {/* Botón con borde y letra en rojo (variante danger), del mismo alto que "Aceptar y aportar"
+                (2026-11-10, a pedido del usuario; antes era texto sin borde). */}
+            <Button type="button" variant="danger" onClick={cerrar} disabled={enviando}>
+              Cancelar
+            </Button>
+            <BotonDeInscripcion
+              acuerdos={acuerdos}
+              enviando={enviando}
+              onClick={() => void inscribirme()}
+              texto="Aceptar y aportar"
+            />
+          </div>
+        </div>
+      </div>
+    </dialog>
   );
 }

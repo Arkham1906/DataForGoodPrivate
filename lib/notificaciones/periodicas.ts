@@ -16,6 +16,7 @@ import { pool } from "@/lib/db";
 import { SQL_SANCION_BLOQUEANTE } from "@/lib/sanciones";
 import { ZONA_DE_CAMPANAS, ahoraEnZona } from "@/lib/campaign-date";
 import { fechaCorta } from "@/lib/campanas/especial-reglas";
+import { campanasConCuotaPendiente } from "@/lib/campanas/cuota-pendiente";
 import { mensajeDelResumen } from "./mensaje-del-resumen";
 import { notificar } from "./notificaciones";
 
@@ -71,21 +72,10 @@ async function enviarRecordatorios(): Promise<void> {
   );
 
   await enTandas(personas, async ({ id }) => {
-    const { rows } = await pool.query<{ id: number; name: string; faltan: number; end_date: Date | string | null }>(
-      `SELECT c.id, c.name, (c.quota_per_user - COUNT(a.id))::int AS faltan, c.end_date
-         FROM campanas c
-         LEFT JOIN aportes a ON a.campaign_id = c.id AND a.user_id = $1
-        WHERE c.status = 'activa' AND c.creator_id <> $1
-          AND NOT EXISTS (SELECT 1 FROM campana_baneados b WHERE b.campana_id = c.id AND b.usuario_id = $1)
-          AND (EXISTS (SELECT 1 FROM aportes x WHERE x.campaign_id = c.id AND x.user_id = $1)
-               OR (EXISTS (SELECT 1 FROM campanas_guardadas g WHERE g.campana_id = c.id AND g.usuario_id = $1)
-                   AND c.end_date <= $2::date))
-        GROUP BY c.id
-        HAVING COUNT(a.id) < c.quota_per_user
-        ORDER BY c.end_date ASC NULLS LAST
-        LIMIT $3`,
-      [id, enUnaSemana, CAMPANAS_EN_EL_RECORDATORIO],
-    );
+    const rows = await campanasConCuotaPendiente(id, {
+      favoritasQueCierranAntesDe: enUnaSemana,
+      limite: CAMPANAS_EN_EL_RECORDATORIO,
+    });
     if (rows.length === 0) return;
 
     const renglones = rows.map((c) => {

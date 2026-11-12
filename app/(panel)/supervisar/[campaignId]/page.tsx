@@ -18,6 +18,8 @@ import { textoDelProposito } from "@/lib/campanas/proposito";
 import AccionesDeSupervision, { DatosAbiertosComoSuperUsuario, EstadoComoSuperUsuario } from "./acciones";
 import type { Metadata } from "next";
 import { exigirSesionRoot } from "@/lib/supervision/root";
+import { BASE_PATH } from "@/lib/base-path";
+import { rutasDeModeracion } from "@/lib/moderacion/rutas";
 
 export const metadata: Metadata = { title: "Supervisar campaña" };
 
@@ -38,11 +40,18 @@ function formatDate(date: string | null) {
   return new Date(year, month - 1, day).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-export default async function SupervisarCampanaPage({ params }: { params: Promise<{ campaignId: string }> }) {
+export default async function SupervisarCampanaPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ campaignId: string }>;
+  searchParams: Promise<{ reportes?: string }>;
+}) {
   await exigirSesionRoot();
-  const { campaignId } = await params;
+  const [{ campaignId }, { reportes }] = await Promise.all([params, searchParams]);
   const campaign = await obtenerCampanaParaRoot(campaignId);
   if (!campaign) notFound();
+  const claveDeReporte = reportes === `campana-${campaignId}` ? reportes : null;
   const similares = campaign.status === "en_revision" ? await obtenerCampanasSimilares(campaign.id) : null;
 
   const currentStatus = statusMap[campaign.status as keyof typeof statusMap] ?? { label: "En revisión", tone: "warn" };
@@ -86,6 +95,7 @@ export default async function SupervisarCampanaPage({ params }: { params: Promis
         campaignId={campaign.id}
         status={campaign.status}
         supervision={campaign.supervision}
+        similares={similares?.campanas.map(({ id, name, status }) => ({ id, name, status })) ?? []}
         encabezado={
           <div>
             <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-600">Detalle de campaña</p>
@@ -101,6 +111,21 @@ export default async function SupervisarCampanaPage({ params }: { params: Promis
         La decisión queda registrada como tomada por el SuperUsuario.
       </div>
 
+      {claveDeReporte && campaign.creatorId && (
+        <section className="mb-5 rounded-lg border border-warning-200 bg-warning-50 p-4">
+          <h2 className="text-[13.5px] font-bold text-system-900">Reporte de esta campaña</h2>
+          <p className="mt-1 text-[12.5px] text-system-600">
+            Puedes elegir un aviso, una suspensión o un baneo para el creador. La sanción resolverá los reportes pendientes de esta campaña.
+          </p>
+          <Link
+            href={rutasDeModeracion("supervisar").sancionar(campaign.creatorId, claveDeReporte)}
+            className="mt-3 inline-flex rounded-pill border border-error-700/40 bg-white px-3.5 py-2 text-[12.5px] font-bold text-error-700 hover:bg-error-50"
+          >
+            Elegir sanción para el creador
+          </Link>
+        </section>
+      )}
+
       {/* Activa o pausada, la supervise quien la supervise (2026-10-15). */}
       <EstadoComoSuperUsuario campaignId={campaign.id} status={campaign.status} pausa={campaign.pausa} />
 
@@ -115,10 +140,22 @@ export default async function SupervisarCampanaPage({ params }: { params: Promis
         />
       )}
 
-      <section className="rounded-lg border border-system-200 bg-white p-5 shadow-sm">
-        <p className="text-[13.5px] leading-6 text-system-600">{campaign.description}</p>
+      <section className="overflow-hidden rounded-lg border border-system-200 bg-white shadow-sm">
+        {campaign.hasBanner && (
+          <div className="border-b border-system-200 bg-system-50 p-3 sm:p-4">
+            <img
+              src={`${BASE_PATH}/api/campanas/${campaign.id}/banner?v=${encodeURIComponent(campaign.bannerVersion ?? "")}`}
+              alt={`Banner de ${campaign.name}`}
+              className="aspect-[4/3] w-full rounded-lg bg-system-100 object-contain"
+              style={{ objectPosition: `${campaign.bannerPositionX}% ${campaign.bannerPositionY}%`, transform: `scale(${campaign.bannerScale})` }}
+            />
+          </div>
+        )}
 
-        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+        <div className="p-5">
+          <p className="text-[13.5px] leading-6 text-system-600">{campaign.description}</p>
+
+          <div className="mt-5 grid gap-4 sm:grid-cols-2">
           {filas.map((columna, i) => (
             <div key={i} className="space-y-3">
               {columna.map(([etiqueta, valor]) => (
@@ -129,9 +166,9 @@ export default async function SupervisarCampanaPage({ params }: { params: Promis
               ))}
             </div>
           ))}
-        </div>
+          </div>
 
-        <div className="mt-5 flex flex-wrap gap-3">
+          <div className="mt-5 flex flex-wrap gap-3">
           {/* Cualquier campaña que ya recolecta, la haya aceptado quien sea (2026-10-15). */}
           {yaRecolecta && (
             <Link href={`/supervisar/${campaign.id}/usuarios`} className="rounded-pill bg-brand-600 px-5 py-3 text-[12.5px] font-bold text-white shadow-sm hover:bg-brand-800">
@@ -143,6 +180,7 @@ export default async function SupervisarCampanaPage({ params }: { params: Promis
               Abrir panel
             </Link>
           )}
+          </div>
         </div>
       </section>
 

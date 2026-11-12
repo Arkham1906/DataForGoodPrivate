@@ -3,8 +3,10 @@
 // el aporte es de solo texto (sin archivo). Todo sale de GET /api/aportes/[id]/archivo, que
 // comprueba el permiso. Sin "use client": sirve en páginas de servidor y de cliente.
 // El caso "archivo borrado por el creador" lo resuelve cada pantalla antes de llegar aquí.
+// Desde el 2026-11-11 el texto (.txt) se muestra a la vista con ui/TextoDelAporte (componente cliente).
 
 import { BASE_PATH } from "@/lib/base-path";
+import TextoDelAporte from "@/components/ui/TextoDelAporte";
 
 const CAJA = "flex w-full flex-col items-center justify-center gap-2 rounded-lg border border-system-300 bg-system-100 p-4 text-center text-[12.5px] text-system-600";
 
@@ -111,7 +113,9 @@ export default function ArchivoDelAporte({
       </div>
     );
   }
-  // Archivo (PDF, Word, PowerPoint o Excel: se descarga) y texto (.txt: se abre en otra pestaña).
+  // Texto (.txt): a la vista, con enlace para abrirlo (2026-11-11; antes solo el enlace).
+  if (tipo === "texto") return <TextoDelAporte src={src} alto={alto} />;
+  // Archivo (PDF, Word, PowerPoint o Excel): se descarga.
   return (
     <div className={`${CAJA} ${alto}`}>
       <span className="font-medium text-system-900">{tipo === "texto" ? "Archivo de texto" : "Archivo"}</span>

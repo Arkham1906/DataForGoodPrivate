@@ -16,6 +16,7 @@ import { normalizarFormatosDeDocumento, tiposAceptados, type FormatoDeDocumento,
 import { normalizeCampaignDate } from "@/lib/campaign-date";
 import { seccionesDesdeFila, type SeccionDeChecklist } from "@/lib/campanas/checklist";
 import { pausaDesdeFila, type PausaDeCampana } from "@/lib/campanas/pausa";
+import type { QueryResultRow } from "pg";
 import { pool } from "@/lib/db";
 import { columnasCalculadas } from "@/lib/campanas/tipos-de-campana";
 import { quienOrganiza } from "@/lib/campanas/organizacion";
@@ -231,11 +232,7 @@ export async function buscarEnlacePorToken(token: string): Promise<ResultadoDeTo
   if (!FORMATO_DE_TOKEN.test(token)) return { tipo: "inexistente" };
   const { rows } = await pool.query(
     `SELECT e.*, (SELECT COUNT(*) FROM aportes a WHERE a.enlace_id = e.id)::int AS aportes_recibidos,
-            c.name, c.description, c.tematica, c.tag, c.organizer, c.creator_name, c.location_city, c.location_state, c.todo_el_pais,
-            c.status, c.goal_contributions, c.quota_per_user, c.end_date,
-            c.collection_mode, c.permite_anonimos,
-            c.pausa_por, c.pausa_motivo, c.pausada_en, c.proposito, c.proposito_otro,
-            ${columnasCalculadas("c")}
+            ${columnasDeLaCampana()}
      FROM campana_enlaces e
      JOIN campanas c ON c.id = e.campana_id
      WHERE e.token = $1
@@ -246,8 +243,43 @@ export async function buscarEnlacePorToken(token: string): Promise<ResultadoDeTo
 
   const row = rows[0];
   const enlace = mapEnlace(row);
-  const campana: CampanaDelEnlace = {
-    id: enlace.campanaId,
+  const campana = campanaDesdeFila(row, enlace.campanaId);
+
+  if (enlace.revocadoEn) return { tipo: "revocado", enlace, campana };
+  if (!estaVigente(enlace)) return { tipo: "caducado", enlace, campana };
+  return { tipo: "valido", enlace, campana };
+}
+
+/**
+ * La campaña para aportar sin cuenta desde su ficha (/participa/[id], 2026-11-11, a pedido del usuario),
+ * sin pasar por el enlace del creador: no cuenta visitas ni renueva el enlace, que queda solo para lo que
+ * el creador comparte. Solo las que se ven en público (activa, pausada o finalizada); las demás dan null,
+ * igual que una que no existe.
+ */
+export async function buscarCampanaParaAportarSinCuenta(campanaId: number): Promise<CampanaDelEnlace | null> {
+  if (!Number.isSafeInteger(campanaId) || campanaId <= 0) return null;
+  const { rows } = await pool.query(
+    `SELECT ${columnasDeLaCampana()}
+     FROM campanas c
+     WHERE c.id = $1 AND c.status IN ('activa', 'pausada', 'finalizada')
+     LIMIT 1`,
+    [campanaId]
+  );
+  return rows.length ? campanaDesdeFila(rows[0], campanaId) : null;
+}
+
+/** Columnas de la campaña (alias c) que leen /c/[token] y /participa/[id]. */
+function columnasDeLaCampana(): string {
+  return `c.name, c.description, c.tematica, c.tag, c.organizer, c.creator_name, c.location_city, c.location_state, c.todo_el_pais,
+            c.status, c.goal_contributions, c.quota_per_user, c.end_date,
+            c.collection_mode, c.permite_anonimos,
+            c.pausa_por, c.pausa_motivo, c.pausada_en, c.proposito, c.proposito_otro,
+            ${columnasCalculadas("c")}`;
+}
+
+function campanaDesdeFila(row: QueryResultRow, campanaId: number): CampanaDelEnlace {
+  return {
+    id: campanaId,
     nombre: String(row.name ?? ""),
     descripcion: String(row.description ?? ""),
     tematica: String(row.tematica || row.tag || ""),
@@ -270,10 +302,6 @@ export async function buscarEnlacePorToken(token: string): Promise<ResultadoDeTo
     pausa: pausaDesdeFila(row),
     proposito: textoDelProposito(row.proposito, row.proposito_otro),
   };
-
-  if (enlace.revocadoEn) return { tipo: "revocado", enlace, campana };
-  if (!estaVigente(enlace)) return { tipo: "caducado", enlace, campana };
-  return { tipo: "valido", enlace, campana };
 }
 
 /**

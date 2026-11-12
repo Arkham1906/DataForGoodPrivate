@@ -24,6 +24,7 @@ export default function CampanasParaTi({
   id,
   campanas,
   accion,
+  filtros,
   vacio,
   vistaCuadricula = true,
   className = "",
@@ -33,6 +34,8 @@ export default function CampanasParaTi({
   campanas: CampanaParaTi[];
   /** Enlace a la derecha del título (en /inicio, "Ver todas →"). */
   accion?: ReactNode;
+  /** Filtros de la sección, debajo del título (en /campanas, las filas de botones; 2026-11-10). */
+  filtros?: ReactNode;
   /** Qué mostrar sin campañas; sin él, no se dibuja la sección. */
   vacio?: ReactNode;
   /** En /campanas, sigue la preferencia compartida de lista o cuadrícula. */
@@ -48,6 +51,7 @@ export default function CampanasParaTi({
         </h2>
         {accion}
       </div>
+      {filtros}
       {campanas.length === 0 ? (
         vacio
       ) : (

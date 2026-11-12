@@ -124,7 +124,8 @@ export default function SubtematicasDelPerfil({
     if (!cat) return marcadasAhora;
     ultimoAnalizado.current = textoActual;
     // Solo las aprobadas de sus temáticas: una pendiente ya la eligió ella al proponerla.
-    const candidatas = temas.flatMap((tema) => (cat[tema] ?? []).filter((e) => !e.pendiente));
+    // Con su temática: cada una se busca con las variantes del diccionario de esa temática (2026-11-11).
+    const candidatas = temas.flatMap((tema) => (cat[tema] ?? []).filter((e) => !e.pendiente).map((e) => ({ ...e, tematica: tema })));
     // Lo que el texto guardado menciona y no está marcado se puede marcar: pudo guardarse sin analizar.
     delTexto.current ??= etiquetasEnElTexto(primerTexto.current, candidatas);
     const ahora = etiquetasEnElTexto(textoActual, candidatas);
@@ -215,7 +216,7 @@ export default function SubtematicasDelPerfil({
     const propuestas = nuevas.filter((n) => claveDeTematica(n.tematica) === claveDeTematica(tema)).map((n) => n.nombre);
     const igual = delCatalogo.find((e) => claveDeTematica(e.nombre) === clave);
     const yaPropuesta = propuestas.some((n) => claveDeTematica(n) === clave);
-    const equivalente = igual || yaPropuesta ? null : etiquetaEquivalente(nombre, [...delCatalogo.map((e) => e.nombre), ...propuestas]);
+    const equivalente = igual || yaPropuesta ? null : etiquetaEquivalente(nombre, [...delCatalogo.map((e) => e.nombre), ...propuestas], { tematica: tema });
     const existente = igual ?? delCatalogo.find((e) => e.nombre === equivalente);
     if (existente) {
       const marcada = marcadas.includes(existente.id);

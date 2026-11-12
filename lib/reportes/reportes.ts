@@ -2,9 +2,9 @@
 //   - de campaña: cualquiera con sesión menos el creador; va contra quien la creó;
 //   - de aporte: el creador de la campaña o un revisor aceptado; va contra quien lo envió (solo aportes
 //     con cuenta: los anónimos tienen su propio bloqueo por dispositivo).
-// Llegan a la bandeja del SuperUsuario (/reportes), que los descarta o los confirma con un aviso (o un
-// baneo) desde .../sanciones/[usuarioId]?reportes=<clave> de /supervisar o /supervision (aplicarSancion,
-// lib/moderacion/acciones.ts).
+// Los reportes de campañas llegan a todos los supervisores; los de aportes, solo al supervisor asignado
+// a la campaña. El SuperUsuario conserva acceso global en /supervisar. Quien modera descarta o confirma
+// desde .../sanciones/[usuarioId]?reportes=<clave> (aplicarSancion, lib/moderacion/acciones.ts).
 // La persona reportada no se entera del reporte ni de quién lo hizo; solo recibe el aviso si se confirma.
 // El de aporte se guarda en lib/aportes/reporte.ts (reportarASupervision, "Reportar aporte"; uno por
 // aporte desde el 2026-11-07, cuando se quitó "Reportar a quien aportó" y su reportarParticipante) y
@@ -131,12 +131,29 @@ export type GrupoDeReportes = {
 
 export type FiltroDeReportes = "pendientes" | "resueltos";
 
+/** Los reportes de aportes solo los consulta el supervisor asignado a su campaña. */
+export async function supervisorPuedeVerClaveDeReportes(clave: ClaveDeReportes, supervisorId: number | null): Promise<boolean> {
+  if (supervisorId === null || clave.tipo === "campana") return true;
+  const { rowCount } = await pool.query(
+    `SELECT 1 FROM reportes r JOIN campanas c ON c.id = r.campana_id
+     WHERE r.tipo = 'aporte' AND r.aporte_id = $1 AND c.supervisor_id = $2
+     LIMIT 1`,
+    [clave.id, supervisorId],
+  );
+  return (rowCount ?? 0) > 0;
+}
+
 /**
  * Reportes agrupados por lo que se reportó (una campaña o un aporte), primero el más reciente.
- * Pendientes: todos. Resueltos: los últimos 300 (no hay paginación todavía).
+ * Pendientes: todos los visibles. Resueltos: los últimos 300 (no hay paginación todavía).
  * `sinContraCuenta`: id del supervisor que modera; no ve los reportes contra él mismo.
+ * `supervisorId`: restringe los reportes de aportes a sus campañas; null ve todo (SuperUsuario).
  */
-export async function listarReportes(filtro: FiltroDeReportes, sinContraCuenta: number | null = null): Promise<GrupoDeReportes[]> {
+export async function listarReportes(
+  filtro: FiltroDeReportes,
+  sinContraCuenta: number | null = null,
+  supervisorId: number | null = null,
+): Promise<GrupoDeReportes[]> {
   try {
     const { rows } = await pool.query<{
       id: number;
@@ -170,9 +187,10 @@ export async function listarReportes(filtro: FiltroDeReportes, sinContraCuenta: 
        LEFT JOIN sanciones s ON s.id = r.sancion_id
        WHERE ${filtro === "pendientes" ? "r.estado = 'pendiente'" : "r.estado <> 'pendiente'"}
          AND ($1::int IS NULL OR r.reportado_id IS DISTINCT FROM $1)
+         AND ($2::int IS NULL OR r.tipo = 'campana' OR c.supervisor_id = $2)
        ORDER BY ${filtro === "pendientes" ? "r.created_at" : "r.resuelto_en"} DESC, r.id DESC
        ${filtro === "resueltos" ? "LIMIT 300" : ""}`,
-      [sinContraCuenta],
+      [sinContraCuenta, supervisorId],
     );
 
     const grupos = new Map<string, GrupoDeReportes>();
@@ -212,15 +230,20 @@ export async function listarReportes(filtro: FiltroDeReportes, sinContraCuenta: 
   }
 }
 
-/** Cuántos reportes y casos (campañas o aportes) esperan decisión (bandeja y "Modo supervisor" del panel). Sin los
- * reportes contra `sinContraCuenta` (el supervisor que modera). */
-export async function contarReportesPendientes(sinContraCuenta: number | null = null): Promise<{ reportes: number; casos: number }> {
+/** Cuántos reportes visibles y casos esperan decisión. `supervisorId` aplica el mismo alcance de listarReportes. */
+export async function contarReportesPendientes(
+  sinContraCuenta: number | null = null,
+  supervisorId: number | null = null,
+): Promise<{ reportes: number; casos: number }> {
   try {
     const { rows } = await pool.query<{ reportes: number; casos: number }>(
       `SELECT COUNT(*)::int AS reportes,
-              COUNT(DISTINCT CASE WHEN tipo = 'campana' THEN 'c' || campana_id ELSE 'a' || COALESCE(aporte_id, -id) END)::int AS casos
-       FROM reportes WHERE estado = 'pendiente' AND ($1::int IS NULL OR reportado_id IS DISTINCT FROM $1)`,
-      [sinContraCuenta],
+              COUNT(DISTINCT CASE WHEN r.tipo = 'campana' THEN 'c' || r.campana_id ELSE 'a' || COALESCE(r.aporte_id, -r.id) END)::int AS casos
+       FROM reportes r JOIN campanas c ON c.id = r.campana_id
+       WHERE r.estado = 'pendiente'
+         AND ($1::int IS NULL OR r.reportado_id IS DISTINCT FROM $1)
+         AND ($2::int IS NULL OR r.tipo = 'campana' OR c.supervisor_id = $2)`,
+      [sinContraCuenta, supervisorId],
     );
     return rows[0] ?? { reportes: 0, casos: 0 };
   } catch {

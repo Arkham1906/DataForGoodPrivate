@@ -18,6 +18,10 @@ export const ESTADOS_CON_EDICION_COMPLETA = new Set(["borrador", "en_revision", 
 /** Activa y aceptada: solo meta y fecha/hora de fin. */
 // El límite por tipo de dato (2026-10-28) también: si un tipo se llena, el creador puede subirlo sin pausar.
 export const CAMPOS_DE_EDICION_LIMITADA = new Set([
+  "banner",
+  "bannerScale",
+  "bannerPositionX",
+  "bannerPositionY",
   "goalContributions",
   "goal_contributions",
   "limitePorTipo",

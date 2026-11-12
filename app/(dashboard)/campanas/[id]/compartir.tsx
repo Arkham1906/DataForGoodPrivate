@@ -10,7 +10,8 @@
 // permitir-anonimos.tsx (PATCH /api/campanas/[id]/enlace), solo el creador.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Button, { buttonClasses } from "@/components/ui/Button";
+import { buttonClasses } from "@/components/ui/Button";
+import BotonDeIcono, { IconoCompartir } from "@/components/ui/BotonDeIcono";
 import Tag from "@/components/ui/Tag";
 import { BASE_PATH } from "@/lib/base-path";
 import EnlacePublico from "./enlace-publico";
@@ -114,10 +115,11 @@ export default function CompartirCampana({
 
   return (
     <>
+      {/* Ícono desde el 2026-11-10 (a pedido del usuario; antes, botón "Compartir" con texto). */}
       {!controlado && (
-        <Button variant="secondary" size="sm" onClick={abrir}>
-          Compartir
-        </Button>
+        <BotonDeIcono etiqueta="Compartir campaña" onClick={abrir} aria-haspopup="dialog">
+          <IconoCompartir />
+        </BotonDeIcono>
       )}
 
       <dialog

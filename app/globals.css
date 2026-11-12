@@ -514,3 +514,35 @@ input::-ms-clear {
     scale: 0.96;
   }
 }
+
+/* Pantallas donde el creador y el revisor ven los aportes (2026-11-12, a pedido del usuario;
+   components/aportes/ProteccionDeAportes.tsx): sin seleccionar texto (salvo donde se escribe), sin arrastrar
+   imágenes, oculto al salir de la ventana (también las ventanas <dialog> de dentro) y nada al imprimir. */
+.zona-de-aportes-protegida {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.zona-de-aportes-protegida :is(input, textarea, [contenteditable="true"]) {
+  -webkit-user-select: text;
+  user-select: text;
+}
+.zona-de-aportes-protegida :is(img, video) {
+  -webkit-user-drag: none;
+}
+.zona-de-aportes-protegida[data-oculto],
+.zona-de-aportes-protegida[data-oculto] dialog {
+  /* El navegador da visibility: visible a un <dialog> abierto (:modal); por eso va explícito. */
+  visibility: hidden !important;
+}
+@media print {
+  .zona-de-aportes-protegida {
+    display: none !important;
+  }
+  body:has(.zona-de-aportes-protegida)::after {
+    content: "Por protección de los aportes, esta pantalla no se puede imprimir.";
+    display: block;
+    padding: 2rem;
+    font: 16px/1.5 sans-serif;
+  }
+}

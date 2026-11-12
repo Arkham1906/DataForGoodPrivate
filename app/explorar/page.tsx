@@ -1,4 +1,5 @@
 // Pantalla /explorar (pública): vitrina de campañas activas (sin las pausadas desde el 2026-11-03), con filtros en searchParams (?q, ?tematica, ?etiqueta, ?estado, ?tipo desde el 2026-10-28, ?orden).
+// Desde el 2026-11-11, arriba de la lista, "Explora por temática" en mosaicos (landing/TematicasEnMosaico).
 // Datos: lib/campanas/publicas.ts. Al abrir una campaña va a /campanas/[id], que sí pide sesión.
 // Diseño del 2026-11-06: el de la landing (encabezado centrado, buscador sobre la franja, tarjetas con pie).
 
@@ -12,6 +13,7 @@ import PublicHeader from "@/components/layout/PublicHeader";
 import PublicFooter from "@/components/layout/PublicFooter";
 import EncabezadoPublico from "@/components/layout/EncabezadoPublico";
 import FranjaDeCampo from "@/components/landing/FranjaDeCampo";
+import TematicasEnMosaico from "@/components/landing/TematicasEnMosaico";
 import { ETIQUETA_DE_FILTRO, FILA_DE_FILTROS, claseDeContador, claseDeFiltro, claseDeOrden } from "@/components/landing/estilos";
 import ActualizacionEnVivo from "@/components/layout/ActualizacionEnVivo";
 import ButtonLink from "@/components/ui/ButtonLink";
@@ -140,6 +142,17 @@ export default async function ExplorarCampanasPage({
           </div>
         </FranjaDeCampo>
 
+        {/* Mosaicos por temática (2026-11-11, a pedido del usuario, como la página de categorías de
+            GoFundMe): es el único filtro de temática (el de la barra lateral se quitó) y conserva los demás. */}
+        <div style={retraso(280)} className="landing-entrada mx-auto mt-10 max-w-[1180px] px-6">
+          <TematicasEnMosaico
+            tematicas={tematicas}
+            activa={tematica}
+            hrefDe={(valor) => enlaceCon({ tematica: tematica === valor ? undefined : valor, etiqueta: undefined })}
+            todas={{ href: enlaceCon({ tematica: undefined, etiqueta: undefined }), texto: "Todas" }}
+          />
+        </div>
+
         <div className="mx-auto mt-10 grid max-w-[1180px] grid-cols-1 gap-8 px-6 pb-24 md:grid-cols-[220px_1fr]">
           <aside style={retraso(320)} className="landing-entrada flex flex-col gap-6">
             <div className="flex items-baseline justify-between gap-2">
@@ -154,26 +167,8 @@ export default async function ExplorarCampanasPage({
               )}
             </div>
 
-            {tematicas.length > 0 && (
-              <div>
-                <p className={ETIQUETA_DE_FILTRO}>
-                  Temática
-                </p>
-                <div className={FILA_DE_FILTROS}>
-                  {tematicas.map((t) => (
-                    <Link
-                      key={t.valor}
-                      href={enlaceCon({ tematica: tematica === t.valor ? undefined : t.valor, etiqueta: undefined })}
-                      className={claseDeFiltro(tematica === t.valor)}
-                    >
-                      <span>{t.valor}</span>
-                      <span className={claseDeContador(tematica === t.valor)}>{t.total}</span>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-
+            {/* La temática se elige con los mosaicos de arriba (2026-11-11, a pedido del usuario: se
+                quitó el filtro "Temática" de esta barra). Sus etiquetas siguen aquí. */}
             {tematica && etiquetas.length > 0 && (
               <div>
                 <p className={ETIQUETA_DE_FILTRO}>
@@ -290,6 +285,21 @@ export default async function ExplorarCampanasPage({
                               <Tag tone={ETIQUETA_DE_CAMPANA[c.status].tono}>{ETIQUETA_DE_CAMPANA[c.status].texto}</Tag>
                             </span>
                           </div>
+                          {c.tematica && (
+                            <div className="mt-2">
+                              <Tag tone="ok">{c.tematica}</Tag>
+                            </div>
+                          )}
+                          {c.hasBanner && (
+                            <div data-campana-banner className="mt-3 aspect-[4/3] overflow-hidden rounded-lg bg-system-100">
+                              <img
+                                src={`${BASE_PATH}/api/campanas/${c.id}/banner?v=${encodeURIComponent(c.bannerVersion ?? "")}`}
+                                alt=""
+                                className="h-full w-full object-contain"
+                                style={{ objectPosition: `${c.bannerPositionX ?? 50}% ${c.bannerPositionY ?? 50}%`, transform: `scale(${c.bannerScale ?? 1})` }}
+                              />
+                            </div>
+                          )}
                           <p className="mt-2 line-clamp-2 break-words text-[13px] leading-relaxed text-system-600">
                             {c.description.length > 140 ? `${c.description.slice(0, 140)}…` : c.description}
                           </p>
@@ -306,7 +316,6 @@ export default async function ExplorarCampanasPage({
                         <div className="border-t border-system-200 p-4">
                           <ProgressBar pct={pct} tone="ok" conPorcentaje />
                           <div className="mt-3 flex flex-wrap gap-1.5">
-                            {c.tematica && <Tag tone="ok">{c.tematica}</Tag>}
                             {c.dataTypes.map((dt) => (
                               <Tag key={dt}>{DATA_TYPE_LABELS[dt as DataType] ?? dt}</Tag>
                             ))}

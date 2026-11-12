@@ -347,28 +347,41 @@ export default function MisCampanasPage() {
   }
 
   const botonCambiarVista = (className: string) => (
-    <Button
-      type="button"
-      size="sm"
-      className={`!size-[42px] !shrink-0 !rounded-lg !p-0 ${className}`}
-      onClick={() => guardarVistaDeMisCampanas(!vistaCuadricula)}
-      aria-label={vistaCuadricula ? "Cambiar a vista de lista" : "Cambiar a vista cuadriculada"}
-      aria-pressed={vistaCuadricula}
-      title={vistaCuadricula ? "Vista de lista" : "Vista cuadriculada"}
-    >
-      {vistaCuadricula ? (
-        <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 max-md:h-3.5 max-md:w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
+    <div role="group" aria-label="Cambiar vista de campañas" className="relative flex shrink-0 gap-0 overflow-hidden rounded-lg border border-system-300 bg-system-100 p-1">
+      <span
+        aria-hidden="true"
+        className={`pointer-events-none absolute left-[3px] top-[3px] z-0 h-8 w-8 rounded-md bg-brand-600 shadow-inner transition-transform duration-200 ease-out motion-reduce:transition-none ${vistaCuadricula ? "translate-x-full" : "translate-x-0"}`}
+      />
+      <Button
+        type="button"
+        size="sm"
+        className={`!relative !z-10 !size-8 !rounded-md !border-transparent !bg-transparent !p-0 ${className} ${!vistaCuadricula ? "!text-white" : "!text-system-600 hover:!bg-white"}`}
+        onClick={() => guardarVistaDeMisCampanas(false)}
+        aria-label="Vista de lista"
+        aria-pressed={!vistaCuadricula}
+        title="Vista de lista"
+      >
+        <svg aria-hidden="true" viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" />
         </svg>
-      ) : (
-        <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 max-md:h-3.5 max-md:w-3.5" fill="currentColor">
+      </Button>
+      <Button
+        type="button"
+        size="sm"
+        className={`!relative !z-10 !size-8 !rounded-md !border-transparent !bg-transparent !p-0 ${className} ${vistaCuadricula ? "!text-white" : "!text-system-600 hover:!bg-white"}`}
+        onClick={() => guardarVistaDeMisCampanas(true)}
+        aria-label="Vista cuadriculada"
+        aria-pressed={vistaCuadricula}
+        title="Vista cuadriculada"
+      >
+        <svg aria-hidden="true" viewBox="0 0 24 24" className="h-3 w-3" fill="currentColor">
           <rect x="4" y="4" width="6" height="6" rx="1" />
           <rect x="14" y="4" width="6" height="6" rx="1" />
           <rect x="4" y="14" width="6" height="6" rx="1" />
           <rect x="14" y="14" width="6" height="6" rx="1" />
         </svg>
-      )}
-    </Button>
+      </Button>
+    </div>
   );
 
   return (
@@ -389,15 +402,9 @@ export default function MisCampanasPage() {
         </div>
       </div>
 
-      <div className="relative mb-1 h-0 md:hidden">
-        <div className="absolute -top-10 right-0">
-          {botonCambiarVista("max-md:!size-9")}
-        </div>
-      </div>
-
-      <div className="mb-5 mt-4 flex min-w-0 items-center gap-3">
+      <div className="mb-5 mt-4 flex min-w-0 flex-col gap-2 md:flex-row md:items-start md:gap-3">
         <div
-          className="dashboard-nav flex w-full min-w-0 flex-nowrap gap-2 overflow-x-auto overscroll-x-contain pb-2 [-webkit-overflow-scrolling:touch] max-md:gap-1.5 md:flex-wrap md:overflow-visible md:pb-0"
+          className="dashboard-nav flex w-full min-w-0 flex-1 flex-nowrap gap-2 overflow-x-auto overscroll-x-contain pb-2 [-webkit-overflow-scrolling:touch] max-md:gap-1.5 md:flex-wrap md:overflow-visible md:pb-0"
           role="group"
           aria-label="Filtrar por estado"
         >
@@ -419,28 +426,28 @@ export default function MisCampanasPage() {
             );
           })}
         </div>
-        <div className="max-md:hidden">
-          {botonCambiarVista("")}
-        </div>
+        {campaigns.length > 0 && (
+          <div className="w-full shrink-0 sm:w-[220px] md:w-[220px]">
+            <label className="sr-only" htmlFor="orden-de-avance">
+              Ordenar campañas
+            </label>
+            <select
+              id="orden-de-avance"
+              value={ordenDeAvance}
+              onChange={(e) => setOrdenDeAvance(e.target.value as "" | "mayor" | "menor")}
+              className="min-h-[38px] w-full rounded border border-system-300 bg-white px-3 text-sm text-system-900 outline-none transition-colors focus:border-brand-600"
+            >
+              <option value="">Más recientes</option>
+              <option value="mayor">Mayor avance</option>
+              <option value="menor">Menor avance</option>
+            </select>
+          </div>
+        )}
       </div>
 
-      {campaigns.length > 0 && (
-        <div className="-mt-2 mb-5 sm:max-w-[220px]">
-          <label className="sr-only" htmlFor="orden-de-avance">
-            Ordenar campañas
-          </label>
-          <select
-            id="orden-de-avance"
-            value={ordenDeAvance}
-            onChange={(e) => setOrdenDeAvance(e.target.value as "" | "mayor" | "menor")}
-            className="min-h-[38px] w-full rounded border border-system-300 bg-white px-3 text-sm text-system-900 outline-none transition-colors focus:border-brand-600"
-          >
-            <option value="">Más recientes</option>
-            <option value="mayor">Mayor avance</option>
-            <option value="menor">Menor avance</option>
-          </select>
-        </div>
-      )}
+      <div className="mb-3 flex justify-end">
+        {botonCambiarVista("")}
+      </div>
 
       {error ? (
         <p className="rounded-lg bg-error-50 p-4 text-sm text-error-700">{error}</p>
@@ -464,8 +471,8 @@ export default function MisCampanasPage() {
             const cambiando = cambiandoId === campaign.id;
 
             return (
-              // La lista compacta su altura al contenido en escritorio amplio; en tamaños menores
-              // conserva la distribución anterior y la cuadrícula mantiene tarjetas en columna.
+              // La lista compacta su altura al contenido en escritorio amplio; en móvil las
+              // acciones se apilan para conservar el ancho y la cuadrícula mantiene su distribución.
               // Toda la tarjeta abre el detalle y las acciones quedan encima del enlace.
               <div
                 key={campaign.id}
@@ -480,9 +487,9 @@ export default function MisCampanasPage() {
                   aria-label={`Ver la información de ${campaign.name}`}
                   className="absolute inset-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
                 />
-                <div className={vistaCuadricula ? "mb-1 flex items-start justify-between gap-2 max-md:h-12 max-md:shrink-0 max-md:overflow-hidden" : "relative mb-1 flex flex-wrap items-center justify-start gap-2 max-md:h-8 max-md:shrink-0 max-md:overflow-hidden md:col-start-1 md:row-start-1 md:mb-0 md:h-[56px] md:min-w-0 md:content-center md:overflow-hidden xl:grid xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center xl:gap-x-3"}>
-                  <div className={vistaCuadricula ? "contents" : "flex min-w-0 flex-wrap items-center gap-2"}>
-                    <p className={`line-clamp-2 min-w-0 break-words font-medium leading-4 text-system-900 ${vistaCuadricula ? "text-[12px] max-md:text-[11.5px]" : "text-[13.5px] max-md:text-[13px] md:w-auto md:shrink xl:w-[140px] xl:shrink-0"}`} title={campaign.name}>
+                <div className={vistaCuadricula ? "mb-1 flex items-start justify-between gap-2 max-md:h-12 max-md:shrink-0 max-md:overflow-hidden" : "relative mb-1 flex min-w-0 items-center justify-between gap-2 max-md:min-h-8 max-md:shrink-0 md:col-start-1 md:row-start-1 md:mb-0 md:h-[56px] md:min-w-0 md:content-center md:overflow-hidden xl:grid xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center xl:gap-x-3"}>
+                  <div className={vistaCuadricula ? "contents" : "flex min-w-0 flex-1 items-center gap-2"}>
+                    <p className={`line-clamp-2 min-w-0 break-words font-medium leading-4 text-system-900 ${vistaCuadricula ? "text-[12px] max-md:text-[11.5px]" : "text-[13.5px] max-md:flex-1 max-md:truncate max-md:whitespace-nowrap max-md:text-[13px] md:w-auto md:shrink xl:w-[140px] xl:shrink-0"}`} title={campaign.name}>
                       {campaign.name}
                     </p>
                     {campaign.especial && campaign.especial.etapa !== "terminada" && <Tag tone="warn">Especial ×{campaign.especial.multiplicador}</Tag>}
@@ -558,24 +565,24 @@ export default function MisCampanasPage() {
                 {/* Las campañas activas, pausadas y finalizadas conservan acceso
                     a sus aportes y panel para consultar la información recopilada. */}
                 </div>
-                <div className={vistaCuadricula ? "relative z-10 mt-auto flex flex-nowrap items-center justify-between gap-1 border-t border-system-100 pt-2.5 max-lg:mt-auto max-lg:flex-col max-lg:items-stretch max-lg:gap-2 max-lg:pt-2 lg:flex-row lg:items-center lg:gap-1" : "relative z-10 mt-4 flex flex-nowrap items-center gap-1.5 border-t border-system-100 pt-3 max-md:mt-2 max-md:shrink-0 max-md:gap-1 max-md:pt-1 md:col-start-3 md:row-span-2 md:row-start-1 md:my-0 md:flex-col md:items-end md:gap-2 md:self-center md:border-l md:border-t-0 md:pl-5"}>
-                  <div className={vistaCuadricula ? "flex min-w-0 flex-nowrap items-center gap-0.5 overflow-visible max-lg:w-full max-lg:flex-col max-lg:items-stretch max-lg:gap-1 lg:w-auto lg:flex-row lg:items-center lg:gap-0.5" : "flex items-center gap-1.5 md:order-2"}>
+                <div className={vistaCuadricula ? "relative z-10 mt-auto flex flex-nowrap items-center justify-between gap-1 border-t border-system-100 pt-2.5 max-lg:mt-auto max-lg:flex-col max-lg:items-stretch max-lg:gap-2 max-lg:pt-2 lg:flex-row lg:items-center lg:gap-1" : "relative z-10 mt-4 flex flex-nowrap items-center gap-1.5 border-t border-system-100 pt-3 max-md:mt-2 max-md:shrink-0 max-md:flex-col max-md:items-stretch max-md:gap-2 max-md:pt-2 md:col-start-3 md:row-span-2 md:row-start-1 md:my-0 md:flex-col md:items-end md:gap-2 md:self-center md:border-l md:border-t-0 md:pl-5"}>
+                  <div className={vistaCuadricula ? "flex min-w-0 flex-nowrap items-center gap-0.5 overflow-visible max-lg:w-full max-lg:flex-col max-lg:items-stretch max-lg:gap-1 lg:w-auto lg:flex-row lg:items-center lg:gap-0.5" : "flex items-center gap-1.5 md:order-2 max-md:w-full max-md:flex-col max-md:items-stretch max-md:gap-2"}>
                   {campaign.status === "rechazada" ? (
-                    <ButtonLink href={`/mis-campanas/nueva?edit=${campaign.id}`} variant="primary" size="sm" className={vistaCuadricula ? "whitespace-nowrap max-md:px-1 max-md:py-1 max-md:text-[10px] max-lg:w-full lg:w-auto" : "max-md:px-2 max-md:py-1.5 max-md:text-[11px]"}>
+                    <ButtonLink href={`/mis-campanas/nueva?edit=${campaign.id}`} variant="primary" size="sm" className={vistaCuadricula ? "whitespace-nowrap max-md:px-1 max-md:py-1 max-md:text-[10px] max-lg:w-full lg:w-auto" : "max-md:w-full max-md:justify-center"}>
                       Corregir y reenviar
                     </ButtonLink>
                   ) : campaign.status === "aceptada" ? (
-                    <Button variant="primary" size="sm" className={vistaCuadricula ? "min-w-0 whitespace-nowrap max-md:px-0.5 max-md:py-1 max-md:text-[8px] max-lg:w-full lg:w-auto" : "max-md:px-2 max-md:py-1.5 max-md:text-[11px]"} onClick={() => setPorActivar(campaign)} disabled={cambiando}>
+                    <Button variant="primary" size="sm" className={vistaCuadricula ? "min-w-0 whitespace-nowrap max-md:px-0.5 max-md:py-1 max-md:text-[8px] max-lg:w-full lg:w-auto" : "max-md:w-full max-md:justify-center"} onClick={() => setPorActivar(campaign)} disabled={cambiando}>
                       Activar campaña
                     </Button>
                   ) : puedeVerAportesYPanel ? (
-                    <ButtonLink href={`/mis-campanas/${campaign.id}/aportes`} variant="primary" size="sm" aria-label={`Revisar aportes de ${campaign.name}`} className={vistaCuadricula ? "min-w-0 whitespace-nowrap max-md:px-0.5 max-md:py-1 max-md:text-[8px] max-lg:w-full lg:w-auto" : "md:w-[190px] md:whitespace-nowrap md:justify-center max-md:px-2 max-md:py-1.5 max-md:text-[11px]"}>
+                    <ButtonLink href={`/mis-campanas/${campaign.id}/aportes`} variant="primary" size="sm" aria-label={`Revisar aportes de ${campaign.name}`} className={vistaCuadricula ? "min-w-0 whitespace-nowrap max-md:px-0.5 max-md:py-1 max-md:text-[8px] max-lg:w-full lg:w-auto" : "md:w-[190px] md:whitespace-nowrap md:justify-center max-md:w-full max-md:justify-center"}>
                       {vistaCuadricula ? <><span className="max-md:hidden">Revisar aportes</span><span className="md:hidden">Aportes</span></> : "Revisar aportes"}
                       {campaign.pendingContributions > 0 && <span className="font-mono">({campaign.pendingContributions})</span>}
                     </ButtonLink>
                   ) : null}
                   {puedeVerAportesYPanel && (
-                    <ButtonLink href={`/mis-campanas/${campaign.id}/panel`} size="sm" className={vistaCuadricula ? "min-w-0 whitespace-nowrap max-md:px-0.5 max-md:py-1 max-md:text-[8px] max-lg:w-full lg:w-auto" : "max-md:px-2 max-md:py-1.5 max-md:text-[11px]"}>Panel</ButtonLink>
+                    <ButtonLink href={`/mis-campanas/${campaign.id}/panel`} size="sm" className={vistaCuadricula ? "min-w-0 whitespace-nowrap max-md:px-0.5 max-md:py-1 max-md:text-[8px] max-lg:w-full lg:w-auto" : "max-md:w-full max-md:justify-center"}>Panel</ButtonLink>
                   )}
                   </div>
                   <div className={`hidden w-fit items-center gap-1 rounded-lg border border-system-200 bg-system-50 p-1 md:flex ${vistaCuadricula ? "ml-auto md:w-full md:justify-end lg:w-fit lg:justify-start md:order-2" : "md:order-1"}`}>
@@ -638,7 +645,7 @@ export default function MisCampanasPage() {
                   </div>
                   <div className="flex w-full shrink-0 justify-start md:hidden">
                     <MenuDeAcciones
-                      className="w-full [&>button]:w-full"
+                      className={`w-full [&>button]:w-full ${vistaCuadricula ? "" : "[&>button]:!px-3.5 [&>button]:!py-2 [&>button]:!text-[12.5px] [&>button]:!justify-center"}`}
                       compacto={vistaCuadricula}
                       texto="Más"
                       etiqueta={`Más acciones de ${campaign.name}`}

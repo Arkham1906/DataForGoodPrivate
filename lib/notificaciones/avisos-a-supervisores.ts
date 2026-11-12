@@ -1,18 +1,17 @@
 // Avisos a los supervisores en la campana de notificaciones (2026-10-15, a pedido del usuario). Antes un
 // reporte solo subía un contador junto a "Supervisión" en el menú (ya quitado), sin decir de qué se trataba,
 // y una campaña por revisar no avisaba de ninguna forma.
-//   - reporte_nuevo: un reporte de campaña (reportarCampana de lib/reportes/reportes.ts) o "Reportar
-//     aporte" del revisor o el creador (reportarASupervision de lib/aportes/reporte.ts).
-//     Lleva a /supervision/reportes.
+//   - reporte_nuevo: los reportes de campañas se envían a todos los supervisores; los de aportes,
+//     solo al supervisor asignado a la campaña. Llevan a /supervision/reportes.
 //   - campana_por_revisar: una campaña entra a revisión (el creador la envía desde POST, PUT o PATCH de
 //     /api/campanas, o el SuperUsuario revierte una decisión y la regresa a la fila con revertirAccion).
 //     Lleva a /supervision/[id], donde se toma.
 //   - campana_editada: el creador guardó ajustes en la campaña que pausó la supervisión. Solo a quien la
 //     supervisa (si la supervisa el SuperUsuario, queda en la bitácora). Lleva a /supervision/[id].
 //     La que pausó el creador vuelve a revisión al editarla y se notifica como campana_por_revisar.
-// A cada usuario con rol de supervisor, verificado, sin bloqueo ni baja pedida, menos las cuentas de
-// `excluir` (quien reportó y la persona reportada; el creador de la campaña). El SuperUsuario no tiene
-// cuenta de usuario: ve todo en /supervisar. Se envían en segundo plano, de 10 en 10.
+// A cada supervisor elegible según el tipo de aviso, menos las cuentas de `excluir` (quien reportó y la
+// persona reportada; el creador de la campaña). Los reportes de aportes se limitan al supervisor asignado.
+// El SuperUsuario no tiene cuenta de usuario: ve todo en /supervisar. Se envían en segundo plano, de 10 en 10.
 
 import { pool } from "@/lib/db";
 import { condicionDeRol } from "@/lib/usuarios/tabla-roles";
@@ -24,19 +23,33 @@ const TAMANO_DE_TANDA = 10;
 type Aviso = Omit<NuevaNotificacion, "usuarioId">;
 
 /** Manda `aviso` a los supervisores sin hacer esperar a quien originó el evento. */
-function avisarASupervisores(excluir: number[], crearAviso: () => Promise<Aviso | null>): void {
-  void enviar(excluir, crearAviso).catch((error) => console.error("Error avisando a los supervisores", error));
+function avisarASupervisores(
+  excluir: number[],
+  crearAviso: () => Promise<Aviso | null>,
+  destinatarioId?: number | null,
+): void {
+  void enviar(excluir, crearAviso, destinatarioId).catch((error) => console.error("Error avisando a los supervisores", error));
 }
 
-async function enviar(excluir: number[], crearAviso: () => Promise<Aviso | null>): Promise<void> {
+async function enviar(
+  excluir: number[],
+  crearAviso: () => Promise<Aviso | null>,
+  destinatarioId?: number | null,
+): Promise<void> {
+  if (destinatarioId === null) return;
+  const filtroDeDestinatario = destinatarioId === undefined ? "" : "AND u.id = $2";
+  const parametros = destinatarioId === undefined
+    ? [excluir.filter((id) => Number.isFinite(id))]
+    : [excluir.filter((id) => Number.isFinite(id)), destinatarioId];
   const supervisores = await pool.query<{ id: number }>(
     `SELECT u.id FROM usuarios u
       WHERE ${condicionDeRol("u", "'supervisor'")}
         AND u.id <> ALL($1::int[])
         AND u.email_verificado
         AND u.eliminada_en IS NULL AND u.baja_solicitada_en IS NULL
-        AND NOT ${SQL_SANCION_BLOQUEANTE}`,
-    [excluir.filter((id) => Number.isFinite(id))],
+        AND NOT ${SQL_SANCION_BLOQUEANTE}
+        ${filtroDeDestinatario}`,
+    parametros,
   );
   const ids = supervisores.rows.map((f) => Number(f.id));
   if (ids.length === 0) return;
@@ -53,17 +66,21 @@ async function nombreDeCampana(campanaId: number): Promise<string | null> {
   return rows[0]?.name ?? null;
 }
 
-/** Un reporte nuevo de campaña o de aporte. */
-export function avisarReporteASupervisores(reporte: {
-  tipo: "campana" | "aporte";
+/** Un reporte nuevo: el de aporte se limita al supervisor que lleva su campaña. */
+type ReporteAvisado = {
   campanaId: number;
-  aporteId?: number;
   reportadoId: number;
   reportadoPor: number;
   motivo: string | null;
   /** Otras cuentas que no deben recibirlo (p. ej. el creador de la campaña, si reporta un revisor). */
   excluir?: number[];
-}): void {
+} & (
+  | { tipo: "campana"; aporteId?: never; supervisorId?: never }
+  | { tipo: "aporte"; aporteId: number; supervisorId: number | null }
+);
+
+export function avisarReporteASupervisores(reporte: ReporteAvisado): void {
+  const destinatarioId = reporte.tipo === "aporte" ? reporte.supervisorId : undefined;
   avisarASupervisores([reporte.reportadoId, reporte.reportadoPor, ...(reporte.excluir ?? [])], async () => {
     const nombre = (await nombreDeCampana(reporte.campanaId)) ?? "una campaña";
     const motivo = reporte.motivo && reporte.motivo.length > 120 ? `${reporte.motivo.slice(0, 117)}…` : reporte.motivo;
@@ -79,7 +96,7 @@ export function avisarReporteASupervisores(reporte: {
       enlace: "/supervision/reportes",
       metadata: { reporte: reporte.tipo, ...(reporte.aporteId ? { aporteId: reporte.aporteId } : {}) },
     };
-  });
+  }, destinatarioId);
 }
 
 /**

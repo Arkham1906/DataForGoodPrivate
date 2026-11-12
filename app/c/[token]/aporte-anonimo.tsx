@@ -1,6 +1,7 @@
 "use client";
 
-// Formulario de /c/[token] para aportar SIN cuenta. Envía a POST /api/c/[token]/aportes,
+// Formulario para aportar SIN cuenta, de /c/[token] y /participa/[id] (../ficha-publica.tsx). Envía a
+// urlDeEnvio (POST /api/c/[token]/aportes o, desde la ficha, POST /api/campanas/[id]/aporte-sin-cuenta),
 // que valida el enlace, la cuota por dispositivo, el tope por IP y la espera entre aportes.
 // Sin cuenta se envía UN aporte por campaña desde cada dispositivo (2026-11-09, a pedido del usuario):
 // al enviarlo, el formulario se cambia por la invitación a crear una cuenta o iniciar sesión para
@@ -14,15 +15,15 @@ import ButtonLink from "@/components/ui/ButtonLink";
 import Card from "@/components/ui/Card";
 import IndicadorDeCarga from "@/components/ui/IndicadorDeCarga";
 import { CasillasDeAcuerdos, SIN_ACUERDOS, acuerdosCompletos, agregarAcuerdos } from "@/components/ui/AcuerdosDeAporte";
-import { Field, Textarea } from "@/components/ui/Input";
 import SelectorDeArchivo from "@/components/ui/SelectorDeArchivo";
-import { LARGO_MAXIMO_DESCRIPCION, archivoEsOpcional, type FormatoDeDocumento, type TipoDeArchivo } from "@/lib/aportes/archivo";
+import CamposDelAporte, { camposDelAporteCompletos } from "@/components/aportes/CamposDelAporte";
+import { archivoEsOpcional, type FormatoDeDocumento, type TipoDeArchivo } from "@/lib/aportes/archivo";
 import { BASE_PATH } from "@/lib/base-path";
 import { respuestasValidas, seccionesParaElAporte, type SeccionDeChecklist } from "@/lib/campanas/checklist";
 import ChecklistsDelAporte from "@/components/aportes/ChecklistsDelAporte";
 
 export default function AporteAnonimo({
-  token,
+  urlDeEnvio,
   secciones,
   tipos,
   formatosDeDocumento = [],
@@ -32,7 +33,8 @@ export default function AporteAnonimo({
   entrar,
   registro,
 }: {
-  token: string;
+  /** A dónde se envía, sin BASE_PATH (2026-11-11). */
+  urlDeEnvio: string;
   secciones: SeccionDeChecklist[];
   /** Tipos de archivo que acepta la campaña; con "texto", el archivo es opcional. */
   tipos: TipoDeArchivo[];
@@ -53,6 +55,7 @@ export default function AporteAnonimo({
   const [archivo, setArchivo] = useState<File | null>(null);
   const [errorArchivo, setErrorArchivo] = useState<string | null>(null);
   const [descripcion, setDescripcion] = useState("");
+  const [texto, setTexto] = useState("");
   const [marcadas, setMarcadas] = useState<string[]>([]);
   const [acuerdos, setAcuerdos] = useState(SIN_ACUERDOS);
   const [enviando, setEnviando] = useState(false);
@@ -71,6 +74,8 @@ export default function AporteAnonimo({
 
   // Solo los checklists del tipo de lo que se manda (2026-10-28).
   const { visibles, faltaArchivo } = seccionesParaElAporte(secciones, tipos, archivo);
+  // Sin archivo en una campaña que acepta texto: título + texto en vez de descripción (2026-11-11).
+  const soloTexto = !archivo && archivoEsOpcional(tipos);
 
   function alternar(valor: string) {
     setMarcadas((actual) => (actual.includes(valor) ? actual.filter((v) => v !== valor) : [...actual, valor]));
@@ -84,11 +89,13 @@ export default function AporteAnonimo({
     try {
       const datos = new FormData();
       if (archivo) datos.set("file", archivo);
+      // Solo texto (2026-11-11): description es el título y el texto va aparte; el servidor lo guarda como .txt.
+      else if (soloTexto) datos.set("texto", texto);
       datos.set("description", descripcion);
       // Solo lo marcado en los checklists que se ven (cambiar de archivo puede esconder alguno).
       respuestasValidas(marcadas, visibles).forEach((valor) => datos.append("caracteristicas", valor));
       agregarAcuerdos(datos, acuerdos);
-      const response = await fetch(`${BASE_PATH}/api/c/${encodeURIComponent(token)}/aportes`, { method: "POST", body: datos });
+      const response = await fetch(`${BASE_PATH}${urlDeEnvio}`, { method: "POST", body: datos });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
         // La espera no es un error: el botón muestra la cuenta regresiva.
@@ -108,6 +115,7 @@ export default function AporteAnonimo({
       setEnviado(true);
       setArchivo(null);
       setDescripcion("");
+      setTexto("");
       setMarcadas([]);
       setVuelta((v) => v + 1);
     } catch (cause) {
@@ -145,8 +153,7 @@ export default function AporteAnonimo({
 
   const puedeEnviar =
     (Boolean(archivo) || archivoEsOpcional(tipos)) &&
-    descripcion.trim().length > 0 &&
-    descripcion.length <= LARGO_MAXIMO_DESCRIPCION &&
+    camposDelAporteCompletos(soloTexto, descripcion, texto) &&
     acuerdosCompletos(acuerdos) &&
     !enviando &&
     espera === 0;
@@ -174,19 +181,14 @@ export default function AporteAnonimo({
             }}
           />
 
-          <Field label="Descripción" required>
-            <Textarea
-              rows={4}
-              value={descripcion}
-              onChange={(e) => setDescripcion(e.target.value)}
-              placeholder="Describe lo que aportas"
-              maxLength={LARGO_MAXIMO_DESCRIPCION}
-              required
-            />
-          </Field>
-          <p className="mb-4 text-right font-mono text-[11px] text-system-500">
-            {descripcion.length} / {LARGO_MAXIMO_DESCRIPCION}
-          </p>
+          <CamposDelAporte
+            soloTexto={soloTexto}
+            descripcion={descripcion}
+            onDescripcion={setDescripcion}
+            texto={texto}
+            onTexto={setTexto}
+            placeholderDescripcion="Describe lo que aportas"
+          />
 
           <ChecklistsDelAporte visibles={visibles} faltaArchivo={faltaArchivo} marcadas={marcadas} onAlternar={alternar} />
 

@@ -51,6 +51,11 @@ export interface Campaign {
   creatorName: string;
   name: string;
   description: string;
+  hasBanner?: boolean;
+  bannerVersion?: string;
+  bannerScale?: number;
+  bannerPositionX?: number;
+  bannerPositionY?: number;
   tag: string;
   tematica?: string;
   /** Subtemáticas de su temática (2026-10-27), hasta 5. Las pendientes solo le llegan al creador y a la supervisión. */
