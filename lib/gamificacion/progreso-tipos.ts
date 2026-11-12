@@ -37,6 +37,7 @@ export type MisionDeHoy = {
   recompensaEntregada: boolean;
   /** «15 EXP»; null sin recompensa. */
   recompensa: string | null;
+  clave: string;
 };
 
 export type ResumenDeMisiones = {

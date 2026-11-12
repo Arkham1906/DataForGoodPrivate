@@ -268,6 +268,7 @@ export type MisionVigente = {
   objetivo: number;
   completada: boolean;
   recompensa: string | null;
+  clave: string;
 };
 
 export type GrupoDeMisiones = {
@@ -280,6 +281,7 @@ export type GrupoDeMisiones = {
 
 export type MisionCompletada = {
   id: string;
+  clave: string;
   nombre: string;
   periodicidad: Periodicidad;
   periodo: string;
@@ -326,6 +328,7 @@ function grupoDe(filas: FilaVigente[], periodicidad: Periodicidad): GrupoDeMisio
       objetivo: f.objetivo,
       completada: f.completada,
       recompensa: textoDeRecompensa(recompensaDesde(f.recompensa)),
+      clave : f.clave,
     })),
   };
 }
@@ -341,6 +344,7 @@ type FilaVigente = {
   completada: boolean;
   inicio: number;
   fin: number;
+  clave : string;
 };
 
 /** null si falla (se loguea el error). */
@@ -349,7 +353,7 @@ export async function obtenerMisiones(usuarioId: number | string): Promise<Datos
     await asegurarMisionesVigentes(usuarioId);
     const [vigentesR, historialR, totalR] = await Promise.all([
       pool.query<FilaVigente>(
-        `SELECT i.id::text AS id, m.nombre, m.periodicidad, m.condicion, m.recompensa, i.progreso, i.objetivo,
+        `SELECT i.id::text AS id, m.clave, m.nombre, m.periodicidad, m.condicion, m.recompensa, i.progreso, i.objetivo,
                 (i.completada_en IS NOT NULL) AS completada,
                 (EXTRACT(EPOCH FROM i.periodo_inicio) * 1000)::float8 AS inicio,
                 (EXTRACT(EPOCH FROM i.periodo_fin) * 1000)::float8 AS fin
@@ -366,8 +370,9 @@ export async function obtenerMisiones(usuarioId: number | string): Promise<Datos
         inicio: number;
         fin: number;
         completada: number;
+        clave: string;
       }>(
-        `SELECT i.id::text AS id, m.nombre, m.periodicidad, m.recompensa,
+        `SELECT i.id::text AS id, m.clave, m.nombre, m.periodicidad, m.recompensa,
                 (EXTRACT(EPOCH FROM i.periodo_inicio) * 1000)::float8 AS inicio,
                 (EXTRACT(EPOCH FROM i.periodo_fin) * 1000)::float8 AS fin,
                 (EXTRACT(EPOCH FROM i.completada_en) * 1000)::float8 AS completada
@@ -391,6 +396,7 @@ export async function obtenerMisiones(usuarioId: number | string): Promise<Datos
         periodo: `${FECHA.format(h.inicio)} – ${FECHA.format(h.fin)}`,
         completadaEn: FECHA_Y_HORA.format(h.completada),
         recompensa: textoDeRecompensa(recompensaDesde(h.recompensa)),
+        clave : h.clave,
       })),
     };
   } catch (error) {

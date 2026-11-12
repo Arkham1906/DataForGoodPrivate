@@ -148,8 +148,9 @@ export async function obtenerResumenDeProgreso(usuarioId: number | string): Prom
         renueva_a: string;
         recompensa: unknown;
         renueva_en_segundos: number;
+        clave: string;
       }>(
-        `SELECT mi.id::text AS id, m.nombre, m.recompensa, mi.objetivo, mi.progreso,
+        `SELECT mi.id::text AS id, m.clave, m.nombre, m.recompensa, mi.objetivo, mi.progreso,
           (mi.completada_en IS NOT NULL) AS completada,
           (mi.recompensa_entregada_en IS NOT NULL) AS entregada,
           GREATEST(0, EXTRACT(EPOCH FROM (mi.periodo_fin - NOW())))::int AS renueva_en_segundos
@@ -246,6 +247,7 @@ export async function obtenerResumenDeProgreso(usuarioId: number | string): Prom
       completada: m.completada,
       recompensaEntregada: m.entregada,
       recompensa: textoDeRecompensa(recompensaDesde(m.recompensa)),
+      clave: m.clave,
     }));
 
     return {

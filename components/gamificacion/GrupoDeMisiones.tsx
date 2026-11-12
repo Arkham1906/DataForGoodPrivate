@@ -6,6 +6,7 @@ import ProgressBar from "@/components/ui/ProgressBar";
 import Tag from "@/components/ui/Tag";
 import type { GrupoDeMisiones as DatosDelGrupo, MisionVigente } from "@/lib/gamificacion/misiones";
 import type { MedidaDeMision } from "@/lib/gamificacion/misiones-reglas";
+import IconoDeMision from "./IconoDeMision";
 
 /** Hasta cuántos pasos se dibujan como tramos; con más, una barra continua (igual que MisionesDeHoy). */
 const MAXIMO_DE_TRAMOS = 5;
@@ -33,14 +34,7 @@ function Mision({ mision }: { mision: MisionVigente }) {
   const { completada, objetivo, progreso } = mision;
   return (
     <li className="grid grid-cols-[44px_1fr] items-start gap-3.5 border-t border-system-100 py-4 first:border-t-0">
-      <span
-        aria-hidden="true"
-        className={`flex h-11 w-11 items-center justify-center rounded-lg ${completada ? "bg-success-50 text-success-800" : "bg-system-100 text-system-700"}`}
-      >
-        <svg viewBox="0 0 24 24" className="h-[22px] w-[22px]" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-          <path d={completada ? PALOMITA : ICONOS[mision.mide]} />
-        </svg>
-      </span>
+      <IconoDeMision clave={mision.clave} completada= {completada} respaldo={ICONOS[mision.mide]} />
       <div className="flex min-w-0 flex-col gap-2">
         <p className="flex flex-wrap items-baseline justify-between gap-x-2.5">
           <strong className="text-sm text-system-900">{mision.nombre}</strong>

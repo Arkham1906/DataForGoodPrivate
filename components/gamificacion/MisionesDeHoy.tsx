@@ -6,6 +6,7 @@
 
 import ProgressBar from "@/components/ui/ProgressBar";
 import type { MisionDeHoy, ResumenDeMisiones } from "@/lib/gamificacion/progreso-tipos";
+import IconoDeMision from "./IconoDeMision";
 
 /** Hasta cuántos pasos se dibujan como tramos; con más, una barra continua. */
 const MAXIMO_DE_TRAMOS = 5;
@@ -31,7 +32,10 @@ export default function MisionesDeHoy({ misiones }: { misiones: ResumenDeMisione
           {misiones.diarias.map((m) => {
             const hechos = Math.min(m.progreso, m.objetivo);
             return (
-              <li key={m.id} className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1">
+              <li key={m.id} className="grid grid-cols-[40px_1fr_auto] items-center gap-x-3 gap-y-1">
+                <span className="row-span--2">
+                  <IconoDeMision clave={m.clave} completada={m.completada} tamano={40} />
+                </span>
                 <span className="text-sm font-semibold text-system-900">{m.nombre}</span>
                 <span className={`text-[12.5px] font-bold ${m.completada ? "text-success-800" : "text-brand-800"}`}>
                   {textoDeEstado(m)}
