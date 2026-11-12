@@ -51,6 +51,11 @@ export type CampanaSupervisable = {
   /** Máximo por persona de cada tipo (2026-10-31, lib/campanas/cuota-por-tipo.ts); {} = sin máximos. */
   cuotaPorTipo: CuotaPorTipo;
   description: string;
+  hasBanner: boolean;
+  bannerVersion?: string;
+  bannerScale: number;
+  bannerPositionX: number;
+  bannerPositionY: number;
   organizer: string;
   /** ¿Para qué se usarán los datos? (2026-10-27, lib/campanas/proposito.ts). */
   proposito: string | null;
@@ -91,6 +96,11 @@ function mapear(row: Record<string, unknown>): CampanaSupervisable {
     quotaPerUser: Number(row.quota_per_user ?? 0),
     cuotaPorTipo: cuotaPorTipoDesdeFila(row),
     description: String(row.description ?? ""),
+    hasBanner: Boolean(row.banner_path),
+    bannerVersion: row.updated_at ? String(row.updated_at) : undefined,
+    bannerScale: Number(row.banner_scale ?? 1),
+    bannerPositionX: Number(row.banner_position_x ?? 50),
+    bannerPositionY: Number(row.banner_position_y ?? 50),
     organizer: String(row.organizer ?? ""),
     proposito: row.proposito ? String(row.proposito) : null,
     propositoOtro: row.proposito_otro ? String(row.proposito_otro) : null,

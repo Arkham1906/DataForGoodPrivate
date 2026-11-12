@@ -173,11 +173,23 @@ export default function DetalleDeMisCampanasPage() {
       )}
 
       <div className="flex flex-col gap-5">
-        <section className="rounded-lg border border-system-200 bg-white p-5 max-md:p-4">
-          <h2 className="mb-2 text-[15px] font-bold text-system-900">Descripción</h2>
-          <p className="whitespace-pre-line break-words text-[13.5px] leading-relaxed text-system-600">
-            {campana.description || "Sin descripción"}
-          </p>
+        <section className="overflow-hidden rounded-lg border border-system-200 bg-white">
+          {campana.hasBanner && (
+            <div className="border-b border-system-200 bg-system-50 p-3 sm:p-4">
+              <img
+                src={`${BASE_PATH}/api/campanas/${campana.id}/banner?v=${encodeURIComponent(campana.bannerVersion ?? "")}`}
+                alt={`Banner de ${campana.name}`}
+                className="aspect-[4/3] w-full rounded-lg bg-system-100 object-contain"
+                style={{ objectPosition: `${campana.bannerPositionX ?? 50}% ${campana.bannerPositionY ?? 50}%`, transform: `scale(${campana.bannerScale ?? 1})` }}
+              />
+            </div>
+          )}
+          <div className="p-5 max-md:p-4">
+            <h2 className="mb-2 text-[15px] font-bold text-system-900">Descripción</h2>
+            <p className="whitespace-pre-line break-words text-[13.5px] leading-relaxed text-system-600">
+              {campana.description || "Sin descripción"}
+            </p>
+          </div>
         </section>
 
         {!sinAportes && (

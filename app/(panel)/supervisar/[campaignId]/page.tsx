@@ -18,6 +18,7 @@ import { textoDelProposito } from "@/lib/campanas/proposito";
 import AccionesDeSupervision, { DatosAbiertosComoSuperUsuario, EstadoComoSuperUsuario } from "./acciones";
 import type { Metadata } from "next";
 import { exigirSesionRoot } from "@/lib/supervision/root";
+import { BASE_PATH } from "@/lib/base-path";
 
 export const metadata: Metadata = { title: "Supervisar campaña" };
 
@@ -115,10 +116,22 @@ export default async function SupervisarCampanaPage({ params }: { params: Promis
         />
       )}
 
-      <section className="rounded-lg border border-system-200 bg-white p-5 shadow-sm">
-        <p className="text-[13.5px] leading-6 text-system-600">{campaign.description}</p>
+      <section className="overflow-hidden rounded-lg border border-system-200 bg-white shadow-sm">
+        {campaign.hasBanner && (
+          <div className="border-b border-system-200 bg-system-50 p-3 sm:p-4">
+            <img
+              src={`${BASE_PATH}/api/campanas/${campaign.id}/banner?v=${encodeURIComponent(campaign.bannerVersion ?? "")}`}
+              alt={`Banner de ${campaign.name}`}
+              className="aspect-[4/3] w-full rounded-lg bg-system-100 object-contain"
+              style={{ objectPosition: `${campaign.bannerPositionX}% ${campaign.bannerPositionY}%`, transform: `scale(${campaign.bannerScale})` }}
+            />
+          </div>
+        )}
 
-        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+        <div className="p-5">
+          <p className="text-[13.5px] leading-6 text-system-600">{campaign.description}</p>
+
+          <div className="mt-5 grid gap-4 sm:grid-cols-2">
           {filas.map((columna, i) => (
             <div key={i} className="space-y-3">
               {columna.map(([etiqueta, valor]) => (
@@ -129,9 +142,9 @@ export default async function SupervisarCampanaPage({ params }: { params: Promis
               ))}
             </div>
           ))}
-        </div>
+          </div>
 
-        <div className="mt-5 flex flex-wrap gap-3">
+          <div className="mt-5 flex flex-wrap gap-3">
           {/* Cualquier campaña que ya recolecta, la haya aceptado quien sea (2026-10-15). */}
           {yaRecolecta && (
             <Link href={`/supervisar/${campaign.id}/usuarios`} className="rounded-pill bg-brand-600 px-5 py-3 text-[12.5px] font-bold text-white shadow-sm hover:bg-brand-800">
@@ -143,6 +156,7 @@ export default async function SupervisarCampanaPage({ params }: { params: Promis
               Abrir panel
             </Link>
           )}
+          </div>
         </div>
       </section>
 

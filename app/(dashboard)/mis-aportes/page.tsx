@@ -21,6 +21,9 @@ const TIPOS: { value: DataType; label: string }[] = [
 const ESTADOS = [
   { value: "aceptado", label: "Aceptados" }, { value: "pendiente", label: "En revisión" }, { value: "rechazado", label: "Rechazados" },
 ];
+const ORDENES = [
+  { value: "recientes", label: "Más recientes" }, { value: "antiguos", label: "Más antiguos" },
+];
 const CLAVE_VISTA_MIS_APORTES = "dfg:mis-aportes:vista";
 const EVENTO_VISTA_MIS_APORTES = "dfg:mis-aportes:vista-cambio";
 let vistaMisAportesEnMemoria = false;
@@ -62,23 +65,24 @@ function fechaDelDia(valor: string): { inicio: number; fin: number } | null {
 }
 
 type CamposDeFiltrosProps = {
-  tipo: string; campanaId: string; tematica: string; estado: string; fecha: string;
+  tipo: string; campanaId: string; tematica: string; estado: string; fecha: string; orden: string;
   campanas: [string, string][]; tematicas: string[];
   onTipo: (value: string) => void; onCampana: (value: string) => void; onTematica: (value: string) => void;
-  onEstado: (value: string) => void; onFecha: (value: string) => void;
+  onEstado: (value: string) => void; onFecha: (value: string) => void; onOrden: (value: string) => void;
 };
 
 function CamposDeFiltros({
-  tipo, campanaId, tematica, estado, fecha, campanas, tematicas,
-  onTipo, onCampana, onTematica, onEstado, onFecha,
+  tipo, campanaId, tematica, estado, fecha, orden, campanas, tematicas,
+  onTipo, onCampana, onTematica, onEstado, onFecha, onOrden,
 }: CamposDeFiltrosProps) {
-  const clase = "mt-1 block w-full rounded border border-system-300 bg-white px-2.5 py-2 text-[12px] font-normal text-system-900";
+  const clase = "min-h-[38px] w-full rounded border border-system-300 bg-white px-3 text-sm text-system-900 outline-none transition-colors focus:border-brand-600";
   return <>
-    <label className="text-[12px] font-semibold text-system-700">Tipo de dato<select value={tipo} onChange={(event) => onTipo(event.target.value)} className={clase}><option value="">Todos</option>{TIPOS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-    <label className="text-[12px] font-semibold text-system-700">Campaña participada<select value={campanaId} onChange={(event) => onCampana(event.target.value)} className={clase}><option value="">Todas</option>{campanas.map(([id, nombre]) => <option key={id} value={id}>{nombre}</option>)}</select></label>
-    <label className="text-[12px] font-semibold text-system-700">Temática<select value={tematica} onChange={(event) => onTematica(event.target.value)} className={clase}><option value="">Todas</option>{tematicas.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>
-    <label className="text-[12px] font-semibold text-system-700">Estado<select value={estado} onChange={(event) => onEstado(event.target.value)} className={clase}><option value="">Todos</option>{ESTADOS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-    <label className="text-[12px] font-semibold text-system-700">Fecha<input type="date" value={fecha} onChange={(event) => onFecha(event.target.value)} className={clase} /></label>
+    <label className="min-w-0 flex-1"><span className="sr-only">Tipo de dato</span><select aria-label="Tipo de dato" value={tipo} onChange={(event) => onTipo(event.target.value)} className={clase}><option value="">Tipo de dato: todos</option>{TIPOS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+    <label className="min-w-0 flex-1"><span className="sr-only">Campaña participada</span><select aria-label="Campaña participada" value={campanaId} onChange={(event) => onCampana(event.target.value)} className={clase}><option value="">Campaña: todas</option>{campanas.map(([id, nombre]) => <option key={id} value={id}>{nombre}</option>)}</select></label>
+    <label className="min-w-0 flex-1"><span className="sr-only">Temática</span><select aria-label="Temática" value={tematica} onChange={(event) => onTematica(event.target.value)} className={clase}><option value="">Temática: todas</option>{tematicas.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>
+    <label className="min-w-0 flex-1"><span className="sr-only">Estado</span><select aria-label="Estado" value={estado} onChange={(event) => onEstado(event.target.value)} className={clase}><option value="">Estado: todos</option>{ESTADOS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+    <label className="min-w-0 flex-1"><span className="sr-only">Fecha</span><input aria-label="Fecha" type="date" value={fecha} onChange={(event) => onFecha(event.target.value)} className={clase} /></label>
+    <label className="min-w-0 flex-1"><span className="sr-only">Ordenar por</span><select aria-label="Ordenar por" value={orden} onChange={(event) => onOrden(event.target.value)} className={clase}>{ORDENES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
   </>;
 }
 
@@ -91,6 +95,7 @@ export default function MisAportesPage() {
   const [tematica, setTematica] = useState("");
   const [estado, setEstado] = useState("");
   const [fecha, setFecha] = useState("");
+  const [orden, setOrden] = useState("recientes");
   const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
   const vistaCuadricula = useSyncExternalStore(suscribirVistaDeMisAportes, leerVistaDeMisAportes, () => false);
   const recarga = useRecargaEnVivo();
@@ -120,14 +125,14 @@ export default function MisAportesPage() {
     const dia = fechaDelDia(fecha);
     const estadoCoincide = !estado || item.status === estado || (estado === "pendiente" && item.status === "espera_final");
     return (!tipo || item.fileType === tipo) && (!campanaId || item.campaignId === campanaId) && (!tematica || item.campaignTematica === tematica) && estadoCoincide && (!dia || (enviadoEn >= dia.inicio && enviadoEn <= dia.fin));
-  });
-  const hayFiltros = Boolean(tipo || campanaId || tematica || estado || fecha);
+  }).sort((a, b) => orden === "antiguos" ? new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime() : new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
+  const hayFiltros = Boolean(tipo || campanaId || tematica || estado || fecha || orden !== "recientes");
 
   function limpiarFiltros() {
-    setTipo(""); setCampanaId(""); setTematica(""); setEstado(""); setFecha("");
+    setTipo(""); setCampanaId(""); setTematica(""); setEstado(""); setFecha(""); setOrden("recientes");
   }
 
-  const propsDeFiltros = { tipo, campanaId, tematica, estado, fecha, campanas, tematicas, onTipo: setTipo, onCampana: setCampanaId, onTematica: setTematica, onEstado: setEstado, onFecha: setFecha };
+  const propsDeFiltros = { tipo, campanaId, tematica, estado, fecha, orden, campanas, tematicas, onTipo: setTipo, onCampana: setCampanaId, onTematica: setTematica, onEstado: setEstado, onFecha: setFecha, onOrden: setOrden };
 
   const botonCambiarVista = (
     <div role="group" aria-label="Cambiar vista de aportes" className="relative flex shrink-0 gap-0 overflow-hidden rounded-lg border border-system-300 bg-system-100 p-1">
@@ -149,8 +154,8 @@ export default function MisAportesPage() {
 
     {error ? <p className="rounded-lg bg-error-50 p-4 text-sm text-error-700">{error}</p> : cargando ? <p className="rounded-lg border border-system-200 bg-white p-6 text-sm text-system-600" role="status">Cargando tus aportes…</p> : items.length === 0 ? <p className="rounded-lg border border-dashed border-system-300 p-6 text-sm text-system-600">Todavía no has enviado aportes. Explora una campaña para empezar a participar.</p> : <>
       <div className="mb-3 hidden lg:flex">
-        <div className="min-w-0 flex-1 rounded-lg border border-system-200 bg-white p-3">
-          <div className="grid grid-cols-5 items-end gap-2"><CamposDeFiltros {...propsDeFiltros} /></div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2.5"><CamposDeFiltros {...propsDeFiltros} /></div>
           {hayFiltros && <div className="mt-2 flex items-center justify-between gap-3"><p className="text-[12px] text-system-500">{filtrados.length} de {items.length} aportes</p><Button size="sm" onClick={limpiarFiltros}>Limpiar filtros</Button></div>}
         </div>
       </div>
@@ -161,7 +166,7 @@ export default function MisAportesPage() {
         {botonCambiarVista}
       </div>
 
-      {filtrosAbiertos && <div className="fixed inset-0 z-50 flex items-end bg-system-900/40 p-3 lg:hidden" role="dialog" aria-modal="true" aria-labelledby="titulo-filtros"><div className="max-h-[90vh] w-full overflow-y-auto rounded-xl bg-white p-4 shadow-xl"><div className="mb-4 flex items-center justify-between gap-3"><h2 id="titulo-filtros" className="text-base font-extrabold text-system-900">Filtrar mis aportes</h2><button type="button" onClick={() => setFiltrosAbiertos(false)} className="rounded-full p-2 text-xl leading-none text-system-600 hover:bg-system-100" aria-label="Cerrar filtros">×</button></div><div className="grid gap-3 sm:grid-cols-2"><CamposDeFiltros {...propsDeFiltros} /></div><div className="mt-5 flex items-center justify-between gap-3 border-t border-system-200 pt-4"><p className="text-[12px] text-system-500">{hayFiltros ? `${filtrados.length} de ${items.length} aportes` : "Sin filtros"}</p><div className="flex gap-2"><Button size="sm" onClick={limpiarFiltros}>Limpiar</Button><Button variant="primary" size="sm" onClick={() => setFiltrosAbiertos(false)}>Aplicar</Button></div></div></div></div>}
+      {filtrosAbiertos && <div className="fixed inset-0 z-50 flex items-end bg-system-900/40 p-3 lg:hidden" role="dialog" aria-modal="true" aria-labelledby="titulo-filtros"><div className="max-h-[90vh] w-full overflow-y-auto rounded-xl bg-white p-4 shadow-xl"><div className="mb-4 flex items-center justify-between gap-3"><h2 id="titulo-filtros" className="text-base font-extrabold text-system-900">Filtrar mis aportes</h2><button type="button" onClick={() => setFiltrosAbiertos(false)} className="rounded-full p-2 text-xl leading-none text-system-600 hover:bg-system-100" aria-label="Cerrar filtros">×</button></div><div className="flex flex-col gap-2.5"><CamposDeFiltros {...propsDeFiltros} /></div><div className="mt-5 flex items-center justify-between gap-3 border-t border-system-200 pt-4"><p className="text-[12px] text-system-500">{hayFiltros ? `${filtrados.length} de ${items.length} aportes` : "Sin filtros"}</p><div className="flex gap-2"><Button size="sm" onClick={limpiarFiltros}>Limpiar</Button><Button variant="primary" size="sm" onClick={() => setFiltrosAbiertos(false)}>Aplicar</Button></div></div></div></div>}
 
       {filtrados.length === 0 ? <p className="rounded-lg border border-dashed border-system-300 p-6 text-sm text-system-600">No hay aportes que coincidan con los filtros.</p> : <div className={vistaCuadricula ? "grid grid-cols-2 gap-2 sm:gap-3" : "flex flex-col gap-2 sm:gap-3"}>{filtrados.map((item) => {
         const estadoEtiqueta = item.status === "aceptado" ? "Aceptado" : item.status === "rechazado" ? "Rechazado" : "En revisión";

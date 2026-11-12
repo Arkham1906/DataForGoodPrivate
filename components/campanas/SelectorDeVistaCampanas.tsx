@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import Button from "@/components/ui/Button";
 
-export default function SelectorDeVistaCampanas({ children, toolbar }: { children: ReactNode; toolbar: ReactNode }) {
+export default function SelectorDeVistaCampanas({ children, toolbar }: { children: ReactNode | ((vistaCuadricula: boolean) => ReactNode); toolbar: ReactNode }) {
   const [vistaCuadricula, setVistaCuadricula] = useState(true);
 
   return (
@@ -34,7 +34,7 @@ export default function SelectorDeVistaCampanas({ children, toolbar }: { childre
         </Button>
       </div>
       <div className={vistaCuadricula ? "grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3" : "flex flex-col gap-3"}>
-        {children}
+        {typeof children === "function" ? children(vistaCuadricula) : children}
       </div>
     </div>
   );

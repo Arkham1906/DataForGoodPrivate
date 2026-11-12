@@ -31,6 +31,8 @@ import { crearPropuestas, revisarTematicaDeCampana } from "@/lib/tematicas/catal
 import { hasRootSession } from "@/lib/rootSession";
 import { campanasParaTi } from "@/lib/usuarios/inicio";
 import { activateScheduledCampaigns, ahoraEnZona, calculateCampaignDaysRemaining, errorDeFinAntesDeInicio, errorDeInicioPasado, finalizeExpiredCampaigns, normalizeCampaignDate, normalizeCampaignTime } from "@/lib/campaign-date";
+import { limpiarImagen, type ImagenLimpia } from "@/lib/aportes/imagen";
+import { borrarArchivo, guardarArchivo } from "@/lib/minio";
 
 async function obtenerIdsGuardados(usuarioId: number): Promise<Set<number>> {
   const result = await pool.query<{ campana_id: number }>(
@@ -95,6 +97,11 @@ function mapCampaign(row: Record<string, unknown>) {
     latestSupervisionAction: row.latest_supervision_action ? String(row.latest_supervision_action) : null,
     name: String(row.name ?? ""),
     description: String(row.description ?? ""),
+    hasBanner: Boolean(row.banner_path),
+    bannerVersion: row.updated_at ? String(row.updated_at) : undefined,
+    bannerScale: Number(row.banner_scale ?? 1),
+    bannerPositionX: Number(row.banner_position_x ?? 50),
+    bannerPositionY: Number(row.banner_position_y ?? 50),
     tematica: String(row.tematica ?? row.tag ?? ""),
     tag: String(row.tag ?? String(row.tematica ?? "")),
     // Subtemáticas (2026-10-27): las pone agregarEtiquetas antes de mapear; las pendientes solo para el creador y la supervisión.
@@ -145,6 +152,11 @@ function mapCampaign(row: Record<string, unknown>) {
     myContributionsCount: row.mis_aportes_count != null ? Number(row.mis_aportes_count) : undefined,
     ...(row.can_delete != null ? { canDelete: row.can_delete === true } : {}),
   };
+}
+
+function ajustarBanner(value: unknown, minimo: number, maximo: number, predeterminado: number) {
+  const numero = Number(value);
+  return Number.isFinite(numero) ? Math.min(maximo, Math.max(minimo, numero)) : predeterminado;
 }
 
 // GET: campañas. Modos por query: ?id= (una, con bloque viewer), ?mine=true (creadas por ti),
@@ -303,7 +315,30 @@ export async function POST(request: Request) {
         { status: 403 }
       );
     }
-    const body = await request.json().catch(() => ({}));
+    let body: Record<string, unknown> = {};
+    let bannerFile: File | null = null;
+    let bannerImagen: ImagenLimpia | null = null;
+    if (request.headers.get("content-type")?.includes("multipart/form-data")) {
+      const form = await request.formData();
+      try {
+        body = JSON.parse(String(form.get("payload") ?? "{}")) as Record<string, unknown>;
+      } catch {
+        return NextResponse.json({ error: "Los datos de la campaña no son válidos" }, { status: 400 });
+      }
+      const entrada = form.get("banner");
+      bannerFile = entrada instanceof File && entrada.size > 0 ? entrada : null;
+    } else {
+      body = await request.json().catch(() => ({}));
+    }
+
+    if (bannerFile) {
+      if (bannerFile.size > 5 * 1024 * 1024) {
+        return NextResponse.json({ error: "El banner no puede superar los 5 MB" }, { status: 400 });
+      }
+      const bannerLimpio = await limpiarImagen(bannerFile);
+      if (!bannerLimpio.ok) return NextResponse.json({ error: bannerLimpio.error }, { status: 400 });
+      bannerImagen = bannerLimpio.imagen;
+    }
 
     const name = String(body.name ?? "").trim();
     const description = String(body.description ?? "").trim();
@@ -325,6 +360,9 @@ export async function POST(request: Request) {
     const tag = tematica;
 
     const creatorId = Number(sessionUser.id);
+    const bannerScale = ajustarBanner(body.bannerScale, 0.75, 2, 1);
+    const bannerPositionX = ajustarBanner(body.bannerPositionX, 0, 100, 50);
+    const bannerPositionY = ajustarBanner(body.bannerPositionY, 0, 100, 50);
     const creator = `${sessionUser.nombre} ${sessionUser.apellidos}`.trim();
     if (!creator) {
       return NextResponse.json(
@@ -487,6 +525,22 @@ export async function POST(request: Request) {
           proposito.otro,
         ]
       );
+      if (bannerImagen) {
+        const guardado = await guardarArchivo(bannerImagen.contenido, {
+          subdir: `campanas/${creatorId}`,
+          extension: bannerImagen.extension,
+          mimeType: bannerImagen.mimeType,
+        });
+        try {
+          await cliente.query(
+            `UPDATE campanas SET banner_path = $2, banner_scale = $3, banner_position_x = $4, banner_position_y = $5, updated_at = NOW() WHERE id = $1`,
+            [result.rows[0].id, guardado.relativePath, bannerScale, bannerPositionX, bannerPositionY],
+          );
+        } catch (error) {
+          await borrarArchivo(guardado.relativePath).catch(() => {});
+          throw error;
+        }
+      }
       // Checklists (tabla campana_checklists, 2026-10-30).
       await guardarChecklists(cliente, result.rows[0].id, checklistSecciones);
       // Tipos de dato con su límite y formatos (tabla campana_tipos, 2026-10-30).

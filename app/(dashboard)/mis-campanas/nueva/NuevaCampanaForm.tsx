@@ -438,11 +438,19 @@ function CampanaFormulario({
   const contenidoBloqueado = edicionLimitada && !edicionAmplia;
 
   const [name, setName] = useState(editingCampaign?.name ?? "");
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [bannerPreviewUrl, setBannerPreviewUrl] = useState<string | null>(null);
+  const [mostrarSelectorBanner, setMostrarSelectorBanner] = useState(!editingCampaign?.hasBanner);
   const [description, setDescription] = useState(editingCampaign?.description ?? "");
   const [organizer, setOrganizer] = useState(editingCampaign?.organizer ?? organizacionPerfil);
   // Propósito: ¿para qué se usarán los datos? (2026-10-27). Uno de la lista u "Otro" con una frase.
   const [proposito, setProposito] = useState(editingCampaign?.proposito ?? "");
   const [propositoOtro, setPropositoOtro] = useState(editingCampaign?.propositoOtro ?? "");
+  useEffect(() => {
+    return () => {
+      if (bannerPreviewUrl) URL.revokeObjectURL(bannerPreviewUrl);
+    };
+  }, [bannerPreviewUrl]);
   // Una campaña nueva empieza sin temática, sin tipos de dato y con meta y cuota vacías
   // (2026-10-21, a pedido del usuario; antes venían "Medio ambiente", Foto, 500 y 10).
   const [theme, setTheme] = useState(editingCampaign?.tag ?? "");
@@ -783,9 +791,11 @@ function CampanaFormulario({
         : maximosDesdeLaCuota(editingCampaign.dataTypes, editingCampaign.quotaPerUser);
   // La cuota y sus máximos sí cuentan como cambio amplio (2026-11-07): "Guardar y reanudar" no los
   // manda, y antes ese cambio se perdía sin avisar.
+  const cambioBanner = Boolean(bannerFile);
   const soloMetaYFechaCambiables =
     edicionAmplia &&
     !pausadaPorSupervision &&
+    !cambioBanner &&
     !inicioMovido &&
     cuotaFinal === (editingCampaign?.quotaPerUser ?? 0) &&
     JSON.stringify(maximosOrdenados(cuotaPorTipo)) === JSON.stringify(maximosOrdenados(maximosOriginales)) &&
@@ -822,7 +832,7 @@ function CampanaFormulario({
 
   // Una pausada no se guarda como borrador: con la cola llena, sigue pausada sin estos cambios.
   // Lo que dice el botón principal: la programada que solo cambia meta/límites o fin se guarda sin revisión.
-  const vaARevisionAlGuardar = !edicionLimitada || (enviarRevisionAlGuardar && !(editaProgramada && soloMetaYFechaCambiables));
+  const vaARevisionAlGuardar = !edicionLimitada || (enviarRevisionAlGuardar && !(editaProgramada && soloMetaYFechaCambiables)) || (cambioBanner && !pausadaPorSupervision);
   const avisoDeColaLlena = edicionAmplia
     ? `Ya tienes ${MAX_CAMPANAS_EN_REVISION} campañas en revisión: no puedes enviar estos cambios hasta que la supervisión acepte o rechace alguna`
     : `Ya tienes ${MAX_CAMPANAS_EN_REVISION} campañas en revisión: guárdala como borrador y envíala cuando la supervisión acepte o rechace alguna`;
@@ -1220,26 +1230,34 @@ function CampanaFormulario({
       // Editar manda PATCH a la campaña existente; antes siempre mandaba
       // POST a /api/campanas, así que "editar" creaba una campaña nueva en
       // vez de actualizar la que ya existía.
+      const datosDeNuevaCampana = {
+        ...camposEditables,
+        currentContributions: 0,
+        approvedContributions: 0,
+        pendingContributions: 0,
+        rejectedContributions: 0,
+        participants: 0,
+        xpPerContribution: 50,
+        isSpecial: false,
+        hasReviewerAssigned: false,
+      };
+      const formularioDeCampana = new FormData();
+      const payloadBase = editingCampaign ? camposEditables : datosDeNuevaCampana;
+      const payloadDeCampana = cambioBanner
+        ? { ...payloadBase, bannerScale: 1, bannerPositionX: 50, bannerPositionY: 50 }
+        : payloadBase;
+      formularioDeCampana.append("payload", JSON.stringify(payloadDeCampana));
+      if (bannerFile) formularioDeCampana.append("banner", bannerFile);
+
       const response = editingCampaign
         ? await fetch(`${BASE_PATH}/api/campanas/${editingCampaign.id}`, {
             method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(camposEditables),
+            ...(cambioBanner ? {} : { headers: { "Content-Type": "application/json" } }),
+            body: cambioBanner ? formularioDeCampana : JSON.stringify(camposEditables),
           })
         : await fetch(`${BASE_PATH}/api/campanas`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              ...camposEditables,
-              currentContributions: 0,
-              approvedContributions: 0,
-              pendingContributions: 0,
-              rejectedContributions: 0,
-              participants: 0,
-              xpPerContribution: 50,
-              isSpecial: false,
-              hasReviewerAssigned: false,
-            }),
+            body: formularioDeCampana,
           });
 
       if (!response.ok) {
@@ -1428,6 +1446,57 @@ function CampanaFormulario({
                 <p className="mb-3 -mt-3 text-right font-mono text-[11px] text-system-500">
                   {name.length} / 80
                 </p>
+
+                <Field label="Banner de la campaña" hint={editingCampaign ? (pausadaPorSupervision ? "No se puede cambiar mientras la supervisión mantenga pausada la campaña." : "Puedes cambiar la imagen. Al guardar, deberás enviarla a revisión.") : "Opcional. JPG o PNG, máximo 5 MB."}>
+                    {editingCampaign && !mostrarSelectorBanner ? (
+                      <button
+                        type="button"
+                        onClick={() => setMostrarSelectorBanner(true)}
+                        disabled={pausadaPorSupervision || soloLectura}
+                        className="rounded-pill border border-brand-600 px-3.5 py-2 text-sm font-semibold text-brand-700 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Cambiar banner
+                      </button>
+                    ) : (
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] ?? null;
+                          setBannerFile(file);
+                          setBannerPreviewUrl(file ? URL.createObjectURL(file) : null);
+                        }}
+                        disabled={pausadaPorSupervision || soloLectura}
+                        className="block w-full rounded border border-system-300 bg-white px-3 py-2 text-sm text-system-700 file:mr-3 file:rounded file:border-0 file:bg-brand-50 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-brand-700"
+                      />
+                    )}
+                    {(bannerPreviewUrl || editingCampaign?.hasBanner) && (
+                      <div className="mt-3 overflow-hidden rounded-lg border border-system-200 bg-system-50">
+                        <p className="px-3 pt-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-system-500">Vista previa del banner</p>
+                        <div
+                          className="mx-auto mt-2 h-40 w-full max-w-xl overflow-hidden bg-system-100 sm:h-48"
+                          aria-label="Vista previa del banner. Arrastra la imagen para ajustar su posición."
+                        >
+                          <img
+                            src={bannerPreviewUrl ?? `${BASE_PATH}/api/campanas/${editingCampaign?.id}/banner?v=${encodeURIComponent(editingCampaign?.bannerVersion ?? "")}`}
+                            alt="Vista previa del banner de la campaña"
+                            className="h-full w-full object-contain"
+                          />
+                        </div>
+                        <div className="hidden grid gap-3 border-t border-system-200 p-3 text-[12px] text-system-700 sm:grid-cols-3">
+                          <label className="flex flex-col gap-1">
+                            <span className="font-semibold">Tamaño</span>
+                          </label>
+                          <label className="flex flex-col gap-1">
+                            <span className="font-semibold">Posición horizontal</span>
+                          </label>
+                          <label className="flex flex-col gap-1">
+                            <span className="font-semibold">Posición vertical</span>
+                          </label>
+                        </div>
+                      </div>
+                    )}
+                </Field>
 
                 <p className="mb-1.5 text-[13px] font-medium text-system-900">
                   Temática <span className="text-error-700">*</span>

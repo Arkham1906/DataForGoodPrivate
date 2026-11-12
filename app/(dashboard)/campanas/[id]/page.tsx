@@ -127,6 +127,8 @@ export default function CampaignDetailPage() {
 
         {/* Compartir, Favorita y Reportar como íconos en la fila de la temática (2026-11-10, a pedido del usuario;
             antes, botones con texto: Compartir aquí, Favorita bajo "Realizar un aporte" y Reportar al final). */}
+        <h1 className="mb-2 text-[26px] font-extrabold text-system-900">{campaign.name}</h1>
+
         <div className="mb-2 flex items-center justify-between gap-3">
           <RutaDeTematica tematica={campaign.tematica || campaign.tag} etiquetas={campaign.etiquetas} />
           <div className="flex shrink-0 items-center gap-2">
@@ -151,7 +153,8 @@ export default function CampaignDetailPage() {
           </p>
         )}
 
-        <h1 className="mb-2 text-[26px] font-extrabold text-system-900">{campaign.name}</h1>
+        <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.9fr)]">
+          <div className="order-2 min-w-0 lg:order-2">
 
         <div className="mb-6 flex flex-wrap gap-5 text-[13px] text-system-600">
           <span>
@@ -190,17 +193,15 @@ export default function CampaignDetailPage() {
           </div>
         )}
 
-        <div className="mb-6 rounded-lg border border-system-200 bg-white p-5">
-          <h2 className="text-base font-bold text-system-900">¿De qué trata esta campaña?</h2>
-          <p className="mt-1 text-[13px] text-system-600">{campaign.description}</p>
+        <div className="mb-4 rounded-lg border border-system-200 bg-white p-3.5">
+          <h2 className="text-[15px] font-bold text-system-900">¿De qué trata esta campaña?</h2>
+          <p className="mt-1 text-[12px] leading-5 text-system-600">{campaign.description}</p>
         </div>
-
-        <h2 className="mb-2 mt-6 text-lg font-bold text-system-900">¿Qué puedes aportar?</h2>
+          <h2 className="mb-2 mt-5 text-lg font-bold text-system-900">¿Qué puedes aportar?</h2>
         <p className="mb-3 text-[13px] text-system-600">
           Comparte la información que tengas. Cada aporte es valioso.
         </p>
-        {/* Sale de la campaña: sus tipos de dato, la descripción (siempre obligatoria) y sus
-            checklists. Antes eran dos tarjetas fijas del prototipo (árboles). */}
+        {/* Sale de la campaña: sus tipos de dato y sus checklists. */}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {campaign.dataTypes
             .filter((tipo) => tipo !== "texto")
@@ -214,12 +215,6 @@ export default function CampaignDetailPage() {
                 </p>
               </div>
             ))}
-          <div className="rounded-lg border border-system-200 bg-white p-4">
-            <p className="text-[14px] font-bold text-system-900">Descripción</p>
-            <p className="mt-1 text-[12px] text-system-500">
-              Qué observaste y dónde, con tus palabras. Es obligatoria.
-            </p>
-          </div>
           {(campaign.checklistSecciones ?? []).map((seccion, i) => (
             <div key={`${seccion.tipo ?? ""}-${seccion.titulo || i}`} className="rounded-lg border border-system-200 bg-white p-4">
               <p className="text-[14px] font-bold text-system-900">{seccion.titulo || "Marca lo que aplique"}</p>
@@ -229,6 +224,17 @@ export default function CampaignDetailPage() {
               <p className="mt-1 text-[12px] text-system-500">{seccion.opciones.join(" · ")}</p>
             </div>
           ))}
+        </div>
+          </div>
+          {campaign.hasBanner && (
+            <div className="order-1 overflow-hidden rounded-xl border border-system-200 bg-system-50 p-2 lg:order-1 lg:mt-1">
+              <img
+                src={`${BASE_PATH}/api/campanas/${campaign.id}/banner?v=${encodeURIComponent(campaign.bannerVersion ?? "")}`}
+                alt={`Banner de ${campaign.name}`}
+                className="h-auto max-h-[460px] min-h-[260px] w-full rounded-lg bg-system-100 object-contain"
+              />
+            </div>
+          )}
         </div>
 
         <div className="mt-6 flex flex-col gap-4">

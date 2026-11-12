@@ -237,6 +237,10 @@ export async function ensureCampanasTable(): Promise<void> {
       supervisor_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
       name VARCHAR(200) NOT NULL,
       description TEXT NOT NULL,
+      banner_path VARCHAR(500),
+      banner_scale NUMERIC(4, 2) NOT NULL DEFAULT 1,
+      banner_position_x NUMERIC(5, 2) NOT NULL DEFAULT 50,
+      banner_position_y NUMERIC(5, 2) NOT NULL DEFAULT 50,
       tematica VARCHAR(120) NOT NULL,
       tag VARCHAR(120) NOT NULL,
       status VARCHAR(50) NOT NULL DEFAULT 'borrador',
@@ -274,6 +278,10 @@ export async function ensureCampanasTable(): Promise<void> {
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS supervisor_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS name VARCHAR(200);
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS description TEXT;
+    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS banner_path VARCHAR(500);
+    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS banner_scale NUMERIC(4, 2) NOT NULL DEFAULT 1;
+    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS banner_position_x NUMERIC(5, 2) NOT NULL DEFAULT 50;
+    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS banner_position_y NUMERIC(5, 2) NOT NULL DEFAULT 50;
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS tematica VARCHAR(120);
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS tag VARCHAR(120);
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'borrador';

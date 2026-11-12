@@ -52,6 +52,11 @@ type Campaign = {
   enviadosPorTipo?: Partial<Record<string, number>>;
   todoElPais?: boolean;
   description?: string;
+  hasBanner?: boolean;
+  bannerVersion?: string;
+  bannerScale?: number;
+  bannerPositionX?: number;
+  bannerPositionY?: number;
   dataTypes?: string[];
   locationCity?: string;
   locationState?: string;
@@ -294,10 +299,22 @@ export default function CampaignDetailPage() {
         />
       )}
 
-      <section className="rounded-lg border border-system-200 bg-white p-5 shadow-sm">
-        <p className="text-[13.5px] leading-6 text-system-600">{campaign.description}</p>
+      <section className="overflow-hidden rounded-lg border border-system-200 bg-white shadow-sm">
+        {campaign.hasBanner && (
+          <div className="border-b border-system-200 bg-system-50 p-3 sm:p-4">
+            <img
+              src={`${BASE_PATH}/api/campanas/${campaign.id}/banner?v=${encodeURIComponent(campaign.bannerVersion ?? "")}`}
+              alt={`Banner de ${campaign.name}`}
+              className="aspect-[4/3] w-full rounded-lg bg-system-100 object-contain"
+              style={{ objectPosition: `${campaign.bannerPositionX ?? 50}% ${campaign.bannerPositionY ?? 50}%`, transform: `scale(${campaign.bannerScale ?? 1})` }}
+            />
+          </div>
+        )}
 
-        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+        <div className="p-5">
+          <p className="text-[13.5px] leading-6 text-system-600">{campaign.description}</p>
+
+          <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <div className="space-y-3">
             <div className="flex justify-between gap-4 border-b border-system-200 pb-3 text-[13px]">
               <span className="text-system-600">Usuario de la campaña</span>
@@ -360,9 +377,9 @@ export default function CampaignDetailPage() {
               </div>
             )}
           </div>
-        </div>
+          </div>
 
-        <div className="mt-5 flex flex-wrap gap-3">
+          <div className="mt-5 flex flex-wrap gap-3">
           {(campaign.status === "activa" || campaign.status === "pausada" || campaign.status === "finalizada") && (
             <Link href={`/supervision/${campaign.id}/usuarios`} className="rounded-pill bg-brand-600 px-5 py-3 text-[12.5px] font-bold text-white shadow-sm hover:bg-brand-800">
               Ver participantes
@@ -373,6 +390,7 @@ export default function CampaignDetailPage() {
               Abrir panel
             </Link>
           )}
+          </div>
         </div>
       </section>
 
