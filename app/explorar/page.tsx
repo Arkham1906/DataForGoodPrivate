@@ -266,7 +266,7 @@ export default async function ExplorarCampanasPage({
                   </p>
                 }
               >
-                {(vistaCuadricula) => campanas.map((c, i) => {
+                {campanas.map((c, i) => {
                   const pct = porcentajeDeMeta(c.approvedContributions, c.goalContributions);
                   const lugar = textoDeUbicacion({ todoElPais: c.todoElPais, municipio: c.locationCity, estado: c.locationState });
                   return (
@@ -276,7 +276,7 @@ export default async function ExplorarCampanasPage({
                           estiraba la tarjeta o se salía de ella y empujaba "Activa" afuera. El
                           texto completo queda en el title. */}
                       <article className="landing-tarjeta flex h-full min-w-0 flex-col rounded-[18px] border border-system-200 bg-white hover:border-brand-600">
-                        {vistaCuadricula && c.hasBanner && <div className="aspect-[4/3] overflow-hidden rounded-t-[18px] bg-system-100"><img src={`${BASE_PATH}/api/campanas/${c.id}/banner?v=${encodeURIComponent(c.bannerVersion ?? "")}`} alt="" className="h-full w-full object-contain" style={{ objectPosition: `${c.bannerPositionX ?? 50}% ${c.bannerPositionY ?? 50}%`, transform: `scale(${c.bannerScale ?? 1})` }} /></div>}
+                        {c.hasBanner && <div className="aspect-[4/3] overflow-hidden rounded-t-[18px] bg-system-100"><img src={`${BASE_PATH}/api/campanas/${c.id}/banner?v=${encodeURIComponent(c.bannerVersion ?? "")}`} alt="" className="h-full w-full object-contain" style={{ objectPosition: `${c.bannerPositionX ?? 50}% ${c.bannerPositionY ?? 50}%`, transform: `scale(${c.bannerScale ?? 1})` }} /></div>}
                         <div className="flex flex-1 flex-col p-4">
                           <div className="flex items-start justify-between gap-2">
                             <h2 className="line-clamp-2 min-w-0 break-words text-[16px] font-semibold leading-snug text-system-900" title={c.name}>
