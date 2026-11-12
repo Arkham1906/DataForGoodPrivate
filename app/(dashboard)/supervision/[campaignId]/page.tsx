@@ -11,7 +11,7 @@
 
 import { textoDeUbicacion } from "@/lib/campanas/ubicacion";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import Tag from "@/components/ui/Tag";
 import CampanasSimilares from "@/components/supervision/CampanasSimilares";
@@ -30,9 +30,11 @@ import { resumenDeCuotaPorTipo } from "@/lib/campanas/cuota-por-tipo";
 import { resumenDeLimites } from "@/lib/campanas/limite-por-tipo";
 import { quienOrganiza } from "@/lib/campanas/organizacion";
 import { textoDelProposito } from "@/lib/campanas/proposito";
+import { rutasDeModeracion } from "@/lib/moderacion/rutas";
 
 type Campaign = {
   id: string;
+  creatorId?: string;
   name: string;
   status?: string;
   tag?: string;
@@ -70,7 +72,10 @@ type Campaign = {
 export default function CampaignDetailPage() {
   const params = useParams<{ campaignId: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const campaignId = params.campaignId;
+  const claveDeReporte = searchParams.get("reportes");
+  const reporteDeEstaCampana = claveDeReporte === `campana-${campaignId}`;
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -286,7 +291,23 @@ export default function CampaignDetailPage() {
       </div>
 
       {isMySupervision && !isCreator && (
-        <EstadoDeCampanaSupervisada status={String(campaign.status ?? "")} pausa={campaign.pausa} onCambiar={handleCambioDeEstado} />
+        <>
+          {reporteDeEstaCampana && campaign.creatorId && (
+            <section className="mb-5 rounded-lg border border-warning-200 bg-warning-50 p-4">
+              <h2 className="text-[13.5px] font-bold text-system-900">Reporte de esta campaña</h2>
+              <p className="mt-1 text-[12.5px] text-system-600">
+                Puedes elegir un aviso, una suspensión o un baneo para el creador. La sanción resolverá los reportes pendientes de esta campaña.
+              </p>
+              <Link
+                href={rutasDeModeracion("supervision").sancionar(campaign.creatorId, claveDeReporte ?? undefined)}
+                className="mt-3 inline-flex rounded-pill border border-error-700/40 bg-white px-3.5 py-2 text-[12.5px] font-bold text-error-700 hover:bg-error-50"
+              >
+                Elegir sanción para el creador
+              </Link>
+            </section>
+          )}
+          <EstadoDeCampanaSupervisada status={String(campaign.status ?? "")} pausa={campaign.pausa} onCambiar={handleCambioDeEstado} />
+        </>
       )}
 
       {campaign.datosAbiertos && (

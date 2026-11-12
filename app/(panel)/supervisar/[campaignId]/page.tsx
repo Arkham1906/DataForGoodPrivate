@@ -19,6 +19,7 @@ import AccionesDeSupervision, { DatosAbiertosComoSuperUsuario, EstadoComoSuperUs
 import type { Metadata } from "next";
 import { exigirSesionRoot } from "@/lib/supervision/root";
 import { BASE_PATH } from "@/lib/base-path";
+import { rutasDeModeracion } from "@/lib/moderacion/rutas";
 
 export const metadata: Metadata = { title: "Supervisar campaña" };
 
@@ -39,11 +40,18 @@ function formatDate(date: string | null) {
   return new Date(year, month - 1, day).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-export default async function SupervisarCampanaPage({ params }: { params: Promise<{ campaignId: string }> }) {
+export default async function SupervisarCampanaPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ campaignId: string }>;
+  searchParams: Promise<{ reportes?: string }>;
+}) {
   await exigirSesionRoot();
-  const { campaignId } = await params;
+  const [{ campaignId }, { reportes }] = await Promise.all([params, searchParams]);
   const campaign = await obtenerCampanaParaRoot(campaignId);
   if (!campaign) notFound();
+  const claveDeReporte = reportes === `campana-${campaignId}` ? reportes : null;
   const similares = campaign.status === "en_revision" ? await obtenerCampanasSimilares(campaign.id) : null;
 
   const currentStatus = statusMap[campaign.status as keyof typeof statusMap] ?? { label: "En revisión", tone: "warn" };
@@ -102,6 +110,21 @@ export default async function SupervisarCampanaPage({ params }: { params: Promis
       <div className="mb-5 rounded-lg border border-system-200 bg-system-100 p-4 text-[13px] text-system-600">
         La decisión queda registrada como tomada por el SuperUsuario.
       </div>
+
+      {claveDeReporte && campaign.creatorId && (
+        <section className="mb-5 rounded-lg border border-warning-200 bg-warning-50 p-4">
+          <h2 className="text-[13.5px] font-bold text-system-900">Reporte de esta campaña</h2>
+          <p className="mt-1 text-[12.5px] text-system-600">
+            Puedes elegir un aviso, una suspensión o un baneo para el creador. La sanción resolverá los reportes pendientes de esta campaña.
+          </p>
+          <Link
+            href={rutasDeModeracion("supervisar").sancionar(campaign.creatorId, claveDeReporte)}
+            className="mt-3 inline-flex rounded-pill border border-error-700/40 bg-white px-3.5 py-2 text-[12.5px] font-bold text-error-700 hover:bg-error-50"
+          >
+            Elegir sanción para el creador
+          </Link>
+        </section>
+      )}
 
       {/* Activa o pausada, la supervise quien la supervise (2026-10-15). */}
       <EstadoComoSuperUsuario campaignId={campaign.id} status={campaign.status} pausa={campaign.pausa} />

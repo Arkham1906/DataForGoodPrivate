@@ -1,10 +1,10 @@
 // Contenido de la pantalla de sanciones de la moderación (2026-10-13): /supervisar/sanciones (SuperUsuario
 // en modo supervisor) y /supervision/sanciones (usuario con rol de supervisor); antes era /usuarios/sanciones
-// del panel. Todas las sanciones de los usuarios (avisos, suspensiones y baneos de la cuenta, y baneos por
-// campaña; vigentes y pasadas), la lista negra de correos (listarListaNegra) y los bloqueos globales de
+// del panel. El supervisor ve sanciones vinculadas a campañas que supervisa; el SuperUsuario ve todas. También
+// muestra la lista negra de correos (listarListaNegra) y los bloqueos globales de
 // dispositivos anónimos.
 // Server Component; la página de cada zona comprueba antes la sesión (exigirModerador). Datos:
-// listarSanciones() (lib/usuarios/directorio.ts) y listarBloqueosGlobales() (lib/aportes/sanciones-anonimas.ts).
+// listarSanciones(supervisorId?) (lib/usuarios/directorio.ts) y listarBloqueosGlobales() (lib/aportes/sanciones-anonimas.ts).
 // La lista agrupada por usuario está en ListaDeSanciones (cliente). Acciones: BotonRestaurar y BotonQuitarBloqueo.
 // "Sancionar a alguien" (?buscar=): busca a cualquier usuario por nombre, correo o id (buscarUsuarios) y lleva
 // a su pantalla de sanción; no muestra correos, solo el nombre y el estado de la cuenta.
@@ -49,7 +49,11 @@ export default async function PantallaDeSanciones({
   const encontrados = texto && !soloLectura
     ? (await buscarUsuarios({ q: texto })).filas.filter((u) => u.id !== cuentaPropia)
     : null;
-  const [sanciones, bloqueos, listaNegra] = await Promise.all([listarSanciones(), listarBloqueosGlobales(), listarListaNegra()]);
+  const [sanciones, bloqueos, listaNegra] = await Promise.all([
+    listarSanciones(zona === "supervision" && moderador.tipo === "usuario" ? moderador.usuarioId : undefined),
+    listarBloqueosGlobales(),
+    listarListaNegra(),
+  ]);
   const vigentes = sanciones.filter((s) => s.vigente).length;
 
   return (
@@ -64,6 +68,11 @@ export default async function PantallaDeSanciones({
         titulo="Sanciones"
         subtitulo={`${sanciones.length} ${sanciones.length === 1 ? "sanción" : "sanciones"} · ${vigentes} ${vigentes === 1 ? "vigente" : "vigentes"}`}
       />
+      {zona === "supervision" && !soloLectura && (
+        <p className="mb-5 text-[13px] text-system-600">
+          Usuarios sancionados por reportes o rechazos de las campañas que supervisas.
+        </p>
+      )}
 
       {soloLectura ? (
         <Aviso tono="info" className="mb-6 max-w-xl">
@@ -107,7 +116,11 @@ export default async function PantallaDeSanciones({
       )}
 
       {sanciones.length === 0 ? (
-        <p className="py-7 text-[13px] text-system-600">Ningún usuario tiene sanciones.</p>
+        <p className="py-7 text-[13px] text-system-600">
+          {zona === "supervision"
+            ? "Todavía no hay usuarios sancionados por reportes o rechazos de las campañas que supervisas."
+            : "Ningún usuario tiene sanciones."}
+        </p>
       ) : (
         <ListaDeSanciones
           zona={zona}

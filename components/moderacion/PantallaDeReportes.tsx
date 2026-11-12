@@ -4,8 +4,8 @@
 // Server Component; la página de cada zona comprueba antes la sesión (exigirModerador).
 // Datos: listarReportes() y contarReportesPendientes() (lib/reportes/reportes.ts), sin los reportes contra el
 // supervisor que modera; ?estado=resueltos muestra los ya resueltos. La lista agrupada por caso está en
-// ListaDeReportes (cliente). Acciones: "Dar aviso a <persona>" lleva a .../sanciones/[usuarioId]?reportes=<clave>
-// (el aviso queda en la lista de sanciones y resuelve los reportes); "Descartar" en BotonDescartar.
+// ListaDeReportes (cliente). Acciones: "Elegir sanción para <persona>" lleva a .../sanciones/[usuarioId]?reportes=<clave>
+// (aviso, suspensión o baneo, y resuelve los reportes); "Descartar" en BotonDescartar.
 
 import Link from "next/link";
 

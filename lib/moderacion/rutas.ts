@@ -20,6 +20,9 @@ export function rutasDeModeracion(zona: ZonaDeModeracion) {
       `${base}/sanciones/${usuarioId}${reportes ? `?reportes=${encodeURIComponent(reportes)}` : ""}`,
     /** Ficha de una campaña: la del panel para el SuperUsuario, la pública de la app para un supervisor. */
     campana: (campanaId: string) => (zona === "supervisar" ? `/sistema/campanas/${campanaId}` : `/campanas/${campanaId}`),
+    /** Ficha de supervisión de una campaña reportada, conservando el caso para sancionarlo desde ahí. */
+    campanaReportada: (campanaId: string, reportes?: string) =>
+      `/${zona}/${campanaId}${reportes ? `?reportes=${encodeURIComponent(reportes)}` : ""}`,
   };
 }
 

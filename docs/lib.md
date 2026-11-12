@@ -116,7 +116,7 @@
 | `aviso-del-menu.ts` | `avisoDelMenuParaUsuario(usuario)` (2026-11-10): recuadro azul del menú lateral: invita a participar con un solo aviso (cuota pendiente; si no, una campaña que cierra pronto y necesita aportes, primero de sus temáticas); sin nada, la frase de siempre. No repite lo que ya llega como notificación | `layout/ShellDeUsuario` → `layout/SidebarNav` |
 | `inicio.ts` | `obtenerResumenDeInicio(usuario)`: datos de `/inicio` (cifras, campañas para ti, aportes recientes y notificaciones sin leer) | `/inicio` |
 | `tabla-roles.ts` | Roles en la tabla `usuario_roles` (2026-10-30): `columnaDeRoles(alias)` (devuelve `role` como antes), `condicionDeRol(alias, rol)`, `agregarRol`, `quitarRol` | Sesión, API de usuarios, panel, revisores |
-| `directorio.ts` | Búsqueda de usuarios, ficha, estado de la cuenta, lista de sanciones (`listarSanciones`) | `/usuarios/**` |
+| `directorio.ts` | Búsqueda de usuarios, ficha, estado de la cuenta, lista de sanciones (`listarSanciones`; acepta el supervisor para limitar la bandeja a campañas que supervisa) | `/usuarios/**`, `/supervision/sanciones`, `/supervisar/sanciones` |
 | `dashboard.ts` | Métricas de usuarios por rango de fechas | `/usuarios/dashboard` |
 | `supervisores.ts` | Lista de supervisores y su actividad | `/usuarios/supervisores/**` |
 | `revisor.ts` | Retirar a alguien como revisor de todas sus campañas | `revocarRol` (al quitar el rol de revisor), borrado definitivo de una cuenta |
@@ -158,7 +158,7 @@ Reportes y sanciones, que antes eran del panel del SuperUsuario. Las mismas pant
 
 | Archivo | Qué hace | Lo usa |
 | --- | --- | --- |
-| `rutas.ts` 🟢 | `ZonaDeModeracion` (`supervisar` o `supervision`), `rutasDeModeracion(zona)` (reportes, sanciones, sancionar, ficha de campaña) y `pestanasDeModeracion` (Campañas / Reportes / Sanciones) | Pantallas y componentes de `components/moderacion` |
+| `rutas.ts` 🟢 | `ZonaDeModeracion` (`supervisar` o `supervision`), `rutasDeModeracion(zona)` (reportes, sanciones, sancionar, ficha de campaña y ficha de supervisión de un reporte) y `pestanasDeModeracion` (Campañas / Reportes / Sanciones) | Pantallas y componentes de `components/moderacion` |
 | `moderador.ts` | `moderadorDe(zona)` (para server actions: raíz o usuario con rol `supervisor`, según la zona), `exigirModerador(zona)` (para páginas: redirige a `/root` o `/campanas`), `actorDeModerador`, `firmaDeModerador` (`aplicada_por`), `cuentaDelModerador` | Páginas de las dos zonas, `acciones.ts` |
 | `acciones.ts` ⚡ | `aplicarSancion`, `restaurarAcceso`, `descartarReportes`, `quitarBloqueoDeDispositivo`; reciben la zona y comprueban su sesión. Un supervisor no se modera a sí mismo | `components/moderacion/*` |
 | `sancionar.ts` (2026-10-16) | Aplicar una sanción en un solo lugar: `sancionarEnTransaccion` (aviso con su escala, suspensión directa de 2 o 7 días o baneo, dentro de la transacción de quien llama), `avisarSancion`, `detalleDeAuditoria`, `errorDeSancionPedida` | `aplicarSancion` y el rechazo de una campaña con sanción (`lib/supervision/decision.ts`) |

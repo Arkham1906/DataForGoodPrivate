@@ -31,6 +31,7 @@ export async function exigirSesionRoot(): Promise<void> {
 
 export type CampanaSupervisable = {
   id: string;
+  creatorId: string;
   name: string;
   creatorName: string;
   tag: string;
@@ -77,6 +78,7 @@ export type CampanaSupervisable = {
 function mapear(row: Record<string, unknown>): CampanaSupervisable {
   return {
     id: String(row.id),
+    creatorId: String(row.creator_id ?? ""),
     name: String(row.name ?? ""),
     creatorName: String(row.creator_name ?? ""),
     tag: String(row.tag ?? row.tematica ?? ""),
