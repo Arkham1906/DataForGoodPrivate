@@ -42,6 +42,8 @@ export default function CampaignDetailPage() {
   // Ventana de los acuerdos para inscribirse (2026-11-10).
   const [aceptandoAcuerdos, setAceptandoAcuerdos] = useState(false);
   const [campaign, setCampaign] = useState<Campaign | null>(null);
+  const [conSesion, setConSesion] = useState<boolean | null>(null);
+  const [enlaceAnonimo, setEnlaceAnonimo] = useState<string | null>(null);
   const [isCreator, setIsCreator] = useState(false);
   const [baneado, setBaneado] = useState(false);
   const [motivoDeBaneo, setMotivoDeBaneo] = useState<string | null>(null);
@@ -68,6 +70,8 @@ export default function CampaignDetailPage() {
         }
         if (!response.ok) throw new Error(payload.error ?? "No se pudo cargar la campaña");
         setCampaign(payload.data as Campaign);
+        setConSesion(Boolean(payload.viewer?.conSesion));
+        setEnlaceAnonimo(payload.viewer?.enlaceAnonimo ?? null);
         setIsCreator(Boolean(payload.viewer?.isCreator));
         setBaneado(Boolean(payload.viewer?.baneado));
         setMotivoDeBaneo(payload.viewer?.motivoDeBaneo ?? null);
@@ -314,7 +318,25 @@ export default function CampaignDetailPage() {
               </div>
 
               <div className="w-full shrink-0 sm:w-64">
-                {isCreator ? (
+                {!conSesion ? (
+                  campaign.status === "activa" && !campaign.permiteAnonimos ? (
+                    <p className="rounded-lg bg-system-100 p-3 text-center text-[12.5px] text-system-600">
+                      Esta campaña solo recibe aportes con cuenta.
+                    </p>
+                  ) : campaign.status === "activa" && enlaceAnonimo ? (
+                    <Link href={`/c/${enlaceAnonimo}`} className={buttonClasses("primary", "md", "w-full")}>
+                      Aportar sin cuenta
+                    </Link>
+                  ) : campaign.status === "activa" ? (
+                    <p className="rounded-lg bg-system-100 p-3 text-center text-[12.5px] text-system-600">
+                      Los aportes sin cuenta no están disponibles en este momento.
+                    </p>
+                  ) : (
+                    <p className="rounded-lg bg-system-100 p-3 text-center text-[12.5px] text-system-600">
+                      Esta campaña no está recibiendo aportes.
+                    </p>
+                  )
+                ) : isCreator ? (
                   <p className="rounded-lg bg-system-100 p-3 text-center text-[12.5px] text-system-600">Creaste esta campaña, por lo que no puedes aportar en ella.</p>
                 ) : baneado ? (
                   <p className="rounded-lg bg-error-50 p-3 text-center text-[12.5px] text-error-700">

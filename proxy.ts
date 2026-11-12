@@ -83,6 +83,16 @@ export function proxy(request: NextRequest) {
   const hasSession = Boolean(request.cookies.get(SESSION_COOKIE)?.value);
 
   if (!hasSession) {
+    // El detalle de una campaña pública se puede consultar sin cuenta. Las
+    // acciones para participar siguen protegidas por sus propios endpoints y
+    // las demás pantallas de usuario continúan requiriendo sesión.
+    const esDetallePublico = /^\/campanas\/[1-9]\d*$/.test(pathname);
+    if (esDetallePublico) {
+      const headers = new Headers(request.headers);
+      headers.set("x-public-campaign-detail", "1");
+      return NextResponse.next({ request: { headers } });
+    }
+
     // Tras iniciar sesión, /entrar regresa a la pantalla que se pidió
     // (p. ej. una campaña abierta desde /explorar).
     const destino = encodeURIComponent(`${pathname}${request.nextUrl.search}`);

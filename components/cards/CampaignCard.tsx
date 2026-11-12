@@ -34,7 +34,6 @@ export default function CampaignCard({ campaign, onAbrir, hrefAlAbrir, compact =
 
   return (
     <Card className={`flex flex-col ${compact ? "gap-2 p-3 max-md:gap-1.5 max-md:p-2.5 xl:grid xl:grid-cols-[minmax(165px,1.25fr)_minmax(145px,1.15fr)_minmax(135px,1fr)_minmax(145px,1.15fr)_minmax(135px,1fr)_auto] xl:items-center xl:gap-4 xl:p-4" : "gap-3 max-md:gap-2.5 max-md:p-3.5"} ${mobileCompact ? "max-sm:gap-2 max-sm:p-2.5" : ""} ${onAbrir || hrefAlAbrir ? "relative cursor-pointer transition-colors hover:border-brand-600" : ""}`}>
-      {!compact && campaign.hasBanner && <div className="aspect-[4/3] overflow-hidden rounded-md bg-system-100"><img src={`${BASE_PATH}/api/campanas/${campaign.id}/banner?v=${encodeURIComponent(campaign.bannerVersion ?? "")}`} alt="" className="h-full w-full object-contain" style={{ objectPosition: `${campaign.bannerPositionX ?? 50}% ${campaign.bannerPositionY ?? 50}%`, transform: `scale(${campaign.bannerScale ?? 1})` }} /></div>}
       {hrefAlAbrir ? (
         <Link
           href={hrefAlAbrir}
@@ -58,6 +57,7 @@ export default function CampaignCard({ campaign, onAbrir, hrefAlAbrir, compact =
           <Tag>{campaign.tematica || campaign.tag || "Sin temática"}</Tag>
         </div>
       </div>
+      {!compact && campaign.hasBanner && <div className="aspect-[4/3] overflow-hidden rounded-md bg-system-100"><img src={`${BASE_PATH}/api/campanas/${campaign.id}/banner?v=${encodeURIComponent(campaign.bannerVersion ?? "")}`} alt="" className="h-full w-full object-contain" style={{ objectPosition: `${campaign.bannerPositionX ?? 50}% ${campaign.bannerPositionY ?? 50}%`, transform: `scale(${campaign.bannerScale ?? 1})` }} /></div>}
 
       <p className={`min-w-0 text-system-600 ${compact ? "flex flex-col justify-center text-[10.5px]" : "truncate text-[12px] max-md:text-[11px]"}`} title={campaign.creatorName || "Sin especificar"}>
         <span className="font-semibold text-system-700">Creador:</span>

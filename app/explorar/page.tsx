@@ -276,7 +276,6 @@ export default async function ExplorarCampanasPage({
                           estiraba la tarjeta o se salía de ella y empujaba "Activa" afuera. El
                           texto completo queda en el title. */}
                       <article className="landing-tarjeta flex h-full min-w-0 flex-col rounded-[18px] border border-system-200 bg-white hover:border-brand-600">
-                        {c.hasBanner && <div className="aspect-[4/3] overflow-hidden rounded-t-[18px] bg-system-100"><img src={`${BASE_PATH}/api/campanas/${c.id}/banner?v=${encodeURIComponent(c.bannerVersion ?? "")}`} alt="" className="h-full w-full object-contain" style={{ objectPosition: `${c.bannerPositionX ?? 50}% ${c.bannerPositionY ?? 50}%`, transform: `scale(${c.bannerScale ?? 1})` }} /></div>}
                         <div className="flex flex-1 flex-col p-4">
                           <div className="flex items-start justify-between gap-2">
                             <h2 className="line-clamp-2 min-w-0 break-words text-[16px] font-semibold leading-snug text-system-900" title={c.name}>
@@ -286,6 +285,21 @@ export default async function ExplorarCampanasPage({
                               <Tag tone={ETIQUETA_DE_CAMPANA[c.status].tono}>{ETIQUETA_DE_CAMPANA[c.status].texto}</Tag>
                             </span>
                           </div>
+                          {c.tematica && (
+                            <div className="mt-2">
+                              <Tag tone="ok">{c.tematica}</Tag>
+                            </div>
+                          )}
+                          {c.hasBanner && (
+                            <div className="mt-3 aspect-[4/3] overflow-hidden rounded-lg bg-system-100">
+                              <img
+                                src={`${BASE_PATH}/api/campanas/${c.id}/banner?v=${encodeURIComponent(c.bannerVersion ?? "")}`}
+                                alt=""
+                                className="h-full w-full object-contain"
+                                style={{ objectPosition: `${c.bannerPositionX ?? 50}% ${c.bannerPositionY ?? 50}%`, transform: `scale(${c.bannerScale ?? 1})` }}
+                              />
+                            </div>
+                          )}
                           <p className="mt-2 line-clamp-2 break-words text-[13px] leading-relaxed text-system-600">
                             {c.description.length > 140 ? `${c.description.slice(0, 140)}…` : c.description}
                           </p>
@@ -302,7 +316,6 @@ export default async function ExplorarCampanasPage({
                         <div className="border-t border-system-200 p-4">
                           <ProgressBar pct={pct} tone="ok" conPorcentaje />
                           <div className="mt-3 flex flex-wrap gap-1.5">
-                            {c.tematica && <Tag tone="ok">{c.tematica}</Tag>}
                             {c.dataTypes.map((dt) => (
                               <Tag key={dt}>{DATA_TYPE_LABELS[dt as DataType] ?? dt}</Tag>
                             ))}

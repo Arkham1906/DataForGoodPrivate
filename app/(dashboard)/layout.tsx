@@ -4,7 +4,8 @@
 // No basta por sí solo: cada página y cada endpoint vuelven a verificar (ver docs/permisos.md).
 
 import ShellDeUsuario from "@/components/layout/ShellDeUsuario";
-import { exigirUsuario } from "@/lib/session";
+import { exigirUsuario, getSessionUser } from "@/lib/session";
+import { headers } from "next/headers";
 
 export const dynamic = "force-dynamic";
 
@@ -13,8 +14,14 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Sin sesión va a /entrar; una cuenta suspendida o baneada, a /cuenta-bloqueada.
-  const usuario = await exigirUsuario();
+  // El proxy marca únicamente el detalle público de una campaña. Las demás
+  // rutas siguen usando la guardia normal, incluso con una sesión inválida.
+  const usuario = await getSessionUser();
+  if (!usuario) {
+    const encabezados = await headers();
+    if (encabezados.get("x-public-campaign-detail") === "1") return <>{children}</>;
+    return <ShellDeUsuario usuario={await exigirUsuario()}>{children}</ShellDeUsuario>;
+  }
 
   return <ShellDeUsuario usuario={usuario}>{children}</ShellDeUsuario>;
 }

@@ -668,7 +668,7 @@ paths:
       description: "Usa uno de los filtros a la vez. Sin filtros (y con `id`) solo devuelve lo que quien consulta puede ver (`lib/campanas/visibilidad.ts`, 2026-10-20): cualquiera ve las activas, pausadas y finalizadas; el creador, las suyas; un supervisor, además las que están en revisión y las que supervisa; el revisor aceptado, esa campaña; la sesión raíz, todas. Con `id` de una que no puede ver responde 404."
       security: []
       parameters:
-        - { name: id, in: query, schema: { type: integer }, description: "Una sola campaña. La respuesta trae además `viewer: { isCreator, isMySupervision, baneado, motivoDeBaneo, yaReportada }` (`baneado`: el creador te baneó de esta campaña; `yaReportada`: ya la reportaste)" }
+        - { name: id, in: query, schema: { type: integer }, description: "Una sola campaña. La respuesta trae `viewer`; para visitas sin sesión incluye `enlaceAnonimo` solo si está activa y permite aportes sin cuenta." }
         - { name: available, in: query, schema: { type: boolean }, description: Campañas en las que puedo aportar (excluye aquellas de las que el creador me baneó) }
         - { name: mine, in: query, schema: { type: boolean }, description: "Campañas que creé (requiere sesión); incluye `canDelete` para indicar si la campaña no tiene aportes." }
         - { name: supervised, in: query, schema: { type: boolean }, description: Campañas que superviso (requiere sesión) }
