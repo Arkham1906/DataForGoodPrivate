@@ -23,7 +23,7 @@ import {
   type SancionAplicada,
 } from "@/lib/moderacion/sancionar";
 import { leerClaveDeReportes } from "@/lib/reportes/motivos";
-import { sqlDeClave } from "@/lib/reportes/reportes";
+import { sqlDeClave, supervisorPuedeVerClaveDeReportes } from "@/lib/reportes/reportes";
 import { restaurarBloqueoGlobal } from "@/lib/aportes/sanciones-anonimas";
 import { actorDeModerador, cuentaDelModerador, firmaDeModerador, moderadorDe } from "@/lib/moderacion/moderador";
 import { rutasDeModeracion, type ZonaDeModeracion } from "@/lib/moderacion/rutas";
@@ -80,6 +80,9 @@ export async function aplicarSancion(
   if (datos.reportes !== undefined && !clave) {
     return { ok: false, error: "Reportes inválidos." };
   }
+  if (clave && !(await supervisorPuedeVerClaveDeReportes(clave, cuentaDelModerador(moderador)))) {
+    return NO_AUTORIZADO;
+  }
 
   let reportesResueltos: number[] = [];
   let sancion: SancionAplicada;
@@ -107,8 +110,11 @@ export async function aplicarSancion(
         `UPDATE reportes
          SET estado = 'sancionado', sancion_id = $3, nota_de_resolucion = $4, resuelto_en = NOW()
          WHERE ${sqlDeClave(clave)} AND reportado_id = $2 AND estado = 'pendiente'
+           AND ($5::int IS NULL OR tipo = 'campana' OR EXISTS (
+             SELECT 1 FROM campanas c WHERE c.id = reportes.campana_id AND c.supervisor_id = $5
+           ))
          RETURNING id`,
-        [clave.id, numericId, sancion.sancionId, detalle],
+        [clave.id, numericId, sancion.sancionId, detalle, cuentaDelModerador(moderador)],
       );
       if (resueltos.rowCount === 0) {
         await client.query("ROLLBACK");
@@ -208,6 +214,9 @@ export async function descartarReportes(zona: ZonaDeModeracion, claveTexto: stri
 
   const clave = leerClaveDeReportes(claveTexto);
   if (!clave) return { ok: false, error: "Reportes inválidos." };
+  if (!(await supervisorPuedeVerClaveDeReportes(clave, cuentaDelModerador(moderador)))) {
+    return NO_AUTORIZADO;
+  }
   const texto = typeof nota === "string" ? nota.trim() : "";
   if (texto.length > MAXIMO_NOTA) return { ok: false, error: `La nota no puede pasar de ${MAXIMO_NOTA} caracteres.` };
 
@@ -218,8 +227,11 @@ export async function descartarReportes(zona: ZonaDeModeracion, claveTexto: stri
        SET estado = 'descartado', nota_de_resolucion = $2, resuelto_en = NOW()
        WHERE ${sqlDeClave(clave)} AND estado = 'pendiente'
          AND ($3::int IS NULL OR reportado_id IS DISTINCT FROM $3)
+         AND ($4::int IS NULL OR tipo = 'campana' OR EXISTS (
+           SELECT 1 FROM campanas c WHERE c.id = reportes.campana_id AND c.supervisor_id = $4
+         ))
        RETURNING id`,
-      [clave.id, texto || null, cuentaDelModerador(moderador)],
+      [clave.id, texto || null, cuentaDelModerador(moderador), cuentaDelModerador(moderador)],
     );
     if (rows.length === 0) return { ok: false, error: "Ya no hay reportes pendientes aquí." };
 

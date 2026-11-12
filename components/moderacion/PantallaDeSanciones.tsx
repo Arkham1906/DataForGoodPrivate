@@ -1,7 +1,7 @@
 // Contenido de la pantalla de sanciones de la moderación (2026-10-13): /supervisar/sanciones (SuperUsuario
 // en modo supervisor) y /supervision/sanciones (usuario con rol de supervisor); antes era /usuarios/sanciones
-// del panel. El supervisor ve sanciones vinculadas a campañas que supervisa; el SuperUsuario ve todas. También
-// muestra la lista negra de correos (listarListaNegra) y los bloqueos globales de
+// del panel. El supervisor ve sanciones de campañas que supervisa y las que aplicó al resolver reportes;
+// el SuperUsuario ve todas. También muestra la lista negra de correos (listarListaNegra) y los bloqueos globales de
 // dispositivos anónimos.
 // Server Component; la página de cada zona comprueba antes la sesión (exigirModerador). Datos:
 // listarSanciones(supervisorId?) (lib/usuarios/directorio.ts) y listarBloqueosGlobales() (lib/aportes/sanciones-anonimas.ts).
@@ -70,7 +70,7 @@ export default async function PantallaDeSanciones({
       />
       {zona === "supervision" && !soloLectura && (
         <p className="mb-5 text-[13px] text-system-600">
-          Usuarios sancionados por reportes o rechazos de las campañas que supervisas.
+          Usuarios sancionados por reportes o rechazos de tus campañas, y los reportes que resolviste.
         </p>
       )}
 
@@ -118,7 +118,7 @@ export default async function PantallaDeSanciones({
       {sanciones.length === 0 ? (
         <p className="py-7 text-[13px] text-system-600">
           {zona === "supervision"
-            ? "Todavía no hay usuarios sancionados por reportes o rechazos de las campañas que supervisas."
+            ? "Todavía no hay sanciones de tus campañas ni de reportes que hayas resuelto."
             : "Ningún usuario tiene sanciones."}
         </p>
       ) : (

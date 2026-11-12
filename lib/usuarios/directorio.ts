@@ -408,8 +408,9 @@ export async function obtenerReporteDeSancion(
 
 /**
  * Sanciones de los usuarios que siguen existiendo (2026-10-08), de la más reciente
- * a la más vieja. Con `supervisorId`, solo incluye sanciones ligadas a reportes de
- * sus campañas y baneos por campaña dentro de sus campañas supervisadas. Vienen de dos lados:
+ * a la más vieja. Con `supervisorId`, incluye sanciones ligadas a reportes de sus campañas,
+ * baneos por campaña dentro de sus campañas supervisadas y sanciones aplicadas por ese supervisor
+ * al resolver reportes. Vienen de dos lados:
  *   - De la cuenta (tabla `sanciones`): avisos (STRIKE) y baneos que aplica el
  *     moderador (SuperUsuario o supervisor) desde .../sanciones/[usuarioId], y la suspensión o el baneo que
  *     trae cada aviso (escala de avisos). Si se dieron al confirmar reportes,
@@ -463,6 +464,13 @@ export async function listarSanciones(supervisorId?: number): Promise<RegistroDe
            SELECT 1 FROM reportes r
            JOIN campanas rc ON rc.id = r.campana_id
            WHERE r.sancion_id = s.id AND rc.supervisor_id = $1
+         ) OR EXISTS (
+           SELECT 1 FROM audit_log a
+           WHERE a.accion = 'sancion.aplicar' AND a.actor_tipo = 'usuario' AND a.actor_id = $1
+             AND a.objetivo_tipo = 'usuario' AND a.objetivo_id = s.usuario_id::text
+             AND (a.detalle->>'avisoId' = s.id::text OR a.detalle->'bloqueo'->>'sancionId' = s.id::text)
+             AND CASE WHEN jsonb_typeof(a.detalle->'reportes') = 'array'
+                      THEN jsonb_array_length(a.detalle->'reportes') > 0 ELSE false END
          ))`,
         [supervisorId ?? null],
       ),

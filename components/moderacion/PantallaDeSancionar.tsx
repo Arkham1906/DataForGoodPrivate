@@ -9,7 +9,7 @@ import { notFound } from "next/navigation";
 
 import { Aviso, Identidad, Tarjeta, Volver } from "@/components/sistema/ui";
 import { obtenerUsuario } from "@/lib/usuarios/directorio";
-import { reportesPendientesContra } from "@/lib/reportes/reportes";
+import { reportesPendientesContra, supervisorPuedeVerClaveDeReportes } from "@/lib/reportes/reportes";
 import { leerClaveDeReportes } from "@/lib/reportes/motivos";
 import type { Moderador } from "@/lib/moderacion/moderador";
 import { rutasDeModeracion, type ZonaDeModeracion } from "@/lib/moderacion/rutas";
@@ -39,6 +39,9 @@ export default async function PantallaDeSancionar({
   const esSuCuenta = moderador.tipo === "usuario" && moderador.usuarioId === Number(u.id);
 
   const clave = leerClaveDeReportes(reportesDe);
+  if (clave && !(await supervisorPuedeVerClaveDeReportes(clave, moderador.tipo === "usuario" ? moderador.usuarioId : null))) {
+    notFound();
+  }
   const reportes = clave ? await reportesPendientesContra(clave, Number(u.id)) : null;
 
   return (

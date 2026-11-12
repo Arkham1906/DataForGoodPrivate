@@ -291,7 +291,7 @@ export default async function ExplorarCampanasPage({
                             </div>
                           )}
                           {c.hasBanner && (
-                            <div className="mt-3 aspect-[4/3] overflow-hidden rounded-lg bg-system-100">
+                            <div data-campana-banner className="mt-3 aspect-[4/3] overflow-hidden rounded-lg bg-system-100">
                               <img
                                 src={`${BASE_PATH}/api/campanas/${c.id}/banner?v=${encodeURIComponent(c.bannerVersion ?? "")}`}
                                 alt=""
