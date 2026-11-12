@@ -7,6 +7,7 @@
 import { useRef, useState } from "react";
 import Button from "@/components/ui/Button";
 import { claveDeTematica } from "@/lib/tematicas/analizar";
+import { claseDeVentana } from "@/components/ui/ventana-emergente";
 
 export default function MasTematicas({
   temas,
@@ -52,27 +53,27 @@ export default function MasTematicas({
         onClick={(e) => {
           if (e.target === dialogo.current) dialogo.current?.close();
         }}
-        className="m-auto w-[calc(100%-2rem)] max-w-md rounded-lg border border-system-200 bg-white p-0 text-system-900 shadow-lg backdrop:bg-system-900/40"
+        className={claseDeVentana("normal")}
       >
         <div className="flex max-h-[80vh] flex-col">
-          <div className="border-b border-system-200 p-5">
-            <h2 id="mas-tematicas-titulo" className="text-lg font-extrabold text-system-900">
+          <div className="border-b border-system-200 px-5 py-5 md:px-8 md:py-6">
+            <h2 id="mas-tematicas-titulo" className="text-xl font-extrabold md:text-2xl text-system-900">
               Más temáticas
             </h2>
-            <p className="mt-1 text-[12.5px] text-system-600">Elige una para ver solo sus campañas.</p>
+            <p className="mt-1 text-[15px] text-system-600">Elige una para ver solo sus campañas.</p>
             <input
               type="search"
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
               placeholder="Buscar temática"
               aria-label="Buscar temática"
-              className="mt-3 w-full rounded border border-system-300 bg-white px-3 py-2 text-[13px] text-system-900 outline-none focus:border-brand-600"
+              className="mt-3 w-full rounded border border-system-300 bg-white px-3 py-2 text-[15px] text-system-900 outline-none focus:border-brand-600"
             />
           </div>
 
-          <div className="flex-1 overflow-y-auto p-5">
+          <div className="flex-1 overflow-y-auto px-5 py-5 md:px-8 md:py-6">
             {visibles.length === 0 ? (
-              <p className="text-[12.5px] text-system-500">Ninguna temática coincide con «{busqueda}».</p>
+              <p className="text-[15px] text-system-500">Ninguna temática coincide con «{busqueda}».</p>
             ) : (
               <div className="flex flex-wrap gap-2">
                 {visibles.map(([tema, cuantas]) => (
@@ -80,7 +81,7 @@ export default function MasTematicas({
                     key={tema}
                     type="button"
                     onClick={() => elegir(tema)}
-                    className="rounded-pill border border-system-300 bg-white px-3.5 py-1.5 text-[13px] font-semibold text-system-600 transition-colors hover:border-brand-600"
+                    className="rounded-pill border border-system-300 bg-white px-3.5 py-1.5 text-[15px] font-semibold text-system-600 transition-colors hover:border-brand-600"
                   >
                     {tema}
                     <span className="ml-1.5 font-mono">{cuantas}</span>
@@ -90,8 +91,8 @@ export default function MasTematicas({
             )}
           </div>
 
-          <div className="flex justify-end border-t border-system-200 p-4">
-            <Button type="button" variant="secondary" size="sm" onClick={() => dialogo.current?.close()}>
+          <div className="flex justify-end border-t border-system-200 px-5 py-4 md:px-8 md:py-5">
+            <Button type="button" variant="secondary" onClick={() => dialogo.current?.close()}>
               Cerrar
             </Button>
           </div>

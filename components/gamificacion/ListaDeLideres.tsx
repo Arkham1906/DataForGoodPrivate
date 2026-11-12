@@ -23,7 +23,7 @@ export default function ListaDeLideres({
         <li key={lider.usuarioId} className="flex items-center gap-3 px-4 py-3">
           <span className="w-6 shrink-0 text-center font-mono text-[13px] font-bold text-system-500">{desde + i}</span>
           <Avatar datos={{ usuarioId: lider.usuarioId, nombre: 
-            lider.nombre, avatar: lider.avatar, version: null }} />
+            lider.nombre, avatar: lider.avatar, version: lider.version }} />
           <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-system-900">
             {lider.nombre}
             {lider.usuarioId === resaltarId && <span className="ml-2 text-[11.5px] font-bold text-brand-700">Tu</span>}

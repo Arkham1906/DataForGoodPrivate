@@ -16,6 +16,9 @@ import FranjaDeCampo from "@/components/landing/FranjaDeCampo";
 import TarjetaDeConjunto from "@/components/landing/TarjetaDeConjunto";
 import PalabraRotativa from "@/components/landing/PalabraRotativa";
 import PestanasDeCampanas, { type CampanaDePortada, type PestanaDeCampanas } from "@/components/landing/PestanasDeCampanas";
+import FilaDeTematicas from "@/components/landing/FilaDeTematicas";
+import TarjetaDeCampanaPublica from "@/components/campanas/TarjetaDeCampanaPublica";
+import { buscarCampanasParaExplorar, obtenerTematicasParaExplorar } from "@/lib/campanas/publicas";
 import { retraso } from "@/lib/animaciones";
 import { pool } from "@/lib/db";
 import { activateScheduledCampaigns, finalizeExpiredCampaigns } from "@/lib/campaign-date";
@@ -24,7 +27,7 @@ import { quienOrganiza } from "@/lib/campanas/organizacion";
 import { sqlDatosPublicados } from "@/lib/campanas/datos-abiertos";
 import { ZONA_DE_CAMPANAS } from "@/lib/fecha-de-tepic";
 import TablaDeLideres from "@/components/gamificacion/TablaDeLideres";
-import { obtenerTablaDeLideres, tablaTieneDatos } from "@/lib/gamificacion/clasificacion";
+import { obtenerTablasPorPeriodo, tablaTieneDatos } from "@/lib/gamificacion/clasificacion";
 import { DATA_TYPE_LABELS, buscarConjuntosAbiertos, contarConjuntosPublicados } from "@/lib/open-data";
 import type { DataType } from "@/types";
 
@@ -51,6 +54,11 @@ const PASOS = [
   },
 ];
 
+/** Campañas de "Lo más reciente" (2026-11-12): dos filas de 3 en escritorio. */
+const CAMPANAS_RECIENTES = 6;
+/** Temáticas en la fila de "Lo más reciente": las que más campañas activas tienen. */
+const TEMATICAS_EN_PORTADA = 10;
+
 const PUBLICOS = ["organizaciones", "voluntarios", "investigadores", "comunidades"];
 
 // Solo promesas que el sistema cumple (dominio.md § 5 y § 9).
@@ -65,6 +73,7 @@ const TITULO_DE_SECCION = "text-[28px] font-semibold leading-tight tracking-tigh
 const ETIQUETA_DE_SECCION = "mb-3 font-mono text-[13px] text-system-600";
 
 interface CifrasReales {
+  campanasActivas: number;
   campanasCreadas: number;
   usuariosRegistrados: number;
   datosRecolectados: number;
@@ -72,6 +81,7 @@ interface CifrasReales {
 }
 
 const CIFRAS_VACIAS: CifrasReales = {
+  campanasActivas: 0,
   campanasCreadas: 0,
   usuariosRegistrados: 0,
   datosRecolectados: 0,
@@ -87,7 +97,10 @@ async function obtenerCifras(): Promise<CifrasReales> {
   try {
     // Qué cuenta cada cifra (2026-10-24, decisiones del usuario; antes contaba todas las campañas, todos
     // los aportes, solo personas con cuenta y creadores distintos):
-    //   - campañas: solo las finalizadas cuyos datos publicó su supervisor o el SuperUsuario, igual que
+    //   - campañas activas (2026-11-12, a pedido del usuario): solo las de estado `activa`, las que reciben
+    //     aportes ahora (sin las pausadas);
+    //   - bases de datos disponibles (antes "Campañas publicadas"; nombre del 2026-11-12, a pedido del
+    //     usuario): solo las finalizadas cuyos datos publicó su supervisor o el SuperUsuario, igual que
     //     /datos (2026-11-09, decisión del usuario; antes activa, pausada y finalizada);
     //   - usuarios registrados: todas las cuentas con el correo verificado, sin las ya eliminadas (2026-11-09,
     //     a pedido del usuario: "todos", no solo quienes aportaron o crearon una campaña; antes "Participantes",
@@ -99,6 +112,7 @@ async function obtenerCifras(): Promise<CifrasReales> {
     //     quienOrganiza(), sin distinguir mayúsculas.
     const result = await pool.query(`
       SELECT
+        (SELECT COUNT(*)::int FROM campanas WHERE status = 'activa') AS campanas_activas,
         (SELECT COUNT(*)::int FROM campanas WHERE ${sqlDatosPublicados("campanas")}) AS campanas_creadas,
         (SELECT COUNT(*)::int FROM usuarios WHERE email_verificado AND eliminada_en IS NULL) AS usuarios_registrados,
         (SELECT COUNT(*)::int FROM aportes WHERE status = 'aceptado') AS datos_recolectados,
@@ -107,6 +121,7 @@ async function obtenerCifras(): Promise<CifrasReales> {
     `);
     const row = result.rows[0] ?? {};
     return {
+      campanasActivas: Number(row.campanas_activas ?? 0),
       campanasCreadas: Number(row.campanas_creadas ?? 0),
       usuariosRegistrados: Number(row.usuarios_registrados ?? 0),
       datosRecolectados: Number(row.datos_recolectados ?? 0),
@@ -249,16 +264,20 @@ function EncabezadoDeSeccion({
 }
 
 export default async function LandingPage() {
-  const [{ conjuntos: destacados }, totalConjuntos, aportesRecientes, cifras, vitrina] = await Promise.all([
+  const [{ conjuntos: destacados }, totalConjuntos, aportesRecientes, cifras, vitrina, recientes, tematicasConCampanas] = await Promise.all([
     buscarConjuntosAbiertos({ orden: "cobertura" }),
     contarConjuntosPublicados(),
     obtenerAportesRecientes(),
     obtenerCifras(),
     obtenerVitrina(),
+    // "Lo más reciente" (2026-11-12): las mismas campañas y tarjetas que /explorar, de la más nueva a la más vieja.
+    buscarCampanasParaExplorar({ orden: "recientes", limite: CAMPANAS_RECIENTES }),
+    obtenerTematicasParaExplorar(),
   ]);
   // Tabla de líderes (datos reales de la BD). Sin datos (BD vacía o recién construida), la sección no se pinta.
-  const tabla = await obtenerTablaDeLideres();
-  const tablaDeLideres = tablaTieneDatos(tabla) ? tabla : null;
+  // Con datos desde siempre se pinta la sección; los periodos cortos pueden venir vacíos (lo dice la tabla).
+  const tablas = await obtenerTablasPorPeriodo();
+  const tablaDeLideres = tablaTieneDatos(tablas.siempre) ? tablas : null;
   const campanaDestacada = vitrina[0]?.campanas[0];
 
   return (
@@ -316,9 +335,11 @@ export default async function LandingPage() {
 
         <section aria-label="La plataforma en cifras" className={`${ANCHO} py-12`}>
           <p className="mb-6 text-center font-mono text-[13px] text-system-600">DataForGood, en cifras reales</p>
-          <div className="grid grid-cols-2 gap-6 text-center sm:grid-cols-4">
+          {/* 5 cifras: en 2 columnas la última ocupa la fila entera para quedar centrada. */}
+          <div className="grid grid-cols-2 gap-6 text-center sm:grid-cols-5 max-sm:[&>*:last-child]:col-span-2">
             {[
-              { valor: cifras.campanasCreadas, etiqueta: "Campañas publicadas" },
+              { valor: cifras.campanasActivas, etiqueta: "Campañas activas" },
+              { valor: cifras.campanasCreadas, etiqueta: "Bases de datos disponibles" },
               { valor: cifras.usuariosRegistrados, etiqueta: "Usuarios registrados" },
               { valor: cifras.datosRecolectados, etiqueta: "Aportes aprobados" },
               { valor: cifras.organizaciones, etiqueta: "Organizaciones" },
@@ -330,6 +351,37 @@ export default async function LandingPage() {
             ))}
           </div>
         </section>
+
+        {/* Lo más reciente (2026-11-12, a pedido del usuario, como el inicio de GoFundMe): las campañas activas
+            más nuevas de todas las temáticas y, arriba, las temáticas: cada una lleva a /explorar/tematica/[slug]. */}
+        {recientes.length > 0 && (
+          <section aria-labelledby="campanas-recientes" className={`${ANCHO} py-12 md:py-20`}>
+            <EncabezadoDeSeccion
+              id="campanas-recientes"
+              etiqueta="Lo más reciente"
+              titulo="Campañas recién abiertas"
+              texto="Las últimas campañas que empezaron a recibir aportes, de todas las temáticas. Elige una temática para ver todas sus campañas."
+              enlace={{ href: "/explorar?orden=recientes", texto: "Ver todas" }}
+            />
+            {tematicasConCampanas.length > 0 && (
+              <div className="landing-revelar mb-6">
+                <FilaDeTematicas
+                  tematicas={tematicasConCampanas.slice(0, TEMATICAS_EN_PORTADA)}
+                  etiqueta="Campañas por temática"
+                  final={tematicasConCampanas.length > TEMATICAS_EN_PORTADA ? { href: "/explorar", texto: "Más temáticas" } : undefined}
+                />
+              </div>
+            )}
+            <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {recientes.map((c, i) => (
+                // flex: la tarjeta toma el alto de la fila, como en /explorar (sin portada no queda más corta).
+                <li key={c.id} className="flex min-w-0 *:w-full">
+                  <TarjetaDeCampanaPublica campana={c} indice={i} nivel="h3" />
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         {vitrina.length > 0 && (
           <section aria-labelledby="campanas-destacadas" className={`${ANCHO} py-12 md:py-20`}>
@@ -371,11 +423,11 @@ export default async function LandingPage() {
               <EncabezadoDeSeccion
                 id="tabla-de-lideres"
                 titulo="Quienes más aportan a la comunidad"
-                texto="Solo cuentan los aportes aprobados."
+                texto="Solo cuentan los aportes aprobados. Mira quién más aportó hoy, este mes, este año o desde siempre."
                 enlace={{ href: "/progreso/leaderboard", texto: "Ver tabla completa" }}
               />
               <div className="landing-revelar">
-                <TablaDeLideres tabla={tablaDeLideres} />
+                <TablaDeLideres tablas={tablaDeLideres} />
               </div>
             </div>
           </section>

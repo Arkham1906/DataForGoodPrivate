@@ -67,7 +67,7 @@ export default function EditarOBorrar({
           onCancelar={() => setVentana(null)}
           onConfirmar={confirmar}
         >
-          <label htmlFor={`editar-tematica-${id}`} className="mb-2 block text-[13px] font-semibold text-system-900">
+          <label htmlFor={`editar-tematica-${id}`} className="mb-2 block text-[15px] font-semibold text-system-900">
             Nombre
           </label>
           <Input
@@ -92,7 +92,7 @@ export default function EditarOBorrar({
               : "Ningún perfil ni campaña la tiene todavía."}
           </p>
           {error ? (
-            <p role="alert" className="mt-2 text-[12.5px] text-error-700">
+            <p role="alert" className="mt-2 text-[15px] text-error-700">
               {error}
             </p>
           ) : null}
@@ -127,7 +127,7 @@ export default function EditarOBorrar({
             </ul>
           )}
           {error ? (
-            <p role="alert" className="mt-2 text-[12.5px] text-error-700">
+            <p role="alert" className="mt-2 text-[15px] text-error-700">
               {error}
             </p>
           ) : null}

@@ -88,7 +88,7 @@ export default function Avatar({ datos, tamano = "sm" }: { datos: DatosDeAvatar;
   if (datos.avatar === "foto" && datos.version) {
     return (
       <div className={`${base} bg-system-200`}>
-        {/* La sirve un route handler con sesión (no pasa por next/image). */}
+        {/* La sirve un route handler (no pasa por next/image): la propia o la de quien sale en la tabla de líderes. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={`${BASE_PATH}/api/usuarios/${datos.usuarioId}/avatar?v=${encodeURIComponent(datos.version)}`}

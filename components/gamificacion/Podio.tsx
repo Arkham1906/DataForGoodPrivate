@@ -21,7 +21,7 @@ export default function Podio({ lideres, categoria, resaltarId }: { lideres: Lid
           <li key={lider.usuarioId} className={`flex flex-col items-center sm:w-44 ${lugar.orden}`}>
             <div className="mb-2 flex flex-col items-center gap-1.5 text-center">
               <Avatar
-                datos={{ usuarioId: lider.usuarioId, nombre: lider.nombre, avatar: lider.avatar, version: null }}
+                datos={{ usuarioId: lider.usuarioId, nombre: lider.nombre, avatar: lider.avatar, version: lider.version }}
                 tamano={i === 0 ? "lg" : "md"}
               />
               <p className="text-[14px] font-bold text-system-900">

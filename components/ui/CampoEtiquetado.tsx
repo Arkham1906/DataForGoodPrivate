@@ -46,19 +46,20 @@ export default function CampoEtiquetado({
   const idError = error ? `${base}-error` : undefined;
   const hijos = Children.toArray(children);
   const primero = hijos[0];
-  const claseEtiqueta = "mb-1.5 block text-[13px] font-medium text-system-900";
+  // Tamaños con variables de la ventana emergente (ui/ventana-emergente.ts, 2026-11-12): dentro de una, más grandes.
+  const claseEtiqueta = "mb-1.5 block text-[length:var(--ventana-etiqueta,13px)] font-medium text-system-900";
   const contenidoEtiqueta = (
     <>
       {label} {required && <span className="text-error-700">*</span>}
     </>
   );
   const pista = hint && (
-    <p id={idPista} className="mt-1.5 text-[11.5px] text-system-500">
+    <p id={idPista} className="mt-1.5 text-[length:var(--ventana-pista,11.5px)] text-system-500">
       {hint}
     </p>
   );
   const mensajeDeError = error && (
-    <p id={idError} className="mt-1.5 text-[12px] font-medium text-error-700">
+    <p id={idError} className="mt-1.5 text-[length:var(--ventana-error,12px)] font-medium text-error-700">
       {error}
     </p>
   );

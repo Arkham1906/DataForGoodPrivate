@@ -2,7 +2,8 @@
 // reporte solo subía un contador junto a "Supervisión" en el menú (ya quitado), sin decir de qué se trataba,
 // y una campaña por revisar no avisaba de ninguna forma.
 //   - reporte_nuevo: los reportes de campañas se envían a todos los supervisores; los de aportes,
-//     solo al supervisor asignado a la campaña. Llevan a /supervision/reportes.
+//     solo al supervisor asignado a la campaña (a todos si no tiene uno activo y no la supervisa el
+//     SuperUsuario; lib/reportes/alcance.ts). Llevan a /supervision/reportes.
 //   - campana_por_revisar: una campaña entra a revisión (el creador la envía desde POST, PUT o PATCH de
 //     /api/campanas, o el SuperUsuario revierte una decisión y la regresa a la fila con revertirAccion).
 //     Lleva a /supervision/[id], donde se toma.
@@ -16,31 +17,40 @@
 import { pool } from "@/lib/db";
 import { condicionDeRol } from "@/lib/usuarios/tabla-roles";
 import { SQL_SANCION_BLOQUEANTE } from "@/lib/sanciones";
+import { sqlSinResponsableDeReportes } from "@/lib/reportes/alcance";
 import { notificar, type NuevaNotificacion } from "./notificaciones";
 
 const TAMANO_DE_TANDA = 10;
 
 type Aviso = Omit<NuevaNotificacion, "usuarioId">;
 
-/** Manda `aviso` a los supervisores sin hacer esperar a quien originó el evento. */
+/**
+ * Manda `aviso` a los supervisores sin hacer esperar a quien originó el evento. Con `responsablesDe` (id de
+ * campaña), solo a quien atiende sus reportes de aportes (lib/reportes/alcance.ts): su supervisor asignado
+ * si está activo; si no tiene uno y no la supervisa el SuperUsuario, a todos.
+ */
 function avisarASupervisores(
   excluir: number[],
   crearAviso: () => Promise<Aviso | null>,
-  destinatarioId?: number | null,
+  responsablesDe?: number,
 ): void {
-  void enviar(excluir, crearAviso, destinatarioId).catch((error) => console.error("Error avisando a los supervisores", error));
+  void enviar(excluir, crearAviso, responsablesDe).catch((error) => console.error("Error avisando a los supervisores", error));
 }
 
 async function enviar(
   excluir: number[],
   crearAviso: () => Promise<Aviso | null>,
-  destinatarioId?: number | null,
+  responsablesDe?: number,
 ): Promise<void> {
-  if (destinatarioId === null) return;
-  const filtroDeDestinatario = destinatarioId === undefined ? "" : "AND u.id = $2";
-  const parametros = destinatarioId === undefined
+  const filtroDeDestinatario = responsablesDe === undefined
+    ? ""
+    : `AND EXISTS (
+         SELECT 1 FROM campanas c
+         WHERE c.id = $2 AND (c.supervisor_id = u.id OR ${sqlSinResponsableDeReportes("c")})
+       )`;
+  const parametros = responsablesDe === undefined
     ? [excluir.filter((id) => Number.isFinite(id))]
-    : [excluir.filter((id) => Number.isFinite(id)), destinatarioId];
+    : [excluir.filter((id) => Number.isFinite(id)), responsablesDe];
   const supervisores = await pool.query<{ id: number }>(
     `SELECT u.id FROM usuarios u
       WHERE ${condicionDeRol("u", "'supervisor'")}
@@ -66,7 +76,7 @@ async function nombreDeCampana(campanaId: number): Promise<string | null> {
   return rows[0]?.name ?? null;
 }
 
-/** Un reporte nuevo: el de aporte se limita al supervisor que lleva su campaña. */
+/** Un reporte nuevo: el de aporte se limita a quien atiende su campaña (lib/reportes/alcance.ts). */
 type ReporteAvisado = {
   campanaId: number;
   reportadoId: number;
@@ -75,12 +85,12 @@ type ReporteAvisado = {
   /** Otras cuentas que no deben recibirlo (p. ej. el creador de la campaña, si reporta un revisor). */
   excluir?: number[];
 } & (
-  | { tipo: "campana"; aporteId?: never; supervisorId?: never }
-  | { tipo: "aporte"; aporteId: number; supervisorId: number | null }
+  | { tipo: "campana"; aporteId?: never }
+  | { tipo: "aporte"; aporteId: number }
 );
 
 export function avisarReporteASupervisores(reporte: ReporteAvisado): void {
-  const destinatarioId = reporte.tipo === "aporte" ? reporte.supervisorId : undefined;
+  const responsablesDe = reporte.tipo === "aporte" ? reporte.campanaId : undefined;
   avisarASupervisores([reporte.reportadoId, reporte.reportadoPor, ...(reporte.excluir ?? [])], async () => {
     const nombre = (await nombreDeCampana(reporte.campanaId)) ?? "una campaña";
     const motivo = reporte.motivo && reporte.motivo.length > 120 ? `${reporte.motivo.slice(0, 117)}…` : reporte.motivo;
@@ -96,7 +106,7 @@ export function avisarReporteASupervisores(reporte: ReporteAvisado): void {
       enlace: "/supervision/reportes",
       metadata: { reporte: reporte.tipo, ...(reporte.aporteId ? { aporteId: reporte.aporteId } : {}) },
     };
-  }, destinatarioId);
+  }, responsablesDe);
 }
 
 /**

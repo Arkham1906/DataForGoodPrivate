@@ -428,7 +428,7 @@ export default function RevisionAportePage() {
             onCancelar={() => setShowBanForm(false)}
             onConfirmar={() => void banUser()}
           >
-              <p className="mb-2 text-[13px] font-medium text-system-900">
+              <p className="mb-2 text-[15px] font-medium text-system-900">
                 {esAnonimo ? "Explica el motivo del bloqueo" : "Explica el motivo del baneo"}
               </p>
               <Textarea
@@ -443,7 +443,7 @@ export default function RevisionAportePage() {
                 required
               />
               {!esAnonimo && (
-                <p className="mt-2 text-[11.5px] text-system-500">
+                <p className="mt-2 text-[13.5px] text-system-500">
                   La persona recibirá este motivo en una notificación y lo verá en la campaña.
                 </p>
               )}

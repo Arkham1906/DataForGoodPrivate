@@ -18,6 +18,7 @@ import { ETIQUETA_DE_CAMPANA, NOMBRE_DE_TIPO, type TipoDeDato } from "@/lib/camp
 import { textoDeUbicacion } from "@/lib/campanas/ubicacion";
 import { fechaDDMMAAAA } from "@/lib/fecha-de-tepic";
 import type { Campaign } from "@/types";
+import { claseDeVentana } from "@/components/ui/ventana-emergente";
 
 const nf = new Intl.NumberFormat("es-MX");
 
@@ -29,8 +30,8 @@ function fechaYHora(fecha: string | null | undefined, hora: string | null | unde
 function Dato({ titulo, children }: { titulo: string; children: ReactNode }) {
   return (
     <div className="min-w-0">
-      <dt className="text-[11px] font-semibold uppercase tracking-wide text-system-500">{titulo}</dt>
-      <dd className="mt-0.5 break-words text-[13px] text-system-900">{children}</dd>
+      <dt className="text-[13px] font-semibold uppercase tracking-wide text-system-500">{titulo}</dt>
+      <dd className="mt-0.5 break-words text-[15px] text-system-900">{children}</dd>
     </div>
   );
 }
@@ -78,16 +79,16 @@ export default function VentanaDeCampana({
       onClick={(e) => {
         if (e.target === dialogo.current) dialogo.current?.close();
       }}
-      className="m-auto w-[calc(100%-2rem)] max-w-xl rounded-lg border border-system-200 bg-white p-0 text-system-900 shadow-lg backdrop:bg-system-900/40"
+      className={claseDeVentana("grande")}
     >
-      <div className="flex max-h-[85vh] flex-col">
-        <div className="flex items-start justify-between gap-3 border-b border-system-200 p-5 max-md:p-4">
+      <div className="flex max-h-[88vh] flex-col">
+        <div className="flex items-start justify-between gap-3 border-b border-system-200 px-5 py-5 md:px-8 md:py-6">
           <div className="min-w-0">
             <div className="mb-2 flex flex-wrap items-center gap-1.5">
               {estado && <Tag tone={estado.tono}>{estado.texto}</Tag>}
               {campana.especial && campana.especial.etapa !== "terminada" && <Tag tone="warn">★ Especial ×{campana.especial.multiplicador}</Tag>}
             </div>
-            <h2 id={idTitulo} className="break-words text-lg font-extrabold text-system-900">
+            <h2 id={idTitulo} className="break-words text-xl font-extrabold md:text-2xl text-system-900">
               {campana.name}
             </h2>
             <RutaDeTematica tematica={tematica} etiquetas={campana.etiquetas} className="mt-2" />
@@ -102,15 +103,15 @@ export default function VentanaDeCampana({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5 max-md:p-4">
+        <div className="flex-1 overflow-y-auto px-5 py-5 md:px-8 md:py-6">
           {campana.description && (
-            <p className="mb-4 whitespace-pre-line break-words text-[13.5px] leading-relaxed text-system-600">{campana.description}</p>
+            <p className="mb-4 whitespace-pre-line break-words text-[15.5px] leading-relaxed text-system-600">{campana.description}</p>
           )}
 
           {!sinAvance && (
           <div className="mb-4">
             <ProgressBar pct={pct} tone="ok" />
-            <p className="mt-1.5 font-mono text-[11.5px] text-system-600">
+            <p className="mt-1.5 font-mono text-[13.5px] text-system-600">
               {nf.format(campana.approvedContributions)} de {nf.format(campana.goalContributions)} aportes aprobados · {pct}% de la meta
             </p>
           </div>
@@ -144,15 +145,15 @@ export default function VentanaDeCampana({
 
           {checklists.length > 0 && (
             <div className="mt-4">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-system-500">Qué se marca al aportar</p>
+              <p className="text-[13px] font-semibold uppercase tracking-wide text-system-500">Qué se marca al aportar</p>
               <div className="mt-1.5 flex flex-col gap-2">
                 {checklists.map((s, i) => (
                   <div key={`${s.titulo}-${i}`}>
-                    <p className="text-[12.5px] font-semibold text-system-900">
+                    <p className="text-[15px] font-semibold text-system-900">
                       {s.titulo}
                       {s.tipo && <span className="font-normal text-system-500"> · {NOMBRE_DE_TIPO[s.tipo as TipoDeDato] ?? s.tipo}</span>}
                     </p>
-                    <p className="text-[12.5px] text-system-600">{s.opciones.join(" · ")}</p>
+                    <p className="text-[15px] text-system-600">{s.opciones.join(" · ")}</p>
                   </div>
                 ))}
               </div>
@@ -162,7 +163,7 @@ export default function VentanaDeCampana({
           {extra && <div className="mt-5 border-t border-system-200 pt-4">{extra}</div>}
         </div>
 
-        {acciones && <div className="flex flex-wrap items-center justify-end gap-2 border-t border-system-200 p-4">{acciones}</div>}
+        {acciones && <div className="flex flex-wrap items-center justify-end gap-2 border-t border-system-200 px-5 py-4 md:px-8 md:py-5">{acciones}</div>}
       </div>
     </dialog>
   );

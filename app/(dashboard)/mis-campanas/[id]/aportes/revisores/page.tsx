@@ -167,18 +167,18 @@ export default function RevisoresDeCampanaPage() {
         onConfirmar={() => void quitar()}
       >
         {porQuitar?.estado === "aceptado" ? (
-          <ul className="list-disc space-y-1 pl-5 text-[13px] text-system-600">
+          <ul className="list-disc space-y-1 pl-5 text-[15px] text-system-600">
             <li>Ya no podrá ver ni decidir los aportes de esta campaña.</li>
             <li>Los aportes que ya revisó conservan su decisión.</li>
             <li>Le llegará un aviso. Puedes volver a invitarlo cuando quieras.</li>
           </ul>
         ) : (
-          <p className="text-[13px] text-system-600">
+          <p className="text-[15px] text-system-600">
             {porQuitar?.nombre} ya no podrá aceptar la invitación y se borrará de sus notificaciones. Puedes volver a invitarlo después.
           </p>
         )}
         {errorAlQuitar && (
-          <p role="alert" className="mt-3 text-[12.5px] text-error-700">{errorAlQuitar}</p>
+          <p role="alert" className="mt-3 text-[15px] text-error-700">{errorAlQuitar}</p>
         )}
       </VentanaDeConfirmacion>
     </div>

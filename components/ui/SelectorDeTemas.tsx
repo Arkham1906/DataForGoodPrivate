@@ -22,6 +22,7 @@ import IconoDeTematica from "@/components/ui/IconoDeTematica";
 import { claveDeTematica, LARGO_DEL_NOMBRE, MAXIMO_DE_TEMATICAS_PROPUESTAS } from "@/lib/tematicas/analizar";
 import { avisoDeTematicaExistente, tematicaEquivalente } from "@/lib/tematicas/equivalente";
 import { esInapropiada } from "@/lib/tematicas/filtro";
+import { claseDeVentana } from "@/components/ui/ventana-emergente";
 
 /** El mismo criterio que validarNombreDeTematica del servidor, para avisar antes de guardar. */
 function errorDePropuesta(nombre: string): string | null {
@@ -343,21 +344,21 @@ export default function SelectorDeTemas({
         onClick={(e) => {
           if (e.target === dialogo.current) cerrar();
         }}
-        className="m-auto w-[calc(100%-2rem)] max-w-2xl rounded-lg border border-system-200 bg-white p-0 text-system-900 shadow-lg backdrop:bg-system-900/40"
+        className={claseDeVentana("grande")}
       >
         {proponiendo ? (
-          <div className="flex max-h-[85vh] flex-col">
-            <div className="border-b border-system-200 p-5">
-              <h2 id="selector-temas-titulo" className="text-lg font-extrabold text-system-900">
+          <div className="flex max-h-[88vh] flex-col">
+            <div className="border-b border-system-200 px-5 py-5 md:px-8 md:py-6">
+              <h2 id="selector-temas-titulo" className="text-xl font-extrabold md:text-2xl text-system-900">
                 Proponer una temática
               </h2>
-              <p className="mt-1 text-[12.5px] text-system-600">Si la temática que buscas no está en el catálogo, puedes proponerla.</p>
+              <p className="mt-1 text-[15px] text-system-600">Si la temática que buscas no está en el catálogo, puedes proponerla.</p>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-5">
+            <div className="flex-1 overflow-y-auto px-5 py-5 md:px-8 md:py-6">
               <div className="rounded border-l-4 border-brand-600 bg-system-100 p-4">
-                <p className="text-[13px] font-bold text-system-900">Las temáticas propuestas serán evaluadas por la administración</p>
-                <ul className="mt-2 list-disc space-y-1 pl-5 text-[12.5px] leading-5 text-system-600">
+                <p className="text-[15px] font-bold text-system-900">Las temáticas propuestas serán evaluadas por la administración</p>
+                <ul className="mt-2 list-disc space-y-1 pl-5 text-[15px] leading-5 text-system-600">
                   <li>Se envía cuando guardas los cambios de tu perfil.</li>
                   <li>Mientras la revisan, solo tú la ves en tu perfil, marcada como «por aprobar».</li>
                   <li>Te avisaremos cuando la aprueben o la rechacen. Si la aprueban, todos podrán elegirla.</li>
@@ -366,7 +367,7 @@ export default function SelectorDeTemas({
                 </ul>
               </div>
 
-              <label htmlFor="selector-temas-propuesta" className="mt-5 block text-[13px] font-medium text-system-900">
+              <label htmlFor="selector-temas-propuesta" className="mt-5 block text-[15px] font-medium text-system-900">
                 Nombre de la temática
               </label>
               <input
@@ -389,29 +390,29 @@ export default function SelectorDeTemas({
                 placeholder="Por ejemplo: Huertos urbanos"
                 aria-invalid={avisoDePropuesta ? true : undefined}
                 aria-describedby="selector-temas-propuesta-aviso"
-                className="mt-1.5 w-full rounded border border-system-300 bg-white px-3 py-2 text-base text-system-900 outline-none focus:border-brand-600 aria-invalid:border-error-700 sm:text-[13px]"
+                className="mt-1.5 w-full rounded border border-system-300 bg-white px-3 py-2 text-base text-system-900 outline-none focus:border-brand-600 aria-invalid:border-error-700 sm:text-[15px]"
               />
-              <p id="selector-temas-propuesta-aviso" role="alert" className="mt-1.5 min-h-[1lh] text-[12px] font-medium text-error-700">
+              <p id="selector-temas-propuesta-aviso" role="alert" className="mt-1.5 min-h-[1lh] text-[14px] font-medium text-error-700">
                 {avisoDePropuesta}
               </p>
             </div>
 
-            <div className="flex items-center justify-between gap-3 border-t border-system-200 p-4">
-              <Button type="button" variant="secondary" size="sm" onClick={() => volverAlCatalogo()}>
+            <div className="flex items-center justify-between gap-3 border-t border-system-200 px-5 py-4 md:px-8 md:py-5">
+              <Button type="button" variant="secondary" onClick={() => volverAlCatalogo()}>
                 ← Volver al catálogo
               </Button>
-              <Button type="button" variant="primary" size="sm" onClick={proponerDesdeLaVentana}>
+              <Button type="button" variant="primary" onClick={proponerDesdeLaVentana}>
                 Proponer temática
               </Button>
             </div>
           </div>
         ) : (
-          <div className="flex max-h-[85vh] flex-col">
-            <div className="border-b border-system-200 p-5">
-              <h2 id="selector-temas-titulo" className="text-lg font-extrabold text-system-900">
+          <div className="flex max-h-[88vh] flex-col">
+            <div className="border-b border-system-200 px-5 py-5 md:px-8 md:py-6">
+              <h2 id="selector-temas-titulo" className="text-xl font-extrabold md:text-2xl text-system-900">
                 {titulo ?? (unica ? "Elige la temática" : "Elige tus temáticas")}
               </h2>
-              <p className="mt-1 text-[12.5px] text-system-600">
+              <p className="mt-1 text-[15px] text-system-600">
                 {descripcion ??
                   (unica
                     ? "Marca una; tocar otra la reemplaza."
@@ -441,47 +442,47 @@ export default function SelectorDeTemas({
                 placeholder={proponerEnBuscador ? "Buscar o proponer una temática" : "Buscar temática"}
                 aria-label={proponerEnBuscador ? "Buscar o proponer una temática" : "Buscar temática"}
                 maxLength={proponerEnBuscador ? LARGO_DEL_NOMBRE.maximo : undefined}
-                className="mt-3 w-full rounded border border-system-300 bg-white px-3 py-2 text-[13px] text-system-900 outline-none focus:border-brand-600"
+                className="mt-3 w-full rounded border border-system-300 bg-white px-3 py-2 text-[15px] text-system-900 outline-none focus:border-brand-600"
               />
             </div>
 
-            <div className="flex-1 overflow-y-auto p-5">
-              <p aria-live="polite" className={avisoDelCatalogo ? "mb-4 rounded bg-success-50 px-3 py-2 text-[12.5px] text-success-800" : "sr-only"}>
+            <div className="flex-1 overflow-y-auto px-5 py-5 md:px-8 md:py-6">
+              <p aria-live="polite" className={avisoDelCatalogo ? "mb-4 rounded bg-success-50 px-3 py-2 text-[15px] text-success-800" : "sr-only"}>
                 {avisoDelCatalogo}
               </p>
               {puedeProponer ? (
                 <div className="mb-4 rounded border border-dashed border-system-300 p-3">
                   {parecida ? (
                     <>
-                      <p className="text-[12.5px] text-system-600">
+                      <p className="text-[15px] text-system-600">
                         Esa temática ya existe, es «{parecida}».
                       </p>
-                      <Button type="button" size="sm" className="mt-2" onClick={proponerBusqueda}>
+                      <Button type="button" className="mt-2" onClick={proponerBusqueda}>
                         Elegir «{parecida}»
                       </Button>
                     </>
                   ) : (
                     <>
-                      <p className="text-[12.5px] text-system-600">
+                      <p className="text-[15px] text-system-600">
                         {visibles.length === 0 ? `Ninguna temática coincide con «${propuestaPosible}».` : "¿No está la que buscas?"}
                       </p>
-                      <Button type="button" size="sm" className="mt-2" onClick={proponerBusqueda}>
+                      <Button type="button" className="mt-2" onClick={proponerBusqueda}>
                         + Proponer «{propuestaPosible}» como temática nueva
                       </Button>
-                      <p className="mt-1.5 text-[11.5px] text-system-500">
+                      <p className="mt-1.5 text-[13.5px] text-system-500">
                         Queda pendiente hasta que la apruebe el SuperUsuario; mientras tanto solo la ves tú.
                       </p>
                     </>
                   )}
                   {avisoDePropuesta ? (
-                    <p role="alert" className="mt-1.5 text-[12px] font-medium text-error-700">
+                    <p role="alert" className="mt-1.5 text-[14px] font-medium text-error-700">
                       {avisoDePropuesta}
                     </p>
                   ) : null}
                 </div>
               ) : null}
               {visibles.length === 0 && !puedeProponer ? (
-                <p className="mb-4 text-[12.5px] text-system-500">Ninguna temática coincide con «{busqueda}».</p>
+                <p className="mb-4 text-[15px] text-system-500">Ninguna temática coincide con «{busqueda}».</p>
               ) : null}
               {visibles.length > 0 || proponerConMosaico ? (
                 // Mosaicos con ícono y nombre (2026-11-11, a pedido del usuario; estructura tomada de
@@ -535,15 +536,15 @@ export default function SelectorDeTemas({
               ) : null}
             </div>
 
-            <div className="flex items-center justify-between gap-3 border-t border-system-200 p-4">
-              <span className="font-mono text-[12px] text-system-500">
+            <div className="flex items-center justify-between gap-3 border-t border-system-200 px-5 py-4 md:px-8 md:py-5">
+              <span className="font-mono text-[14px] text-system-500">
                 {borrador.length} {borrador.length === 1 ? "seleccionada" : "seleccionadas"}
               </span>
               <div className="flex gap-2">
-                <Button type="button" variant="secondary" size="sm" onClick={cerrar}>
+                <Button type="button" variant="secondary" onClick={cerrar}>
                   Cancelar
                 </Button>
-                <Button type="button" variant="primary" size="sm" onClick={aceptar} disabled={unica && borrador.length === 0}>
+                <Button type="button" variant="primary" onClick={aceptar} disabled={unica && borrador.length === 0}>
                   Aceptar
                 </Button>
               </div>

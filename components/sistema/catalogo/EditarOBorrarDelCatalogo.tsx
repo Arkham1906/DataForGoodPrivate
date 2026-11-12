@@ -86,7 +86,7 @@ export default function EditarOBorrarDelCatalogo({
           onCancelar={() => setVentana(null)}
           onConfirmar={confirmar}
         >
-          <label htmlFor={`editar-catalogo-${id}`} className="mb-2 block text-[13px] font-semibold text-system-900">
+          <label htmlFor={`editar-catalogo-${id}`} className="mb-2 block text-[15px] font-semibold text-system-900">
             Nombre
           </label>
           <Input

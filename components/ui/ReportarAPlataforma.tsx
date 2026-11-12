@@ -117,14 +117,14 @@ export default function ReportarAPlataforma({
 
   const campos = (
     <>
-      <label htmlFor="motivo-de-reporte" className="mb-1.5 block text-[13px] font-medium text-system-900">
+      <label htmlFor="motivo-de-reporte" className="mb-1.5 block text-[length:var(--ventana-etiqueta,13px)] font-medium text-system-900">
         ¿Por qué lo reportas? <span className="text-error-700">*</span>
       </label>
       <select
         id="motivo-de-reporte"
         value={motivo}
         onChange={(e) => setMotivo(e.target.value)}
-        className="mb-2.5 w-full rounded border border-system-300 bg-white px-3 py-2.5 text-[13px] text-system-900 outline-none focus:border-brand-600"
+        className="mb-2.5 w-full rounded border border-system-300 bg-white px-3 py-2.5 text-[length:var(--ventana-campo,13px)] text-system-900 outline-none focus:border-brand-600"
       >
         <option value="">Selecciona un motivo ▾</option>
         {motivos.map((m) => (
@@ -143,7 +143,7 @@ export default function ReportarAPlataforma({
         />
       </Field>
       {error && (
-        <p role="alert" className="mb-3 text-[12.5px] text-error-700">
+        <p role="alert" className="mb-3 text-[length:var(--ventana-error,12.5px)] text-error-700">
           {error}
         </p>
       )}

@@ -5,7 +5,7 @@
 // Acceso: sesión de usuario (exigirUsuario); el marco, el título y las pestañas los ponen (dashboard)/layout.tsx y
 // ../layout.tsx. La persona se ve marcada con "Tú" en la tabla.
 // Datos: lib/gamificacion/clasificacion.ts (obtenerClasificacion, obtenerTematicasConLideres). Reglas
-// de quién cuenta y de privacidad (nombre "Carlos P.", nunca la foto) en ese archivo y en dominio.md § 7.
+// de quién cuenta y de privacidad (nombre "Carlos P.", foto de perfil visible desde el 2026-11-12) en ese archivo y en dominio.md § 7.
 // Acciones: ninguna (solo consulta). La landing enlaza aquí con "Ver tabla completa".
 // Diseño del 2026-11-06: el de la landing. La franja va redondeada porque se ve dentro del marco de la app.
 

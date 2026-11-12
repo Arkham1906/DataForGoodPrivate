@@ -8,6 +8,7 @@ import { pool } from "@/lib/db";
 import { DIAS_PARA_NOTIFICACION_VIEJA, type Notificacion, type PaginaDeNotificaciones, type TipoDeNotificacion } from "./tipos";
 import { enviarPush } from "./push";
 import { publicarAviso } from "@/lib/en-vivo";
+import { sqlSinResponsableDeReportes } from "@/lib/reportes/alcance";
 
 /** Avisos que se apagan con la preferencia "Aportes" (usuario_preferencias.avisos_aportes). */
 const TIPOS_DE_APORTES: ReadonlySet<TipoDeNotificacion> = new Set([
@@ -19,8 +20,10 @@ const TIPOS_DE_APORTES: ReadonlySet<TipoDeNotificacion> = new Set([
   "datos_publicados_aporte",
 ]);
 
-const CONDICION_DE_REPORTE_DE_APORTE_VISIBLE =
-  "(n.tipo <> 'reporte_nuevo' OR n.metadata->>'reporte' IS DISTINCT FROM 'aporte' OR c.supervisor_id = n.usuario_id)";
+// Un reporte_nuevo de aporte solo sigue visible para el supervisor asignado a la campaña, o para todos si la
+// campaña se quedó sin supervisor activo (lib/reportes/alcance.ts).
+const CONDICION_DE_REPORTE_DE_APORTE_VISIBLE = `(n.tipo <> 'reporte_nuevo' OR n.metadata->>'reporte' IS DISTINCT FROM 'aporte'
+  OR c.supervisor_id = n.usuario_id OR ${sqlSinResponsableDeReportes("c")})`;
 
 /**
  * Las que llegan aunque la persona apague "Notificaciones" (usuario_preferencias.notificaciones_activas, 2026-10-19):

@@ -20,6 +20,7 @@ import {
   type ClaveDePreferencia,
   type Preferencias,
 } from "@/lib/usuarios/preferencias-opciones";
+import { claseDeVentana } from "@/components/ui/ventana-emergente";
 
 export default function PreferenciasDeComunicacion({
   usuarioId,
@@ -80,26 +81,26 @@ export default function PreferenciasDeComunicacion({
         onClick={(e) => {
           if (e.target === dialogo.current) cerrar();
         }}
-        className="m-auto w-[calc(100%-2rem)] max-w-lg rounded-lg border border-system-200 bg-white p-0 text-system-900 shadow-lg backdrop:bg-system-900/40"
+        className={claseDeVentana("normal")}
       >
-        <div className="flex max-h-[85vh] flex-col">
-          <div className="border-b border-system-200 p-5">
-            <h2 id="preferencias-titulo" className="text-lg font-extrabold text-system-900">
+        <div className="flex max-h-[88vh] flex-col">
+          <div className="border-b border-system-200 px-5 py-5 md:px-8 md:py-6">
+            <h2 id="preferencias-titulo" className="text-xl font-extrabold md:text-2xl text-system-900">
               Comunicación, notificaciones y ubicación
             </h2>
-            <p className="mt-1 text-[12.5px] text-system-600">
+            <p className="mt-1 text-[15px] text-system-600">
               Los avisos llegan a la campana, a Notificaciones y, si los activaste, al teléfono. Todo se guarda al tocarlo.
             </p>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-5">
+          <div className="flex-1 overflow-y-auto px-5 py-5 md:px-8 md:py-6">
             <div className="rounded border border-system-300 bg-white p-4">
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p id="pref-notificaciones" className="text-sm font-bold text-system-900">
+                  <p id="pref-notificaciones" className="text-base font-bold text-system-900">
                     {PREFERENCIA_GENERAL.titulo}
                   </p>
-                  <p id="pref-notificaciones-detalle" className="text-[12.5px] text-system-600">
+                  <p id="pref-notificaciones-detalle" className="text-[15px] text-system-600">
                     {generalActiva ? PREFERENCIA_GENERAL.encendida : PREFERENCIA_GENERAL.apagada}
                   </p>
                 </div>
@@ -117,7 +118,7 @@ export default function PreferenciasDeComunicacion({
                 </button>
               </div>
               {error?.clave === "notificaciones" && (
-                <p role="alert" className="mt-1 text-[11.5px] text-error-700">
+                <p role="alert" className="mt-1 text-[13.5px] text-error-700">
                   {error.texto}
                 </p>
               )}
@@ -130,7 +131,7 @@ export default function PreferenciasDeComunicacion({
                 return (
                   <div key={opcion.clave} className="rounded border border-system-300 bg-white p-4">
                     <div className="flex items-center justify-between gap-3">
-                      <span id={etiqueta} className="text-sm font-semibold text-system-900">
+                      <span id={etiqueta} className="text-base font-semibold text-system-900">
                         {opcion.titulo}
                       </span>
                       <button
@@ -146,11 +147,11 @@ export default function PreferenciasDeComunicacion({
                         <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${activa ? "left-[18px]" : "left-0.5"}`} />
                       </button>
                     </div>
-                    <p id={`${etiqueta}-detalle`} className="mt-2 text-[12px] text-system-600">
+                    <p id={`${etiqueta}-detalle`} className="mt-2 text-[14px] text-system-600">
                       {activa ? opcion.encendida : opcion.apagada}
                     </p>
                     {error?.clave === opcion.clave && (
-                      <p role="alert" className="mt-1 text-[11.5px] text-error-700">
+                      <p role="alert" className="mt-1 text-[13.5px] text-error-700">
                         {error.texto}
                       </p>
                     )}
@@ -162,8 +163,8 @@ export default function PreferenciasDeComunicacion({
             <UbicacionEnPreferencias zonaInicial={zona} />
           </div>
 
-          <div className="flex justify-end border-t border-system-200 p-4">
-            <Button type="button" variant="primary" size="sm" onClick={cerrar}>
+          <div className="flex justify-end border-t border-system-200 px-5 py-4 md:px-8 md:py-5">
+            <Button type="button" variant="primary" onClick={cerrar}>
               Cerrar
             </Button>
           </div>

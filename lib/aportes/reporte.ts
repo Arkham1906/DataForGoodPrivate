@@ -111,10 +111,9 @@ export async function reportarASupervision(entrada: {
     campaign_id: number;
     creator_id: number;
     user_id: number | null;
-    supervisor_id: number | null;
     es_revisor: boolean;
   }>(
-    `SELECT a.campaign_id, a.user_id, c.creator_id, c.supervisor_id,
+    `SELECT a.campaign_id, a.user_id, c.creator_id,
             EXISTS (SELECT 1 FROM campana_revisores r
                     WHERE r.campana_id = a.campaign_id AND r.usuario_id = $2 AND r.estado = 'aceptado') AS es_revisor
      FROM aportes a JOIN campanas c ON c.id = a.campaign_id
@@ -188,7 +187,6 @@ export async function reportarASupervision(entrada: {
     reportadoId: Number(fila.user_id),
     reportadoPor: entrada.revisor.id,
     motivo,
-    supervisorId: fila.supervisor_id === null ? null : Number(fila.supervisor_id),
     excluir: [Number(fila.creator_id)],
   });
   return { ok: true, rechazado: rechazo.rechazado };

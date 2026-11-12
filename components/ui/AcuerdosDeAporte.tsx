@@ -23,6 +23,7 @@ import {
   CASILLA_DE_USO,
   CONSECUENCIA_DEL_CONTENIDO,
 } from "@/lib/aportes/consentimiento";
+import { claseDeVentana } from "@/components/ui/ventana-emergente";
 
 export type Acuerdos = { confirmaContenido: boolean; aceptaUso: boolean };
 
@@ -52,18 +53,18 @@ function VentanaDeAcuerdos({ abierta, onCerrar, proposito }: { abierta: boolean;
       onClick={(e) => {
         if (e.target === dialogo.current) onCerrar();
       }}
-      className="m-auto w-[calc(100%-2rem)] max-w-lg rounded-lg border border-system-200 bg-white p-0 text-system-900 shadow-lg backdrop:bg-system-900/40"
+      className={claseDeVentana("normal")}
     >
-      <div className="flex max-h-[85vh] flex-col">
-        <div className="border-b border-system-200 p-5">
-          <h2 id="acuerdos-de-aporte-titulo" className="text-lg font-extrabold text-system-900">
+      <div className="flex max-h-[88vh] flex-col">
+        <div className="border-b border-system-200 px-5 py-5 md:px-8 md:py-6">
+          <h2 id="acuerdos-de-aporte-titulo" className="text-xl font-extrabold md:text-2xl text-system-900">
             Acuerdos para aportar
           </h2>
         </div>
-        <div className="flex-1 overflow-y-auto p-5 text-[12.5px] text-system-600">
-          <h3 className="mb-1 text-[13px] font-bold text-system-900">Acuerdo de confirmación</h3>
+        <div className="flex-1 overflow-y-auto px-5 py-5 md:px-8 md:py-6 text-[15px] text-system-600">
+          <h3 className="mb-1 text-[15px] font-bold text-system-900">Acuerdo de confirmación</h3>
           <p className="mb-4">{AVISO_DE_CONTENIDO}</p>
-          <h3 className="mb-1 text-[13px] font-bold text-system-900">Acuerdo de uso del aporte</h3>
+          <h3 className="mb-1 text-[15px] font-bold text-system-900">Acuerdo de uso del aporte</h3>
           <p>{AVISO_DE_USO}</p>
           {proposito && (
             // Propósito de la campaña (2026-10-27): para qué se usarán los datos.
@@ -71,10 +72,10 @@ function VentanaDeAcuerdos({ abierta, onCerrar, proposito }: { abierta: boolean;
               <span className="font-semibold text-system-900">Propósito de esta campaña:</span> {proposito}.
             </p>
           )}
-          <p className="mt-4 text-[11.5px] text-system-500">{CONSECUENCIA_DEL_CONTENIDO}</p>
+          <p className="mt-4 text-[13.5px] text-system-500">{CONSECUENCIA_DEL_CONTENIDO}</p>
         </div>
-        <div className="flex justify-end border-t border-system-200 p-4">
-          <Button type="button" variant="primary" size="sm" onClick={onCerrar}>
+        <div className="flex justify-end border-t border-system-200 px-5 py-4 md:px-8 md:py-5">
+          <Button type="button" variant="primary" onClick={onCerrar}>
             Entendido
           </Button>
         </div>
@@ -100,7 +101,7 @@ export function CasillasDeAcuerdos({
 
   return (
     <div className="flex flex-col gap-2">
-      <label className="flex items-start gap-2 text-[12.5px] text-system-700">
+      <label className="flex items-start gap-2 text-[length:var(--ventana-campo,12.5px)] text-system-700">
         <input
           type="checkbox"
           className="mt-0.5"
@@ -110,7 +111,7 @@ export function CasillasDeAcuerdos({
         />
         {CASILLA_DE_CONFIRMACION}
       </label>
-      <label className="flex items-start gap-2 text-[12.5px] text-system-700">
+      <label className="flex items-start gap-2 text-[length:var(--ventana-campo,12.5px)] text-system-700">
         <input
           type="checkbox"
           className="mt-0.5"
@@ -120,13 +121,13 @@ export function CasillasDeAcuerdos({
         />
         <span>
           {CASILLA_DE_USO}
-          {proposito && <span className="mt-0.5 block text-[11.5px] text-system-500">Los datos se usarán para: {proposito}.</span>}
+          {proposito && <span className="mt-0.5 block text-[length:var(--ventana-pista,11.5px)] text-system-500">Los datos se usarán para: {proposito}.</span>}
         </span>
       </label>
       <button
         type="button"
         onClick={() => setLeyendo(true)}
-        className="self-start text-[12px] font-medium text-brand-700 underline underline-offset-2 hover:text-brand-800"
+        className="self-start text-[length:var(--ventana-pista,12px)] font-medium text-brand-700 underline underline-offset-2 hover:text-brand-800"
       >
         Leer los acuerdos
       </button>
@@ -207,7 +208,7 @@ function BotonDeInscripcion({
 function AvisoDeError({ error }: { error: string | null }) {
   if (!error) return null;
   return (
-    <p role="alert" className="rounded border border-error-700 bg-error-50 p-2 text-[12px] text-error-700">
+    <p role="alert" className="rounded border border-error-700 bg-error-50 p-2 text-[length:var(--ventana-error,12px)] text-error-700">
       {error}
     </p>
   );
@@ -296,14 +297,14 @@ export function VentanaDeInscripcion({
       onClick={(e) => {
         if (e.target === dialogo.current) cerrar();
       }}
-      className="m-auto w-[calc(100%-2rem)] max-w-lg rounded-lg border border-system-200 bg-white p-0 text-system-900 shadow-lg backdrop:bg-system-900/40"
+      className={claseDeVentana("normal")}
     >
-      <div className="flex max-h-[85vh] flex-col">
-        <div className="border-b border-system-200 p-5">
-          <h2 id="inscripcion-titulo" className="text-lg font-extrabold text-system-900">
+      <div className="flex max-h-[88vh] flex-col">
+        <div className="border-b border-system-200 px-5 py-5 md:px-8 md:py-6">
+          <h2 id="inscripcion-titulo" className="text-xl font-extrabold md:text-2xl text-system-900">
             Acuerdos para aportar
           </h2>
-          <p className="mt-1 text-[12.5px] text-system-600">
+          <p className="mt-1 text-[15px] text-system-600">
             Para aportar en esta campaña, acepta los dos acuerdos. Solo se piden una vez.
           </p>
         </div>

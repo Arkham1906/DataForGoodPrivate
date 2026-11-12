@@ -8,6 +8,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import Button from "@/components/ui/Button";
 import IndicadorDeCarga from "@/components/ui/IndicadorDeCarga";
+import { VENTANA, claseDeVentana } from "@/components/ui/ventana-emergente";
 
 export default function VentanaDeConfirmacion({
   abierto,
@@ -64,22 +65,22 @@ export default function VentanaDeConfirmacion({
       onClick={(e) => {
         if (e.target === dialogo.current) cancelar();
       }}
-      className="m-auto w-[calc(100%-2rem)] max-w-md rounded-lg border border-system-200 bg-white p-0 text-system-900 shadow-lg backdrop:bg-system-900/40"
+      className={claseDeVentana()}
     >
-      <div className="flex max-h-[85vh] flex-col">
-        <div className="border-b border-system-200 p-5">
-          <h2 id="ventana-de-confirmacion-titulo" className="text-lg font-extrabold text-system-900">
+      <div className={VENTANA.marco}>
+        <div className={VENTANA.encabezado}>
+          <h2 id="ventana-de-confirmacion-titulo" className={VENTANA.titulo}>
             {titulo}
           </h2>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5 text-[12.5px] text-system-600">{children}</div>
+        <div className={VENTANA.cuerpo}>{children}</div>
 
-        <div className="flex flex-wrap justify-end gap-2 border-t border-system-200 p-4">
-          <Button type="button" variant="ghost" size="sm" onClick={cancelar} disabled={ocupado}>
+        <div className={VENTANA.pie}>
+          <Button type="button" variant="ghost" onClick={cancelar} disabled={ocupado}>
             {textoCancelar}
           </Button>
-          <Button type="button" variant={peligro ? "danger" : "primary"} size="sm" onClick={onConfirmar} disabled={ocupado || confirmarDeshabilitado}>
+          <Button type="button" variant={peligro ? "danger" : "primary"} onClick={onConfirmar} disabled={ocupado || confirmarDeshabilitado}>
             {ocupado ? (
               <span className="inline-flex items-center gap-2">
                 <IndicadorDeCarga />

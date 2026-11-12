@@ -66,13 +66,13 @@ export default function UbicacionEnPreferencias({ zonaInicial }: { zonaInicial: 
     <div className="mt-3 rounded border border-system-300 bg-white p-4">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <p id="pref-ubicacion" className="text-sm font-bold text-system-900">
+          <p id="pref-ubicacion" className="text-base font-bold text-system-900">
             Usar mi ubicación
           </p>
-          <p id="pref-ubicacion-detalle" aria-live="polite" className="text-[12.5px] text-system-600">
+          <p id="pref-ubicacion-detalle" aria-live="polite" className="text-[15px] text-system-600">
             {detalle}
           </p>
-          <p className="mt-1 text-[11.5px] text-system-500">Se activa en cada navegador.</p>
+          <p className="mt-1 text-[13.5px] text-system-500">Se activa en cada navegador.</p>
         </div>
         <button
           type="button"
@@ -88,7 +88,7 @@ export default function UbicacionEnPreferencias({ zonaInicial }: { zonaInicial: 
         </button>
       </div>
       {error && (
-        <p role="alert" className="mt-1 text-[11.5px] text-error-700">
+        <p role="alert" className="mt-1 text-[13.5px] text-error-700">
           {error}
         </p>
       )}

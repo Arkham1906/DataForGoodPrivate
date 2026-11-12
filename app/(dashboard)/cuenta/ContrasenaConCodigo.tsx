@@ -118,12 +118,12 @@ export default function ContrasenaConCodigo({
   if (paso === "listo") {
     return (
       <div className="p-5">
-        <h2 id={idTitulo} className="text-lg font-extrabold text-system-900">
+        <h2 id={idTitulo} className="text-xl font-extrabold md:text-2xl text-system-900">
           {textos.listoTitulo}
         </h2>
-        <p className="mt-1 text-[13px] text-system-600">{textos.listo}</p>
+        <p className="mt-1 text-[15px] text-system-600">{textos.listo}</p>
         <div className="mt-5 flex justify-end">
-          <Button type="button" variant="primary" size="sm" onClick={onCerrar}>
+          <Button type="button" variant="primary" onClick={onCerrar}>
             Listo
           </Button>
         </div>
@@ -134,23 +134,23 @@ export default function ContrasenaConCodigo({
   if (paso === "aviso") {
     return (
       <div className="p-5">
-        <h2 id={idTitulo} className="text-lg font-extrabold text-system-900">
+        <h2 id={idTitulo} className="text-xl font-extrabold md:text-2xl text-system-900">
           {textos.titulo}
         </h2>
-        <p className="mt-1 text-[13px] leading-relaxed text-system-600">
+        <p className="mt-1 text-[15px] leading-relaxed text-system-600">
           Para confirmar que eres tú, te enviaremos un código a <span className="font-medium text-system-900">{email}</span>.{" "}
           {textos.aviso}
         </p>
         {error && (
-          <p role="alert" className="mt-4 text-[12px] text-error-700">
+          <p role="alert" className="mt-4 text-[14px] text-error-700">
             {error}
           </p>
         )}
         <div className="mt-5 flex justify-end gap-2">
-          <Button type="button" variant="secondary" size="sm" onClick={onCerrar} disabled={enviando}>
+          <Button type="button" variant="secondary" onClick={onCerrar} disabled={enviando}>
             Cancelar
           </Button>
-          <Button type="button" variant="primary" size="sm" onClick={pedirCodigo} disabled={enviando}>
+          <Button type="button" variant="primary" onClick={pedirCodigo} disabled={enviando}>
             {enviando ? "Enviando..." : "Enviar código"}
           </Button>
         </div>
@@ -159,25 +159,25 @@ export default function ContrasenaConCodigo({
   }
 
   return (
-    <form onSubmit={guardar} className="flex max-h-[85vh] flex-col" noValidate>
-      <div className="border-b border-system-200 p-5">
-        <h2 id={idTitulo} className="text-lg font-extrabold text-system-900">
+    <form onSubmit={guardar} className="flex max-h-[88vh] flex-col" noValidate>
+      <div className="border-b border-system-200 px-5 py-5 md:px-8 md:py-6">
+        <h2 id={idTitulo} className="text-xl font-extrabold md:text-2xl text-system-900">
           {textos.titulo}
         </h2>
-        <p className="mt-1 text-[12.5px] text-system-600">
+        <p className="mt-1 text-[15px] text-system-600">
           Escribe el código que enviamos a <span className="font-medium text-system-900">{email}</span> (expira en{" "}
           {MINUTOS_DE_VIGENCIA} minutos, tienes {INTENTOS_POR_CODIGO} intentos) y tu contraseña dos veces.
         </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-5">
-        <p className="mb-2 text-[13px] font-medium text-system-900">Código</p>
+      <div className="flex-1 overflow-y-auto px-5 py-5 md:px-8 md:py-6">
+        <p className="mb-2 text-[15px] font-medium text-system-900">Código</p>
         <CodigoDeSeisDigitos valor={codigo} onCambiar={setCodigo} deshabilitado={enviando} autoFocus />
         <button
           type="button"
           onClick={pedirCodigo}
           disabled={enviando || espera > 0}
-          className="mb-4 mt-2 text-[12.5px] font-medium text-brand-600 hover:underline disabled:cursor-not-allowed disabled:text-system-500 disabled:no-underline"
+          className="mb-4 mt-2 text-[15px] font-medium text-brand-600 hover:underline disabled:cursor-not-allowed disabled:text-system-500 disabled:no-underline"
         >
           {espera > 0 ? `Reenviar código en ${espera} s` : "Reenviar código"}
         </button>
@@ -208,7 +208,7 @@ export default function ContrasenaConCodigo({
           {REGLAS_DE_CONTRASENA.map((regla) => {
             const cumple = regla.test(nueva);
             return (
-              <li key={regla.label} className={`text-[12.5px] ${cumple ? "text-success-700" : "text-system-500"}`}>
+              <li key={regla.label} className={`text-[15px] ${cumple ? "text-success-700" : "text-system-500"}`}>
                 {cumple ? "✓" : "·"} {regla.label}
               </li>
             );
@@ -216,17 +216,17 @@ export default function ContrasenaConCodigo({
         </ul>
 
         {error && (
-          <p role="alert" className="mt-4 text-[12px] text-error-700">
+          <p role="alert" className="mt-4 text-[14px] text-error-700">
             {error}
           </p>
         )}
       </div>
 
-      <div className="flex justify-end gap-2 border-t border-system-200 p-4">
-        <Button type="button" variant="secondary" size="sm" onClick={onCerrar} disabled={enviando}>
+      <div className="flex justify-end gap-2 border-t border-system-200 px-5 py-4 md:px-8 md:py-5">
+        <Button type="button" variant="secondary" onClick={onCerrar} disabled={enviando}>
           Cancelar
         </Button>
-        <Button type="submit" variant="primary" size="sm" disabled={!puedeGuardar}>
+        <Button type="submit" variant="primary" disabled={!puedeGuardar}>
           {enviando ? "Guardando..." : "Guardar"}
         </Button>
       </div>

@@ -1,7 +1,7 @@
 "use client";
 
-// Menú lateral de la zona de usuario. Agrega "Supervisión" si el usuario tiene rol supervisor
-// y "Revisor de aportes" si tiene rol revisor. "Supervisión" lleva el número de reportes pendientes
+// Menú lateral de la zona de usuario. Agrega "Supervisión" (bajo el título "Supervisar") si el usuario tiene rol supervisor
+// y "Revisor de aportes" (bajo "Revisar") si tiene rol revisor. "Supervisión" lleva el número de reportes pendientes
 // (Reportes y Sanciones están dentro, 2026-10-13). La opción activa la marca una pastilla que
 // se desliza entre opciones (components/ui/useIndicadorDeMenu.tsx). Cada opción lleva su ícono, como el
 // menú del SuperUsuario (2026-10-27; mismos íconos de components/sistema/icons.tsx).
@@ -26,8 +26,12 @@ type Opcion = {
   href: string;
   label: string;
   Icono: ComponentType<SVGProps<SVGSVGElement>>;
-  apartado?: boolean;
+  /** Abre una sección aparte: línea y título como "Participar" (2026-11-12, a pedido del usuario). */
+  seccion?: string;
 };
+
+// Mismo estilo que el título "Participar".
+const CLASE_DE_TITULO = "px-2 text-[10px] font-semibold uppercase tracking-wider text-system-500";
 
 // Todas las opciones se marcan en azul (accent), el color principal del sistema.
 const NAV_ITEMS: Opcion[] = [
@@ -50,14 +54,14 @@ export default function SidebarNav({ usuario, aviso }: { usuario: SessionUser; a
   const opciones: Opcion[] = [
     ...NAV_ITEMS,
     ...(roles.includes("supervisor")
-      ? [{ href: "/supervision", label: "Supervisión", Icono: IconoEscudo, apartado: true }]
+      ? [{ href: "/supervision", label: "Supervisión", Icono: IconoEscudo, seccion: "Supervisar" }]
       : []),
     ...(roles.includes("revisor")
       ? [{
           href: "/revisiones",
           label: "Revisor de aportes",
           Icono: IconoRevisar,
-          apartado: true,
+          seccion: "Revisar",
         }]
       : []),
   ];
@@ -67,16 +71,16 @@ export default function SidebarNav({ usuario, aviso }: { usuario: SessionUser; a
 
   return (
     <aside aria-label="Menú de la cuenta" className="dashboard-user-nav dashboard-sidebar w-64 shrink-0 border-r border-system-200 bg-white p-4 lg:sticky lg:top-0 lg:h-[calc(100vh-61px)]">
-      <p className="mb-3 px-2 text-[10px] font-semibold uppercase tracking-wider text-system-500">
-        Participar
-      </p>
+      <p className={`mb-3 ${CLASE_DE_TITULO}`}>Participar</p>
       <nav ref={navRef} aria-label="Secciones" className="dashboard-nav relative flex flex-col gap-1">
         {indicador}
         {opciones.map((item) => {
           const marcada = visual === item.href;
           return (
             <Fragment key={item.href}>
-              {item.apartado ? <span aria-hidden="true" className="my-1.5 border-t border-system-200" /> : null}
+              {item.seccion ? <span aria-hidden="true" className="my-1.5 border-t border-system-200" /> : null}
+              {/* En móvil el menú es una tira horizontal y "Participar" se oculta: los títulos también. */}
+              {item.seccion ? <p className={`mb-1 max-md:hidden ${CLASE_DE_TITULO}`}>{item.seccion}</p> : null}
               <Link
                 href={item.href}
                 data-menu-clave={item.href}

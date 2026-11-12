@@ -109,7 +109,7 @@ export default function DecisionDeDatosAbiertos({
         ) : (
           <>
             <p className="mb-3">Quien organiza la campaña recibirá este motivo. Esta decisión no se puede cambiar.</p>
-            <label htmlFor={idMotivo} className="mb-2 block text-[13px] font-semibold text-system-900">
+            <label htmlFor={idMotivo} className="mb-2 block text-[15px] font-semibold text-system-900">
               Motivo <span className="text-error-700">*</span>
             </label>
             <Textarea
@@ -126,7 +126,7 @@ export default function DecisionDeDatosAbiertos({
             />
           </>
         )}
-        {error && <p role="alert" className="mt-2 text-[12.5px] text-error-700">{error}</p>}
+        {error && <p role="alert" className="mt-2 text-[15px] text-error-700">{error}</p>}
       </VentanaDeConfirmacion>
     </section>
   );

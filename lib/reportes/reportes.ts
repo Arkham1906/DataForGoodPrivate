@@ -13,6 +13,7 @@
 // layout del panel.
 
 import { pool } from "@/lib/db";
+import { sqlReporteVisibleParaSupervisor } from "@/lib/reportes/alcance";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { avisarReporteASupervisores } from "@/lib/notificaciones/avisos-a-supervisores";
 import {
@@ -131,12 +132,15 @@ export type GrupoDeReportes = {
 
 export type FiltroDeReportes = "pendientes" | "resueltos";
 
-/** Los reportes de aportes solo los consulta el supervisor asignado a su campaña. */
+/**
+ * Los reportes de aportes solo los consulta el supervisor asignado a su campaña, o todos si la campaña no
+ * tiene un supervisor activo ni la supervisa el SuperUsuario (lib/reportes/alcance.ts).
+ */
 export async function supervisorPuedeVerClaveDeReportes(clave: ClaveDeReportes, supervisorId: number | null): Promise<boolean> {
   if (supervisorId === null || clave.tipo === "campana") return true;
   const { rowCount } = await pool.query(
     `SELECT 1 FROM reportes r JOIN campanas c ON c.id = r.campana_id
-     WHERE r.tipo = 'aporte' AND r.aporte_id = $1 AND c.supervisor_id = $2
+     WHERE r.tipo = 'aporte' AND r.aporte_id = $1 AND ${sqlReporteVisibleParaSupervisor("r", "c", "$2")}
      LIMIT 1`,
     [clave.id, supervisorId],
   );
@@ -187,7 +191,7 @@ export async function listarReportes(
        LEFT JOIN sanciones s ON s.id = r.sancion_id
        WHERE ${filtro === "pendientes" ? "r.estado = 'pendiente'" : "r.estado <> 'pendiente'"}
          AND ($1::int IS NULL OR r.reportado_id IS DISTINCT FROM $1)
-         AND ($2::int IS NULL OR r.tipo = 'campana' OR c.supervisor_id = $2)
+         AND ${sqlReporteVisibleParaSupervisor("r", "c", "$2")}
        ORDER BY ${filtro === "pendientes" ? "r.created_at" : "r.resuelto_en"} DESC, r.id DESC
        ${filtro === "resueltos" ? "LIMIT 300" : ""}`,
       [sinContraCuenta, supervisorId],
@@ -242,7 +246,7 @@ export async function contarReportesPendientes(
        FROM reportes r JOIN campanas c ON c.id = r.campana_id
        WHERE r.estado = 'pendiente'
          AND ($1::int IS NULL OR r.reportado_id IS DISTINCT FROM $1)
-         AND ($2::int IS NULL OR r.tipo = 'campana' OR c.supervisor_id = $2)`,
+         AND ${sqlReporteVisibleParaSupervisor("r", "c", "$2")}`,
       [sinContraCuenta, supervisorId],
     );
     return rows[0] ?? { reportes: 0, casos: 0 };

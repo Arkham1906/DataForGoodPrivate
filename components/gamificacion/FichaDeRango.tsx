@@ -11,6 +11,7 @@ import {
   type RequisitoDeRango,
 } from "@/lib/gamificacion/rangos";
 import InsigniaDeRango from "./InsigniaDeRango";
+import { claseDeVentana } from "@/components/ui/ventana-emergente";
 
 const CHIP: Record<DatosDeFicha["estado"], { texto: string; tono: "default" | "ok" | "info" }> = {
   alcanzado: { texto: "Alcanzado", tono: "info" },
@@ -117,17 +118,17 @@ function Cuerpo({ ficha, total }: { ficha: DatosDeFicha; total: number }) {
     return (
       <>
         <div id="ficha-rango-intro" className="space-y-1">
-          <p className="text-sm font-semibold text-system-900">{ficha.textoDeAscenso || "Ya alcanzaste este rango."}</p>
-          {esActual && <p className="text-[13px] text-system-700">Es tuyo aunque dejes de aportar o pierdas la racha.</p>}
+          <p className="text-base font-semibold text-system-900">{ficha.textoDeAscenso || "Ya alcanzaste este rango."}</p>
+          {esActual && <p className="text-[15px] text-system-700">Es tuyo aunque dejes de aportar o pierdas la racha.</p>}
         </div>
         <Descripcion texto={ficha.descripcion} />
         <Seccion id="ficha-rango-pidio" titulo="Lo que pidió">
           {ficha.requisitos.length === 0 ? (
-            <p className="text-sm text-system-600">No pide nada.</p>
+            <p className="text-base text-system-600">No pide nada.</p>
           ) : (
             <>
               <ListaDeMetas requisitos={ficha.requisitos} cumplidos />
-              <p className="text-[12px] text-system-500">Los cumpliste todos el día que subiste.</p>
+              <p className="text-[14px] text-system-500">Los cumpliste todos el día que subiste.</p>
             </>
           )}
         </Seccion>
@@ -149,8 +150,8 @@ function Cuerpo({ ficha, total }: { ficha: DatosDeFicha; total: number }) {
     return (
       <>
         <div id="ficha-rango-intro" className="space-y-1">
-          <p className="text-sm font-bold text-system-900">{ficha.textoQueFalta}</p>
-          <p className="text-[13px] text-system-700">
+          <p className="text-base font-bold text-system-900">{ficha.textoQueFalta}</p>
+          <p className="text-[15px] text-system-700">
             Cumples {ficha.cumplidos} de {ficha.requisitos.length}. Subes en cuanto cumplas todos a la vez; la racha se toma
             tal como esté en ese momento.
           </p>
@@ -158,7 +159,7 @@ function Cuerpo({ ficha, total }: { ficha: DatosDeFicha; total: number }) {
         <Descripcion texto={ficha.descripcion} />
         <Seccion id="ficha-rango-pide" titulo="Lo que pide y tu avance">
           <ListaDeAvance requisitos={ficha.requisitos} />
-          <p className="text-[12px] text-system-500">Un aporte de 5★ también cuenta en «4★ o más».</p>
+          <p className="text-[14px] text-system-500">Un aporte de 5★ también cuenta en «4★ o más».</p>
         </Seccion>
         <Seccion id="ficha-rango-recibiras" titulo="Al subir recibes">
           <ul className="space-y-2">
@@ -172,7 +173,7 @@ function Cuerpo({ ficha, total }: { ficha: DatosDeFicha; total: number }) {
             />
           </ul>
         </Seccion>
-        <ButtonLink href="/campanas" variant="primary" size="sm" className="self-start">
+        <ButtonLink href="/campanas" variant="primary" className="self-start">
           Aportar a una campaña
         </ButtonLink>
       </>
@@ -183,15 +184,15 @@ function Cuerpo({ ficha, total }: { ficha: DatosDeFicha; total: number }) {
     return (
       <>
         <div id="ficha-rango-intro" className="space-y-1">
-          <p className="text-sm text-system-700">
+          <p className="text-base text-system-700">
             De este rango solo puedes ver lo que pedirá. Su nombre, su insignia y sus recompensas aparecen cuando alcances
             el rango {ficha.numero - 1}.
           </p>
-          {ficha.numero >= total && <p className="text-[13px] text-system-700">Es el último rango de la trayectoria.</p>}
+          {ficha.numero >= total && <p className="text-[15px] text-system-700">Es el último rango de la trayectoria.</p>}
         </div>
         <Seccion id="ficha-rango-pedira" titulo="Lo que pedirá">
           <ListaDeMetas requisitos={ficha.requisitos} cumplidos={false} />
-          <p className="text-[12px] text-system-500">
+          <p className="text-[14px] text-system-500">
             Estos requisitos pueden ajustarse más adelante. Un cambio nunca te quita un rango que ya tengas.
           </p>
         </Seccion>
@@ -201,16 +202,16 @@ function Cuerpo({ ficha, total }: { ficha: DatosDeFicha; total: number }) {
 
   return (
     <>
-      <p id="ficha-rango-intro" className="text-sm text-system-700">
+      <p id="ficha-rango-intro" className="text-base text-system-700">
         Ya puedes ver lo que pedirá. Su nombre y su insignia aparecen cuando alcances el rango {ficha.numero - 1}.
       </p>
       <div className="rounded-lg bg-brand-50 px-4 py-3">
-        <p className="text-sm font-bold text-brand-950">Pista: {ficha.pista}</p>
-        <p className="text-[12px] text-brand-800">Los rangos más lejanos no tienen pista.</p>
+        <p className="text-base font-bold text-brand-950">Pista: {ficha.pista}</p>
+        <p className="text-[14px] text-brand-800">Los rangos más lejanos no tienen pista.</p>
       </div>
       <Seccion id="ficha-rango-pedira" titulo="Lo que pedirá">
         <ListaDeMetas requisitos={ficha.requisitos} cumplidos={false} />
-        <p className="text-[12px] text-system-500">
+        <p className="text-[14px] text-system-500">
           Estos requisitos pueden ajustarse más adelante. Un cambio nunca te quita un rango que ya tengas.
         </p>
       </Seccion>
@@ -257,10 +258,10 @@ export default function FichaDeRango({
       onClick={(e) => {
         if (e.target === dialogo.current) dialogo.current?.close();
       }}
-      className="m-auto w-[calc(100%-2rem)] max-w-lg rounded-lg border border-system-200 bg-white p-0 text-system-900 shadow-lg backdrop:bg-system-900/40"
+      className={claseDeVentana("normal")}
     >
       {ficha && chip && (
-        <div className="flex max-h-[85vh] flex-col">
+        <div className="flex max-h-[88vh] flex-col">
           <div className="bg-brand-950 p-5 text-white">
             <div className="flex items-center justify-between gap-2">
               <div className="flex gap-2">
@@ -288,7 +289,7 @@ export default function FichaDeRango({
               <div className="min-w-0">
                 <Tag tone={chip.tono}>{ficha.estado === "oculto" && ficha.numero >= total ? "El último rango" : chip.texto}</Tag>
                 <h2 id="ficha-rango-titulo" className="mt-1.5 text-xl font-extrabold leading-tight">
-                  <span className="block text-[12px] font-semibold text-brand-200">
+                  <span className="block text-[14px] font-semibold text-brand-200">
                     Rango {ficha.numero} de {total}
                   </span>
                   {ficha.estado === "avistado" || ficha.estado === "oculto" ? "Nombre por descubrir" : ficha.nombre}
@@ -296,7 +297,7 @@ export default function FichaDeRango({
               </div>
             </div>
           </div>
-          <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-5">
+          <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-5 md:px-8 md:py-6">
             <Cuerpo ficha={ficha} total={total} />
           </div>
         </div>

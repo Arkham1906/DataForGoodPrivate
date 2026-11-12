@@ -7,6 +7,9 @@
 // Transiciones del filtro (2026-11-06, a pedido del usuario: "que no se vea esa aparición"): la pastilla se
 // desliza entre las categorías, el selector de temática se abre de a poco, la tabla se desvanece antes de
 // cambiar y su alto se anima. Con movimiento reducido, todo cambia de golpe.
+// Periodo (2026-11-12, a pedido del usuario): hoy, este mes, este año o el histórico, con otra pastilla
+// deslizante debajo de la categoría. La landing manda la tabla de cada periodo (obtenerTablasPorPeriodo).
+// "Por nivel" es acumulado: el periodo queda desactivado con una nota.
 
 import { useEffect, useRef, useState } from "react";
 import FranjaDeCampo from "@/components/landing/FranjaDeCampo";
@@ -16,25 +19,45 @@ import {
   CATEGORIAS_DE_CLASIFICACION,
   LIDERES_POR_CATEGORIA,
   LUGARES_DEL_PODIO,
+  PERIODOS_DE_CLASIFICACION,
   type CategoriaDeClasificacion,
-  type TablaDeLideres as Tabla,
+  type PeriodoDeClasificacion,
+  type TablasPorPeriodo,
 } from "@/lib/gamificacion/tipos";
 
 /** Lo que dura el desvanecido de la tabla; igual que `duration-200` de su contenedor. */
 const DESVANECIDO_MS = 200;
 
-export default function TablaDeLideres({ tabla }: { tabla: Tabla }) {
+const CLASE_DE_PASTILLA =
+  "absolute inset-y-0 left-0 rounded-[10px] bg-system-900 transition-transform duration-300 ease-out motion-reduce:transition-none";
+
+function claseDeBoton(elegido: boolean): string {
+  return `relative whitespace-nowrap rounded-[10px] px-3 py-2 text-[13.5px] font-medium transition-colors duration-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 motion-reduce:transition-none sm:px-3.5 ${
+    elegido ? "text-white" : "text-system-600 hover:text-system-900"
+  }`;
+}
+
+export default function TablaDeLideres({ tablas }: { tablas: TablasPorPeriodo }) {
   // Lo elegido cambia al instante en el filtro; la tabla pasa a mostrarlo cuando ya se desvaneció.
   const [categoria, setCategoria] = useState<CategoriaDeClasificacion>("aportes");
-  const [tematica, setTematica] = useState(tabla.tematicas[0]?.tematica ?? "");
-  const [mostrada, setMostrada] = useState({ categoria, tematica });
-  const cambiando = mostrada.categoria !== categoria || (categoria === "tematica" && mostrada.tematica !== tematica);
+  const [periodo, setPeriodo] = useState<PeriodoDeClasificacion>("siempre");
+  const [tematicaPedida, setTematica] = useState(tablas.siempre.tematicas[0]?.tematica ?? "");
+  // Cada periodo tiene sus temáticas: si la elegida no tuvo aportes en el periodo, se muestra la primera.
+  const tematicasDelPeriodo = tablas[periodo].tematicas;
+  const tematica = tematicasDelPeriodo.some((t) => t.tematica === tematicaPedida)
+    ? tematicaPedida
+    : (tematicasDelPeriodo[0]?.tematica ?? "");
+  const [mostrada, setMostrada] = useState({ categoria, tematica, periodo });
+  const cambiando =
+    mostrada.categoria !== categoria ||
+    (categoria !== "nivel" && mostrada.periodo !== periodo) ||
+    (categoria === "tematica" && mostrada.tematica !== tematica);
 
   useEffect(() => {
     const reducido = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const espera = window.setTimeout(() => setMostrada({ categoria, tematica }), reducido ? 0 : DESVANECIDO_MS);
+    const espera = window.setTimeout(() => setMostrada({ categoria, tematica, periodo }), reducido ? 0 : DESVANECIDO_MS);
     return () => window.clearTimeout(espera);
-  }, [categoria, tematica]);
+  }, [categoria, tematica, periodo]);
 
   // El alto se escribe en el DOM (sin estado) para que la sección crezca o se encoja sin saltos.
   const envoltura = useRef<HTMLDivElement>(null);
@@ -49,36 +72,34 @@ export default function TablaDeLideres({ tabla }: { tabla: Tabla }) {
     return () => observador.disconnect();
   }, []);
 
+  const tabla = tablas[mostrada.periodo];
   const lideres = (
     mostrada.categoria === "tematica"
       ? (tabla.tematicas.find((t) => t.tematica === mostrada.tematica)?.lideres ?? [])
       : tabla[mostrada.categoria]
   ).slice(0, LIDERES_POR_CATEGORIA);
+  const periodoMostrado = PERIODOS_DE_CLASIFICACION.find((p) => p.valor === mostrada.periodo);
 
   const indice = CATEGORIAS_DE_CLASIFICACION.findIndex((c) => c.valor === categoria);
-  const conTematicas = categoria === "tematica" && tabla.tematicas.length > 0;
+  const indiceDelPeriodo = PERIODOS_DE_CLASIFICACION.findIndex((p) => p.valor === periodo);
+  const conTematicas = categoria === "tematica" && tematicasDelPeriodo.length > 0;
+  const porNivel = categoria === "nivel";
 
   return (
     <div>
       <FranjaDeCampo redondeada className="mb-6">
-        <div className="relative flex justify-center px-4 py-8">
+        <div className="relative flex flex-col items-center gap-3 px-4 py-8">
           <div className="flex max-w-full flex-col items-center rounded-[18px] bg-white p-2 shadow-sm md:flex-row">
             {/* Columnas iguales: la pastilla se mueve por tercios, sin medir cada botón. */}
             <div role="group" aria-label="Categoría" className="relative grid shrink-0 grid-cols-[repeat(3,1fr)]">
-              <span
-                aria-hidden="true"
-                className="absolute inset-y-0 left-0 w-1/3 rounded-[10px] bg-system-900 transition-transform duration-300 ease-out motion-reduce:transition-none"
-                style={{ transform: `translateX(${indice * 100}%)` }}
-              />
+              <span aria-hidden="true" className={`${CLASE_DE_PASTILLA} w-1/3`} style={{ transform: `translateX(${indice * 100}%)` }} />
               {CATEGORIAS_DE_CLASIFICACION.map((c) => (
                 <button
                   key={c.valor}
                   type="button"
                   aria-pressed={categoria === c.valor}
                   onClick={() => setCategoria(c.valor)}
-                  className={`relative whitespace-nowrap rounded-[10px] px-3.5 py-2 text-[13.5px] font-medium transition-colors duration-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 motion-reduce:transition-none ${
-                    categoria === c.valor ? "text-white" : "text-system-600 hover:text-system-900"
-                  }`}
+                  className={claseDeBoton(categoria === c.valor)}
                 >
                   {c.etiqueta}
                 </button>
@@ -86,7 +107,7 @@ export default function TablaDeLideres({ tabla }: { tabla: Tabla }) {
             </div>
 
             {/* Siempre está en la página: al abrirse crece del alto y el ancho 0, y cerrado no recibe el foco. */}
-            {tabla.tematicas.length > 0 && (
+            {tablas.siempre.tematicas.length > 0 && (
               <div
                 inert={!conTematicas}
                 className={`grid transition-[grid-template-columns,grid-template-rows,opacity] duration-300 ease-out motion-reduce:transition-none ${
@@ -104,7 +125,7 @@ export default function TablaDeLideres({ tabla }: { tabla: Tabla }) {
                       onChange={(e) => setTematica(e.target.value)}
                       className="rounded border border-system-300 bg-white px-3 py-2 text-[13px] text-system-900 outline-none focus:border-brand-600"
                     >
-                      {tabla.tematicas.map((t) => (
+                      {tematicasDelPeriodo.map((t) => (
                         <option key={t.tematica} value={t.tematica}>
                           {t.tematica}
                         </option>
@@ -113,6 +134,42 @@ export default function TablaDeLideres({ tabla }: { tabla: Tabla }) {
                   </div>
                 </div>
               </div>
+            )}
+          </div>
+
+          {/* Periodo: cuartos iguales, como la categoría. Con "Por nivel" no aplica: queda apagado. */}
+          <div className="flex max-w-full flex-col items-center gap-1.5">
+            <div
+              role="group"
+              aria-label="Periodo"
+              inert={porNivel}
+              className={`rounded-[14px] bg-white p-1.5 shadow-sm transition-opacity duration-300 motion-reduce:transition-none ${
+                porNivel ? "opacity-50" : "opacity-100"
+              }`}
+            >
+              <div className="relative grid grid-cols-[repeat(4,1fr)]">
+                <span
+                  aria-hidden="true"
+                  className={`${CLASE_DE_PASTILLA} w-1/4`}
+                  style={{ transform: `translateX(${indiceDelPeriodo * 100}%)` }}
+                />
+                {PERIODOS_DE_CLASIFICACION.map((p) => (
+                  <button
+                    key={p.valor}
+                    type="button"
+                    aria-pressed={periodo === p.valor}
+                    onClick={() => setPeriodo(p.valor)}
+                    className={claseDeBoton(periodo === p.valor)}
+                  >
+                    {p.etiqueta}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {porNivel && (
+              <p className="rounded-full bg-white/90 px-3 py-1 text-[12px] text-system-600">
+                El nivel es acumulado: no cambia con el periodo.
+              </p>
             )}
           </div>
         </div>
@@ -129,7 +186,9 @@ export default function TablaDeLideres({ tabla }: { tabla: Tabla }) {
             <p className="rounded-lg bg-white p-4 text-center text-[13px] text-system-600">
               {mostrada.categoria === "nivel"
                 ? "Todavía nadie ha ganado XP para aparecer en esta tabla."
-                : "Todavía no hay aportes aprobados para armar esta tabla."}
+                : mostrada.periodo === "siempre"
+                  ? "Todavía no hay aportes aprobados para armar esta tabla."
+                  : `Todavía no hay aportes aprobados ${periodoMostrado?.enTexto ?? ""}.`}
             </p>
           ) : (
             <div className="grid gap-6">

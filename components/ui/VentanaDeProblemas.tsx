@@ -8,6 +8,7 @@
 
 import { useEffect, useRef } from "react";
 import Button from "@/components/ui/Button";
+import { VENTANA, claseDeVentana } from "@/components/ui/ventana-emergente";
 
 export type ProblemaDeFormulario = { campo: string; mensaje: string };
 
@@ -51,27 +52,27 @@ export default function VentanaDeProblemas({
       onClick={(e) => {
         if (e.target === dialogo.current) onCerrar();
       }}
-      className="m-auto w-[calc(100%-2rem)] max-w-md rounded-lg border border-error-200 bg-white p-0 text-system-900 shadow-lg backdrop:bg-system-900/40"
+      className={claseDeVentana("normal", "border-error-200")}
     >
-      <div className="flex max-h-[85vh] flex-col">
-        <div className="flex items-start gap-3 border-b border-system-200 p-5">
+      <div className={VENTANA.marco}>
+        <div className={`flex items-start gap-3 ${VENTANA.encabezado}`}>
           <span
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-error-700 text-[14px] font-bold text-white"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-error-700 text-[17px] font-bold text-white"
             aria-hidden
           >
             !
           </span>
           <div>
-            <h2 id="ventana-de-problemas-titulo" className="text-lg font-extrabold text-system-900">
+            <h2 id="ventana-de-problemas-titulo" className={VENTANA.titulo}>
               {titulo}
             </h2>
-            <p className="mt-0.5 text-[12.5px] text-system-600">
+            <p className={VENTANA.subtitulo}>
               {problemas.length === 1 ? "Corrige esto y vuelve a intentarlo:" : `Corrige estas ${problemas.length} cosas y vuelve a intentarlo:`}
             </p>
           </div>
         </div>
 
-        <ul id="ventana-de-problemas-lista" className="flex-1 overflow-y-auto p-3">
+        <ul id="ventana-de-problemas-lista" className="flex-1 overflow-y-auto px-3 py-4 md:px-6">
           {problemas.map((p, i) => (
             <li key={`${p.campo}-${i}`}>
               <button
@@ -80,18 +81,18 @@ export default function VentanaDeProblemas({
                   pendiente.current = p.campo;
                   dialogo.current?.close();
                 }}
-                className="flex w-full items-start gap-2 rounded px-2 py-2 text-left text-[13px] text-system-900 hover:bg-error-50"
+                className="flex w-full items-start gap-3 rounded-lg px-3 py-3 text-left text-[15px] text-system-900 hover:bg-error-50"
               >
-                <span className="mt-[3px] h-2 w-2 shrink-0 rounded-full bg-error-700" aria-hidden />
+                <span className="mt-[7px] h-2.5 w-2.5 shrink-0 rounded-full bg-error-700" aria-hidden />
                 <span className="flex-1">{p.mensaje}</span>
-                <span className="shrink-0 text-[12px] font-semibold text-brand-600">Ir →</span>
+                <span className="shrink-0 text-[14px] font-semibold text-brand-600">Ir →</span>
               </button>
             </li>
           ))}
         </ul>
 
-        <div className="flex justify-end border-t border-system-200 p-4">
-          <Button type="button" variant="primary" size="sm" onClick={onCerrar}>
+        <div className={VENTANA.pie}>
+          <Button type="button" variant="primary" onClick={onCerrar}>
             Entendido
           </Button>
         </div>

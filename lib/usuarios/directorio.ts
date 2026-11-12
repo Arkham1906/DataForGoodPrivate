@@ -407,10 +407,30 @@ export async function obtenerReporteDeSancion(
 }
 
 /**
+ * La sanción de cuenta `s` (alias de `sanciones`) le toca al supervisor del parámetro `param` (p. ej. "$1"):
+ * está ligada a reportes de una campaña que supervisa, o la aplicó él (audit_log `sancion.aplicar`: al
+ * resolver reportes, directo desde "Sancionar a alguien" o al rechazar una campaña). Con el parámetro en
+ * NULL (SuperUsuario), todas. La usan listarSanciones (qué ve) y restaurarAcceso (qué puede restaurar).
+ */
+export function sqlSancionDelSupervisor(s: string, param: string): string {
+  return `(${param}::int IS NULL OR EXISTS (
+           SELECT 1 FROM reportes r
+           JOIN campanas rc ON rc.id = r.campana_id
+           WHERE r.sancion_id = ${s}.id AND rc.supervisor_id = ${param}
+         ) OR EXISTS (
+           SELECT 1 FROM audit_log a
+           WHERE a.accion = 'sancion.aplicar' AND a.actor_tipo = 'usuario' AND a.actor_id = ${param}
+             AND a.objetivo_tipo = 'usuario' AND a.objetivo_id = ${s}.usuario_id::text
+             AND (a.detalle->>'avisoId' = ${s}.id::text OR a.detalle->'bloqueo'->>'sancionId' = ${s}.id::text)
+         ))`;
+}
+
+/**
  * Sanciones de los usuarios que siguen existiendo (2026-10-08), de la más reciente
  * a la más vieja. Con `supervisorId`, incluye sanciones ligadas a reportes de sus campañas,
- * baneos por campaña dentro de sus campañas supervisadas y sanciones aplicadas por ese supervisor
- * al resolver reportes. Vienen de dos lados:
+ * baneos por campaña dentro de sus campañas supervisadas y todas las sanciones que aplicó ese supervisor
+ * (al resolver reportes o directo desde "Sancionar a alguien", 2026-11-12; se buscan en audit_log,
+ * `sancion.aplicar`). Vienen de dos lados:
  *   - De la cuenta (tabla `sanciones`): avisos (STRIKE) y baneos que aplica el
  *     moderador (SuperUsuario o supervisor) desde .../sanciones/[usuarioId], y la suspensión o el baneo que
  *     trae cada aviso (escala de avisos). Si se dieron al confirmar reportes,
@@ -460,18 +480,7 @@ export async function listarSanciones(supervisorId?: number): Promise<RegistroDe
            HAVING COUNT(*) > 0
          ) rep ON true
          LEFT JOIN campanas c ON c.id = rep.campana_id
-         WHERE ($1::int IS NULL OR EXISTS (
-           SELECT 1 FROM reportes r
-           JOIN campanas rc ON rc.id = r.campana_id
-           WHERE r.sancion_id = s.id AND rc.supervisor_id = $1
-         ) OR EXISTS (
-           SELECT 1 FROM audit_log a
-           WHERE a.accion = 'sancion.aplicar' AND a.actor_tipo = 'usuario' AND a.actor_id = $1
-             AND a.objetivo_tipo = 'usuario' AND a.objetivo_id = s.usuario_id::text
-             AND (a.detalle->>'avisoId' = s.id::text OR a.detalle->'bloqueo'->>'sancionId' = s.id::text)
-             AND CASE WHEN jsonb_typeof(a.detalle->'reportes') = 'array'
-                      THEN jsonb_array_length(a.detalle->'reportes') > 0 ELSE false END
-         ))`,
+         WHERE ${sqlSancionDelSupervisor("s", "$1")}`,
         [supervisorId ?? null],
       ),
       pool.query<{

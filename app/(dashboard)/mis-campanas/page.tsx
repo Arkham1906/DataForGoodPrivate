@@ -810,7 +810,7 @@ export default function MisCampanasPage() {
         {porActivar?.status === "pausada" && inicioEnElFuturo(porActivar.startDate, porActivar.startTime) && (
           <button
             type="button"
-            className="mt-3 text-sm font-semibold text-brand-600 underline underline-offset-2 hover:text-brand-800 disabled:opacity-50"
+            className="mt-3 text-base font-semibold text-brand-600 underline underline-offset-2 hover:text-brand-800 disabled:opacity-50"
             disabled={cambiandoId === porActivar.id}
             onClick={() => {
               const campana = porActivar;
@@ -872,14 +872,14 @@ export default function MisCampanasPage() {
           </p>
         )}
         {/* Siempre se escribe el nombre para confirmar, tenga aportes o no (2026-10-31, a pedido del usuario). */}
-        <label className="mt-3 block text-[12.5px] text-system-600">
+        <label className="mt-3 block text-[15px] text-system-600">
           Para confirmar, escribe el nombre de la campaña:
           <input
             type="text"
             value={nombreParaEliminar}
             onChange={(e) => setNombreParaEliminar(e.target.value)}
             autoComplete="off"
-            className="mt-1.5 w-full rounded border border-system-300 bg-white px-3 py-2 text-[13px] text-system-900 outline-none focus:border-brand-600"
+            className="mt-1.5 w-full rounded border border-system-300 bg-white px-3 py-2 text-[15px] text-system-900 outline-none focus:border-brand-600"
           />
         </label>
         {porEliminar && cambioError[porEliminar.id] && (

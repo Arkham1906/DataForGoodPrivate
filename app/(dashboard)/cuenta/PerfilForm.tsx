@@ -570,15 +570,16 @@ export default function PerfilForm({
           role="status"
           aria-live="polite"
           onClick={() => setAvisoVisible(false)}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-system-900/20 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-system-900/30 p-4"
         >
-          <div className="flex flex-col items-center gap-3 rounded-lg border border-system-200 bg-white px-8 py-7 text-center shadow-lg">
-            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-success-50 text-success-700">
-              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          {/* Del tamaño de las ventanas emergentes (ui/ventana-emergente.ts, 2026-11-12). */}
+          <div className="flex w-full max-w-md flex-col items-center gap-4 rounded-2xl border border-system-200 bg-white px-8 py-10 text-center shadow-2xl md:px-12">
+            <span className="flex h-16 w-16 items-center justify-center rounded-full bg-success-50 text-success-700">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M5 12.5l4.5 4.5L19 7.5" />
               </svg>
             </span>
-            <p className="text-base font-extrabold text-system-900">Cambios Guardados Correctamente</p>
+            <p className="text-xl font-extrabold text-system-900 md:text-2xl">Cambios Guardados Correctamente</p>
           </div>
         </div>
       )}

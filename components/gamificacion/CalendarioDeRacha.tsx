@@ -18,6 +18,7 @@ import { NOMBRES_DE_ESTRELLAS } from "@/lib/aportes/calificacion";
 import { BASE_PATH } from "@/lib/base-path";
 import type { CalendarioDeRachaDelMes, DiaDelCalendario } from "@/lib/gamificacion/mi-progreso-tipos";
 import { MAXIMO_DE_PROTECTORES, PROTECTORES_ACTIVOS, type ResumenDeRacha } from "@/lib/gamificacion/progreso-tipos";
+import { claseDeVentana } from "@/components/ui/ventana-emergente";
 
 type Estado = DiaDelCalendario["estado"];
 
@@ -85,12 +86,12 @@ function Celda({ dia, elegido, onElegir }: { dia: DiaDelCalendario; elegido: boo
       disabled={dia.estado === "por_venir"}
       aria-pressed={elegido}
       aria-label={`${dia.numero}${hoy}: ${estado.nombre}${dia.inicioDeRacha ? ", inicio de tu racha" : ""}`}
-      className={`flex h-11 w-full flex-col items-center justify-center rounded-[10px] text-[13px] font-bold leading-none ${estado.celda} ${
+      className={`flex h-11 w-full flex-col items-center justify-center rounded-[10px] text-[15px] font-bold leading-none ${estado.celda} ${
         dia.hoy ? "outline-2 -outline-offset-2 outline-dashed outline-brand-600" : ""
       } ${elegido ? "ring-2 ring-brand-600 ring-offset-2" : ""} disabled:cursor-default`}
     >
       {dia.numero}
-      {(dia.hoy || dia.inicioDeRacha) && <span className="mt-0.5 text-[11px] font-semibold">{dia.hoy ? "hoy" : "inicio"}</span>}
+      {(dia.hoy || dia.inicioDeRacha) && <span className="mt-0.5 text-[13px] font-semibold">{dia.hoy ? "hoy" : "inicio"}</span>}
       {dia.estado === "protegido" && !dia.hoy && (
         <svg viewBox="0 0 24 24" aria-hidden="true" className="mt-0.5 h-3 w-3" fill="currentColor">
           <path d="M12 2l8 3v7c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V5z" />
@@ -105,17 +106,17 @@ function DetalleDelDia({ dia }: { dia: DiaDelCalendario }) {
   return (
     <section aria-live="polite" className="flex flex-col gap-1.5 rounded-[10px] border border-system-100 bg-system-50 px-3.5 py-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-sm font-bold text-system-900">{fechaLarga(dia.dia)}</h3>
+        <h3 className="text-base font-bold text-system-900">{fechaLarga(dia.dia)}</h3>
         <span className="flex flex-wrap gap-1.5">
           {dia.inicioDeRacha && <Tag tone="on">Inicio de tu racha</Tag>}
           <Tag tone={estado.tono}>{estado.nombre}</Tag>
         </span>
       </div>
-      <p className="text-[13px] text-system-700">{textoDelDia(dia)}</p>
+      <p className="text-[15px] text-system-700">{textoDelDia(dia)}</p>
       {dia.aportes.length > 0 && (
         <ul className="flex flex-col gap-1.5">
           {dia.aportes.map((a) => (
-            <li key={a.id} className="flex justify-between gap-2.5 text-[12.5px]">
+            <li key={a.id} className="flex justify-between gap-2.5 text-[15px]">
               <span className="min-w-0 text-system-900">
                 {a.descripcion}
                 <span className="block text-system-600">
@@ -184,11 +185,11 @@ export default function CalendarioDeRacha({ racha }: { racha: ResumenDeRacha }) 
         onClick={(e) => {
           if (e.target === dialogo.current) dialogo.current?.close();
         }}
-        className="m-auto w-[calc(100%-2rem)] max-w-lg rounded-lg border border-system-200 bg-white p-0 text-system-900 shadow-lg backdrop:bg-system-900/40"
+        className={claseDeVentana("normal")}
       >
-        <div className="flex max-h-[85vh] flex-col">
+        <div className="flex max-h-[88vh] flex-col">
           <div className="flex items-start justify-between gap-3 px-5 pt-5">
-            <h2 id="calendario-racha-titulo" className="text-lg font-extrabold">
+            <h2 id="calendario-racha-titulo" className="text-xl font-extrabold md:text-2xl">
               Calendario de tu racha
             </h2>
             <button type="button" onClick={() => dialogo.current?.close()} aria-label="Cerrar" className={BOTON_DE_ICONO}>
@@ -197,7 +198,7 @@ export default function CalendarioDeRacha({ racha }: { racha: ResumenDeRacha }) 
           </div>
 
           <div className="flex flex-1 flex-col gap-3.5 overflow-y-auto px-5 pb-4 pt-3">
-            <p className="text-sm text-system-700">
+            <p className="text-base text-system-700">
               <strong className="text-[22px] text-system-900">
                 {racha.actual} {racha.actual === 1 ? "día" : "días"}
               </strong>{" "}
@@ -205,7 +206,7 @@ export default function CalendarioDeRacha({ racha }: { racha: ResumenDeRacha }) 
               {PROTECTORES_ACTIVOS && ` · protectores ${racha.protectores} de ${MAXIMO_DE_PROTECTORES}`}
             </p>
             {calendario?.inicioDeRacha && (
-              <p className="rounded-[10px] bg-brand-50 px-3.5 py-2.5 text-[13px] text-brand-800">
+              <p className="rounded-[10px] bg-brand-50 px-3.5 py-2.5 text-[15px] text-brand-800">
                 Tu racha empezó el <strong>{calendario.inicioDeRacha.fecha}</strong>
                 {calendario.inicioDeRacha.descripcion
                   ? ` con «${calendario.inicioDeRacha.descripcion}», en ${calendario.inicioDeRacha.campana}.`
@@ -214,9 +215,9 @@ export default function CalendarioDeRacha({ racha }: { racha: ResumenDeRacha }) 
             )}
 
             {fallo ? (
-              <div role="alert" className="rounded-[10px] bg-error-50 p-3.5 text-[13px] text-error-700">
+              <div role="alert" className="rounded-[10px] bg-error-50 p-3.5 text-[15px] text-error-700">
                 <p>No pudimos cargar el calendario.</p>
-                <Button type="button" variant="secondary" size="sm" className="mt-2.5" onClick={() => void cargar(calendario?.mes)}>
+                <Button type="button" variant="secondary" className="mt-2.5" onClick={() => void cargar(calendario?.mes)}>
                   Reintentar
                 </Button>
               </div>
@@ -237,7 +238,7 @@ export default function CalendarioDeRacha({ racha }: { racha: ResumenDeRacha }) 
                   >
                     <Icono trazo="M15 18l-6-6 6-6" />
                   </button>
-                  <span aria-live="polite" className="text-[13px] font-bold">
+                  <span aria-live="polite" className="text-[15px] font-bold">
                     {calendario.titulo}
                   </span>
                   <button
@@ -253,7 +254,7 @@ export default function CalendarioDeRacha({ racha }: { racha: ResumenDeRacha }) 
 
                 <div className="grid grid-cols-7 gap-1.5" role="group" aria-label={`Días de ${calendario.titulo}`}>
                   {DIAS_DE_LA_SEMANA.map(([letra, nombre]) => (
-                    <span key={nombre} className="text-center text-[11.5px] font-bold text-system-500">
+                    <span key={nombre} className="text-center text-[13.5px] font-bold text-system-500">
                       <span aria-hidden="true">{letra}</span>
                       <span className="sr-only">{nombre}</span>
                     </span>
@@ -266,7 +267,7 @@ export default function CalendarioDeRacha({ racha }: { racha: ResumenDeRacha }) 
                   ))}
                 </div>
 
-                <ul aria-label="Significado de los colores" className="flex flex-wrap gap-x-3 gap-y-1 text-[11.5px] text-system-700">
+                <ul aria-label="Significado de los colores" className="flex flex-wrap gap-x-3 gap-y-1 text-[13.5px] text-system-700">
                   {[...LEYENDA, ...(conSuspendidos ? (["suspendido"] as const) : [])].map((e) => (
                     <li key={e} className="inline-flex items-center gap-1.5">
                       <span aria-hidden="true" className={`h-3 w-3 rounded ${ESTADOS[e].celda}`} />
@@ -278,13 +279,13 @@ export default function CalendarioDeRacha({ racha }: { racha: ResumenDeRacha }) 
                 {dia && <DetalleDelDia dia={dia} />}
 
                 <section aria-labelledby="calendario-racha-eventos">
-                  <h3 id="calendario-racha-eventos" className="mb-1.5 text-[13px] font-extrabold">
+                  <h3 id="calendario-racha-eventos" className="mb-1.5 text-[15px] font-extrabold">
                     Eventos de tu racha
                   </h3>
                   {calendario.eventos.length === 0 ? (
-                    <p className="text-[12.5px] text-system-600">Sin eventos este mes.</p>
+                    <p className="text-[15px] text-system-600">Sin eventos este mes.</p>
                   ) : (
-                    <ul className="text-[12.5px]">
+                    <ul className="text-[15px]">
                       {calendario.eventos.map((e) => (
                         <li key={e.id} className="grid grid-cols-[56px_1fr] gap-2 border-t border-system-100 py-1.5">
                           <span className="font-mono text-system-500">{e.fecha}</span>
@@ -302,7 +303,7 @@ export default function CalendarioDeRacha({ racha }: { racha: ResumenDeRacha }) 
           </div>
 
           <div className="flex justify-end border-t border-system-100 px-5 py-3.5">
-            <Button type="button" size="sm" onClick={() => dialogo.current?.close()}>
+            <Button type="button" onClick={() => dialogo.current?.close()}>
               Cerrar
             </Button>
           </div>

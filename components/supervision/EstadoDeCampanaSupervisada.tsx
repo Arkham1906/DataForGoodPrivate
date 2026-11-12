@@ -163,7 +163,7 @@ export default function EstadoDeCampanaSupervisada({
             </>
           )}
         </ul>
-        <label htmlFor="motivo-de-supervision" className="mb-2 block text-[13px] font-semibold text-system-900">
+        <label htmlFor="motivo-de-supervision" className="mb-2 block text-[15px] font-semibold text-system-900">
           Motivo <span className="text-error-700">*</span>
         </label>
         <Textarea
@@ -180,7 +180,7 @@ export default function EstadoDeCampanaSupervisada({
           required
         />
         {errorDeVentana && (
-          <p role="alert" className="mt-2 text-[12.5px] text-error-700">{errorDeVentana}</p>
+          <p role="alert" className="mt-2 text-[15px] text-error-700">{errorDeVentana}</p>
         )}
       </VentanaDeConfirmacion>
     </section>

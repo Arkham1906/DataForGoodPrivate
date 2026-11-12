@@ -10,6 +10,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 import ContrasenaConCodigo from "./ContrasenaConCodigo";
+import { claseDeVentana } from "@/components/ui/ventana-emergente";
 
 export default function CambiarContrasena({
   usuarioId,
@@ -55,7 +56,7 @@ export default function CambiarContrasena({
             router.refresh();
           }
         }}
-        className="m-auto w-[calc(100%-2rem)] max-w-md rounded-lg border border-system-200 bg-white p-0 text-system-900 shadow-lg backdrop:bg-system-900/40"
+        className={claseDeVentana("normal")}
       >
         <ContrasenaConCodigo
           key={apertura}

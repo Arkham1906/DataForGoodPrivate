@@ -3,6 +3,8 @@ import { columnaDeTipos, condicionDeTipos } from "@/lib/campanas/tipos-de-campan
 import { NOMBRE_DE_TIPO } from "@/lib/campanas/sistema-opciones";
 import { activateScheduledCampaigns, calculateCampaignDaysRemaining, finalizeExpiredCampaigns } from "@/lib/campaign-date";
 import { etiquetasDeCampanas } from "@/lib/etiquetas/catalogo";
+import { tematicasVisibles } from "@/lib/tematicas/catalogo";
+import { slugDeTematica } from "@/lib/tematicas/ruta";
 
 /**
  * Campañas de la vitrina pública /explorar: solo las activas. Del 2026-10-24 al 2026-11-03 también salían
@@ -61,6 +63,8 @@ export type FiltrosDeCampanas = {
   /** Tipos de dato: salen las campañas que los piden todos (2026-11-03). */
   tipos?: string[];
   orden?: OrdenDeCampanas;
+  /** Cuántas como máximo (2026-11-12: las más recientes de la landing); sin él, todas. */
+  limite?: number;
 };
 
 function mapCampana(row: Record<string, unknown>): CampanaPublica {
@@ -126,6 +130,11 @@ export async function buscarCampanasParaExplorar(filtros: FiltrosDeCampanas): Pr
       valores.push(filtros.tipos);
       condiciones.push(condicionDeTipos("campanas", `$${valores.length}`));
     }
+    let limite = "";
+    if (filtros.limite !== undefined && Number.isInteger(filtros.limite) && filtros.limite > 0) {
+      valores.push(filtros.limite);
+      limite = `LIMIT $${valores.length}`;
+    }
 
     const result = await pool.query(
       `SELECT id, name, description, banner_path, banner_scale, banner_position_x, banner_position_y, tematica, organizer, creator_name, location_city, location_state, todo_el_pais, ${columnaDeTipos()},
@@ -133,7 +142,8 @@ export async function buscarCampanasParaExplorar(filtros: FiltrosDeCampanas): Pr
        FROM campanas
        JOIN campana_estadisticas est ON est.campana_id = campanas.id
        WHERE ${condiciones.join(" AND ")}
-       ORDER BY ${ORDER_SQL[filtros.orden ?? "participacion"]}`,
+       ORDER BY ${ORDER_SQL[filtros.orden ?? "participacion"]}
+       ${limite}`,
       valores
     );
     const campanas = result.rows.map(mapCampana);
@@ -216,4 +226,17 @@ export async function obtenerTiposParaExplorar(elegidos: string[] = []): Promise
   } catch {
     return [];
   }
+}
+
+/**
+ * La temática de /explorar/tematica/[slug] (2026-11-12): primero entre las que tienen campañas visibles y
+ * después en el catálogo (una temática sin campañas activas también tiene su página, vacía). null si el slug
+ * no es de ninguna: la página responde 404.
+ */
+export async function resolverTematicaDeRuta(slug: string): Promise<string | null> {
+  const [conCampanas, catalogo] = await Promise.all([
+    obtenerTematicasParaExplorar(),
+    tematicasVisibles().catch(() => [] as string[]),
+  ]);
+  return [...conCampanas.map((t) => t.valor), ...catalogo].find((nombre) => slugDeTematica(nombre) === slug) ?? null;
 }

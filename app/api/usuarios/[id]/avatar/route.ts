@@ -3,6 +3,7 @@
 // lib/usuarios/avatar.ts; opciones y límites en lib/usuarios/avatar-opciones.ts.
 
 import { NextResponse } from "next/server";
+import { apareceEnLaClasificacion } from "@/lib/gamificacion/clasificacion";
 import { getSessionUser } from "@/lib/session";
 import { cambiarAvatar, leerFotoDePerfil } from "@/lib/usuarios/avatar";
 import { ELECCIONES_DE_AVATAR, errorDeFotoDePerfil, type EleccionDeAvatar } from "@/lib/usuarios/avatar-opciones";
@@ -16,22 +17,28 @@ async function cuentaPropia(id: string) {
   return { usuario };
 }
 
-// GET: la foto de perfil (JPEG de 256 px). Solo la de la cuenta propia: hoy no se muestra a nadie más.
-// 404 si eligió las iniciales o un ícono predefinido.
+// GET: la foto de perfil (JPEG de 256 px). La de la cuenta propia y, desde el 2026-11-12 (a pedido del
+// usuario), la de quien sale en la tabla de líderes (apareceEnLaClasificacion), también sin sesión: la
+// muestran el podio y la lista de la landing y de /progreso/leaderboard. De cualquier otra cuenta, 404,
+// igual que si no tuviera foto (no dice si existe). 404 también si eligió las iniciales o un ícono.
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
+  const sinFoto = () => NextResponse.json({ error: "Esta cuenta no tiene foto de perfil" }, { status: 404 });
   try {
     const { id } = await context.params;
-    const { error } = await cuentaPropia(id);
-    if (error) return error;
+    const usuarioId = Number(id);
+    const usuario = await getSessionUser();
+    const propia = Boolean(usuario) && Number(usuario?.id) === usuarioId;
+    if (!propia && !(await apareceEnLaClasificacion(usuarioId))) return sinFoto();
 
-    const foto = await leerFotoDePerfil(Number(id));
-    if (!foto) return NextResponse.json({ error: "Esta cuenta no tiene foto de perfil" }, { status: 404 });
+    const foto = await leerFotoDePerfil(usuarioId);
+    if (!foto) return sinFoto();
 
     return new NextResponse(new Uint8Array(foto), {
       headers: {
         "Content-Type": "image/jpeg",
-        // La URL lleva ?v=<versión>, que cambia con cada foto nueva: se puede guardar en caché.
-        "Cache-Control": "private, max-age=31536000, immutable",
+        // La URL lleva ?v=<versión>, que cambia con cada foto nueva: la propia se guarda en caché. La de
+        // otra persona solo una hora (y nunca en un caché compartido): si la sancionan, deja de verse pronto.
+        "Cache-Control": propia ? "private, max-age=31536000, immutable" : "private, max-age=3600",
         "X-Content-Type-Options": "nosniff",
       },
     });

@@ -3,10 +3,11 @@
 // Sin imports de servidor (nada de `pg`): lo importa un componente cliente.
 //
 // Decisiones del usuario (2026-10-13): la landing es pública, así que el nombre va como "Carlos P."
-// (nombreParaMostrar) y nunca la foto de perfil (solo la ve la propia persona); cuentan solo los
-// aportes aprobados; el periodo es desde siempre; 6 personas por categoría (3 en el podio y 3 en lista).
+// (nombreParaMostrar) y la foto de perfil solo desde el 2026-11-12 (antes nunca; ver Lider.avatar); cuentan solo los
+// aportes aprobados; 6 personas por categoría (3 en el podio y 3 en lista). El periodo era desde siempre;
+// desde el 2026-11-12 (a pedido del usuario) la landing elige hoy, este mes, este año o el histórico.
 
-import type { IconoPredefinido } from "@/lib/usuarios/avatar-opciones";
+import type { TipoDeAvatar } from "@/lib/usuarios/avatar-opciones";
 
 export type CategoriaDeClasificacion = "aportes" | "nivel" | "tematica";
 
@@ -14,6 +15,20 @@ export const CATEGORIAS_DE_CLASIFICACION: { valor: CategoriaDeClasificacion; eti
   { valor: "aportes", etiqueta: "Por aportes" },
   { valor: "nivel", etiqueta: "Por nivel" },
   { valor: "tematica", etiqueta: "Por temática" },
+];
+
+/**
+ * Periodo de la tabla de la landing (2026-11-12, a pedido del usuario). Los aportes cuentan por la fecha
+ * en que se aprobaron, en hora de Tepic: "dia" desde las 00:00 de hoy, "mes" desde el día 1 y "anio"
+ * desde el 1 de enero. El nivel es acumulado: no cambia con el periodo.
+ */
+export type PeriodoDeClasificacion = "dia" | "mes" | "anio" | "siempre";
+
+export const PERIODOS_DE_CLASIFICACION: { valor: PeriodoDeClasificacion; etiqueta: string; enTexto: string }[] = [
+  { valor: "dia", etiqueta: "Hoy", enTexto: "hoy" },
+  { valor: "mes", etiqueta: "Este mes", enTexto: "este mes" },
+  { valor: "anio", etiqueta: "Este año", enTexto: "este año" },
+  { valor: "siempre", etiqueta: "Histórico", enTexto: "desde siempre" },
 ];
 
 /** Personas por categoría en la landing: las 3 primeras van en el podio y el resto en la lista. */
@@ -31,8 +46,13 @@ export type Lider = {
   usuarioId: number;
   /** Ya listo para una página pública: "Carlos P." (usa nombreParaMostrar). */
   nombre: string;
-  /** Ícono predefinido del perfil, o null para las iniciales. Nunca "foto": la foto es privada. */
-  avatar: IconoPredefinido | null;
+  /**
+   * Ícono predefinido, "foto" (desde el 2026-11-12, a pedido del usuario: la foto de quien sale en la
+   * clasificación es pública) o null para las iniciales.
+   */
+  avatar: TipoDeAvatar | null;
+  /** Versión de la foto para su URL (cambia con cada foto nueva); null sin foto. */
+  version: string | null;
   /** Aportes aprobados (aportes y tematica) o nivel (nivel). Ordena la lista, de mayor a menor. */
   valor: number;
   /** Texto chico opcional bajo el valor, p. ej. "1,240 XP" en la categoría nivel. */
@@ -51,6 +71,9 @@ export type TablaDeLideres = {
   /** Una entrada por temática con al menos un aporte aprobado; la primera es la que se muestra al abrir. */
   tematicas: ClasificacionPorTematica[];
 };
+
+/** La tabla de la landing armada para cada periodo; el cliente cambia de periodo sin recargar. */
+export type TablasPorPeriodo = Record<PeriodoDeClasificacion, TablaDeLideres>;
 
 /** Texto del valor de un líder en cada categoría ("12 aportes", "Nivel 5"). */
 export function textoDelValor(categoria: CategoriaDeClasificacion, valor: number): string {

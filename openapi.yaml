@@ -604,19 +604,19 @@ paths:
       - $ref: "#/components/parameters/Id"
     get:
       tags: [Usuarios]
-      summary: Foto de perfil de la cuenta propia
+      summary: Foto de perfil (propia o de la tabla de líderes)
       description: |
-        JPEG cuadrado de 256 px. Solo la cuenta propia (hoy no se muestra a nadie más). 404 si la
-        cuenta usa las iniciales o un ícono predefinido. La app la pide con `?v=<versión>`, que cambia
-        con cada foto nueva, así que se puede guardar en caché.
+        JPEG cuadrado de 256 px. La de la cuenta propia y, desde el 2026-11-12, la de cualquier persona
+        que salga en la tabla de líderes (sin baja ni sanción bloqueante, con un aporte aprobado o XP),
+        también sin sesión. De cualquier otra cuenta responde 404, igual que si no tuviera foto. 404
+        también si la cuenta usa las iniciales o un ícono predefinido. La app la pide con `?v=<versión>`,
+        que cambia con cada foto nueva: la propia se guarda en caché un año y la de otra persona una hora.
       responses:
         "200":
           description: La foto
           content:
             image/jpeg:
               schema: { type: string, format: binary }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
     put:
       tags: [Usuarios]

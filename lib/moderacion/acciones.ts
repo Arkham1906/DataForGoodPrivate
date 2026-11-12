@@ -13,7 +13,7 @@ import { redirect } from "next/navigation";
 import { pool } from "@/lib/db";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { notificar } from "@/lib/notificaciones/notificaciones";
-import type { TipoDeSancion } from "@/lib/usuarios/directorio";
+import { sqlSancionDelSupervisor, type TipoDeSancion } from "@/lib/usuarios/directorio";
 import { quitarDeListaNegra } from "@/lib/usuarios/lista-negra";
 import {
   avisarSancion,
@@ -24,6 +24,7 @@ import {
 } from "@/lib/moderacion/sancionar";
 import { leerClaveDeReportes } from "@/lib/reportes/motivos";
 import { sqlDeClave, supervisorPuedeVerClaveDeReportes } from "@/lib/reportes/reportes";
+import { sqlReporteVisibleParaSupervisor } from "@/lib/reportes/alcance";
 import { restaurarBloqueoGlobal } from "@/lib/aportes/sanciones-anonimas";
 import { actorDeModerador, cuentaDelModerador, firmaDeModerador, moderadorDe } from "@/lib/moderacion/moderador";
 import { rutasDeModeracion, type ZonaDeModeracion } from "@/lib/moderacion/rutas";
@@ -110,9 +111,10 @@ export async function aplicarSancion(
         `UPDATE reportes
          SET estado = 'sancionado', sancion_id = $3, nota_de_resolucion = $4, resuelto_en = NOW()
          WHERE ${sqlDeClave(clave)} AND reportado_id = $2 AND estado = 'pendiente'
-           AND ($5::int IS NULL OR tipo = 'campana' OR EXISTS (
-             SELECT 1 FROM campanas c WHERE c.id = reportes.campana_id AND c.supervisor_id = $5
-           ))
+           AND EXISTS (
+             SELECT 1 FROM campanas c
+             WHERE c.id = reportes.campana_id AND ${sqlReporteVisibleParaSupervisor("reportes", "c", "$5")}
+           )
          RETURNING id`,
         [clave.id, numericId, sancion.sancionId, detalle, cuentaDelModerador(moderador)],
       );
@@ -162,12 +164,14 @@ export async function restaurarAcceso(zona: ZonaDeModeracion, sancionId: string)
   try {
     // El contador de strikes NO se reinicia: se conserva para la escala de
     // penalización, así que esto solo cambia el estado de la cuenta.
-    // $2: la cuenta del supervisor que modera, que no levanta sus propias sanciones.
+    // $2: la cuenta del supervisor que modera, que no levanta sus propias sanciones y solo restaura las
+    // que ve en su lista (2026-11-12, sqlSancionDelSupervisor); el SuperUsuario ($2 NULL), cualquiera.
     const result = await pool.query<{ usuario_id: number; tipo: string }>(
       `UPDATE sanciones SET activa = false, restaurada_en = NOW()
        -- Un aviso (STRIKE) no se restaura: cuenta para la escala para siempre.
        WHERE id = $1 AND activa = true AND tipo <> 'STRIKE'
          AND ($2::int IS NULL OR usuario_id <> $2)
+         AND ${sqlSancionDelSupervisor("sanciones", "$2")}
        RETURNING usuario_id, tipo`,
       [numericId, cuentaDelModerador(moderador)],
     );
@@ -227,9 +231,10 @@ export async function descartarReportes(zona: ZonaDeModeracion, claveTexto: stri
        SET estado = 'descartado', nota_de_resolucion = $2, resuelto_en = NOW()
        WHERE ${sqlDeClave(clave)} AND estado = 'pendiente'
          AND ($3::int IS NULL OR reportado_id IS DISTINCT FROM $3)
-         AND ($4::int IS NULL OR tipo = 'campana' OR EXISTS (
-           SELECT 1 FROM campanas c WHERE c.id = reportes.campana_id AND c.supervisor_id = $4
-         ))
+         AND EXISTS (
+           SELECT 1 FROM campanas c
+           WHERE c.id = reportes.campana_id AND ${sqlReporteVisibleParaSupervisor("reportes", "c", "$4")}
+         )
        RETURNING id`,
       [clave.id, texto || null, cuentaDelModerador(moderador), cuentaDelModerador(moderador)],
     );

@@ -18,6 +18,7 @@ import EnlacePublico from "./enlace-publico";
 import BotonRegenerar from "./regenerar";
 import PermitirAnonimos from "./permitir-anonimos";
 import RedesSociales from "./redes-sociales";
+import { claseDeVentana } from "@/components/ui/ventana-emergente";
 
 type Enlace = {
   url: string;
@@ -131,15 +132,15 @@ export default function CompartirCampana({
         onClick={(e) => {
           if (e.target === dialogo.current) cerrar();
         }}
-        className="m-auto w-[calc(100%-2rem)] max-w-3xl rounded-lg border border-system-200 bg-white p-0 text-system-900 shadow-lg backdrop:bg-system-900/40"
+        className={claseDeVentana("amplia")}
       >
         <div className="flex max-h-[90vh] flex-col">
-          <div className="flex items-start justify-between gap-3 border-b border-system-200 p-5 max-md:p-4">
+          <div className="flex items-start justify-between gap-3 border-b border-system-200 px-5 py-5 md:px-8 md:py-6">
             <div className="min-w-0">
-              <h2 id="compartir-titulo" className="text-lg font-extrabold text-system-900">
+              <h2 id="compartir-titulo" className="text-xl font-extrabold md:text-2xl text-system-900">
                 Compartir campaña
               </h2>
-              <p className="mt-0.5 truncate text-[12.5px] text-system-600">{nombre}</p>
+              <p className="mt-0.5 truncate text-[15px] text-system-600">{nombre}</p>
             </div>
             <div className="flex shrink-0 items-center gap-2">
               {caducado && <Tag tone="danger">Enlace caducado</Tag>}
@@ -154,14 +155,14 @@ export default function CompartirCampana({
             </div>
           </div>
 
-          <div className="overflow-y-auto p-5 max-md:p-4">
+          <div className="overflow-y-auto px-5 py-5 md:px-8 md:py-6">
             {error ? (
-              <p className="rounded-lg bg-error-50 p-3.5 text-[12.5px] text-error-700">{error}</p>
+              <p className="rounded-lg bg-error-50 p-3.5 text-[15px] text-error-700">{error}</p>
             ) : !datos ? (
-              <p className="text-[13px] text-system-600">Cargando enlace…</p>
+              <p className="text-[15px] text-system-600">Cargando enlace…</p>
             ) : datos.status !== "activa" ? (
               <div className="max-w-md">
-                <p className="mb-4 rounded-lg bg-system-100 p-3.5 text-[12.5px] text-system-600">
+                <p className="mb-4 rounded-lg bg-system-100 p-3.5 text-[15px] text-system-600">
                   Esta campaña no está recibiendo aportes, así que no tiene un enlace para compartir.
                 </p>
                 {datos.esCreador && enlace && <Actividad enlace={enlace} titulo="Actividad del último enlace" />}
@@ -169,13 +170,13 @@ export default function CompartirCampana({
             ) : !enlace ? (
               datos.esCreador ? (
                 <div className="max-w-md">
-                  <p className="mb-4 rounded-lg border-l-4 border-brand-600 bg-system-100 p-3.5 text-[12.5px] text-system-600">
+                  <p className="mb-4 rounded-lg border-l-4 border-brand-600 bg-system-100 p-3.5 text-[15px] text-system-600">
                     Esta campaña todavía no tiene enlace público. Genéralo para invitar a participar.
                   </p>
                   <BotonRegenerar campanaId={campanaId} modo="crear" onListo={cargar} />
                 </div>
               ) : (
-                <p className="max-w-md rounded-lg bg-system-100 p-3.5 text-[12.5px] text-system-600">
+                <p className="max-w-md rounded-lg bg-system-100 p-3.5 text-[15px] text-system-600">
                   Quien organiza esta campaña todavía no genera su enlace público.
                 </p>
               )
@@ -187,18 +188,18 @@ export default function CompartirCampana({
                   {!caducado && <RedesSociales url={enlace.url} nombre={nombre} tematica={tematica} />}
 
                   {!caducado ? (
-                    <p className="mb-4 rounded-lg bg-system-100 p-3.5 text-[12.5px] text-system-600">
+                    <p className="mb-4 rounded-lg bg-system-100 p-3.5 text-[15px] text-system-600">
                       {datos.permiteAnonimos
                         ? "Quien abra el enlace ve la campaña y puede aportar sin cuenta o con la suya, mientras el token siga vigente."
                         : "Quien abra el enlace ve la campaña y puede aportar al iniciar sesión o crear una cuenta, mientras el token siga vigente."}
                     </p>
                   ) : datos.esCreador ? (
-                    <p className="mb-4 rounded-lg bg-warning-50 p-3.5 text-[12.5px] text-warning-800">
+                    <p className="mb-4 rounded-lg bg-warning-50 p-3.5 text-[15px] text-warning-800">
                       Los aportes ya recibidos por este enlace se conservan. Al regenerar el token se crea una dirección
                       nueva y la anterior queda inutilizable de forma permanente.
                     </p>
                   ) : (
-                    <p className="mb-4 rounded-lg bg-warning-50 p-3.5 text-[12.5px] text-warning-800">
+                    <p className="mb-4 rounded-lg bg-warning-50 p-3.5 text-[15px] text-warning-800">
                       Este enlace caducó. Pide a quien organiza la campaña que genere uno nuevo.
                     </p>
                   )}
@@ -216,7 +217,7 @@ export default function CompartirCampana({
                 </div>
 
                 <div>
-                  <p className="mb-1.5 text-[13px] font-medium text-system-900">Código QR</p>
+                  <p className="mb-1.5 text-[15px] font-medium text-system-900">Código QR</p>
                   {!caducado ? (
                     <>
                       <div className="mb-3 flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-system-300 bg-system-100 p-5">
@@ -228,7 +229,7 @@ export default function CompartirCampana({
                           height={148}
                           className="h-37 w-37 rounded-md"
                         />
-                        <span className="font-mono text-[11.5px] text-system-500">{enlace.token} · 512 × 512 px</span>
+                        <span className="font-mono text-[13.5px] text-system-500">{enlace.token} · 512 × 512 px</span>
                       </div>
                       <div className="flex gap-2">
                         <a
@@ -250,7 +251,7 @@ export default function CompartirCampana({
                   ) : (
                     <>
                       <div className="mb-3 flex min-h-42 items-center justify-center rounded-lg border border-dashed border-system-300 bg-system-100 opacity-40">
-                        <span className="font-mono text-[12.5px] text-system-500">QR inactivo</span>
+                        <span className="font-mono text-[15px] text-system-500">QR inactivo</span>
                       </div>
                       {datos.esCreador && <Actividad enlace={enlace} titulo="Actividad del enlace caducado" />}
                     </>

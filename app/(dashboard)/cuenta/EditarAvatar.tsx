@@ -20,6 +20,7 @@ import {
   type DatosDeAvatar,
   type EleccionDeAvatar,
 } from "@/lib/usuarios/avatar-opciones";
+import { claseDeVentana } from "@/components/ui/ventana-emergente";
 
 export default function EditarAvatar({ actual }: { actual: DatosDeAvatar }) {
   const router = useRouter();
@@ -123,21 +124,21 @@ export default function EditarAvatar({ actual }: { actual: DatosDeAvatar }) {
         onClick={(e) => {
           if (e.target === dialogo.current) cerrar();
         }}
-        className="m-auto w-[calc(100%-2rem)] max-w-lg rounded-lg border border-system-200 bg-white p-0 text-system-900 shadow-lg backdrop:bg-system-900/40"
+        className={claseDeVentana("normal")}
       >
-        <div className="flex max-h-[85vh] flex-col">
-          <div className="border-b border-system-200 p-5">
-            <h2 id="editar-avatar-titulo" className="text-lg font-extrabold text-system-900">Ícono del perfil</h2>
-            <p className="mt-1 text-[12.5px] text-system-600">Elige uno de los íconos o sube una foto tuya.</p>
+        <div className="flex max-h-[88vh] flex-col">
+          <div className="border-b border-system-200 px-5 py-5 md:px-8 md:py-6">
+            <h2 id="editar-avatar-titulo" className="text-xl font-extrabold md:text-2xl text-system-900">Ícono del perfil</h2>
+            <p className="mt-1 text-[15px] text-system-600">Elige uno de los íconos o sube una foto tuya.</p>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-5">
+          <div className="flex-1 overflow-y-auto px-5 py-5 md:px-8 md:py-6">
             <fieldset>
               <legend className="sr-only">Ícono</legend>
               <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
                 <label className={claseOpcion(eleccion === "iniciales")}>
                   <input type="radio" name="avatar" className="sr-only" checked={eleccion === "iniciales"} onChange={() => setEleccion("iniciales")} />
-                  <span className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-600 text-sm font-extrabold text-white">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-600 text-base font-extrabold text-white">
                     {inicialesDe(actual.nombre)}
                   </span>
                   Iniciales
@@ -186,27 +187,27 @@ export default function EditarAvatar({ actual }: { actual: DatosDeAvatar }) {
                 className="sr-only"
                 onChange={elegirFoto}
               />
-              <label htmlFor="foto-de-perfil" className="cursor-pointer text-[13px] font-semibold text-brand-600 hover:underline">
+              <label htmlFor="foto-de-perfil" className="cursor-pointer text-[15px] font-semibold text-brand-600 hover:underline">
                 {archivo ? "Elegir otra foto" : actual.avatar === "foto" ? "Subir una foto nueva" : "Subir una foto"}
               </label>
-              <p className="mt-1 font-mono text-[11px] text-system-500">
+              <p className="mt-1 font-mono text-[13px] text-system-500">
                 {archivo ? archivo.name : ".jpg .jpeg .png · máximo 5 MB"}
               </p>
-              <p className="mt-1 text-[11.5px] text-system-500">Se recorta en cuadrado y se guarda sin la ubicación ni otros datos de la foto.</p>
+              <p className="mt-1 text-[13.5px] text-system-500">Se recorta en cuadrado y se guarda sin la ubicación ni otros datos de la foto.</p>
             </div>
 
             {error && (
-              <p role="alert" className="mt-3 rounded border border-error-700 bg-error-50 p-2 text-[12px] text-error-700">
+              <p role="alert" className="mt-3 rounded border border-error-700 bg-error-50 p-2 text-[14px] text-error-700">
                 {error}
               </p>
             )}
           </div>
 
-          <div className="flex flex-wrap justify-end gap-2 border-t border-system-200 p-4">
-            <Button type="button" variant="ghost" size="sm" onClick={cerrar} disabled={guardando}>
+          <div className="flex flex-wrap justify-end gap-2 border-t border-system-200 px-5 py-4 md:px-8 md:py-5">
+            <Button type="button" variant="ghost" onClick={cerrar} disabled={guardando}>
               Cancelar
             </Button>
-            <Button type="button" variant="primary" size="sm" onClick={() => void guardar()} disabled={guardando || sinCambios || !fotoLista}>
+            <Button type="button" variant="primary" onClick={() => void guardar()} disabled={guardando || sinCambios || !fotoLista}>
               {guardando ? (
                 <span className="inline-flex items-center gap-2">
                   <IndicadorDeCarga />
