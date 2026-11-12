@@ -7,6 +7,7 @@ import { useState } from "react";
 import Tag from "@/components/ui/Tag";
 import type { MisionCompletada } from "@/lib/gamificacion/misiones";
 import type { Periodicidad } from "@/lib/gamificacion/misiones-reglas";
+import IconoDeMision from "./IconoDeMision";
 
 type Filtro = "todas" | Periodicidad;
 
@@ -63,7 +64,12 @@ export default function HistorialDeMisiones({ historial }: { historial: MisionCo
             <tbody>
               {filas.map((h) => (
                 <tr key={h.id} className="border-t border-system-100">
-                  <th scope="row" className="py-2.5 pr-3 font-semibold text-system-900">{h.nombre}</th>
+                  <th scope="row" className="py-2.5 pr-3 font-semibold text-system-900">
+                    <span className="flex items-center gap-2.5">
+                      <IconoDeMision clave={h.clave} tamano={28} />
+                      <span className="min-w-0">{h.nombre}</span>
+                    </span>
+                  </th>
                   <td className="py-2.5 pr-3 text-system-700">{NOMBRE_DE_PERIODO[h.periodicidad]}, {h.periodo}</td>
                   <td className="py-2.5 pr-3 text-system-700">{h.completadaEn}</td>
                   {conRecompensas && <td className="py-2.5 text-right">{h.recompensa && <Tag tone="info">{h.recompensa}</Tag>}</td>}

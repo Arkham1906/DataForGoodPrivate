@@ -6,6 +6,7 @@ import Link from "next/link";
 import ProgressBar from "@/components/ui/ProgressBar";
 import type { MedallaCercaDeSubir } from "@/lib/gamificacion/medallas";
 import { rutaDePantalla } from "@/lib/gamificacion/pantallas-de-progreso";
+import { imagenDeMedalla } from "@/lib/gamificacion/recursos";
 
 const nf = new Intl.NumberFormat("es-MX");
 
@@ -28,17 +29,27 @@ export default function MedallasCercaDeSubir({ medallas }: { medallas: MedallaCe
       ) : (
         <ul className="flex flex-col gap-3">
           {medallas.map((m) => (
-            <li key={m.clave} className="flex flex-col gap-1.5">
-              <p className="flex flex-wrap justify-between gap-x-2.5 text-[13.5px] text-system-900">
-                <span>
-                  <strong>{m.nombre}</strong> · {m.nivelActual ? `${m.nivelActual} → ${m.nivelSiguiente}` : m.nivelSiguiente}
-                </span>
-                <span className="font-mono text-[12.5px] text-system-700">
-                  {nf.format(m.valor)} de {nf.format(m.umbral)}
-                </span>
-              </p>
-              <ProgressBar pct={m.porcentaje} />
-              {m.queMide && <p className="text-[12px] text-system-600">{m.queMide}</p>}
+            <li key={m.clave} className="flex items-center gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element -- WebP ya optimizado en public/ */}
+              <img
+                src={imagenDeMedalla(m.clave, m.imagen.nivel, m.imagen.nombre)}
+                alt=""
+                width={52}
+                height={52}
+                className={`h-13 w-13 shrink-0 ${m.bloqueada ? "opacity-40 grayscale" : ""}`}
+              />
+              <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                <p className="flex flex-wrap justify-between gap-x-2.5 text-[13.5px] text-system-900">
+                  <span>
+                    <strong>{m.nombre}</strong> · {m.nivelActual ? `${m.nivelActual} → ${m.nivelSiguiente}` : m.nivelSiguiente}
+                  </span>
+                  <span className="font-mono text-[12.5px] text-system-700">
+                    {nf.format(m.valor)} de {nf.format(m.umbral)}
+                  </span>
+                </p>
+                <ProgressBar pct={m.porcentaje} />
+                {m.queMide && <p className="text-[12px] text-system-600">{m.queMide}</p>}
+              </div>
             </li>
           ))}
         </ul>

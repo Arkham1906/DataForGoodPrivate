@@ -62,14 +62,14 @@ export type MedallaConAvance = {
 export type MedallaCercaDeSubir = {
   clave: string;
   nombre: string;
-  /** Nombre del nivel actual; null si aún no tiene ninguno. */
   nivelActual: string | null;
   nivelSiguiente: string;
   valor: number;
   umbral: number;
-  /** 0 a 100. */
   porcentaje: number;
   queMide: string;
+  imagen: { nivel: number; nombre: string };
+  bloqueada: boolean;
 };
 
 /** El nivel más alto cuyo umbral ya alcanza `valor`; 0 si ninguno. */
@@ -104,6 +104,7 @@ export function medallasMasCercanas(medallas: MedallaConAvance[], limite: number
     const siguiente = m.niveles.find((n) => n.nivel > nivel);
     if (!siguiente) continue;
     const valor = m.valor;
+    const nivelDeImagen = m.niveles.find((n) => n.nivel === nivel) ?? m.niveles[0];
     candidatas.push({
       clave: m.clave,
       nombre: m.nombre,
@@ -113,6 +114,8 @@ export function medallasMasCercanas(medallas: MedallaConAvance[], limite: number
       umbral: siguiente.umbral,
       porcentaje: Math.round((valor / siguiente.umbral) * 100),
       queMide: (m.mide && QUE_MIDE[m.mide]) || "",
+      imagen: { nivel: nivelDeImagen.nivel, nombre: nivelDeImagen.nombre },
+      bloqueada: nivel === 0,
     });
   }
   // sort es estable: a igualdad queda el orden en que llegan (el del catálogo).
