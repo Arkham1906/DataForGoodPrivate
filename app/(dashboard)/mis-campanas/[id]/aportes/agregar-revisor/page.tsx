@@ -262,9 +262,12 @@ export default function AgregarRevisorPage() {
               const estadoAqui = estadoPorUsuario.get(candidate.id);
               const isInvited = candidate.id === invitedId || estadoAqui === "invitado";
               const yaAceptado = estadoAqui === "aceptado";
+              // Rechazó la invitación (2026-11-11): se puede volver a invitar, pero el creador lo sabe.
               const currentRole = yaAceptado
                 ? "Ya revisa esta campaña"
-                : isSupervisor
+                : estadoAqui === "rechazado"
+                  ? "Rechazó la invitación"
+                  : isSupervisor
                   ? "Supervisor"
                   : "Usuario común";
 

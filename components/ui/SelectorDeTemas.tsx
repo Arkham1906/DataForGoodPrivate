@@ -10,6 +10,8 @@
 // proceso aparte del buscador: el último mosaico de la ventana, "+ Proponer temática", abre una
 // vista con el aviso de que la administración evalúa las propuestas y el campo para escribirla.
 // Las propuestas (nuevas o por aprobar) salen primero, arriba.
+// Si lo que se quiere proponer se parece a una que ya existe (2026-11-11, a pedido del usuario; por
+// nombre o significado, lib/tematicas/equivalente.ts), no se propone: se marca la existente y se avisa.
 // Con `quitables` (el perfil), las elegidas son mosaicos con ícono, nombre y ×, y el último
 // mosaico, "+ Agregar temáticas", abre la ventana (2026-11-11, a pedido del usuario).
 
@@ -18,6 +20,7 @@ import Button from "@/components/ui/Button";
 import Tag from "@/components/ui/Tag";
 import IconoDeTematica from "@/components/ui/IconoDeTematica";
 import { claveDeTematica, LARGO_DEL_NOMBRE, MAXIMO_DE_TEMATICAS_PROPUESTAS } from "@/lib/tematicas/analizar";
+import { tematicaEquivalente } from "@/lib/tematicas/equivalente";
 import { esInapropiada } from "@/lib/tematicas/filtro";
 
 /** El mismo criterio que validarNombreDeTematica del servidor, para avisar antes de guardar. */
@@ -190,8 +193,22 @@ export default function SelectorDeTemas({
   const propuestaPosible = sinEspaciosDeMas(busqueda);
   const clavePosible = claveDeTematica(propuestaPosible);
   const puedeProponer = proponerEnBuscador && clavePosible !== "" && !lista.some((tema) => claveDeTematica(tema) === clavePosible);
+  // Parecida a una que ya existe (2026-11-11, a pedido del usuario): en vez de proponerla se elige esa.
+  const parecida = puedeProponer ? tematicaEquivalente(propuestaPosible, opciones) : null;
+
+  /** Marca la temática existente que equivale a lo que se quería proponer, y lo avisa. */
+  function elegirParecida(escrito: string, existente: string) {
+    setBorrador((prev) => (unica ? [existente] : prev.includes(existente) ? prev : [...prev, existente]));
+    setBusqueda("");
+    setAvisoDePropuesta(null);
+    volverAlCatalogo(`«${escrito}» se parece a «${existente}», que ya existe: la marcamos para ti.`);
+  }
 
   function proponerBusqueda() {
+    if (parecida) {
+      elegirParecida(propuestaPosible, parecida);
+      return;
+    }
     const error = errorDePropuesta(propuestaPosible);
     if (error) {
       setAvisoDePropuesta(error);
@@ -232,6 +249,12 @@ export default function SelectorDeTemas({
       setBorrador((prev) => (unica ? [existente] : prev.includes(existente) ? prev : [...prev, existente]));
       setBusqueda("");
       volverAlCatalogo(`«${existente}» ya está en el catálogo: la marcamos para ti.`);
+      return;
+    }
+    const equivalente = tematicaEquivalente(nombre, opciones);
+    if (equivalente) {
+      setNombrePropuesto("");
+      elegirParecida(nombre, equivalente);
       return;
     }
     const error = errorDePropuesta(nombre);
@@ -426,15 +449,28 @@ export default function SelectorDeTemas({
               </p>
               {puedeProponer ? (
                 <div className="mb-4 rounded border border-dashed border-system-300 p-3">
-                  <p className="text-[12.5px] text-system-600">
-                    {visibles.length === 0 ? `Ninguna temática coincide con «${propuestaPosible}».` : "¿No está la que buscas?"}
-                  </p>
-                  <Button type="button" size="sm" className="mt-2" onClick={proponerBusqueda}>
-                    + Proponer «{propuestaPosible}» como temática nueva
-                  </Button>
-                  <p className="mt-1.5 text-[11.5px] text-system-500">
-                    Queda pendiente hasta que la apruebe el SuperUsuario; mientras tanto solo la ves tú.
-                  </p>
+                  {parecida ? (
+                    <>
+                      <p className="text-[12.5px] text-system-600">
+                        «{propuestaPosible}» se parece a «{parecida}», que ya existe.
+                      </p>
+                      <Button type="button" size="sm" className="mt-2" onClick={proponerBusqueda}>
+                        Elegir «{parecida}»
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-[12.5px] text-system-600">
+                        {visibles.length === 0 ? `Ninguna temática coincide con «${propuestaPosible}».` : "¿No está la que buscas?"}
+                      </p>
+                      <Button type="button" size="sm" className="mt-2" onClick={proponerBusqueda}>
+                        + Proponer «{propuestaPosible}» como temática nueva
+                      </Button>
+                      <p className="mt-1.5 text-[11.5px] text-system-500">
+                        Queda pendiente hasta que la apruebe el SuperUsuario; mientras tanto solo la ves tú.
+                      </p>
+                    </>
+                  )}
                   {avisoDePropuesta ? (
                     <p role="alert" className="mt-1.5 text-[12px] font-medium text-error-700">
                       {avisoDePropuesta}

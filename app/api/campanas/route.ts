@@ -24,7 +24,7 @@ import { XP_POR_APORTE, errorDeEstadoPedido } from "@/lib/campanas/estado-del-cr
 import { pausaDesdeFila } from "@/lib/campanas/pausa";
 import { datosAbiertosDesdeFila } from "@/lib/campanas/datos-abiertos";
 import { rechazoDesdeFila } from "@/lib/campanas/rechazo";
-import { condicionDeVisibilidad } from "@/lib/campanas/visibilidad";
+import { ESTADOS_PUBLICOS, condicionDeVisibilidad } from "@/lib/campanas/visibilidad";
 import { agregarEtiquetas, guardarEtiquetasDeCampana } from "@/lib/etiquetas/catalogo";
 import { validarProposito } from "@/lib/campanas/proposito";
 import { crearPropuestas, revisarTematicaDeCampana } from "@/lib/tematicas/catalogo";
@@ -252,10 +252,16 @@ export async function GET(request: Request) {
                   -- Eliminar (2026-11-01): borrador, sin aportes o todos en revisión; nunca finalizada (lib/campanas/eliminar.ts).
                   ${sqlPuedeEliminar("c")} AS can_delete,
                   r.motivo AS rechazo_motivo, r.created_at AS rechazo_en, r.por_superusuario AS rechazo_por_root,
-                  s.tipo AS rechazo_sancion_tipo, s.dias AS rechazo_sancion_dias
+                  s.tipo AS rechazo_sancion_tipo, s.dias AS rechazo_sancion_dias,
+                  -- Las campañas a las que se parece, si se rechazó por similar (2026-11-11).
+                  (SELECT COALESCE(jsonb_agg(jsonb_build_object(
+                            'id', p.id, 'nombre', p.name, 'estado', p.status,
+                            'abrible', p.status = ANY($2::text[])) ORDER BY rs.orden), '[]'::jsonb)
+                     FROM rechazo_campanas_similares rs JOIN campanas p ON p.id = rs.campana_id
+                    WHERE rs.dictamen_id = r.id) AS rechazo_similares
            FROM campanas c
            LEFT JOIN LATERAL (
-             SELECT cs.motivo, cs.created_at, cs.por_superusuario
+             SELECT cs.id, cs.motivo, cs.created_at, cs.por_superusuario
              FROM campana_supervisores cs
              WHERE cs.campana_id = c.id AND cs.accion = 'rechazada' AND c.status = 'rechazada'
              ORDER BY cs.created_at DESC, cs.id DESC
@@ -269,7 +275,7 @@ export async function GET(request: Request) {
            ) s ON true
            WHERE c.creator_id = $1
            ORDER BY c.created_at DESC`,
-          [user!.id],
+          [user!.id, [...ESTADOS_PUBLICOS]],
         )
       : available
         ? await pool.query(

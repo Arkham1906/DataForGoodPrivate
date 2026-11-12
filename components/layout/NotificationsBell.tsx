@@ -4,7 +4,8 @@
 // que vuelve a consultar cada minuto mientras la pestaña está visible y al regresar a ella.
 // Abrir una notificación la marca como leída (PATCH /api/notificaciones/[id]) y lleva a su enlace;
 // "Marcar todas como leídas": PATCH /api/notificaciones. Aceptar una invitación de revisor:
-// POST /api/notificaciones/[id]/aceptar. El historial completo está en /notificaciones.
+// POST /api/notificaciones/[id]/aceptar; rechazarla (2026-11-11): POST /api/notificaciones/[id]/rechazar.
+// El historial completo está en /notificaciones.
 // Si este navegador tiene los avisos push activos, al cargar reafirma la suscripción a nombre de esta
 // sesión (sincronizarPush) y se actualiza en cuanto llega un push (mensaje de public/sw.js).
 // Las notificaciones nuevas llegan al instante: ActualizacionEnVivo (GET /api/eventos) lanza
@@ -35,6 +36,7 @@ export default function NotificationsBell() {
   const [noLeidas, setNoLeidas] = useState(0);
   const [open, setOpen] = useState(false);
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [respuestaEnCurso, setRespuestaEnCurso] = useState<"aceptar" | "rechazar" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ahora, setAhora] = useState(() => Date.now());
   const contenedor = useRef<HTMLDivElement>(null);
@@ -125,19 +127,21 @@ export default function NotificationsBell() {
     if (response?.ok) await load();
   }
 
-  async function acceptInvitation(item: Notificacion) {
+  async function responderInvitacion(item: Notificacion, respuesta: "aceptar" | "rechazar") {
     setLoadingId(item.id);
+    setRespuestaEnCurso(respuesta);
     setError(null);
-    const response = await fetch(`${BASE_PATH}/api/notificaciones/${item.id}/aceptar`, { method: "POST" }).catch(() => null);
+    const response = await fetch(`${BASE_PATH}/api/notificaciones/${item.id}/${respuesta}`, { method: "POST" }).catch(() => null);
     if (response?.ok) {
       await load();
       router.refresh();
     } else {
       const payload = await response?.json().catch(() => null);
-      setError(payload?.error ?? "No se pudo aceptar la invitación");
+      setError(payload?.error ?? (respuesta === "aceptar" ? "No se pudo aceptar la invitación" : "No se pudo rechazar la invitación"));
       await load();
     }
     setLoadingId(null);
+    setRespuestaEnCurso(null);
   }
 
   return (
@@ -201,14 +205,22 @@ export default function NotificationsBell() {
                     </span>
                   </button>
                   {item.invitationPending && (
-                    <div className="px-3 pb-2.5 pl-[1.85rem]">
+                    <div className="flex flex-wrap gap-2 px-3 pb-2.5 pl-[1.85rem]">
                       <button
                         type="button"
-                        onClick={() => void acceptInvitation(item)}
+                        onClick={() => void responderInvitacion(item, "aceptar")}
                         disabled={loadingId === item.id}
                         className="rounded-pill bg-brand-600 px-3 py-1.5 text-[11.5px] font-bold text-white disabled:opacity-60"
                       >
-                        {loadingId === item.id ? "Aceptando…" : "Aceptar invitación"}
+                        {loadingId === item.id && respuestaEnCurso === "aceptar" ? "Aceptando…" : "Aceptar invitación"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void responderInvitacion(item, "rechazar")}
+                        disabled={loadingId === item.id}
+                        className="rounded-pill border border-system-300 bg-white px-3 py-1.5 text-[11.5px] font-bold text-system-700 hover:bg-system-100 disabled:opacity-60"
+                      >
+                        {loadingId === item.id && respuestaEnCurso === "rechazar" ? "Rechazando…" : "Rechazar"}
                       </button>
                     </div>
                   )}

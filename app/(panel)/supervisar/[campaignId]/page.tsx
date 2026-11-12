@@ -87,6 +87,7 @@ export default async function SupervisarCampanaPage({ params }: { params: Promis
         campaignId={campaign.id}
         status={campaign.status}
         supervision={campaign.supervision}
+        similares={similares?.campanas.map(({ id, name, status }) => ({ id, name, status })) ?? []}
         encabezado={
           <div>
             <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-600">Detalle de campaña</p>

@@ -28,6 +28,7 @@ import { resumenDeIncentivos, textoDelPeriodo } from "@/lib/campanas/especial-re
 import { fechaDDMMAAAA, ZONA_DE_CAMPANAS } from "@/lib/fecha-de-tepic";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 import type { Campaign, CampaignStatus } from "@/types";
+import CampanasParecidasDelRechazo from "@/components/campanas/CampanasParecidasDelRechazo";
 
 type CampanaPropia = Campaign & { canDelete?: boolean };
 
@@ -276,6 +277,7 @@ export default function DetalleDeMisCampanasPage() {
                 <p className="mt-1 whitespace-pre-line break-words text-system-600">
                   Motivo: {campana.rechazo?.motivo ?? "sin motivo registrado"}
                 </p>
+                <CampanasParecidasDelRechazo similares={campana.rechazo?.similares ?? []} />
               </div>
             )}
             {campana.status === "pausada" && (

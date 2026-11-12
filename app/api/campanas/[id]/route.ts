@@ -268,11 +268,12 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         return NextResponse.json({ error: "Solo un supervisor puede decidir esta campaña" }, { status: 403 });
       }
 
-      // Al rechazar: motivoDeLista y/o motivo (explicación), y sancion opcional al creador (2026-10-16).
+      // Al rechazar: motivoDeLista y/o motivo (explicación), y sancion opcional al creador (2026-10-16);
+      // con "Ya existe una campaña similar", similares: ids de las campañas a las que se parece (2026-11-11).
       const resultado = await registrarDecisionDeCampana(
         id,
         accion as AccionDeSupervision,
-        { motivoDeLista: body.motivoDeLista, motivo: body.motivo ?? body.reason, sancion: body.sancion },
+        { motivoDeLista: body.motivoDeLista, motivo: body.motivo ?? body.reason, sancion: body.sancion, similares: body.similares },
         { tipo: "usuario", usuarioId: Number(user.id) },
         { tomarSiEstaLibre: true },
       );

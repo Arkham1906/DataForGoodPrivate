@@ -14,7 +14,7 @@ import DecisionDeDatosAbiertos from "@/components/supervision/DecisionDeDatosAbi
 import type { DatosAbiertosDeCampana } from "@/lib/campanas/datos-abiertos";
 import Tag from "@/components/ui/Tag";
 import EstadoDeCampanaSupervisada from "@/components/supervision/EstadoDeCampanaSupervisada";
-import FormularioDeRechazo, { type RechazoPedido } from "@/components/supervision/FormularioDeRechazo";
+import FormularioDeRechazo, { type RechazoPedido, type SimilarParaRechazo } from "@/components/supervision/FormularioDeRechazo";
 import type { AccionDeSupervision } from "@/lib/supervision/decision";
 import type { PausaDeCampana } from "@/lib/campanas/pausa";
 
@@ -79,11 +79,14 @@ export default function AccionesDeSupervision({
   status,
   supervision,
   encabezado,
+  similares = [],
 }: {
   campaignId: string;
   status: string;
   supervision: "libre" | "mia" | "otro";
   encabezado: ReactNode;
+  /** Campañas similares, para rechazar por "Ya existe una campaña similar" (2026-11-11). */
+  similares?: SimilarParaRechazo[];
 }) {
   const router = useRouter();
   const [pendiente, iniciar] = useTransition();
@@ -98,7 +101,9 @@ export default function AccionesDeSupervision({
       const resultado = await decidirComoSuperUsuario(
         campaignId,
         accion,
-        rechazo ? { motivoDeLista: rechazo.motivoDeLista, motivo: rechazo.motivo, sancion: rechazo.sancion } : {},
+        rechazo
+          ? { motivoDeLista: rechazo.motivoDeLista, motivo: rechazo.motivo, sancion: rechazo.sancion, similares: rechazo.similares }
+          : {},
       );
       setAccionEnCurso(null);
       if (!resultado.ok) {
@@ -153,6 +158,7 @@ export default function AccionesDeSupervision({
       {showRejectForm && puedeDictaminar && (
         <FormularioDeRechazo
           ocupado={pendiente}
+          similares={similares}
           onCancelar={() => setShowRejectForm(false)}
           onConfirmar={(rechazo) => decidir("rechazada", rechazo)}
         />

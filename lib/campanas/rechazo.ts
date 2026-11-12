@@ -2,7 +2,8 @@
 // corregirla en el formulario (2026-10-22, a pedido del usuario; antes solo llegaba en la
 // notificación). Sale del último 'rechazada' de campana_supervisores (lib/supervision/decision.ts)
 // y, si hubo sanción, de su reporte con origen 'rechazo' y la fila de sanciones. Solo lo trae
-// GET /api/campanas?mine=true, y solo mientras la campaña sigue rechazada.
+// GET /api/campanas?mine=true, y solo mientras la campaña sigue rechazada. Desde el 2026-11-11 también
+// las campañas a las que se parece, si se rechazó por "Ya existe una campaña similar".
 // Sin imports de servidor: lo usan la API y los componentes cliente.
 
 export type RechazoDeCampana = {
@@ -13,7 +14,30 @@ export type RechazoDeCampana = {
   porSuperUsuario: boolean;
   /** "un aviso", "una suspensión de 7 días"...; null si no hubo sanción. */
   sancion: string | null;
+  /**
+   * Con "Ya existe una campaña similar" (2026-11-11, a pedido del usuario): las campañas a las que se
+   * parece, como las eligió la supervisión (tabla rechazo_campanas_similares). Vacío con otro motivo.
+   */
+  similares: CampanaParecidaDelRechazo[];
 };
+
+export type CampanaParecidaDelRechazo = {
+  id: string;
+  nombre: string;
+  estado: string;
+  /** Si el creador puede abrirla en /campanas/[id] (activa, pausada o finalizada; una programada aún no). */
+  abrible: boolean;
+};
+
+function leerSimilares(valor: unknown): CampanaParecidaDelRechazo[] {
+  if (!Array.isArray(valor)) return [];
+  return valor.map((c: Record<string, unknown>) => ({
+    id: String(c.id),
+    nombre: String(c.nombre ?? ""),
+    estado: String(c.estado ?? ""),
+    abrible: c.abrible === true,
+  }));
+}
 
 function describirSancion(tipo: unknown, dias: unknown): string | null {
   switch (tipo) {
@@ -36,5 +60,6 @@ export function rechazoDesdeFila(row: Record<string, unknown>): RechazoDeCampana
     fecha: new Date(row.rechazo_en as string).toISOString(),
     porSuperUsuario: row.rechazo_por_root === true,
     sancion: describirSancion(row.rechazo_sancion_tipo, row.rechazo_sancion_dias),
+    similares: leerSimilares(row.rechazo_similares),
   };
 }

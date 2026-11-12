@@ -12,7 +12,7 @@ import { etiquetasDelUsuario, guardarEtiquetasDelUsuario, recortarEtiquetasDelUs
 import { MAXIMO_DE_ETIQUETAS_EN_PERFIL, type EtiquetaNueva } from "@/lib/etiquetas/reglas";
 import { resolverEspecialidad } from "@/lib/usuarios/especialidades";
 import { resolverOrganizacion } from "@/lib/usuarios/organizaciones";
-import { LARGO_MAXIMO_DEL_TEXTO } from "@/lib/tematicas/analizar";
+import { claveDeTematica, LARGO_MAXIMO_DEL_TEXTO } from "@/lib/tematicas/analizar";
 import { comprobarContrasenaActual } from "@/lib/usuarios/contrasena-actual";
 import { solicitarBaja } from "@/lib/usuarios/baja";
 import { esDestinoDeAportes, PALABRA_DE_CONFIRMACION } from "@/lib/usuarios/baja-opciones";
@@ -170,6 +170,18 @@ export async function PATCH(
       const revisadas = await revisarPropuestas(body.tematicasNuevas, Number(sessionUser.id));
       if (!revisadas.ok) return NextResponse.json({ error: revisadas.error }, { status: 400 });
       tematicasPropuestas = revisadas;
+      // La que se parece a una existente se cambia por esa (2026-11-11), en los intereses y en las
+      // subtemáticas propuestas para ella.
+      if (revisadas.asignadas.length > 0) {
+        const porClave = new Map(revisadas.asignadas.map((a) => [claveDeTematica(a.propuesta), a.tematica]));
+        const asignada = (nombre: unknown) => porClave.get(claveDeTematica(String(nombre ?? ""))) ?? nombre;
+        if (Array.isArray(body.intereses)) body.intereses = body.intereses.map(asignada);
+        if (Array.isArray(body.etiquetasNuevas)) {
+          body.etiquetasNuevas = body.etiquetasNuevas.map((e: unknown) =>
+            e && typeof e === "object" ? { ...e, tematica: asignada((e as { tematica?: unknown }).tematica) } : e,
+          );
+        }
+      }
     }
     // Subtemáticas (etiquetas, 2026-10-27): ids, de las temáticas que queden en sus intereses.
     if ("etiquetas" in body && (!Array.isArray(body.etiquetas) || body.etiquetas.length > MAXIMO_DE_ETIQUETAS_EN_PERFIL)) {

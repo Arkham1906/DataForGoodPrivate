@@ -447,6 +447,19 @@ export async function ensureCampanaSupervisoresTable(): Promise<void> {
       END IF;
     END $$;
   `);
+
+  // Rechazo por "Ya existe una campaña similar" (2026-11-11, a pedido del usuario): las campañas a las que
+  // se parece, elegidas por la supervisión de las similares (lib/supervision/similares.ts), para que el creador
+  // las vea en el mismo mensaje del rechazo. Si una se borra, sale de la lista (los nombres quedan en el motivo).
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS rechazo_campanas_similares (
+      dictamen_id INTEGER NOT NULL REFERENCES campana_supervisores(id) ON DELETE CASCADE,
+      campana_id INTEGER NOT NULL REFERENCES campanas(id) ON DELETE CASCADE,
+      orden SMALLINT NOT NULL DEFAULT 0,
+      PRIMARY KEY (dictamen_id, campana_id)
+    );
+    CREATE INDEX IF NOT EXISTS rechazo_campanas_similares_campana_id_idx ON rechazo_campanas_similares (campana_id);
+  `);
 }
 
 export async function ensureCampanaRevisoresTable(): Promise<void> {

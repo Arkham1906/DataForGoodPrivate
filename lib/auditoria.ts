@@ -50,6 +50,8 @@ export type AccionAuditada =
   | "campana.enlace_regenerar"
   | "revisor.invitar"
   | "revisor.aceptar"
+  // La persona invitada rechaza ser revisora (app/api/notificaciones/[id]/rechazar, 2026-11-11).
+  | "revisor.rechazar"
   // El creador quita a un revisor o cancela su invitación (lib/campanas/revisores.ts, 2026-10-22).
   | "revisor.quitar"
   | "revisor.cancelar_invitacion"

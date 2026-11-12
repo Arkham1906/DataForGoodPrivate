@@ -25,6 +25,7 @@ import {
   MAXIMO_DE_TEMATICAS_PROPUESTAS,
 } from "@/lib/tematicas/analizar";
 import { esInapropiada } from "@/lib/tematicas/filtro";
+import { tematicaEquivalente } from "@/lib/tematicas/equivalente";
 import { TEMAS_DE_INTERES } from "@/lib/intereses";
 
 /** base: las de lib/intereses.ts; usuario: salió del texto de un perfil; panel: la creó el SuperUsuario. */
@@ -325,14 +326,16 @@ export type ResultadoDelCatalogo<T = object> = ({ ok: true } & T) | { ok: false;
  * valida como los del panel (validarNombreDeTematica). Si ya existe en el catálogo:
  *   - aprobada: no es propuesta (se elige como cualquier otra; una oculta no se agrega de nuevo);
  *   - pendiente (la propuso alguien más o ella misma): se usa esa, sin crear otra.
+ * Si no existe pero se parece a una que se ofrece (2026-11-11, tematicaEquivalente), tampoco es
+ * propuesta: va en `asignadas` con la temática existente.
  * Las que no existen se crearán con crearPropuestas(). Tope: MAXIMO_DE_TEMATICAS_PROPUESTAS
  * pendientes por persona, contando las que ya tiene.
- * Devuelve `nombres` (cómo quedan: del catálogo o como se escribieron) y `porCrear`.
+ * Devuelve `nombres` (cómo quedan: del catálogo o como se escribieron), `porCrear` y `asignadas`.
  */
 export async function revisarPropuestas(
   entrada: unknown,
   usuarioId: number,
-): Promise<ResultadoDelCatalogo<{ nombres: string[]; porCrear: string[] }>> {
+): Promise<ResultadoDelCatalogo<{ nombres: string[]; porCrear: string[]; asignadas: TematicaAsignada[] }>> {
   if (!Array.isArray(entrada)) return { ok: false, error: "Las temáticas propuestas deben ser una lista" };
   const pedidas = new Map<string, string>();
   for (const valor of entrada) {
@@ -341,7 +344,7 @@ export async function revisarPropuestas(
     const clave = claveDeTematica(validado.nombre);
     if (!pedidas.has(clave)) pedidas.set(clave, validado.nombre);
   }
-  if (pedidas.size === 0) return { ok: true, nombres: [], porCrear: [] };
+  if (pedidas.size === 0) return { ok: true, nombres: [], porCrear: [], asignadas: [] };
 
   const existentes = await pool.query<{ nombre: string; clave: string; aprobada: boolean }>(
     `SELECT nombre, clave, aprobada FROM tematicas WHERE clave = ANY($1::text[])`,
@@ -377,6 +380,21 @@ export async function revisarPropuestas(
     }
   }
 
+  // Parecida a una que ya existe (2026-11-11, a pedido del usuario): se le asigna esa, sin proponer nada
+  // (lib/tematicas/equivalente.ts). `asignadas` dice qué escrito pasó a qué temática, para cambiarlo en
+  // los intereses que se guardan.
+  const asignadas: TematicaAsignada[] = [];
+  if (porCrear.length > 0) {
+    const visibles = await tematicasVisibles();
+    for (const nombre of [...porCrear]) {
+      const existente = tematicaEquivalente(nombre, visibles);
+      if (!existente) continue;
+      asignadas.push({ propuesta: nombre, tematica: existente });
+      porCrear.splice(porCrear.indexOf(nombre), 1);
+      nombres.splice(nombres.indexOf(nombre), 1);
+    }
+  }
+
   if (porCrear.length > 0) {
     const suyas = await pool.query<{ n: number }>(
       `SELECT COUNT(*)::int AS n FROM tematicas WHERE creada_por = $1 AND NOT aprobada AND NOT oculta`,
@@ -389,8 +407,11 @@ export async function revisarPropuestas(
       };
     }
   }
-  return { ok: true, nombres, porCrear };
+  return { ok: true, nombres, porCrear, asignadas };
 }
+
+/** Una propuesta que se cambió por la temática existente que equivale (2026-11-11). */
+export type TematicaAsignada = { propuesta: string; tematica: string };
 
 /**
  * Da de alta, pendientes de aprobar, las temáticas que revisarPropuestas() dejó en `porCrear`.
@@ -427,6 +448,9 @@ export async function revisarTematicaDeCampana(
     claveDeTematica(limpia),
   ]);
   if (existente.rows[0]) return { ok: true, tematica: existente.rows[0].nombre, porCrear: [] };
+  // Parecida a una que ya existe (2026-11-11, a pedido del usuario): se le asigna esa en vez de proponerla.
+  const equivalente = tematicaEquivalente(limpia, await tematicasVisibles());
+  if (equivalente) return { ok: true, tematica: equivalente, porCrear: [] };
   if (!proponer) return { ok: false, error: `«${limpia}» no es una temática del catálogo` };
   const revisadas = await revisarPropuestas([limpia], usuarioId);
   if (!revisadas.ok) return revisadas;

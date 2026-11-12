@@ -275,6 +275,7 @@ export default function CampaignDetailPage() {
       {showRejectForm && (isMySupervision || isAvailable) && campaign.status === "en_revision" && (
         <FormularioDeRechazo
           ocupado={actionLoading !== null}
+          similares={similares?.campanas ?? []}
           onCancelar={() => setShowRejectForm(false)}
           onConfirmar={(rechazo) => void handleDecision("rechazada", rechazo)}
         />

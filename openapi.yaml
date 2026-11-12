@@ -444,7 +444,7 @@ paths:
                   description: >-
                     Temáticas que la persona propone porque no estaban (2026-10-29); también van en `intereses`.
                     Las que no existen se dan de alta pendientes hasta que el SuperUsuario las revisa (máximo 3
-                    pendientes por persona; 400 si un nombre no pasa la validación).
+                    pendientes por persona; 400 si un nombre no pasa la validación). Desde el 2026-11-11, una que se parece a una existente (por nombre o significado: "Medioambiente", "Ecología") no se propone: se cambia por la existente, también en `intereses`.
             example: { interesesTexto: "Me gusta andar en bici y la fotografía", intereses: [Movilidad, Cultura] }
       responses:
         "200": { description: Perfil actualizado (con `intereses` ya con el nombre del catálogo) }
@@ -770,7 +770,10 @@ paths:
         - **Supervisor:** `{ "action": "tomar" }` para tomarla, o `{ "action": "aceptada" }` (400 si su fecha de cierre ya pasó) /
           `{ "action": "rechazada", "motivoDeLista": "...", "motivo": "...", "sancion": { "tipo": "...", "dias": 2 } }`
           para decidir. Al rechazar: `motivoDeLista` (uno de los motivos de reportar campaña u "Otro") y/o `motivo`
-          (explicación, hasta 500; obligatoria con "Otro"). `sancion` es opcional: `STRIKE` (aviso, sigue la escala),
+          (explicación, hasta 500; obligatoria con "Otro" y con "Ya existe una campaña similar"). Con "Ya existe una
+          campaña similar" (2026-11-11), `similares`: ids de las campañas a las que se parece, de las de
+          `GET /api/campanas/{id}/similares` (al menos una si hay; 400 si alguna no está entre ellas); el motivo
+          las nombra y el creador las ve en el rechazo. `sancion` es opcional: `STRIKE` (aviso, sigue la escala),
           `SUSPENSION_TEMPORAL` con `dias` 2 o 7, o `BANEO_DE_CAMPANA`; deja un reporte ya resuelto en la
           bandeja de la supervisión. `reportada` ya no se acepta (2026-10-16).
         - **Supervisor que la supervisa (2026-10-15):** `{ "action": "pausar" | "finalizar", "motivo": "..." }`
@@ -791,6 +794,10 @@ paths:
                     action: { type: string, enum: [tomar, aceptada, rechazada, pausar, reanudar, finalizar] }
                     motivo: { type: string, maxLength: 500 }
                     motivoDeLista: { type: string, description: "Solo al rechazar: motivo de la lista." }
+                    similares:
+                      type: array
+                      items: { type: string, pattern: '^\d{1,9}$' }
+                      description: 'Solo al rechazar con "Ya existe una campaña similar": ids de las campañas a las que se parece.'
                     sancion:
                       type: object
                       description: Solo al rechazar. Sanción al creador.
@@ -805,6 +812,7 @@ paths:
               programar: { value: { status: aceptada } }
               tomar: { value: { action: tomar } }
               rechazar: { value: { action: rechazada, motivoDeLista: Pide datos personales o sensibles, motivo: Pide la CURP de cada participante } }
+              rechazarPorSimilar: { value: { action: rechazada, motivoDeLista: Ya existe una campaña similar, motivo: Las dos piden fotos de baches en Tepic, similares: ["12"] } }
               rechazarConSancion: { value: { action: rechazada, motivoDeLista: Engaño o fraude, pide datos para otro fin, sancion: { tipo: SUSPENSION_TEMPORAL, dias: 2 } } }
               pausarComoSupervisor: { value: { action: pausar, motivo: Pide datos personales en la descripción } }
               reanudarComoSupervisor: { value: { action: reanudar } }
@@ -2013,6 +2021,23 @@ paths:
           description: La invitación ya no está disponible
           content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
 
+  /api/notificaciones/{id}/rechazar:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    post:
+      tags: [Revisiones y notificaciones]
+      summary: Rechazar una invitación para ser revisor
+      description: |
+        (2026-11-11) Deja la invitación como rechazada, borra su notificación y avisa al creador
+        (`revisor_rechazo`). El creador puede volver a invitar a la persona.
+      responses:
+        "200": { $ref: "#/components/responses/Message" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: La invitación ya no está disponible (ya aceptada, rechazada o cancelada)
+          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+
   # ---------------------------------------------------------------- Datos abiertos
   /api/datos/{id}/descarga:
     parameters:
@@ -2187,7 +2212,7 @@ components:
           type: boolean
           description: >-
             true si `tematica` es una propuesta del creador (2026-10-29): si no existe, se da de alta pendiente
-            hasta que el SuperUsuario la revisa (máximo 3 pendientes por persona). Si ya existe, no hace nada.
+            hasta que el SuperUsuario la revisa (máximo 3 pendientes por persona). Si ya existe, no hace nada; si se parece a una existente (2026-11-11), se guarda con esa.
         proposito:
           type: string
           enum: [investigacion_cientifica, desarrollo_ia, monitoreo, prevencion, diagnostico, educacion, planeacion, toma_de_decisiones, concientizacion, desarrollo_tecnologico, politicas_publicas, otro]
@@ -2345,7 +2370,7 @@ components:
         type:
           type: string
           description: Evento que la generó (TipoDeNotificacion en lib/notificaciones/tipos.ts)
-          enum: [aporte_aceptado, aporte_rechazado, campana_baneo, campana_desbaneo, campana_aceptada, campana_rechazada, campana_reportada, campana_iniciada, campana_nueva, campana_especial, recordatorio_semanal, resumen_mensual, campana_finalizada, revisor_acepto, aporte_reportado, invitacion_revisor, rol_asignado, rol_revocado, sancion_aplicada, sancion_restaurada]
+          enum: [aporte_aceptado, aporte_rechazado, campana_baneo, campana_desbaneo, campana_aceptada, campana_rechazada, campana_reportada, campana_iniciada, campana_nueva, campana_especial, recordatorio_semanal, resumen_mensual, campana_finalizada, revisor_acepto, revisor_rechazo, aporte_reportado, invitacion_revisor, rol_asignado, rol_revocado, sancion_aplicada, sancion_restaurada]
         title: { type: string }
         message: { type: string }
         campaignId: { type: [string, "null"] }

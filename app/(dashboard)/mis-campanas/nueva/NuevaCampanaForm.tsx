@@ -44,6 +44,7 @@ import { PLURALES_DE_TIPO, repartoSugerido } from "@/lib/campanas/reparto-sugeri
 import { maximosDesdeLaCuota } from "@/lib/campanas/cuota-por-tipo";
 import { LIMITE_MAXIMO_POR_TIPO } from "@/lib/campanas/limite-por-tipo";
 import { FORMATOS_DE_DOCUMENTO, type FormatoDeDocumento } from "@/lib/aportes/archivo";
+import CampanasParecidasDelRechazo from "@/components/campanas/CampanasParecidasDelRechazo";
 
 /** Campos del formulario que pueden tener un problema al guardar (2026-10-27). "general": nada en particular. */
 type CampoDeCampana =
@@ -1391,6 +1392,7 @@ function CampanaFormulario({
           <p className="mt-1 whitespace-pre-line break-words text-system-600">
             Motivo: {editingCampaign?.rechazo?.motivo ?? "sin motivo registrado"}
           </p>
+          <CampanasParecidasDelRechazo similares={editingCampaign?.rechazo?.similares ?? []} />
           {editingCampaign?.rechazo?.sancion && (
             <p className="mt-1 text-system-600">Además se aplicó {editingCampaign.rechazo.sancion} a tu cuenta.</p>
           )}
