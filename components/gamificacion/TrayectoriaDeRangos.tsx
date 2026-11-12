@@ -47,8 +47,6 @@ export default function TrayectoriaDeRangos({
         </div>
       </div>
 
-      <TablaDeRequisitosDeRangos tabla={datos.tabla} actual={actual} total={total} />
-
       <FichaDeRango fichas={datos.fichas} abierta={abierta} total={total} onIr={setAbierta} onCerrar={() => setAbierta(null)} />
     </div>
   );

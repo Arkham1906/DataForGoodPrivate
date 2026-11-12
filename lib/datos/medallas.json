@@ -9,10 +9,10 @@
       "descripcion": "Crece con cada aporte aceptado.",
       "niveles": [
         { "nombre": "Semilla", "umbral": 5 },
-        { "nombre": "Brote", "umbral": 25 },
-        { "nombre": "Arbusto", "umbral": 75 },
-        { "nombre": "Árbol", "umbral": 150 },
-        { "nombre": "Bosque", "umbral": 400 }
+        { "nombre": "Brote", "umbral": 15 },
+        { "nombre": "Arbusto", "umbral": 35 },
+        { "nombre": "Árbol", "umbral": 60 },
+        { "nombre": "Bosque", "umbral": 100 }
       ]
     },
     {
@@ -24,10 +24,10 @@
       "descripcion": "Reconoce los aportes de calidad excepcional.",
       "niveles": [
         { "nombre": "Chispa", "umbral": 1 },
-        { "nombre": "Destello", "umbral": 5 },
-        { "nombre": "Centella", "umbral": 12 },
-        { "nombre": "Aurora", "umbral": 25 },
-        { "nombre": "Supernova", "umbral": 50 }
+        { "nombre": "Destello", "umbral": 3 },
+        { "nombre": "Centella", "umbral": 7 },
+        { "nombre": "Aurora", "umbral": 12 },
+        { "nombre": "Supernova", "umbral": 20 }
       ]
     },
     {
@@ -38,11 +38,11 @@
       "activa": true,
       "descripcion": "Se alimenta de la racha máxima, en días.",
       "niveles": [
-        { "nombre": "Pabilo", "umbral": 3 },
-        { "nombre": "Vela", "umbral": 7 },
-        { "nombre": "Antorcha", "umbral": 14 },
-        { "nombre": "Hoguera", "umbral": 30 },
-        { "nombre": "Faro", "umbral": 100 }
+        { "nombre": "Pabilo", "umbral": 1 },
+        { "nombre": "Vela", "umbral": 3 },
+        { "nombre": "Antorcha", "umbral": 7 },
+        { "nombre": "Hoguera", "umbral": 12 },
+        { "nombre": "Faro", "umbral": 21 }
       ]
     },
     {
@@ -70,9 +70,9 @@
       "niveles": [
         { "nombre": "Mapa", "umbral": 1 },
         { "nombre": "Brújula", "umbral": 3 },
-        { "nombre": "Sextante", "umbral": 8 },
-        { "nombre": "Astrolabio", "umbral": 15 },
-        { "nombre": "Rosa de los Vientos", "umbral": 30 }
+        { "nombre": "Sextante", "umbral": 6 },
+        { "nombre": "Astrolabio", "umbral": 12 },
+        { "nombre": "Rosa de los Vientos", "umbral": 20 }
       ]
     },
     {
@@ -83,11 +83,11 @@
       "activa": true,
       "descripcion": "Evoluciona con la EXP total acumulada.",
       "niveles": [
-        { "nombre": "Pila", "umbral": 250 },
-        { "nombre": "Dínamo", "umbral": 1000 },
-        { "nombre": "Turbina", "umbral": 3000 },
-        { "nombre": "Reactor", "umbral": 8000 },
-        { "nombre": "Sol", "umbral": 20000 }
+        { "nombre": "Pila", "umbral": 50 },
+        { "nombre": "Dínamo", "umbral": 250 },
+        { "nombre": "Turbina", "umbral": 700 },
+        { "nombre": "Reactor", "umbral": 1200 },
+        { "nombre": "Sol", "umbral": 2000 }
       ]
     },
     {
@@ -98,11 +98,10 @@
       "activa": true,
       "descripcion": "Premia tener aportes aceptados de tipos de dato distintos.",
       "niveles": [
-        { "nombre": "Dúo", "umbral": 2 },
-        { "nombre": "Trío", "umbral": 3 },
+        { "nombre": "Duo", "umbral": 2 },
+        { "nombre": "Trio", "umbral": 3 },
         { "nombre": "Cuarteto", "umbral": 4 },
-        { "nombre": "Quinteto", "umbral": 5 },
-        { "nombre": "Orquesta", "umbral": 6 }
+        { "nombre": "Orquesta", "umbral": 5 }
       ]
     },
     {
@@ -111,7 +110,7 @@
       "grupo": "adicionales",
       "mide": "aceptados_consecutivos",
       "activa": true,
-      "descripcion": "Aportes aceptados seguidos, sin un rechazo entre ellos, por hora de envío.",
+      "descripcion": "Aportes aceptados seguidos.",
       "niveles": [
         { "nombre": "Nivel 1", "umbral": 5 },
         { "nombre": "Nivel 2", "umbral": 10 },
@@ -129,8 +128,8 @@
       "descripcion": "Reavivar tu racha con un aporte después de perderla.",
       "niveles": [
         { "nombre": "Ceniza", "umbral": 1 },
-        { "nombre": "Brasa", "umbral": 3 },
-        { "nombre": "Fénix", "umbral": 5 }
+        { "nombre": "Brasa", "umbral": 2 },
+        { "nombre": "Fénix", "umbral": 3 }
       ]
     },
     {
