@@ -5,6 +5,8 @@
 // Sin imports de servidor: el tipo CampanaDePortada lo comparte con la página.
 
 import Link from "next/link";
+import { BASE_PATH } from "@/lib/base-path";
+import { etiquetaDeCierre } from "@/lib/campanas/etiqueta-de-cierre";
 import { useState } from "react";
 import ProgressBar from "@/components/ui/ProgressBar";
 import Tag from "@/components/ui/Tag";
@@ -12,13 +14,16 @@ import Tag from "@/components/ui/Tag";
 export interface CampanaDePortada {
   id: string;
   name: string;
-  description: string;
-  /** Quién organiza (quienOrganiza). */
-  organizer: string;
+  hasBanner: boolean;
+  bannerVersion?: string;
+  bannerScale: number;
+  bannerPositionX: number;
+  bannerPositionY: number;
   /** Tipos de dato ya con su nombre (Foto, Video...). */
   tipos: string[];
+  tematica: string;
+  daysRemaining: number | null;
   pct: number;
-  participants: number;
   /** "12 dic", o null si no tiene fecha de cierre. */
   cierre: string | null;
   /** Día de creación en Tepic, "3 nov" (2026-11-09). */
@@ -31,46 +36,43 @@ export interface PestanaDeCampanas {
   campanas: CampanaDePortada[];
 }
 
-const nf = new Intl.NumberFormat("es-MX");
-
 function TarjetaDeCampana({ campana }: { campana: CampanaDePortada }) {
   return (
     <Link
       href={`/campanas/${campana.id}`}
-      className="landing-tarjeta flex h-full flex-col rounded-[18px] border border-system-200 bg-white hover:border-brand-600"
+      className="landing-tarjeta flex h-full flex-col overflow-hidden rounded-[18px] border border-system-200 bg-white hover:border-brand-600"
     >
-      <div className="flex flex-1 flex-col p-4">
-        <h3 className="line-clamp-2 text-[16px] font-semibold leading-snug text-system-900">{campana.name}</h3>
-        <p className="mt-2 line-clamp-2 text-[13px] leading-relaxed text-system-600">{campana.description}</p>
-        <p className="mt-auto flex items-center gap-2 pt-4 text-[12.5px] text-system-600">
-          <span
-            aria-hidden="true"
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-50 text-[12px] font-bold text-brand-800"
-          >
-            {campana.organizer.charAt(0).toUpperCase()}
-          </span>
-          <span className="truncate">{campana.organizer}</span>
-        </p>
+      <div data-campana-banner className="aspect-[16/10] overflow-hidden bg-system-100">
+        {campana.hasBanner && (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={`${BASE_PATH}/api/campanas/${campana.id}/banner?v=${encodeURIComponent(campana.bannerVersion ?? "")}`}
+              alt=""
+              loading="lazy"
+              className="h-full w-full object-cover"
+              style={{ objectPosition: `${campana.bannerPositionX}% ${campana.bannerPositionY}%`, transform: `scale(${campana.bannerScale})` }}
+            />
+          </>
+        )}
       </div>
 
-      <div className="border-t border-system-200 p-4">
-        <ProgressBar pct={campana.pct} tone="ok" conPorcentaje />
-        <div className="mt-3 flex min-h-[26px] flex-wrap gap-1.5">
-          {campana.tipos.slice(0, 3).map((tipo) => (
-            <Tag key={tipo}>{tipo}</Tag>
-          ))}
+      <div className="flex flex-1 flex-col p-3">
+        <h3 className="min-h-[2.75rem] line-clamp-2 text-[16px] font-semibold leading-snug text-system-900">{campana.name}</h3>
+        <div className="mt-2 flex h-8 items-start overflow-hidden">
+          {campana.tematica && <Tag tone="ok" className="max-w-full truncate whitespace-nowrap">{campana.tematica}</Tag>}
         </div>
-      </div>
-
-      <div className="flex items-center justify-between gap-2 border-t border-system-200 px-4 py-3 text-[12px] text-system-500">
-        {/* Creación y cierre, una debajo de otra: en 4 columnas no caben en una línea junto a las personas. */}
-        <span className="flex min-w-0 flex-col leading-snug">
-          <span>Creada el {campana.creada}</span>
-          <span>{campana.cierre ? `Cierra el ${campana.cierre}` : "Sin fecha de cierre"}</span>
-        </span>
-        <span className="shrink-0 font-mono">
-          {nf.format(campana.participants)} {campana.participants === 1 ? "persona" : "personas"}
-        </span>
+        <div className="mt-auto">
+          <ProgressBar pct={campana.pct} tone="ok" conPorcentaje />
+          <div className="mt-3 flex h-14 flex-wrap content-start gap-1.5 overflow-hidden">
+            {campana.tipos.map((tipo) => (
+              <Tag key={tipo}>{tipo}</Tag>
+            ))}
+          </div>
+          <p className="mt-2 min-h-5 border-t border-system-200 pt-2 text-[12px] text-system-600">
+            {etiquetaDeCierre(campana.daysRemaining)}
+          </p>
+        </div>
       </div>
     </Link>
   );

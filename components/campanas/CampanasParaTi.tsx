@@ -4,7 +4,7 @@
 // campanasParaTi() de lib/usuarios/inicio.ts (en /campanas, vía GET /api/campanas?paraTi=true).
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 
 import Card from "@/components/ui/Card";
 import ProgressBar from "@/components/ui/ProgressBar";
@@ -28,6 +28,8 @@ export default function CampanasParaTi({
   filtros,
   vacio,
   vistaCuadricula = true,
+  cuatroColumnas = false,
+  renderTarjeta,
   className = "",
 }: {
   /** id del título (aria-labelledby): cada pantalla usa el suyo. */
@@ -46,6 +48,10 @@ export default function CampanasParaTi({
   vacio?: ReactNode;
   /** En /campanas, sigue la preferencia compartida de lista o cuadrícula. */
   vistaCuadricula?: boolean;
+  /** /campanas usa cuatro tarjetas por fila en pantallas amplias; /inicio conserva tres. */
+  cuatroColumnas?: boolean;
+  /** Permite que /campanas reutilice sus Campaign completos para mostrar el diseño de portada. */
+  renderTarjeta?: (campana: CampanaParaTi) => ReactNode;
   className?: string;
 }) {
   if (campanas.length === 0 && !vacio && !avisos) return null;
@@ -62,29 +68,39 @@ export default function CampanasParaTi({
       {campanas.length === 0 ? (
         (vacio ?? null)
       ) : (
-        <div className={vistaCuadricula ? "grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-3" : "flex flex-col gap-3"}>
-          {campanas.map((c) => {
-            const pct = porcentajeDeMeta(c.aprobados, c.meta);
-            return (
-              <Link key={c.id} href={`/campanas/${c.id}`} className="block rounded-lg">
-                <Card className="flex h-full min-w-0 flex-col hover:border-brand-600">
-                  <div className="mb-2 flex flex-wrap items-center gap-1.5">
-                    {c.tematica && <Tag>{c.tematica}</Tag>}
-                    <Tag tone={c.motivo === "popular" ? "default" : "ok"}>{MOTIVO[c.motivo]}</Tag>
-                  </div>
-                  <p className="line-clamp-2 break-words text-[15px] font-bold text-system-900" title={c.nombre}>
-                    {c.nombre}
-                  </p>
-                  <div className="mt-auto pt-3">
-                    <ProgressBar pct={pct} tone="ok" />
-                    <p className="mt-2 font-mono text-[11px] text-system-500">
-                      {nf.format(c.participantes)} {c.participantes === 1 ? "participante" : "participantes"} · {pct}% de la meta
-                    </p>
-                  </div>
-                </Card>
-              </Link>
-            );
-          })}
+        <div
+          className={
+            vistaCuadricula
+              ? cuatroColumnas
+                ? "grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4"
+                : "grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-3"
+              : "flex flex-col gap-3"
+          }
+        >
+          {renderTarjeta
+            ? campanas.map((c) => <Fragment key={c.id}>{renderTarjeta(c)}</Fragment>)
+            : campanas.map((c) => {
+                const pct = porcentajeDeMeta(c.aprobados, c.meta);
+                return (
+                  <Link key={c.id} href={`/campanas/${c.id}`} className="block rounded-lg">
+                    <Card className="flex h-full min-w-0 flex-col hover:border-brand-600">
+                      <div className="mb-2 flex flex-wrap items-center gap-1.5">
+                        {c.tematica && <Tag>{c.tematica}</Tag>}
+                        <Tag tone={c.motivo === "popular" ? "default" : "ok"}>{MOTIVO[c.motivo]}</Tag>
+                      </div>
+                      <p className="line-clamp-2 break-words text-[15px] font-bold text-system-900" title={c.nombre}>
+                        {c.nombre}
+                      </p>
+                      <div className="mt-auto pt-3">
+                        <ProgressBar pct={pct} tone="ok" />
+                        <p className="mt-2 font-mono text-[11px] text-system-500">
+                          {nf.format(c.participantes)} {c.participantes === 1 ? "participante" : "participantes"} · {pct}% de la meta
+                        </p>
+                      </div>
+                    </Card>
+                  </Link>
+                );
+              })}
         </div>
       )}
     </section>

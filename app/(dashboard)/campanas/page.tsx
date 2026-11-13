@@ -48,7 +48,7 @@ import BotonCrearCampana from "@/components/campanas/BotonCrearCampana";
 
 // Qué lista se muestra (select "Mostrar"): todas, las favoritas o las de su localidad / cerca de ti.
 const FAVORITAS = "favoritas";
-// Tarjetas esqueleto mientras cargan: dos filas en escritorio (3 columnas), suficientes en móvil.
+// Tarjetas esqueleto mientras cargan: dos filas en escritorio (hasta 4 columnas), suficientes en móvil.
 const TARJETAS_DE_CARGA = 6;
 const CLAVE_VISTA_CAMPANAS = "dfg:campanas:vista";
 const EVENTO_VISTA_CAMPANAS = "dfg:campanas:vista-cambio";
@@ -311,7 +311,7 @@ export default function CampanasPage() {
             <h2 id="campanas-favoritas" className="mb-3 text-lg font-extrabold text-system-900">
               Campañas favoritas
             </h2>
-            <div className={vistaCuadricula ? "grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-3" : "flex flex-col gap-3"}>
+            <div className={vistaCuadricula ? "grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4" : "flex flex-col gap-3"}>
               {favoritas.map((campaign) => (
                 <CampaignCard key={campaign.id} campaign={campaign} compact={!vistaCuadricula} mobileCompact={vistaCuadricula} hrefAlAbrir={`/campanas/${campaign.id}`} />
               ))}
@@ -358,6 +358,18 @@ export default function CampanasPage() {
             )
           }
           vistaCuadricula={vistaCuadricula}
+          cuatroColumnas
+          renderTarjeta={(c) => {
+            const campaign = porId.get(String(c.id));
+            return campaign ? (
+              <CampaignCard
+                campaign={campaign}
+                compact={!vistaCuadricula}
+                mobileCompact={vistaCuadricula}
+                hrefAlAbrir={`/campanas/${campaign.id}`}
+              />
+            ) : null;
+          }}
           className="mb-6 max-md:mb-5"
         />
       )}
@@ -382,7 +394,7 @@ export default function CampanasPage() {
       {error ? (
         <p className="rounded-lg bg-error-50 p-4 text-sm text-error-700">{error}</p>
       ) : cargando ? (
-        <div role="status" aria-live="polite" className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-3">
+        <div role="status" aria-live="polite" className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
           <span className="sr-only">Cargando campañas…</span>
           {Array.from({ length: TARJETAS_DE_CARGA }, (_, i) => (
             <CampaignCardSkeleton key={i} />
@@ -411,7 +423,7 @@ export default function CampanasPage() {
                   : "Todavía no hay campañas activas."}
         </p>
       ) : (
-        <div className={vistaCuadricula ? "grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-3" : "flex flex-col gap-3"}>
+        <div className={vistaCuadricula ? "grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4" : "flex flex-col gap-3"}>
           {filtered.map((campaign) => (
             <CampaignCard key={campaign.id} campaign={campaign} compact={!vistaCuadricula} mobileCompact={vistaCuadricula} hrefAlAbrir={`/campanas/${campaign.id}`} />
           ))}
