@@ -77,5 +77,9 @@ export default async function EnlacePublicoPage({ params }: { params: Promise<{ 
     );
   }
 
-  return <PantallaPublica>{contenido}</PantallaPublica>;
+  return (
+    <PantallaPublica pantallaDeAporte={resultado.tipo === "valido" && resultado.campana.status === "activa"}>
+      {contenido}
+    </PantallaPublica>
+  );
 }

@@ -11,27 +11,30 @@ export default function ChecklistsDelAporte({
   faltaArchivo,
   marcadas,
   onAlternar,
+  compactoEnEscritorio = false,
 }: {
   visibles: SeccionDeChecklist[];
   faltaArchivo: boolean;
   marcadas: string[];
   onAlternar: (valor: string) => void;
+  /** Distribuye los checklists en dos columnas solo en escritorio. */
+  compactoEnEscritorio?: boolean;
 }) {
   return (
-    <>
+    <div className={compactoEnEscritorio ? "lg:grid lg:grid-cols-2 lg:gap-x-3" : ""}>
       {faltaArchivo && (
-        <p className="mb-4 rounded-lg border border-dashed border-system-300 p-3 text-[12px] text-system-500">
+        <p className={`mb-4 rounded-lg border border-dashed border-system-300 p-3 text-[12px] text-system-500 ${compactoEnEscritorio ? "lg:col-span-2" : ""}`}>
           Elige tu archivo para ver qué puedes marcar sobre él.
         </p>
       )}
       {visibles.map((seccion, i) => (
-        <fieldset key={`${seccion.tipo ?? ""}-${seccion.titulo || i}`} className="mb-4 rounded-lg border border-system-200 bg-white p-3.5">
+        <fieldset key={`${seccion.tipo ?? ""}-${seccion.titulo || i}`} className={`mb-4 rounded-lg border border-system-200 bg-white p-3.5 ${compactoEnEscritorio ? "lg:mb-0 lg:p-2" : ""}`}>
           <legend className="px-1 text-[13px] font-medium text-system-900">{seccion.titulo || "Marca lo que aplique"}</legend>
           {seccion.opciones.map((opcion) => {
             // Se guarda como "Título: opción" para saber a qué checklist pertenece.
             const valor = etiquetaDeRespuesta(seccion.titulo, opcion);
             return (
-              <label key={opcion} className="mb-2 flex items-center gap-2 text-[12.5px] text-system-600 last:mb-0">
+              <label key={opcion} className={`mb-2 flex items-center gap-2 text-[12.5px] text-system-600 last:mb-0 ${compactoEnEscritorio ? "lg:mb-1" : ""}`}>
                 <input type="checkbox" checked={marcadas.includes(valor)} onChange={() => onAlternar(valor)} />
                 {opcion}
               </label>
@@ -39,6 +42,6 @@ export default function ChecklistsDelAporte({
           })}
         </fieldset>
       ))}
-    </>
+    </div>
   );
 }

@@ -7,6 +7,7 @@
 
 import { textoDeUbicacion } from "@/lib/campanas/ubicacion";
 import type { ReactNode } from "react";
+import Link from "next/link";
 import PublicFooter from "@/components/layout/PublicFooter";
 import ActualizacionEnVivo from "@/components/layout/ActualizacionEnVivo";
 import PublicHeader from "@/components/layout/PublicHeader";
@@ -31,7 +32,7 @@ import {
 } from "@/lib/campanas/aportes-anonimos";
 import { conDestino } from "@/lib/redireccion";
 import { getSessionUser } from "@/lib/session";
-import AporteAnonimo from "./[token]/aporte-anonimo";
+import { AporteAnonimoConAccesos, BotonesDeCuenta } from "./[token]/aporte-anonimo";
 import { cookies } from "next/headers";
 import type { CampanaDelEnlace } from "@/lib/campanas/enlaces";
 
@@ -39,14 +40,38 @@ const numero = new Intl.NumberFormat("es-MX");
 // fechaFin viene como "AAAA-MM-DD" (DATE sin hora): se formatea en UTC para no correr el día.
 const fecha = new Intl.DateTimeFormat("es-MX", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 
-/** Marco de la página pública: encabezado, contenido y pie. */
-export function PantallaPublica({ children }: { children: ReactNode }) {
+/** Marco de las páginas públicas: navegación, contenido y pie. */
+export function PantallaPublica({ children, pantallaDeAporte = false }: { children: ReactNode; pantallaDeAporte?: boolean }) {
   return (
     <div className="min-h-screen bg-system-50">
-      <PublicHeader />
-      <main id="contenido" className="mx-auto max-w-xl px-6 pb-24 pt-14 max-md:px-4 max-md:pt-8">{children}</main>
+      {!pantallaDeAporte && <PublicHeader />}
+      <main
+        id="contenido"
+        className={`mx-auto max-w-xl px-6 pb-24 lg:max-w-7xl lg:px-6 lg:pb-3 ${
+          pantallaDeAporte ? "pt-3 max-md:pt-3" : "pt-14 max-md:pt-8"
+        } lg:pt-3 max-md:px-4 ${pantallaDeAporte ? "lg:flex lg:min-h-screen lg:flex-col" : ""}`}
+      >
+        {pantallaDeAporte && (
+          <Link
+            href="/"
+            className="mb-3 inline-flex items-center gap-2 text-[13px] text-system-600 hover:text-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="size-4" aria-hidden="true">
+              <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Volver al inicio
+          </Link>
+        )}
+        {pantallaDeAporte ? <div className="lg:flex lg:flex-1 lg:items-center">{children}</div> : children}
+      </main>
       <ActualizacionEnVivo />
-      <PublicFooter />
+      {pantallaDeAporte ? (
+        <div className="lg:hidden">
+          <PublicFooter />
+        </div>
+      ) : (
+        <PublicFooter />
+      )}
     </div>
   );
 }
@@ -125,26 +150,29 @@ function Invitacion({
   const pct = porcentajeDeMeta(campana.aportesAprobados, campana.meta);
   const lugar = textoDeUbicacion({ todoElPais: campana.todoElPais, municipio: campana.ciudad, estado: campana.estado });
   const aportar = token ? `/campanas/${campana.id}/aportar?enlace=${token}` : `/campanas/${campana.id}/aportar`;
+  const etiqueta = token ? "Te invitaron a participar" : "Participa sin cuenta";
 
-  return (
-    <>
-      <p className="mb-2 font-mono text-[11px] uppercase tracking-wide text-brand-600">{token ? "Te invitaron a participar" : "Participa sin cuenta"}</p>
-      <Card>
-        <div className="mb-1 flex items-start justify-between gap-2">
-          <h1 className="text-xl font-extrabold text-system-900">{campana.nombre}</h1>
-          <Tag tone="ok">Activa</Tag>
-        </div>
-        <p className="text-[12.5px] text-system-600">
-          {campana.organizador}
-          {lugar ? ` · ${lugar}` : ""}
-        </p>
-        <p className="mt-3 text-[13.5px] leading-relaxed text-system-600">{campana.descripcion}</p>
-        {campana.tematica && (
-          <div className="mt-3">
-            <Tag>{campana.tematica}</Tag>
+  const ficha = (
+    <Card className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)_minmax(0,1.25fr)] lg:items-center lg:gap-6 lg:p-5">
+        <div>
+          <div className="mb-1 flex items-start justify-between gap-2">
+            <h1 className="text-xl font-extrabold text-system-900">{campana.nombre}</h1>
+            <Tag tone="ok">Activa</Tag>
           </div>
-        )}
-        <div className="mt-4">
+          <p className="text-[12.5px] text-system-600">
+            {campana.organizador}
+            {lugar ? ` · ${lugar}` : ""}
+          </p>
+        </div>
+        <div className="mt-3 lg:mt-0">
+          <p className="text-[13.5px] leading-relaxed text-system-600">{campana.descripcion}</p>
+          {campana.tematica && (
+            <div className="mt-3">
+              <Tag>{campana.tematica}</Tag>
+            </div>
+          )}
+        </div>
+        <div className="mt-4 lg:mt-0">
           <ProgressBar pct={pct} tone="ok" />
           <p className="mt-2 font-mono text-[11px] text-system-500">
             {numero.format(campana.aportesAprobados)} de {numero.format(campana.meta)} aportes aprobados · hasta{" "}
@@ -160,65 +188,68 @@ function Invitacion({
             {campana.fechaFin ? ` · cierra el ${fecha.format(new Date(`${campana.fechaFin}T00:00:00Z`))}` : ""}
           </p>
         </div>
-      </Card>
-
-      {conSesion ? (
-        <div className="mt-5">
-          <ButtonLink href={aportar} variant="primary" className="w-full">
-            Aportar a esta campaña
-          </ButtonLink>
-        </div>
-      ) : (
-        <>
-          {sinFormulario ? (
-            <>
-              <p className="mt-5 rounded-lg bg-system-100 p-3.5 text-[12.5px] text-system-600">{sinFormulario}</p>
-              <div className="mt-5 flex flex-col gap-2.5">
-                <p className="text-center text-[12px] text-system-500">Puedes aportar con una cuenta.</p>
-                <BotonesDeCuenta entrar={conDestino("/entrar", aportar)} registro={conDestino("/registro", aportar)} />
-              </div>
-            </>
-          ) : (
-            // El formulario y la invitación a crear una cuenta van juntos: al enviar el aporte sin cuenta,
-            // el formulario se cambia por la invitación sin recargar.
-            <AporteAnonimo
-              urlDeEnvio={urlDeEnvio}
-              secciones={campana.secciones}
-              tipos={tiposDentroDeSuCuota(
-                tiposConLugar(campana.tiposDeArchivo, campana.limitePorTipo, campana.enviadosPorTipo),
-                campana.cuotaPorTipo,
-                misPorTipo,
-              )}
-              formatosDeDocumento={campana.formatosDeDocumento}
-              restantesIniciales={restantes}
-              esperaInicial={espera}
-              proposito={campana.proposito}
-              entrar={conDestino("/entrar", aportar)}
-              registro={conDestino("/registro", aportar)}
-            />
-          )}
-        </>
-      )}
+    </Card>
+  );
+  const resumen = (
+    <>
+      <div className="mb-2">
+        <Tag tone="info">{etiqueta}</Tag>
+      </div>
+      {ficha}
     </>
   );
-}
 
-function BotonesDeCuenta({ entrar, registro }: { entrar: string; registro: string }) {
+  const datosDelAporte = {
+    urlDeEnvio,
+    secciones: campana.secciones,
+    tipos: tiposDentroDeSuCuota(
+      tiposConLugar(campana.tiposDeArchivo, campana.limitePorTipo, campana.enviadosPorTipo),
+      campana.cuotaPorTipo,
+      misPorTipo,
+    ),
+    formatosDeDocumento: campana.formatosDeDocumento,
+    restantesIniciales: restantes,
+    esperaInicial: espera,
+    proposito: campana.proposito,
+    entrar: conDestino("/entrar", aportar),
+    registro: conDestino("/registro", aportar),
+  };
+
+  if (!conSesion && !sinFormulario) {
+    return (
+      <AporteAnonimoConAccesos {...datosDelAporte} etiqueta={etiqueta}>
+        {ficha}
+      </AporteAnonimoConAccesos>
+    );
+  }
+
+  const formulario = conSesion ? (
+    <div className="mt-5 lg:mt-0">
+      <ButtonLink href={aportar} variant="primary" className="w-full">
+        Aportar a esta campaña
+      </ButtonLink>
+    </div>
+  ) : sinFormulario ? (
+    <>
+      <p className="mt-5 rounded-lg bg-system-100 p-3.5 text-[12.5px] text-system-600">{sinFormulario}</p>
+      <div className="mt-5 flex flex-col gap-2.5">
+        <p className="text-center text-[12px] text-system-500">Puedes aportar con una cuenta.</p>
+        <BotonesDeCuenta entrar={conDestino("/entrar", aportar)} registro={conDestino("/registro", aportar)} />
+      </div>
+    </>
+  ) : null;
+
   return (
-    <div className="flex gap-2.5 max-md:flex-col">
-      <ButtonLink href={entrar} className="flex-1">
-        Iniciar sesión
-      </ButtonLink>
-      <ButtonLink href={registro} className="flex-1">
-        Crear una cuenta
-      </ButtonLink>
+    <div className="mx-auto max-w-xl">
+      {resumen}
+      {formulario}
     </div>
   );
 }
 
 export function Aviso({ titulo, texto, explorar = false }: { titulo: string; texto: string; explorar?: boolean }) {
   return (
-    <Card>
+    <Card className="mx-auto max-w-xl">
       <h1 className="mb-2 text-xl font-extrabold text-system-900">{titulo}</h1>
       <p className="text-[13.5px] text-system-600">{texto}</p>
       {explorar && (

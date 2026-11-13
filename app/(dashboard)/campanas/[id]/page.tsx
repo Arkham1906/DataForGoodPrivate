@@ -28,7 +28,6 @@ import { avisoDePausa } from "@/lib/campanas/pausa";
 import CompartirCampana from "./compartir";
 import ReportarCampana from "./reportar";
 import BotonDeIcono, { IconoBandera, IconoCompartir, IconoEstrella } from "@/components/ui/BotonDeIcono";
-import { conDestino } from "@/lib/redireccion";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import { AvisoNoEncontrado } from "@/components/ui/AvisoNoEncontrado";
 import { VentanaDeInscripcion } from "@/components/ui/AcuerdosDeAporte";
@@ -137,7 +136,6 @@ export default function CampaignDetailPage() {
         {/* Compartir, Favorita y Reportar como íconos en la fila de la temática (2026-11-10, a pedido del usuario;
             antes, botones con texto: Compartir aquí, Favorita bajo "Realizar un aporte" y Reportar al final). */}
         <h1 className="mb-2 text-[26px] font-extrabold text-system-900">{campaign.name}</h1>
-
         <div className="mb-2 flex items-center justify-between gap-3">
           <RutaDeTematica tematica={campaign.tematica || campaign.tag} etiquetas={campaign.etiquetas} />
           {!conSesion ? (
@@ -179,9 +177,9 @@ export default function CampaignDetailPage() {
         )}
 
         <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.9fr)]">
-          <div className="order-2 min-w-0 lg:order-2">
+          <div className="order-2 min-w-0 lg:order-1">
 
-        <div className="mb-6 flex flex-wrap gap-5 text-[13px] text-system-600">
+        <div className="mb-6 flex flex-wrap gap-5 text-[13px] text-system-600 lg:mb-3 lg:gap-3">
           <span>
             {textoDeUbicacion({ todoElPais: campaign.todoElPais, municipio: campaign.locationCity, estado: campaign.locationState })}
           </span>
@@ -198,7 +196,7 @@ export default function CampaignDetailPage() {
             })}
           </span>
         </div>
-        <p className="mb-4 font-mono text-[12px] text-system-600">
+        <p className="mb-4 font-mono text-[12px] text-system-600 lg:mb-2">
           Fecha de cierre: {closeDate} · Días restantes: {remainingDays}
         </p>
 
@@ -218,12 +216,12 @@ export default function CampaignDetailPage() {
           </div>
         )}
 
-        <div className="mb-4 rounded-lg border border-system-200 bg-white p-3.5">
+        <div className="mb-4 rounded-lg border border-system-200 bg-white p-3.5 lg:mb-2 lg:p-3">
           <h2 className="text-[15px] font-bold text-system-900">¿De qué trata esta campaña?</h2>
           <p className="mt-1 text-[12px] leading-5 text-system-600">{campaign.description}</p>
         </div>
-          <h2 className="mb-2 mt-5 text-lg font-bold text-system-900">¿Qué puedes aportar?</h2>
-        <p className="mb-3 text-[13px] text-system-600">
+          <h2 className="mb-2 mt-5 text-lg font-bold text-system-900 lg:mb-1 lg:mt-3">¿Qué puedes aportar?</h2>
+        <p className="mb-3 text-[13px] text-system-600 lg:mb-2">
           Comparte la información que tengas. Cada aporte es valioso.
         </p>
         {/* Sale de la campaña: sus tipos de dato y sus checklists. */}
@@ -231,7 +229,7 @@ export default function CampaignDetailPage() {
           {campaign.dataTypes
             .filter((tipo) => tipo !== "texto")
             .map((tipo) => (
-              <div key={tipo} className="rounded-lg border border-system-200 bg-white p-4">
+              <div key={tipo} className="rounded-lg border border-system-200 bg-white p-4 lg:p-3">
                 <p className="text-[14px] font-bold text-system-900">{TIPO_DE_DATO[tipo]?.titulo ?? tipo}</p>
                 <p className="mt-1 text-[12px] text-system-500">
                   {tipo === "documento" && (campaign.formatosDeDocumento ?? []).length > 0
@@ -241,7 +239,7 @@ export default function CampaignDetailPage() {
               </div>
             ))}
           {(campaign.checklistSecciones ?? []).map((seccion, i) => (
-            <div key={`${seccion.tipo ?? ""}-${seccion.titulo || i}`} className="rounded-lg border border-system-200 bg-white p-4">
+            <div key={`${seccion.tipo ?? ""}-${seccion.titulo || i}`} className="rounded-lg border border-system-200 bg-white p-4 lg:p-3">
               <p className="text-[14px] font-bold text-system-900">{seccion.titulo || "Marca lo que aplique"}</p>
               {seccion.tipo && (
                 <p className="text-[11.5px] font-medium text-brand-600">Al mandar {TIPO_DE_DATO[seccion.tipo]?.titulo.toLowerCase() ?? seccion.tipo}</p>
@@ -252,20 +250,20 @@ export default function CampaignDetailPage() {
         </div>
           </div>
           {campaign.hasBanner && (
-            <div className="order-1 overflow-hidden rounded-xl border border-system-200 bg-system-50 p-2 lg:order-1 lg:mt-1">
+            <div className="order-1 overflow-hidden rounded-xl border border-system-200 bg-system-50 p-2 lg:order-2 lg:mt-1">
               <img
                 src={`${BASE_PATH}/api/campanas/${campaign.id}/banner?v=${encodeURIComponent(campaign.bannerVersion ?? "")}`}
                 alt={`Banner de ${campaign.name}`}
-                className="h-auto max-h-[460px] min-h-[260px] w-full rounded-lg bg-system-100 object-contain"
+                className="h-auto max-h-[460px] min-h-[260px] w-full rounded-lg bg-system-100 object-contain lg:max-h-[320px]"
               />
             </div>
           )}
         </div>
 
-        <div className="mt-6 flex flex-col gap-4">
-          <section className="rounded-lg border border-system-200 bg-white p-5">
-            <h3 className="mb-3 text-[15px] font-bold text-system-900">Detalles de la campaña</h3>
-            <dl className="grid grid-cols-1 gap-2.5 text-[13px] md:grid-cols-2 xl:grid-cols-3 xl:gap-x-8">
+        <div className="mt-6 flex flex-col gap-4 lg:mt-3 lg:gap-2">
+          <section className="rounded-lg border border-system-200 bg-white p-5 lg:p-3">
+            <h3 className="mb-3 text-[15px] font-bold text-system-900 lg:mb-2">Detalles de la campaña</h3>
+            <dl className="grid grid-cols-1 gap-2.5 text-[13px] md:grid-cols-2 xl:grid-cols-3 xl:gap-x-8 lg:gap-y-1">
               <div className="flex justify-between gap-4">
                 <dt className="text-system-600">Creador</dt>
                 <dd className="min-w-0 break-words text-right font-medium text-system-900">
@@ -311,11 +309,11 @@ export default function CampaignDetailPage() {
           {/* Tu participación (2026-11-10, a pedido del usuario): el texto a la izquierda y la acción en
               una columna fija a la derecha, centrada con el texto; la nota de los acuerdos va con el
               resto del texto para que el botón no quede desacomodado. Abajo de lg todo se apila. */}
-          <section className="rounded-lg border border-system-200 bg-white p-5">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-8">
+          <section className="rounded-lg border border-system-200 bg-white p-5 lg:p-3">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-4">
               <div className="min-w-0 flex-1">
                 <h3 className="mb-1 text-[15px] font-bold text-system-900">Tu participación hace la diferencia</h3>
-                <p className="mb-4 text-[12.5px] text-system-600">
+                <p className="mb-4 text-[12.5px] text-system-600 lg:mb-2">
                   Esta campaña no recibe dinero. Aquí se comparte conocimiento.
                 </p>
                 <ProgressBar pct={pct} />
@@ -346,15 +344,7 @@ export default function CampaignDetailPage() {
                     </p>
                   ) : campaign.status === "activa" && topeAnonimoLleno ? (
                     // Tope del 10% de anónimos lleno (2026-11-11): el aviso en vez de "Aportar sin cuenta".
-                    <div className="flex flex-col gap-2.5">
-                      <p className="rounded-lg bg-system-100 p-3 text-center text-[12.5px] text-system-600">{topeAnonimoLleno}</p>
-                      <Link
-                        href={conDestino("/entrar", `/campanas/${campaign.id}/aportar`)}
-                        className={buttonClasses("primary", "md", "w-full")}
-                      >
-                        Iniciar sesión para aportar
-                      </Link>
-                    </div>
+                    <p className="rounded-lg bg-system-100 p-3 text-center text-[12.5px] text-system-600">{topeAnonimoLleno}</p>
                   ) : campaign.status === "activa" && aporteSinCuenta ? (
                     <Link href={`/participa/${campaign.id}`} className={buttonClasses("primary", "md", "w-full")}>
                       Aportar sin cuenta

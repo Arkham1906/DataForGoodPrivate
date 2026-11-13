@@ -35,6 +35,7 @@ export default function SelectorDeArchivo({
   onCambio,
   reinicio = 0,
   className = "",
+  compactoEnEscritorio = false,
 }: {
   tipos: TipoDeArchivo[];
   /** Formatos de "Archivo" que acepta la campaña (2026-10-28); [] = todos. */
@@ -46,6 +47,8 @@ export default function SelectorDeArchivo({
   /** Cambiarlo vacía el <input> (después de enviar). */
   reinicio?: number;
   className?: string;
+  /** Reduce el espacio de la zona de selección en la vista amplia del formulario anónimo. */
+  compactoEnEscritorio?: boolean;
 }) {
   // Al quitar el archivo se vacía también el <input>, para poder volver a elegir el mismo.
   const [vaciado, setVaciado] = useState(0);
@@ -64,7 +67,7 @@ export default function SelectorDeArchivo({
       <p className="mb-1.5 text-[13px] font-medium text-system-900">
         Archivo {opcional ? <span className="font-normal text-system-500">(opcional)</span> : <span className="text-error-700">*</span>}
       </p>
-      <label className="flex cursor-pointer flex-col items-center gap-1 rounded-lg border border-dashed border-system-300 bg-system-100 p-6 text-center text-[13px] text-system-600 hover:border-brand-600">
+      <label className={`flex cursor-pointer flex-col items-center gap-1 rounded-lg border border-dashed border-system-300 bg-system-100 p-6 text-center text-[13px] text-system-600 hover:border-brand-600 ${compactoEnEscritorio ? "lg:p-2" : ""}`}>
         <input key={`${reinicio}-${vaciado}`} type="file" accept={acceptDeArchivo(tipos, formatosDeDocumento)} className="hidden" onChange={elegir} />
         {archivo ? (
           <span className="font-medium break-all text-system-900">{archivo.name}</span>

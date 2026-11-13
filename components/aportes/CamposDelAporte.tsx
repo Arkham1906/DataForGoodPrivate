@@ -39,6 +39,7 @@ export default function CamposDelAporte({
   texto,
   onTexto,
   placeholderDescripcion = "Describe qué se ve en el contenido",
+  compactoEnEscritorio = false,
 }: {
   soloTexto: boolean;
   descripcion: string;
@@ -46,6 +47,8 @@ export default function CamposDelAporte({
   texto: string;
   onTexto: (valor: string) => void;
   placeholderDescripcion?: string;
+  /** Reduce la altura de los campos al mostrarlos junto al selector de archivo en escritorio. */
+  compactoEnEscritorio?: boolean;
 }) {
   const id = useId();
 
@@ -59,6 +62,7 @@ export default function CamposDelAporte({
             onChange={(e) => onDescripcion(e.target.value)}
             placeholder={placeholderDescripcion}
             maxLength={LARGO_MAXIMO_DESCRIPCION}
+            className={compactoEnEscritorio ? "lg:h-24 lg:min-h-0" : ""}
             required
           />
         </Field>
@@ -69,7 +73,7 @@ export default function CamposDelAporte({
 
   return (
     <>
-      <p className="mb-3 rounded-lg border border-system-200 bg-system-50 p-3 text-[12px] leading-5 text-system-600">
+      <p className="mb-3 rounded-lg border border-system-200 bg-system-50 p-3 text-[12px] leading-5 text-system-600 lg:mb-2 lg:p-2">
         Aporte de solo texto: ponle un título y escribe tu texto abajo. Se guarda como un archivo .txt.
       </p>
       <Field label="Título del texto" required>
@@ -91,6 +95,7 @@ export default function CamposDelAporte({
           placeholder="Escribe aquí tu aporte"
           maxLength={LARGO_MAXIMO_TEXTO_DEL_APORTE}
           aria-describedby={`${id}-texto`}
+          className={compactoEnEscritorio ? "lg:h-24 lg:min-h-0" : ""}
           required
         />
       </Field>

@@ -33,5 +33,5 @@ export default async function ParticipaSinCuentaPage({ params }: { params: Promi
     contenido = <ParaAportar campana={campana} token={null} urlDeEnvio={`/api/campanas/${campana.id}/aporte-sin-cuenta`} />;
   }
 
-  return <PantallaPublica>{contenido}</PantallaPublica>;
+  return <PantallaPublica pantallaDeAporte={Boolean(campana && campana.status === "activa")}>{contenido}</PantallaPublica>;
 }
