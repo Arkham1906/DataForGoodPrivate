@@ -7,6 +7,7 @@ import type { KeyboardEvent, MouseEvent } from "react";
 import type { Contribution } from "@/types";
 import { formatearTamano } from "@/lib/aportes/archivo";
 import EstrellasDeCalificacion from "@/components/aportes/EstrellasDeCalificacion";
+import ExpDelAporte from "@/components/gamificacion/ExpDelAporte";
 import ArchivoDelAporte from "@/components/ui/ArchivoDelAporte";
 import TextoDelAporte from "@/components/ui/TextoDelAporte";
 import { BASE_PATH } from "@/lib/base-path";
@@ -70,10 +71,22 @@ export default function ContributionCard({
           <span>{contribution.fileType}</span>
           <span>{formatearTamano(contribution.fileSizeBytes)}</span>
         </div>
-        {contribution.calificacion != null && (
-          <p className="mt-2 flex items-center gap-1.5 text-[12px] text-system-600">
-            <span className="font-semibold">Calificación:</span> <EstrellasDeCalificacion valor={contribution.calificacion} className="text-[14px]" />
+        {(contribution.calificacion != null || contribution.expOtorgada !== undefined) && contribution.status === "aceptado" ? (
+          <p className="mt-2 flex flex-wrap items-center gap-1.5 text-[12px] text-system-600">
+            {contribution.calificacion != null && (
+              <>
+                <span className="font-semibold">Calificación:</span> <EstrellasDeCalificacion valor={contribution.calificacion} className="text-[14px]" />
+              </>
+            )}
+            {/* La EXP solo llega a quien aportó (RF-GAM-88). */}
+            <ExpDelAporte estado={contribution.status} expOtorgada={contribution.expOtorgada} className="ml-1" />
           </p>
+        ) : (
+          contribution.calificacion != null && (
+            <p className="mt-2 flex items-center gap-1.5 text-[12px] text-system-600">
+              <span className="font-semibold">Calificación:</span> <EstrellasDeCalificacion valor={contribution.calificacion} className="text-[14px]" />
+            </p>
+          )
         )}
         {contribution.status === "rechazado" && contribution.rejectionReason && (
           <p className="mt-2 rounded border border-error-700 bg-error-50 px-3 py-2 text-[12px] text-system-900">

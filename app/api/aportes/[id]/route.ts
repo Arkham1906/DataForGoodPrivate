@@ -42,6 +42,8 @@ function mapAporte(row: Record<string, unknown>) {
     firstPassByUserId: row.first_pass_by_user_id != null ? String(row.first_pass_by_user_id) : undefined,
     inapropiado: row.inapropiado === true,
     archivoBorrado: row.archivo_borrado_en != null,
+    // EXP que dejó el aporte (RF-GAM-15, 87, 88): null = aún no se procesa; 0 = no aplica. Solo a quien aportó.
+    expOtorgada: row.exp_otorgada != null ? Number(row.exp_otorgada) : null,
   };
 }
 
@@ -106,11 +108,13 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       isCampaignCreator && row.user_id == null && row.anonimo_id ? await bloqueoEnCampanaDelAporte(Number(row.id)) : null;
 
     // El revisor (que no es el creador ni quien aportó) no recibe el correo del participante.
-    const { participantEmail, ...aporte } = mapAporte(row);
+    // La EXP del aporte, solo a quien aportó (RF-GAM-77, 88).
+    const { participantEmail, expOtorgada, ...aporte } = mapAporte(row);
     return NextResponse.json({
       data: {
         ...aporte,
         canReview,
+        ...(isOwner ? { expOtorgada } : {}),
         ...(isOwner || isCampaignCreator ? { participantEmail } : {}),
         ...(isCampaignCreator ? { dispositivoBloqueadoId: bloqueoId != null ? String(bloqueoId) : null } : {}),
         // "Reportar a supervisión": el revisor lo ve siempre; el creador, solo si lo hizo él (2026-10-30). El

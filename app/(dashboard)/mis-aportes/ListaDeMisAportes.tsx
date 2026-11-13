@@ -10,6 +10,7 @@ import ButtonLink from "@/components/ui/ButtonLink";
 import Tag from "@/components/ui/Tag";
 import { MiniaturaDeAporte } from "@/components/ui/ArchivoDelAporte";
 import EstrellasDeCalificacion from "@/components/aportes/EstrellasDeCalificacion";
+import ExpDelAporte from "@/components/gamificacion/ExpDelAporte";
 import { BASE_PATH } from "@/lib/base-path";
 import { NOMBRE_DE_TIPO } from "@/lib/campanas/sistema-opciones";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
@@ -194,12 +195,13 @@ export default function ListaDeMisAportes({ resumen }: { resumen?: ReactNode }) 
                       <Tag tone={estadoTono} className="mt-1">{estadoEtiqueta}</Tag>
                     </div>
                     <p className="mt-1 line-clamp-1 text-[12.5px] text-system-600">{item.campaignTematica || "Sin temática"}</p>
-                    <div className="mt-1 flex min-h-4 items-center whitespace-nowrap text-[11px]">
+                    <div className="mt-1 mb-2 flex min-h-4 items-center gap-2 whitespace-nowrap text-[11px]">
                       {item.calificacion != null ? (
                         <EstrellasDeCalificacion valor={item.calificacion} className="text-[13px]" />
                       ) : (
                         <span className="text-system-500">Sin calificación</span>
                       )}
+                      <ExpDelAporte estado={item.status} expOtorgada={item.expOtorgada} className="ml-auto" />
                     </div>
                     <dl className="mt-auto grid grid-cols-2 gap-2 border-t border-system-200 pt-3 text-[12px]">
                       <div><dt className="text-system-500">Tipo</dt><dd className="mt-0.5 font-semibold text-system-900">{nombreDeTipo}</dd></div>
@@ -231,14 +233,18 @@ export default function ListaDeMisAportes({ resumen }: { resumen?: ReactNode }) 
                       <span className="h-1 w-1 shrink-0 rounded-full bg-system-300" aria-hidden="true" />
                       <span className="shrink-0">{estadoEtiqueta}</span>
                     </div>
-                    <span className="md:hidden">
+                    <span className="mt-1 flex items-center gap-2 md:hidden">
                       {item.calificacion != null ? (
-                        <EstrellasDeCalificacion valor={item.calificacion} className="mt-1 text-[13px]" />
+                        <EstrellasDeCalificacion valor={item.calificacion} className="text-[13px]" />
                       ) : (
-                        <span className="mt-1 block text-[11px] text-system-500">Sin calificación</span>
+                        <span className="text-[11px] text-system-500">Sin calificación</span>
                       )}
+                      <ExpDelAporte estado={item.status} expOtorgada={item.expOtorgada} />
                     </span>
                   </Link>
+                  <span className="hidden shrink-0 md:inline-flex">
+                    <ExpDelAporte estado={item.status} expOtorgada={item.expOtorgada} />
+                  </span>
                   <Tag tone={estadoTono} className="hidden shrink-0 md:inline-flex">{estadoEtiqueta}</Tag>
                 </>
               )}

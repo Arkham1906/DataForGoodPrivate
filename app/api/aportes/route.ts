@@ -52,6 +52,8 @@ function mapAporte(row: Record<string, unknown>) {
     rejectionReason: row.rejection_reason ? String(row.rejection_reason) : undefined,
     firstPassBy: row.first_pass_by ? String(row.first_pass_by) : undefined,
     firstPassByUserId: row.first_pass_by_user_id != null ? String(row.first_pass_by_user_id) : undefined,
+    // EXP que dejó el aporte (RF-GAM-15, 87, 88): null = aún no se procesa; 0 = no aplica. Solo a quien aportó.
+    expOtorgada: row.exp_otorgada != null ? Number(row.exp_otorgada) : null,
   };
 }
 
@@ -133,10 +135,13 @@ export async function GET(request: Request) {
               [campaignId]
             );
 
-    // El revisor solo necesita el contenido: el correo del participante no le corresponde.
+    // El revisor solo necesita el contenido: el correo del participante no le corresponde. La EXP de cada aporte
+    // es solo de quien aportó (RF-GAM-77): fuera de ?mine=true no viaja.
     const aportes = result.rows.map(mapAporte);
     return NextResponse.json({
-      data: reviewer && !mine ? aportes.map((aporte) => ({ ...aporte, participantEmail: undefined })) : aportes,
+      data: mine
+        ? aportes
+        : aportes.map((aporte) => ({ ...aporte, expOtorgada: undefined, ...(reviewer ? { participantEmail: undefined } : {}) })),
     });
   } catch (error) {
     console.error("Error listando aportes", error);

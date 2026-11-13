@@ -34,6 +34,7 @@ import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 import SelectorDeCalificacion from "@/components/aportes/SelectorDeCalificacion";
 import type { CalificacionDeAporte } from "@/lib/aportes/calificacion";
 import EstrellasDeCalificacion from "@/components/aportes/EstrellasDeCalificacion";
+import ExpDelAporte from "@/components/gamificacion/ExpDelAporte";
 import VentanaDeConfirmacion from "@/components/ui/VentanaDeConfirmacion";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -269,6 +270,8 @@ export default function RevisionAportePage() {
               <div className="flex justify-between gap-4"><dt className="text-system-600">Enviado</dt><dd className="font-mono text-right text-system-900">{submittedAt.toLocaleDateString("es-MX", { day: "numeric", month: "short" })} · {submittedAt.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}</dd></div>
               <div className="flex justify-between gap-4"><dt className="text-system-600">Tipo</dt><dd className="text-system-900">{item.fileType}</dd></div>
               {(calificacionMostrada || !item.canReview) && <div className="flex justify-between gap-4"><dt className="text-system-600">Calificación</dt><dd className="text-[16px]"><EstrellasDeCalificacion valor={calificacionVisual} mostrarVacias={!item.canReview} /></dd></div>}
+              {/* Solo quien aportó recibe expOtorgada (RF-GAM-88); al revisor no le llega y la fila no sale. */}
+              {item.status === "aceptado" && item.expOtorgada !== undefined && <div className="flex items-center justify-between gap-4"><dt className="text-system-600">EXP obtenida</dt><dd><ExpDelAporte estado={item.status} expOtorgada={item.expOtorgada} /></dd></div>}
             </dl>
             {item.canReview && !yaDecidido && !rechazando && (
               <div className="border-t border-system-200 pt-4 text-center">

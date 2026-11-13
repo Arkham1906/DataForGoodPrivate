@@ -6,8 +6,13 @@
 // Reglas (decisiones del usuario, 2026-10-13; ver references/dominio.md § 7):
 // - Aportes: aportes con status = 'aceptado' por user_id. Los anónimos (user_id NULL) no cuentan.
 //   Desde siempre. Solo salen personas con al menos un aporte aprobado.
-// - Nivel: usuarios.level, con xp_total en `detalle`. Solo salen personas con XP (> 0): hoy nada
-//   otorga XP (dominio.md § 7), así que esta categoría queda vacía hasta que la gamificación lo haga.
+// - Rango (2026-11-12; antes «nivel» con usuarios.level y xp_total, datos heredados sin función; RF-GAM-89,
+//   RA-GAM-20): usuario_progreso.rango_actual. Salen quienes ya subieron del rango 1. Es acumulado: no cambia con
+//   el periodo. A igual rango ordena la EXP total, que nunca se muestra (RF-GAM-91, 94). El nombre del rango solo
+//   viaja si quien consulta ya puede verlo (RF-GAM-92, RNF-GAM-14): hasta su rango siguiente. A un visitante sin
+//   sesión (landing), solo el número (propuesta de DA-GAM-22).
+// - Desempate en todas: sin fechas (RF-GAM-94). A igual valor, la EXP total sin mostrarla (propuesta de DA-GAM-20,
+//   pendiente de confirmar) y después la cuenta más antigua (id).
 // - Temática: aportes aprobados por persona dentro de las campañas de cada temática. Las campañas
 //   viejas pueden traerla solo en campanas.tag, de ahí el COALESCE.
 // - No salen: cuentas dadas de baja (eliminada_en) ni suspendidas o baneadas (SQL_SANCION_BLOQUEANTE).
@@ -35,8 +40,6 @@ import {
   type TablasPorPeriodo,
 } from "./tipos";
 
-const nf = new Intl.NumberFormat("es-MX");
-
 /** Quién cuenta para la tabla: sin baja y sin sanción bloqueante. Usa el alias `u` de `usuarios`. */
 const SQL_PERSONA_ELEGIBLE = `u.eliminada_en IS NULL AND NOT (${SQL_SANCION_BLOQUEANTE})`;
 
@@ -44,11 +47,10 @@ const SQL_PERSONA_ELEGIBLE = `u.eliminada_en IS NULL AND NOT (${SQL_SANCION_BLOQ
 const SQL_TEMATICA = `COALESCE(NULLIF(c.tematica, ''), c.tag)`;
 
 /**
- * Desempate entre personas con el mismo valor: queda arriba quien llegó a ese valor antes (la fecha
- * de su último aporte aprobado, la más antigua) y, si aun así empatan, la cuenta más antigua.
- * TODO(dominio): provisional; el usuario no ha decidido el desempate.
+ * Desempate entre personas con el mismo valor (RF-GAM-94: nunca por fechas): la EXP total, que no se muestra, y luego
+ * la cuenta más antigua. Usa el alias `p` de un LEFT JOIN a usuario_progreso. TODO(dominio): DA-GAM-20 sigue abierta.
  */
-const SQL_ULTIMO_APORTE = `MAX(COALESCE(a.reviewed_at, a.submitted_at))`;
+const SQL_EXP_PARA_DESEMPATE = `COALESCE(MAX(p.exp_total), 0)`;
 
 /** Unidad de date_trunc de cada periodo; "siempre" no filtra. Constantes: no vienen del usuario. */
 const UNIDAD_DEL_PERIODO: Record<Exclude<PeriodoDeClasificacion, "siempre">, string> = {
@@ -75,7 +77,8 @@ type FilaDeLider = {
   avatar: string | null;
   avatar_foto: string | null;
   valor: number;
-  xp_total?: number;
+  /** Solo en «rango», y solo si quien consulta puede verlo. */
+  rango_nombre?: string | null;
 };
 
 const AVATARES: ReadonlySet<string> = new Set<TipoDeAvatar>(["masculino", "femenino", "otro", "foto"]);
@@ -90,7 +93,7 @@ function aLider(fila: FilaDeLider, categoria: CategoriaDeClasificacion): Lider {
     avatar,
     version: avatar === "foto" ? datos.version : null,
     valor: Number(fila.valor),
-    ...(categoria === "nivel" && fila.xp_total !== undefined ? { detalle: `${nf.format(fila.xp_total)} XP` } : {}),
+    ...(categoria === "rango" && fila.rango_nombre ? { detalle: fila.rango_nombre } : {}),
   };
 }
 
@@ -102,7 +105,9 @@ export type ClasificacionPaginada = {
 
 /**
  * La clasificación completa de una categoría, de mayor a menor, paginada. `tematica` solo cuenta en
- * la categoría "tematica". `pagina` empieza en 1. `periodo` (por defecto "siempre") no aplica a "nivel".
+ * la categoría "tematica". `pagina` empieza en 1. `periodo` (por defecto "siempre") no aplica a "rango".
+ * `consultaUsuarioId`: quien mira, para saber qué nombres de rango puede ver (RF-GAM-92: hasta su rango siguiente);
+ * sin él (visitante de la landing), ninguno.
  */
 export async function obtenerClasificacion(opciones: {
   categoria: CategoriaDeClasificacion;
@@ -110,6 +115,7 @@ export async function obtenerClasificacion(opciones: {
   pagina?: number;
   porPagina?: number;
   periodo?: PeriodoDeClasificacion;
+  consultaUsuarioId?: number | null;
 }): Promise<ClasificacionPaginada> {
   const { categoria, tematica } = opciones;
   const periodo = sqlDelPeriodo(opciones.periodo ?? "siempre");
@@ -121,15 +127,20 @@ export async function obtenerClasificacion(opciones: {
     if (categoria === "tematica" && !tematica) return { lideres: [], total: 0 };
 
     const filas =
-      categoria === "nivel"
+      categoria === "rango"
         ? await pool.query<FilaDeLider & { total: number }>(
-            `SELECT u.id, u.nombre, u.apellidos, u.avatar, u.avatar_foto, u.level AS valor, u.xp_total,
+            `SELECT u.id, u.nombre, u.apellidos, u.avatar, u.avatar_foto, p.rango_actual AS valor,
+                    CASE WHEN $3::int IS NOT NULL AND p.rango_actual <=
+                      COALESCE((SELECT q.rango_actual FROM usuario_progreso q WHERE q.usuario_id = $3), 1) + 1
+                    THEN r.nombre END AS rango_nombre,
                     (COUNT(*) OVER ())::int AS total
-             FROM usuarios u
-             WHERE u.xp_total > 0 AND ${SQL_PERSONA_ELEGIBLE}
-             ORDER BY u.level DESC, u.xp_total DESC, u.id ASC
+             FROM usuario_progreso p
+             JOIN usuarios u ON u.id = p.usuario_id
+             LEFT JOIN rangos r ON r.numero = p.rango_actual
+             WHERE p.rango_actual > 1 AND ${SQL_PERSONA_ELEGIBLE}
+             ORDER BY p.rango_actual DESC, p.exp_total DESC, u.id ASC
              LIMIT $1 OFFSET $2`,
-            [porPagina, desplazamiento]
+            [porPagina, desplazamiento, opciones.consultaUsuarioId ?? null]
           )
         : categoria === "aportes"
           ? await pool.query<FilaDeLider & { total: number }>(
@@ -137,9 +148,10 @@ export async function obtenerClasificacion(opciones: {
                       (COUNT(*) OVER ())::int AS total
                FROM aportes a
                JOIN usuarios u ON u.id = a.user_id
+               LEFT JOIN usuario_progreso p ON p.usuario_id = u.id
                WHERE a.status = 'aceptado' AND ${SQL_PERSONA_ELEGIBLE} ${periodo}
                GROUP BY u.id
-               ORDER BY valor DESC, ${SQL_ULTIMO_APORTE} ASC, u.id ASC
+               ORDER BY valor DESC, ${SQL_EXP_PARA_DESEMPATE} DESC, u.id ASC
                LIMIT $1 OFFSET $2`,
               [porPagina, desplazamiento]
             )
@@ -149,9 +161,10 @@ export async function obtenerClasificacion(opciones: {
                FROM aportes a
                JOIN campanas c ON c.id = a.campaign_id
                JOIN usuarios u ON u.id = a.user_id
+               LEFT JOIN usuario_progreso p ON p.usuario_id = u.id
                WHERE a.status = 'aceptado' AND ${SQL_TEMATICA} = $3 AND ${SQL_PERSONA_ELEGIBLE} ${periodo}
                GROUP BY u.id
-               ORDER BY valor DESC, ${SQL_ULTIMO_APORTE} ASC, u.id ASC
+               ORDER BY valor DESC, ${SQL_EXP_PARA_DESEMPATE} DESC, u.id ASC
                LIMIT $1 OFFSET $2`,
               [porPagina, desplazamiento, tematica ?? ""]
             );
@@ -169,9 +182,11 @@ export async function obtenerClasificacion(opciones: {
 
 /** Personas en la clasificación completa, para cuando se pide una página que no existe. */
 async function contarClasificacion(categoria: CategoriaDeClasificacion, tematica: string | undefined, periodo: string): Promise<number> {
-  if (categoria === "nivel") {
+  if (categoria === "rango") {
     const r = await pool.query<{ n: number }>(
-      `SELECT COUNT(*)::int AS n FROM usuarios u WHERE u.xp_total > 0 AND ${SQL_PERSONA_ELEGIBLE}`
+      `SELECT COUNT(*)::int AS n
+       FROM usuario_progreso p JOIN usuarios u ON u.id = p.usuario_id
+       WHERE p.rango_actual > 1 AND ${SQL_PERSONA_ELEGIBLE}`
     );
     return r.rows[0]?.n ?? 0;
   }
@@ -213,27 +228,28 @@ export async function obtenerTematicasConLideres(): Promise<string[]> {
 /**
  * Las primeras personas de cada categoría (LIDERES_POR_CATEGORIA), ya ordenadas de mayor a menor,
  * para la landing, con los aportes del periodo. Las temáticas salen con una sola consulta (ROW_NUMBER por
- * temática).
+ * temática). La landing es pública: en «rango» va solo el número (sin consultaUsuarioId).
  */
 export async function obtenerTablaDeLideres(periodo: PeriodoDeClasificacion = "siempre"): Promise<TablaDeLideres> {
-  const vacia: TablaDeLideres = { aportes: [], nivel: [], tematicas: [] };
+  const vacia: TablaDeLideres = { aportes: [], rango: [], tematicas: [] };
   try {
-    const [aportes, nivel, porTematica] = await Promise.all([
+    const [aportes, rango, porTematica] = await Promise.all([
       obtenerClasificacion({ categoria: "aportes", porPagina: LIDERES_POR_CATEGORIA, periodo }),
-      obtenerClasificacion({ categoria: "nivel", porPagina: LIDERES_POR_CATEGORIA }),
+      obtenerClasificacion({ categoria: "rango", porPagina: LIDERES_POR_CATEGORIA }),
       pool.query<FilaDeLider & { tematica: string }>(
         `WITH conteo AS (
            SELECT ${SQL_TEMATICA} AS tematica, u.id, u.nombre, u.apellidos, u.avatar, u.avatar_foto,
-                  COUNT(a.id)::int AS valor, ${SQL_ULTIMO_APORTE} AS ultimo
+                  COUNT(a.id)::int AS valor, ${SQL_EXP_PARA_DESEMPATE} AS exp_desempate
            FROM aportes a
            JOIN campanas c ON c.id = a.campaign_id
            JOIN usuarios u ON u.id = a.user_id
+           LEFT JOIN usuario_progreso p ON p.usuario_id = u.id
            WHERE a.status = 'aceptado' AND ${SQL_PERSONA_ELEGIBLE} ${sqlDelPeriodo(periodo)}
              AND COALESCE(NULLIF(c.tematica, ''), c.tag) <> ''
            GROUP BY 1, u.id
          ), ordenado AS (
            SELECT *,
-                  ROW_NUMBER() OVER (PARTITION BY tematica ORDER BY valor DESC, ultimo ASC, id ASC) AS puesto,
+                  ROW_NUMBER() OVER (PARTITION BY tematica ORDER BY valor DESC, exp_desempate DESC, id ASC) AS puesto,
                   SUM(valor) OVER (PARTITION BY tematica) AS aportes_de_la_tematica
            FROM conteo
          )
@@ -256,7 +272,7 @@ export async function obtenerTablaDeLideres(periodo: PeriodoDeClasificacion = "s
       grupo.lideres.push(aLider(fila, "tematica"));
     }
 
-    return { aportes: aportes.lideres, nivel: nivel.lideres, tematicas };
+    return { aportes: aportes.lideres, rango: rango.lideres, tematicas };
   } catch (error) {
     console.error("No se pudo armar la tabla de líderes:", error);
     return vacia;
@@ -265,7 +281,7 @@ export async function obtenerTablaDeLideres(periodo: PeriodoDeClasificacion = "s
 
 /**
  * ¿Sale esta persona en la clasificación? Elegible (sin baja ni sanción bloqueante) y con al menos un
- * aporte aprobado o XP. Si sale, su foto de perfil es pública (2026-11-12, a pedido del usuario): la pide
+ * aporte aprobado o con rango mayor a 1 (categoría «rango», 2026-11-12). Si sale, su foto de perfil es pública (2026-11-12, a pedido del usuario): la pide
  * GET /api/usuarios/[id]/avatar para el podio y la lista de líderes. Fuera de eso sigue privada.
  */
 export async function apareceEnLaClasificacion(usuarioId: number): Promise<boolean> {
@@ -273,7 +289,8 @@ export async function apareceEnLaClasificacion(usuarioId: number): Promise<boole
   const r = await pool.query(
     `SELECT 1 FROM usuarios u
      WHERE u.id = $1 AND ${SQL_PERSONA_ELEGIBLE}
-       AND (u.xp_total > 0 OR EXISTS (SELECT 1 FROM aportes a WHERE a.user_id = u.id AND a.status = 'aceptado'))`,
+       AND (EXISTS (SELECT 1 FROM usuario_progreso p WHERE p.usuario_id = u.id AND p.rango_actual > 1)
+            OR EXISTS (SELECT 1 FROM aportes a WHERE a.user_id = u.id AND a.status = 'aceptado'))`,
     [usuarioId]
   );
   return (r.rowCount ?? 0) > 0;
@@ -287,5 +304,5 @@ export async function obtenerTablasPorPeriodo(): Promise<TablasPorPeriodo> {
 
 /** ¿Hay algo que mostrar en la landing? Sin datos, la sección no se pinta. */
 export function tablaTieneDatos(tabla: TablaDeLideres): boolean {
-  return tabla.aportes.length > 2 || tabla.nivel.length > 2 || tabla.tematicas.length > 2;
+  return tabla.aportes.length > 2 || tabla.rango.length > 2 || tabla.tematicas.length > 2;
 }

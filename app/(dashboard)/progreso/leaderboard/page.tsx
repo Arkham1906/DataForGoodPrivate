@@ -1,7 +1,7 @@
 // Pestaña «Líderes» de Mi progreso: /progreso/leaderboard (2026-11-09; antes /leaderboard, pública). La tabla de
-// líderes completa, con todas las personas que tienen aportes aprobados (o XP), paginada de 25 en 25. Server
+// líderes completa, con todas las personas que tienen aportes aprobados (o que ya subieron de rango), paginada de 25 en 25. Server
 // Component, sin JavaScript de cliente: la categoría, la temática y la página viajan en searchParams
-// (?categoria=aportes|nivel|tematica, ?tematica=, ?pagina=). La vieja /leaderboard redirige aquí (next.config.ts).
+// (?categoria=aportes|rango|tematica, ?tematica=, ?pagina=; el viejo ?categoria=nivel lleva a rango). La vieja /leaderboard redirige aquí (next.config.ts).
 // Acceso: sesión de usuario (exigirUsuario); el marco, el título y las pestañas los ponen (dashboard)/layout.tsx y
 // ../layout.tsx. La persona se ve marcada con "Tú" en la tabla.
 // Datos: lib/gamificacion/clasificacion.ts (obtenerClasificacion, obtenerTematicasConLideres). Reglas
@@ -31,7 +31,7 @@ import { exigirUsuario } from "@/lib/session";
 
 export const metadata: Metadata = {
     title: "Tabla de líderes",
-    description: "Las personas que más aportan a la comunidad de DataForGood: por aportes, por nivel o por temática.",
+    description: "Las personas que más aportan a la comunidad de DataForGood: por aportes, por rango o por temática.",
 };
 
 const nf = new Intl.NumberFormat("es-MX");
@@ -63,12 +63,12 @@ export default async function LideresPage({ searchParams }: { searchParams: Prom
     // Una temática que no está en la lista (o ninguna) cae en la primera.
     const tematica = categoria === "tematica" ? (tematicas.find((t) => t === sp.tematica) ?? tematicas[0]) : undefined;
 
-    let { lideres, total } = await obtenerClasificacion({ categoria, tematica, pagina: paginaPedida });
+    let { lideres, total } = await obtenerClasificacion({ categoria, tematica, pagina: paginaPedida, consultaUsuarioId: sesion.id });
     const paginas = Math.max(1, Math.ceil(total / LIDERES_POR_PAGINA));
     const pagina = Math.min(paginaPedida, paginas);
     // Si pidió una página que no existe (p. ej. ?pagina=99), se muestra la última.
     if (pagina !== paginaPedida && total > 0) {
-        ({ lideres, total } = await obtenerClasificacion({ categoria, tematica, pagina }));
+        ({ lideres, total } = await obtenerClasificacion({ categoria, tematica, pagina, consultaUsuarioId: sesion.id }));
     }
 
     const primerLugar = (pagina - 1) * LIDERES_POR_PAGINA + 1;
@@ -83,7 +83,10 @@ export default async function LideresPage({ searchParams }: { searchParams: Prom
             <div className="text-center">
             <h2 className="text-xl font-semibold text-system-900">Tabla de líderes</h2>
             <p className="mt-1 text-[13px] text-system-600">
-                Quienes más aportan a la comunidad. Solo cuentan los aportes aprobados, desde siempre.
+                Quienes más aportan a la comunidad.{" "}
+                {categoria === "rango"
+                    ? "Cada rango se gana con aportes aceptados."
+                    : "Solo cuentan los aportes aprobados, desde siempre."}
                 {total > 0 && ` ${nf.format(total)} ${total === 1 ? "persona" : "personas"} en esta tabla.`}
             </p>
             </div>
@@ -135,8 +138,8 @@ export default async function LideresPage({ searchParams }: { searchParams: Prom
             <section className="mt-6 rounded-[18px] bg-system-100 p-4 md:p-8" aria-label="Clasificación">
             {total === 0 ? (
                 <p className="rounded-lg bg-white p-4 text-center text-[13px] text-system-600">
-                {categoria === "nivel"
-                    ? "Todavía nadie ha ganado XP para aparecer en esta tabla."
+                {categoria === "rango"
+                    ? "Todavía nadie ha subido de rango. ¡El primer lugar está libre!"
                     : "Todavía no hay aportes aprobados para armar esta tabla."}
                 </p>
             ) : (
