@@ -19,11 +19,17 @@ export default function PotenciadorActivo({ potenciadores }: { potenciadores: Re
   const router = useRouter();
   const { activo, enEspera } = potenciadores;
   const [segundos, setSegundos] = useState(activo?.segundosRestantes ?? 0);
+  const [activoAnterior, setActivoAnterior] = useState(activo);
   const pidioDatos = useRef(false);
 
-  // Si el servidor manda otro valor (la página se actualizó), se vuelve a partir de él.
-  useEffect(() => {
+  // Si el servidor manda otro valor (la página se actualizó), se vuelve a partir de él. Se ajusta durante el
+  // render, no en un efecto, para no pintar un fotograma con la cuenta vieja (react-hooks/set-state-in-effect).
+  if (activo !== activoAnterior) {
+    setActivoAnterior(activo);
     setSegundos(activo?.segundosRestantes ?? 0);
+  }
+
+  useEffect(() => {
     pidioDatos.current = false;
   }, [activo]);
 

@@ -1,8 +1,8 @@
-// «Cómo calificaron tus aportes» del Resumen de /progreso (2026-11-04; diseño v10, RF-GAM-99): cuántos aportes
+// «Cómo calificaron tus aportes» (2026-11-04; diseño v10, RF-GAM-99). Vive en Mis aportes desde el 2026-11-12 (decisión
+// del responsable; antes en el Resumen de /progreso): cuántos aportes
 // aceptados hay en cada nivel, de 5★ a 1★. Muestra número y nombre del nivel; el nombre es solo de interfaz.
 // Sin estado: Server Component.
 
-import Link from "next/link";
 import EstrellasDeCalificacion from "@/components/aportes/EstrellasDeCalificacion";
 import type { ResumenDeCalificaciones } from "@/lib/gamificacion/mi-progreso-tipos";
 
@@ -27,9 +27,6 @@ export default function CalificacionesDeAportes({ calificaciones }: { calificaci
         <h2 id="progreso-calificaciones" className="text-lg font-extrabold text-system-900">
           Cómo calificaron tus aportes
         </h2>
-        <Link href="/mis-aportes" className="text-[13px] font-semibold text-brand-600 hover:underline">
-          Ver en Mis aportes →
-        </Link>
       </div>
       <p className="text-[13px] text-system-600">{textoDeResumen(calificaciones)}</p>
       <ul aria-label="Aportes aceptados por calificación" className="flex flex-col gap-2">

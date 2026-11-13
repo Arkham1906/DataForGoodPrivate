@@ -1,4 +1,4 @@
-// «Hoy» de /inicio y /progreso (2026-11-02; SRS v1.1): tres zonas sobre un fondo azul claro, con el potenciador,
+// «Hoy» de /inicio (2026-11-02; SRS v1.1): tres zonas sobre un fondo azul claro, con el potenciador,
 // las misiones diarias y la racha. Solo compone: cada zona vive en su componente (PotenciadorActivo, MisionesDeHoy,
 // RachaSemanal) para que un cambio en una no toque a las otras. Server Component; la única parte con estado es
 // PotenciadorActivo (su cuenta regresiva).
@@ -16,7 +16,7 @@ export default function ResumenDeHoy({
   accionDeRacha,
 }: {
   progreso: ResumenDeProgreso;
-  /** Debajo de la racha; /progreso pone ahí el calendario (CalendarioDeRacha). */
+  /** Debajo de la racha; /inicio pone ahí el calendario (CalendarioDeRacha). */
   accionDeRacha?: ReactNode;
 }) {
   return (

@@ -81,6 +81,11 @@
   --radius-lg: var(--r-lg);
   --font-sans: var(--font-jakarta), ui-sans-serif, sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+  /* Curvas de movimiento (2026-11-12, Sendero de rangos). Las de CSS (ease-out…) son demasiado blandas.
+   * salida: entradas, salidas y respuestas de la interfaz. movimiento: algo que se desplaza o late en pantalla.
+   * Generan las utilidades ease-salida y ease-movimiento. */
+  --ease-salida: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-movimiento: cubic-bezier(0.77, 0, 0.175, 1);
 }
 
 * {
@@ -544,5 +549,64 @@ input::-ms-clear {
     display: block;
     padding: 2rem;
     font: 16px/1.5 sans-serif;
+  }
+}
+
+/* ── Sendero de rangos (2026-11-12) ───────────────────────────────────────
+ * Pestaña Trayectoria (components/gamificacion/SenderoDeRangos.tsx). Es una pantalla que se visita de vez en
+ * cuando: las animaciones son de entrada y se ven una vez por visita.
+ * - sendero-trazo: el tramo recorrido se dibuja desde el rango más bajo de la ventana hasta el actual
+ *   (stroke-dashoffset sobre pathLength="1"). Solo opacidad y trazo: nada que recalcule el diseño.
+ * - sendero-entra: cada fila aparece con --i × 50 ms de retraso; --i es la distancia al rango actual, así
+ *   lo primero que aparece es «Estás aquí».
+ * - sendero-latido: el halo del rango actual late dos veces y se queda quieto.
+ * Con movimiento reducido no se dibuja ni se desplaza nada: solo un fundido corto. */
+.sendero-trazo {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .sendero-trazo {
+    animation: sendero-trazar 650ms var(--ease-salida) 120ms both;
+  }
+  .sendero-entra {
+    animation: sendero-entrar 280ms var(--ease-salida) both;
+    animation-delay: calc(var(--i, 0) * 50ms);
+  }
+  .sendero-halo {
+    animation: sendero-latido 1600ms var(--ease-movimiento) 400ms 2;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sendero-entra {
+    animation: sendero-aparecer 160ms ease both;
+  }
+}
+
+@keyframes sendero-trazar {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+
+@keyframes sendero-entrar {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.97);
+  }
+}
+
+@keyframes sendero-aparecer {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes sendero-latido {
+  50% {
+    opacity: 0.7;
+    transform: scale(1.12);
   }
 }

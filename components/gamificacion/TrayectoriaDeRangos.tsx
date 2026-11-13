@@ -1,22 +1,11 @@
 "use client";
-
-// Contenido de la pestaña Trayectoria (2026-11-10; diseño v11, SRS v1.3: RF-GAM-22, 78 a 83): cabecera con el camino
-// de los 20 rangos, el rango siguiente (o «Trayectoria completa» en el último), el avistado, «Tu recorrido» y la tabla
-// de requisitos. Aquí vive el estado de «qué ficha está abierta»: la abren las tarjetas del camino, el siguiente, el
-// avistado y el recorrido, y se navega con ‹ › dentro de la ficha (FichaDeRango, la misma del Resumen).
-
 import { useState } from "react";
 import type { DatosDeTrayectoria } from "@/lib/gamificacion/mi-progreso-tipos";
 import type { FichaDeRangoAvistado, FichaDeRangoSiguiente } from "@/lib/gamificacion/rangos";
-import CaminoDeLaTrayectoria from "./CaminoDeLaTrayectoria";
 import FichaDeRango from "./FichaDeRango";
+import SenderoDeRangos, { EncabezadoDeTrayectoria } from "./SenderoDeRangos";
 import TablaDeRequisitosDeRangos from "./TablaDeRequisitosRango";
-import {
-  RecorridoDeRangos,
-  TarjetaDelAvistado,
-  TarjetaDelSiguienteRango,
-  TrayectoriaCompleta,
-} from "./TarjetasDeLaTrayectoria";
+import { TarjetaDelSiguienteRango, TrayectoriaCompleta } from "./TarjetasDeLaTrayectoria";
 
 export default function TrayectoriaDeRangos({
   actual,
@@ -36,16 +25,25 @@ export default function TrayectoriaDeRangos({
 
   return (
     <div className="space-y-5">
-      {/* key: si el rango cambia (router.refresh tras un ascenso), el tramo del teléfono vuelve al del rango nuevo. */}
-      <CaminoDeLaTrayectoria key={actual} actual={actual} total={total} nombre={nombre} eslabones={datos.eslabones} onAbrir={setAbierta} />
+      <EncabezadoDeTrayectoria actual={actual} total={total} nombre={nombre} />
 
-      <div className="flex flex-wrap items-stretch gap-5">
+      {/* En la tarjeta del siguiente, las clases flex no aplican dentro de la rejilla: ocupa su columna. */}
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(360px,2fr)]">
+        {/* key: tras un ascenso (router.refresh) el sendero se vuelve a montar y su trazo se dibuja de nuevo. */}
+        <SenderoDeRangos
+          key={actual}
+          actual={actual}
+          total={total}
+          nombre={nombre}
+          eslabones={datos.eslabones}
+          recorrido={datos.recorrido}
+          pista={avistado?.pista ?? null}
+          onAbrir={setAbierta}
+        />
         {siguiente ? <TarjetaDelSiguienteRango ficha={siguiente} total={total} onAbrir={setAbierta} /> : <TrayectoriaCompleta total={total} />}
-        <div className="flex min-w-0 flex-[1_1_300px] flex-col gap-5">
-          {avistado && <TarjetaDelAvistado ficha={avistado} onAbrir={setAbierta} />}
-          <RecorridoDeRangos recorrido={datos.recorrido} actual={actual} onAbrir={setAbierta} />
-        </div>
       </div>
+
+      <TablaDeRequisitosDeRangos tabla={datos.tabla} actual={actual} total={total} />
 
       <FichaDeRango fichas={datos.fichas} abierta={abierta} total={total} onIr={setAbierta} onCerrar={() => setAbierta(null)} />
     </div>

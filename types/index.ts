@@ -136,6 +136,8 @@ export interface Contribution {
   sinArchivo?: boolean; // aporte de solo texto: la descripción es el dato (2026-10-14)
   caracteristicas?: string[];
   calificacion?: number; // estrellas, de 1 a 5 (2026-10-31; lib/aportes/calificacion.ts)
+  // EXP que dejó el aporte, solo para quien aportó (RF-GAM-88). null: aún no se procesa; 0: no le tocó EXP.
+  expOtorgada?: number | null;
   status: ContributionStatus;
   /** Indica si la sesión actual puede revisar este aporte (no es quien lo envió). */
   canReview?: boolean;

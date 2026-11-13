@@ -28,7 +28,6 @@ const ICONOS: Record<MedidaDeMision, string> = {
   cuotas_completadas: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM12 6a6 6 0 1 0 0 12 6 6 0 0 0 0-12zM12 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4z",
   campanas_guardadas: "M12 3l2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3l-5.6 2.9 1.1-6.2L3 9.6l6.2-.9z",
 };
-const PALOMITA = "M20 6L9 17l-5-5";
 
 function Mision({ mision }: { mision: MisionVigente }) {
   const { completada, objetivo, progreso } = mision;

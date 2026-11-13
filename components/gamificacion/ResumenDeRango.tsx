@@ -1,4 +1,4 @@
-// Resumen de rango de /inicio y /progreso (2026-11-02; SRS v1.1: RF-GAM-22, 23, 78): el avatar con su etapa, el
+// Resumen de rango de /inicio (la entrada a Mi progreso desde el 2026-11-12) (2026-11-02; SRS v1.1: RF-GAM-22, 23, 78): el avatar con su etapa, el
 // rango actual, cuánto falta para el siguiente (barra de tramos y una frase) y el camino compacto de tres rangos.
 // Server Component: todo lo que muestra viene de obtenerResumenDeProgreso() (lib/gamificacion/progreso.ts);
 // la única parte con estado es CaminoCompacto (la ficha de rango). Hecho de piezas pequeñas para que un cambio

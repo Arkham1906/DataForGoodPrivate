@@ -1,6 +1,6 @@
 "use client";
 
-// Tabla de líderes de la landing (2026-10-13): las 6 primeras personas por aportes, por nivel o por
+// Tabla de líderes de la landing (2026-10-13): las 6 primeras personas por aportes, por rango o por
 // temática; las 3 primeras en el Podio y el resto en ListaDeLideres. Cliente solo para cambiar de
 // categoría y de temática sin recargar: la landing (Server Component) le pasa toda la tabla ya armada
 // con obtenerTablaDeLideres() (lib/gamificacion/clasificacion.ts).
@@ -9,7 +9,7 @@
 // cambiar y su alto se anima. Con movimiento reducido, todo cambia de golpe.
 // Periodo (2026-11-12, a pedido del usuario): hoy, este mes, este año o el histórico, con otra pastilla
 // deslizante debajo de la categoría. La landing manda la tabla de cada periodo (obtenerTablasPorPeriodo).
-// "Por nivel" es acumulado: el periodo queda desactivado con una nota.
+// "Por rango" (antes "Por nivel", 2026-11-12) es acumulado: el periodo queda desactivado con una nota.
 
 import { useEffect, useRef, useState } from "react";
 import FranjaDeCampo from "@/components/landing/FranjaDeCampo";
@@ -50,7 +50,7 @@ export default function TablaDeLideres({ tablas }: { tablas: TablasPorPeriodo })
   const [mostrada, setMostrada] = useState({ categoria, tematica, periodo });
   const cambiando =
     mostrada.categoria !== categoria ||
-    (categoria !== "nivel" && mostrada.periodo !== periodo) ||
+    (categoria !== "rango" && mostrada.periodo !== periodo) ||
     (categoria === "tematica" && mostrada.tematica !== tematica);
 
   useEffect(() => {
@@ -83,7 +83,7 @@ export default function TablaDeLideres({ tablas }: { tablas: TablasPorPeriodo })
   const indice = CATEGORIAS_DE_CLASIFICACION.findIndex((c) => c.valor === categoria);
   const indiceDelPeriodo = PERIODOS_DE_CLASIFICACION.findIndex((p) => p.valor === periodo);
   const conTematicas = categoria === "tematica" && tematicasDelPeriodo.length > 0;
-  const porNivel = categoria === "nivel";
+  const porRango = categoria === "rango";
 
   return (
     <div>
@@ -137,14 +137,14 @@ export default function TablaDeLideres({ tablas }: { tablas: TablasPorPeriodo })
             )}
           </div>
 
-          {/* Periodo: cuartos iguales, como la categoría. Con "Por nivel" no aplica: queda apagado. */}
+          {/* Periodo: cuartos iguales, como la categoría. Con "Por rango" no aplica: queda apagado. */}
           <div className="flex max-w-full flex-col items-center gap-1.5">
             <div
               role="group"
               aria-label="Periodo"
-              inert={porNivel}
+              inert={porRango}
               className={`rounded-[14px] bg-white p-1.5 shadow-sm transition-opacity duration-300 motion-reduce:transition-none ${
-                porNivel ? "opacity-50" : "opacity-100"
+                porRango ? "opacity-50" : "opacity-100"
               }`}
             >
               <div className="relative grid grid-cols-[repeat(4,1fr)]">
@@ -166,9 +166,9 @@ export default function TablaDeLideres({ tablas }: { tablas: TablasPorPeriodo })
                 ))}
               </div>
             </div>
-            {porNivel && (
+            {porRango && (
               <p className="rounded-full bg-white/90 px-3 py-1 text-[12px] text-system-600">
-                El nivel es acumulado: no cambia con el periodo.
+                El rango es acumulado: no cambia con el periodo.
               </p>
             )}
           </div>
@@ -184,8 +184,8 @@ export default function TablaDeLideres({ tablas }: { tablas: TablasPorPeriodo })
         <div ref={contenido} className="pb-1">
           {lideres.length === 0 ? (
             <p className="rounded-lg bg-white p-4 text-center text-[13px] text-system-600">
-              {mostrada.categoria === "nivel"
-                ? "Todavía nadie ha ganado XP para aparecer en esta tabla."
+              {mostrada.categoria === "rango"
+                ? "Todavía nadie ha subido de rango. ¡El primer lugar está libre!"
                 : mostrada.periodo === "siempre"
                   ? "Todavía no hay aportes aprobados para armar esta tabla."
                   : `Todavía no hay aportes aprobados ${periodoMostrado?.enTexto ?? ""}.`}
