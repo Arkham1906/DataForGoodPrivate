@@ -15,7 +15,6 @@ import {
   IconoCampanas,
   IconoEscudo,
   IconoInicio,
-  IconoProgreso,
   IconoRevisar,
 } from "@/components/sistema/icons";
 import { claseDeOpcionMarcada, useIndicadorDeMenu } from "@/components/ui/useIndicadorDeMenu";
@@ -37,8 +36,8 @@ const CLASE_DE_TITULO = "px-2 text-[10px] font-semibold uppercase tracking-wider
 const NAV_ITEMS: Opcion[] = [
   // Inicio (2026-10-24): la primera pantalla al iniciar sesión.
   { href: "/inicio", label: "Inicio", Icono: IconoInicio },
-  // Mi progreso (2026-11-02, decisión del responsable): solo lo de la gamificación (rango, misiones, racha).
-  { href: "/progreso", label: "Mi progreso", Icono: IconoProgreso },
+  // «Mi progreso» salió del menú el 2026-11-12 (decisión del responsable): se entra desde el resumen de rango de
+  // Inicio («Ver tu trayectoria»), y en /progreso/* el menú marca Inicio.
   // "Explorar campañas" desde el 2026-10-27 (antes "Explorar"), a pedido del usuario.
   { href: "/campanas", label: "Explorar campañas", Icono: IconoBuscar },
   { href: "/mis-aportes", label: "Mis aportes", Icono: IconoAportes },
@@ -66,7 +65,9 @@ export default function SidebarNav({ usuario, aviso }: { usuario: SessionUser; a
       : []),
   ];
 
-  const activo = opciones.find((o) => pathname.startsWith(o.href))?.href ?? null;
+  const activo = pathname.startsWith("/progreso")
+    ? "/inicio"
+    : (opciones.find((o) => pathname.startsWith(o.href))?.href ?? null);
   const { navRef, visual, indicador, alElegir } = useIndicadorDeMenu(activo);
 
   return (

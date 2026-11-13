@@ -154,7 +154,8 @@ export async function actualizarRacha(usuarioId: number | string): Promise<void>
       tipo: "racha_interrumpida",
       titulo: "Tu racha se interrumpió",
       mensaje: `Tu racha de ${diasPerdidos} ${diasPerdidos === 1 ? "día" : "días"} terminó. Tu rango y tus medallas no cambian.`,
-      enlace: "/progreso",
+      // El calendario de la racha está en Inicio (2026-11-12: el Resumen de /progreso se eliminó).
+      enlace: "/inicio",
     });
   }
 }

@@ -1,14 +1,10 @@
-// Contrato de la pantalla Resumen de /progreso (2026-11-04; diseño v10, SRS v1.2) y del calendario de racha: lo que
-// arma lib/gamificacion/mi-progreso.ts en el servidor. Todo es serializable y sin imports de servidor (nada de `pg`).
-// Complementa a ResumenDeProgreso (./progreso-tipos.ts), que también usa /inicio: aquí va solo lo que Inicio no pide.
+// Contrato de lo que arma lib/gamificacion/mi-progreso.ts en el servidor: la Trayectoria, el calendario de racha y las
+// calificaciones de Mis aportes. Todo es serializable y sin imports de servidor (nada de `pg`). Complementa a
+// ResumenDeProgreso (./progreso-tipos.ts), que usa /inicio. (El Resumen de /progreso se eliminó el 2026-11-12.)
 
 import type { CalificacionDeAporte } from "@/lib/aportes/calificacion";
-import type { MedallaCercaDeSubir } from "./medallas";
 import type { EstadoDeDiaDeRacha } from "./progreso-tipos";
 import type { EstadoDeRango, FichaDeRango, ValoresPorRequisito } from "./rangos";
-
-/** Rangos que se ven a la vez en el camino del bloque de rango. */
-export const RANGOS_EN_EL_CAMINO = 6;
 
 /** Una ficha del camino. `nombreCorto` es null en avistado y por descubrir: el nombre no sale del servidor. */
 export type EslabonDelCamino = {
@@ -17,13 +13,6 @@ export type EslabonDelCamino = {
   nombreCorto: string | null;
   /** «21 oct», «Tu rango», «2 de 6», «Avistado» o «Por descubrir». */
   detalle: string;
-};
-
-export type CaminoDeRangos = {
-  eslabones: EslabonDelCamino[];
-  /** Rangos antes del primer eslabón (ya alcanzados) y después del último (por descubrir). */
-  antes: number;
-  despues: number;
 };
 
 export type FilaDeCalificacion = {
@@ -45,15 +34,6 @@ export type ResumenDeCalificaciones = {
   maximos: number;
   /** Aceptados antes de que existieran las estrellas: no entran en las barras. */
   sinCalificacion: number;
-};
-
-export type DatosDeResumen = {
-  expTotal: number;
-  camino: CaminoDeRangos;
-  /** Una ficha por rango; lo que lleva cada una lo decide su estado (RF-GAM-78, RNF-GAM-14). */
-  fichas: FichaDeRango[];
-  calificaciones: ResumenDeCalificaciones;
-  medallasCerca: MedallaCercaDeSubir[];
 };
 
 // ------------------------------------

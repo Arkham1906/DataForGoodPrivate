@@ -2,7 +2,7 @@
 // cada uno (con actividad, cubierto con protector, sin actividad, suspendido).
 // Cada estado se distingue también por su forma y su texto para lectores de pantalla, no solo por el color.
 // Sin estado: sirve en servidor y cliente. El calendario completo y los eventos de la racha (RF-GAM-85, 86) van en
-// CalendarioDeRacha, que /progreso pasa como `accion`.
+// CalendarioDeRacha, que /inicio pasa como `accion`.
 
 import type { ReactNode } from "react";
 import {

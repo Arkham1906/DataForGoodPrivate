@@ -8,14 +8,11 @@
 import { pool } from "@/lib/db";
 import { NOMBRES_DE_ESTRELLAS, calificacionDesde, type CalificacionDeAporte } from "@/lib/aportes/calificacion";
 import { ZONA_DE_CAMPANAS, hoyEnTepic } from "@/lib/fecha-de-tepic";
-import { medallasMasCercanas, type MedallaConAvance, type NivelDeMedalla } from "./medallas";
+import { medallasMasCercanas, type MedallaCercaDeSubir, type MedallaConAvance, type NivelDeMedalla } from "./medallas";
 import { valoresDeMedallas } from "./evaluacion";
-import { RANGOS_EN_EL_CAMINO } from "./mi-progreso-tipos";
 import type {
   AporteDelDia,
   CalendarioDeRachaDelMes,
-  CaminoDeRangos,
-  DatosDeResumen,
   DatosDeTrayectoria,
   EslabonDeLaTrayectoria,
   HitoDelRecorrido,
@@ -118,35 +115,6 @@ function fichasDeLaTrayectoria(
   return fichas;
 }
 
-function caminoDeRangos(
-  rangos: FilaDeRango[],
-  progreso: ResumenDeProgreso,
-  ascenso: (rango: number) => Date | null,
-): CaminoDeRangos {
-  const actual = progreso.rangoActual;
-  const total = progreso.totalDeRangos;
-  const primero = Math.max(1, Math.min(actual - 2, total - RANGOS_EN_EL_CAMINO + 1));
-  const ultimo = Math.min(total, primero + RANGOS_EN_EL_CAMINO - 1);
-  const eslabones = rangos
-    .filter((r) => r.numero >= primero && r.numero <= ultimo)
-    .map((r) => {
-      const estado = estadoDeRango(r.numero, actual);
-      const visible = estado === "alcanzado" || estado === "actual" || estado === "siguiente";
-      const detalle =
-        estado === "alcanzado"
-          ? fechaCortaDeAscenso(ascenso(r.numero)) || "Alcanzado"
-          : estado === "actual"
-            ? "Tu rango"
-            : estado === "siguiente"
-              ? `${progreso.siguiente?.cumplidos ?? 0} de ${progreso.siguiente?.activos ?? 0}`
-              : estado === "avistado"
-                ? "Avistado"
-                : "Por descubrir";
-      return { numero: r.numero, estado, nombreCorto: visible ? nombreCortoDeRango(r.nombre) : null, detalle };
-    });
-  return { eslabones, antes: primero - 1, despues: total - ultimo };
-}
-
 function resumenDeCalificaciones(filas: { calificacion: number | null; cuenta: number }[]): ResumenDeCalificaciones {
   const cuentas: Record<CalificacionDeAporte, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
   let sinCalificacion = 0;
@@ -170,37 +138,32 @@ function resumenDeCalificaciones(filas: { calificacion: number | null; cuenta: n
   };
 }
 
-/** Lo que el Resumen muestra además de ResumenDeProgreso; null si falla (se loguea el error). */
-export async function obtenerDatosDeResumen(
-  usuarioId: number | string,
-  progreso: ResumenDeProgreso,
-): Promise<DatosDeResumen | null> {
+/**
+ * «Cómo calificaron tus aportes» de Mis aportes (RF-GAM-99): aportes aceptados por calificación, de 5★ a 1★. Los
+ * anónimos no llevan user_id: quedan fuera (RN-GAM-26). null si falla (se loguea el error).
+ */
+export async function obtenerCalificacionesDeAportes(usuarioId: number | string): Promise<ResumenDeCalificaciones | null> {
   try {
-    const [cifrasR, rangosR, ascensosR, calificacionesR, medallasR, nivelesR, valores] = await Promise.all([
-      pool.query<{
-        exp_total: number;
-        aportes_aceptados: number;
-        aportes_excepcionales: number;
-        racha_maxima: number;
-        campanas_completadas: number;
-      }>(
-        `SELECT exp_total, aportes_aceptados, aportes_excepcionales, racha_maxima, campanas_completadas
-          FROM usuario_progreso WHERE usuario_id = $1`,
-        [usuarioId],
-      ),
-      pool.query<FilaDeRango>(
-        `SELECT numero, nombre, descripcion, etapa_avatar, req_exp, req_aportes, req_excelentes,
-                req_excepcionales, req_racha, req_misiones
-          FROM rangos ORDER BY numero`,
-      ),
-      leerAscensos(usuarioId),
-      // Los aportes anónimos no llevan user_id: quedan fuera (RN-GAM-26).
-      pool.query<{ calificacion: number | null; cuenta: number }>(
-        `SELECT calificacion, COUNT(*)::int AS cuenta
-          FROM aportes WHERE user_id = $1 AND status = 'aceptado'
-          GROUP BY calificacion`,
-        [usuarioId],
-      ),
+    const { rows } = await pool.query<{ calificacion: number | null; cuenta: number }>(
+      `SELECT calificacion, COUNT(*)::int AS cuenta
+        FROM aportes WHERE user_id = $1 AND status = 'aceptado'
+        GROUP BY calificacion`,
+      [usuarioId],
+    );
+    return resumenDeCalificaciones(rows);
+  } catch (error) {
+    console.error("Error armando las calificaciones de los aportes", error);
+    return null;
+  }
+}
+
+/**
+ * Las medallas con menos camino hacia su siguiente nivel (RF-GAM-46 a 49), para Inicio mientras no exista la
+ * pestaña Medallas. Usa los mismos valores con los que se conceden (lib/gamificacion/evaluacion.ts). null si falla.
+ */
+export async function obtenerMedallasCercaDeSubir(usuarioId: number | string): Promise<MedallaCercaDeSubir[] | null> {
+  try {
+    const [medallasR, nivelesR, valores] = await Promise.all([
       pool.query<{
         id: number;
         clave: string;
@@ -220,14 +183,8 @@ export async function obtenerDatosDeResumen(
       pool.query<NivelDeMedalla & { medalla_id: number }>(
         `SELECT medalla_id, nivel, nombre, umbral FROM medalla_niveles ORDER BY medalla_id, nivel`,
       ),
-      // Los mismos valores con los que se conceden los niveles (lib/gamificacion/evaluacion.ts).
       valoresDeMedallas(pool, usuarioId),
     ]);
-
-    const cifras = cifrasR.rows[0];
-    if (!cifras) return null;
-    const ascenso = ascensosR.fecha;
-
     const medallas: MedallaConAvance[] = medallasR.rows.map((m) => ({
       clave: m.clave,
       nombre: m.nombre,
@@ -237,16 +194,9 @@ export async function obtenerDatosDeResumen(
       valor: (m.mide && valores[m.mide]) || 0,
       niveles: nivelesR.rows.filter((n) => n.medalla_id === m.id),
     }));
-
-    return {
-      expTotal: cifras.exp_total,
-      camino: caminoDeRangos(rangosR.rows, progreso, ascenso),
-      fichas: fichasDeLaTrayectoria(rangosR.rows, progreso.rangoActual, ascensosR, progreso.fichas),
-      calificaciones: resumenDeCalificaciones(calificacionesR.rows),
-      medallasCerca: medallasMasCercanas(medallas, MEDALLAS_CERCA),
-    };
+    return medallasMasCercanas(medallas, MEDALLAS_CERCA);
   } catch (error) {
-    console.error("Error armando el resumen de Mi progreso", error);
+    console.error("Error armando las medallas cerca de subir", error);
     return null;
   }
 }

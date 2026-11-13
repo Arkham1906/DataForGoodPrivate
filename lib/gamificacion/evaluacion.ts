@@ -172,7 +172,7 @@ async function evaluarRango(client: Consultor, usuarioId: number | string): Prom
       tipo: "rango_ascenso",
       titulo: "Subiste de rango",
       mensaje,
-      enlace: rutaDePantalla("trayectoria") ?? "/progreso",
+      enlace: rutaDePantalla("trayectoria") ?? "/progreso/trayectoria",
       metadata: { rango: final.numero, rangos: alcanzados.map((r) => r.numero) },
     },
   ];
@@ -229,7 +229,8 @@ async function evaluarMedallas(client: Consultor, usuarioId: number | string): P
         tipo: "medalla_nivel",
         titulo: `Medalla ${m.nombre}`,
         mensaje: `Llegaste a ${nombreDelNivel}. Este nivel es tuyo para siempre.`,
-        enlace: rutaDePantalla("medallas") ?? "/progreso",
+        // Sin pantalla de Medallas, el aviso lleva a Inicio, donde están las medallas cerca de subir.
+        enlace: rutaDePantalla("medallas") ?? "/inicio",
         metadata: { medalla: m.clave, nivel: alcanzado },
       });
     } else if (m.valor_guardado !== null && m.valor_guardado !== valor) {

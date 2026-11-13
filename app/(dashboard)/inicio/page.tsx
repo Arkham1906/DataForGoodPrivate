@@ -13,6 +13,9 @@
 // La sección solo trae campañas de sus temáticas o de su ubicación, sin las "populares" de otras temáticas. Sin
 // temáticas sale además el recuadro campanas/AvisoSinTematicas, con el mismo texto que en /campanas.
 // Solo lectura: cada bloque enlaza a la pantalla donde se actúa. Se actualiza solo con ActualizacionEnVivo.
+// Desde el 2026-11-12 (decisión del responsable) Inicio es la entrada a Mi progreso: «Ver tu trayectoria» del resumen
+// de rango. Recibe del Resumen eliminado de /progreso el calendario de la racha (en «Hoy») y las medallas cerca de
+// subir (hasta que exista la pestaña Medallas). Sin datos de progreso queda una tarjeta mínima con la entrada.
 
 import Link from "next/link";
 import type { Metadata } from "next";
@@ -22,9 +25,9 @@ import MetricCard from "@/components/ui/MetricCard";
 import Tag from "@/components/ui/Tag";
 import { exigirUsuario, marcarBienvenidaVista } from "@/lib/session";
 import { ahoraEnZona, ZONA_DE_CAMPANAS } from "@/lib/fecha-de-tepic";
-import { fechaDeNotificacion, tonoDeNotificacion } from "@/lib/notificaciones/tipos";
 import { obtenerResumenDeInicio } from "@/lib/usuarios/inicio";
 import { obtenerResumenDeProgreso } from "@/lib/gamificacion/progreso";
+import { obtenerMedallasCercaDeSubir } from "@/lib/gamificacion/mi-progreso";
 import { zonaDetectadaDe } from "@/lib/ubicacion/zona-detectada";
 import CampanasParaTi from "@/components/campanas/CampanasParaTi";
 import EstrellasDeCalificacion from "@/components/aportes/EstrellasDeCalificacion";
@@ -32,6 +35,8 @@ import BotonCrearCampana from "@/components/campanas/BotonCrearCampana";
 import AvisoSinTematicas from "@/components/campanas/AvisoSinTematicas";
 import ResumenDeRango from "@/components/gamificacion/ResumenDeRango";
 import ResumenDeHoy from "@/components/gamificacion/ResumenDeHoy";
+import CalendarioDeRacha from "@/components/gamificacion/CalendarioDeRacha";
+import MedallasCercaDeSubir from "@/components/gamificacion/MedallasCercaDeSubir";
 import { rutaDePantalla } from "@/lib/gamificacion/pantallas-de-progreso";
 
 export const metadata: Metadata = { title: "Inicio" };
@@ -67,7 +72,12 @@ export default async function InicioPage() {
   const usuario = await exigirUsuario();
   const mostrarBienvenida = !usuario.bienvenida_vista && (await marcarBienvenidaVista(usuario.id));
   const zona = await zonaDetectadaDe(Number(usuario.id)).catch(() => null);
-  const [resumen, progreso] = await Promise.all([obtenerResumenDeInicio(usuario, zona), obtenerResumenDeProgreso(usuario.id)]);
+  const [resumen, progreso, medallasCerca] = await Promise.all([
+    obtenerResumenDeInicio(usuario, zona),
+    obtenerResumenDeProgreso(usuario.id),
+    obtenerMedallasCercaDeSubir(usuario.id),
+  ]);
+  const trayectoria = rutaDePantalla("trayectoria") ?? "/progreso";
   const conParaTi = usuario.intereses.length > 0 || Boolean(usuario.state?.trim()) || zona !== null;
   const { aportes, campanas } = resumen;
   // Sin nada "para ti" va debajo del título, y con "Ahora no" queda una línea para que el título no se quede solo.
@@ -98,15 +108,23 @@ export default async function InicioPage() {
         <p className="mt-1 text-[13px] text-system-600">Esto es lo que pasa con tu progreso, tus aportes y tus campañas.</p>
       </div>
 
-      {progreso && (
+      {progreso ? (
         <>
-          <ResumenDeRango
-            progreso={progreso}
-            enlaces={{ trayectoria: rutaDePantalla("trayectoria") ?? "/progreso" }}
-            idDelTitulo="inicio-rango"
-          />
-          <ResumenDeHoy progreso={progreso} />
+          <ResumenDeRango progreso={progreso} enlaces={{ trayectoria }} idDelTitulo="inicio-rango" />
+          <ResumenDeHoy progreso={progreso} accionDeRacha={<CalendarioDeRacha racha={progreso.racha} />} />
+          {medallasCerca && medallasCerca.length > 0 && <MedallasCercaDeSubir medallas={medallasCerca} />}
         </>
+      ) : (
+        // Sin datos de progreso (cuenta recién creada o un fallo al leerlos): Mi progreso no tiene otra entrada.
+        <Card className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-extrabold text-system-900">Tu trayectoria</h2>
+            <p className="text-[13px] text-system-600">Tu rango, tus misiones y tu racha están en Mi progreso.</p>
+          </div>
+          <ButtonLink href={trayectoria} variant="secondary" size="sm">
+            Ver tu trayectoria
+          </ButtonLink>
+        </Card>
       )}
 
       <section aria-labelledby="inicio-resumen">

@@ -1,4 +1,5 @@
-// «Medallas cerca de subir» del Resumen de /progreso (2026-11-04; diseño v10, RF-GAM-46 a 49): las tres medallas con
+// «Medallas cerca de subir» (2026-11-04; diseño v10, RF-GAM-46 a 49; en /inicio desde el 2026-11-12, cuando se eliminó
+// el Resumen de /progreso): las tres medallas con
 // menos camino hacia su siguiente nivel (medallasMasCercanas). Sin estado: Server Component.
 // «Ver tus medallas» aparece cuando exista esa pantalla (lib/gamificacion/pantallas-de-progreso.ts).
 

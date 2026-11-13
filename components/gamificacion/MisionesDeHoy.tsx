@@ -4,7 +4,9 @@
 //
 // Sin misiones activas en lib/datos/misiones.json, la lista queda vacía y lo dice.
 
+import Link from "next/link";
 import ProgressBar from "@/components/ui/ProgressBar";
+import { rutaDePantalla } from "@/lib/gamificacion/pantallas-de-progreso";
 import type { MisionDeHoy, ResumenDeMisiones } from "@/lib/gamificacion/progreso-tipos";
 import IconoDeMision from "./IconoDeMision";
 
@@ -17,6 +19,8 @@ function textoDeEstado(m: MisionDeHoy): string {
 }
 
 export default function MisionesDeHoy({ misiones }: { misiones: ResumenDeMisiones }) {
+  // Desde el 2026-11-12 «Mi progreso» no está en el menú: desde aquí se llega a las misiones de la semana y al historial.
+  const pantalla = rutaDePantalla("misiones");
   return (
     <>
       <div className="flex flex-wrap items-baseline justify-between gap-x-2">
@@ -55,6 +59,11 @@ export default function MisionesDeHoy({ misiones }: { misiones: ResumenDeMisione
             );
           })}
         </ul>
+      )}
+      {pantalla && (
+        <Link href={pantalla} className="self-start text-[13px] font-semibold text-brand-700 hover:underline">
+          Ver todas tus misiones →
+        </Link>
       )}
     </>
   );
