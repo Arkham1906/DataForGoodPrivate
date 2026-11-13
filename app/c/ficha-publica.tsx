@@ -40,16 +40,23 @@ const numero = new Intl.NumberFormat("es-MX");
 // fechaFin viene como "AAAA-MM-DD" (DATE sin hora): se formatea en UTC para no correr el día.
 const fecha = new Intl.DateTimeFormat("es-MX", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 
-/** Marco de las páginas públicas: navegación, contenido y pie. */
+/**
+ * Marco de las páginas públicas: navegación, contenido y pie.
+ * `pantallaDeAporte` (2026-11-13, Gerard; acotado el mismo día): solo con el formulario anónimo. Sin encabezado,
+ * con "Volver al inicio", ancho en lg y centrado en la pantalla; el pie, solo abajo de lg. Los avisos, la
+ * invitación con sesión y el aviso sin formulario conservan el marco de siempre.
+ */
 export function PantallaPublica({ children, pantallaDeAporte = false }: { children: ReactNode; pantallaDeAporte?: boolean }) {
   return (
     <div className="min-h-screen bg-system-50">
       {!pantallaDeAporte && <PublicHeader />}
       <main
         id="contenido"
-        className={`mx-auto max-w-xl px-6 pb-24 lg:max-w-7xl lg:px-6 lg:pb-3 ${
-          pantallaDeAporte ? "pt-3 max-md:pt-3" : "pt-14 max-md:pt-8"
-        } lg:pt-3 max-md:px-4 ${pantallaDeAporte ? "lg:flex lg:min-h-screen lg:flex-col" : ""}`}
+        className={
+          pantallaDeAporte
+            ? "mx-auto max-w-xl px-6 pb-24 pt-3 max-md:px-4 lg:flex lg:min-h-screen lg:max-w-7xl lg:flex-col lg:pb-3"
+            : "mx-auto max-w-xl px-6 pb-24 pt-14 max-md:px-4 max-md:pt-8"
+        }
       >
         {pantallaDeAporte && (
           <Link
@@ -87,7 +94,10 @@ export function AvisoDeCampanaNoActiva({ campana, volverMasTarde }: { campana: C
   );
 }
 
-/** La invitación a aportar de una campaña activa, con o sin sesión. */
+/**
+ * La invitación a aportar de una campaña activa, con o sin sesión, ya dentro de `PantallaPublica`:
+ * aquí se sabe si sale el formulario anónimo, que es lo único que usa la pantalla de aporte.
+ */
 export async function ParaAportar({ campana, token, urlDeEnvio }: { campana: CampanaDelEnlace; token: string | null; urlDeEnvio: string }) {
   const usuario = await getSessionUser();
   // Sin sesión: cuántos aportes le quedan a este dispositivo (cookie anónima).
@@ -98,17 +108,20 @@ export async function ParaAportar({ campana, token, urlDeEnvio }: { campana: Cam
     usuario || !dispositivo ? {} : await aportesDeLaPersonaPorTipo(campana.id, { anonimoId: hashDeDispositivo(dispositivo) });
   // Si recarga justo después de aportar, el formulario arranca con la cuenta regresiva.
   const espera = usuario ? 0 : await esperaDelDispositivo(dispositivo);
+  const sinFormulario = usuario ? null : await motivoSinFormulario(campana, dispositivo, misPorTipo);
   return (
-    <Invitacion
-      campana={campana}
-      token={token}
-      urlDeEnvio={urlDeEnvio}
-      conSesion={usuario !== null}
-      restantes={Math.max(0, cuotaSinCuenta(campana.cuotaPorPersona) - usados)}
-      misPorTipo={misPorTipo}
-      espera={espera}
-      sinFormulario={usuario ? null : await motivoSinFormulario(campana, dispositivo, misPorTipo)}
-    />
+    <PantallaPublica pantallaDeAporte={!usuario && !sinFormulario}>
+      <Invitacion
+        campana={campana}
+        token={token}
+        urlDeEnvio={urlDeEnvio}
+        conSesion={usuario !== null}
+        restantes={Math.max(0, cuotaSinCuenta(campana.cuotaPorPersona) - usados)}
+        misPorTipo={misPorTipo}
+        espera={espera}
+        sinFormulario={sinFormulario}
+      />
+    </PantallaPublica>
   );
 }
 
@@ -151,9 +164,15 @@ function Invitacion({
   const lugar = textoDeUbicacion({ todoElPais: campana.todoElPais, municipio: campana.ciudad, estado: campana.estado });
   const aportar = token ? `/campanas/${campana.id}/aportar?enlace=${token}` : `/campanas/${campana.id}/aportar`;
   const etiqueta = token ? "Te invitaron a participar" : "Participa sin cuenta";
+  // Solo con el formulario anónimo la ficha es ancha (tres columnas en lg); si no, va en max-w-xl, apilada.
+  const conFormulario = !conSesion && !sinFormulario;
 
   const ficha = (
-    <Card className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)_minmax(0,1.25fr)] lg:items-center lg:gap-6 lg:p-5">
+    <Card
+      className={
+        conFormulario ? "lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)_minmax(0,1.25fr)] lg:items-center lg:gap-6 lg:p-5" : ""
+      }
+    >
         <div>
           <div className="mb-1 flex items-start justify-between gap-2">
             <h1 className="text-xl font-extrabold text-system-900">{campana.nombre}</h1>
@@ -215,7 +234,7 @@ function Invitacion({
     registro: conDestino("/registro", aportar),
   };
 
-  if (!conSesion && !sinFormulario) {
+  if (conFormulario) {
     return (
       <AporteAnonimoConAccesos {...datosDelAporte} etiqueta={etiqueta}>
         {ficha}
@@ -224,7 +243,7 @@ function Invitacion({
   }
 
   const formulario = conSesion ? (
-    <div className="mt-5 lg:mt-0">
+    <div className="mt-5">
       <ButtonLink href={aportar} variant="primary" className="w-full">
         Aportar a esta campaña
       </ButtonLink>

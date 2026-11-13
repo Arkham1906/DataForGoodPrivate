@@ -30,8 +30,9 @@ export default async function ParticipaSinCuentaPage({ params }: { params: Promi
   } else if (campana.status !== "activa") {
     contenido = <AvisoDeCampanaNoActiva campana={campana} volverMasTarde="Vuelve a intentarlo más tarde." />;
   } else {
-    contenido = <ParaAportar campana={campana} token={null} urlDeEnvio={`/api/campanas/${campana.id}/aporte-sin-cuenta`} />;
+    // ParaAportar pone su propio marco: con el formulario anónimo, la pantalla de aporte (2026-11-13).
+    return <ParaAportar campana={campana} token={null} urlDeEnvio={`/api/campanas/${campana.id}/aporte-sin-cuenta`} />;
   }
 
-  return <PantallaPublica pantallaDeAporte={Boolean(campana && campana.status === "activa")}>{contenido}</PantallaPublica>;
+  return <PantallaPublica>{contenido}</PantallaPublica>;
 }

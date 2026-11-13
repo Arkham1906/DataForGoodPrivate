@@ -68,7 +68,8 @@ export default async function EnlacePublicoPage({ params }: { params: Promise<{ 
     contenido = <AvisoDeCampanaNoActiva campana={resultado.campana} volverMasTarde="Vuelve a abrir este enlace más tarde." />;
   } else {
     await registrarVisita(resultado.enlace.id, ipDelCliente(await headers()));
-    contenido = (
+    // ParaAportar pone su propio marco: con el formulario anónimo, la pantalla de aporte (2026-11-13).
+    return (
       <ParaAportar
         campana={resultado.campana}
         token={resultado.enlace.token}
@@ -77,9 +78,5 @@ export default async function EnlacePublicoPage({ params }: { params: Promise<{ 
     );
   }
 
-  return (
-    <PantallaPublica pantallaDeAporte={resultado.tipo === "valido" && resultado.campana.status === "activa"}>
-      {contenido}
-    </PantallaPublica>
-  );
+  return <PantallaPublica>{contenido}</PantallaPublica>;
 }

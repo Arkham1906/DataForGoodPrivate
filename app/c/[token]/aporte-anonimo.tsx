@@ -174,7 +174,7 @@ export default function AporteAnonimo({
   // Ya usó su aporte sin cuenta: para el siguiente, que se registre (o entre).
   if (restantes <= 0) {
     return (
-      <Card className="mt-5">
+      <Card>
         {enviado && (
           <p className="mb-4 rounded-lg border border-success-700 bg-success-50 p-3.5 text-[13px] text-success-700" role="status">
             ¡Gracias! Tu aporte quedó pendiente de revisión.
@@ -277,14 +277,7 @@ export default function AporteAnonimo({
       </Card>
       <div className="mt-5 flex flex-col gap-2.5 lg:hidden">
         <p className="text-center text-[12px] text-system-500">¿Prefieres que tus aportes queden en tu historial?</p>
-        <div className="flex gap-2.5 max-md:flex-col">
-          <ButtonLink href={entrar} className="flex-1">
-            Iniciar sesión
-          </ButtonLink>
-          <ButtonLink href={registro} className="flex-1">
-            Crear una cuenta
-          </ButtonLink>
-        </div>
+        <BotonesDeCuenta entrar={entrar} registro={registro} />
       </div>
     </>
   );
