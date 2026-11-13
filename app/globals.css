@@ -610,3 +610,123 @@ input::-ms-clear {
     transform: scale(1.12);
   }
 }
+
+/* ── Mapa de aportes (2026-11-13) ─────────────────────────────────────────
+ * Mis aportes (components/gamificacion/MapaDeAportes.tsx). Los nodos son elementos HTML dentro de un lienzo escalado.
+ * Su viaje entre la vista general y el acercamiento lo hacen TRANSICIONES en línea (transform y opacity, calculadas en
+ * el componente), interrumpibles a media animación. Aquí solo va lo fijo:
+ * - mapa-circulo: el botón de cada nodo, centrado en su punto, con área de toque de 44 px o más; responde al presionar
+ *   (0.94) y, solo con ratón, al pasar el puntero (1.08).
+ * - mapa-entra: aparición inicial escalonada (--i × 40 ms, tope de 12 pasos), desde 0.92 de escala, no desde cero.
+ * - mapa-trazo: las líneas de la vista general se trazan una vez al abrir (scaleX: solo transform).
+ * - mapa-panel / mapa-migas: el contenido nuevo entra con 4 px de subida y un desenfoque de 2 px que se disuelve (tapa
+ *   el cruce entre dos textos); las migas esperan 180 ms a que los nodos casi lleguen.
+ * - mapa-barra: la meta colectiva se llena una vez.
+ * Con movimiento reducido: sin traslados, escalas ni trazos; cada cambio es un fundido de 160 ms (mapa-mov). */
+.mapa-circulo {
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: 0;
+  border-radius: 9999px;
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+  transition:
+    transform 160ms var(--ease-salida),
+    background-color 200ms ease,
+    border-color 200ms ease,
+    box-shadow 200ms ease;
+}
+.mapa-circulo::after {
+  content: "";
+  position: absolute;
+  inset: -14px;
+  border-radius: 9999px;
+}
+.mapa-circulo:active:not(:disabled) {
+  transform: translate(-50%, -50%) scale(0.94);
+}
+.mapa-circulo:disabled {
+  cursor: default;
+}
+.mapa-circulo:focus-visible {
+  outline: 2px solid var(--color-brand-600);
+  outline-offset: 4px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .mapa-circulo:hover:not(:disabled) {
+    transform: translate(-50%, -50%) scale(1.08);
+  }
+}
+
+.mapa-entra {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .mapa-entra {
+    animation: mapa-aparecer 300ms var(--ease-salida) both;
+    animation-delay: calc(min(var(--i, 0), 12) * 40ms + 80ms);
+  }
+  .mapa-trazo {
+    animation: mapa-trazar 520ms var(--ease-salida) both;
+    animation-delay: calc(min(var(--i, 0), 12) * 30ms);
+  }
+  .mapa-panel {
+    animation: mapa-panel-entra 240ms var(--ease-salida) both;
+  }
+  .mapa-migas {
+    animation: mapa-panel-entra 240ms var(--ease-salida) 180ms both;
+  }
+  .mapa-barra {
+    animation: mapa-llenar 600ms var(--ease-salida) 150ms both;
+    transform-origin: left;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mapa-mov {
+    transition-property: opacity !important;
+    transition-duration: 160ms !important;
+    transition-delay: 0ms !important;
+    transition-timing-function: ease !important;
+  }
+  .mapa-entra,
+  .mapa-panel,
+  .mapa-migas {
+    animation: sendero-aparecer 160ms ease both;
+  }
+  .mapa-circulo {
+    transition: none;
+  }
+}
+
+@keyframes mapa-aparecer {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+}
+
+@keyframes mapa-trazar {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes mapa-panel-entra {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+    filter: blur(2px);
+  }
+}
+
+@keyframes mapa-llenar {
+  from {
+    transform: scaleX(0);
+  }
+}
