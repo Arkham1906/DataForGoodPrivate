@@ -240,6 +240,12 @@ Subtemáticas de una temática (Protección animal → Perros, Gatos...).
 | `registro-push.ts` | Lado del navegador, sin `pg`: registra `public/sw.js`, pide permiso, suscribe, desactiva y resincroniza; `estadoDePush()` distingue sin soporte, iPhone sin instalar, bloqueado, inactivo y activo | `AvisosEnEsteDispositivo`, `NotificationsBell`, `LogoutButton` |
 | `tipos.ts` | Sin `pg`: `TipoDeNotificacion` (los 30 eventos), el tipo `Notificacion` que entrega la API, el tono de cada tipo y el formato de fecha (`fechaDeNotificacion`, `haceCuanto`) | `NotificationsBell`, `ListaDeNotificaciones` |
 
+### `revisiones/` (2026-11-13)
+
+| Archivo | Qué hace | Lo usan |
+| --- | --- | --- |
+| `dashboard.ts` | `obtenerDashboardDelRevisor(usuarioId)`: en las campañas donde es revisora aceptada, pendientes (sin los propios, de campañas que no terminaron) y las que más tienen, sus decisiones (`first_pass_by_user_id`: aceptados, rechazados, hoy, 7 días, mediana de respuesta en 30 días, estrellas que dio) y la actividad de `DIAS_DE_ACTIVIDAD` días en hora de Tepic; solo lectura, `null` si falla | `/revisiones` |
+
 ### `sistema/`
 
 | Archivo | Qué hace | Lo usa |

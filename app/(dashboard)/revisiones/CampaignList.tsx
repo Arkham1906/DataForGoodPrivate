@@ -4,9 +4,10 @@
 // Datos: GET /api/revisiones (campañas con campana_revisores.estado = 'aceptado').
 // Filtros (búsqueda, temática, tipo de dato y orden): components/campanas/BarraDeFiltros.tsx,
 // aplicados en el navegador con lib/campanas/filtro-local.ts.
+// `resumen` (2026-11-13): el dashboard del revisor, que arma la página en el servidor; va bajo el título.
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import Button from "@/components/ui/Button";
 import Tag from "@/components/ui/Tag";
 import BarraDeFiltros, { type ValoresDeFiltros } from "@/components/campanas/BarraDeFiltros";
@@ -64,7 +65,7 @@ function guardarVistaCuadricula(vistaCuadricula: boolean): void {
   window.dispatchEvent(new Event(EVENTO_VISTA_REVISIONES));
 }
 
-export default function CampaignList({ completed = false }: { completed?: boolean }) {
+export default function CampaignList({ completed = false, resumen }: { completed?: boolean; resumen?: ReactNode }) {
   const [campaigns, setCampaigns] = useState<ReviewCampaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -111,6 +112,8 @@ export default function CampaignList({ completed = false }: { completed?: boolea
         <h1 className="text-2xl font-extrabold text-system-900 max-md:text-xl">Revisor de aportes</h1>
         <p className="mt-1 text-[13px] text-system-600">Administra las campañas que tienes asignadas para revisar.</p>
       </div>
+
+      {resumen}
 
       <nav className="mb-6 flex flex-wrap gap-2" aria-label="Estado de campañas">
         <Link href="/revisiones" className={`rounded-pill border px-3.5 py-1.5 text-[13px] font-semibold transition-colors max-md:px-2.5 max-md:py-1 max-md:text-[12px] ${activeTab === "curso" ? "border-brand-600 bg-brand-600 text-white" : "border-system-300 bg-white text-system-600 hover:border-brand-600"}`}>En curso {currentCount}</Link>
