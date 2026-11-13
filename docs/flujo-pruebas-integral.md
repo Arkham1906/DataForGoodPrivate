@@ -127,6 +127,7 @@ Comprueba además que otro supervisor no puede tomar una campaña ya reservada, 
 Como creador, abre Compartir en la campaña activa:
 
 - [ ] Consulta el enlace y el QR; descárgalo en PNG y SVG.
+- [ ] Desde el 2026-11-13 los aportes sin cuenta empiezan apagados: como creador, enciende “Permitir aportes sin cuenta” en Compartir, lee la ventana de riesgos y confirma (con “Cancelar” debe quedar apagado).
 - [ ] Copia el enlace en un navegador/perfil separado sin sesión (`QA-ANONIMO`).
 - [ ] Envía un aporte anónimo de prueba. Debe mostrarse como “Anónimo” y no exponer correo, nombre ni archivo original.
 - [ ] Comprueba la espera entre envíos desde el mismo dispositivo: un segundo envío antes de 60 segundos debe recibir la espera indicada; vuelve a intentarlo cuando termine.

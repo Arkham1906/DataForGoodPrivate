@@ -1,10 +1,12 @@
-// "Explora por temática" en mosaicos, arriba de la lista de /explorar (2026-11-11, a pedido del
-// usuario; estructura tomada de la página de categorías de GoFundMe, como la ventana "Elige tus
-// temáticas" de ui/SelectorDeTemas). Es el único filtro de temática de /explorar: el de la barra
-// lateral se quitó el mismo día. Solo temáticas con campañas visibles (obtenerTematicasParaExplorar),
-// de la que más tiene a la que menos; la elegida se marca y tocarla otra vez quita el filtro; el
-// último mosaico, "Todas", lo quita. Los enlaces (`hrefDe`, `todas`) conservan los demás filtros.
-// 3 por fila en móvil, 4 en tableta y 6 en escritorio. *Historia:* ese día también estuvo en la
+// "Explora por temática" en mosaicos, arriba de /explorar (2026-11-11, a pedido del usuario;
+// estructura tomada de la página de categorías de GoFundMe, como la ventana "Elige tus temáticas" de
+// ui/SelectorDeTemas). Solo temáticas con campañas visibles (obtenerTematicasParaExplorar), de la que
+// más tiene a la que menos. Cada mosaico va a `hrefDe(valor)`: desde el 2026-11-13 (a pedido del
+// usuario) /explorar los manda a la pantalla de la temática (/explorar/tematica/[slug]); antes filtraban
+// la lista. `activa` marca una temática; el último mosaico, `todas`, se marca con `todas.actual` (o, sin
+// él, cuando no hay `activa`).
+// 3 por fila en móvil, 5 en tableta y 8 en escritorio (2026-11-13, a pedido del usuario, cuadros más
+// chicos como los de GoFundMe; antes 4 y 6). *Historia:* ese día también estuvo en la
 // landing ("Campañas destacadas") y se quitó a pedido del usuario.
 
 import Link from "next/link";
@@ -25,17 +27,18 @@ export default function TematicasEnMosaico({
   /** Temática elegida: se marca y su enlace quita el filtro. */
   activa?: string;
   hrefDe: (valor: string) => string;
-  /** Mosaico final, que quita el filtro de temática. */
-  todas: { href: string; texto: string };
+  /** Mosaico final, p. ej. "Todas" (la lista completa). `actual`: si es la vista que se está viendo. */
+  todas: { href: string; texto: string; actual?: boolean };
 }) {
   if (tematicas.length === 0) return null;
+  const todasMarcada = todas.actual ?? !activa;
 
   return (
     <nav aria-labelledby="tematicas-en-mosaico">
       <h2 id="tematicas-en-mosaico" className="mb-4 text-[15px] font-bold text-system-900">
         Explora por temática
       </h2>
-      <ul className="grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4 sm:gap-x-4 lg:grid-cols-6">
+      <ul className="grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-5 sm:gap-x-4 lg:grid-cols-8">
         {tematicas.map((t) => {
           const elegida = t.valor === activa;
           return (
@@ -68,12 +71,12 @@ export default function TematicasEnMosaico({
           );
         })}
         <li className="min-w-0">
-          <Link href={todas.href} aria-current={activa ? undefined : "page"} className={ENLACE}>
+          <Link href={todas.href} aria-current={todasMarcada ? "page" : undefined} className={ENLACE}>
             <span
               className={`${CUADRO} border-dashed ${
-                activa
-                  ? "border-system-300 bg-white text-system-600 group-hover:border-brand-600 group-hover:text-brand-700"
-                  : "border-brand-600 bg-brand-50 text-brand-700"
+                todasMarcada
+                  ? "border-brand-600 bg-brand-50 text-brand-700"
+                  : "border-system-300 bg-white text-system-600 group-hover:border-brand-600 group-hover:text-brand-700"
               }`}
             >
               <svg aria-hidden="true" viewBox="0 0 24 24" className="h-[34%] w-[34%]" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
@@ -83,7 +86,7 @@ export default function TematicasEnMosaico({
                 <rect x="14" y="14" width="6" height="6" rx="1" />
               </svg>
             </span>
-            <span className={`w-full text-[13px] leading-4 ${activa ? "font-semibold text-system-900" : "font-semibold text-brand-800"}`}>{todas.texto}</span>
+            <span className={`w-full text-[13px] font-semibold leading-4 ${todasMarcada ? "text-brand-800" : "text-system-900"}`}>{todas.texto}</span>
           </Link>
         </li>
       </ul>

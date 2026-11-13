@@ -80,7 +80,8 @@ export default async function InicioPage() {
   const trayectoria = rutaDePantalla("trayectoria") ?? "/progreso";
   const conParaTi = usuario.intereses.length > 0 || Boolean(usuario.state?.trim()) || zona !== null;
   const { aportes, campanas } = resumen;
-  // Sin nada "para ti" va debajo del título, y con "Ahora no" queda una línea para que el título no se quede solo.
+  // Va debajo del título de "Campañas para ti" (2026-11-13); sin nada "para ti", con "Ahora no" queda una línea para
+  // que el título no se quede solo.
   const avisoSinTematicas = (
     <AvisoSinTematicas
       sinTematicas={usuario.intereses.length === 0}
@@ -151,7 +152,6 @@ export default async function InicioPage() {
         )}
       </section>
 
-      {conParaTi && avisoSinTematicas}
 
       <CampanasParaTi
         id="inicio-para-ti"
@@ -161,10 +161,11 @@ export default async function InicioPage() {
             Ver todas →
           </Link>
         }
+        // El aviso de temáticas va debajo del título, como en /campanas (2026-11-13, a pedido del usuario; antes
+        // iba antes de la sección, o en su lugar si no había nada para ti).
+        avisos={avisoSinTematicas}
         vacio={
-          !conParaTi ? (
-            avisoSinTematicas
-          ) : (
+          !conParaTi ? null : (
             <Card>
               <p className="text-[13px] text-system-600">Por ahora no hay campañas activas de tus temáticas de interés ni de tu zona.</p>
               <BotonCrearCampana variant="secondary" size="sm" className="mt-3">

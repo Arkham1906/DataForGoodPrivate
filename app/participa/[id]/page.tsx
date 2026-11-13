@@ -2,7 +2,7 @@
 // de la ficha /campanas/[id] abierta sin sesión desde /explorar. Es lo mismo que /c/[token] (../../c/ficha-publica.tsx)
 // pero sin el enlace del creador: no cuenta visitas, no renueva el enlace y el aporte va sin enlace_id, así
 // el enlace y sus cifras quedan solo para lo que el creador comparte. Envía a POST /api/campanas/[id]/aporte-sin-cuenta.
-// Mismas reglas: campaña activa que permita aportes sin cuenta, UN aporte por dispositivo, tope del 10% de la meta.
+// Mismas reglas: campaña activa que permita aportes sin cuenta, UN aporte por dispositivo, tope de anónimos (el número que elige el creador o, sin él, el 10% de la meta; lib/campanas/tope-anonimos.ts).
 
 import type { Metadata } from "next";
 import type { ReactNode } from "react";

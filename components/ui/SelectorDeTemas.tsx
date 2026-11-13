@@ -139,6 +139,40 @@ export default function SelectorDeTemas({
     return clavesPendientes.has(clave) ? "por aprobar" : clavesNuevas.has(clave) ? "nueva" : null;
   }
 
+  // Cuántas propuestas siguen en espera (2026-11-13, a pedido del usuario): las guardadas por aprobar y las nuevas
+  // aún sin enviar; juntas cuentan para el tope de MAXIMO_DE_TEMATICAS_PROPUESTAS. Antes solo se decía al llegar al tope.
+  const porAprobar = clavesPendientes.size;
+  const totalEnEspera = new Set([...clavesPendientes, ...clavesNuevas]).size;
+  const sinEnviar = totalEnEspera - porAprobar;
+  const disponibles = Math.max(0, MAXIMO_DE_TEMATICAS_PROPUESTAS - totalEnEspera);
+  const temasEnPlural = (n: number) => `${n} ${n === 1 ? "temática" : "temáticas"}`;
+  const textoDeEspera =
+    (porAprobar === 0 ? "No tienes temáticas por aprobar" : `Tienes ${temasEnPlural(porAprobar)} por aprobar`) +
+    (sinEnviar > 0 ? ` y ${temasEnPlural(sinEnviar)} sin enviar` : "") +
+    (disponibles === 0
+      ? `. Llegaste al máximo de ${MAXIMO_DE_TEMATICAS_PROPUESTAS}: cuando la administración las revise podrás proponer otra.`
+      : ` · puedes proponer ${disponibles} más.`);
+  /** El contador en la ventana (catálogo y proponer): siempre que se pueda proponer. */
+  const contadorDeEspera = proponer ? (
+    <p
+      role="status"
+      className={`mt-2 inline-flex items-center gap-1.5 rounded-pill px-3 py-1 text-[13px] font-medium ${
+        disponibles === 0 ? "bg-warning-50 text-warning-800" : "bg-system-100 text-system-700"
+      }`}
+    >
+      <span aria-hidden="true" className={`size-2 rounded-full ${porAprobar > 0 ? "bg-warning-500" : "bg-system-400"}`} />
+      {textoDeEspera}
+    </p>
+  ) : null;
+  /** Fuera de la ventana (perfil o formulario de campaña): solo si hay alguna por aprobar. */
+  const contadorFuera =
+    proponer && porAprobar > 0 ? (
+      <p className="mt-2 text-[12.5px] text-system-500">
+        {porAprobar === 1 ? "1 temática tuya está por aprobar" : `${porAprobar} temáticas tuyas están por aprobar`}; la
+        administración las revisa y te avisa.
+      </p>
+    ) : null;
+
   // Con `proponerAparte`, las propuestas (nuevas o por aprobar) van primero, arriba.
   const primeroLasPropuestas = (temas: string[]) =>
     proponerAparte ? [...temas.filter((t) => marca(t)), ...temas.filter((t) => !marca(t))] : temas;
@@ -264,8 +298,7 @@ export default function SelectorDeTemas({
       setAvisoDePropuesta(error);
       return;
     }
-    const enEspera = new Set([...pendientes, ...nuevas, ...propuestas].map(claveDeTematica));
-    if (enEspera.size >= MAXIMO_DE_TEMATICAS_PROPUESTAS) {
+    if (totalEnEspera >= MAXIMO_DE_TEMATICAS_PROPUESTAS) {
       setAvisoDePropuesta(
         `Ya tienes ${MAXIMO_DE_TEMATICAS_PROPUESTAS} temáticas propuestas en espera. Cuando la administración las revise podrás proponer otra.`,
       );
@@ -319,6 +352,7 @@ export default function SelectorDeTemas({
               </button>
             </li>
           </ul>
+          {contadorFuera}
         </div>
       ) : (
         <div className="flex flex-wrap items-center gap-2">
@@ -334,6 +368,7 @@ export default function SelectorDeTemas({
           <Button type="button" size="sm" onClick={abrir} disabled={deshabilitado}>
             {textoDelBoton}
           </Button>
+          {contadorFuera ? <div className="basis-full">{contadorFuera}</div> : null}
         </div>
       )}
 
@@ -353,6 +388,7 @@ export default function SelectorDeTemas({
                 Proponer una temática
               </h2>
               <p className="mt-1 text-[15px] text-system-600">Si la temática que buscas no está en el catálogo, puedes proponerla.</p>
+              {contadorDeEspera}
             </div>
 
             <div className="flex-1 overflow-y-auto px-5 py-5 md:px-8 md:py-6">
@@ -423,6 +459,7 @@ export default function SelectorDeTemas({
                     ? " Si no está la tuya, usa «Proponer temática», al final de la lista."
                     : null}
               </p>
+              {contadorDeEspera}
               <input
                 type="search"
                 value={busqueda}

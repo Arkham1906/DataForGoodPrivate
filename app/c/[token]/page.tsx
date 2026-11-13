@@ -8,7 +8,8 @@
 //     ?next=. Ya enviado ese aporte, el formulario se cambia por la invitación a crear una cuenta.
 //     Sin formulario (solo el aviso) si el creador apagó los aportes sin cuenta o si el
 //     dispositivo está bloqueado (lib/aportes/sanciones-anonimas.ts).
-// Es TODO lo que ve una persona anónima: la campaña compartida y su formulario.
+// Es TODO lo que ve una persona anónima: la campaña compartida y su formulario. Sus metadatos (Open Graph) llevan el
+// banner de la campaña como imagen de la vista previa al compartir (2026-11-13).
 // El contenido (invitación, formulario y avisos) es el mismo que en /participa/[id]: ../ficha-publica.tsx.
 
 import type { Metadata } from "next";
@@ -16,6 +17,8 @@ import type { ReactNode } from "react";
 import { headers } from "next/headers";
 import { buscarEnlacePorToken, registrarVisita } from "@/lib/campanas/enlaces";
 import { ipDelCliente } from "@/lib/ip";
+import { absoluteUrl } from "@/lib/app-url";
+import { MEDIDAS_DE_LA_VISTA_PREVIA } from "@/lib/campanas/banner-vista-previa";
 import { Aviso, AvisoDeCampanaNoActiva, PantallaPublica, ParaAportar } from "../ficha-publica";
 
 
@@ -32,12 +35,27 @@ export async function generateMetadata({ params }: { params: Promise<{ token: st
   const titulo = `Participa en «${resultado.campana.nombre}»`;
   const descripcion =
     resultado.campana.descripcion.trim().slice(0, 200) || "Una campaña de DataForGood para reunir datos de la comunidad.";
+  // Banner de la campaña como imagen de la vista previa (2026-11-13, a pedido del usuario): WhatsApp, Facebook, X,
+  // Telegram y LinkedIn la toman de aquí al pegar el enlace. URL absoluta (APP_ORIGIN): los robots no tienen la
+  // subruta. Es la versión ligera (JPEG 1200 × 630, < 300 KB: WhatsApp ignora las pesadas). Sin banner, la vista
+  // previa queda solo con texto, como antes.
+  const imagen = resultado.campana.banner
+    ? [
+        {
+          url: absoluteUrl(resultado.campana.banner).toString(),
+          width: MEDIDAS_DE_LA_VISTA_PREVIA.ancho,
+          height: MEDIDAS_DE_LA_VISTA_PREVIA.alto,
+          type: "image/jpeg",
+          alt: `Banner de ${resultado.campana.nombre}`,
+        },
+      ]
+    : undefined;
   return {
     ...base,
     title: titulo,
     description: descripcion,
-    openGraph: { title: titulo, description: descripcion, siteName: "DataForGood", type: "website", locale: "es_MX" },
-    twitter: { card: "summary", title: titulo, description: descripcion },
+    openGraph: { title: titulo, description: descripcion, siteName: "DataForGood", type: "website", locale: "es_MX", images: imagen },
+    twitter: { card: imagen ? "summary_large_image" : "summary", title: titulo, description: descripcion, images: imagen },
   };
 }
 

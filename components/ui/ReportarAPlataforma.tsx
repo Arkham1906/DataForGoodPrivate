@@ -11,7 +11,7 @@
 
 import { useState } from "react";
 import Button from "@/components/ui/Button";
-import BotonDeIcono, { IconoBandera } from "@/components/ui/BotonDeIcono";
+import BotonDeIcono, { IconoReportar } from "@/components/ui/BotonDeIcono";
 import { Field, Textarea } from "@/components/ui/Input";
 import VentanaDeConfirmacion from "@/components/ui/VentanaDeConfirmacion";
 import { BASE_PATH } from "@/lib/base-path";
@@ -88,7 +88,7 @@ export default function ReportarAPlataforma({
   if (reportado && comoIcono) {
     return (
       <BotonDeIcono etiqueta={textoYaReportado} disabled className={`!text-error-700 ${className}`}>
-        <IconoBandera rellena />
+        <IconoReportar rellena />
       </BotonDeIcono>
     );
   }
@@ -103,7 +103,7 @@ export default function ReportarAPlataforma({
 
   const botonParaAbrir = comoIcono ? (
     <BotonDeIcono etiqueta={titulo} onClick={() => setAbierto(true)} aria-haspopup="dialog" className={`hover:!text-error-700 ${className}`}>
-      <IconoBandera />
+      <IconoReportar />
     </BotonDeIcono>
   ) : (
     <button

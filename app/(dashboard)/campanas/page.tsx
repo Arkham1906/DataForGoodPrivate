@@ -20,7 +20,8 @@
 // Aviso de temáticas (2026-11-02, a pedido del usuario): si la persona no tiene temáticas de interés (las
 // omitió al crear su cuenta), sale el recuadro campanas/AvisoSinTematicas (mismo estilo que el de ubicación),
 // que la lleva a "Mis intereses" de /cuenta; "Ahora no" lo oculta hasta recargar o volver a entrar. Desde el
-// 2026-11-10 (a pedido del usuario) va arriba de todo, antes de "Campañas favoritas".
+// 2026-11-10 fue arriba de todo, antes de "Campañas favoritas"; desde el 2026-11-13 (a pedido del usuario) va, junto con
+// el de ubicación, justo debajo del título de "Campañas para ti" (prop `avisos` de campanas/CampanasParaTi).
 // Ubicación real (2026-10-31; lib/ubicacion/): si la persona activó "Usar mi ubicación"
 // (components/campanas/AvisoDeUbicacion), "Tu localidad" pasa a "Cerca de ti": su municipio detectado (GET
 // /api/ubicacion), todo su estado y todo el país, y la lista abre así. Sin zona, sigue el estado del perfil.
@@ -262,8 +263,9 @@ export default function CampanasPage() {
   // Sin filtro, las CAMPANAS_PARA_TI primeras; con filtro, todas las que coinciden (2026-11-02).
   const ptCoinciden = recomendadas.filter((r) => idsParaTi.has(String(r.c.id)));
   const paraTiVisibles = (filtroParaTi.activo ? ptCoinciden : ptCoinciden.slice(0, CAMPANAS_PARA_TI)).map((r) => r.p);
-  // El de temáticas va arriba de todo, antes de "Campañas favoritas" (2026-11-10, a pedido del usuario). El de
-  // ubicación va debajo del título de "Campañas para ti" si la sección no tiene qué mostrar; si no, después de ella.
+  // Los dos avisos van juntos justo debajo del título de "Campañas para ti" (2026-11-13, a pedido del usuario).
+  // Antes: el de temáticas arriba de todo, antes de "Campañas favoritas" (2026-11-10), y el de ubicación debajo del
+  // título solo si la sección no tenía qué mostrar; si no, después de ella.
   const avisoSinTematicas = (
     <AvisoSinTematicas sinTematicas={sinTematicas}>
       <p>
@@ -303,9 +305,6 @@ export default function CampanasPage() {
         </div>
       </div>
 
-      {/* Arriba de todo, antes de "Campañas favoritas" (2026-11-10, a pedido del usuario). */}
-      {!cargando && !error && avisoSinTematicas}
-
       {!cargando && !error && favoritas.length > 0 && (
         <>
           <section aria-labelledby="campanas-favoritas" className="mb-6 max-md:mb-5">
@@ -326,6 +325,12 @@ export default function CampanasPage() {
         <CampanasParaTi
           id="campanas-para-ti"
           campanas={conParaTi ? paraTiVisibles : []}
+          avisos={
+            <>
+              {avisoSinTematicas}
+              {avisoDeUbicacion}
+            </>
+          }
           filtros={
             conParaTi && recomendadas.length > 0 ? (
               <FilasDeFiltros
@@ -339,9 +344,9 @@ export default function CampanasPage() {
           }
           vacio={
             !conParaTi ? (
-              // Sin temáticas ni ubicación: el título sigue y debajo va el aviso de ubicación (2026-11-04, a pedido del
-              // usuario; el de temáticas pasó arriba de "Campañas favoritas" el 2026-11-10).
-              avisoDeUbicacion
+              // Sin temáticas ni ubicación: el título sigue y debajo quedan solo los avisos (2026-11-04; desde el
+              // 2026-11-13 los dos van en `avisos`).
+              null
             ) : filtroParaTi.activo ? (
               <p className="text-sm text-system-600">
                 {filtroParaTi.vista === TU_LOCALIDAD && !lugarDelFiltro
@@ -356,8 +361,6 @@ export default function CampanasPage() {
           className="mb-6 max-md:mb-5"
         />
       )}
-
-      {!cargando && !error && conParaTi && avisoDeUbicacion}
 
       {!cargando && !error && <Separador />}
 

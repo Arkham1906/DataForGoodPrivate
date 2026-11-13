@@ -2,12 +2,34 @@
 // de cada red. Sin imports de servidor: lo usa app/(dashboard)/campanas/[id]/redes-sociales.tsx.
 // Ninguna red recibe datos de la persona: solo se abre su página de compartir con el texto y el enlace.
 
-/** Mensaje que se propone al compartir; la persona puede cambiarlo antes de enviarlo. */
-export function mensajeParaCompartir(nombre: string, tematica?: string | null): string {
-  const tema = tematica?.trim() ? ` sobre ${tematica.trim().toLowerCase()}` : "";
+import { TEXTO_TODO_EL_PAIS } from "@/lib/campanas/ubicacion";
+
+/** Datos de la campaña que van en el mensaje; lo que falte se omite sin dejar huecos. */
+export type DatosDelMensaje = {
+  nombre: string;
+  tematica?: string | null;
+  /** Como lo da textoDeUbicacion (lib/campanas/ubicacion.ts): "Tepic, Nayarit" o "Todo el país". */
+  lugar?: string | null;
+  /** Fecha de cierre, "AAAA-MM-DD" (o con hora: se toma solo el día). */
+  fechaFin?: string | null;
+};
+
+const fechaLarga = new Intl.DateTimeFormat("es-MX", { day: "numeric", month: "long", timeZone: "UTC" });
+
+/**
+ * Mensaje que se propone al compartir; la persona puede cambiarlo antes de enviarlo. Desde el 2026-11-13 (a pedido
+ * del usuario) es más llamativo, con emojis, y además del nombre y la temática lleva el lugar y hasta cuándo recibe
+ * aportes. Corto a propósito: con un nombre común y el enlace cabe en los 280 caracteres de X. Antes decía
+ * "¡Súmate a la campaña «X» en DataForGood! Con tu aporte ayudas a reunir datos sobre Y para la comunidad."
+ */
+export function mensajeParaCompartir({ nombre, tematica, lugar, fechaFin }: DatosDelMensaje): string {
+  const tema = tematica?.trim() ? ` sobre ${tematica.trim().toLocaleLowerCase("es-MX")}` : "";
+  const donde = lugar?.trim() ? (lugar.trim() === TEXTO_TODO_EL_PAIS ? " en todo el país" : ` en ${lugar.trim()}`) : "";
+  const dia = fechaFin && /^\d{4}-\d{2}-\d{2}/.test(fechaFin) ? new Date(`${fechaFin.slice(0, 10)}T00:00:00Z`) : null;
+  const cierre = dia && !Number.isNaN(dia.getTime()) ? ` ⏳ Abierta hasta el ${fechaLarga.format(dia)}.` : "";
   return (
-    `¡Súmate a la campaña «${nombre}» en DataForGood! ` +
-    `Con tu aporte ayudas a reunir datos${tema} para la comunidad. Participa aquí:`
+    `📣 ¡Tu aporte cuenta! «${nombre}» reúne datos${tema}${donde}. ` +
+    `✨ Comparte lo que ves y ayuda a tu comunidad con DataForGood.${cierre} 👉 Súmate aquí:`
   );
 }
 

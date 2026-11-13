@@ -128,7 +128,7 @@ export async function ParaAportar({ campana, token, urlDeEnvio }: { campana: Cam
 /** Por qué no se muestra el formulario anónimo, o null si se muestra. El servidor vuelve a comprobarlo al enviar. */
 async function motivoSinFormulario(campana: CampanaDelEnlace, dispositivo: string | null, misPorTipo: MiosPorTipo): Promise<string | null> {
   if (!campana.permiteAnonimos) return "Esta campaña solo recibe aportes con cuenta.";
-  const topeLleno = await avisoDeTopeAnonimoLleno(campana.id, campana.meta);
+  const topeLleno = await avisoDeTopeAnonimoLleno(campana.id, campana.meta, campana.limiteAnonimos);
   if (topeLleno) return topeLleno;
   const lleno = avisoDeTodoLleno(campana.tiposDeArchivo, campana.limitePorTipo, campana.enviadosPorTipo);
   if (lleno) return lleno;

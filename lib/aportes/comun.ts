@@ -189,8 +189,8 @@ export async function insertarAporteConCuota<T>(entrada: {
   /** Identifica a la persona dentro de la campaña: `usuario:<id>` o `dispositivo:<hash>`. */
   persona: string;
   cuota: number;
-  /** Calcula el tope de anónimos desde la meta actual de la campaña, bajo el candado. */
-  limiteAnonimos?: (meta: number) => number;
+  /** Calcula el tope de anónimos desde la meta actual y el tope que eligió el creador (2026-11-13), bajo el candado. */
+  limiteAnonimos?: (meta: number, elegido: number | null) => number;
   /** Cuenta los lugares ocupados del tope de anónimos; se comprueba bajo el bloqueo de la campaña. */
   contarAnonimos?: (client: PoolClient) => Promise<number>;
   /** Cuántos aportes tiene ya esta persona en la campaña. */
@@ -227,14 +227,15 @@ export async function insertarAporteConCuota<T>(entrada: {
       return { ok: false, motivo: "cuota" };
     }
     // Los topes de campaña se verifican bajo el mismo candado que toma recalcularContadores.
-    const { rows: filasCampana } = await client.query<{ goal_contributions: number }>(
-      `SELECT goal_contributions FROM campanas WHERE id = $1 FOR NO KEY UPDATE`,
+    const { rows: filasCampana } = await client.query<{ goal_contributions: number; limite_anonimos: number | null }>(
+      `SELECT goal_contributions, limite_anonimos FROM campanas WHERE id = $1 FOR NO KEY UPDATE`,
       [entrada.campaignId],
     );
     if (entrada.limiteAnonimos) {
       if (!entrada.contarAnonimos) throw new Error("Falta contar los aportes anónimos de la campaña");
       const metaActual = Number(filasCampana[0]?.goal_contributions ?? 0);
-      if ((await entrada.contarAnonimos(client)) >= entrada.limiteAnonimos(metaActual)) {
+      const elegido = filasCampana[0]?.limite_anonimos;
+      if ((await entrada.contarAnonimos(client)) >= entrada.limiteAnonimos(metaActual, elegido == null ? null : Number(elegido))) {
         await client.query("ROLLBACK");
         return { ok: false, motivo: "limite_anonimos" };
       }

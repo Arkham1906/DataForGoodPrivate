@@ -79,6 +79,15 @@ export async function guardarArchivo(
   return { relativePath: objectKey, mimeType: opciones.mimeType, sizeBytes: contenido.byteLength };
 }
 
+/**
+ * Guarda un archivo con una clave fija (2026-11-13), para copias derivadas que se buscan por su clave, como la
+ * vista previa del banner (lib/campanas/banner-vista-previa.ts). Si ya existía, la reemplaza.
+ */
+export async function guardarArchivoEnClave(objectKey: string, contenido: Buffer, mimeType: string): Promise<void> {
+  await ensureBucket();
+  await getClient().putObject(BUCKET, objectKey, contenido, contenido.byteLength, { "Content-Type": mimeType });
+}
+
 /** Borra un objeto del bucket. Si ya no existía, no falla. */
 export async function borrarArchivo(objectKey: string): Promise<void> {
   await ensureBucket();

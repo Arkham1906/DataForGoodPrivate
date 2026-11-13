@@ -48,11 +48,16 @@ export function IconoEstrella({ rellena = false }: { rellena?: boolean }) {
   );
 }
 
-export function IconoBandera({ rellena = false }: { rellena?: boolean }) {
+/**
+ * Reportar (2026-11-13, a pedido del usuario: la bandera de antes no se entendía como "reportar"): triángulo de
+ * advertencia con signo de admiración. `rellena` (ya reportado): el triángulo lleno y la admiración en blanco.
+ */
+export function IconoReportar({ rellena = false }: { rellena?: boolean }) {
   return (
     <svg aria-hidden="true" viewBox="0 0 24 24" className="size-[18px]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M5 21V4" />
-      <path d="M5 4h11l-2 4 2 4H5" fill={rellena ? "currentColor" : "none"} />
+      <path d="M12 3.5 2.5 20h19L12 3.5z" fill={rellena ? "currentColor" : "none"} />
+      <path d="M12 10v4.5" stroke={rellena ? "#ffffff" : "currentColor"} />
+      <path d="M12 17.5h.01" stroke={rellena ? "#ffffff" : "currentColor"} strokeWidth="2.5" />
     </svg>
   );
 }

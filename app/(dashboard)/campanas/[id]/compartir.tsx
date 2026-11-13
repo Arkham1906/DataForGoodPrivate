@@ -30,7 +30,16 @@ type Enlace = {
   aportesRecibidos?: number;
 };
 
-type Datos = { enlace: Enlace | null; status: string; esCreador: boolean; permiteAnonimos: boolean };
+type Datos = {
+  enlace: Enlace | null;
+  status: string;
+  esCreador: boolean;
+  permiteAnonimos: boolean;
+  /** Tope de aportes sin cuenta que eligió el creador (2026-11-13); null = el 10% de la meta. */
+  limiteAnonimos: number | null;
+  /** Lo que acepta si el creador no escribe número: el 10% de la meta. */
+  anonimosPorDefecto: number;
+};
 
 const numero = new Intl.NumberFormat("es-MX");
 const fechaConHora = new Intl.DateTimeFormat("es-MX", {
@@ -51,7 +60,9 @@ async function pedirEnlace(campanaId: string): Promise<Datos> {
     enlace: payload.data ?? null,
     status: payload.campana?.status ?? "",
     esCreador: Boolean(payload.viewer?.esCreador),
-    permiteAnonimos: payload.campana?.permiteAnonimos !== false,
+    permiteAnonimos: payload.campana?.permiteAnonimos === true,
+    limiteAnonimos: payload.campana?.limiteAnonimos ?? null,
+    anonimosPorDefecto: Number(payload.campana?.anonimosPorDefecto ?? 0),
   };
 }
 
@@ -59,6 +70,9 @@ export default function CompartirCampana({
   campanaId,
   nombre,
   tematica,
+  lugar,
+  fechaFin,
+  banner,
   abierto,
   onCerrar,
 }: {
@@ -66,6 +80,11 @@ export default function CompartirCampana({
   nombre: string;
   /** Para el mensaje que se propone al compartir en redes. */
   tematica?: string | null;
+  /** También para el mensaje (2026-11-13): dónde (textoDeUbicacion) y hasta cuándo recibe aportes ("AAAA-MM-DD"). */
+  lugar?: string | null;
+  fechaFin?: string | null;
+  /** Ruta del banner sin BASE_PATH, o null: vista previa y adjunto de "Más opciones" (2026-11-13). */
+  banner?: string | null;
   /**
    * Modo controlado (p. ej. "Compartir" del menú Más de /mis-campanas): sin botón propio, el cuadro se
    * abre cuando `abierto` pasa a true y avisa con onCerrar al cerrarse.
@@ -185,7 +204,7 @@ export default function CompartirCampana({
                 <div>
                   <EnlacePublico url={enlace.url} expiraEnIso={enlace.expiraEn} onVencer={cargar} />
 
-                  {!caducado && <RedesSociales url={enlace.url} nombre={nombre} tematica={tematica} />}
+                  {!caducado && <RedesSociales url={enlace.url} nombre={nombre} tematica={tematica} lugar={lugar} fechaFin={fechaFin} banner={banner} />}
 
                   {!caducado ? (
                     <p className="mb-4 rounded-lg bg-system-100 p-3.5 text-[15px] text-system-600">
@@ -210,6 +229,9 @@ export default function CompartirCampana({
                         campanaId={campanaId}
                         inicial={datos.permiteAnonimos}
                         onCambio={(permitir) => setDatos((actual) => (actual ? { ...actual, permiteAnonimos: permitir } : actual))}
+                        limiteInicial={datos.limiteAnonimos}
+                        porDefecto={datos.anonimosPorDefecto}
+                        onLimite={(limite) => setDatos((actual) => (actual ? { ...actual, limiteAnonimos: limite } : actual))}
                       />
                       <BotonRegenerar campanaId={campanaId} modo={caducado ? "vencido" : "regenerar"} onListo={cargar} />
                     </>

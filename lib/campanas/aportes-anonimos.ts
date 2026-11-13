@@ -42,6 +42,7 @@ import { registrarAuditoria } from "@/lib/auditoria";
 import { respuestasValidas, seccionesDelTipo } from "@/lib/campanas/checklist";
 import { buscarCampanaParaAportarSinCuenta, buscarEnlacePorToken, type CampanaDelEnlace } from "@/lib/campanas/enlaces";
 import { avisoDePausa } from "@/lib/campanas/pausa";
+import { limiteDeAportesAnonimos } from "@/lib/campanas/tope-anonimos";
 
 // TODO(dominio): valor elegido sin consulta. Aportes anónimos por IP en una hora, sumando
 // todas las campañas. Holgado para varias personas en la misma red (escuela, oficina).
@@ -52,17 +53,13 @@ const VENTANA_MS = 60 * 60 * 1000;
 // sin cuenta del mismo dispositivo, en cualquier campaña.
 export const ESPERA_ENTRE_APORTES_SEGUNDOS = 60;
 
-// Tope de aportes sin cuenta por campaña (2026-11-10): el 10% de la meta, redondeado hacia abajo.
-// No limita los aportes con cuenta. Esta es la única copia de la regla y de su mensaje.
-const PORCENTAJE_MAXIMO_DE_APORTES_ANONIMOS = 0.1;
-// Sin la invitación a la cuenta: /c/[token] y la ficha la ponen debajo, con sus botones.
-const AVISO_TOPE_ANONIMO_LLENO = "Esta campaña alcanzó su límite de aportes anónimos (10% de la meta).";
+// Tope de aportes sin cuenta por campaña: la regla (el número que elige el creador desde el 2026-11-13 o, sin él, el
+// 10% de la meta) vive en ./tope-anonimos.ts. Aquí, su mensaje.
+// Sin la invitación a la cuenta: /c/[token] y la ficha la ponen debajo, con sus botones. Sin "(10% de la meta)"
+// desde el 2026-11-13: el tope puede ser menor, lo elige el creador.
+const AVISO_TOPE_ANONIMO_LLENO = "Esta campaña alcanzó su límite de aportes anónimos.";
 const MENSAJE_LIMITE_ANONIMOS = `${AVISO_TOPE_ANONIMO_LLENO} Aún puedes aportar con una cuenta.`;
 
-/** Tope de aportes anónimos para la campaña; no limita aportes enviados con cuenta. */
-function limiteDeAportesAnonimos(meta: number): number {
-  return Math.floor(meta * PORCENTAJE_MAXIMO_DE_APORTES_ANONIMOS);
-}
 
 /**
  * Lugares ocupados del tope: los anónimos aceptados y los que esperan revisión (decisión del
@@ -87,8 +84,13 @@ async function contarAportesAnonimos(
  * formulario) y la ficha /campanas/[id] sin sesión (en vez de "Aportar sin cuenta"), para que nadie llene
  * el formulario y suba el archivo para enterarse al enviar (2026-11-11, a pedido del usuario).
  */
-export async function avisoDeTopeAnonimoLleno(campanaId: number, meta: number): Promise<string | null> {
-  return (await contarAportesAnonimos(campanaId)) >= limiteDeAportesAnonimos(meta) ? AVISO_TOPE_ANONIMO_LLENO : null;
+export async function avisoDeTopeAnonimoLleno(
+  campanaId: number,
+  meta: number,
+  /** El que eligió el creador (campanas.limite_anonimos, 2026-11-13); null = el 10% de la meta. */
+  elegido: number | null,
+): Promise<string | null> {
+  return (await contarAportesAnonimos(campanaId)) >= limiteDeAportesAnonimos(meta, elegido) ? AVISO_TOPE_ANONIMO_LLENO : null;
 }
 
 /**
@@ -241,7 +243,7 @@ export async function enviarAporteAnonimo(entrada: {
     return { ok: false, status: 403, error: "Esta campaña solo recibe aportes con cuenta." };
   }
   // Aviso rápido antes de subir nada; la comprobación que cuenta va dentro de la transacción.
-  if ((await contarAportesAnonimos(campana.id)) >= limiteDeAportesAnonimos(campana.meta)) {
+  if ((await contarAportesAnonimos(campana.id)) >= limiteDeAportesAnonimos(campana.meta, campana.limiteAnonimos)) {
     return { ok: false, status: 400, error: MENSAJE_LIMITE_ANONIMOS };
   }
 

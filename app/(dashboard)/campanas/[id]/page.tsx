@@ -27,7 +27,7 @@ import { porcentajeDeMeta } from "@/lib/campanas/meta";
 import { avisoDePausa } from "@/lib/campanas/pausa";
 import CompartirCampana from "./compartir";
 import ReportarCampana from "./reportar";
-import BotonDeIcono, { IconoBandera, IconoCompartir, IconoEstrella } from "@/components/ui/BotonDeIcono";
+import BotonDeIcono, { IconoReportar, IconoCompartir, IconoEstrella } from "@/components/ui/BotonDeIcono";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import { AvisoNoEncontrado } from "@/components/ui/AvisoNoEncontrado";
 import { VentanaDeInscripcion } from "@/components/ui/AcuerdosDeAporte";
@@ -149,12 +149,19 @@ export default function CampaignDetailPage() {
                 <IconoEstrella />
               </BotonDeIcono>
               <BotonDeIcono etiqueta="Inicia sesión para reportar la campaña" disabled>
-                <IconoBandera />
+                <IconoReportar />
               </BotonDeIcono>
             </div>
           ) : (
           <div className="flex shrink-0 items-center gap-2">
-            <CompartirCampana campanaId={campaign.id} nombre={campaign.name} tematica={campaign.tematica || campaign.tag} />
+            <CompartirCampana
+              campanaId={campaign.id}
+              nombre={campaign.name}
+              tematica={campaign.tematica || campaign.tag}
+              lugar={textoDeUbicacion({ todoElPais: campaign.todoElPais, municipio: campaign.locationCity, estado: campaign.locationState })}
+              fechaFin={campaign.endDate}
+              banner={campaign.hasBanner ? `/api/campanas/${campaign.id}/banner/vista-previa?v=${encodeURIComponent(campaign.bannerVersion ?? "")}` : null}
+            />
             <BotonDeIcono
               etiqueta={saved ? "Quitar de favoritas" : "Marcar como favorita"}
               aria-pressed={saved}
@@ -343,7 +350,7 @@ export default function CampaignDetailPage() {
                       Esta campaña solo recibe aportes con cuenta.
                     </p>
                   ) : campaign.status === "activa" && topeAnonimoLleno ? (
-                    // Tope del 10% de anónimos lleno (2026-11-11): el aviso en vez de "Aportar sin cuenta".
+                    // Tope de anónimos lleno (2026-11-11; desde el 2026-11-13 lo elige el creador; sin número, el 10% de la meta): el aviso en vez de "Aportar sin cuenta".
                     <p className="rounded-lg bg-system-100 p-3 text-center text-[12.5px] text-system-600">{topeAnonimoLleno}</p>
                   ) : campaign.status === "activa" && aporteSinCuenta ? (
                     <Link href={`/participa/${campaign.id}`} className={buttonClasses("primary", "md", "w-full")}>

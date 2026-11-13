@@ -261,10 +261,13 @@ export default function DetalleDeMisCampanasPage() {
             {["activa", "pausada"].includes(campana.status) && (
               <PermitirAnonimos
                 campanaId={campana.id}
-                inicial={campana.permiteAnonimos !== false}
+                inicial={campana.permiteAnonimos === true}
                 onCambio={(permiteAnonimos) =>
                   setCampana((actual) => (actual ? { ...actual, permiteAnonimos } : actual))
                 }
+                limiteInicial={campana.limiteAnonimos ?? null}
+                porDefecto={campana.anonimosPorDefecto ?? 0}
+                onLimite={(limiteAnonimos) => setCampana((actual) => (actual ? { ...actual, limiteAnonimos } : actual))}
               />
             )}
             {campana.status === "rechazada" && (

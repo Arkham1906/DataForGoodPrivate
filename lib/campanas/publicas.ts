@@ -39,7 +39,14 @@ export type CampanaPublica = {
   status: "activa";
 };
 
-export type OrdenDeCampanas = "participacion" | "recientes" | "cierre" | "mayor_avance" | "menor_avance" | "menos_aportes";
+export type OrdenDeCampanas =
+  | "participacion"
+  | "recientes"
+  | "cierre"
+  | "mayor_avance"
+  | "menor_avance"
+  | "menos_aportes"
+  | "mas_aportes";
 
 /** Estados que salen en /explorar. */
 const ESTADOS_VISIBLES = "status = 'activa'";
@@ -51,6 +58,8 @@ const ORDER_SQL: Record<OrdenDeCampanas, string> = {
   mayor_avance: "CASE WHEN goal_contributions > 0 THEN est.approved_contributions::float / goal_contributions ELSE 0 END DESC, created_at DESC",
   menor_avance: "CASE WHEN goal_contributions > 0 THEN est.approved_contributions::float / goal_contributions ELSE 0 END ASC, created_at DESC",
   menos_aportes: "est.current_contributions ASC, created_at DESC",
+  // "Más populares" de /explorar por temática (2026-11-13): los aportes aprobados, que son los que se ven en la tarjeta.
+  mas_aportes: "est.approved_contributions DESC, est.current_contributions DESC, created_at DESC",
 };
 
 export type FiltrosDeCampanas = {
@@ -153,6 +162,45 @@ export async function buscarCampanasParaExplorar(filtros: FiltrosDeCampanas): Pr
   } catch {
     return [];
   }
+}
+
+/** Qué campañas salen en cada sección de /explorar por temática. */
+export type OrdenDeSecciones = "mas_aportes" | "recientes";
+
+/**
+ * Las `porTematica` campañas activas de cada temática (2026-11-13, a pedido del usuario: /explorar en secciones
+ * por temática, como la página "discover" de GoFundMe). "mas_aportes": las que más aportes aprobados tienen;
+ * "recientes": las más nuevas. Una sola consulta (ROW_NUMBER por temática). El orden de las temáticas lo pone
+ * quien llama (obtenerTematicasParaExplorar: de la que más campañas tiene a la que menos). Vacío si falla.
+ */
+export async function buscarCampanasPorTematica(orden: OrdenDeSecciones, porTematica = 3): Promise<Map<string, CampanaPublica[]>> {
+  const porTema = new Map<string, CampanaPublica[]>();
+  try {
+    await activateScheduledCampaigns();
+    await finalizeExpiredCampaigns();
+    const result = await pool.query(
+      `SELECT * FROM (
+         SELECT id, name, description, banner_path, banner_scale, banner_position_x, banner_position_y, tematica, organizer, creator_name, location_city, location_state, todo_el_pais, ${columnaDeTipos()},
+                est.approved_contributions, goal_contributions, est.participants, end_date, status,
+                ROW_NUMBER() OVER (PARTITION BY tematica ORDER BY ${ORDER_SQL[orden]}) AS lugar
+         FROM campanas
+         JOIN campana_estadisticas est ON est.campana_id = campanas.id
+         WHERE ${ESTADOS_VISIBLES} AND tematica IS NOT NULL AND tematica <> ''
+       ) t
+       WHERE lugar <= $1
+       ORDER BY tematica, lugar`,
+      [porTematica],
+    );
+    const campanas = result.rows.map(mapCampana);
+    const etiquetas = await etiquetasDeCampanas(campanas.map((c) => Number(c.id)));
+    for (const c of campanas) {
+      c.etiquetas = (etiquetas.get(Number(c.id)) ?? []).map((e) => e.nombre);
+      porTema.set(c.tematica, [...(porTema.get(c.tematica) ?? []), c]);
+    }
+  } catch {
+    // Igual que buscarCampanasParaExplorar: sin BD, la pantalla sale sin secciones.
+  }
+  return porTema;
 }
 
 /** Activas, sin filtros: va en el texto de arriba y distingue "no hay campañas" de "sin resultados". */

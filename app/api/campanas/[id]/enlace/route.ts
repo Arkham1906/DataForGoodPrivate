@@ -6,6 +6,7 @@
 import { NextResponse } from "next/server";
 import { registrarAuditoria } from "@/lib/auditoria";
 import {
+  cambiarLimiteAnonimos,
   cambiarPermiteAnonimos,
   estaVigente,
   obtenerCampanaDelCreador,
@@ -14,6 +15,7 @@ import {
   regenerarEnlace,
   urlPublica,
 } from "@/lib/campanas/enlaces";
+import { anonimosPorDefecto, problemaDelLimiteElegido } from "@/lib/campanas/tope-anonimos";
 import { getSessionUser } from "@/lib/session";
 
 // GET: el enlace actual (vigente o caducado) para compartirlo, o null si la campaña nunca tuvo.
@@ -42,7 +44,14 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
             ...(esCreador ? { visitas: enlace.visitas, aportesRecibidos: enlace.aportesRecibidos } : {}),
           }
         : null,
-      campana: { nombre: campana.nombre, status: campana.status, permiteAnonimos: campana.permiteAnonimos },
+      campana: {
+        nombre: campana.nombre,
+        status: campana.status,
+        permiteAnonimos: campana.permiteAnonimos,
+        // Tope de aportes sin cuenta (2026-11-13): el que eligió el creador (null = el 10% de la meta) y lo que vale sin número (el 10%).
+        limiteAnonimos: campana.limiteAnonimos,
+        anonimosPorDefecto: anonimosPorDefecto(campana.meta),
+      },
       viewer: { esCreador },
     });
   } catch (error) {
@@ -86,8 +95,10 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
   }
 }
 
-// PATCH { permiteAnonimos: boolean }: el creador permite o corta los aportes sin cuenta desde
-// el enlace. Apagarlo no toca los aportes anónimos ya recibidos.
+// PATCH { permiteAnonimos?: boolean, limiteAnonimos?: number | null }: el creador permite o corta los aportes
+// sin cuenta desde el enlace (apagarlo no toca los anónimos ya recibidos) y, desde el 2026-11-13, elige cuántos
+// acepta: un entero desde 1, sin tope, o null para usar el 10% de la meta (lib/campanas/tope-anonimos.ts). Bajarlo por debajo
+// de los que ya llegaron no borra ninguno: solo deja de recibir más.
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
@@ -95,24 +106,43 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     if (!user) return NextResponse.json({ error: "Debes iniciar sesión" }, { status: 401 });
 
     const body = await request.json().catch(() => ({}));
-    if (typeof body.permiteAnonimos !== "boolean") {
+    const cambiaPermiso = body.permiteAnonimos !== undefined;
+    const cambiaLimite = body.limiteAnonimos !== undefined;
+    if (!cambiaPermiso && !cambiaLimite) {
+      return NextResponse.json({ error: "Manda permiteAnonimos o limiteAnonimos" }, { status: 400 });
+    }
+    if (cambiaPermiso && typeof body.permiteAnonimos !== "boolean") {
       return NextResponse.json({ error: "permiteAnonimos debe ser true o false" }, { status: 400 });
     }
 
-    const campana = await obtenerCampanaDelCreador(id, user.id);
-    if (!campana) {
+    const campana = await obtenerCampanaParaCompartir(id);
+    if (!campana || campana.creadorId !== Number(user.id)) {
       return NextResponse.json({ error: "Solo quien creó la campaña puede cambiar esto" }, { status: 403 });
     }
+    if (cambiaLimite) {
+      const problema = problemaDelLimiteElegido(body.limiteAnonimos);
+      if (problema) return NextResponse.json({ error: problema }, { status: 400 });
+    }
 
-    await cambiarPermiteAnonimos(campana.id, body.permiteAnonimos);
+    if (cambiaPermiso) await cambiarPermiteAnonimos(campana.id, body.permiteAnonimos);
+    if (cambiaLimite) await cambiarLimiteAnonimos(campana.id, body.limiteAnonimos);
     await registrarAuditoria({
       actor: { tipo: "usuario", id: Number(user.id) },
-      accion: "campana.anonimos_cambiar",
+      accion: cambiaLimite ? "campana.anonimos_limite" : "campana.anonimos_cambiar",
       objetivo: { tipo: "campana", id: campana.id },
-      detalle: { permiteAnonimos: body.permiteAnonimos },
+      detalle: {
+        ...(cambiaPermiso ? { permiteAnonimos: body.permiteAnonimos } : {}),
+        ...(cambiaLimite ? { limiteAnonimos: body.limiteAnonimos, antes: campana.limiteAnonimos } : {}),
+      },
     });
 
-    return NextResponse.json({ data: { permiteAnonimos: body.permiteAnonimos } });
+    return NextResponse.json({
+      data: {
+        permiteAnonimos: cambiaPermiso ? body.permiteAnonimos : campana.permiteAnonimos,
+        limiteAnonimos: cambiaLimite ? body.limiteAnonimos : campana.limiteAnonimos,
+        anonimosPorDefecto: anonimosPorDefecto(campana.meta),
+      },
+    });
   } catch (error) {
     console.error("Error cambiando los aportes sin cuenta", error);
     return NextResponse.json({ error: "No se pudo guardar el cambio" }, { status: 500 });

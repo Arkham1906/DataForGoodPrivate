@@ -1,6 +1,6 @@
 // Temáticas en pastillas con su ícono (2026-11-12, a pedido del usuario, como las categorías del inicio de
-// GoFundMe): cada una lleva a /explorar/tematica/[slug] con todas sus campañas activas. La usan "Lo más
-// reciente" de la landing y "Otras temáticas" de esa misma pantalla. En móvil, una fila con scroll horizontal
+// GoFundMe): cada una lleva a /explorar/tematica/[slug] con todas sus campañas activas. La usa "Otras
+// temáticas" de esa misma pantalla (hasta el 2026-11-13 también "Lo más reciente" de la landing). En móvil, una fila con scroll horizontal
 // (`dashboard-nav`); desde tableta, las pastillas se acomodan en varias filas. `activa` marca la que se ve.
 
 import Link from "next/link";

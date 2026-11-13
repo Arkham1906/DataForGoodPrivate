@@ -55,14 +55,20 @@ export default function VentanaDeConfirmacion({
     <dialog
       ref={dialogo}
       aria-labelledby="ventana-de-confirmacion-titulo"
-      onClose={() => {
+      // stopPropagation (2026-11-13): React hace subir "close" y "cancel" por el árbol de componentes, así que, dentro de
+      // otro <dialog> (p. ej. el aviso de riesgos de "Permitir aportes sin cuenta" en Compartir), cerrar esta ventana
+      // también cerraba la de afuera.
+      onClose={(e) => {
+        e.stopPropagation();
         if (abierto) onCancelar();
       }}
       onCancel={(e) => {
+        e.stopPropagation();
         if (ocupado) e.preventDefault();
       }}
-      // Clic en el fondo (fuera de la caja): se cierra.
+      // Clic en el fondo (fuera de la caja): se cierra. No sube a una ventana de afuera.
       onClick={(e) => {
+        e.stopPropagation();
         if (e.target === dialogo.current) cancelar();
       }}
       className={claseDeVentana()}

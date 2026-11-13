@@ -48,11 +48,17 @@ export async function marcarDatosPorDecidir(): Promise<void> {
   );
   for (const campana of rows) {
     if (!campana.supervisor_id || campana.supervisor_id === campana.creator_id) continue;
+    // Redacción del 2026-11-13 (a pedido del usuario); antes: «Decide si se publican sus datos abiertos» /
+    // «"X" terminó con N de M aportes aprobados. Revisa si sus datos se publican.»
+    const resultado =
+      campana.aprobados === 0
+        ? "sin aportes aprobados"
+        : `con ${campana.aprobados} de ${campana.goal_contributions} ${campana.goal_contributions === 1 ? "aporte aprobado" : "aportes aprobados"}`;
     await notificar({
       usuarioId: campana.supervisor_id,
       tipo: "datos_por_decidir",
-      titulo: "Decide si se publican sus datos abiertos",
-      mensaje: `"${campana.name}" terminó con ${campana.aprobados} de ${campana.goal_contributions} aportes aprobados. Revisa si sus datos se publican.`,
+      titulo: "Una campaña terminó: decide si se publican sus datos",
+      mensaje: `La campaña "${campana.name}" terminó ${resultado}. Revisa sus datos y decide si se publican en Datos abiertos; si no, tendrás que explicarle el motivo a quien la creó.`,
       campanaId: campana.id,
       enlace: `/supervision/${campana.id}`,
     });
@@ -65,20 +71,24 @@ export async function marcarDatosPorDecidir(): Promise<void> {
  * eliminadas o con la baja pedida. Los anónimos no tienen a quién avisar.
  */
 async function avisarAQuienesAportaron(campanaId: string | number, nombre: string, creadorId: number | null): Promise<void> {
-  const { rows } = await pool.query<{ user_id: number }>(
-    `SELECT DISTINCT a.user_id
+  const { rows } = await pool.query<{ user_id: number; aceptados: number }>(
+    `SELECT a.user_id, COUNT(*)::int AS aceptados
         FROM aportes a JOIN usuarios u ON u.id = a.user_id
       WHERE a.campaign_id = $1 AND a.status = 'aceptado' AND a.user_id IS NOT NULL
         AND a.user_id IS DISTINCT FROM $2
-        AND u.eliminada_en IS NULL AND u.baja_solicitada_en IS NULL`,
+        AND u.eliminada_en IS NULL AND u.baja_solicitada_en IS NULL
+      GROUP BY a.user_id`,
     [campanaId, creadorId],
   );
-  for (const { user_id } of rows) {
+  for (const { user_id, aceptados } of rows) {
+    // Redacción del 2026-11-13 (a pedido del usuario), con cuántos de sus aportes entraron; antes: «Tus aportes ya son
+    // datos abiertos» / «Se publicaron los datos de "X", donde participaste. Lo que aportaste ya está disponible…»
+    const suyos = aceptados === 1 ? "Tu aporte aceptado ya forma parte" : `Tus ${aceptados} aportes aceptados ya forman parte`;
     await notificar({
       usuarioId: user_id,
       tipo: "datos_publicados_aporte",
-      titulo: "Tus aportes ya son datos abiertos",
-      mensaje: `Se publicaron los datos de "${nombre}", donde participaste. Lo que aportaste ya está disponible para consultar y descargar.`,
+      titulo: aceptados === 1 ? "¡Tu aporte ya es dato abierto!" : "¡Tus aportes ya son datos abiertos!",
+      mensaje: `Se publicaron los datos de "${nombre}". ${suyos} de un conjunto que cualquier persona puede consultar y descargar. ¡Gracias por sumar!`,
       campanaId,
       enlace: `/datos/${campanaId}`,
     });
@@ -164,16 +174,18 @@ export async function decidirDatosAbiertos(
       campanaId,
       enlace: publica ? `/datos/${campanaId}` : "/mis-campanas",
       metadata: motivo ? { motivo } : {},
+      // Redacción del 2026-11-13 (a pedido del usuario): dice qué pueden hacer otros con los datos (licencia CC BY 4.0
+      // de /datos/[id]) y, si no se publican, qué pasa con la campaña. El motivo va sin punto doble.
       ...(publica
         ? {
             tipo: "datos_publicados" as const,
-            titulo: "Se publicaron los datos de tu campaña",
-            mensaje: `La supervisión publicó los datos de "${campana.name}" en Datos abiertos. Ya cualquiera puede consultarlos y descargarlos.`,
+            titulo: "¡Los datos de tu campaña ya son públicos!",
+            mensaje: `La supervisión publicó los datos de "${campana.name}" en Datos abiertos. Cualquier persona puede consultarlos, descargarlos y reutilizarlos citando la fuente. Gracias por impulsar esta campaña.`,
           }
         : {
             tipo: "datos_no_publicados" as const,
-            titulo: "Los datos de tu campaña no se publicaron",
-            mensaje: `La supervisión decidió no publicar los datos de "${campana.name}". Motivo: ${motivo}`,
+            titulo: "Los datos de tu campaña no se publicarán",
+            mensaje: `La supervisión revisó "${campana.name}" y decidió no publicar sus datos en Datos abiertos. Motivo: ${motivo.replace(/[.\s]+$/, "")}. La campaña y sus aportes siguen disponibles para ti en Mis campañas.`,
           }),
     });
   }

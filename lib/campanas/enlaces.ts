@@ -43,7 +43,13 @@ export type EnlaceDeCampana = {
 };
 
 export type CampanaDelCreador = { id: number; nombre: string; status: string };
-export type CampanaParaCompartir = CampanaDelCreador & { creadorId: number; permiteAnonimos: boolean };
+export type CampanaParaCompartir = CampanaDelCreador & {
+  creadorId: number;
+  permiteAnonimos: boolean;
+  meta: number;
+  /** Tope de aportes sin cuenta que eligió el creador (2026-11-13); null = el 10% de la meta. */
+  limiteAnonimos: number | null;
+};
 
 export function urlPublica(token: string): string {
   return absoluteUrl(`/c/${token}`).toString();
@@ -80,7 +86,7 @@ const SELECT_ENLACE = `
 export async function obtenerCampanaParaCompartir(campanaId: string): Promise<CampanaParaCompartir | null> {
   if (!/^\d+$/.test(campanaId)) return null;
   const { rows } = await pool.query(
-    `SELECT id, name, status, creator_id, permite_anonimos FROM campanas WHERE id = $1 LIMIT 1`,
+    `SELECT id, name, status, creator_id, permite_anonimos, goal_contributions, limite_anonimos FROM campanas WHERE id = $1 LIMIT 1`,
     [campanaId]
   );
   if (rows.length === 0) return null;
@@ -89,8 +95,18 @@ export async function obtenerCampanaParaCompartir(campanaId: string): Promise<Ca
     nombre: String(rows[0].name),
     status: String(rows[0].status),
     creadorId: Number(rows[0].creator_id),
-    permiteAnonimos: rows[0].permite_anonimos !== false,
+    permiteAnonimos: rows[0].permite_anonimos === true,
+    meta: Number(rows[0].goal_contributions ?? 0),
+    limiteAnonimos: rows[0].limite_anonimos == null ? null : Number(rows[0].limite_anonimos),
   };
+}
+
+/**
+ * Cuántos aportes sin cuenta acepta la campaña (2026-11-13; campanas.limite_anonimos). null vuelve al 10% de la
+ * meta. Quien llama ya validó el número con problemaDelLimiteElegido (lib/campanas/tope-anonimos.ts).
+ */
+export async function cambiarLimiteAnonimos(campanaId: number, limite: number | null): Promise<void> {
+  await pool.query(`UPDATE campanas SET limite_anonimos = $2, updated_at = NOW() WHERE id = $1`, [campanaId, limite]);
 }
 
 /** Interruptor del creador "Permitir aportes sin cuenta" (campanas.permite_anonimos). */
@@ -213,6 +229,8 @@ export type CampanaDelEnlace = {
   secciones: SeccionDeChecklist[];
   /** Interruptor del creador: si es false, /c/[token] no acepta aportes sin cuenta. */
   permiteAnonimos: boolean;
+  /** Tope de aportes sin cuenta que eligió el creador (2026-11-13); null = el 10% de la meta. */
+  limiteAnonimos: number | null;
   /** Tipos de archivo que acepta (campana_tipos; lib/aportes/archivo.ts). */
   tiposDeArchivo: TipoDeArchivo[];
   /** Formatos de "Archivo" que acepta (2026-10-28); [] = todos. */
@@ -221,6 +239,11 @@ export type CampanaDelEnlace = {
   pausa: PausaDeCampana | null;
   /** Para qué se usarán los datos (2026-10-27), como se lee; null si no tiene. */
   proposito: string | null;
+  /**
+   * Ruta de la vista previa del banner sin BASE_PATH (/api/campanas/<id>/banner/vista-previa?v=<versión>), o null si no tiene (2026-11-13: va
+   * como og:image de /c/[token] para que las redes lo muestren al compartir). El banner es público en activas.
+   */
+  banner: string | null;
 };
 
 export type ResultadoDeToken =
@@ -272,8 +295,8 @@ export async function buscarCampanaParaAportarSinCuenta(campanaId: number): Prom
 function columnasDeLaCampana(): string {
   return `c.name, c.description, c.tematica, c.tag, c.organizer, c.creator_name, c.location_city, c.location_state, c.todo_el_pais,
             c.status, c.goal_contributions, c.quota_per_user, c.end_date,
-            c.collection_mode, c.permite_anonimos,
-            c.pausa_por, c.pausa_motivo, c.pausada_en, c.proposito, c.proposito_otro,
+            c.collection_mode, c.permite_anonimos, c.limite_anonimos,
+            c.pausa_por, c.pausa_motivo, c.pausada_en, c.proposito, c.proposito_otro, c.banner_path, c.updated_at,
             ${columnasCalculadas("c")}`;
 }
 
@@ -296,12 +319,21 @@ function campanaDesdeFila(row: QueryResultRow, campanaId: number): CampanaDelEnl
     enviadosPorTipo: enviadosPorTipoDesdeFila(row),
     fechaFin: normalizeCampaignDate(row.end_date),
     secciones: seccionesDesdeFila(row),
-    permiteAnonimos: row.permite_anonimos !== false,
+    permiteAnonimos: row.permite_anonimos === true,
+    limiteAnonimos: row.limite_anonimos == null ? null : Number(row.limite_anonimos),
     tiposDeArchivo: tiposAceptados(row.data_types),
     formatosDeDocumento: normalizarFormatosDeDocumento(row.formatos_de_documento),
     pausa: pausaDesdeFila(row),
     proposito: textoDelProposito(row.proposito, row.proposito_otro),
+    banner: row.banner_path ? rutaDelBanner(campanaId, row.updated_at) : null,
   };
+}
+
+/** /api/campanas/<id>/banner/vista-previa (JPEG ligero de 1200 × 630) con la versión, para que las redes no usen una copia vieja. */
+function rutaDelBanner(campanaId: number, cambio: unknown): string {
+  const fecha = cambio instanceof Date ? cambio : cambio ? new Date(String(cambio)) : null;
+  const version = fecha && !Number.isNaN(fecha.getTime()) ? `?v=${fecha.getTime()}` : "";
+  return `/api/campanas/${campanaId}/banner/vista-previa${version}`;
 }
 
 /**

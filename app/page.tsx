@@ -16,9 +16,8 @@ import FranjaDeCampo from "@/components/landing/FranjaDeCampo";
 import TarjetaDeConjunto from "@/components/landing/TarjetaDeConjunto";
 import PalabraRotativa from "@/components/landing/PalabraRotativa";
 import PestanasDeCampanas, { type CampanaDePortada, type PestanaDeCampanas } from "@/components/landing/PestanasDeCampanas";
-import FilaDeTematicas from "@/components/landing/FilaDeTematicas";
 import TarjetaDeCampanaPublica from "@/components/campanas/TarjetaDeCampanaPublica";
-import { buscarCampanasParaExplorar, obtenerTematicasParaExplorar } from "@/lib/campanas/publicas";
+import { buscarCampanasParaExplorar } from "@/lib/campanas/publicas";
 import { retraso } from "@/lib/animaciones";
 import { pool } from "@/lib/db";
 import { activateScheduledCampaigns, finalizeExpiredCampaigns } from "@/lib/campaign-date";
@@ -54,10 +53,8 @@ const PASOS = [
   },
 ];
 
-/** Campañas de "Lo más reciente" (2026-11-12): dos filas de 3 en escritorio. */
-const CAMPANAS_RECIENTES = 6;
-/** Temáticas en la fila de "Lo más reciente": las que más campañas activas tienen. */
-const TEMATICAS_EN_PORTADA = 10;
+/** Campañas de "Lo más reciente": una fila de 3 en escritorio (2026-11-13; antes 6, en dos filas). */
+const CAMPANAS_RECIENTES = 3;
 
 const PUBLICOS = ["organizaciones", "voluntarios", "investigadores", "comunidades"];
 
@@ -264,7 +261,7 @@ function EncabezadoDeSeccion({
 }
 
 export default async function LandingPage() {
-  const [{ conjuntos: destacados }, totalConjuntos, aportesRecientes, cifras, vitrina, recientes, tematicasConCampanas] = await Promise.all([
+  const [{ conjuntos: destacados }, totalConjuntos, aportesRecientes, cifras, vitrina, recientes] = await Promise.all([
     buscarConjuntosAbiertos({ orden: "cobertura" }),
     contarConjuntosPublicados(),
     obtenerAportesRecientes(),
@@ -272,7 +269,6 @@ export default async function LandingPage() {
     obtenerVitrina(),
     // "Lo más reciente" (2026-11-12): las mismas campañas y tarjetas que /explorar, de la más nueva a la más vieja.
     buscarCampanasParaExplorar({ orden: "recientes", limite: CAMPANAS_RECIENTES }),
-    obtenerTematicasParaExplorar(),
   ]);
   // Tabla de líderes (datos reales de la BD). Sin datos (BD vacía o recién construida), la sección no se pinta.
   // Con datos desde siempre se pinta la sección; los periodos cortos pueden venir vacíos (lo dice la tabla).
@@ -353,25 +349,17 @@ export default async function LandingPage() {
         </section>
 
         {/* Lo más reciente (2026-11-12, a pedido del usuario, como el inicio de GoFundMe): las campañas activas
-            más nuevas de todas las temáticas y, arriba, las temáticas: cada una lleva a /explorar/tematica/[slug]. */}
+            más nuevas de todas las temáticas. Desde el 2026-11-13 (a pedido del usuario) solo las 3 más nuevas y sin
+            la fila de temáticas: el listado general está en /explorar ("Ver todas": la lista completa, ya ordenada por recientes). */}
         {recientes.length > 0 && (
           <section aria-labelledby="campanas-recientes" className={`${ANCHO} py-12 md:py-20`}>
             <EncabezadoDeSeccion
               id="campanas-recientes"
               etiqueta="Lo más reciente"
               titulo="Campañas recién abiertas"
-              texto="Las últimas campañas que empezaron a recibir aportes, de todas las temáticas. Elige una temática para ver todas sus campañas."
-              enlace={{ href: "/explorar?orden=recientes", texto: "Ver todas" }}
+              texto="Las últimas campañas que empezaron a recibir aportes, de todas las temáticas."
+              enlace={{ href: "/explorar?vista=todas&orden=recientes", texto: "Ver todas" }}
             />
-            {tematicasConCampanas.length > 0 && (
-              <div className="landing-revelar mb-6">
-                <FilaDeTematicas
-                  tematicas={tematicasConCampanas.slice(0, TEMATICAS_EN_PORTADA)}
-                  etiqueta="Campañas por temática"
-                  final={tematicasConCampanas.length > TEMATICAS_EN_PORTADA ? { href: "/explorar", texto: "Más temáticas" } : undefined}
-                />
-              </div>
-            )}
             <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {recientes.map((c, i) => (
                 // flex: la tarjeta toma el alto de la fila, como en /explorar (sin portada no queda más corta).

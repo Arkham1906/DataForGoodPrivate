@@ -262,7 +262,7 @@ export async function ensureCampanasTable(): Promise<void> {
       proposito_otro VARCHAR(80),
       organizer VARCHAR(160),
       xp_per_contribution INTEGER NOT NULL DEFAULT 0,
-      permite_anonimos BOOLEAN NOT NULL DEFAULT true,
+      permite_anonimos BOOLEAN NOT NULL DEFAULT false,
       pausa_por VARCHAR(20),
       pausa_motivo TEXT,
       pausada_en TIMESTAMPTZ,
@@ -307,6 +307,12 @@ export async function ensureCampanasTable(): Promise<void> {
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS supervisado_por_root BOOLEAN NOT NULL DEFAULT false;
     -- Interruptor del creador: si es false, /c/[token] no acepta aportes sin cuenta.
     ALTER TABLE campanas ADD COLUMN IF NOT EXISTS permite_anonimos BOOLEAN NOT NULL DEFAULT true;
+    -- Desde el 2026-11-13 (a pedido del usuario) las campañas nuevas empiezan sin aportes sin cuenta: el creador los
+    -- enciende en Compartir o en /mis-campanas/[id], tras ver el aviso de riesgos. Las que ya existían conservan su valor.
+    ALTER TABLE campanas ALTER COLUMN permite_anonimos SET DEFAULT false;
+    -- Cuántos aportes sin cuenta acepta (2026-11-13, lo elige el creador en Compartir o en /mis-campanas/[id]):
+    -- un entero desde 1, sin tope (lib/campanas/tope-anonimos.ts). NULL = el 10% de la meta, como antes.
+    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS limite_anonimos INTEGER CHECK (limite_anonimos IS NULL OR limite_anonimos >= 1);
     -- Quién la pausó y por qué (2026-10-15, lib/campanas/pausa.ts): 'creador' (sin motivo) o
     -- 'supervision' (supervisor o SuperUsuario, motivo obligatorio; solo la supervisión la reanuda).
     -- Se escriben al pasar a pausada; con otro estado no se leen.

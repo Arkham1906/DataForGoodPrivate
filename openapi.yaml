@@ -1254,6 +1254,8 @@ paths:
                       nombre: { type: string }
                       status: { type: string }
                       permiteAnonimos: { type: boolean, description: "Si /c/{token} acepta aportes sin cuenta" }
+                      limiteAnonimos: { type: integer, nullable: true, description: "Cuántos aportes sin cuenta eligió aceptar el creador (2026-11-13); null = el 10% de la meta" }
+                      anonimosPorDefecto: { type: integer, description: "Los que acepta si el creador no elige: el 10% de la meta, hacia abajo" }
                   viewer:
                     type: object
                     properties:
@@ -1287,26 +1289,35 @@ paths:
           description: La campaña no está activa
     patch:
       tags: [Campañas]
-      summary: Permitir o cortar los aportes sin cuenta
-      description: Solo el creador. No toca los aportes anónimos ya recibidos. Bitácora `campana.anonimos_cambiar`.
+      summary: Permitir o cortar los aportes sin cuenta y elegir cuántos acepta
+      description: |
+        Solo el creador. Manda `permiteAnonimos`, `limiteAnonimos` o los dos. Apagar los aportes sin cuenta no toca
+        los ya recibidos. `limiteAnonimos` (2026-11-13): un entero desde 1, sin tope, o null para usar el 10% de la meta
+        (hacia abajo). Elegir menos de los que ya llegaron no borra ninguno.
+        Bitácora `campana.anonimos_cambiar` o `campana.anonimos_limite`.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [permiteAnonimos]
               properties:
                 permiteAnonimos: { type: boolean }
+                limiteAnonimos: { type: integer, nullable: true, minimum: 1 }
       responses:
         "200":
-          description: Valor guardado
+          description: Valores guardados
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  data: { type: object, properties: { permiteAnonimos: { type: boolean } } }
+                  data:
+                    type: object
+                    properties:
+                      permiteAnonimos: { type: boolean }
+                      limiteAnonimos: { type: integer, nullable: true }
+                      anonimosPorDefecto: { type: integer }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
@@ -1422,7 +1433,8 @@ paths:
         cookie `anonimo_id` (se crea en la primera respuesta exitosa); además, un tope de 20 aportes
         anónimos por IP por hora, y 60 segundos de espera entre dos aportes del mismo
         dispositivo (en cualquier campaña). Los aportes anónimos aceptados y pendientes de revisión
-        están limitados al 10% de la meta de la campaña, redondeado hacia abajo; solo un rechazo
+        están limitados al número que eligió el creador (2026-11-13) o, si no eligió, al 10% de la meta
+        de la campaña, redondeado hacia abajo; solo un rechazo
         libera el lugar. Este límite no aplica a aportes con cuenta. Si se alcanza responde 400. Solo responde cuántos aportes le
         quedan y la espera.
       requestBody:

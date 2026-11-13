@@ -27,6 +27,7 @@ import { EsqueletoDeTarjetas } from "@/components/ui/Esqueletos";
 import VentanaDeConfirmacion from "@/components/ui/VentanaDeConfirmacion";
 import MenuDeAcciones from "@/components/ui/MenuDeAcciones";
 import CompartirCampana from "@/app/(dashboard)/campanas/[id]/compartir";
+import { textoDeUbicacion } from "@/lib/campanas/ubicacion";
 import { resumenDeIncentivos, textoDelPeriodo } from "@/lib/campanas/especial-reglas";
 import { porcentajeDeMeta } from "@/lib/campanas/meta";
 import { fechaDDMMAAAA, inicioEnElFuturo, ZONA_DE_CAMPANAS } from "@/lib/fecha-de-tepic";
@@ -737,6 +738,9 @@ export default function MisCampanasPage() {
           campanaId={porCompartir.id}
           nombre={porCompartir.name}
           tematica={porCompartir.tematica || porCompartir.tag}
+          lugar={textoDeUbicacion({ todoElPais: porCompartir.todoElPais, municipio: porCompartir.locationCity, estado: porCompartir.locationState })}
+          fechaFin={porCompartir.endDate}
+          banner={porCompartir.hasBanner ? `/api/campanas/${porCompartir.id}/banner/vista-previa?v=${encodeURIComponent(porCompartir.bannerVersion ?? "")}` : null}
           abierto
           onCerrar={() => setPorCompartir(null)}
         />

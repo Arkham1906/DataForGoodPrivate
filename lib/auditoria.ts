@@ -74,6 +74,8 @@ export type AccionAuditada =
   | "aporte.reportar"
   | "aporte.archivo_borrar"
   | "campana.anonimos_cambiar"
+  // El creador elige cuántos aportes sin cuenta acepta su campaña (2026-11-13).
+  | "campana.anonimos_limite"
   | "campana.bloquear_dispositivo"
   | "campana.desbloquear_dispositivo"
   | "sancion.dispositivo_bloquear"

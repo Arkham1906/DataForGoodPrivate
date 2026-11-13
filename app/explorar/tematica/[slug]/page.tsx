@@ -1,8 +1,9 @@
 // Pantalla /explorar/tematica/[slug] (pública, 2026-11-12, a pedido del usuario: como las páginas de categoría
 // de GoFundMe, con el estilo de la landing). Todas las campañas activas de una temática: encabezado con su
 // ícono, subtemáticas (?etiqueta=), orden (?orden=, por defecto las más recientes) y "Otras temáticas". La
-// abren las temáticas de "Lo más reciente" en la landing (components/landing/FilaDeTematicas). Para combinar
-// con más filtros (estado, tipo de dato, búsqueda) enlaza a /explorar?tematica=.
+// abren los mosaicos de temática de /explorar y el "Ver todas" de cada sección de su vista por temática
+// (2026-11-13; hasta ese día, las temáticas de "Lo más reciente" de la landing). Para combinar con más filtros
+// (estado, tipo de dato, búsqueda) enlaza a la lista completa de /explorar con ?tematica=.
 // Datos: lib/campanas/publicas.ts (resolverTematicaDeRuta, buscarCampanasParaExplorar). El slug sale del nombre
 // (lib/tematicas/ruta.ts); si no es de ninguna temática, 404. Abrir una campaña pide sesión (proxy.ts).
 
@@ -166,7 +167,7 @@ export default async function CampanasDeTematicaPage({ params, searchParams }: P
                 <ButtonLink href="/registro" variant="primary" size="sm">
                   Crear una campaña
                 </ButtonLink>
-                <ButtonLink href="/explorar" variant="secondary" size="sm">
+                <ButtonLink href="/explorar?vista=todas" variant="secondary" size="sm">
                   Ver todas las campañas
                 </ButtonLink>
               </div>
@@ -188,7 +189,7 @@ export default async function CampanasDeTematicaPage({ params, searchParams }: P
 
           <p className="mt-6 text-center text-[13.5px] text-system-600">
             ¿Buscas por estado, tipo de dato o palabra?{" "}
-            <Link href={`/explorar?tematica=${encodeURIComponent(tematica)}`} className="font-semibold text-brand-600 hover:underline">
+            <Link href={`/explorar?vista=todas&tematica=${encodeURIComponent(tematica)}`} className="font-semibold text-brand-600 hover:underline">
               Usa todos los filtros en Explorar →
             </Link>
           </p>

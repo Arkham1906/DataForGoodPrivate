@@ -202,7 +202,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     try {
       await client.query("BEGIN");
       await client.query(`SELECT 1 FROM campanas WHERE id = $1 FOR NO KEY UPDATE`, [row.campaign_id]);
-      // El tope del 10% de aportes anónimos no se revisa aquí: el pendiente ocupa su lugar desde
+      // El tope de aportes anónimos (lib/campanas/tope-anonimos.ts) no se revisa aquí: el pendiente ocupa su lugar desde
       // que se envió (lib/campanas/aportes-anonimos.ts) y aceptarlo no cambia la cuenta.
       result = await client.query(
         `UPDATE aportes SET

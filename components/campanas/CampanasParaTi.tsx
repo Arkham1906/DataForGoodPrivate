@@ -24,6 +24,7 @@ export default function CampanasParaTi({
   id,
   campanas,
   accion,
+  avisos,
   filtros,
   vacio,
   vistaCuadricula = true,
@@ -34,6 +35,11 @@ export default function CampanasParaTi({
   campanas: CampanaParaTi[];
   /** Enlace a la derecha del título (en /inicio, "Ver todas →"). */
   accion?: ReactNode;
+  /**
+   * Avisos justo debajo del título, antes de los filtros (2026-11-13, a pedido del usuario): "Aún no eliges temáticas
+   * de interés" y, en /campanas, el de ubicación. Antes iban arriba de la pantalla o después de la sección.
+   */
+  avisos?: ReactNode;
   /** Filtros de la sección, debajo del título (en /campanas, las filas de botones; 2026-11-10). */
   filtros?: ReactNode;
   /** Qué mostrar sin campañas; sin él, no se dibuja la sección. */
@@ -42,7 +48,7 @@ export default function CampanasParaTi({
   vistaCuadricula?: boolean;
   className?: string;
 }) {
-  if (campanas.length === 0 && !vacio) return null;
+  if (campanas.length === 0 && !vacio && !avisos) return null;
   return (
     <section aria-labelledby={id} className={className}>
       <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
@@ -51,9 +57,10 @@ export default function CampanasParaTi({
         </h2>
         {accion}
       </div>
+      {avisos}
       {filtros}
       {campanas.length === 0 ? (
-        vacio
+        (vacio ?? null)
       ) : (
         <div className={vistaCuadricula ? "grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-3" : "flex flex-col gap-3"}>
           {campanas.map((c) => {
