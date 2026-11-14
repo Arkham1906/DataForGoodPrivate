@@ -9,6 +9,7 @@ import { exigirUsuario } from "@/lib/session";
 import { obtenerResumenDeBaja } from "@/lib/usuarios/baja";
 import { PLAZO_DE_GRACIA } from "@/lib/usuarios/baja-opciones";
 import EliminarCuentaForm from "./EliminarCuentaForm";
+import { TEXTOS } from "@/lib/gamificacion/textos";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Eliminar cuenta" };
@@ -99,17 +100,24 @@ export default async function EliminarCuentaPage() {
             </div>
           ))}
         </dl>
-        <p className="mt-4 text-[12.5px] text-system-600">
-          Al borrarse la cuenta se pierden tus {resumen.xp.toLocaleString("es-MX")} XP y el nivel {resumen.nivel}; no se
-          pueden recuperar.
-        </p>
+        {resumen.gamificacion && (
+          <p className="mt-4 text-[12.5px] text-system-600">
+            {TEXTOS.baja.sePierde(
+              resumen.gamificacion.numero,
+              resumen.gamificacion.nombre,
+              resumen.gamificacion.exp,
+              resumen.gamificacion.medallas,
+            )}
+          </p>
+        )}
       </section>
 
       <EliminarCuentaForm
         usuarioId={Number(usuario.id)}
         tieneContrasena={Boolean(usuario.tiene_contrasena)}
         aportes={{ total: aportes.total, utilizados: aportes.utilizados, campanas: aportes.campanas }}
-        xp={resumen.xp}
+        rango={resumen.gamificacion?.numero ?? null}
+        exp={resumen.gamificacion?.exp ?? null}
       />
     </div>
   );

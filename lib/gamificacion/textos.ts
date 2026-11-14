@@ -144,4 +144,33 @@ export const TEXTOS = {
       rechazado: "Rechazado",
     },
   },
+  /** Ícono de EXP con su recuadro, en el detalle de una campaña (sustituye a «N XP por aporte aprobado»). */
+  expPorAporte: {
+    etiqueta: "EXP",
+    abrir: "Ver cuánta EXP da cada aporte en esta campaña",
+    titulo: "EXP por aporte aceptado",
+    rango: (minimo: number, maximo: number) => (minimo === maximo ? `${n(minimo)} EXP` : `${n(minimo)} a ${n(maximo)} EXP`),
+    nota: "Depende del tipo de aporte y de la calificación que reciba, de 1★ a 5★.",
+    notaPotenciador: (bonificacion: number) => `Con un potenciador activo ganas ${n(Math.round(bonificacion * 100))} % más.`,
+    cargando: "Cargando…",
+    error: "No pudimos cargar la EXP. Intenta de nuevo en un momento.",
+  },
+  /** Resumen de tu cuota en Mis aportes de una campaña. */
+  cuotaDeCampana: {
+    aceptados: (exp: number) => `aceptados · ${n(exp)} EXP`,
+  },
+  /** Distintivo de rango en Mi cuenta (A6). */
+  cuenta: {
+    rango: (numero: number, nombre: string) => `Rango ${n(numero)} · ${nombre}`,
+    rangoAria: (numero: number, nombre: string) => `Rango ${n(numero)}, ${nombre}. Ver tu trayectoria`,
+  },
+  /** Lo que se pierde al eliminar la cuenta (A6). */
+  baja: {
+    sePierde: (rango: number, nombre: string, exp: number, medallas: number) =>
+      `Al borrarse la cuenta se pierden tu rango ${n(rango)} (${nombre}), tus ${n(exp)} EXP` +
+      (medallas > 0 ? `, tus ${n(medallas)} ${plural(medallas, "medalla", "medallas")}` : "") +
+      " y todo tu progreso; no se pueden recuperar.",
+    filaEtiqueta: "Rango y experiencia",
+    filaValor: (rango: number, exp: number) => `Rango ${n(rango)} y ${n(exp)} EXP se pierden`,
+  },
 } as const;

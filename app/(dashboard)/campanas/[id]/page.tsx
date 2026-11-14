@@ -36,6 +36,7 @@ import { repartoSugerido } from "@/lib/campanas/reparto-sugerido";
 import { resumenDeCuotaPorTipo } from "@/lib/campanas/cuota-por-tipo";
 import { resumenDeLimites } from "@/lib/campanas/limite-por-tipo";
 import { textoDelProposito } from "@/lib/campanas/proposito";
+import ExpPorAporte from "@/components/gamificacion/ExpPorAporte";
 
 export default function CampaignDetailPage() {
   const params = useParams<{ id: string }>();
@@ -304,10 +305,12 @@ export default function CampaignDetailPage() {
                   {campaign.goalContributions} aportes
                 </dd>
               </div>
-              <div className="flex justify-between">
+              {/* 2026-11-13: la EXP real depende del tipo y de la calificación (RF-GAM-01 a 03); el ícono abre el
+                  detalle por tipo. Sustituye a xpPerContribution, que no es lo que se concede. */}
+              <div className="flex items-center justify-between">
                 <dt className="text-system-600">Experiencia</dt>
-                <dd className="font-medium text-system-900">
-                  {campaign.xpPerContribution} XP por aporte aprobado
+                <dd>
+                  <ExpPorAporte tipos={campaign.dataTypes} />
                 </dd>
               </div>
             </dl>

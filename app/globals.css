@@ -708,6 +708,10 @@ input::-ms-clear {
     opacity: 1 !important;
     transition: none !important;
   }
+  /* Recuadro de EXP por aporte (ExpPorAporte): solo se funde, sin crecer. */
+  .exp-por-aporte {
+    transform: none !important;
+  }
 }
 
 @keyframes mapa-aparecer {

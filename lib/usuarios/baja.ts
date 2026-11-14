@@ -16,6 +16,7 @@
 // abiertos publicados en /datos): nunca se borra; con "eliminar" se anonimiza igual.
 
 import { pool } from "@/lib/db";
+import { obtenerRangoDeCuenta, type RangoDeCuenta } from "@/lib/gamificacion/rango-de-cuenta";
 import { borrarPerfilDeGamificacion } from "@/lib/gamificacion/baja-de-cuenta";
 import { borrarArchivo } from "@/lib/minio";
 import { registrarAuditoria } from "@/lib/auditoria";
@@ -42,12 +43,12 @@ export type ResumenDeBaja = {
     rechazados: number;
   };
   campanasPropias: { aFinalizar: number; aBorrar: number };
-  xp: number;
-  nivel: number;
+  /** Rango, EXP y medallas de la gamificación (A6, 2026-11-13); null si no se pudieron leer. */
+  gamificacion: RangoDeCuenta | null;
 };
 
 export async function obtenerResumenDeBaja(usuarioId: number): Promise<ResumenDeBaja> {
-  const [aportes, campanas, usuario] = await Promise.all([
+  const [aportes, campanas, gamificacion] = await Promise.all([
     pool.query<{
       total: number;
       campanas: number;
@@ -75,7 +76,7 @@ export async function obtenerResumenDeBaja(usuarioId: number): Promise<ResumenDe
        FROM campanas WHERE creator_id = $1`,
       [usuarioId]
     ),
-    pool.query<{ xp_total: number; level: number }>(`SELECT xp_total, level FROM usuarios WHERE id = $1`, [usuarioId]),
+    obtenerRangoDeCuenta(usuarioId),
   ]);
 
   const a = aportes.rows[0];
@@ -92,8 +93,7 @@ export async function obtenerResumenDeBaja(usuarioId: number): Promise<ResumenDe
       aFinalizar: campanas.rows[0]?.a_finalizar ?? 0,
       aBorrar: campanas.rows[0]?.a_borrar ?? 0,
     },
-    xp: Number(usuario.rows[0]?.xp_total ?? 0),
-    nivel: Number(usuario.rows[0]?.level ?? 1),
+    gamificacion,
   };
 }
 
