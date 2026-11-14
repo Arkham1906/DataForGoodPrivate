@@ -23,6 +23,7 @@ const MOTIVO: Record<CampanaParaTi["motivo"], string> = {
 export default function CampanasParaTi({
   id,
   campanas,
+  descripcion,
   accion,
   avisos,
   filtros,
@@ -35,6 +36,8 @@ export default function CampanasParaTi({
   /** id del título (aria-labelledby): cada pantalla usa el suyo. */
   id: string;
   campanas: CampanaParaTi[];
+  /** Subtítulo debajo del título (2026-11-13, a pedido del usuario: solo en /campanas; /inicio no lo lleva). */
+  descripcion?: ReactNode;
   /** Enlace a la derecha del título (en /inicio, "Ver todas →"). */
   accion?: ReactNode;
   /**
@@ -58,9 +61,14 @@ export default function CampanasParaTi({
   return (
     <section aria-labelledby={id} className={className}>
       <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
-        <h2 id={id} className="text-lg font-extrabold text-system-900">
-          Campañas para ti
-        </h2>
+        <div>
+          <h2 id={id} className="text-lg font-extrabold text-system-900">
+            Campañas para ti
+          </h2>
+          {descripcion && (
+            <p className="mt-1 max-w-2xl text-[13px] text-system-600 max-md:text-[12px] max-md:leading-5">{descripcion}</p>
+          )}
+        </div>
         {accion}
       </div>
       {avisos}

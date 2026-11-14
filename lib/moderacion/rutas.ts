@@ -10,8 +10,10 @@ export const ZONAS_DE_MODERACION = new Set<string>(["supervisar", "supervision"]
 export function rutasDeModeracion(zona: ZonaDeModeracion) {
   const base = `/${zona}`;
   return {
-    /** Campañas por supervisar: la primera pestaña. */
-    campanas: base,
+    /** La primera pestaña: en /supervision el dashboard (2026-11-13); en /supervisar, las campañas. */
+    inicio: base,
+    /** Las listas de campañas (por supervisar, supervisadas...): en /supervision su propia pestaña desde el 2026-11-13. */
+    campanas: zona === "supervision" ? `${base}/campanas` : base,
     reportes: `${base}/reportes`,
     reportesResueltos: `${base}/reportes?estado=resueltos`,
     sanciones: `${base}/sanciones`,
@@ -26,9 +28,20 @@ export function rutasDeModeracion(zona: ZonaDeModeracion) {
   };
 }
 
-/** Pestañas de arriba en las dos zonas: Campañas / Reportes / Sanciones. */
+/**
+ * Pestañas de arriba. /supervisar: Campañas / Reportes / Sanciones. /supervision (2026-11-13, a pedido del usuario):
+ * Dashboard / Campañas / Reportes / Sanciones; el dashboard es lo primero que se abre.
+ */
 export function pestanasDeModeracion(zona: ZonaDeModeracion) {
   const r = rutasDeModeracion(zona);
+  if (zona === "supervision") {
+    return [
+      { href: r.inicio, etiqueta: "Dashboard" },
+      { href: r.campanas, etiqueta: "Campañas" },
+      { href: r.reportes, etiqueta: "Reportes" },
+      { href: r.sanciones, etiqueta: "Sanciones" },
+    ];
+  }
   return [
     { href: r.campanas, etiqueta: "Campañas" },
     { href: r.reportes, etiqueta: "Reportes" },

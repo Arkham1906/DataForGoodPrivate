@@ -50,6 +50,9 @@ import BotonCrearCampana from "@/components/campanas/BotonCrearCampana";
 const FAVORITAS = "favoritas";
 // Tarjetas esqueleto mientras cargan: dos filas en escritorio (hasta 4 columnas), suficientes en móvil.
 const TARJETAS_DE_CARGA = 6;
+// Subtítulo de las secciones (Campañas favoritas y Todas las campañas; 2026-11-13). El de "Campañas para ti" lo pinta
+// CampanasParaTi con su prop `descripcion`, con las mismas clases.
+const CLASE_DE_SUBTITULO = "mt-1 max-w-2xl text-[13px] text-system-600 max-md:text-[12px] max-md:leading-5";
 const CLAVE_VISTA_CAMPANAS = "dfg:campanas:vista";
 const EVENTO_VISTA_CAMPANAS = "dfg:campanas:vista-cambio";
 let vistaCampanasEnMemoria = true;
@@ -293,8 +296,10 @@ export default function CampanasPage() {
       <div className="mb-6 flex items-start justify-between gap-4 max-md:mb-4 max-md:gap-3">
         <div>
           <h1 className="text-2xl font-extrabold text-system-900 max-md:text-xl max-md:leading-tight">Campañas disponibles</h1>
-          <p className="mt-1 text-[13px] text-system-600 max-md:max-w-[220px] max-md:text-[12px] max-md:leading-5">
-            Descubre proyectos con impacto social cerca de ti.
+          {/* Descripción (2026-11-13, a pedido del usuario; antes "Descubre proyectos con impacto social cerca de ti.").
+              max-w-2xl: en escritorio no se estira de lado a lado; el ancho de móvil quedó como estaba (Gerard). */}
+          <p className="mt-1 max-w-2xl text-[13px] text-system-600 max-md:max-w-[220px] max-md:text-[12px] max-md:leading-5">
+            Explora las campañas activas y elige en cuáles participar con fotos, videos, audios, archivos o texto.
           </p>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2">
@@ -308,9 +313,15 @@ export default function CampanasPage() {
       {!cargando && !error && favoritas.length > 0 && (
         <>
           <section aria-labelledby="campanas-favoritas" className="mb-6 max-md:mb-5">
-            <h2 id="campanas-favoritas" className="mb-3 text-lg font-extrabold text-system-900">
-              Campañas favoritas
-            </h2>
+            <div className="mb-3">
+              <h2 id="campanas-favoritas" className="text-lg font-extrabold text-system-900">
+                Campañas favoritas
+              </h2>
+              {/* Subtítulos de las secciones (2026-11-13, a pedido del usuario), como el de "Campañas disponibles". */}
+              <p className={CLASE_DE_SUBTITULO}>
+                Las campañas activas que marcaste con la estrella, para tenerlas a la mano y volver a participar.
+              </p>
+            </div>
             <div className={vistaCuadricula ? "grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4" : "flex flex-col gap-3"}>
               {favoritas.map((campaign) => (
                 <CampaignCard key={campaign.id} campaign={campaign} compact={!vistaCuadricula} mobileCompact={vistaCuadricula} hrefAlAbrir={`/campanas/${campaign.id}`} />
@@ -325,6 +336,9 @@ export default function CampanasPage() {
         <CampanasParaTi
           id="campanas-para-ti"
           campanas={conParaTi ? paraTiVisibles : []}
+          descripcion={`Campañas activas de tus temáticas de interés o de tu zona.${
+            conParaTi && recomendadas.length > 0 ? " Los botones de abajo filtran solo esta sección." : ""
+          }`}
           avisos={
             <>
               {avisoSinTematicas}
@@ -376,9 +390,15 @@ export default function CampanasPage() {
 
       {!cargando && !error && <Separador />}
 
-      <h2 id="todas-las-campanas" className="mb-3 text-lg font-extrabold text-system-900">
-        Todas las campañas
-      </h2>
+      <div className="mb-3">
+        <h2 id="todas-las-campanas" className="text-lg font-extrabold text-system-900">
+          Todas las campañas
+        </h2>
+        <p className={CLASE_DE_SUBTITULO}>
+          Todas las campañas activas de la plataforma. Con la barra de abajo puedes buscarlas, mostrar solo tus favoritas
+          o las de tu localidad, filtrarlas por temática, subtemática o tipo de dato y ordenarlas.
+        </p>
+      </div>
 
       {!cargando && !error && (
         <BarraDeFiltros

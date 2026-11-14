@@ -81,7 +81,7 @@ export default function Sidebar({
   const pendientes: Record<string, { numero: number; texto: string }> = {
     "/supervisar": { numero: reportesPendientes, texto: "reportes pendientes" },
     // Temáticas y etiquetas (subtemáticas, 2026-10-27) por revisar: se revisan en la misma pantalla.
-    "/sistema/tematicas": { numero: tematicasPendientes, texto: "temáticas o etiquetas por revisar" },
+    "/sistema/tematicas": { numero: tematicasPendientes, texto: "temáticas o subtemáticas por revisar" },
   };
   const pathname = usePathname();
   const activo =

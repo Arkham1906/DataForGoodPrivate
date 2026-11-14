@@ -6,6 +6,8 @@
 // visible, 2 px de separación entre segmentos y la punta de arriba redondeada. Al pasar el cursor por una columna
 // sale el detalle del día; para teclado y lectores de pantalla, la misma información va en una tabla oculta.
 // En móvil las etiquetas van un día sí y otro no (siempre la de hoy).
+// Desde el 2026-11-13 también la usa el dashboard de /supervision, con `etiquetas` para hablar de campañas
+// ("Aceptadas"/"Rechazadas"); sin `etiquetas`, los textos de aportes del revisor.
 
 import { useState } from "react";
 import type { DiaDeActividad } from "@/lib/revisiones/dashboard";
@@ -14,11 +16,37 @@ const nf = new Intl.NumberFormat("es-MX");
 const fechaCorta = new Intl.DateTimeFormat("es-MX", { day: "numeric", month: "short", timeZone: "UTC" });
 const fechaLarga = new Intl.DateTimeFormat("es-MX", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
 
+/** Solo texto: la pasa un Server Component (no puede mandar funciones a un componente cliente). */
+export type EtiquetasDeLaGrafica = {
+  aceptados: string;
+  rechazados: string;
+  /** Sin decisiones en el periodo. */
+  vacio: string;
+  /** Título de la tabla oculta. */
+  tabla: string;
+};
+
+function deAportes(dias: number): EtiquetasDeLaGrafica {
+  return {
+    aceptados: "Aceptados",
+    rechazados: "Rechazados",
+    vacio: `Aún no decides aportes en estos ${dias} días.`,
+    tabla: `Tus decisiones por día, últimos ${dias} días`,
+  };
+}
+
 function fecha(dia: string) {
   return new Date(`${dia}T00:00:00Z`);
 }
 
-export default function GraficaDeDecisiones({ dias }: { dias: DiaDeActividad[] }) {
+export default function GraficaDeDecisiones({
+  dias,
+  etiquetas: propias,
+}: {
+  dias: DiaDeActividad[];
+  etiquetas?: EtiquetasDeLaGrafica;
+}) {
+  const etiquetas = propias ?? deAportes(dias.length);
   const [activo, setActivo] = useState<number | null>(null);
   const tope = Math.max(1, ...dias.map((d) => d.aceptados + d.rechazados));
   const total = dias.reduce((suma, d) => suma + d.aceptados + d.rechazados, 0);
@@ -29,17 +57,17 @@ export default function GraficaDeDecisiones({ dias }: { dias: DiaDeActividad[] }
       <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-system-600">
         <span className="inline-flex items-center gap-1.5">
           <span aria-hidden="true" className="size-2.5 rounded-sm bg-brand-600" />
-          Aceptados
+          {etiquetas.aceptados}
         </span>
         <span className="inline-flex items-center gap-1.5">
           <span aria-hidden="true" className="size-2.5 rounded-sm bg-error-500" />
-          Rechazados
+          {etiquetas.rechazados}
         </span>
       </div>
 
       {total === 0 ? (
         <p className="rounded-lg bg-system-100 p-4 text-center text-[13px] text-system-600">
-          Aún no decides aportes en estos {dias.length} días.
+          {etiquetas.vacio}
         </p>
       ) : (
         <div className="relative" aria-hidden="true" onMouseLeave={() => setActivo(null)}>
@@ -101,14 +129,14 @@ export default function GraficaDeDecisiones({ dias }: { dias: DiaDeActividad[] }
               <p className="flex items-center justify-between gap-2 text-system-700">
                 <span className="inline-flex items-center gap-1.5">
                   <span className="size-2 rounded-sm bg-brand-600" />
-                  Aceptados
+                  {etiquetas.aceptados}
                 </span>
                 <span className="font-mono">{nf.format(elegido.aceptados)}</span>
               </p>
               <p className="flex items-center justify-between gap-2 text-system-700">
                 <span className="inline-flex items-center gap-1.5">
                   <span className="size-2 rounded-sm bg-error-500" />
-                  Rechazados
+                  {etiquetas.rechazados}
                 </span>
                 <span className="font-mono">{nf.format(elegido.rechazados)}</span>
               </p>
@@ -118,12 +146,12 @@ export default function GraficaDeDecisiones({ dias }: { dias: DiaDeActividad[] }
       )}
 
       <table className="sr-only">
-        <caption>Tus decisiones por día, últimos {dias.length} días</caption>
+        <caption>{etiquetas.tabla}</caption>
         <thead>
           <tr>
             <th scope="col">Día</th>
-            <th scope="col">Aceptados</th>
-            <th scope="col">Rechazados</th>
+            <th scope="col">{etiquetas.aceptados}</th>
+            <th scope="col">{etiquetas.rechazados}</th>
           </tr>
         </thead>
         <tbody>

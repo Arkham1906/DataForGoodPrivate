@@ -10,33 +10,12 @@
 import Link from "next/link";
 import MetricCard from "@/components/ui/MetricCard";
 import GraficaDeDecisiones from "@/components/revisiones/GraficaDeDecisiones";
+import Panel from "@/components/ui/PanelDeDashboard";
+import { duracion, esperaDesde } from "@/lib/duracion";
 import { DIAS_DE_ACTIVIDAD, type DashboardDelRevisor as Datos } from "@/lib/revisiones/dashboard";
 
 const nf = new Intl.NumberFormat("es-MX");
 const decimal = new Intl.NumberFormat("es-MX", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-
-/** "35 min", "5 h", "3 días". */
-function duracion(segundos: number): string {
-  const minutos = Math.max(1, Math.round(segundos / 60));
-  if (minutos < 60) return `${minutos} min`;
-  const horas = Math.round(minutos / 60);
-  if (horas < 24) return `${horas} h`;
-  const dias = Math.round(horas / 24);
-  return `${dias} ${dias === 1 ? "día" : "días"}`;
-}
-
-function esperaDesde(iso: string, ahora: number): string {
-  return duracion(Math.max(0, (ahora - new Date(iso).getTime()) / 1000));
-}
-
-function Panel({ titulo, children, className = "" }: { titulo: string; children: React.ReactNode; className?: string }) {
-  return (
-    <section className={`rounded-lg border border-system-200 bg-white p-4 ${className}`} aria-label={titulo}>
-      <h3 className="mb-3 text-[15px] font-bold text-system-900">{titulo}</h3>
-      {children}
-    </section>
-  );
-}
 
 export default function DashboardDelRevisor({ datos }: { datos: Datos }) {
   // eslint-disable-next-line react-hooks/purity -- Server Component: la espera se calcula al armar la página.

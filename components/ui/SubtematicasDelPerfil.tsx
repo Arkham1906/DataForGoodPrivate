@@ -20,6 +20,7 @@ import { BASE_PATH } from "@/lib/base-path";
 import {
   MAXIMO_DE_ETIQUETAS_EN_PERFIL,
   MAXIMO_DE_ETIQUETAS_NUEVAS_EN_PERFIL,
+  textoDeSubtematicasEnEspera,
   type CatalogoDeEtiquetas,
   type EtiquetaNueva,
 } from "@/lib/etiquetas/reglas";
@@ -177,6 +178,23 @@ export default function SubtematicasDelPerfil({
   const total = marcadas.length + nuevasVisibles.length;
   const lleno = total >= MAXIMO_DE_ETIQUETAS_EN_PERFIL;
 
+  // Contador de propuestas (2026-11-13, a pedido del usuario; como el de temáticas de ui/SelectorDeTemas): las suyas
+  // que el administrador aún no revisa, las nuevas sin enviar (se envían al guardar) y cuántas más puede proponer
+  // (hasta MAXIMO_DE_ETIQUETAS_NUEVAS_EN_PERFIL a la vez, sin pasar de MAXIMO_DE_ETIQUETAS_EN_PERFIL marcadas).
+  const sePuedeProponer = conSubmenu.some((tema) => clavesDeTematicas.has(claveDeTematica(tema)));
+  const porAprobar = conSubmenu.reduce((suma, tema) => suma + (catalogo[tema] ?? []).filter((e) => e.pendiente).length, 0);
+  const sinEnviar = nuevasVisibles.length;
+  const disponibles = Math.max(0, Math.min(MAXIMO_DE_ETIQUETAS_NUEVAS_EN_PERFIL - sinEnviar, MAXIMO_DE_ETIQUETAS_EN_PERFIL - total));
+  const textoDeEspera = textoDeSubtematicasEnEspera({
+    porAprobar,
+    sinEnviar,
+    disponibles,
+    tope:
+      sinEnviar >= MAXIMO_DE_ETIQUETAS_NUEVAS_EN_PERFIL
+        ? `Llegaste al máximo de ${MAXIMO_DE_ETIQUETAS_NUEVAS_EN_PERFIL} nuevas a la vez: guarda tu perfil para proponer más.`
+        : `Llegaste al máximo de ${MAXIMO_DE_ETIQUETAS_EN_PERFIL} subtemáticas marcadas.`,
+  });
+
   function alternar(id: number) {
     if (marcadas.includes(id)) {
       aMano.current.delete(id);
@@ -246,6 +264,18 @@ export default function SubtematicasDelPerfil({
         Abre cada temática y marca lo que más te interesa. Si marcas alguna, no te avisamos de las campañas de esa temática que solo tengan otras etiquetas (las que no tienen etiquetas sí te llegan). Hasta{" "}
         {MAXIMO_DE_ETIQUETAS_EN_PERFIL} en total.
       </p>
+      {sePuedeProponer && (
+        // Mismo aspecto que el contador de temáticas (ui/SelectorDeTemas): punto ámbar si hay alguna por aprobar.
+        <p
+          role="status"
+          className={`mb-3 inline-flex items-center gap-1.5 rounded-pill px-3 py-1 text-[13px] font-medium ${
+            disponibles === 0 ? "bg-warning-50 text-warning-800" : "bg-system-100 text-system-700"
+          }`}
+        >
+          <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${porAprobar > 0 ? "bg-warning-500" : "bg-system-400"}`} />
+          {textoDeEspera}
+        </p>
+      )}
       {error && (
         <p role="alert" className="mb-3 text-[12.5px] text-error-700">
           {error}

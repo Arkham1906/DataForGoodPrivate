@@ -27,3 +27,28 @@ export type CatalogoDeEtiquetas = Record<string, EtiquetaDelCatalogo[]>;
 
 /** Etiqueta de una campaña: `pendiente` mientras el SuperUsuario no aprueba la que propuso el creador. */
 export type EtiquetaDeCampana = { nombre: string; pendiente: boolean };
+
+/**
+ * Texto del contador de subtemáticas propuestas (2026-11-13, a pedido del usuario: "lo mismo" que el de temáticas de
+ * ui/SelectorDeTemas): cuántas están por aprobar, cuántas aún no se envían y cuántas más se pueden proponer. Lo usan
+ * ui/SubtematicasDelPerfil (perfil) y ui/SelectorDeEtiquetas (formulario de campaña). `tope`: por qué ya no se puede
+ * proponer otra cuando `disponibles` es 0.
+ */
+export function textoDeSubtematicasEnEspera({
+  porAprobar,
+  sinEnviar,
+  disponibles,
+  tope,
+}: {
+  porAprobar: number;
+  sinEnviar: number;
+  disponibles: number;
+  tope: string;
+}): string {
+  const enPlural = (n: number) => `${n} ${n === 1 ? "subtemática" : "subtemáticas"}`;
+  return (
+    (porAprobar === 0 ? "No tienes subtemáticas por aprobar" : `Tienes ${enPlural(porAprobar)} por aprobar`) +
+    (sinEnviar > 0 ? ` y ${enPlural(sinEnviar)} sin enviar` : "") +
+    (disponibles === 0 ? `. ${tope}` : ` · puedes proponer ${disponibles} más.`)
+  );
+}

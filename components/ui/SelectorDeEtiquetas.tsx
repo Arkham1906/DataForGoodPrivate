@@ -9,6 +9,7 @@ import { useState } from "react";
 
 import Button from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { textoDeSubtematicasEnEspera } from "@/lib/etiquetas/reglas";
 import { etiquetaEquivalente } from "@/lib/etiquetas/sinonimos";
 import { claveDeTematica, LARGO_DEL_NOMBRE } from "@/lib/tematicas/analizar";
 
@@ -50,6 +51,19 @@ export default function SelectorDeEtiquetas({
   // Las del catálogo y, después, las elegidas que no están en él (propuestas por el creador).
   const visibles = [...opciones, ...seleccionadas.filter((e) => !delCatalogo.has(claveDeTematica(e)))];
   const lleno = seleccionadas.length >= maximo;
+
+  // Contador de propuestas (2026-11-13, a pedido del usuario; como el de temáticas de ui/SelectorDeTemas): las de la
+  // campaña que siguen por aprobar, las nuevas que se envían al guardar y cuántas caben todavía (hasta `maximo` en total).
+  const propuestas = seleccionadas.filter((e) => !delCatalogo.has(claveDeTematica(e)));
+  const porAprobar = propuestas.filter((e) => pendientesClaves.has(claveDeTematica(e))).length;
+  const sinEnviar = propuestas.length - porAprobar;
+  const disponibles = Math.max(0, maximo - seleccionadas.length);
+  const textoDeEspera = textoDeSubtematicasEnEspera({
+    porAprobar,
+    sinEnviar,
+    disponibles,
+    tope: `Llegaste al máximo de ${maximo} subtemáticas de la campaña.`,
+  });
 
   function alternar(etiqueta: string) {
     const clave = claveDeTematica(etiqueta);
@@ -169,6 +183,18 @@ export default function SelectorDeEtiquetas({
           {seleccionadas.length} de {maximo}
         </span>
       </div>
+      {!deshabilitado && (
+        // Mismo aspecto que el contador de temáticas (ui/SelectorDeTemas): punto ámbar si hay alguna por aprobar.
+        <p
+          role="status"
+          className={`mt-2 inline-flex items-center gap-1.5 rounded-pill px-3 py-1 text-[13px] font-medium ${
+            disponibles === 0 ? "bg-warning-50 text-warning-800" : "bg-system-100 text-system-700"
+          }`}
+        >
+          <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${porAprobar > 0 ? "bg-warning-500" : "bg-system-400"}`} />
+          {textoDeEspera}
+        </p>
+      )}
       {aviso ? (
         <p role="alert" className="mt-1.5 text-[12px] font-medium text-error-700">
           {aviso}

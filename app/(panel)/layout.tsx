@@ -37,7 +37,8 @@ export default async function PanelLayout({ children }: { children: ReactNode })
   ]);
   const tematicas = tematicasPendientes + etiquetasPendientes;
   // Recuadro azul del menú: los pendientes del panel (2026-11-10).
-  const aviso = await avisoDelMenuParaRoot({ reportes, tematicas });
+  // Temáticas y subtemáticas en renglones separados (2026-11-13); el número del menú las sigue sumando.
+  const aviso = await avisoDelMenuParaRoot({ reportes, tematicas: tematicasPendientes, subtematicas: etiquetasPendientes });
 
   return (
     <div className="min-h-screen bg-system-50">

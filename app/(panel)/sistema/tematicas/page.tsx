@@ -70,7 +70,7 @@ export default async function TematicasPage({ searchParams }: { searchParams: Pr
         <p className="font-mono text-[12px] text-system-500">
           {formatearNumero(tematicas.length)} {q ? "encontradas" : "en total"} · {formatearNumero(pendientes)} por revisar ·{" "}
           {formatearNumero(deUsuarios)} de usuarios · {formatearNumero(delPanel)} creadas aquí ·{" "}
-          {formatearNumero(ocultas)} ocultas · {formatearNumero(etiquetasPorRevisar)} etiquetas por revisar
+          {formatearNumero(ocultas)} ocultas · {formatearNumero(etiquetasPorRevisar)} subtemáticas por revisar
         </p>
       </form>
 

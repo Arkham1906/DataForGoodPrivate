@@ -81,7 +81,7 @@ export default function ReviewerCampaignPage() {
 
   return (
     <div className="mx-auto max-w-6xl">
-      <Link href={campaign.status === "finalizada" ? "/revisiones/finalizadas" : "/revisiones"} className="mb-4 inline-block text-[13px] text-system-600 hover:text-system-900">← Volver a campañas</Link>
+      <Link href={campaign.status === "finalizada" ? "/revisiones/finalizadas" : "/revisiones/campanas"} className="mb-4 inline-block text-[13px] text-system-600 hover:text-system-900">← Volver a campañas</Link>
       <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0"><p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-600">Revisor de aportes</p><h1 className="mt-2 break-words text-2xl font-extrabold text-system-900">{campaign.name}</h1><p className="mt-1 text-[13px] text-system-600">{campaign.tag || "Sin temática"} · {campaign.participants} participantes</p></div>
         <Tag tone={campaign.status === "finalizada" ? "default" : "on"}>{campaign.status === "finalizada" ? "Finalizada" : "En curso"}</Tag>

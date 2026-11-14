@@ -1,7 +1,8 @@
 // Pendientes del SuperUsuario para el recuadro azul del menú lateral del panel (2026-11-10, a pedido del usuario;
 // antes era la frase fija "Revisa con criterio: cada validación sostiene la calidad de los datos. Gracias por moderar").
 // Un renglón con enlace por cada tipo de pendiente: campañas por supervisar (libres o ya tomadas por él, como
-// /supervisar), decisiones de datos abiertos que solo él puede tomar, temáticas y subtemáticas por revisar y reportes. Sin pendientes,
+// /supervisar), decisiones de datos abiertos que solo él puede tomar, temáticas y subtemáticas por revisar (cada una en
+// su renglón desde el 2026-11-13, a pedido del usuario; antes iban sumadas como "temáticas") y reportes. Sin pendientes,
 // la frase de siempre. Lo arma el layout de (panel), que ya cuenta reportes y temáticas para el menú.
 
 import { pool } from "@/lib/db";
@@ -17,7 +18,11 @@ function plural(n: number, uno: string, varios: string): string {
 }
 
 /** Nunca lanza: si algo falla, la frase de siempre. */
-export async function avisoDelMenuParaRoot(contados: { reportes: number; tematicas: number }): Promise<AvisoDelMenu> {
+export async function avisoDelMenuParaRoot(contados: {
+  reportes: number;
+  tematicas: number;
+  subtematicas: number;
+}): Promise<AvisoDelMenu> {
   try {
     const { rows } = await pool.query<{ por_supervisar: number; datos: number }>(
       `SELECT
@@ -40,6 +45,12 @@ export async function avisoDelMenuParaRoot(contados: { reportes: number; tematic
     }
     if (contados.tematicas > 0) {
       renglones.push({ texto: `${plural(contados.tematicas, "temática", "temáticas")} por revisar`, href: "/sistema/tematicas" });
+    }
+    if (contados.subtematicas > 0) {
+      renglones.push({
+        texto: `${plural(contados.subtematicas, "subtemática", "subtemáticas")} por revisar`,
+        href: "/sistema/tematicas",
+      });
     }
     if (contados.reportes > 0) {
       renglones.push({

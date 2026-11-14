@@ -5,7 +5,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-export type Pestana = { href: string; etiqueta: string };
+/** `tambienEn` (2026-11-13): otras rutas exactas donde la pestaña también se marca (p. ej. "Campañas" del
+ * revisor en /revisiones/finalizadas). */
+export type Pestana = { href: string; etiqueta: string; tambienEn?: string[] };
 
 export default function Subtabs({
   pestanas,
@@ -51,8 +53,8 @@ export default function Subtabs({
               : "flex flex-wrap gap-1 border-b border-system-200"
         }`}
       >
-        {pestanas.map(({ href, etiqueta }) => {
-          const activa = pathname === href;
+        {pestanas.map(({ href, etiqueta, tambienEn }) => {
+          const activa = pathname === href || (tambienEn?.includes(pathname) ?? false);
           const esDirectorioDesdeMenu = menuInicialMovil && href === "/usuarios" && activa;
           return (
             <Link

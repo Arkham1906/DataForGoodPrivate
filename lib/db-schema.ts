@@ -235,6 +235,7 @@ export async function ensureCampanasTable(): Promise<void> {
       creator_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
       creator_name VARCHAR(120) NOT NULL,
       supervisor_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+      en_revision_desde TIMESTAMPTZ,
       name VARCHAR(200) NOT NULL,
       description TEXT NOT NULL,
       banner_path VARCHAR(500),
@@ -437,8 +438,46 @@ export async function ensureCampanaSupervisoresTable(): Promise<void> {
       supervisor_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
       accion VARCHAR(30) NOT NULL CHECK (accion IN ('aceptada', 'rechazada', 'reportada', 'reasignada')),
       motivo TEXT,
+      en_revision_desde TIMESTAMPTZ,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+  `);
+
+  // Hora de envío a revisión (2026-11-13, para el dashboard de /supervision; decisión del usuario): cuánto lleva
+  // esperando una campaña y cuánto tardó su dictamen. La ponen triggers, sin tocar las rutas que cambian el estado:
+  // - campanas.en_revision_desde: la última vez que la campaña ENTRÓ a 'en_revision' (al crearla así, al enviarla
+  //   desde borrador, al reenviarla tras un rechazo o al mandar a revisión una edición). Seguir en revisión no la
+  //   cambia; salir de revisión la deja como estaba.
+  // - campana_supervisores.en_revision_desde: copia de esa hora al registrar el dictamen, para que reenviarla
+  //   después no cambie el tiempo de los dictámenes de antes.
+  // Las que ya estaban en revisión toman su updated_at (aproximado: tomarla también lo cambiaba); los dictámenes
+  // de antes quedan sin hora y no cuentan en la mediana.
+  await pool.query(`
+    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS en_revision_desde TIMESTAMPTZ;
+    ALTER TABLE campana_supervisores ADD COLUMN IF NOT EXISTS en_revision_desde TIMESTAMPTZ;
+    UPDATE campanas SET en_revision_desde = updated_at WHERE status = 'en_revision' AND en_revision_desde IS NULL;
+
+    CREATE OR REPLACE FUNCTION dfg_marcar_envio_a_revision() RETURNS trigger AS $$
+    BEGIN
+      IF NEW.status = 'en_revision' AND (TG_OP = 'INSERT' OR OLD.status IS DISTINCT FROM 'en_revision') THEN
+        NEW.en_revision_desde := NOW();
+      END IF;
+      RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+    CREATE OR REPLACE TRIGGER dfg_marcar_envio_a_revision BEFORE INSERT OR UPDATE OF status ON campanas
+      FOR EACH ROW EXECUTE FUNCTION dfg_marcar_envio_a_revision();
+
+    CREATE OR REPLACE FUNCTION dfg_copiar_envio_a_revision() RETURNS trigger AS $$
+    BEGIN
+      IF NEW.en_revision_desde IS NULL THEN
+        SELECT c.en_revision_desde INTO NEW.en_revision_desde FROM campanas c WHERE c.id = NEW.campana_id;
+      END IF;
+      RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+    CREATE OR REPLACE TRIGGER dfg_copiar_envio_a_revision BEFORE INSERT ON campana_supervisores
+      FOR EACH ROW EXECUTE FUNCTION dfg_copiar_envio_a_revision();
   `);
 
   // Decisiones del SuperUsuario (sin fila en usuarios): supervisor_id NULL y

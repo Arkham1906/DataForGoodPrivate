@@ -148,7 +148,7 @@ export default function CampaignDetailPage() {
         return;
       }
 
-      router.push("/supervision");
+      router.push("/supervision/campanas");
     } catch (cause) {
       // Junto a los botones, no en lugar de la página (como `error`): así se puede corregir y reintentar.
       setErrorDeDecision(cause instanceof Error ? cause.message : "No se pudo registrar la decisión");
@@ -198,7 +198,7 @@ export default function CampaignDetailPage() {
   if (error || !campaign) {
     return (
       <div className="mx-auto max-w-4xl">
-        <BackLink href="/supervision">Volver a supervisar</BackLink>
+        <BackLink href="/supervision/campanas">Volver a Campañas</BackLink>
         <p className="text-[14px] text-system-600">{error ?? "No se encontró la campaña."}</p>
       </div>
     );
@@ -232,7 +232,7 @@ export default function CampaignDetailPage() {
 
   return (
     <div className="mx-auto max-w-4xl">
-      <BackLink href="/supervision">Volver a supervisar</BackLink>
+      <BackLink href="/supervision/campanas">Volver a Campañas</BackLink>
 
       <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
         <div>

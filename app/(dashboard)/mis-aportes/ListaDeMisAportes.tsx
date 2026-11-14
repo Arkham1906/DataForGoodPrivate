@@ -11,6 +11,7 @@ import Tag from "@/components/ui/Tag";
 import { MiniaturaDeAporte } from "@/components/ui/ArchivoDelAporte";
 import EstrellasDeCalificacion from "@/components/aportes/EstrellasDeCalificacion";
 import ExpDelAporte from "@/components/gamificacion/ExpDelAporte";
+import { EsqueletoDeFiltros, EsqueletoDeFilas, EsqueletoDeTarjetas } from "@/components/ui/Esqueletos";
 import { BASE_PATH } from "@/lib/base-path";
 import { NOMBRE_DE_TIPO } from "@/lib/campanas/sistema-opciones";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
@@ -156,7 +157,15 @@ export default function ListaDeMisAportes({ resumen }: { resumen?: ReactNode }) 
 
     {resumen && <div className="mb-6 max-md:mb-4">{resumen}</div>}
 
-    {error ? <p className="rounded-lg bg-error-50 p-4 text-sm text-error-700">{error}</p> : cargando ? <p className="rounded-lg border border-system-200 bg-white p-6 text-sm text-system-600" role="status">Cargando tus aportes…</p> : items.length === 0 ? <p className="rounded-lg border border-dashed border-system-300 p-6 text-sm text-system-600">Todavía no has enviado aportes. Explora una campaña para empezar a participar.</p> : <>
+    {error ? <p className="rounded-lg bg-error-50 p-4 text-sm text-error-700">{error}</p> : cargando ? (
+      // Esqueleto de filtros y aportes, en la vista elegida (2026-11-13, a pedido del usuario: el 2026-10-31 se había
+      // cambiado por el texto "Cargando tus aportes…"). Sin texto, tampoco para el lector de pantalla (decisión del
+      // usuario el mismo día, a diferencia de los demás esqueletos): es solo decorativo.
+      <div aria-hidden="true">
+        <EsqueletoDeFiltros cantidad={4} />
+        {vistaCuadricula ? <EsqueletoDeTarjetas cantidad={4} columnas={2} /> : <EsqueletoDeFilas cantidad={5} />}
+      </div>
+    ) :items.length === 0 ? <p className="rounded-lg border border-dashed border-system-300 p-6 text-sm text-system-600">Todavía no has enviado aportes. Explora una campaña para empezar a participar.</p> : <>
       <div className="mb-3 hidden lg:flex">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2.5"><CamposDeFiltros {...propsDeFiltros} /></div>

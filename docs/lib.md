@@ -16,6 +16,7 @@
 | `db-schema.ts` | **El esquema completo** de la BD. Lo ejecuta `instrumentation.ts` al arrancar | `ensureCoreSchema`, `ensure<Tabla>Table`; al final `ensureFechasConZona`, `ensureIndicesDeLlaves` y `ensureRestricciones` (2026-10-30) |
 | `minio.ts` | Cliente de MinIO: guardar, leer (entero o por partes) y borrar archivos | `guardarArchivo`, `readUploadedFile`, `abrirArchivo`, `tamanoDeArchivo`, `borrarArchivo` |
 | `base-path.ts` 🟢 | Prefijo de la app (`/dataforgood` en producción, vacío en `next dev`) | `BASE_PATH` |
+| `duracion.ts` 🟢 | `duracion(segundos)` ("35 min", "5 h", "3 días") y `esperaDesde(iso, ahora)` (2026-11-13) | Dashboards de `/revisiones` y `/supervision` |
 | `app-url.ts` | URL absoluta con `APP_ORIGIN` + `BASE_PATH` (para redirecciones y correos) | `absoluteUrl` |
 | `ip.ts` | IP real del cliente detrás del proxy | `ipDelCliente` |
 | `api-docs.ts` | Decide si se puede ver `/api/docs` | `puedeVerDocs` |
@@ -107,6 +108,7 @@
 | --- | --- | --- |
 | `datos-abiertos.ts` (2026-11-04) | Publicar o no los datos de una campaña terminada: `decidirDatosAbiertos` y `marcarDatosPorDecidir` (tarea de cada minuto) | `PATCH /api/campanas/[id]`, `lib/supervision/acciones-root.ts`, `instrumentation-node.ts` |
 | `parecido.ts` 🟢 (2026-11-07) | `compararCampanas()` y `esSimilar()`: en qué se parecen dos campañas (temática, subtemática, nombre, descripción, tipos de dato) | `similares.ts`, `supervision/CampanasSimilares` |
+| `dashboard.ts` (2026-11-13) | `obtenerDashboardDelSupervisor(usuarioId)`: campañas en revisión libres o suyas (sin las propias) con su espera (`campanas.en_revision_desde`), sus dictámenes (`campana_supervisores`: aceptadas, rechazadas, hoy, 7 días, por día en `DIAS_DE_ACTIVIDAD` días en hora de Tepic, mediana del envío al dictamen en 30 días con `campana_supervisores.en_revision_desde`, motivos de rechazo agrupados por el motivo de la lista), las que supervisa por estado y lo pendiente (datos abiertos por decidir, pausadas por la supervisión que el creador ya ajustó, reportes con `contarReportesPendientes`); solo lectura, `null` si falla | `/supervision` |
 | `similares.ts` (2026-11-04) | Campañas parecidas a una en revisión, de la más parecida a la menos, para que la supervisión decida si se acepta | `GET /api/campanas/[id]/similares`, `/supervisar/[campaignId]` |
 | `decision.ts` | **Reglas del dictamen**, compartidas por supervisores y SuperUsuario: tomar una campaña (`tomarCampanaParaSupervisar`) y aceptarla, rechazarla o reportarla (`registrarDecisionDeCampana`). Notifica al creador y escribe en la bitácora | `PATCH /api/campanas/[id]`, `acciones-root.ts` |
 | `root.ts` | Guardia `exigirSesionRoot()` y consultas de `/supervisar` | Páginas de `(panel)` |
@@ -117,7 +119,7 @@
 
 | Archivo | Qué hace | Lo usa |
 | --- | --- | --- |
-| `aviso-del-menu.ts` | `avisoDelMenuParaUsuario(usuario)` (2026-11-10): recuadro azul del menú lateral: invita a participar con un solo aviso (cuota pendiente; si no, una campaña que cierra pronto y necesita aportes, primero de sus temáticas); sin nada, la frase de siempre. No repite lo que ya llega como notificación | `layout/ShellDeUsuario` → `layout/SidebarNav` |
+| `aviso-del-menu.ts` | `avisoDelMenuParaUsuario(usuario)`: recuadro azul del menú lateral. Desde el 2026-11-13 (a pedido del usuario) es una lista de atajos con todo lo pendiente, un renglón con enlace por pendiente: supervisor (dictaminar, reportes, datos abiertos, reanudar ajustadas), revisor (invitaciones, aportes por revisar), creador (aportes por revisar, rechazadas por corregir, pausadas por la supervisión que debe ajustar, borradores), cuota pendiente (hasta 2), perfil (temáticas, ubicación) y al final una sugerencia (campaña que cierra en 7 días y necesita aportes). Varios del mismo tipo, un renglón con su número; sin nada, la frase de siempre (`FRASE_DEL_MENU`). Del 2026-11-10 al 2026-11-13 era un solo aviso y dejaba fuera lo que llega por notificación | `layout/ShellDeUsuario` → `layout/SidebarNav` |
 | `inicio.ts` | `obtenerResumenDeInicio(usuario)`: datos de `/inicio` (cifras, campañas para ti, aportes recientes y notificaciones sin leer) | `/inicio` |
 | `tabla-roles.ts` | Roles en la tabla `usuario_roles` (2026-10-30): `columnaDeRoles(alias)` (devuelve `role` como antes), `condicionDeRol(alias, rol)`, `agregarRol`, `quitarRol` | Sesión, API de usuarios, panel, revisores |
 | `directorio.ts` | Búsqueda de usuarios, ficha, estado de la cuenta, lista de sanciones (`listarSanciones`; acepta el supervisor para limitar la bandeja a campañas que supervisa) | `/usuarios/**`, `/supervision/sanciones`, `/supervisar/sanciones` |
