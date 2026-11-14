@@ -61,7 +61,11 @@ async function contextoDeSeleccion(client: Pick<PoolClient, "query">, intereses:
 }
 
 /** Nunca lanza: un fallo aquí no debe tumbar el aporte; la siguiente actividad de la persona lo recalcula. */
-export async function actualizarMisiones(usuarioId: number | string, instantes: (Date | string)[] = []): Promise<void> {
+export async function actualizarMisiones(
+  usuarioId: number | string,
+  instantes: (Date | string)[] = [],
+  opciones: { permitirBajar?: boolean } = {},
+): Promise<void> {
   const completadas: { nombre: string; recompensa: string | null }[] = [];
   const client = await pool.connect();
   try {
@@ -190,7 +194,9 @@ export async function actualizarMisiones(usuarioId: number | string, instantes: 
       const periodo = periodos.get(`${mision.periodicidad}:${Math.round(instancia.inicio)}`);
       if (!periodo) continue;
       const avance = Math.min(avanceDeMision(mision.condicion, datos, periodo), instancia.objetivo);
-      if (avance <= instancia.progreso) continue;
+      // El avance solo sube, salvo tras un descuento por reporte (2026-11-13, A1): ahí baja en las misiones que aún no
+      // se completan. Una misión completada no se toca (su recompensa ya se entregó).
+      if (avance === instancia.progreso || (avance < instancia.progreso && !opciones.permitirBajar)) continue;
       if (avance < instancia.objetivo) {
         await client.query(`UPDATE mision_instancias SET progreso = $2 WHERE id = $1`, [instancia.id, avance]);
         continue;
