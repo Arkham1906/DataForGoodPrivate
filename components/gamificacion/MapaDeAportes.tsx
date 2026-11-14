@@ -946,11 +946,11 @@ function Migas({ geo, sel, elegir }: { geo: GeometriaDelMapa; sel: Seleccion; el
   }
   const tematica = sel.tematica;
   return (
-    <nav key={tematica} aria-label={T.migasEtiqueta} className="mapa-migas inline-flex items-center gap-2 rounded-pill border border-system-200 bg-white p-1 pr-3 shadow-sm">
+    <nav key={tematica} aria-label={T.migasEtiqueta} className="mapa-migas inline-flex max-w-full min-w-0 items-center gap-2 rounded-pill border border-system-200 bg-white p-1 pr-3 shadow-sm">
       <button
         type="button"
         onClick={() => elegir(NADA)}
-        className="inline-flex min-h-8 items-center gap-1.5 rounded-pill bg-brand-900 px-3 text-[12.5px] font-bold text-white transition-transform duration-150 ease-salida active:scale-[0.97] motion-reduce:transition-none"
+        className="inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-pill bg-brand-900 px-3 text-[12.5px] font-bold text-white transition-transform duration-150 ease-salida active:scale-[0.97] motion-reduce:transition-none"
       >
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M15 18l-6-6 6-6" />
@@ -959,18 +959,18 @@ function Migas({ geo, sel, elegir }: { geo: GeometriaDelMapa; sel: Seleccion; el
       </button>
       {sub ? (
         <>
-          <button type="button" onClick={() => elegir({ ...NADA, tematica })} className="text-[12.5px] font-bold text-system-900 hover:underline">
+          <button type="button" title={tematica} onClick={() => elegir({ ...NADA, tematica })} className="min-w-0 shrink-3 truncate text-[12.5px] font-bold text-system-900 hover:underline">
             {tematica}
           </button>
-          <span aria-hidden="true" className="text-system-400">
+          <span aria-hidden="true" className="shrink-0 text-system-400">
             ›
           </span>
-          <span aria-current="location" className="text-[12.5px] font-bold text-warning-800">
+          <span aria-current="location" title={nombreDeSub(sub)} className="min-w-0 truncate text-[12.5px] font-bold text-warning-800">
             {nombreDeSub(sub)}
           </span>
         </>
       ) : (
-        <span aria-current="location" className="text-[12.5px] font-bold text-system-900">
+        <span aria-current="location" title={tematica} className="min-w-0 truncate text-[12.5px] font-bold text-system-900">
           {tematica}
         </span>
       )}
@@ -1084,7 +1084,10 @@ export default function MapaDeAportes({ datos }: { datos: DatosDelMapaDeAportes 
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="relative min-w-0 max-md:hidden">
-          <div className="absolute top-2 left-2 z-10">
+          {/* Fila propia arriba del lienzo, no encima: el lienzo se escala y las migas no, así que flotando tapaban
+              nodos y etiquetas de la esquina superior (sobre todo entre md y 1500 px). Alto fijo para que el grafo
+              no salte al cambiar de la píldora general a las migas de una temática. */}
+          <div className="mb-2 flex h-10 items-center">
             <Migas geo={geo} sel={sel} elegir={elegir} />
           </div>
           <Grafo datos={datos} geo={geo} filtro={filtro} sel={sel} elegir={elegir} />
