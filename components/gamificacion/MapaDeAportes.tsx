@@ -13,6 +13,11 @@
 // media animación retome desde donde va. Lo que sale se va primero y rápido; la temática viaja en 440 ms; las campañas
 // en 560 ms escalonadas 30 ms; las subtemáticas brotan del centro escalonadas 45 ms; las líneas se trazan al final
 // (nunca se estiran tras un nodo). Con movimiento reducido (globals.css) solo hay fundidos de 160 ms.
+// Etiquetas sin líneas encima (2026-11-13): la geometría elige el lado y la distancia de cada etiqueta contra todas las
+// líneas de la vista; además cada etiqueta lleva fondo opaco y va sobre las líneas, así que ninguna puede verse encima
+// de un texto. Atenuar no vuelve translúcida la etiqueta (dejaría ver la línea de atrás): baja el nodo y aclara el
+// texto. Cuando las etiquetas cambian de lado (al acercarse, al regresar o al cambiar los datos), se ocultan mientras
+// los nodos viajan y reaparecen en su lado nuevo, sin saltos.
 // En vivo: cuando cambian aportes o campañas (lib/en-vivo-postgres.ts), la página se vuelve a pedir al servidor como
 // mucho una vez cada RECARGA_MINIMA_MS; los nodos viajan con sus transiciones a la nueva disposición y la selección se
 // conserva. Lo probó scripts/estres-mapa-de-aportes.mjs.
@@ -31,6 +36,12 @@ import { ZONA_DE_CAMPANAS } from "@/lib/fecha-de-tepic";
 import {
   ALTO_DEL_MAPA,
   ANCHO_DEL_MAPA,
+  DIAGONAL,
+  ESCALA_ACERCADA,
+  ESCALA_DEL_CENTRO,
+  RADIO_DE_SUBTEMATICA,
+  RADIO_DE_TEMATICA,
+  SEPARACION_DE_ETIQUETA,
   CLAVE_OTRAS,
   CLAVE_SIN_SUBTEMATICA,
   alejada,
@@ -40,6 +51,7 @@ import {
   segmento,
   type GeometriaDelMapa,
   type GrupoDePunto,
+  type LadoDeEtiqueta,
   type NodoDeSubtematica,
   type Posicion,
   type Segmento,
@@ -131,6 +143,42 @@ function mover(p: Posicion, escala = 1): string {
 /** Estilo de un nodo que se mueve; `mapa-mov` lo reduce a fundidos con movimiento reducido (globals.css). */
 function estiloDeNodo(transform: string, opacity: number, transition: string, visible: boolean, z = 1): CSSProperties {
   return { transform, opacity, transition, pointerEvents: visible ? "auto" : "none", zIndex: z };
+}
+
+// --- Etiquetas ----------------------------------------------------------------------------------------------------
+
+/**
+ * Coloca una etiqueta del lado elegido por la geometría (cajaDeEtiqueta usa las mismas cuentas): a `separacion` px del
+ * centro del nodo, más `dx` en horizontal para no salirse del lienzo.
+ */
+function posicionDeEtiqueta(lado: LadoDeEtiqueta, separacion: number, dx = 0): CSSProperties {
+  const d = separacion * DIAGONAL;
+  switch (lado) {
+    case "abajo":
+      return { left: 0, top: separacion, transform: `translate(calc(-50% + ${dx}px), 0)` };
+    case "arriba":
+      return { left: 0, top: -separacion, transform: `translate(calc(-50% + ${dx}px), -100%)` };
+    case "derecha":
+      return { left: separacion, top: 0, transform: "translate(0, -50%)" };
+    case "izquierda":
+      return { left: -separacion, top: 0, transform: "translate(-100%, -50%)" };
+    case "abajo-derecha":
+      return { left: d, top: d, transform: "none" };
+    case "abajo-izquierda":
+      return { left: -d, top: d, transform: "translate(-100%, 0)" };
+    case "arriba-derecha":
+      return { left: d, top: -d, transform: "translate(0, -100%)" };
+    case "arriba-izquierda":
+      return { left: -d, top: -d, transform: "translate(-100%, -100%)" };
+  }
+}
+
+/** Fondo opaco de toda etiqueta: tapa cualquier línea que pase por detrás (red de seguridad de la geometría). */
+const FONDO_DE_ETIQUETA = "pointer-events-none absolute rounded-[5px] bg-white px-1 py-px whitespace-nowrap";
+
+/** Se ocultan mientras viajan los nodos si cambian de lado; reaparecen al llegar. */
+function visibilidadDeEtiqueta(enViaje: boolean): CSSProperties {
+  return { opacity: enViaje ? 0 : 1, transition: enViaje ? "opacity 90ms ease-out" : `opacity 200ms ${OUT}` };
 }
 
 // --- Piezas pequeñas ----------------------------------------------------------------------------------------------
@@ -256,6 +304,26 @@ function Grafo({
   const campanaDe = (id: number) => datos.campanas.find((c) => c.id === id) as CampanaEnElMapa;
   const campanaElegida = sel.campana != null ? geo.campanas.find((c) => c.id === sel.campana) : undefined;
   const posDeTematica = new Map(geo.tematicas.map((t) => [t.nombre, t.general]));
+
+  // Firma de los lados de las etiquetas en la vista actual: si cambia, las etiquetas se ocultan durante el viaje.
+  const firma = [
+    sel.tematica ?? "",
+    ...geo.tematicas.map((t) => t.ladoGeneral + t.extraGeneral),
+    ...geo.subtematicas.map((s) => s.lado + s.extra),
+    ...geo.campanas.map((c) => (sel.tematica === c.tematica ? c.ladoAcercado + c.extraAcercado : c.ladoGeneral + c.extraGeneral)),
+  ].join("|");
+  const [firmaAnterior, setFirmaAnterior] = useState(firma);
+  const [enViaje, setEnViaje] = useState(false);
+  if (firma !== firmaAnterior) {
+    setFirmaAnterior(firma);
+    setEnViaje(true);
+  }
+  useEffect(() => {
+    if (!enViaje) return;
+    const t = window.setTimeout(() => setEnViaje(false), 560);
+    return () => window.clearTimeout(t);
+  }, [enViaje, firma]);
+  const etiqueta = visibilidadDeEtiqueta(enViaje);
   const subResaltada = sel.sub ?? campanaElegida?.subtematica ?? null;
 
   return (
@@ -329,7 +397,7 @@ function Grafo({
         const estilo = !zoom
           ? estiloDeNodo(mover(t.general), 1, tr(["transform", 380, IO, 0], ["opacity", 260, OUT, 140 + i * 30]), true)
           : activa
-            ? estiloDeNodo(mover(CENTRO, 1.4), 1, tr(["transform", 440, IO, 0], ["opacity", 120, OUT, 0]), false, 3)
+            ? estiloDeNodo(mover(CENTRO, ESCALA_DEL_CENTRO), 1, tr(["transform", 440, IO, 0], ["opacity", 120, OUT, 0]), false, 3)
             : estiloDeNodo(mover(alejada(t.general), 0.92), 0, tr(["transform", 200, OUT, 0], ["opacity", 160, OUT, 0]), false);
         return (
           <div key={t.nombre} className="mapa-mov absolute top-0 left-0" style={estilo} aria-hidden={!visible && !activa}>
@@ -342,7 +410,15 @@ function Grafo({
                 onClick={() => elegir({ ...NADA, tematica: t.nombre })}
                 className={`mapa-circulo size-[18px] border-2 ${activa ? "border-warning-800 bg-warning-500" : "border-warning-600 bg-warning-100"}`}
               />
-              <span className="pointer-events-none absolute top-[14px] left-0 -translate-x-1/2 text-[12.5px] font-bold whitespace-nowrap text-warning-800">
+              {/* Acercada, en el centro, no lleva etiqueta: su nombre está en las migas y en el panel. */}
+              <span
+                className={`mapa-etiqueta ${FONDO_DE_ETIQUETA} text-[12.5px] font-bold text-warning-800`}
+                style={{
+                  ...posicionDeEtiqueta(t.ladoGeneral, RADIO_DE_TEMATICA + SEPARACION_DE_ETIQUETA + t.extraGeneral),
+                  // visibility además de opacity: la regla de movimiento reducido fuerza la opacidad, no esto.
+                  ...(activa ? { opacity: 0, visibility: "hidden", transition: "opacity 120ms ease-out, visibility 0s linear 120ms" } : etiqueta),
+                }}
+              >
                 {t.nombre}
               </span>
             </div>
@@ -370,7 +446,8 @@ function Grafo({
               className={`mapa-circulo size-[15px] border-2 border-warning-600 ${elegida ? "bg-warning-500" : "bg-white"}`}
             />
             <span
-              className="pointer-events-none absolute top-3 left-0 max-w-[150px] -translate-x-1/2 truncate rounded-sm bg-white/85 px-1 text-[12px] font-bold whitespace-nowrap text-warning-800"
+              className={`mapa-etiqueta ${FONDO_DE_ETIQUETA} max-w-[150px] truncate text-[12px] font-bold text-warning-800`}
+              style={{ ...posicionDeEtiqueta(s.lado, RADIO_DE_SUBTEMATICA + SEPARACION_DE_ETIQUETA + s.extra), ...etiqueta }}
             >
               {nombreDeSub(s)}
             </span>
@@ -394,8 +471,8 @@ function Grafo({
             : estiloDeNodo(mover(desde, 0.9), 0, tr(["transform", 300, IO, 0], ["opacity", 160, OUT, 0]), false)
           : activa
             ? estiloDeNodo(
-                mover(c.acercada, 1.08),
-                atenuada ? 0.35 : 1,
+                mover(c.acercada, ESCALA_ACERCADA),
+                1,
                 tr(["transform", 440, IO, 40 + c.orden * 30], ["opacity", c.general ? 200 : 260, c.general ? "ease" : OUT, c.general ? 0 : 160 + c.orden * 30]),
                 true,
                 2,
@@ -403,6 +480,12 @@ function Grafo({
             : estiloDeNodo(mover(alejada(desde), 0.92), 0, tr(["transform", 200, OUT, 0], ["opacity", 160, OUT, 0]), false);
         const enRevision = datosC.aportes.filter((a) => a.estado === "pendiente").length;
         const dx = activa ? c.etiquetaAcercada : c.etiquetaGeneral;
+        const lado = activa ? c.ladoAcercado : c.ladoGeneral;
+        const extra = activa ? c.extraAcercado : c.extraGeneral;
+        // Los puntos van del lado contrario a la etiqueta: arco arriba si la etiqueta va abajo, y al revés.
+        const signo = lado === "arriba" ? -1 : 1;
+        // Atenuar baja el nodo y sus puntos, no la etiqueta (su fondo dejaría de tapar las líneas).
+        const tenue: CSSProperties = { opacity: atenuada ? 0.35 : 1, transition: "opacity 200ms ease" };
         return (
           <div key={c.id} className="mapa-mov absolute top-0 left-0" style={estilo} aria-hidden={!visible}>
             <div className="mapa-entra" style={{ "--i": geo.tematicas.length + 1 + c.indice } as CSSProperties}>
@@ -414,8 +497,12 @@ function Grafo({
                   aria-hidden="true"
                   disabled={!visible}
                   onClick={() => elegir({ ...sel, campana: c.id, aporte: p.aporte.id })}
-                  className="absolute top-0 left-0 flex size-4 -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full transition-opacity duration-200"
-                  style={{ left: p.x, top: p.y, opacity: coincide(filtro, p.aporte) ? 1 : 0.15 }}
+                  className="absolute top-0 left-0 flex size-4 cursor-pointer items-center justify-center rounded-full"
+                  style={{
+                    transform: `translate(calc(-50% + ${p.x}px), calc(-50% + ${signo * p.y}px))`,
+                    opacity: (coincide(filtro, p.aporte) ? 1 : 0.15) * (atenuada ? 0.35 : 1),
+                    transition: tr(["transform", 440, IO, 0], ["opacity", 200, "ease", 0]),
+                  }}
                 >
                   <span className={`${FORMA_DEL_PUNTO[p.grupo]} ${sel.aporte === p.aporte.id ? "ring-2 ring-brand-600 ring-offset-2" : ""}`} />
                 </button>
@@ -430,14 +517,16 @@ function Grafo({
                 className={`mapa-circulo border-2 ${conCoincidencias ? "border-brand-600 bg-brand-100" : "border-system-300 bg-system-100"} ${
                   elegida ? "shadow-[0_0_0_4px_#fff,0_0_0_6px_var(--color-brand-600)]" : ""
                 }`}
-                style={{ width: c.radio * 2, height: c.radio * 2 }}
+                style={{ width: c.radio * 2, height: c.radio * 2, ...tenue }}
               />
               <span
-                className="pointer-events-none absolute left-0 text-center leading-tight whitespace-nowrap transition-transform duration-300"
-                style={{ top: c.radio + 8, transform: `translateX(calc(-50% + ${dx}px))` }}
+                className={`mapa-etiqueta ${FONDO_DE_ETIQUETA} text-center leading-tight`}
+                style={{ ...posicionDeEtiqueta(lado, c.radio + SEPARACION_DE_ETIQUETA + extra, dx), ...etiqueta }}
               >
-                <span className={`block text-[13px] font-bold ${conCoincidencias ? "text-system-900" : "text-system-500"}`}>{c.nombreCorto}</span>
-                <span className="block text-[11.5px] text-system-600">
+                <span className={`block text-[13px] font-bold transition-colors duration-200 ${atenuada || !conCoincidencias ? "text-system-500" : "text-system-900"}`}>
+                  {c.nombreCorto}
+                </span>
+                <span className={`block text-[11.5px] transition-colors duration-200 ${atenuada ? "text-system-400" : "text-system-600"}`}>
                   {`${datosC.aprobadosTuyos} ${datosC.aprobadosTuyos === 1 ? "aceptado" : "aceptados"}`}
                   {enRevision > 0 ? `, ${enRevision} en revisión` : ""}
                 </span>
@@ -445,8 +534,12 @@ function Grafo({
               {/* Los aportes que no caben como punto, al final del arco de puntos. */}
               {c.puntosOcultos > 0 && (
                 <span
-                  className="pointer-events-none absolute left-0 -translate-x-1/2 rounded-pill bg-system-100 px-1.5 font-mono text-[10.5px] leading-4 font-bold whitespace-nowrap text-system-700"
-                  style={{ top: -(c.radio + 36) }}
+                  className="mapa-etiqueta pointer-events-none absolute left-0 rounded-pill bg-system-100 px-1.5 font-mono text-[10.5px] leading-4 font-bold whitespace-nowrap text-system-700"
+                  style={{
+                    top: signo > 0 ? -(c.radio + 36) : c.radio + 20,
+                    transform: "translateX(-50%)",
+                    ...etiqueta,
+                  }}
                 >
                   {T.recorteDePuntos(c.puntosOcultos)}
                 </span>
@@ -477,7 +570,7 @@ function GrafoDeIntereses({ intereses }: { intereses: string[] }) {
         <div key={t.nombre} className="absolute top-0 left-0" style={{ transform: mover(t) }} aria-hidden="true">
           <div className="mapa-entra" style={{ "--i": i + 1 } as CSSProperties}>
             <span className="absolute top-0 left-0 size-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-dashed border-warning-600 bg-white" />
-            <span className={`absolute left-0 -translate-x-1/2 text-[13px] font-semibold whitespace-nowrap text-warning-800 ${t.etiquetaArriba ? "-top-9" : "top-4"}`}>
+            <span className={`${FONDO_DE_ETIQUETA} left-0 -translate-x-1/2 text-[13px] font-semibold text-warning-800 ${t.etiquetaArriba ? "-top-9" : "top-4"}`}>
               {t.nombre}
             </span>
           </div>

@@ -9,7 +9,11 @@
 // Subtemática principal (una campaña tiene de 0 a 5): la que más se repite entre tus campañas de esa temática; a igual
 // cuenta, la que está en tus intereses; luego la alfabética. No usa el orden en que se eligieron: la base no lo guarda.
 // Las demás subtemáticas de la campaña que tienen nodo se unen con una línea punteada al elegirla.
-// Etiquetas siempre debajo del nodo y puntos en un arco hacia arriba: así nada cambia de lado al moverse.
+// Etiquetas sin líneas encima (2026-11-13, a pedido del responsable: una línea atravesaba el texto de una campaña al
+// acercarse): el lado de cada etiqueta (abajo, arriba, derecha o izquierda; en las campañas, abajo o arriba con los
+// puntos del otro lado) se elige en cada disposición probando contra TODAS las líneas visibles de esa vista, y gana el
+// que no cruza ninguna (a igualdad, el lado habitual). Lo que no tenga lado libre lo tapa el fondo opaco de la etiqueta
+// (MapaDeAportes.tsx): ninguna línea se ve encima de un texto. scripts de revisión: /tmp/pruebas/auditar-etiquetas.mjs.
 // Topes de legibilidad: MAX_TEMATICAS, MAX_CAMPANAS y MAX_PUNTOS por campaña. Quedan las campañas con más aportes
 // tuyos (a igual cuenta, la de actividad más reciente): con «la más reciente» sola, en una tanda de aportes el grupo
 // dibujado cambiaba en cada recarga y los nodos entraban y salían sin parar (prueba de carga, 2026-11-13).
@@ -32,18 +36,46 @@ export const CLAVE_SIN_SUBTEMATICA = "__sin__";
 
 const CENTRO = { x: ANCHO_DEL_MAPA / 2, y: ALTO_DEL_MAPA / 2 };
 const PESO_MINIMO = 0.6;
+/** Escala de la temática acercada en el centro (el componente la usa al moverla). */
+export const ESCALA_DEL_CENTRO = 1.4;
+/** Escala de las campañas en la vista acercada. */
+export const ESCALA_ACERCADA = 1.08;
+/** Separación entre el borde del nodo y su etiqueta, y medidas de los nodos (px del lienzo). */
+export const RADIO_DE_TEMATICA = 9;
+export const RADIO_DE_SUBTEMATICA = 7.5;
+export const SEPARACION_DE_ETIQUETA = 5;
+const ALTO_DE_ETIQUETA = 19;
+const ALTO_DE_ETIQUETA_DE_CAMPANA = 36;
+const ANCHO_DE_SEGUNDA_LINEA = 130;
 const ANCHO_DE_CARACTER = 7.1;
 const LARGO_DE_ETIQUETA = 26;
 const MARGEN = 8;
 
 export type Posicion = { x: number; y: number };
+/** De qué lado del nodo va su etiqueta. Las campañas solo usan abajo o arriba (sus puntos van del otro lado). */
+export type LadoDeEtiqueta =
+  | "abajo"
+  | "arriba"
+  | "derecha"
+  | "izquierda"
+  | "abajo-derecha"
+  | "abajo-izquierda"
+  | "arriba-derecha"
+  | "arriba-izquierda";
 export type GrupoDePunto = "excepcional" | "alto" | "aceptado" | "pendiente";
 /** Un punto relativo al centro de su campaña. */
 export type PuntoDeAporte = Posicion & { aporte: AporteEnElMapa; grupo: GrupoDePunto };
 /** Segmento de línea: origen, largo y ángulo en grados (se dibuja como un div rotado). */
 export type Segmento = { x: number; y: number; largo: number; angulo: number };
 
-export type NodoDeTematica = { nombre: string; general: Posicion };
+export type NodoDeTematica = {
+  nombre: string;
+  general: Posicion;
+  ladoGeneral: LadoDeEtiqueta;
+  extraGeneral: number;
+  // Acercada, en el centro, no lleva etiqueta: su nombre ya está en las migas y en el panel, y de ahí salen líneas
+  // hacia todas sus subtemáticas (no queda ningún lado libre para un texto ancho).
+};
 
 export type NodoDeSubtematica = {
   /** Única en todo el mapa: «temática::subtemática». */
@@ -52,6 +84,9 @@ export type NodoDeSubtematica = {
   /** Nombre real, o CLAVE_OTRAS / CLAVE_SIN_SUBTEMATICA. */
   nombre: string;
   posicion: Posicion;
+  lado: LadoDeEtiqueta;
+  /** Separación extra de la etiqueta (px), además de la normal. */
+  extra: number;
   /** Orden dentro de su temática, para escalonar su entrada. */
   indice: number;
   campanas: number[];
@@ -76,6 +111,11 @@ export type NodoDeCampana = {
   /** Desplazamiento horizontal de la etiqueta para no salirse del lienzo, en cada disposición. */
   etiquetaGeneral: number;
   etiquetaAcercada: number;
+  /** Lado de la etiqueta en cada disposición; los puntos van del lado contrario. */
+  ladoGeneral: "abajo" | "arriba";
+  ladoAcercado: "abajo" | "arriba";
+  extraGeneral: number;
+  extraAcercado: number;
   /** Orden dentro de su temática (escalonado del viaje) y orden global (entrada inicial). */
   orden: number;
   indice: number;
@@ -172,6 +212,132 @@ function puntosDe(c: CampanaEnElMapa, radio: number): { puntos: PuntoDeAporte[];
   return { puntos, ocultos: dibujables.length - visibles.length };
 }
 
+type Caja = { x0: number; x1: number; y0: number; y1: number };
+/** Fracción de la separación que se usa en x y en y para las esquinas (≈ cos 45°). */
+export const DIAGONAL = 0.7;
+
+/** Caja de una etiqueta de `ancho` × `alto` del lado `lado` de un nodo de radio `radio` en `p` (con `dx` horizontal). */
+export function cajaDeEtiqueta(p: Posicion, radio: number, ancho: number, alto: number, lado: LadoDeEtiqueta, dx = 0, extra = 0): Caja {
+  const g = radio + SEPARACION_DE_ETIQUETA + extra;
+  if (lado === "abajo") return { x0: p.x + dx - ancho / 2, x1: p.x + dx + ancho / 2, y0: p.y + g, y1: p.y + g + alto };
+  if (lado === "arriba") return { x0: p.x + dx - ancho / 2, x1: p.x + dx + ancho / 2, y0: p.y - g - alto, y1: p.y - g };
+  if (lado === "derecha") return { x0: p.x + g, x1: p.x + g + ancho, y0: p.y - alto / 2, y1: p.y + alto / 2 };
+  if (lado === "izquierda") return { x0: p.x - g - ancho, x1: p.x - g, y0: p.y - alto / 2, y1: p.y + alto / 2 };
+  // Esquinas: la etiqueta empieza en la diagonal del nodo (a g·0.7 en x y en y).
+  const d = g * DIAGONAL;
+  const derecha = lado.endsWith("derecha");
+  const abajo = lado.startsWith("abajo");
+  const x0 = derecha ? p.x + d : p.x - d - ancho;
+  const y0 = abajo ? p.y + d : p.y - d - alto;
+  return { x0, x1: x0 + ancho, y0, y1: y0 + alto };
+}
+
+/** ¿El segmento atraviesa la caja? (Liang–Barsky, con 1 px de holgura hacia adentro.) */
+export function segmentoCruzaCaja(s: Segmento, b: Caja): boolean {
+  const t = (s.angulo * Math.PI) / 180;
+  const x1 = s.x;
+  const y1 = s.y;
+  const dx = s.largo * Math.cos(t);
+  const dy = s.largo * Math.sin(t);
+  let u0 = 0;
+  let u1 = 1;
+  const limites: [number, number][] = [
+    [-dx, x1 - (b.x0 + 1)],
+    [dx, b.x1 - 1 - x1],
+    [-dy, y1 - (b.y0 + 1)],
+    [dy, b.y1 - 1 - y1],
+  ];
+  for (const [p, q] of limites) {
+    if (p === 0) {
+      if (q < 0) return false;
+      continue;
+    }
+    const r = q / p;
+    if (p < 0) {
+      if (r > u1) return false;
+      if (r > u0) u0 = r;
+    } else {
+      if (r < u0) return false;
+      if (r < u1) u1 = r;
+    }
+  }
+  return u0 < u1;
+}
+
+/** Cuánto se sale una caja del lienzo (penaliza el lado que la empujaría fuera). */
+function fueraDelLienzo(b: Caja): number {
+  return Math.max(0, -b.x0) + Math.max(0, b.x1 - ANCHO_DEL_MAPA) + Math.max(0, -b.y0) + Math.max(0, b.y1 - ALTO_DEL_MAPA);
+}
+
+/** Separaciones extra que se prueban: entre las líneas que salen de un nodo el hueco crece con la distancia. */
+export const SEPARACIONES_EXTRA = [0, 12, 24, 36] as const;
+
+/** Área en que se encima la caja `b` con las cajas `otras` (etiquetas ya colocadas y nodos). */
+function solape(b: Caja, otras: readonly Caja[]): number {
+  let area = 0;
+  for (const o of otras) {
+    const w = Math.min(b.x1, o.x1) - Math.max(b.x0, o.x0);
+    const h = Math.min(b.y1, o.y1) - Math.max(b.y0, o.y0);
+    if (w > 0 && h > 0) area += w * h;
+  }
+  return area;
+}
+
+/** Caja de un nodo (círculo de radio `r`), para que ninguna etiqueta quede encima de otro nodo. */
+function cajaDeNodo(p: Posicion, r: number): Caja {
+  return { x0: p.x - r, x1: p.x + r, y0: p.y - r, y1: p.y + r };
+}
+
+/**
+ * El lugar de la etiqueta que no queda bajo una línea ni encima de otra etiqueta o de un nodo: prueba cada lado de
+ * `lados` a cada distancia de SEPARACIONES_EXTRA. Una línea encima y un choque con otra caja pesan lo mismo (ambos
+ * tapan texto); después se evita salir del lienzo; a igualdad gana lo más cercano y, luego, el primer lado de `lados`.
+ * `propia` es la caja del nodo dueño de la etiqueta (no cuenta como choque). La elegida se agrega a `ocupadas`.
+ */
+function elegirLado<L extends LadoDeEtiqueta>(
+  lados: readonly L[],
+  caja: (lado: L, extra: number) => Caja,
+  lineas: readonly Segmento[],
+  ocupadas: Caja[],
+  propia?: Caja,
+): { lado: L; extra: number } {
+  let mejor = { lado: lados[0], extra: 0 };
+  let mejorCaja = caja(lados[0], 0);
+  let puntaje = Number.POSITIVE_INFINITY;
+  SEPARACIONES_EXTRA.forEach((extra, nivel) => {
+    lados.forEach((lado, orden) => {
+      const b = caja(lado, extra);
+      const cruces = lineas.reduce((n, l) => n + (segmentoCruzaCaja(l, b) ? 1 : 0), 0);
+      const encima = solape(b, propia ? ocupadas.filter((o) => o !== propia) : ocupadas);
+      const valor = cruces * 100000 + (encima > 0 ? 100000 + encima * 10 : 0) + fueraDelLienzo(b) * 100 + nivel * 10 + orden;
+      if (valor < puntaje) {
+        puntaje = valor;
+        mejor = { lado, extra };
+        mejorCaja = b;
+      }
+    });
+  });
+  ocupadas.push(mejorCaja);
+  return mejor;
+}
+
+const LADOS: readonly LadoDeEtiqueta[] = [
+  "abajo",
+  "arriba",
+  "derecha",
+  "izquierda",
+  "abajo-derecha",
+  "abajo-izquierda",
+  "arriba-derecha",
+  "arriba-izquierda",
+];
+const LADOS_DE_CAMPANA = ["abajo", "arriba"] as const;
+
+/** Medidas estimadas de las etiquetas (texto en px del lienzo, con el relleno del fondo). */
+export function anchoDeEtiqueta(texto: string, porCaracter = ANCHO_DE_CARACTER): number {
+  return texto.length * porCaracter + 10;
+}
+
 /** Temáticas de interés de una cuenta sin aportes, alrededor del centro (V10, «Cuenta nueva»). */
 export function geometriaDeIntereses(intereses: readonly string[]): (Posicion & { nombre: string; etiquetaArriba: boolean })[] {
   const lista = intereses.slice(0, MAX_TEMATICAS);
@@ -206,7 +372,7 @@ export function armarGeometria(datos: DatosDelMapaDeAportes): GeometriaDelMapa {
   for (const t of nombres) {
     const propias = porTematica.get(t) ?? [];
     const sector = (360 * (propias.length + PESO_MINIMO)) / pesoTotal;
-    tematicas.push({ nombre: t, general: enElipse(inicio + sector / 2, 132, 98) });
+    tematicas.push({ nombre: t, general: enElipse(inicio + sector / 2, 132, 98), ladoGeneral: "abajo", extraGeneral: 0 });
     const paso = Math.min(sector, 330) / propias.length;
     propias.forEach((c, j) => {
       const empuje = propias.length > 2 && j % 2 === 1 ? 1.12 : 1;
@@ -250,7 +416,7 @@ export function armarGeometria(datos: DatosDelMapaDeAportes): GeometriaDelMapa {
       const angulo = desde + sector / 2;
       const posicion = enElipse(angulo, 168, 116);
       const clave = `${t}::${g.nombre}`;
-      subtematicas.push({ clave, tematica: t, nombre: g.nombre, posicion, indice: i, campanas: g.ids, agrupadas: g.agrupadas });
+      subtematicas.push({ clave, tematica: t, nombre: g.nombre, posicion, lado: "abajo", extra: 0, indice: i, campanas: g.ids, agrupadas: g.agrupadas });
       const abanico = Math.min(sector, 300);
       const paso = abanico / g.ids.length;
       g.ids.forEach((id, j) => {
@@ -288,6 +454,10 @@ export function armarGeometria(datos: DatosDelMapaDeAportes): GeometriaDelMapa {
       acercada: z,
       etiquetaGeneral: g ? desplazamientoDeEtiqueta(nombreCorto, g.x) : 0,
       etiquetaAcercada: desplazamientoDeEtiqueta(nombreCorto, z.x),
+      ladoGeneral: "abajo",
+      ladoAcercado: "abajo",
+      extraGeneral: 0,
+      extraAcercado: 0,
       orden: orden.get(c.id) ?? (porTematica.get(c.tematica)?.length ?? 0) + ordenExtra++,
       indice,
       puntos,
@@ -311,6 +481,68 @@ export function armarGeometria(datos: DatosDelMapaDeAportes): GeometriaDelMapa {
   const secundarias = campanas.flatMap((c) =>
     c.otrasConNodo.map((k) => ({ ...segmento(c.acercada, posDeSub.get(k) as Posicion), campana: c.id, subtematica: k })),
   );
+
+  // --- Lado de cada etiqueta, contra todas las líneas visibles de cada vista ---
+  const anchoDeCampana = (c: NodoDeCampana) => Math.max(anchoDeEtiqueta(c.nombreCorto), ANCHO_DE_SEGUNDA_LINEA);
+  // Primero las campañas (etiquetas grandes con solo dos lados posibles); después temáticas y subtemáticas, que
+  // tienen ocho lados para esquivarlas. Los nodos cuentan como ocupados desde el inicio (el de campaña, solo su círculo: sus puntos los esquiva la separación).
+  const nodoGeneral = new Map(campanas.flatMap((c) => (c.general ? [[c.id, cajaDeNodo(c.general, c.radio + 3)] as const] : [])));
+  const ocupadasGenerales: Caja[] = [
+    cajaDeNodo(CENTRO, 26),
+    ...tematicas.map((t) => cajaDeNodo(t.general, RADIO_DE_TEMATICA)),
+    ...nodoGeneral.values(),
+  ];
+  for (const c of campanas) {
+    if (!c.general) continue;
+    const g = c.general;
+    const r = elegirLado(
+      LADOS_DE_CAMPANA,
+      (l, e) => cajaDeEtiqueta(g, c.radio, anchoDeCampana(c), ALTO_DE_ETIQUETA_DE_CAMPANA, l, c.etiquetaGeneral, e),
+      lineasGenerales,
+      ocupadasGenerales,
+      nodoGeneral.get(c.id),
+    );
+    c.ladoGeneral = r.lado;
+    c.extraGeneral = r.extra;
+  }
+  for (const t of tematicas) {
+    const r = elegirLado(
+      LADOS,
+      (l, e) => cajaDeEtiqueta(t.general, RADIO_DE_TEMATICA, anchoDeEtiqueta(t.nombre, 7.3), ALTO_DE_ETIQUETA, l, 0, e),
+      lineasGenerales,
+      ocupadasGenerales,
+    );
+    t.ladoGeneral = r.lado;
+    t.extraGeneral = r.extra;
+  }
+  for (const t of tematicas) {
+    const lineas = [...(lineasPorTematica[t.nombre] ?? []), ...secundarias.filter((l) => campanas.find((c) => c.id === l.campana)?.tematica === t.nombre)];
+    const propias = campanas.filter((x) => x.tematica === t.nombre);
+    const subs = subtematicas.filter((x) => x.tematica === t.nombre);
+    const nodoAcercado = new Map(propias.map((c) => [c.id, cajaDeNodo(c.acercada, (c.radio + 3) * ESCALA_ACERCADA)] as const));
+    const ocupadas: Caja[] = [
+      cajaDeNodo(CENTRO, RADIO_DE_TEMATICA * ESCALA_DEL_CENTRO),
+      ...subs.map((s) => cajaDeNodo(s.posicion, RADIO_DE_SUBTEMATICA)),
+      ...nodoAcercado.values(),
+    ];
+    for (const c of propias) {
+      const r = elegirLado(
+        LADOS_DE_CAMPANA,
+        (l, e) => cajaDeEtiqueta(c.acercada, c.radio * ESCALA_ACERCADA, anchoDeCampana(c) * ESCALA_ACERCADA, ALTO_DE_ETIQUETA_DE_CAMPANA * ESCALA_ACERCADA, l, c.etiquetaAcercada, e * ESCALA_ACERCADA),
+        lineas,
+        ocupadas,
+        nodoAcercado.get(c.id),
+      );
+      c.ladoAcercado = r.lado;
+      c.extraAcercado = r.extra;
+    }
+    for (const s of subs) {
+      const ancho = Math.min(150, anchoDeEtiqueta(s.nombre.startsWith("__") ? "Sin subtemática" : s.nombre, 7));
+      const r = elegirLado(LADOS, (l, e) => cajaDeEtiqueta(s.posicion, RADIO_DE_SUBTEMATICA, ancho, ALTO_DE_ETIQUETA, l, 0, e), lineas, ocupadas);
+      s.lado = r.lado;
+      s.extra = r.extra;
+    }
+  }
 
   return {
     centro: CENTRO,

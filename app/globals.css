@@ -622,6 +622,7 @@ input::-ms-clear {
  * - mapa-panel / mapa-migas: el contenido nuevo entra con 4 px de subida y un desenfoque de 2 px que se disuelve (tapa
  *   el cruce entre dos textos); las migas esperan 180 ms a que los nodos casi lleguen.
  * - mapa-barra: la meta colectiva se llena una vez.
+ * - mapa-etiqueta: las etiquetas de los nodos (fondo opaco; se ocultan durante el viaje si cambian de lado).
  * Con movimiento reducido: sin traslados, escalas ni trazos; cada cambio es un fundido de 160 ms (mapa-mov). */
 .mapa-circulo {
   position: absolute;
@@ -701,6 +702,11 @@ input::-ms-clear {
   }
   .mapa-circulo {
     transition: none;
+  }
+  /* Sin viaje que esperar: las etiquetas no se ocultan al cambiar de lado. */
+  .mapa-etiqueta {
+    opacity: 1 !important;
+    transition: none !important;
   }
 }
 
