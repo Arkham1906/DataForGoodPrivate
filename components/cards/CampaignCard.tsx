@@ -5,6 +5,8 @@
 import Link from "next/link";
 import Card from "@/components/ui/Card";
 import Tag from "@/components/ui/Tag";
+import ProgressBar from "@/components/ui/ProgressBar";
+import { etiquetaDeCierre } from "@/lib/campanas/etiqueta-de-cierre";
 import { porcentajeDeMeta } from "@/lib/campanas/meta";
 import { NOMBRE_DE_TIPO } from "@/lib/campanas/sistema-opciones";
 import { textoDeUbicacion } from "@/lib/campanas/ubicacion";
@@ -18,7 +20,7 @@ function parseDateOnly(value: string | null | undefined) {
   return new Date(year, month - 1, day);
 }
 
-export default function CampaignCard({ campaign, onAbrir, hrefAlAbrir, compact = false, mobileCompact = false, portada = false }: { campaign: Campaign; onAbrir?: () => void; hrefAlAbrir?: string; compact?: boolean; mobileCompact?: boolean; portada?: boolean }) {
+export default function CampaignCard({ campaign, onAbrir, hrefAlAbrir, compact = false, mobileCompact = false, portada = !compact }: { campaign: Campaign; onAbrir?: () => void; hrefAlAbrir?: string; compact?: boolean; mobileCompact?: boolean; portada?: boolean }) {
   const pct = porcentajeDeMeta(campaign.approvedContributions, campaign.goalContributions);
   const closeDate = campaign.endDate ? parseDateOnly(campaign.endDate)?.toLocaleDateString("es-MX", {
     day: "numeric",
@@ -49,6 +51,43 @@ export default function CampaignCard({ campaign, onAbrir, hrefAlAbrir, compact =
           className="absolute inset-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
         />
       ) : null}
+      {portada ? (
+        <>
+          <div data-campana-banner className="aspect-[16/10] overflow-hidden bg-system-100">
+            {campaign.hasBanner && (
+              <img
+                src={`${BASE_PATH}/api/campanas/${campaign.id}/banner?v=${encodeURIComponent(campaign.bannerVersion ?? "")}`}
+                alt=""
+                loading="lazy"
+                className="h-full w-full object-cover"
+                style={{ objectPosition: `${campaign.bannerPositionX ?? 50}% ${campaign.bannerPositionY ?? 50}%`, transform: `scale(${campaign.bannerScale ?? 1})` }}
+              />
+            )}
+          </div>
+          <div className="flex flex-1 flex-col p-3">
+            <h3 className="min-h-[2.75rem] line-clamp-2 min-w-0 break-words text-[16px] font-semibold leading-snug text-system-900" title={campaign.name}>
+              {campaign.name}
+            </h3>
+            <div className="mt-2 flex h-8 items-start overflow-hidden">
+              <Tag tone="ok" className="max-w-full truncate whitespace-nowrap">
+                {campaign.tematica || campaign.tag || "Sin temática"}
+              </Tag>
+            </div>
+            <div className="mt-auto">
+              <ProgressBar pct={pct} tone="ok" conPorcentaje />
+              <div className="mt-3 flex h-14 flex-wrap content-start gap-1.5 overflow-hidden">
+                {campaign.dataTypes.map((type) => (
+                  <Tag key={type}>{NOMBRE_DE_TIPO[type]}</Tag>
+                ))}
+              </div>
+              <p className="mt-2 min-h-5 border-t border-system-200 pt-2 text-[12px] text-system-600">
+                {etiquetaDeCierre(campaign.daysRemaining)}
+              </p>
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
       <div className="min-w-0">
         <h3 className={`line-clamp-2 break-words font-bold text-system-900 ${compact ? "text-[14px]" : "text-[15px]"} ${mobileCompact ? "max-sm:text-[14px]" : ""}`}>
           {campaign.name}
@@ -85,6 +124,8 @@ export default function CampaignCard({ campaign, onAbrir, hrefAlAbrir, compact =
       <p className={`mt-auto whitespace-nowrap border-t border-system-200 pt-2 font-mono font-semibold text-system-700 ${compact ? "text-[11px] xl:my-auto xl:border-l xl:border-t-0 xl:py-2 xl:pl-4" : "text-[12px] max-md:text-[11px]"}`}>
         Avance total: {pct}%
       </p>
+        </>
+      )}
     </Card>
   );
 }

@@ -46,7 +46,7 @@ export default function CampanasPorTematica({ secciones }: { secciones: SeccionD
               {s.campanas.map((c, i) => (
                 // flex: la tarjeta toma el alto de la fila, como en /explorar (sin portada no queda más corta).
                 <li key={c.id} className="flex w-[85%] min-w-0 shrink-0 snap-start *:w-full sm:w-auto">
-                  <TarjetaDeCampanaPublica campana={c} indice={i} nivel="h3" />
+                  <TarjetaDeCampanaPublica campana={c} indice={i} nivel="h3" compacta />
                 </li>
               ))}
             </ul>

@@ -12,26 +12,37 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import PestanasDelRevisor, { RUTA_DE_CAMPANAS_DEL_REVISOR } from "@/components/revisiones/PestanasDelRevisor";
 import Button from "@/components/ui/Button";
 import Tag from "@/components/ui/Tag";
+import ProgressBar from "@/components/ui/ProgressBar";
 import BarraDeFiltros, { type ValoresDeFiltros } from "@/components/campanas/BarraDeFiltros";
 import { BASE_PATH } from "@/lib/base-path";
 import { FILTROS_VACIOS, avisoSinResultados, filtrarCampanas, opcionesDeTematica, type FiltrosLocales } from "@/lib/campanas/filtro-local";
 import { EsqueletoDeFilas } from "@/components/ui/Esqueletos";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 import { estaTerminada } from "@/lib/campanas/terminada";
+import { etiquetaDeCierre } from "@/lib/campanas/etiqueta-de-cierre";
+import { NOMBRE_DE_TIPO } from "@/lib/campanas/sistema-opciones";
 
 type ReviewCampaign = {
   id: string;
   name: string;
   description: string;
   tag: string;
+  tematica: string;
+  hasBanner: boolean;
+  bannerVersion?: string;
+  bannerScale: number;
+  bannerPositionX: number;
+  bannerPositionY: number;
   participants: number;
   status: string;
   pendingContributions: number;
   currentContributions: number;
   goalContributions: number;
+  approvedContributions: number;
   creatorName: string;
   dataTypes: string[];
   endDate: string | null;
+  daysRemaining: number | null;
 };
 
 const tematicaDe = (campaign: ReviewCampaign) => campaign.tag;
@@ -182,19 +193,49 @@ export default function CampaignList({ completed = false }: { completed?: boolea
       ) : (
         <div className={vistaCuadricula ? "grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3" : "flex flex-col gap-3"}>
           {visibleCampaigns.map((campaign) => (
-            <Link key={campaign.id} href={`/revisiones/campanas/${campaign.id}`} className={vistaCuadricula ? "flex h-full min-w-0 flex-col rounded-lg border border-system-200 bg-white p-5 shadow-sm transition-colors hover:border-brand-600" : "block rounded-lg border border-system-200 bg-white p-5 shadow-sm transition-colors hover:border-brand-600"}>
-              <div className={vistaCuadricula ? "flex min-h-32 flex-col justify-between gap-4" : "flex flex-wrap items-start justify-between gap-4"}>
-                <div className="min-w-0">
-                  <h3 className="line-clamp-2 text-[16px] font-extrabold text-system-900">{campaign.name}</h3>
-                  <p className="mt-1 text-[12.5px] text-system-600">{campaign.tag || "Sin temática"} · {campaign.participants} participantes</p>
-                  {campaign.description && <p className={vistaCuadricula ? "mt-3 line-clamp-3 text-[13px] leading-5 text-system-600" : "mt-3 line-clamp-2 max-w-2xl text-[13px] leading-5 text-system-600"}>{campaign.description}</p>}
+            vistaCuadricula ? (
+              <Link key={campaign.id} href={`/revisiones/campanas/${campaign.id}`} className="flex h-full min-w-0 flex-col overflow-hidden rounded-[18px] border border-system-200 bg-white transition-colors hover:border-brand-600">
+                <div data-campana-banner className="aspect-[16/10] overflow-hidden bg-system-100">
+                  {campaign.hasBanner && (
+                    <img
+                      src={`${BASE_PATH}/api/campanas/${campaign.id}/banner?v=${encodeURIComponent(campaign.bannerVersion ?? "")}`}
+                      alt=""
+                      loading="lazy"
+                      className="h-full w-full object-cover"
+                      style={{ objectPosition: `${campaign.bannerPositionX}% ${campaign.bannerPositionY}%`, transform: `scale(${campaign.bannerScale})` }}
+                    />
+                  )}
                 </div>
-                <div className={vistaCuadricula ? "flex items-center justify-between gap-2 border-t border-system-100 pt-3" : "flex items-center gap-2"}>
-                  {!completed && <Tag tone="warn">{campaign.pendingContributions} pendientes</Tag>}
-                  <span className="ml-auto text-[12.5px] font-bold text-brand-600">Abrir campaña →</span>
+                <div className="flex flex-1 flex-col p-3">
+                  <h3 className="min-h-[2.75rem] line-clamp-2 min-w-0 break-words text-[16px] font-semibold leading-snug text-system-900" title={campaign.name}>{campaign.name}</h3>
+                  <div className="mt-2 flex h-8 items-start overflow-hidden">
+                    <Tag tone="ok" className="max-w-full truncate whitespace-nowrap">{campaign.tematica || "Sin temática"}</Tag>
+                  </div>
+                  <div className="mt-auto">
+                    <ProgressBar pct={campaign.goalContributions > 0 ? (campaign.approvedContributions / campaign.goalContributions) * 100 : 0} tone="ok" conPorcentaje />
+                    <div className="mt-3 flex min-h-14 flex-wrap content-start gap-1.5 overflow-hidden">
+                      {campaign.dataTypes.map((type) => <Tag key={type}>{NOMBRE_DE_TIPO[type as keyof typeof NOMBRE_DE_TIPO] ?? type}</Tag>)}
+                      {!completed && <Tag tone="warn">{campaign.pendingContributions} pendientes</Tag>}
+                    </div>
+                    <p className="mt-2 min-h-5 border-t border-system-200 pt-2 text-[12px] text-system-600">{etiquetaDeCierre(campaign.daysRemaining)}</p>
+                  </div>
                 </div>
-              </div>
-            </Link>
+              </Link>
+            ) : (
+              <Link key={campaign.id} href={`/revisiones/campanas/${campaign.id}`} className="block rounded-lg border border-system-200 bg-white p-5 shadow-sm transition-colors hover:border-brand-600">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <h3 className="line-clamp-2 text-[16px] font-extrabold text-system-900">{campaign.name}</h3>
+                    <p className="mt-1 text-[12.5px] text-system-600">{campaign.tag || "Sin temática"} · {campaign.participants} participantes</p>
+                    {campaign.description && <p className="mt-3 line-clamp-2 max-w-2xl text-[13px] leading-5 text-system-600">{campaign.description}</p>}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {!completed && <Tag tone="warn">{campaign.pendingContributions} pendientes</Tag>}
+                    <span className="ml-auto text-[12.5px] font-bold text-brand-600">Abrir campaña →</span>
+                  </div>
+                </div>
+              </Link>
+            )
           ))}
         </div>
       )}

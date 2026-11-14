@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { pool } from "@/lib/db";
 import { columnaDeTipos } from "@/lib/campanas/tipos-de-campana";
 import { getSessionUser } from "@/lib/session";
-import { normalizeCampaignDate } from "@/lib/campaign-date";
+import { calculateCampaignDaysRemaining, normalizeCampaignDate } from "@/lib/campaign-date";
 
 export async function GET() {
   try {
@@ -14,7 +14,9 @@ export async function GET() {
     const result = await pool.query(
       `SELECT c.id, c.name, c.description, c.status, c.tag, c.tematica,
               c.goal_contributions, COALESCE(est.participants, 0) AS participants, COALESCE(est.current_contributions, 0) AS current_contributions,
-              c.creator_name, ${columnaDeTipos("c")}, c.end_date,
+              COALESCE(est.approved_contributions, 0) AS approved_contributions,
+              c.creator_name, c.banner_path, c.updated_at, c.banner_scale, c.banner_position_x, c.banner_position_y,
+              ${columnaDeTipos("c")}, c.end_date,
               -- Lo que le toca al revisor: solo "pendiente". Los que ya validó (espera_final)
               -- esperan al creador; los aportes propios también quedan fuera del conteo.
               (SELECT COUNT(*)::int FROM aportes a
@@ -36,7 +38,14 @@ export async function GET() {
         description: String(row.description ?? ""),
         status: String(row.status),
         tag: String(row.tag ?? row.tematica ?? ""),
+        tematica: String(row.tematica ?? row.tag ?? ""),
+        hasBanner: Boolean(row.banner_path),
+        bannerVersion: row.updated_at ? String(row.updated_at) : undefined,
+        bannerScale: Number(row.banner_scale ?? 1),
+        bannerPositionX: Number(row.banner_position_x ?? 50),
+        bannerPositionY: Number(row.banner_position_y ?? 50),
         goalContributions: Number(row.goal_contributions ?? 0),
+        approvedContributions: Number(row.approved_contributions ?? 0),
         pendingContributions: Number(row.por_revisar ?? 0),
         participants: Number(row.participants ?? 0),
         // Para la barra de filtros de /revisiones (búsqueda por creador, tipo de dato y orden).
@@ -44,6 +53,7 @@ export async function GET() {
         creatorName: String(row.creator_name ?? ""),
         dataTypes: Array.isArray(row.data_types) ? row.data_types.map(String) : [],
         endDate: normalizeCampaignDate(row.end_date),
+        daysRemaining: calculateCampaignDaysRemaining(row.end_date),
       })),
     });
   } catch (error) {

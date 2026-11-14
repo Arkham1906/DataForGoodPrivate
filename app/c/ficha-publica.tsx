@@ -162,7 +162,8 @@ function Invitacion({
 }) {
   const pct = porcentajeDeMeta(campana.aportesAprobados, campana.meta);
   const lugar = textoDeUbicacion({ todoElPais: campana.todoElPais, municipio: campana.ciudad, estado: campana.estado });
-  const aportar = token ? `/campanas/${campana.id}/aportar?enlace=${token}` : `/campanas/${campana.id}/aportar`;
+  const detalle = `/campanas/${campana.id}`;
+  const aportar = token ? `${detalle}/aportar?enlace=${token}` : `${detalle}/aportar`;
   const etiqueta = token ? "Te invitaron a participar" : "Participa sin cuenta";
   // Solo con el formulario anónimo la ficha es ancha (tres columnas en lg); si no, va en max-w-xl, apilada.
   const conFormulario = !conSesion && !sinFormulario;
@@ -230,8 +231,8 @@ function Invitacion({
     restantesIniciales: restantes,
     esperaInicial: espera,
     proposito: campana.proposito,
-    entrar: conDestino("/entrar", aportar),
-    registro: conDestino("/registro", aportar),
+    entrar: conDestino("/entrar", detalle),
+    registro: conDestino("/registro", detalle),
   };
 
   if (conFormulario) {
@@ -253,7 +254,7 @@ function Invitacion({
       <p className="mt-5 rounded-lg bg-system-100 p-3.5 text-[12.5px] text-system-600">{sinFormulario}</p>
       <div className="mt-5 flex flex-col gap-2.5">
         <p className="text-center text-[12px] text-system-500">Puedes aportar con una cuenta.</p>
-        <BotonesDeCuenta entrar={conDestino("/entrar", aportar)} registro={conDestino("/registro", aportar)} />
+        <BotonesDeCuenta entrar={conDestino("/entrar", detalle)} registro={conDestino("/registro", detalle)} />
       </div>
     </>
   ) : null;
