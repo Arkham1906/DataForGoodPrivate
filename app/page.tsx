@@ -3,7 +3,7 @@
 // Se arma en cada visita y se actualiza en vivo (ActualizacionEnVivo, 2026-10-31; antes revalidate = 300). Las
 // consultas van en try/catch: si la BD no responde, las cifras salen en 0 en vez de tumbar la página.
 // Diseño del 2026-11-06 (a pedido del usuario, con kaggle.com como referencia de estructura y estilo): portada
-// centrada con ilustración propia, secciones con etiqueta en mono y mucho aire, tarjetas con pie y pestañas.
+// centrada con ilustración propia, secciones con etiqueta en mono y mucho aire, tarjetas y pestañas.
 
 import Link from "next/link";
 import PublicHeader from "@/components/layout/PublicHeader";
@@ -20,9 +20,8 @@ import TarjetaDeCampanaPublica from "@/components/campanas/TarjetaDeCampanaPubli
 import { buscarCampanasParaExplorar } from "@/lib/campanas/publicas";
 import { retraso } from "@/lib/animaciones";
 import { pool } from "@/lib/db";
-import { activateScheduledCampaigns, finalizeExpiredCampaigns } from "@/lib/campaign-date";
+import { activateScheduledCampaigns, calculateCampaignDaysRemaining, finalizeExpiredCampaigns } from "@/lib/campaign-date";
 import { porcentajeDeMeta } from "@/lib/campanas/meta";
-import { quienOrganiza } from "@/lib/campanas/organizacion";
 import { sqlDatosPublicados } from "@/lib/campanas/datos-abiertos";
 import { ZONA_DE_CAMPANAS } from "@/lib/fecha-de-tepic";
 import TablaDeLideres from "@/components/gamificacion/TablaDeLideres";
@@ -140,8 +139,8 @@ const ORDENES_DE_LA_VITRINA = [
 
 async function campanasDeLaVitrina(orden: string): Promise<CampanaDePortada[]> {
   const result = await pool.query(
-    `SELECT c.id, c.name, c.description, c.organizer, c.creator_name, c.goal_contributions,
-            to_char(c.end_date, 'YYYY-MM-DD') AS cierre, est.approved_contributions, est.participants,
+    `SELECT c.id, c.name, c.tematica, c.banner_path, c.updated_at, c.banner_scale, c.banner_position_x, c.banner_position_y,
+            c.goal_contributions, to_char(c.end_date, 'YYYY-MM-DD') AS cierre, est.approved_contributions,
             to_char(c.created_at AT TIME ZONE $1, 'YYYY-MM-DD') AS creada,
             (SELECT COALESCE(array_agg(t.tipo ORDER BY t.tipo), '{}') FROM campana_tipos t WHERE t.campana_id = c.id) AS tipos
      FROM campanas c
@@ -154,11 +153,15 @@ async function campanasDeLaVitrina(orden: string): Promise<CampanaDePortada[]> {
   return result.rows.map((row) => ({
     id: String(row.id),
     name: String(row.name ?? ""),
-    description: String(row.description ?? ""),
-    organizer: quienOrganiza({ organizer: row.organizer, creatorName: row.creator_name }),
+    tematica: String(row.tematica ?? ""),
+    hasBanner: Boolean(row.banner_path),
+    bannerVersion: row.updated_at ? String(row.updated_at) : undefined,
+    bannerScale: Number(row.banner_scale ?? 1),
+    bannerPositionX: Number(row.banner_position_x ?? 50),
+    bannerPositionY: Number(row.banner_position_y ?? 50),
     tipos: (row.tipos as DataType[]).map((tipo) => DATA_TYPE_LABELS[tipo] ?? tipo),
+    daysRemaining: calculateCampaignDaysRemaining(row.cierre),
     pct: porcentajeDeMeta(Number(row.approved_contributions ?? 0), Number(row.goal_contributions ?? 0)),
-    participants: Number(row.participants ?? 0),
     cierre: row.cierre ? FECHA_CORTA.format(new Date(`${row.cierre}T00:00:00Z`)) : null,
     // Fecha de creación (2026-11-09, a pedido del usuario), en el día de Tepic.
     creada: FECHA_CORTA.format(new Date(`${row.creada}T00:00:00Z`)),
@@ -362,9 +365,9 @@ export default async function LandingPage() {
             />
             <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {recientes.map((c, i) => (
-                // flex: la tarjeta toma el alto de la fila, como en /explorar (sin portada no queda más corta).
+                // flex: cada tarjeta ocupa todo el alto de su fila.
                 <li key={c.id} className="flex min-w-0 *:w-full">
-                  <TarjetaDeCampanaPublica campana={c} indice={i} nivel="h3" />
+                  <TarjetaDeCampanaPublica campana={c} indice={i} nivel="h3" compacta />
                 </li>
               ))}
             </ul>

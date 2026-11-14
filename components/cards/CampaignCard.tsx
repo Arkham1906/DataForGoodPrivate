@@ -18,7 +18,7 @@ function parseDateOnly(value: string | null | undefined) {
   return new Date(year, month - 1, day);
 }
 
-export default function CampaignCard({ campaign, onAbrir, hrefAlAbrir, compact = false, mobileCompact = false }: { campaign: Campaign; onAbrir?: () => void; hrefAlAbrir?: string; compact?: boolean; mobileCompact?: boolean }) {
+export default function CampaignCard({ campaign, onAbrir, hrefAlAbrir, compact = false, mobileCompact = false, portada = false }: { campaign: Campaign; onAbrir?: () => void; hrefAlAbrir?: string; compact?: boolean; mobileCompact?: boolean; portada?: boolean }) {
   const pct = porcentajeDeMeta(campaign.approvedContributions, campaign.goalContributions);
   const closeDate = campaign.endDate ? parseDateOnly(campaign.endDate)?.toLocaleDateString("es-MX", {
     day: "numeric",

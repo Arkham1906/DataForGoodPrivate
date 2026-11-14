@@ -85,6 +85,10 @@ export default function CampaignDetailPage() {
   const [isCreator, setIsCreator] = useState(false);
   const [isMySupervision, setIsMySupervision] = useState(false);
   const [similares, setSimilares] = useState<Similares | null>(null);
+  const [proporcionBanner, setProporcionBanner] = useState<{ clave: string; valor: number } | null>(null);
+  const claveBanner = campaign ? `${campaign.id}:${campaign.bannerVersion ?? ""}` : "";
+  const proporcionActual = proporcionBanner?.clave === claveBanner ? proporcionBanner.valor : null;
+  const bannerCuadrado = proporcionActual === null || (proporcionActual >= 0.8 && proporcionActual <= 1.25);
 
   // Vuelve a leer cuando algo cambia en la base (actualización en vivo).
   const recarga = useRecargaEnVivo();
@@ -327,7 +331,18 @@ export default function CampaignDetailPage() {
             <img
               src={`${BASE_PATH}/api/campanas/${campaign.id}/banner?v=${encodeURIComponent(campaign.bannerVersion ?? "")}`}
               alt={`Banner de ${campaign.name}`}
-              className="aspect-[4/3] w-full rounded-lg bg-system-100 object-contain"
+              onLoad={(event) => {
+                const { naturalWidth, naturalHeight } = event.currentTarget;
+                setProporcionBanner({
+                  clave: claveBanner,
+                  valor: naturalWidth / naturalHeight,
+                });
+              }}
+              className={`mx-auto block rounded-lg bg-system-100 object-contain ${
+                bannerCuadrado
+                  ? "h-auto w-full max-w-[14rem]"
+                  : "max-h-[28rem] w-full max-w-4xl"
+              }`}
               style={{ objectPosition: `${campaign.bannerPositionX ?? 50}% ${campaign.bannerPositionY ?? 50}%`, transform: `scale(${campaign.bannerScale ?? 1})` }}
             />
           </div>

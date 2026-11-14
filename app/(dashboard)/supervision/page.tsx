@@ -10,8 +10,11 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import Tag from "@/components/ui/Tag";
 import BarraDeFiltros, { type ValoresDeFiltros } from "@/components/campanas/BarraDeFiltros";
+import SelectorDeVistaCampanas from "@/components/campanas/SelectorDeVistaCampanas";
 import { BASE_PATH } from "@/lib/base-path";
 import { porcentajeDeMeta } from "@/lib/campanas/meta";
+import { NOMBRE_DE_TIPO, type TipoDeDato } from "@/lib/campanas/sistema-opciones";
+import { textoDeUbicacion } from "@/lib/campanas/ubicacion";
 import { FILTROS_VACIOS, avisoSinResultados, conFiltro, etiquetasPorTematica, filtrarCampanas, opcionesDeTematica, type FiltrosLocales } from "@/lib/campanas/filtro-local";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import PestanasDeModeracion from "@/components/moderacion/PestanasDeModeracion";
@@ -26,6 +29,11 @@ type CampaignApiItem = {
   datosAbiertos?: { estado: string } | null;
   creatorName: string;
   name: string;
+  hasBanner?: boolean;
+  bannerVersion?: string;
+  bannerScale?: number;
+  bannerPositionX?: number;
+  bannerPositionY?: number;
   tag?: string;
   tematica?: string;
   etiquetas?: { nombre: string; pendiente: boolean }[];
@@ -34,8 +42,10 @@ type CampaignApiItem = {
   approvedContributions?: number;
   goalContributions?: number;
   participants?: number;
-  dataTypes?: string[];
-  endDate?: string | null;
+  dataTypes?: TipoDeDato[];
+  todoElPais?: boolean;
+  locationCity?: string;
+  locationState?: string;
 };
 
 const tematicaDe = (campaign: CampaignApiItem) => String(campaign.tag ?? campaign.tematica ?? "").trim();
@@ -177,30 +187,106 @@ export default function SupervisionPage() {
     [flaggedCampaigns, filtros]
   );
 
-  const renderPendingList = () => (
-    <div className="space-y-3">
-      {filteredPendingCampaigns.length === 0 ? (
-        <div className="rounded-lg border border-system-200 bg-white p-5 text-[13px] text-system-600">
-          {avisoSinResultados(pendingCampaigns.length, "No hay campañas pendientes por revisar.")}
-        </div>
-      ) : (
-        filteredPendingCampaigns.map((campaign) => (
+  const renderPendingList = () => filteredPendingCampaigns.length === 0 ? (
+    <div className="rounded-lg border border-system-200 bg-white p-5 text-[13px] text-system-600">
+      {avisoSinResultados(pendingCampaigns.length, "No hay campañas pendientes por revisar.")}
+    </div>
+  ) : (
+    <SelectorDeVistaCampanas
+      toolbar={<span className="text-[12px] text-system-500">Vista</span>}
+      persistKey="dfg:supervision:campanas:vista"
+      renderChildren={(vistaCuadricula) => filteredPendingCampaigns.map((campaign) => {
+        const etiquetaDeEstado = campaign.supervisorId
+          ? <Tag tone="ok">La supervisas tú</Tag>
+          : <Tag tone="warn">Disponible</Tag>;
+        const ubicacion = textoDeUbicacion({
+          todoElPais: campaign.todoElPais,
+          municipio: campaign.locationCity,
+          estado: campaign.locationState,
+        }, "Sin ubicación");
+
+        return (
           <Link
             key={campaign.id}
             href={`/supervision/${campaign.id}`}
-            className="block rounded-lg border border-system-200 bg-white p-5 shadow-sm transition-shadow hover:border-brand-600 hover:shadow-md"
+            className={vistaCuadricula
+              ? "block rounded-lg border border-system-200 bg-white p-5 shadow-sm transition-shadow hover:border-brand-600 hover:shadow-md"
+              : "grid min-w-0 grid-cols-1 items-center gap-x-5 gap-y-3 rounded-lg border border-system-200 bg-white p-4 shadow-sm transition-shadow hover:border-brand-600 hover:shadow-md md:grid-cols-[minmax(0,1.3fr)_minmax(160px,1.2fr)_minmax(96px,0.7fr)_minmax(140px,1fr)] md:gap-x-4 xl:grid-cols-[minmax(190px,1.3fr)_minmax(200px,1.2fr)_minmax(110px,0.7fr)_minmax(160px,1fr)] xl:gap-x-5"}
           >
-            <div className="mb-1.5 flex flex-wrap items-start justify-between gap-3">
-              <h2 className="text-[15px] font-extrabold text-system-900">{campaign.name}</h2>
-              {campaign.supervisorId ? <Tag tone="ok">La supervisas tú</Tag> : <Tag tone="warn">Disponible</Tag>}
-            </div>
-            <p className="text-[12.5px] text-system-500">
-              {(campaign.creatorName || "Usuario")} · {(campaign.tag || campaign.tematica || "Sin temática")} · meta {Number(campaign.goalContributions ?? 0)} aportes
-            </p>
+            {vistaCuadricula ? (
+              <>
+                <div className="mb-1.5 flex flex-wrap items-start justify-between gap-3">
+                  <h2 className="text-[15px] font-extrabold text-system-900">{campaign.name}</h2>
+                  {etiquetaDeEstado}
+                </div>
+                {campaign.hasBanner && (
+                  <div data-campana-banner className="mt-3 aspect-[4/3] overflow-hidden rounded-lg bg-system-100">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`${BASE_PATH}/api/campanas/${campaign.id}/banner?v=${encodeURIComponent(campaign.bannerVersion ?? "")}`}
+                      alt=""
+                      loading="lazy"
+                      className="h-full w-full object-contain"
+                      style={{ objectPosition: `${campaign.bannerPositionX ?? 50}% ${campaign.bannerPositionY ?? 50}%`, transform: `scale(${campaign.bannerScale ?? 1})` }}
+                    />
+                  </div>
+                )}
+                <p className="text-[12.5px] text-system-500">
+                  {(campaign.creatorName || "Usuario")} · {(campaign.tag || campaign.tematica || "Sin temática")} · meta {Number(campaign.goalContributions ?? 0)} aportes
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="flex min-w-0 items-center justify-between gap-3 md:pr-8 xl:pr-14">
+                  <div className="min-w-0">
+                    <h2 className="min-w-0 break-words text-[15px] font-extrabold text-system-900">{campaign.name}</h2>
+                    {(campaign.tag || campaign.tematica) && (
+                      <div className="mt-2">
+                        <Tag tone="ok" className="max-w-full truncate whitespace-nowrap">{campaign.tag || campaign.tematica}</Tag>
+                      </div>
+                    )}
+                  </div>
+                  {campaign.hasBanner ? (
+                    <div className="hidden h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-system-100 md:flex">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={`${BASE_PATH}/api/campanas/${campaign.id}/banner?v=${encodeURIComponent(campaign.bannerVersion ?? "")}`}
+                        alt=""
+                        loading="lazy"
+                        className="h-full w-full object-cover"
+                        style={{ objectPosition: `${campaign.bannerPositionX ?? 50}% ${campaign.bannerPositionY ?? 50}%`, transform: `scale(${campaign.bannerScale ?? 1})` }}
+                      />
+                    </div>
+                  ) : (
+                    <div className="hidden h-12 w-12 shrink-0 md:block" aria-hidden="true" />
+                  )}
+                </div>
+                <div className="min-w-0 space-y-1 text-[11px] text-system-600">
+                  <p className="truncate" title={campaign.creatorName || "Usuario"}>
+                    <span className="font-semibold text-system-700">Creador:</span> {campaign.creatorName || "Usuario"}
+                  </p>
+                  <p className="truncate" title={ubicacion}>
+                    <span className="font-semibold text-system-700">Ubicación:</span> {ubicacion}
+                  </p>
+                </div>
+                <div className="min-w-0 text-[11px] text-system-600">
+                  <p className="font-semibold text-system-700">Meta total:</p>
+                  <p className="font-mono">{Number(campaign.goalContributions ?? 0).toLocaleString("es-MX")} aportes</p>
+                </div>
+                <div className="min-w-0">
+                  <p className="mb-1 text-[11px] font-semibold text-system-700">Tipo de dato:</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(campaign.dataTypes ?? []).map((type) => (
+                      <Tag key={type}>{NOMBRE_DE_TIPO[type]}</Tag>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
           </Link>
-        ))
-      )}
-    </div>
+        );
+      })}
+    />
   );
 
   const renderSupervisedList = () => (

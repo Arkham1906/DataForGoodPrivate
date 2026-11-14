@@ -181,9 +181,12 @@ export default async function CampanasDeTematicaPage({ params, searchParams }: P
                 </p>
               }
             >
-              {campanas.map((c, i) => (
-                <TarjetaDeCampanaPublica key={c.id} campana={c} indice={i} />
-              ))}
+              <div className="contents group-data-[vista=lista]:hidden">
+                {campanas.map((c, i) => <TarjetaDeCampanaPublica key={`grid-${c.id}`} campana={c} indice={i} compacta />)}
+              </div>
+              <div className="contents hidden group-data-[vista=lista]:contents">
+                {campanas.map((c, i) => <TarjetaDeCampanaPublica key={`list-${c.id}`} campana={c} indice={i} lista />)}
+              </div>
             </SelectorDeVistaCampanas>
           )}
 

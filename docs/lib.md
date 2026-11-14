@@ -48,6 +48,7 @@
 | `perfil-opciones.ts` 🟢 | Especialidades y organizaciones del perfil: lista base `ESPECIALIDADES` (44 desde el 2026-10-26), `validarEspecialidad()`, `validarOrganizacion()` y `claveDeCatalogo()` (las usan los formularios y el servidor) |
 | `legal.ts` 🟢 | `RESPONSABLE` (nombre, domicilio y correo; `null` = pendiente) y `FECHA_DE_ACTUALIZACION` de `/terminos` y `/privacidad` (2026-10-19) |
 | `campaign-date.ts` | Fechas de campaña y las transiciones automáticas (`activateScheduledCampaigns`, `finalizeExpiredCampaigns`, `hasCampaignStarted`, `hasCampaignEnded`). Al activar o finalizar por fecha, avisa al creador. Corren cada minuto desde `instrumentation-node.ts` y al leer las listas de campañas |
+| `campanas/etiqueta-de-cierre.ts` 🟢 | `etiquetaDeCierre()`: texto de cierre según los días restantes, también cuando no hay fecha | Tarjetas compactas de la portada y las listas públicas de campañas |
 | `open-data.ts` | Catálogo de datos abiertos (`/datos`): búsqueda, facetas, formatos, licencia |
 | `open-data-csv.ts` | `tablaDeAportesCsv(filas)`: la tabla `aportes.csv` del ZIP de descarga (seudónimos "Participante N" / "Anónimo", UTF-8 con BOM, celdas a salvo de fórmulas) y `ubicacionDeCampana()` |
 
