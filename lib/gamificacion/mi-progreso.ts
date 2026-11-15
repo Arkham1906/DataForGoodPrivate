@@ -349,10 +349,11 @@ export async function obtenerCalendarioDeRacha(
         dia: string;
         exp: number | null;
       }>(
+        // Neto de EXP del aporte: con un descuento por reporte (2026-11-13) queda en 0 y se muestra su estado.
         `SELECT a.id, c.name AS campana, a.description, a.status, a.calificacion,
                 to_char(a.submitted_at AT TIME ZONE $4, 'YYYY-MM-DD') AS dia,
                 (SELECT SUM(m.exp)::int FROM exp_movimientos m
-                  WHERE m.aporte_id = a.id AND m.usuario_id = $1 AND m.tipo = 'aporte') AS exp
+                  WHERE m.aporte_id = a.id AND m.usuario_id = $1 AND m.tipo IN ('aporte', 'ajuste_invalidacion')) AS exp
           FROM aportes a JOIN campanas c ON c.id = a.campaign_id
           WHERE a.user_id = $1
             AND a.submitted_at >= ($2::date::timestamp AT TIME ZONE $4)

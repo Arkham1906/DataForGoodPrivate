@@ -16,6 +16,7 @@ import { BASE_PATH } from "@/lib/base-path";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import { AvisoNoEncontrado } from "@/components/ui/AvisoNoEncontrado";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
+import { TEXTOS } from "@/lib/gamificacion/textos";
 
 export default function CampaignContributionsPage() {
   const params = useParams<{ campanaId: string }>();
@@ -69,6 +70,8 @@ export default function CampaignContributionsPage() {
 
   const visible = items.filter((item) => !removedIds.includes(item.id));
   const accepted = visible.filter((item) => item.status === "aceptado");
+  // EXP real que dejaron (aportes.exp_otorgada; RF-GAM-15). Sustituye a aceptados × xpPerContribution (2026-11-13).
+  const expDeAceptados = accepted.reduce((suma, item) => suma + (item.expOtorgada ?? 0), 0);
   const pending = visible.filter((item) => item.status === "pendiente" || item.status === "espera_final");
   const rejected = visible.filter((item) => item.status === "rechazado");
   const filteredItems =
@@ -129,7 +132,7 @@ export default function CampaignContributionsPage() {
         </div>
         <ProgressBar pct={progress} />
         <div className="mt-3 grid grid-cols-3 gap-3">
-          <div><p className="font-mono text-[15px] font-bold text-success-700">{accepted.length}</p><p className="text-[11px] text-system-500">aceptados · {accepted.length * campaign.xpPerContribution} XP</p></div>
+          <div><p className="font-mono text-[15px] font-bold text-success-700">{accepted.length}</p><p className="text-[11px] text-system-500">{TEXTOS.cuotaDeCampana.aceptados(expDeAceptados)}</p></div>
           <div><p className="font-mono text-[15px] font-bold text-warning-800">{pending.length}</p><p className="text-[11px] text-system-500">en revisión</p></div>
           <div><p className="font-mono text-[15px] font-bold text-system-900">{Math.max(campaign.quotaPerUser - visible.length, 0)}</p><p className="text-[11px] text-system-500">disponibles</p></div>
         </div>

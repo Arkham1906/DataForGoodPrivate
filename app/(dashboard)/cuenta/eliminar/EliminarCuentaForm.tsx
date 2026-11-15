@@ -22,12 +22,15 @@ export default function EliminarCuentaForm({
   usuarioId,
   tieneContrasena,
   aportes,
-  xp,
+  rango,
+  exp,
 }: {
   usuarioId: number;
   tieneContrasena: boolean;
   aportes: { total: number; utilizados: number; campanas: number };
-  xp: number;
+  /** Rango y EXP de la gamificación (A6); null si no se pudieron leer: la siguiente pantalla omite la fila. */
+  rango: number | null;
+  exp: number | null;
 }) {
   const router = useRouter();
   // Sin aportes la elección no cambia nada: se manda "anonimizar" sin preguntar.
@@ -77,9 +80,12 @@ export default function EliminarCuentaForm({
         hasta: payload.data.efectivaEn,
         finalizadas: String(payload.data.campanasFinalizadas),
         aportes: String(aportes.total),
-        xp: String(xp),
         destino,
       });
+      if (rango !== null && exp !== null) {
+        datos.set("rango", String(rango));
+        datos.set("exp", String(exp));
+      }
       router.replace(`/baja-solicitada?${datos}`);
     } catch {
       setError("No se pudo conectar con el servidor. Intenta de nuevo.");

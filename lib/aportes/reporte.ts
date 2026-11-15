@@ -14,6 +14,8 @@ import { avisarReporteASupervisores } from "@/lib/notificaciones/avisos-a-superv
 import { notificar } from "@/lib/notificaciones/notificaciones";
 import { MAXIMO_DESCRIPCION_DE_REPORTE, MOTIVOS_DE_REPORTE_DE_APORTE } from "@/lib/reportes/motivos";
 import { recalcularContadores } from "@/lib/aportes/comun";
+import { descontarAportePorReporte, type DescuentoPorReporte } from "@/lib/gamificacion/recompensas";
+import { actualizarMisiones } from "@/lib/gamificacion/misiones";
 
 /**
  * Reportar un aporte lo rechaza (2026-10-19, a pedido del usuario): "Reportar aporte"
@@ -21,12 +23,21 @@ import { recalcularContadores } from "@/lib/aportes/comun";
  * transacción del reporte. Pendiente o aceptado pasa a rechazado (excepción a "la decisión no se cambia",
  * decidida por el usuario): deja de contar en la campaña y no sale en datos abiertos. Si la campaña ya
  * finalizó, sus datos ya se publicaron: solo queda el reporte. Uno ya rechazado no cambia.
+ * Si estaba aceptado, se descuenta lo que ese aporte dio a quien aportó (2026-11-13, A1 opción 2; propuesta SRS v1.4
+ * §11): EXP y contadores, sin retirar rango, medallas ni misiones completadas (descontarAportePorReporte).
  * Devuelve lo necesario para avisar a quien aportó después del COMMIT (avisarRechazoPorReporte).
  */
 export async function rechazarPorReporte(
   client: Pick<PoolClient, "query">,
   entrada: { aporteId: number; motivo: string; actor: { id: number; nombre: string; esRevisor: boolean } },
-): Promise<{ rechazado: boolean; usuarioId: number | null; campanaId: number; campanaNombre: string; motivo: string }> {
+): Promise<{
+  rechazado: boolean;
+  usuarioId: number | null;
+  campanaId: number;
+  campanaNombre: string;
+  motivo: string;
+  descuento: DescuentoPorReporte | null;
+}> {
   const { rows } = await client.query<{ campaign_id: number; user_id: number | null; status: string; campana_status: string; campana_nombre: string }>(
     `SELECT a.campaign_id, a.user_id, a.status, c.status AS campana_status, c.name AS campana_nombre
      FROM aportes a JOIN campanas c ON c.id = a.campaign_id WHERE a.id = $1`,
@@ -40,6 +51,7 @@ export async function rechazarPorReporte(
     campanaId: Number(fila?.campaign_id),
     campanaNombre: String(fila?.campana_nombre ?? ""),
     motivo,
+    descuento: null as DescuentoPorReporte | null,
   };
   if (!fila || fila.status === "rechazado" || fila.campana_status === "finalizada") return base;
 
@@ -55,21 +67,27 @@ export async function rechazarPorReporte(
   );
   if ((cambio.rowCount ?? 0) === 0) return base;
   await recalcularContadores(fila.campaign_id, client);
-  return { ...base, rechazado: true };
+  const descuento = fila.status === "aceptado" && fila.user_id != null ? await descontarAportePorReporte(client, entrada.aporteId) : null;
+  return { ...base, rechazado: true, descuento };
 }
 
-/** Después del COMMIT: avisa a quien aportó que su aporte se rechazó (como un rechazo normal). */
+/**
+ * Después del COMMIT: avisa a quien aportó que su aporte se rechazó (como un rechazo normal) y, si se le descontó EXP,
+ * cuánto (RF-GAM-61: ajustes de EXP). Las misiones en curso que contaban ese aporte bajan su avance.
+ */
 export async function avisarRechazoPorReporte(r: Awaited<ReturnType<typeof rechazarPorReporte>>, aporteId: number): Promise<void> {
   if (!r.rechazado || r.usuarioId === null) return;
+  const descuento = r.descuento && r.descuento.exp > 0 ? ` Se descontaron los ${r.descuento.exp} EXP que te había dado; tu rango y tus medallas se conservan.` : "";
   await notificar({
     usuarioId: r.usuarioId,
     tipo: "aporte_rechazado",
     titulo: "Aporte rechazado",
-    mensaje: `Tu aporte en "${r.campanaNombre}" fue rechazado. Motivo: ${r.motivo}`,
+    mensaje: `Tu aporte en "${r.campanaNombre}" fue rechazado. Motivo: ${r.motivo}.${descuento}`,
     campanaId: r.campanaId,
     enlace: `/mis-aportes/${r.campanaId}`,
-    metadata: { aporteId: String(aporteId), motivo: r.motivo },
+    metadata: { aporteId: String(aporteId), motivo: r.motivo, ...(r.descuento ? { expDescontada: String(r.descuento.exp) } : {}) },
   });
+  if (r.descuento) await actualizarMisiones(r.descuento.usuarioId, [r.descuento.enviadoEn], { permitirBajar: true });
 }
 
 export type ResultadoDeReporte =

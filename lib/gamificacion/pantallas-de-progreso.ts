@@ -9,7 +9,7 @@ export const PANTALLAS_DE_PROGRESO: readonly { clave: PantallaDeProgreso; etique
   { clave: "misiones", etiqueta: "Misiones", href: "/progreso/misiones" },
   { clave: "medallas", etiqueta: "Medallas", href: null },
   { clave: "avatar", etiqueta: "Avatar e inventario", href: null },
-  { clave: "historial", etiqueta: "Historial de EXP", href: null },
+  { clave: "historial", etiqueta: "Historial de EXP", href: "/progreso/historial" },
   { clave: "leaderboard", etiqueta: "Líderes", href: "/progreso/leaderboard" },
 ];
 

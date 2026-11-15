@@ -10,6 +10,9 @@
 
 const nf = new Intl.NumberFormat("es-MX");
 const n = (valor: number) => nf.format(valor);
+/** Multiplicadores y factores con al menos un decimal, como en el SRS: ×1.0, ×1.25, ×2.0. */
+const nfDecimal = new Intl.NumberFormat("es-MX", { minimumFractionDigits: 1, maximumFractionDigits: 2 });
+const d = (valor: number) => nfDecimal.format(valor);
 const plural = (cuenta: number, uno: string, varios: string) => (cuenta === 1 ? uno : varios);
 
 export const TEXTOS = {
@@ -143,5 +146,152 @@ export const TEXTOS = {
       pendiente: "En revisión",
       rechazado: "Rechazado",
     },
+  },
+  /** Ícono de EXP con su recuadro, en el detalle de una campaña (sustituye a «N XP por aporte aprobado»). */
+  expPorAporte: {
+    etiqueta: "EXP",
+    abrir: "Ver cuánta EXP da cada aporte en esta campaña",
+    titulo: "EXP por aporte aceptado",
+    rango: (minimo: number, maximo: number) => (minimo === maximo ? `${n(minimo)} EXP` : `${n(minimo)} a ${n(maximo)} EXP`),
+    nota: "Depende del tipo de aporte y de la calificación que reciba, de 1★ a 5★.",
+    notaPotenciador: (bonificacion: number) => `Con un potenciador activo ganas ${n(Math.round(bonificacion * 100))} % más.`,
+    cargando: "Cargando…",
+    error: "No pudimos cargar la EXP. Intenta de nuevo en un momento.",
+  },
+  /** Resumen de tu cuota en Mis aportes de una campaña. */
+  cuotaDeCampana: {
+    aceptados: (exp: number) => `aceptados · ${n(exp)} EXP`,
+  },
+  /** Distintivo de rango en Mi cuenta (A6). */
+  cuenta: {
+    rango: (numero: number, nombre: string) => `Rango ${n(numero)} · ${nombre}`,
+    rangoAria: (numero: number, nombre: string) => `Rango ${n(numero)}, ${nombre}. Ver tu trayectoria`,
+  },
+  /** Lo que se pierde al eliminar la cuenta (A6). */
+  baja: {
+    sePierde: (rango: number, nombre: string, exp: number, medallas: number) =>
+      `Al borrarse la cuenta se pierden tu rango ${n(rango)} (${nombre}), tus ${n(exp)} EXP` +
+      (medallas > 0 ? `, tus ${n(medallas)} ${plural(medallas, "medalla", "medallas")}` : "") +
+      " y todo tu progreso; no se pueden recuperar.",
+    filaEtiqueta: "Rango y experiencia",
+    filaValor: (rango: number, exp: number) => `Rango ${n(rango)} y ${n(exp)} EXP se pierden`,
+  },
+  /** Pestaña Historial de EXP de Mi progreso (2026-11-14; lienzo aprobado el mismo día). */
+  historialDeExp: {
+    titulo: "Historial de EXP",
+    intro: "Cada EXP que ganaste, de dónde vino y cómo se calculó. Solo tú ves esta información.",
+    total: "EXP acumulada",
+    siguiente: (rango: number, meta: number, faltan: number) =>
+      faltan > 0
+        ? `El rango ${n(rango)} pide ${n(meta)} EXP: ${plural(faltan, "te falta", "te faltan")} ${n(faltan)}.`
+        : `Ya tienes la EXP que pide el rango ${n(rango)}.`,
+    desgloseEtiqueta: "De dónde viene tu EXP",
+    desglose: {
+      aportes: "Aportes aceptados",
+      misiones: "Misiones",
+      bonos: "Bonos de cuota",
+      descuentos: "Descuentos por reporte",
+      ajustes: "Ajustes",
+    },
+    movimientos: "Movimientos",
+    filtrosEtiqueta: "Filtrar movimientos",
+    filtros: { todos: "Todos", aporte: "Aportes", mision: "Misiones", bono: "Bonos", descuento: "Descuentos" },
+    enCamino: (cuantos: number) =>
+      `${n(cuantos)} ${plural(cuantos, "aporte aceptado", "aportes aceptados")} con EXP en camino.`,
+    enCaminoDetalle: "Aparecerá aquí en uno o dos minutos.",
+
+    tipos: {
+      aporte: "Aporte aceptado",
+      mision: "Misión",
+      bono: "Bono de cuota",
+      descuento: "Descuento por reporte",
+      ajuste: "Ajuste de EXP",
+    },
+    periodicidad: (periodicidad: string) =>
+      periodicidad === "diaria" ? "Misión diaria" : periodicidad === "semanal" ? "Misión semanal" : "Misión",
+    tituloAporte: (tipo: string | null, estrellas: number, nombre: string) =>
+      `${tipo ? `${tipo} · ` : ""}${n(estrellas)}★ ${nombre}`,
+    tituloAporteSinDatos: "Aporte aceptado",
+    tituloBono: (cuota: number) => `Completaste la cuota de ${n(cuota)} ${plural(cuota, "aporte", "aportes")}`,
+    tituloBonoSinDatos: "Completaste la cuota de una campaña",
+    tituloDescuento: "Se descontó un aporte reportado",
+    tituloAjuste: "Ajuste de EXP",
+    campanaBorrada: "Campaña que ya no existe",
+    hoy: "Hoy",
+    ayer: "Ayer",
+    expAria: (exp: number) => (exp < 0 ? `Se descontaron ${n(-exp)} EXP` : `Ganaste ${n(exp)} EXP`),
+    totalDelDiaAria: (exp: number) => `Total del día: ${exp < 0 ? "menos " : ""}${n(Math.abs(exp))} EXP`,
+
+    detalle: {
+      calculo: "Cálculo",
+      factor: "Factor",
+      enviado: "Enviado",
+      recompensa: "Recompensa",
+      periodo: "Periodo",
+      limites: "Límites",
+      motivo: "Motivo",
+      devuelve: "Devuelve",
+    },
+    /** «20 base × 1.75 por calificación = 35 EXP»; con factor y redondeo, «… × 1.5 de factor = 67.5 → 68 EXP». */
+    calculoAporte: (base: number, multCalidad: number, factor: number, sinRedondear: number, exp: number) =>
+      `${n(base)} base × ${d(multCalidad)} por calificación` +
+      (factor !== 1 ? ` × ${d(factor)} de factor` : "") +
+      (sinRedondear !== exp ? ` = ${n(sinRedondear)} → ${n(exp)} EXP` : ` = ${n(exp)} EXP`),
+    factorAporte: (potenciador: number, multCampana: number) =>
+      "1" +
+      (potenciador > 0 ? ` + ${d(potenciador)} del potenciador que tenías activo al enviar` : "") +
+      (multCampana !== 1 ? ` + ${d(multCampana - 1)} del multiplicador de la campaña` : ""),
+    calculoBono: (porcentaje: number, referencia: number, sinLimites: number, exp: number) =>
+      `${n(porcentaje)} % de ${n(referencia)} EXP de referencia = ` +
+      (sinLimites === exp ? `${n(exp)} EXP` : `${n(sinLimites)} → ${n(exp)} EXP`),
+    limitesBono: (minimo: number, maximo: number) => `Mínimo ${n(minimo)}, máximo ${n(maximo)}`,
+    notaBono: (cuota: number) =>
+      `La referencia es base × calificación de esos ${n(cuota)} ${plural(cuota, "aporte", "aportes")}, sin potenciador. Se da una sola vez por campaña.`,
+    recompensaMision: (exp: number) => `${n(exp)} EXP fijos de la misión`,
+    notaMision: "Las misiones suman a tu EXP, pero no cuentan como aportes ni como calificación.",
+    motivoDescuento: (tipo: string | null, aceptadoEl: string | null) =>
+      `Un reporte rechazó ${tipo ? `tu aporte de ${tipo.toLowerCase()}` : "un aporte tuyo"}` +
+      (aceptadoEl ? ` que se aceptó el ${aceptadoEl}.` : "."),
+    devuelve: (exp: number) => `Los ${n(exp)} EXP que sumó ese aporte`,
+    notaDescuento: "Tu rango, tus medallas y las misiones que ya completaste no cambian.",
+    marcaDescontado: (fecha: string) => `Descontado el ${fecha}`,
+    notaDescontado: (fecha: string) => `Un reporte descontó esta EXP el ${fecha}. Este movimiento se conserva tal como fue.`,
+    verAporte: "Ver el aporte",
+    verOriginal: "Ver el movimiento original",
+    verDescuento: "Ver el descuento",
+
+    cargando: "Cargando movimientos…",
+    primerMovimiento: "Este es tu primer movimiento de EXP.",
+    paginacionEtiqueta: "Páginas de movimientos",
+    paginaAnterior: "Página anterior",
+    paginaSiguiente: "Página siguiente",
+    irAPagina: (pagina: number) => `Página ${n(pagina)}`,
+    rangoDePagina: (desde: number, hasta: number, total: number) =>
+      `${n(desde)}–${n(hasta)} de ${n(total)} ${plural(total, "movimiento", "movimientos")}`,
+    vacioFiltro: "Todavía no tienes movimientos de este tipo.",
+    errorPagina: "No se pudieron cargar los movimientos.",
+    reintentar: "Intentar de nuevo",
+    pie: "Los movimientos no se borran ni se modifican. Un descuento se registra como un movimiento nuevo y el original se conserva.",
+
+    vacioTitulo: "Aquí verás cada EXP que ganes",
+    vacioTexto:
+      "Tu primer aporte aceptado te da EXP y te lleva al rango 2. Las misiones y los bonos de cuota también aparecerán aquí.",
+    vacioCta: "Explorar campañas",
+    error: "Todavía no podemos mostrar tu historial de EXP. Intenta de nuevo en unos minutos.",
+    cargandoPagina: "Cargando tu historial de EXP…",
+
+    comoTitulo: "Cómo se calcula",
+    comoFormula: "EXP = base del tipo × calificación × factor",
+    comoRedondeo: ", redondeado al entero más cercano.",
+    comoBase: (base: number) => `${n(base)} base`,
+    comoTiposEtiqueta: "EXP base por tipo de aporte",
+    comoCalificacionesEtiqueta: "Multiplicador por calificación",
+    comoMultiplicador: (multiplicador: number) => `×${d(multiplicador)}`,
+    comoPotenciador: (bonificacion: number) => `Un potenciador activo cuando envías suma +${d(bonificacion)} al factor.`,
+    comoBono: (porcentaje: number, cuotaMinima: number, minimo: number, maximo: number) =>
+      `Al completar la cuota de una campaña (de ${n(cuotaMinima)} aportes o más) recibes un bono del ${n(porcentaje)} % de la EXP de esos aportes, sin potenciador (mínimo ${n(minimo)}, máximo ${n(maximo)}).`,
+    comoMisiones: "Las misiones dan una cantidad fija de EXP.",
+    comoDescuento: "Si un reporte rechaza un aporte aceptado, se descuenta su EXP. Tu rango y tus medallas no cambian.",
+    comoPie: "Valores vigentes de la plataforma. Si cambian, lo ya ganado no se recalcula.",
   },
 } as const;

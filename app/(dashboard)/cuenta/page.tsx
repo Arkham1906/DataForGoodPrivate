@@ -25,13 +25,21 @@ import EditarAvatar from "./EditarAvatar";
 import Avatar from "@/components/ui/Avatar";
 import { datosDeAvatar } from "@/lib/usuarios/avatar-opciones";
 import { nombresDeRoles } from "@/lib/usuarios/rol-asignable";
+import Link from "next/link";
+import { obtenerRangoDeCuenta } from "@/lib/gamificacion/rango-de-cuenta";
+import { rutaDePantalla } from "@/lib/gamificacion/pantallas-de-progreso";
+import { TEXTOS } from "@/lib/gamificacion/textos";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Mi cuenta" };
 
 export default async function CuentaPage() {
   const currentUser = await exigirUsuario();
-  const zona = await zonaDetectadaDe(Number(currentUser.id)).catch(() => null);
+  const [zona, rango] = await Promise.all([
+    zonaDetectadaDe(Number(currentUser.id)).catch(() => null),
+    obtenerRangoDeCuenta(currentUser.id),
+  ]);
+  const rutaDeTrayectoria = rutaDePantalla("trayectoria") ?? "/inicio";
 
   // El rol más alto (SuperUsuario > Supervisor > Revisor de aportes > Usuario común). No usar role[0]:
   // normalizeRoles() siempre pone "usuario" primero.
@@ -107,9 +115,17 @@ export default async function CuentaPage() {
                 <span className="rounded-pill border border-system-300 bg-system-100 px-3 py-1 text-[11px] font-semibold text-system-600">
                   {roleLabel}
                 </span>
-                <span className="rounded-pill border border-success-700/30 bg-success-50 px-3 py-1 text-[11px] font-semibold text-success-700">
-                  Nivel {currentUser.level}
-                </span>
+                {/* A6 (2026-11-13): el rango de la gamificación, no usuarios.level. Lleva a la trayectoria. Pendiente:
+                    acercarlo al avatar de gamificación. */}
+                {rango && (
+                  <Link
+                    href={rutaDeTrayectoria}
+                    aria-label={TEXTOS.cuenta.rangoAria(rango.numero, rango.nombre)}
+                    className="rounded-pill border border-brand-700/25 bg-brand-50 px-3 py-1 text-[11px] font-semibold text-brand-700 transition-colors hover:bg-brand-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700"
+                  >
+                    {TEXTOS.cuenta.rango(rango.numero, rango.nombre)}
+                  </Link>
+                )}
               </div>
             </div>
           </div>

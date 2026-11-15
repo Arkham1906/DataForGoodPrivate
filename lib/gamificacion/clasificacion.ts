@@ -40,8 +40,11 @@ import {
   type TablasPorPeriodo,
 } from "./tipos";
 
-/** Quién cuenta para la tabla: sin baja y sin sanción bloqueante. Usa el alias `u` de `usuarios`. */
-const SQL_PERSONA_ELEGIBLE = `u.eliminada_en IS NULL AND NOT (${SQL_SANCION_BLOQUEANTE})`;
+/**
+ * Quién cuenta para la tabla: sin baja (ni definitiva ni en su periodo de gracia: RF-GAM-60 pide ocultar el progreso
+ * mientras corre el plazo; A2, 2026-11-13) y sin sanción bloqueante. Usa el alias `u` de `usuarios`.
+ */
+const SQL_PERSONA_ELEGIBLE = `u.eliminada_en IS NULL AND u.baja_solicitada_en IS NULL AND NOT (${SQL_SANCION_BLOQUEANTE})`;
 
 /** Temática de una campaña (las viejas la traen solo en `tag`). Usa el alias `c` de `campanas`. */
 const SQL_TEMATICA = `COALESCE(NULLIF(c.tematica, ''), c.tag)`;

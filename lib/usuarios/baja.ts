@@ -7,7 +7,8 @@
 // 2. cancelarBajaSiPendiente(): iniciar sesión dentro del plazo cancela la baja (lo llaman
 //    el login y el regreso de Google). Las campañas ya finalizadas siguen finalizadas.
 // 3. ejecutarBajasVencidas(): al vencer el plazo (lo corre instrumentation-node.ts cada
-//    hora). Aplica el destino de los aportes y vacía la fila de datos personales. La fila
+//    hora). Aplica el destino de los aportes, borra el perfil de gamificación y deja anónimo su
+//    registro de EXP (lib/gamificacion/baja-de-cuenta.ts, RF-GAM-60) y vacía la fila de datos personales. La fila
 //    NO se borra: campanas.creator_id es ON DELETE CASCADE y se llevaría las campañas
 //    finalizadas con los aportes de otras personas.
 //
@@ -15,6 +16,8 @@
 // abiertos publicados en /datos): nunca se borra; con "eliminar" se anonimiza igual.
 
 import { pool } from "@/lib/db";
+import { obtenerRangoDeCuenta, type RangoDeCuenta } from "@/lib/gamificacion/rango-de-cuenta";
+import { borrarPerfilDeGamificacion } from "@/lib/gamificacion/baja-de-cuenta";
 import { borrarArchivo } from "@/lib/minio";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { recalcularContadores } from "@/lib/aportes/comun";
@@ -40,12 +43,12 @@ export type ResumenDeBaja = {
     rechazados: number;
   };
   campanasPropias: { aFinalizar: number; aBorrar: number };
-  xp: number;
-  nivel: number;
+  /** Rango, EXP y medallas de la gamificación (A6, 2026-11-13); null si no se pudieron leer. */
+  gamificacion: RangoDeCuenta | null;
 };
 
 export async function obtenerResumenDeBaja(usuarioId: number): Promise<ResumenDeBaja> {
-  const [aportes, campanas, usuario] = await Promise.all([
+  const [aportes, campanas, gamificacion] = await Promise.all([
     pool.query<{
       total: number;
       campanas: number;
@@ -73,7 +76,7 @@ export async function obtenerResumenDeBaja(usuarioId: number): Promise<ResumenDe
        FROM campanas WHERE creator_id = $1`,
       [usuarioId]
     ),
-    pool.query<{ xp_total: number; level: number }>(`SELECT xp_total, level FROM usuarios WHERE id = $1`, [usuarioId]),
+    obtenerRangoDeCuenta(usuarioId),
   ]);
 
   const a = aportes.rows[0];
@@ -90,8 +93,7 @@ export async function obtenerResumenDeBaja(usuarioId: number): Promise<ResumenDe
       aFinalizar: campanas.rows[0]?.a_finalizar ?? 0,
       aBorrar: campanas.rows[0]?.a_borrar ?? 0,
     },
-    xp: Number(usuario.rows[0]?.xp_total ?? 0),
-    nivel: Number(usuario.rows[0]?.level ?? 1),
+    gamificacion,
   };
 }
 
@@ -273,6 +275,8 @@ async function ejecutarBaja(usuarioId: number): Promise<void> {
       [usuarioId]
     );
 
+    // Gamificación (RF-GAM-60; A2, 2026-11-13): se borra el perfil y el registro de EXP queda anónimo.
+    await borrarPerfilDeGamificacion(client, usuarioId);
     // La fila queda vacía. El correo cambia a uno inválido y único: el original queda
     // libre para registrar una cuenta nueva. Sin contraseña ni Google, nadie puede entrar.
     await client.query(

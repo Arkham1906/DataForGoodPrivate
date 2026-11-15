@@ -7,6 +7,9 @@
 //     /api/aportes/[id]), con un SAVEPOINT: si algo falla aquí, la aceptación se guarda igual y el aporte queda con
 //     exp_otorgada NULL para que lo retome repararRecompensasPendientes().
 //   - repararRecompensasPendientes(): corre cada minuto en instrumentation-node.ts (RNF-GAM-08).
+//   - descontarAportePorReporte(client, aporteId): un aporte aceptado que se rechaza por reporte (decisión del
+//     responsable del 2026-11-13, A1 opción 2; propuesta SRS v1.4 §11) devuelve lo que sumó: EXP (con un ajuste en
+//     exp_movimientos, nunca editando) y contadores. NO retira rangos, medallas ni misiones completadas.
 //
 // Idempotencia (RF-GAM-08, RNF-GAM-02): aportes.exp_otorgada marca el aporte como procesado (0 si no le tocaba EXP)
 // y la clave `aporte:<id>` de exp_movimientos impide un segundo movimiento. El candado sobre usuario_progreso ordena
@@ -50,6 +53,15 @@ async function sumarContador(client: Consultor, usuarioId: number, dimension: st
     `INSERT INTO usuario_contadores (usuario_id, dimension, clave, valor) VALUES ($1, $2, $3, 1)
       ON CONFLICT (usuario_id, dimension, clave) DO UPDATE
         SET valor = usuario_contadores.valor + 1, actualizado_en = NOW()`,
+    [usuarioId, dimension, clave],
+  );
+}
+
+/** Resta 1 a un contador de medallas o líderes, sin bajar de cero (descuento por reporte). */
+async function restarContador(client: Consultor, usuarioId: number, dimension: string, clave: string): Promise<void> {
+  await client.query(
+    `UPDATE usuario_contadores SET valor = GREATEST(valor - 1, 0), actualizado_en = NOW()
+      WHERE usuario_id = $1 AND dimension = $2 AND clave = $3`,
     [usuarioId, dimension, clave],
   );
 }
@@ -303,4 +315,80 @@ export async function repararRecompensasPendientes(): Promise<void> {
   } catch (error) {
     console.error("Error buscando recompensas pendientes", error);
   }
+}
+
+/** Lo que se descontó a quien aportó; null si el aporte no había dado nada o ya se había descontado. */
+export type DescuentoPorReporte = { usuarioId: number; exp: number; enviadoEn: string };
+
+/**
+ * Descuento por reporte (2026-11-13, A1 opción 2; propuesta SRS v1.4 §11, RF-GAM-120 y RN-GAM-44). Va dentro de la
+ * transacción que rechaza por reporte un aporte que estaba ACEPTADO (lib/aportes/reporte.ts, rechazarPorReporte).
+ *
+ * Deshace exactamente lo que sumó la aceptación (otorgar):
+ *   - EXP: un movimiento negativo `ajuste_invalidacion` que apunta al original (movimiento_original_id). El registro
+ *     es inalterable: se agrega, nunca se edita. Clave `reporte:<id>`: dos reportes no descuentan dos veces.
+ *   - usuario_progreso: EXP total, aportes aceptados, de 4★ o más y de 5★ (sin bajar de cero).
+ *   - usuario_contadores: tipo, campaña y temática (avance de medallas y líderes por temática).
+ * Se conservan (son permanentes, RF-GAM-47, 76, 78): el rango, los niveles de medalla, las misiones completadas con su
+ * recompensa y el bono de cuota ya concedido. La racha no cambia: cuenta por el día de envío (RF-GAM-25, 27). Las
+ * misiones en curso se ajustan después del COMMIT con actualizarMisiones(..., { permitirBajar: true }).
+ * Si el aporte no había dado EXP (exp_otorgada 0 o aún sin procesar), la aceptación no sumó nada: no hay qué descontar.
+ */
+export async function descontarAportePorReporte(client: Consultor, aporteId: number | string): Promise<DescuentoPorReporte | null> {
+  const { rows } = await client.query<{
+    id: string;
+    usuario_id: number;
+    exp: number;
+    calificacion: number | null;
+    file_type: string;
+    campaign_id: number;
+    campana_nombre: string;
+    tematica: string | null;
+    enviado: string;
+  }>(
+    `SELECT m.id::text AS id, m.usuario_id, m.exp, COALESCE(m.calificacion, a.calificacion) AS calificacion,
+            a.file_type, a.campaign_id, c.name AS campana_nombre,
+            c.tematica, a.submitted_at::text AS enviado
+      FROM exp_movimientos m
+      JOIN aportes a ON a.id = m.aporte_id
+      JOIN campanas c ON c.id = a.campaign_id
+      WHERE m.aporte_id = $1 AND m.tipo = 'aporte' AND m.usuario_id IS NOT NULL
+      LIMIT 1`,
+    [aporteId],
+  );
+  const original = rows[0];
+  if (!original) return null;
+  const usuarioId = Number(original.usuario_id);
+  const exp = Number(original.exp);
+
+  const ajuste = await client.query(
+    `INSERT INTO exp_movimientos (usuario_id, tipo, exp, motivo, aporte_id, campana_id, movimiento_original_id, clave_idempotencia)
+      VALUES ($1, 'ajuste_invalidacion', $2, $3, $4, $5, $6, $7)
+      ON CONFLICT (clave_idempotencia) DO NOTHING
+      RETURNING id`,
+    [usuarioId, -exp, `Descuento por reporte de un aporte en "${original.campana_nombre}"`, aporteId, original.campaign_id,
+      original.id, `reporte:${aporteId}`],
+  );
+  if (ajuste.rows.length === 0) return null;
+
+  const calificacion = calificacionDesde(original.calificacion) ?? 1;
+  await client.query(
+    `UPDATE usuario_progreso
+      SET exp_total = GREATEST(exp_total - $2, 0),
+          aportes_aceptados = GREATEST(aportes_aceptados - 1, 0),
+          aportes_excelentes = GREATEST(aportes_excelentes - $3, 0),
+          aportes_excepcionales = GREATEST(aportes_excepcionales - $4, 0),
+          actualizado_en = NOW()
+      WHERE usuario_id = $1`,
+    [usuarioId, exp, calificacion >= 4 ? 1 : 0, calificacion === 5 ? 1 : 0],
+  );
+  if (TIPOS_CON_CONTADOR.has(original.file_type)) await restarContador(client, usuarioId, "tipo", original.file_type);
+  await restarContador(client, usuarioId, "campana", String(original.campaign_id));
+  // La misma clave que usó otorgar() al sumar (c.tematica), para restar del mismo contador.
+  if (original.tematica) {
+    const clave = claveDeTematica(original.tematica);
+    const tematica = await client.query<{ id: number }>(`SELECT id FROM tematicas WHERE clave = $1 LIMIT 1`, [clave]);
+    await restarContador(client, usuarioId, "tematica", tematica.rows[0] ? String(tematica.rows[0].id) : clave);
+  }
+  return { usuarioId, exp, enviadoEn: original.enviado };
 }

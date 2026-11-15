@@ -3,13 +3,19 @@
 
 /**
  * Minutos entre pedir la baja y el borrado definitivo. Iniciar sesión antes la cancela.
- * Eran 30 días; el 2026-10-19 el usuario lo bajó a 3 minutos "por practicidad" (para probar el flujo).
- * TODO(dominio): decidir el plazo para producción.
+ * 30 días (decisión del responsable del 2026-11-13, A5). Del 2026-10-19 al 2026-11-13 fueron 3 minutos para
+ * probar el flujo; para volver a probarlo en local basta con bajar este valor.
  */
-export const MINUTOS_DE_GRACIA: number = 3;
+export const MINUTOS_DE_GRACIA: number = 30 * 24 * 60;
 
-/** "3 minutos", para los textos (eliminar cuenta, términos y aviso de privacidad). */
-export const PLAZO_DE_GRACIA = MINUTOS_DE_GRACIA === 1 ? "1 minuto" : `${MINUTOS_DE_GRACIA} minutos`;
+/** "30 días" (o "N minutos" / "N horas" si se baja para pruebas), para los textos (eliminar cuenta, términos y aviso de privacidad). */
+export const PLAZO_DE_GRACIA = textoDePlazo(MINUTOS_DE_GRACIA);
+
+function textoDePlazo(minutos: number): string {
+  const [valor, unidad] =
+    minutos % (24 * 60) === 0 ? [minutos / (24 * 60), "día"] : minutos % 60 === 0 ? [minutos / 60, "hora"] : [minutos, "minuto"];
+  return `${valor} ${unidad}${valor === 1 ? "" : "s"}`;
+}
 
 /** Palabra que hay que escribir para confirmar. */
 export const PALABRA_DE_CONFIRMACION = "ELIMINAR";

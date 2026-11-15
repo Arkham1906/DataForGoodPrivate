@@ -8,6 +8,7 @@ import { redirect } from "next/navigation";
 import ButtonLink from "@/components/ui/ButtonLink";
 import Logo from "@/components/layout/Logo";
 import { esDestinoDeAportes, formatearFechaDeBaja, type DestinoDeAportes } from "@/lib/usuarios/baja-opciones";
+import { TEXTOS } from "@/lib/gamificacion/textos";
 
 export const metadata: Metadata = { title: "Baja solicitada" };
 
@@ -45,7 +46,9 @@ export default async function BajaSolicitadaPage({
   const fecha = formatearFechaDeBaja(hasta);
   const finalizadas = entero(params.finalizadas);
   const aportes = entero(params.aportes);
-  const xp = entero(params.xp);
+  // Rango y EXP de la gamificación (A6); sin ellos (no se pudieron leer al pedir la baja) la fila no aparece.
+  const rango = entero(params.rango);
+  const exp = entero(params.exp);
   const destino = esDestinoDeAportes(params.destino) ? params.destino : "anonimizar";
 
   const aplicado = [
@@ -56,7 +59,7 @@ export default async function BajaSolicitadaPage({
   const pendiente = [
     { etiqueta: "Datos personales", valor: "Borrado permanente" },
     { etiqueta: aportes === 1 ? "1 aporte" : `${aportes} aportes`, valor: DESTINO_DE_APORTES[destino] },
-    { etiqueta: "Nivel y experiencia", valor: `${xp.toLocaleString("es-MX")} XP se pierden` },
+    ...(rango > 0 ? [{ etiqueta: TEXTOS.baja.filaEtiqueta, valor: TEXTOS.baja.filaValor(rango, exp) }] : []),
     { etiqueta: "Correo", valor: "Liberado para un registro nuevo" },
   ];
 
