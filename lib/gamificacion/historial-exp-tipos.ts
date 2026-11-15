@@ -12,8 +12,9 @@ export type FiltroDeMovimientos = "todos" | "aporte" | "mision" | "bono" | "desc
 
 export const FILTROS_DE_MOVIMIENTOS: readonly FiltroDeMovimientos[] = ["todos", "aporte", "mision", "bono", "descuento"];
 
-/** Cuántos movimientos trae cada página (decisión del 2026-11-14: 20, para no saturar). */
-export const MOVIMIENTOS_POR_PAGINA = 20;
+/** Movimientos por página. Decisión del 2026-11-14: páginas numeradas de 10 (1 = los 10 más recientes, 2 = los 10
+ *  anteriores…), en lugar de una lista que crece hacia abajo. */
+export const MOVIMIENTOS_POR_PAGINA = 10;
 
 export type MovimientoDeExp = {
   id: string;
@@ -51,8 +52,11 @@ export type PaginaDeMovimientos = {
   movimientos: MovimientoDeExp[];
   /** EXP de cada día que aparece en la página, completo aunque la página corte el día (clave: AAAA-MM-DD en la zona de la app). */
   totalesPorDia: Record<string, number>;
-  /** Para «Ver movimientos anteriores»; null si no hay más. */
-  cursor: string | null;
+  /** Página mostrada, de 1 a `paginas` (1 si no hay movimientos). */
+  pagina: number;
+  paginas: number;
+  /** Movimientos del filtro en total, en todas las páginas. */
+  total: number;
 };
 
 export type ReglasDeExp = {

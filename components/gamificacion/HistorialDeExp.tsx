@@ -6,9 +6,10 @@
 //   no mostrar de entrada algo negativo a quien no lo necesita). Cada filtro pide su primera página al servidor.
 // - Agrupados por día (zona de la app) con la EXP del día completo. Cada fila se despliega con su cálculo, tomado de lo
 //   que guardó el movimiento; nada se recalcula aquí.
-// - Un descuento enlaza con su movimiento original y el original con su descuento, si los dos están en la lista: el
-//   enlace abre el otro, lo resalta y le pasa el foco.
-// - «Ver movimientos anteriores»: 20 más (cursor del servidor).
+// - Un descuento enlaza con su movimiento original y el original con su descuento. Si el otro está en otra página, se
+//   pide esa página (en «Todos»). El enlace abre el otro movimiento, lo resalta y le pasa el foco.
+// - Páginas numeradas de 10 (decisión del 2026-11-14), en lugar de una lista que crece hacia abajo: «‹ 1 2 3 … ›». Al
+//   cambiar de página, el foco pasa al título «Movimientos» y la vista sube hasta él si había quedado arriba.
 // Movimiento: el detalle entra con opacidad y 4 px (200 ms, curva de salida) y la flecha gira; con movimiento reducido,
 // nada se mueve. Textos en TEXTOS.historialDeExp.
 
@@ -19,11 +20,12 @@ import { ZONA_DE_CAMPANAS } from "@/lib/fecha-de-tepic";
 import { NOMBRES_DE_ESTRELLAS, calificacionDesde } from "@/lib/aportes/calificacion";
 import { NOMBRE_DE_TIPO } from "@/lib/campanas/sistema-opciones";
 import { TEXTOS } from "@/lib/gamificacion/textos";
-import type {
-  FiltroDeMovimientos,
-  MovimientoDeExp,
-  PaginaDeMovimientos,
-  TipoDeMovimiento,
+import {
+  MOVIMIENTOS_POR_PAGINA,
+  type FiltroDeMovimientos,
+  type MovimientoDeExp,
+  type PaginaDeMovimientos,
+  type TipoDeMovimiento,
 } from "@/lib/gamificacion/historial-exp-tipos";
 
 const T = TEXTOS.historialDeExp;
@@ -165,40 +167,84 @@ type Estado = {
   filtro: FiltroDeMovimientos;
   movimientos: MovimientoDeExp[];
   totales: Record<string, number>;
-  cursor: string | null;
+  pagina: number;
+  paginas: number;
+  total: number;
 };
 
+type Pedido = { filtro: FiltroDeMovimientos; pagina: number; irA?: string };
+
+/** Números que se muestran en la paginación: la primera, la última y `vecinos` a cada lado de la actual; «…» en los huecos. */
+function numerosDePagina(actual: number, paginas: number, vecinos: number): (number | "…")[] {
+  const numeros = new Set<number>([1, paginas]);
+  for (let p = actual - vecinos; p <= actual + vecinos; p++) if (p >= 1 && p <= paginas) numeros.add(p);
+  const ordenados = [...numeros].sort((a, b) => a - b);
+  const lista: (number | "…")[] = [];
+  ordenados.forEach((p, i) => {
+    if (i > 0 && p - ordenados[i - 1] > 1) lista.push(p - ordenados[i - 1] === 2 ? p - 1 : "…");
+    lista.push(p);
+  });
+  return lista;
+}
+
 export default function HistorialDeExp({ inicial, hayDescuentos }: { inicial: PaginaDeMovimientos; hayDescuentos: boolean }) {
-  const [estado, setEstado] = useState<Estado>({ filtro: "todos", movimientos: inicial.movimientos, totales: inicial.totalesPorDia, cursor: inicial.cursor });
-  const [cargando, setCargando] = useState<"filtro" | "mas" | null>(null);
-  const [error, setError] = useState<{ filtro: FiltroDeMovimientos; cursor: string | null } | null>(null);
+  const [estado, setEstado] = useState<Estado>({
+    filtro: "todos",
+    movimientos: inicial.movimientos,
+    totales: inicial.totalesPorDia,
+    pagina: inicial.pagina,
+    paginas: inicial.paginas,
+    total: inicial.total,
+  });
+  const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState<Pedido | null>(null);
   const [abiertos, setAbiertos] = useState<ReadonlySet<string>>(new Set());
   const [resaltado, setResaltado] = useState<string | null>(null);
   const pedido = useRef(0);
+  const titulo = useRef<HTMLHeadingElement>(null);
 
   const filtros: FiltroDeMovimientos[] = hayDescuentos ? ["todos", "aporte", "mision", "bono", "descuento"] : ["todos", "aporte", "mision", "bono"];
+  const reducido = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  const pedir = useCallback(async (filtro: FiltroDeMovimientos, cursor: string | null) => {
+  /** Lleva el foco a la fila de un movimiento ya pintado, abierta y resaltada. */
+  const enfocarFila = (id: string) => {
+    requestAnimationFrame(() => {
+      const boton = document.getElementById(`historial-mov-${id}`);
+      if (!boton) return;
+      boton.scrollIntoView({ block: "center", behavior: reducido() ? "auto" : "smooth" });
+      boton.focus({ preventScroll: true });
+    });
+  };
+
+  /** Tras cambiar de página: el foco va al título de la lista y, si quedó arriba fuera de la vista, se sube hasta él. */
+  const enfocarTitulo = () => {
+    requestAnimationFrame(() => {
+      const h = titulo.current;
+      if (!h) return;
+      if (h.getBoundingClientRect().top < 0) h.scrollIntoView({ block: "start", behavior: reducido() ? "auto" : "smooth" });
+      h.focus({ preventScroll: true });
+    });
+  };
+
+  const pedir = useCallback(async ({ filtro, pagina, irA }: Pedido, alTerminar?: (pagina: PaginaDeMovimientos) => void) => {
     const numero = ++pedido.current;
-    setCargando(cursor ? "mas" : "filtro");
+    setCargando(true);
     setError(null);
     try {
-      const params = new URLSearchParams({ filtro });
-      if (cursor) params.set("cursor", cursor);
+      const params = new URLSearchParams({ filtro, pagina: String(pagina) });
+      if (irA) params.set("ir", irA);
       const respuesta = await fetch(`${BASE_PATH}/api/progreso/historial-exp?${params}`, { cache: "no-store" });
       if (!respuesta.ok) throw new Error(String(respuesta.status));
-      const pagina = (await respuesta.json()) as PaginaDeMovimientos;
-      if (numero !== pedido.current) return; // Llegó tarde: ya se pidió otro filtro.
-      setEstado((anterior) =>
-        cursor
-          ? { filtro, movimientos: [...anterior.movimientos, ...pagina.movimientos], totales: { ...anterior.totales, ...pagina.totalesPorDia }, cursor: pagina.cursor }
-          : { filtro, movimientos: pagina.movimientos, totales: pagina.totalesPorDia, cursor: pagina.cursor },
-      );
-      if (!cursor) setAbiertos(new Set());
+      const datos = (await respuesta.json()) as PaginaDeMovimientos;
+      if (numero !== pedido.current) return; // Llegó tarde: ya se pidió otra página.
+      setEstado({ filtro, movimientos: datos.movimientos, totales: datos.totalesPorDia, pagina: datos.pagina, paginas: datos.paginas, total: datos.total });
+      setAbiertos(irA ? new Set([irA]) : new Set());
+      setResaltado(irA ?? null);
+      alTerminar?.(datos);
     } catch {
-      if (numero === pedido.current) setError({ filtro, cursor });
+      if (numero === pedido.current) setError({ filtro, pagina, irA });
     } finally {
-      if (numero === pedido.current) setCargando(null);
+      if (numero === pedido.current) setCargando(false);
     }
   }, []);
 
@@ -206,7 +252,12 @@ export default function HistorialDeExp({ inicial, hayDescuentos }: { inicial: Pa
     if (filtro === estado.filtro && !error) return;
     setResaltado(null);
     setEstado((anterior) => ({ ...anterior, filtro }));
-    void pedir(filtro, null);
+    void pedir({ filtro, pagina: 1 });
+  };
+
+  const irAPagina = (pagina: number) => {
+    if (pagina === estado.pagina || pagina < 1 || pagina > estado.paginas) return;
+    void pedir({ filtro: estado.filtro, pagina }, enfocarTitulo);
   };
 
   const alternar = (id: string) => {
@@ -221,16 +272,15 @@ export default function HistorialDeExp({ inicial, hayDescuentos }: { inicial: Pa
 
   const presentes = useMemo(() => new Set(estado.movimientos.map((m) => m.id)), [estado.movimientos]);
 
+  /** Salto entre un descuento y su original: en esta página si está; si no, se pide la página donde está (en «Todos»). */
   const saltarA = (id: string) => {
-    setAbiertos((anterior) => new Set(anterior).add(id));
-    setResaltado(id);
-    requestAnimationFrame(() => {
-      const boton = document.getElementById(`historial-mov-${id}`);
-      if (!boton) return;
-      const reducido = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      boton.scrollIntoView({ block: "center", behavior: reducido ? "auto" : "smooth" });
-      boton.focus({ preventScroll: true });
-    });
+    if (presentes.has(id)) {
+      setAbiertos((anterior) => new Set(anterior).add(id));
+      setResaltado(id);
+      enfocarFila(id);
+      return;
+    }
+    void pedir({ filtro: "todos", pagina: 1, irA: id }, () => enfocarFila(id));
   };
 
   const dias = useMemo(() => {
@@ -244,12 +294,13 @@ export default function HistorialDeExp({ inicial, hayDescuentos }: { inicial: Pa
     return lista;
   }, [estado.movimientos]);
 
-  const cambiandoFiltro = cargando === "filtro";
+  const desde = (estado.pagina - 1) * MOVIMIENTOS_POR_PAGINA + 1;
+  const hasta = desde + estado.movimientos.length - 1;
 
   return (
     <section aria-labelledby="historial-movs" className="flex min-w-0 flex-col gap-3 rounded-lg border border-system-200 bg-white p-5 max-md:p-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 id="historial-movs" className="text-xl font-extrabold text-system-900 max-md:px-1 max-md:text-lg">
+        <h2 id="historial-movs" ref={titulo} tabIndex={-1} className="text-xl font-extrabold text-system-900 outline-none max-md:px-1 max-md:text-lg">
           {T.movimientos}
         </h2>
         <div role="group" aria-label={T.filtrosEtiqueta} className="flex gap-1.5 overflow-x-auto max-md:-mx-1 max-md:w-full max-md:px-1 max-md:pb-1">
@@ -272,10 +323,10 @@ export default function HistorialDeExp({ inicial, hayDescuentos }: { inicial: Pa
         </div>
       </div>
 
-      <div aria-live="polite" aria-busy={cargando !== null} className={`flex flex-col transition-opacity duration-150 ${cambiandoFiltro ? "opacity-60" : ""}`}>
-        {cambiandoFiltro && <span className="sr-only">{T.cargando}</span>}
+      <div aria-busy={cargando} className={`flex flex-col transition-opacity duration-150 ${cargando ? "opacity-60" : ""}`}>
+        {cargando && <span className="sr-only" role="status">{T.cargando}</span>}
 
-        {estado.movimientos.length === 0 && !cambiandoFiltro && !error && (
+        {estado.movimientos.length === 0 && !cargando && !error && (
           <p className="my-2 rounded-lg border border-dashed border-system-300 px-4 py-6 text-center text-[13.5px] text-system-600">{T.vacioFiltro}</p>
         )}
 
@@ -292,15 +343,7 @@ export default function HistorialDeExp({ inicial, hayDescuentos }: { inicial: Pa
               </h3>
               <ul>
                 {dia.movimientos.map((m) => (
-                  <FilaDeMovimiento
-                    key={m.id}
-                    m={m}
-                    abierto={abiertos.has(m.id)}
-                    resaltado={resaltado === m.id}
-                    alternar={() => alternar(m.id)}
-                    saltarA={(id) => (presentes.has(id) ? saltarA(id) : undefined)}
-                    puedeSaltar={(id) => presentes.has(id)}
-                  />
+                  <FilaDeMovimiento key={m.id} m={m} abierto={abiertos.has(m.id)} resaltado={resaltado === m.id} alternar={() => alternar(m.id)} saltarA={saltarA} />
                 ))}
               </ul>
             </section>
@@ -312,7 +355,7 @@ export default function HistorialDeExp({ inicial, hayDescuentos }: { inicial: Pa
             <span>{T.errorPagina}</span>
             <button
               type="button"
-              onClick={() => void pedir(error.filtro, error.cursor)}
+              onClick={() => void pedir(error, error.irA ? () => enfocarFila(error.irA!) : error.pagina !== estado.pagina ? enfocarTitulo : undefined)}
               className="min-h-11 rounded-pill border border-error-300 bg-white px-4 text-[13px] font-bold text-error-800 hover:bg-error-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
             >
               {T.reintentar}
@@ -320,23 +363,93 @@ export default function HistorialDeExp({ inicial, hayDescuentos }: { inicial: Pa
           </div>
         )}
 
-        {estado.cursor && !error && !cambiandoFiltro && (
-          <button
-            type="button"
-            onClick={() => void pedir(estado.filtro, estado.cursor)}
-            disabled={cargando === "mas"}
-            className="mt-3 min-h-11 self-center rounded-pill border border-system-300 bg-white px-5 text-sm font-bold text-system-900 transition-transform duration-150 ease-salida hover:bg-system-50 active:scale-[0.97] disabled:cursor-wait disabled:bg-system-100 disabled:text-system-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 motion-reduce:transition-none motion-reduce:active:scale-100 max-md:w-full"
-          >
-            {cargando === "mas" ? T.cargando : T.verAnteriores}
-          </button>
-        )}
-        {!estado.cursor && estado.movimientos.length > 0 && !cambiandoFiltro && (
-          <p className="mt-3 text-center text-[12.5px] text-system-500">{estado.filtro === "todos" ? T.primerMovimiento : T.finDelFiltro}</p>
+        {estado.filtro === "todos" && estado.pagina === estado.paginas && estado.movimientos.length > 0 && !cargando && (
+          <p className="mt-3 text-center text-[12.5px] text-system-500">{T.primerMovimiento}</p>
         )}
       </div>
 
+      {estado.paginas > 1 && (
+        <Paginacion pagina={estado.pagina} paginas={estado.paginas} desde={desde} hasta={hasta} total={estado.total} cargando={cargando} ir={irAPagina} />
+      )}
+
       <p className="border-t border-system-100 pt-3 text-[12.5px] text-system-600 max-md:px-1">{T.pie}</p>
     </section>
+  );
+}
+
+const BOTON_DE_PAGINA =
+  "inline-flex h-10 min-w-10 items-center justify-center rounded-pill px-2 font-mono text-[13.5px] font-bold transition-[transform,background-color] duration-150 ease-salida active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:pointer-events-none disabled:opacity-40 motion-reduce:transition-none motion-reduce:active:scale-100";
+
+/**
+ * Páginas numeradas: «‹», la primera, la actual con sus vecinas, la última y «›». En teléfono solo la actual entre la
+ * primera y la última, para que quepa en 390 px. La actual lleva aria-current.
+ */
+function Paginacion({
+  pagina,
+  paginas,
+  desde,
+  hasta,
+  total,
+  cargando,
+  ir,
+}: {
+  pagina: number;
+  paginas: number;
+  desde: number;
+  hasta: number;
+  total: number;
+  cargando: boolean;
+  ir: (pagina: number) => void;
+}) {
+  const lista = (vecinos: number, clase: string) => (
+    <ol className={`flex items-center gap-1 ${clase}`}>
+      {numerosDePagina(pagina, paginas, vecinos).map((p, i) =>
+        p === "…" ? (
+          <li key={`hueco-${i}`} aria-hidden="true" className="w-6 text-center text-system-500">
+            …
+          </li>
+        ) : (
+          <li key={p}>
+            <button
+              type="button"
+              onClick={() => ir(p)}
+              aria-current={p === pagina ? "page" : undefined}
+              aria-label={T.irAPagina(p)}
+              disabled={cargando && p !== pagina}
+              className={`${BOTON_DE_PAGINA} ${p === pagina ? "bg-brand-600 text-white" : "text-system-700 hover:bg-system-100"}`}
+            >
+              {p}
+            </button>
+          </li>
+        ),
+      )}
+    </ol>
+  );
+  const flecha = (direccion: -1 | 1) => (
+    <button
+      type="button"
+      onClick={() => ir(pagina + direccion)}
+      disabled={cargando || (direccion < 0 ? pagina <= 1 : pagina >= paginas)}
+      aria-label={direccion < 0 ? T.paginaAnterior : T.paginaSiguiente}
+      className={`${BOTON_DE_PAGINA} border border-system-300 text-system-700 hover:bg-system-50`}
+    >
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d={direccion < 0 ? "M15 18l-6-6 6-6" : "M9 18l6-6-6-6"} />
+      </svg>
+    </button>
+  );
+  return (
+    <nav aria-label={T.paginacionEtiqueta} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-system-100 pt-3 max-md:justify-center">
+      <p aria-live="polite" className="text-[12.5px] text-system-600 max-md:order-last max-md:w-full max-md:text-center">
+        {T.rangoDePagina(desde, hasta, total)}
+      </p>
+      <div className="flex items-center gap-1.5">
+        {flecha(-1)}
+        {lista(1, "max-md:hidden")}
+        {lista(0, "md:hidden")}
+        {flecha(1)}
+      </div>
+    </nav>
   );
 }
 
@@ -346,14 +459,12 @@ function FilaDeMovimiento({
   resaltado,
   alternar,
   saltarA,
-  puedeSaltar,
 }: {
   m: MovimientoDeExp;
   abierto: boolean;
   resaltado: boolean;
   alternar: () => void;
   saltarA: (id: string) => void;
-  puedeSaltar: (id: string) => boolean;
 }) {
   const v = vistaDe(m);
   const negativo = m.exp < 0;
@@ -422,9 +533,9 @@ function FilaDeMovimiento({
             </dl>
           )}
           {v.nota && <p className="text-[13px] text-system-700">{v.nota}</p>}
-          {(v.href || (v.salto && puedeSaltar(v.salto.id))) && (
+          {(v.href || v.salto) && (
             <div className="flex flex-wrap gap-x-5 gap-y-1">
-              {v.salto && puedeSaltar(v.salto.id) && (
+              {v.salto && (
                 <button
                   type="button"
                   onClick={() => saltarA(v.salto!.id)}

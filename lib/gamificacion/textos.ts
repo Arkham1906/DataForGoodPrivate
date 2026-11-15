@@ -260,10 +260,14 @@ export const TEXTOS = {
     verOriginal: "Ver el movimiento original",
     verDescuento: "Ver el descuento",
 
-    verAnteriores: "Ver movimientos anteriores",
     cargando: "Cargando movimientos…",
     primerMovimiento: "Este es tu primer movimiento de EXP.",
-    finDelFiltro: "No hay más movimientos de este tipo.",
+    paginacionEtiqueta: "Páginas de movimientos",
+    paginaAnterior: "Página anterior",
+    paginaSiguiente: "Página siguiente",
+    irAPagina: (pagina: number) => `Página ${n(pagina)}`,
+    rangoDePagina: (desde: number, hasta: number, total: number) =>
+      `${n(desde)}–${n(hasta)} de ${n(total)} ${plural(total, "movimiento", "movimientos")}`,
     vacioFiltro: "Todavía no tienes movimientos de este tipo.",
     errorPagina: "No se pudieron cargar los movimientos.",
     reintentar: "Intentar de nuevo",

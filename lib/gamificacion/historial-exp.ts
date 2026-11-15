@@ -3,12 +3,13 @@
 // se muestra con lo que guardó esa fila (exp_base, mult_calidad, factor…), nunca recalculado con los parámetros de hoy.
 //
 //   - obtenerHistorialDeExp(usuarioId): resumen, primera página y reglas vigentes, para la página /progreso/historial.
-//   - obtenerPaginaDeMovimientos(usuarioId, filtro, cursor): una página; la pide GET /api/progreso/historial-exp al
-//     cambiar de filtro o con «Ver movimientos anteriores».
+//   - obtenerPaginaDeMovimientos(usuarioId, filtro, pagina, irA): una página numerada; la pide
+//     GET /api/progreso/historial-exp al cambiar de filtro o de página, o al saltar de un descuento a su original.
 //
-// Paginación por cursor (el id del último movimiento mostrado), ordenada por creado_en e id: una página no repite ni
-// salta filas aunque lleguen movimientos nuevos mientras se lee. Los totales por día se calculan sobre el día completo,
-// para que la suma no cambie cuando la página corta un día a la mitad.
+// Páginas numeradas de 10 (decisión del 2026-11-14): la 1 son los 10 más recientes, la 2 los 10 anteriores, y así.
+// Orden por creado_en e id. `irA` (el id de un movimiento) devuelve la página donde está, para que el salto entre un
+// descuento y su original funcione aunque estén en páginas distintas. Los totales por día se calculan sobre el día
+// completo, para que la suma no cambie cuando una página corta un día a la mitad.
 // Solo la persona recibe su historial (RF-GAM-77): la consulta filtra por su usuario_id.
 
 import { pool } from "@/lib/db";
@@ -129,14 +130,35 @@ function aMovimiento(f: Fila): MovimientoDeExp {
   };
 }
 
-/** Una página de movimientos, del más reciente al más antiguo. `cursor`: el id del último movimiento ya mostrado. */
+/**
+ * Una página de movimientos, del más reciente al más antiguo. `pagina` empieza en 1 y se ajusta al rango válido.
+ * `irA`: id de un movimiento de la persona; si está en el filtro, manda sobre `pagina` y devuelve la página donde está.
+ */
 export async function obtenerPaginaDeMovimientos(
   usuarioId: number | string,
   filtro: FiltroDeMovimientos = "todos",
-  cursor: string | null = null,
+  pagina = 1,
+  irA: string | null = null,
 ): Promise<PaginaDeMovimientos> {
   const tipos = TIPOS_POR_FILTRO[filtro] ?? null;
-  const despuesDe = cursor && /^\d{1,19}$/.test(cursor) ? cursor : null;
+  const objetivo = irA && /^\d{1,19}$/.test(irA) ? irA : null;
+  const conteo = await pool.query<{ total: string; antes: string | null }>(
+    `SELECT COUNT(*)::text AS total,
+            CASE WHEN $3::bigint IS NULL THEN NULL ELSE
+              (COUNT(*) FILTER (WHERE (m.creado_en, m.id) > (SELECT y.creado_en, y.id FROM exp_movimientos y
+                                                            WHERE y.id = $3::bigint AND y.usuario_id = $1)))::text
+            END AS antes
+       FROM exp_movimientos m
+      WHERE m.usuario_id = $1 AND ($2::text[] IS NULL OR m.tipo = ANY($2::text[]))`,
+    [usuarioId, tipos, objetivo],
+  );
+  const total = Number(conteo.rows[0]?.total ?? 0);
+  const paginas = Math.max(1, Math.ceil(total / MOVIMIENTOS_POR_PAGINA));
+  const pedida = objetivo && conteo.rows[0]?.antes != null
+    ? Math.floor(Number(conteo.rows[0].antes) / MOVIMIENTOS_POR_PAGINA) + 1
+    : Number.isFinite(pagina) ? Math.trunc(pagina) : 1;
+  const actual = Math.min(Math.max(1, pedida), paginas);
+
   const { rows } = await pool.query<Fila>(
     `SELECT m.id::text AS id, m.tipo, m.exp, m.motivo, m.creado_en,
             to_char(m.creado_en AT TIME ZONE $4, 'YYYY-MM-DD') AS dia,
@@ -163,14 +185,12 @@ export async function obtenerPaginaDeMovimientos(
        LEFT JOIN parametros_gamificacion pg ON pg.version = m.parametros_version AND m.tipo = 'bono_campana'
       WHERE m.usuario_id = $1
         AND ($2::text[] IS NULL OR m.tipo = ANY($2::text[]))
-        AND ($3::bigint IS NULL OR (m.creado_en, m.id) < (SELECT y.creado_en, y.id FROM exp_movimientos y WHERE y.id = $3::bigint))
       ORDER BY m.creado_en DESC, m.id DESC
-      LIMIT ${MOVIMIENTOS_POR_PAGINA + 1}`,
-    [usuarioId, tipos, despuesDe, ZONA_DE_CAMPANAS],
+      LIMIT ${MOVIMIENTOS_POR_PAGINA} OFFSET $3`,
+    [usuarioId, tipos, (actual - 1) * MOVIMIENTOS_POR_PAGINA, ZONA_DE_CAMPANAS],
   );
 
-  const hayMas = rows.length > MOVIMIENTOS_POR_PAGINA;
-  const visibles = hayMas ? rows.slice(0, MOVIMIENTOS_POR_PAGINA) : rows;
+  const visibles = rows;
   const dias = [...new Set(visibles.map((f) => f.dia))];
   const totalesPorDia: Record<string, number> = {};
   if (dias.length > 0) {
@@ -188,7 +208,9 @@ export async function obtenerPaginaDeMovimientos(
   return {
     movimientos: visibles.map(aMovimiento),
     totalesPorDia,
-    cursor: hayMas ? visibles[visibles.length - 1].id : null,
+    pagina: actual,
+    paginas,
+    total,
   };
 }
 
