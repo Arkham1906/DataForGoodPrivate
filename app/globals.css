@@ -740,3 +740,18 @@ input::-ms-clear {
     transform: scaleX(0);
   }
 }
+
+/* Historial de EXP (components/gamificacion/HistorialDeExp.tsx, 2026-11-14): el detalle de un movimiento entra
+ * con 4 px de bajada y opacidad; con movimiento reducido aparece sin moverse. */
+@media (prefers-reduced-motion: no-preference) {
+  .historial-detalle {
+    animation: historial-detalle-entra 200ms var(--ease-salida) both;
+  }
+}
+
+@keyframes historial-detalle-entra {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
