@@ -101,7 +101,7 @@
         { "nombre": "Duo", "umbral": 2 },
         { "nombre": "Trio", "umbral": 3 },
         { "nombre": "Cuarteto", "umbral": 4 },
-        { "nombre": "Orquesta", "umbral": 5 }
+        { "nombre": "Orquesta", "umbral": 5, "ilustracion": "5-orquesta" }
       ]
     },
     {

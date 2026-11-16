@@ -181,7 +181,7 @@ export async function obtenerMedallasCercaDeSubir(usuarioId: number | string): P
         [usuarioId],
       ),
       pool.query<NivelDeMedalla & { medalla_id: number }>(
-        `SELECT medalla_id, nivel, nombre, umbral FROM medalla_niveles ORDER BY medalla_id, nivel`,
+        `SELECT medalla_id, nivel, nombre, umbral, ilustracion_path AS ilustracion FROM medalla_niveles ORDER BY medalla_id, nivel`,
       ),
       valoresDeMedallas(pool, usuarioId),
     ]);

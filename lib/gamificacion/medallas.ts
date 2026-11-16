@@ -45,17 +45,15 @@ const QUE_MIDE: Record<string, string> = {
   tematicas_distintas: "Mide las temáticas distintas con un aporte tuyo aceptado.",
 };
 
-export type NivelDeMedalla = { nivel: number; nombre: string; umbral: number };
+/** `ilustracion`: archivo de la ilustración cuando no sigue «<nivel>-<nombre>» (medalla_niveles.ilustracion_path). */
+export type NivelDeMedalla = { nivel: number; nombre: string; umbral: number; ilustracion?: string | null };
 
 export type MedallaConAvance = {
   clave: string;
   nombre: string;
   mide: string | null;
-  /** Último nivel registrado; 0 si no hay. Un nivel alcanzado no se retira (RF-GAM-47). */
   nivelActual: number;
-  /** Lo que mide la medalla, hoy. */
   valor: number;
-  /** En orden de nivel. */
   niveles: NivelDeMedalla[];
 };
 
@@ -68,9 +66,22 @@ export type MedallaCercaDeSubir = {
   umbral: number;
   porcentaje: number;
   queMide: string;
-  imagen: { nivel: number; nombre: string };
+  imagen: { nivel: number; nombre: string; ilustracion: string | null };
   bloqueada: boolean;
 };
+
+/** Texto de lo que mide una medalla («Mide tus aportes aceptados.»); cadena vacía si la medida no tiene texto. */
+export function queMideMedalla(mide: string | null): string {
+  return (mide && QUE_MIDE[mide]) || "";
+}
+
+/**
+ * Nivel que se muestra: el registrado (no baja, RF-GAM-47) o uno mayor si el valor de hoy ya pasó su umbral y la
+ * evaluación aún no lo registra (evaluacion.ts lo concede en el siguiente evento). Misma regla que medallasMasCercanas.
+ */
+export function nivelVisible(m: Pick<MedallaConAvance, "nivelActual" | "valor" | "niveles">): number {
+  return Math.max(m.nivelActual, nivelPorValor(m.valor, m.niveles));
+}
 
 /** El nivel más alto cuyo umbral ya alcanza `valor`; 0 si ninguno. */
 export function nivelPorValor(valor: number, niveles: readonly NivelDeMedalla[]): number {
@@ -100,7 +111,7 @@ export function medallasMasCercanas(medallas: MedallaConAvance[], limite: number
   const candidatas: MedallaCercaDeSubir[] = [];
   for (const m of medallas) {
     // El valor ya superó un umbral aunque su nivel aún no se haya registrado: se mira el nivel que sigue a ese.
-    const nivel = Math.max(m.nivelActual, ...m.niveles.filter((n) => m.valor >= n.umbral).map((n) => n.nivel));
+    const nivel = nivelVisible(m);
     const siguiente = m.niveles.find((n) => n.nivel > nivel);
     if (!siguiente) continue;
     const valor = m.valor;
@@ -113,8 +124,8 @@ export function medallasMasCercanas(medallas: MedallaConAvance[], limite: number
       valor,
       umbral: siguiente.umbral,
       porcentaje: Math.round((valor / siguiente.umbral) * 100),
-      queMide: (m.mide && QUE_MIDE[m.mide]) || "",
-      imagen: { nivel: nivelDeImagen.nivel, nombre: nivelDeImagen.nombre },
+      queMide: queMideMedalla(m.mide),
+      imagen: { nivel: nivelDeImagen.nivel, nombre: nivelDeImagen.nombre, ilustracion: nivelDeImagen.ilustracion ?? null },
       bloqueada: nivel === 0,
     });
   }
@@ -122,3 +133,26 @@ export function medallasMasCercanas(medallas: MedallaConAvance[], limite: number
   candidatas.sort((a, b) => b.porcentaje - a.porcentaje || a.umbral - a.valor - (b.umbral - b.valor));
   return candidatas.slice(0, limite);
 }
+
+// ---- Pestaña Medallas de Mi progreso (2026-11-15; lienzo aprobado el mismo día) ----
+
+export type NivelEnPantalla = NivelDeMedalla & {
+  /** ISO de medalla_ascensos; null si no se ha alcanzado o si el valor lo alcanzó y aún no se registra. */
+  alcanzadoEn: string | null;
+};
+
+export type MedallaEnPantalla = {
+  clave: string;
+  nombre: string;
+  grupo: GrupoDeMedalla;
+  mide: string | null;
+  queMide: string;
+  valor: number;
+  nivel: number;
+  niveles: NivelEnPantalla[];
+};
+
+export type PantallaDeMedallas = {
+  medallas: MedallaEnPantalla[];
+  cerca: MedallaCercaDeSubir[];
+};

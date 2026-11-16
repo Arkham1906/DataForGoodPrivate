@@ -2163,12 +2163,20 @@ async function sincronizarMedalla(m: MedallaDelCatalogo, orden: number): Promise
     [m.clave, m.nombre, m.descripcion, m.mide, m.grupo, orden, JSON.stringify({ mide: m.mide }), m.activa],
   );
   await pool.query(
-    `INSERT INTO medalla_niveles (medalla_id, nivel, nombre, umbral)
-     SELECT md.id, n.nivel, n.nombre, n.umbral
-       FROM medallas md, unnest($2::smallint[], $3::text[], $4::int[]) AS n(nivel, nombre, umbral)
+    `INSERT INTO medalla_niveles (medalla_id, nivel, nombre, umbral, ilustracion_path)
+     SELECT md.id, n.nivel, n.nombre, n.umbral, n.ilustracion
+       FROM medallas md, unnest($2::smallint[], $3::text[], $4::int[], $5::text[]) AS n(nivel, nombre, umbral, ilustracion)
       WHERE md.clave = $1
-     ON CONFLICT (medalla_id, nivel) DO UPDATE SET nombre = EXCLUDED.nombre, umbral = EXCLUDED.umbral`,
-    [m.clave, m.niveles.map((_, i) => i + 1), m.niveles.map((n) => n.nombre), m.niveles.map((n) => n.umbral)],
+     ON CONFLICT (medalla_id, nivel) DO UPDATE SET
+       nombre = EXCLUDED.nombre, umbral = EXCLUDED.umbral, ilustracion_path = EXCLUDED.ilustracion_path`,
+    [
+      m.clave,
+      m.niveles.map((_, i) => i + 1),
+      m.niveles.map((n) => n.nombre),
+      m.niveles.map((n) => n.umbral),
+      // Archivo de la ilustración cuando no sigue «<nivel>-<nombre>» (lib/gamificacion/recursos.ts); NULL si sí.
+      m.niveles.map((n) => n.ilustracion ?? null),
+    ],
   );
   const sobrantes = await pool.query<{ nivel: number; alcanzado: boolean }>(
     `SELECT n.nivel, EXISTS (SELECT 1 FROM medalla_ascensos a WHERE a.medalla_id = n.medalla_id AND a.nivel = n.nivel) AS alcanzado

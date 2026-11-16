@@ -44,8 +44,7 @@ export type MedallaDelCatalogo = {
   mide: MedidaDeMedalla;
   activa: boolean;
   descripcion: string;
-  /** En orden: el primero es el nivel 1. Cada umbral, mayor que el anterior. */
-  niveles: { nombre: string; umbral: number }[];
+  niveles: { nombre: string; umbral: number; ilustracion?: string }[];
 };
 
 const esEntero = (v: unknown, minimo: number): v is number => Number.isInteger(v) && (v as number) >= minimo;
@@ -131,6 +130,9 @@ export function erroresDeMedallas(medallas: MedallaDelCatalogo[]): string[] {
       if (!esEntero(n?.umbral, 1)) errores.push(`${quien}, nivel ${i + 1}: el umbral debe ser un entero mayor que 0.`);
       else if (i > 0 && n.umbral <= m.niveles[i - 1].umbral) {
         errores.push(`${quien}, nivel ${i + 1}: el umbral debe ser mayor que el del nivel ${i}.`);
+      }
+      if (n?.ilustracion !== undefined && !/^[a-z0-9-]+$/.test(String(n.ilustracion))) {
+        errores.push(`${quien}, nivel ${i + 1}: «ilustracion» es el nombre del archivo sin «@lado.webp» (minúsculas, números y -).`);
       }
     });
   }
