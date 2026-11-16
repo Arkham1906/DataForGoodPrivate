@@ -1,5 +1,5 @@
 // Estructura de la zona de usuario con sesión: TopBar + SidebarNav + VigilanteDeSesion +
-// ActualizacionEnVivo + DetectorDeUbicacion (zona por GPS) + <main id="contenido">. La usan el layout de (dashboard) y las pantallas
+// ActualizacionEnVivo + DetectorDeUbicacion (zona por GPS) + Celebraciones (rango, medalla y racha, 2026-11-16) + <main id="contenido">. La usan el layout de (dashboard) y las pantallas
 // públicas que, si hay sesión, deben verse igual que el resto de la app (hoy ninguna: /leaderboard pasó a /progreso/leaderboard el 2026-11-09).
 // Server Component: no valida la sesión, recibe el usuario ya validado por quien lo llama.
 // Calcula aquí el aviso del menú lateral ("tu siguiente paso", lib/usuarios/aviso-del-menu.ts, 2026-11-10): se
@@ -13,6 +13,7 @@ import SidebarNav from "@/components/layout/SidebarNav";
 import VigilanteDeSesion from "@/components/layout/VigilanteDeSesion";
 import ActualizacionEnVivo from "@/components/layout/ActualizacionEnVivo";
 import DetectorDeUbicacion from "@/components/layout/DetectorDeUbicacion";
+import Celebraciones from "@/components/gamificacion/celebraciones/Celebraciones";
 
 export default async function ShellDeUsuario({ usuario, children }: { usuario: SessionUser; children: ReactNode }) {
   const aviso = await avisoDelMenuParaUsuario(usuario);
@@ -21,6 +22,7 @@ export default async function ShellDeUsuario({ usuario, children }: { usuario: S
       <VigilanteDeSesion />
       <ActualizacionEnVivo />
       <DetectorDeUbicacion />
+      <Celebraciones />
       <TopBar usuario={usuario} />
       <div className="dashboard-shell flex min-w-0">
         <SidebarNav usuario={usuario} aviso={aviso} />

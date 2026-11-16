@@ -9,6 +9,9 @@
 // Fénix (2026-11-09, decisión del responsable): cuando la racha se pierde y un aporte la reaviva, se registra un evento
 // racha_recuperada, uno por cada interrupción (su clave lleva el día de la interrupción). Si la racha cambió, al final
 // se evalúan rango y medallas (RF-GAM-18, 47; lib/gamificacion/evaluacion.ts).
+//
+// Celebración (2026-11-16): cuando el envío es el primero del día y por eso la racha crece, actualizarRacha() devuelve
+// el cambio (alarga, empieza o reaviva) para que POST /api/aportes lo pase a la pantalla. No se guarda nada.
 
 import type { PoolClient } from "pg";
 import { pool } from "@/lib/db";
@@ -18,6 +21,7 @@ import { notificar } from "@/lib/notificaciones/notificaciones";
 import { evaluarProgresoDe } from "./evaluacion";
 import { RACHA_PERDIDA_MINIMA_PARA_FENIX } from "./medallas";
 import { calcularRacha, diaDeRuptura, sumarDias } from "./racha-reglas";
+import type { CambioDeRacha } from "./celebraciones-tipos";
 
 const USUARIOS_POR_REVISION = 500;
 
@@ -65,10 +69,14 @@ async function registrarRecuperacion(
   return nuevo.rows.length > 0;
 }
 
-/** Nunca lanza: un fallo aquí no debe tumbar el envío del aporte; revisarRachas() lo corrige en su siguiente pasada. */
-export async function actualizarRacha(usuarioId: number | string): Promise<void> {
+/**
+ * Nunca lanza: un fallo aquí no debe tumbar el envío del aporte; revisarRachas() lo corrige en su siguiente pasada.
+ * Devuelve el cambio que hay que celebrar, o null (el día ya contaba, o algo falló).
+ */
+export async function actualizarRacha(usuarioId: number | string): Promise<CambioDeRacha | null> {
   let diasPerdidos = 0;
   let cambio = false;
+  let celebracion: CambioDeRacha | null = null;
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -82,7 +90,7 @@ export async function actualizarRacha(usuarioId: number | string): Promise<void>
     const progreso = rows[0];
     if (!progreso) {
       await client.query("ROLLBACK");
-      return;
+      return null;
     }
 
     const aportesR = await client.query<{ dia: string }>(
@@ -120,9 +128,24 @@ export async function actualizarRacha(usuarioId: number | string): Promise<void>
     }
 
     // Primer día de la racha actual: termina hoy o, si hoy aún no tiene aportes, ayer.
+    let reavivada = false;
     if (racha.actual > 0) {
       const ultimoDeLaRacha = racha.dias.has(hoy) ? hoy : sumarDias(hoy, -1);
-      if (await registrarRecuperacion(client, usuarioId, sumarDias(ultimoDeLaRacha, 1 - racha.actual))) cambio = true;
+      reavivada = await registrarRecuperacion(client, usuarioId, sumarDias(ultimoDeLaRacha, 1 - racha.actual));
+      if (reavivada) cambio = true;
+    }
+
+    // Hoy cuenta y antes no contaba: este envío hizo crecer la racha en un día.
+    if (racha.dias.has(hoy) && progreso.ultimo !== hoy && racha.actual > 0) {
+      celebracion = {
+        tipo: reavivada ? "reaviva" : racha.actual === 1 ? "empieza" : "alarga",
+        antes: racha.actual - 1,
+        ahora: racha.actual,
+        semana: Array.from({ length: 7 }, (_, i) => {
+          const dia = sumarDias(hoy, i - 6);
+          return { dia, conAporte: racha.dias.has(dia), hoy: dia === hoy };
+        }),
+      };
     }
 
     const maxima = Math.max(progreso.racha_maxima, racha.mayor);
@@ -139,7 +162,7 @@ export async function actualizarRacha(usuarioId: number | string): Promise<void>
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});
     console.error(`Error actualizando la racha del usuario ${usuarioId}`, error);
-    return;
+    return null;
   } finally {
     client.release();
   }
@@ -158,6 +181,7 @@ export async function actualizarRacha(usuarioId: number | string): Promise<void>
       enlace: "/inicio",
     });
   }
+  return celebracion;
 }
 
 /**

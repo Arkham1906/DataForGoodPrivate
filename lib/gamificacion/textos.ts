@@ -358,4 +358,55 @@ export const TEXTOS = {
     error: "Todavía no podemos mostrar tus medallas. Intenta de nuevo en unos minutos.",
     cargando: "Cargando tus medallas…",
   },
+  /** Celebraciones de rango, medalla y racha (2026-11-16; lienzo aprobado el mismo día). Reconocen, no presionan (RF-GAM-62). */
+  celebraciones: {
+    paso: (actual: number, total: number) => `${n(actual)} de ${n(total)}`,
+    cerrar: "Cerrar",
+    continuar: "Continuar",
+    listo: "Listo",
+    /** Botón que pasa al siguiente paso de la cola. */
+    siguiente: { racha: "Siguiente: tu racha", rango: "Siguiente: tu nuevo rango", medallas: (cuantas: number, primera: string) => (cuantas === 1 ? `Siguiente: ${primera}` : `Siguiente: ${n(cuantas)} medallas`) },
+
+    rangoEyebrow: (numero: number, total: number) => `Nuevo rango · ${n(numero)} de ${n(total)}`,
+    rangosEyebrow: (cuantos: number, numero: number, total: number) => `Subiste ${n(cuantos)} rangos · ${n(numero)} de ${n(total)}`,
+    rangoTexto: "Es tuyo para siempre: no se pierde por inactividad ni por perder la racha.",
+    rangosTexto: (numero: number) => `Llegaste al rango ${n(numero)}. Todos son tuyos para siempre.`,
+    intermedio: (numero: number, nombre: string) => `También pasaste por el rango ${n(numero)} · ${nombre}`,
+    intermedioDetalle: "Se alcanzaron juntos.",
+    etapa: (etapa: number) => `Etapa ${n(etapa)} de tu avatar`,
+    etapaDetalle: "Tu avatar evolucionó y no retrocede.",
+    insignia: (rango: number) => `Insignia del rango ${n(rango)}`,
+    insigniaDetalle: "Ya está en tu trayectoria.",
+    coleccionable: (nombre: string) => `Coleccionable: ${nombre}`,
+    coleccionableDetalle: "Ya está en tu inventario.",
+    revelado: (numero: number, nombre: string) => `Se reveló el rango ${n(numero)} · ${nombre}`,
+    reveladoDetalle: (avistado: number | null) =>
+      "Es tu siguiente rango: ya puedes ver su avance." + (avistado ? ` Y avistaste el ${n(avistado)}.` : ""),
+    ultimoRango: "Completaste la trayectoria",
+    ultimoRangoDetalle: "Es el último rango. Nadie te lo quita.",
+    verTrayectoria: "Ver tu trayectoria",
+
+    medallaEyebrow: "Nuevo nivel de medalla",
+    medallaPrimera: "Tu primer nivel de esta medalla",
+    medallaSalto: (cuantos: number) => `Subiste ${n(cuantos)} niveles de una vez`,
+    medallaFuego: "Tu racha alimentó una medalla",
+    medallasEyebrow: "Nuevos niveles de medalla",
+    medallasTitulo: (cuantas: number) => `Subiste en ${n(cuantas)} medallas`,
+    pasastePor: (nombres: readonly string[]) => `Pasaste por ${nombres.join(", ")}.`,
+    medallaNota: "Las medallas no dan EXP ni cuentan para tu rango. Un nivel alcanzado no se pierde.",
+    verMedallas: "Ver tus medallas",
+
+    racha: {
+      alarga: { titulo: (dias: number) => `¡Racha de ${n(dias)} días!`, texto: "Tu primer aporte de hoy la mantuvo encendida." },
+      empieza: { titulo: () => "Encendiste tu racha", texto: "Cada día con al menos un aporte la hace crecer." },
+      reaviva: { titulo: () => "Reavivaste tu racha", texto: "Volvió a encenderse. Tu rango y tus medallas siguieron intactos." },
+    },
+    numeroDeRacha: (dias: number) => `${n(dias)} ${plural(dias, "día", "días")} de racha.`,
+    semana: "Últimos 7 días",
+    /** Inicial de cada día, de domingo a sábado (Date.getUTCDay). */
+    inicialesDeDias: ["D", "L", "M", "M", "J", "V", "S"] as readonly string[],
+    nombresDeDias: ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"] as readonly string[],
+    dia: (nombre: string, conAporte: boolean, hoy: boolean) =>
+      `${hoy ? "Hoy" : nombre[0].toUpperCase() + nombre.slice(1)}, ${conAporte ? "con aporte" : "sin aporte"}`,
+  },
 } as const;

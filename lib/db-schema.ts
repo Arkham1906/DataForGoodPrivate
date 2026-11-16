@@ -1778,6 +1778,9 @@ export async function ensureRangoAscensosTable(): Promise<void> {
     -- Celebraciones que faltan por mostrar al volver a la aplicación.
     CREATE INDEX IF NOT EXISTS rango_ascensos_pendientes_idx ON rango_ascensos (usuario_id) WHERE celebracion_vista_en IS NULL;
     CREATE INDEX IF NOT EXISTS rango_ascensos_rango_idx ON rango_ascensos (rango);
+    -- Celebraciones (2026-11-16): como en medalla_ascensos, lo de antes de esa fecha no se celebra de golpe.
+    UPDATE rango_ascensos SET celebracion_vista_en = alcanzado_en
+      WHERE celebracion_vista_en IS NULL AND alcanzado_en < TIMESTAMPTZ '2026-11-16 00:00:00-07';
   `);
 }
 
@@ -2117,6 +2120,10 @@ export async function ensureMedallaNivelesTables(): Promise<void> {
       FOREIGN KEY (medalla_id, nivel) REFERENCES medalla_niveles (medalla_id, nivel)
     );
     CREATE INDEX IF NOT EXISTS medalla_ascensos_pendientes_idx ON medalla_ascensos (usuario_id) WHERE celebracion_vista_en IS NULL;
+    -- Celebraciones (2026-11-16): lo alcanzado antes de que existieran no se celebra de golpe al entrar. Solo toca
+    -- filas de antes de esa fecha: repetirlo no cambia nada.
+    UPDATE medalla_ascensos SET celebracion_vista_en = alcanzado_en
+      WHERE celebracion_vista_en IS NULL AND alcanzado_en < TIMESTAMPTZ '2026-11-16 00:00:00-07';
   `);
   await sincronizarMedallas();
 }

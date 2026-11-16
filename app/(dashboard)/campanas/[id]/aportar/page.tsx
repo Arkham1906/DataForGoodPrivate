@@ -15,6 +15,7 @@ import Button from "@/components/ui/Button";
 import CamposDelAporte, { camposDelAporteCompletos } from "@/components/aportes/CamposDelAporte";
 import type { Campaign } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
+import { EVENTO_CELEBRAR_RACHA } from "@/lib/gamificacion/celebraciones-tipos";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 import { respuestasValidas, seccionesParaElAporte } from "@/lib/campanas/checklist";
 import ChecklistsDelAporte from "@/components/aportes/ChecklistsDelAporte";
@@ -159,6 +160,8 @@ export default function AportarPage() {
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error ?? "No se pudo enviar el aporte");
 
+      // Si el envío hizo crecer la racha, las celebraciones del panel la muestran al llegar (2026-11-16).
+      if (payload.racha) window.dispatchEvent(new CustomEvent(EVENTO_CELEBRAR_RACHA, { detail: payload.racha }));
       router.push(`/mis-aportes/${campaign.id}`);
     } catch (cause) {
       setSubmitError(cause instanceof Error ? cause.message : "No se pudo enviar el aporte");

@@ -20,6 +20,8 @@ const TAMANOS = {
   sm: "h-11 w-11 text-base",
   md: "h-13 w-13 text-xl",
   lg: "h-16 w-16 text-2xl",
+  /** Celebración de ascenso (2026-11-16). */
+  xl: "h-32 w-32 text-5xl",
 };
 
 export default function InsigniaDeRango({
