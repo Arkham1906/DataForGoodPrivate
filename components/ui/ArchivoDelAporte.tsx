@@ -9,6 +9,11 @@ import { BASE_PATH } from "@/lib/base-path";
 import TextoDelAporte from "@/components/ui/TextoDelAporte";
 
 const CAJA = "flex w-full flex-col items-center justify-center gap-2 rounded-lg border border-system-300 bg-system-100 p-4 text-center text-[12.5px] text-system-600";
+const MIME_PDF = "application/pdf";
+const MIME_DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+const MIME_PPTX = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+const MIME_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+const MIME_XLS = "application/vnd.ms-excel";
 
 function etiquetaDeTipo(tipo: string) {
   switch (tipo) {
@@ -25,22 +30,47 @@ function etiquetaDeTipo(tipo: string) {
   }
 }
 
+function IconoDeDocumento({ mimeType, etiquetaPorDefecto = "DOC", className = "h-full w-full" }: { mimeType?: string; etiquetaPorDefecto?: string; className?: string }) {
+  const configuracion = mimeType === MIME_XLSX || mimeType === MIME_XLS
+    ? { etiqueta: "XLS", color: "text-success-700", fondo: "bg-success-50", borde: "border-success-200" }
+    : mimeType === MIME_DOCX
+      ? { etiqueta: "DOC", color: "text-brand-700", fondo: "bg-brand-50", borde: "border-brand-200" }
+      : mimeType === MIME_PPTX
+        ? { etiqueta: "PPT", color: "text-warning-800", fondo: "bg-warning-50", borde: "border-warning-200" }
+        : mimeType === MIME_PDF
+          ? { etiqueta: "PDF", color: "text-error-700", fondo: "bg-error-50", borde: "border-error-200" }
+          : { etiqueta: etiquetaPorDefecto, color: "text-system-700", fondo: "bg-system-100", borde: "border-system-300" };
+
+  return (
+    <div className={`${className} flex flex-col items-center justify-center gap-1 rounded-lg border ${configuracion.borde} ${configuracion.fondo} ${configuracion.color}`}>
+      <svg aria-hidden="true" viewBox="0 0 24 24" className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth="1.7">
+        <path d="M6 3.75h8l4 4V20.25H6z" strokeLinejoin="round" />
+        <path d="M14 3.75v4h4" strokeLinejoin="round" />
+      </svg>
+      <span className="text-[10px] font-extrabold tracking-[0.08em]">{configuracion.etiqueta}</span>
+    </div>
+  );
+}
+
 export function MiniaturaDeAporte({
   aporteId,
   tipo,
   sinArchivo = false,
   alt,
+  mimeType,
   className = "h-14 w-14",
 }: {
   aporteId: string | number;
   tipo: string;
   sinArchivo?: boolean;
   alt: string;
+  mimeType?: string;
   className?: string;
 }) {
   const src = `${BASE_PATH}/api/aportes/${aporteId}/archivo`;
 
   if (sinArchivo) {
+    if (tipo === "texto") return <IconoDeDocumento etiquetaPorDefecto="TXT" className={className} />;
     return <div className={`${className} flex items-center justify-center rounded-lg border border-dashed border-system-300 bg-system-100 text-[9px] font-semibold uppercase tracking-[0.08em] text-system-600`}>Texto</div>;
   }
 
@@ -61,6 +91,14 @@ export function MiniaturaDeAporte({
         aria-label={alt}
       />
     );
+  }
+
+  if (tipo === "documento") {
+    return <IconoDeDocumento mimeType={mimeType} etiquetaPorDefecto="DOC" className={className} />;
+  }
+
+  if (tipo === "texto") {
+    return <IconoDeDocumento mimeType={mimeType} etiquetaPorDefecto="TXT" className={className} />;
   }
 
   if (tipo === "audio") {

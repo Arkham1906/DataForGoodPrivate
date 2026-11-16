@@ -136,6 +136,8 @@ export interface Contribution {
   participantEmail?: string;
   description: string;
   fileType: DataType;
+  /** MIME del archivo original, para distinguir PDF, Word, Excel, PowerPoint y TXT en las miniaturas. */
+  fileMimeType?: string;
   fileSizeBytes?: number;
   sinArchivo?: boolean; // aporte de solo texto: la descripción es el dato (2026-10-14)
   caracteristicas?: string[];

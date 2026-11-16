@@ -27,7 +27,8 @@ const TIPOS_SERVIBLES: Record<string, { contentType: string; enLinea: boolean }>
   "audio/wav": { contentType: "audio/wav", enLinea: true },
   "audio/ogg": { contentType: "audio/ogg", enLinea: true },
   "text/plain": { contentType: "text/plain; charset=utf-8", enLinea: true },
-  "application/pdf": { contentType: "application/pdf", enLinea: false },
+  // El PDF se muestra dentro de las miniaturas de "Mis aportes"; los demás documentos se descargan.
+  "application/pdf": { contentType: "application/pdf", enLinea: true },
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {
     contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     enLinea: false,
@@ -112,7 +113,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
       "Content-Security-Policy": "default-src 'none'; sandbox",
       "Cache-Control": "private, max-age=3600",
       "Accept-Ranges": "bytes",
-      // PDF y Word se descargan: abrirlos dentro de la app no es posible con la CSP sandbox.
+      // Los documentos no compatibles con vista previa se descargan; PDF puede mostrarse dentro de la app.
       "Content-Disposition": servible?.enLinea
         ? "inline"
         : `attachment; filename="aporte-${id}${extensionForMime(tipo || "application/octet-stream")}"`,

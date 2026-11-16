@@ -188,17 +188,18 @@ export default function ListaDeMisAportes({ resumen }: { resumen?: ReactNode }) 
         const href = `/mis-aportes/${item.campaignId}/${item.id}`;
 
         return (
-          <article key={item.id} className={vistaCuadricula ? "flex h-full flex-col rounded-lg border border-system-200 bg-white p-4 shadow-sm transition-colors hover:border-brand-600 max-md:p-3" : "flex items-center gap-3 rounded-lg border border-system-200 bg-white p-2.5 shadow-sm transition-colors hover:border-brand-600 max-md:gap-2 max-md:p-2.5"}>
+          <Link key={item.id} href={href} className={vistaCuadricula ? "flex h-full flex-col rounded-lg border border-system-200 bg-white p-4 shadow-sm transition-colors hover:border-brand-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 max-md:p-3" : "flex items-center gap-3 rounded-lg border border-system-200 bg-white p-2.5 shadow-sm transition-colors hover:border-brand-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 max-md:gap-2 max-md:p-2.5"}>
               {vistaCuadricula ? (
                 <>
                   <MiniaturaDeAporte
                     aporteId={item.id}
                     tipo={item.fileType}
                     sinArchivo={item.sinArchivo}
+                    mimeType={item.fileMimeType}
                     alt={`Vista previa de ${nombreDeTipo.toLowerCase()} en ${item.campaignName}`}
                     className="mb-2.5 aspect-video w-full max-w-60 mx-auto object-cover"
                   />
-                  <Link href={href} className="flex flex-1 flex-col text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600">
+                  <div className="flex flex-1 flex-col text-left">
                     <div className="h-[72px] overflow-hidden">
                       <h2 className="line-clamp-2 text-[13px] leading-5 font-bold text-system-900">{item.campaignName}</h2>
                       <Tag tone={estadoTono} className="mt-1">{estadoEtiqueta}</Tag>
@@ -216,12 +217,12 @@ export default function ListaDeMisAportes({ resumen }: { resumen?: ReactNode }) 
                       <div><dt className="text-system-500">Tipo</dt><dd className="mt-0.5 font-semibold text-system-900">{nombreDeTipo}</dd></div>
                       <div><dt className="text-system-500">Fecha</dt><dd className="mt-0.5 font-mono text-system-900">{new Date(item.submittedAt).toLocaleDateString("es-MX", { day: "numeric", month: "short" })}</dd></div>
                     </dl>
-                  </Link>
+                  </div>
                 </>
               ) : (
                 <>
-                  <MiniaturaDeAporte aporteId={item.id} tipo={item.fileType} sinArchivo={item.sinArchivo} alt={`Vista previa de ${nombreDeTipo.toLowerCase()} en ${item.campaignName}`} className="h-12 w-12 shrink-0" />
-                  <Link href={href} className="min-w-0 flex-1 overflow-hidden text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600">
+                  <MiniaturaDeAporte aporteId={item.id} tipo={item.fileType} sinArchivo={item.sinArchivo} mimeType={item.fileMimeType} alt={`Vista previa de ${nombreDeTipo.toLowerCase()} en ${item.campaignName}`} className="h-12 w-12 shrink-0" />
+                  <div className="min-w-0 flex-1 overflow-hidden text-left">
                     <div className="flex min-w-0 items-center gap-2 overflow-hidden text-[12px]">
                       <span className="truncate font-bold text-system-900">{item.campaignName}</span>
                       <span className="shrink-0 text-system-400">•</span>
@@ -250,14 +251,14 @@ export default function ListaDeMisAportes({ resumen }: { resumen?: ReactNode }) 
                       )}
                       <ExpDelAporte estado={item.status} expOtorgada={item.expOtorgada} />
                     </span>
-                  </Link>
+                  </div>
                   <span className="hidden shrink-0 md:inline-flex">
                     <ExpDelAporte estado={item.status} expOtorgada={item.expOtorgada} />
                   </span>
                   <Tag tone={estadoTono} className="hidden shrink-0 md:inline-flex">{estadoEtiqueta}</Tag>
                 </>
               )}
-          </article>
+          </Link>
         );
       })}</div>}
     </>}

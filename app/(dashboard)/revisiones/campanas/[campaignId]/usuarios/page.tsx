@@ -36,6 +36,7 @@ export default async function ReviewerUsersPage({ params }: { params: Promise<{ 
     participantName: contribution.participant_name ?? (contribution.participant_id == null ? "Anónimo" : "Usuario"),
     description: contribution.description ?? "",
     fileType: contribution.file_type,
+    fileMimeType: contribution.file_mime_type ?? undefined,
     submittedAt: new Date(contribution.submitted_at).toISOString(),
     acceptedAt: contribution.reviewed_at ? new Date(contribution.reviewed_at).toISOString() : null,
     sinArchivo: !contribution.file_path,

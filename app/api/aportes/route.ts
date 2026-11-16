@@ -42,6 +42,7 @@ function mapAporte(row: Record<string, unknown>) {
     participantEmail: row.participant_email ? String(row.participant_email) : undefined,
     description: String(row.description ?? ""),
     fileType: String(row.file_type ?? "foto"),
+    fileMimeType: row.file_mime_type ? String(row.file_mime_type) : undefined,
     fileSizeBytes: row.file_size_bytes != null ? Number(row.file_size_bytes) : undefined,
     sinArchivo: !row.file_path,
     archivoBorrado: row.archivo_borrado_en != null,

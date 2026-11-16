@@ -8,8 +8,10 @@ import { useParams } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import Button from "@/components/ui/Button";
 import Tag from "@/components/ui/Tag";
+import { MiniaturaDeAporte } from "@/components/ui/ArchivoDelAporte";
 import type { Campaign, Contribution } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
+import { NOMBRE_DE_TIPO } from "@/lib/campanas/sistema-opciones";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 
@@ -148,20 +150,47 @@ export default function ReviewerCampaignPage() {
         {pending.length === 0 ? (
           <p className="rounded-lg bg-system-50 p-4 text-[13px] text-system-600">No hay aportes pendientes de validación.</p>
         ) : (
-          <div className={vistaCuadricula ? "grid grid-cols-1 gap-3 lg:grid-cols-2" : "flex flex-col gap-2"}>
+          <div className={vistaCuadricula ? "grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3" : "flex flex-col gap-2"}>
             {pending.map((item) => (
               <Link
                 key={item.id}
                 href={`/revisiones/${item.id}`}
                 className={vistaCuadricula
-                  ? "flex min-h-24 min-w-0 flex-col justify-between gap-3 rounded-lg border border-system-200 bg-system-50 p-4 transition-colors hover:border-brand-600"
-                  : "flex min-w-0 items-center justify-between gap-4 rounded-lg border border-system-200 bg-system-50 p-4 transition-colors hover:border-brand-600 max-md:items-start max-md:flex-col max-md:gap-2"}
+                  ? "flex h-full min-w-0 flex-col gap-4 rounded-lg border border-system-200 bg-white p-4 shadow-sm transition-colors hover:border-brand-600"
+                  : "flex min-w-0 items-center gap-4 overflow-hidden rounded-lg border border-system-200 bg-white p-3 shadow-sm transition-colors hover:border-brand-600 max-md:items-start max-md:gap-3"}
               >
-                <div className="min-w-0">
-                  <p className="truncate text-[13px] font-semibold text-system-900">{item.participantName}</p>
-                  <p className={`mt-1 text-[12px] leading-5 text-system-600 ${vistaCuadricula ? "line-clamp-2" : "line-clamp-1"}`}>{item.description}</p>
+                {item.archivoBorrado ? (
+                  <div className={vistaCuadricula ? "flex aspect-video w-full items-center justify-center rounded-lg border border-dashed border-system-300 bg-system-100 text-[12px] text-system-500" : "flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-dashed border-system-300 bg-system-100 text-center text-[9px] text-system-500"}>
+                    Archivo eliminado
+                  </div>
+                ) : (
+                  <MiniaturaDeAporte
+                    aporteId={item.id}
+                    tipo={item.fileType}
+                    sinArchivo={item.sinArchivo}
+                    mimeType={item.fileMimeType}
+                    alt={`Aporte de ${item.participantName}`}
+                    className={vistaCuadricula ? "aspect-[4/3] w-full object-cover" : "h-14 w-14 shrink-0"}
+                  />
+                )}
+                <div className={vistaCuadricula ? "flex min-w-0 flex-1 flex-col gap-2" : "flex min-w-0 flex-1 flex-nowrap items-center gap-4 overflow-hidden"}>
+                  <div className={vistaCuadricula ? "flex min-w-0 items-start justify-between gap-2" : "contents"}>
+                    <p className="min-w-0 truncate text-[13px] font-bold text-system-900">{item.participantName}</p>
+                    <Tag tone="warn" className="shrink-0">Pendiente</Tag>
+                  </div>
+                  <div className={vistaCuadricula ? "min-h-20" : "contents"}>
+                    <h3 className="text-[13px] font-extrabold text-system-900">Aporte #{item.id}</h3>
+                    <p className={vistaCuadricula ? "mt-1 line-clamp-2 text-[12px] leading-5 text-system-600" : "min-w-0 flex-1 truncate text-[12px] text-system-600"}>
+                      {item.description || "Sin descripción"}
+                    </p>
+                  </div>
+                  <div className={vistaCuadricula ? "mt-auto grid grid-cols-2 gap-x-3 gap-y-2 border-t border-system-200 pt-3 text-[11px]" : "flex shrink-0 items-center gap-4 whitespace-nowrap text-[11px]"}>
+                    <p><span className="text-system-500">Tipo</span><br /><span className="font-semibold text-system-700">{NOMBRE_DE_TIPO[item.fileType] ?? item.fileType}</span></p>
+                    <p><span className="text-system-500">Enviado</span><br /><span className="font-mono text-system-600">{new Date(item.submittedAt).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" })}</span></p>
+                    <p><span className="text-system-500">Estado</span><br /><span className="font-mono text-system-600">Pendiente de revisión</span></p>
+                    <span className="col-span-2 border-t border-system-100 pt-2 font-semibold text-brand-600">Revisar aporte →</span>
+                  </div>
                 </div>
-                <span className="shrink-0 text-[12.5px] font-bold text-brand-600">Revisar aporte →</span>
               </Link>
             ))}
           </div>

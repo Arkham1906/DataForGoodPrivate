@@ -46,6 +46,7 @@ type AporteAceptado = {
   participantName: string;
   description: string;
   fileType: string;
+  fileMimeType?: string;
   submittedAt: string;
   acceptedAt: string | null;
   sinArchivo: boolean;
@@ -109,7 +110,7 @@ export default function VistaAportesAceptados({
             href={`/revisiones/campanas/${campaignId}/usuarios/${aporte.participantId}/aportes/${aporte.id}`}
             className={vistaCuadricula
               ? "flex h-full min-w-0 flex-col gap-4 rounded-lg border border-system-200 bg-white p-4 shadow-sm transition-colors hover:border-brand-600"
-              : "flex min-w-0 items-center gap-4 rounded-lg border border-system-200 bg-white p-3 shadow-sm transition-colors hover:border-brand-600 max-md:items-start max-md:gap-3"}
+              : "flex min-w-0 items-center gap-4 overflow-hidden rounded-lg border border-system-200 bg-white p-3 shadow-sm transition-colors hover:border-brand-600 max-md:items-start max-md:gap-3"}
           >
             {aporte.archivoBorrado ? (
               <div className={vistaCuadricula ? "flex aspect-video w-full items-center justify-center rounded-lg border border-dashed border-system-300 bg-system-100 text-[12px] text-system-500" : "flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-dashed border-system-300 bg-system-100 text-center text-[9px] text-system-500"}>
@@ -120,22 +121,23 @@ export default function VistaAportesAceptados({
                 aporteId={aporte.id}
                 tipo={aporte.fileType}
                 sinArchivo={aporte.sinArchivo}
+                mimeType={aporte.fileMimeType}
                 alt={`Aporte de ${aporte.participantName}`}
                 className={vistaCuadricula ? "aspect-[4/3] w-full object-cover" : "h-14 w-14 shrink-0"}
               />
             )}
-            <div className="flex min-w-0 flex-1 flex-col gap-2">
-              <div className="flex min-w-0 items-start justify-between gap-2">
+            <div className={vistaCuadricula ? "flex min-w-0 flex-1 flex-col gap-2" : "flex min-w-0 flex-1 flex-nowrap items-center gap-4 overflow-hidden"}>
+              <div className={vistaCuadricula ? "flex min-w-0 items-start justify-between gap-2" : "contents"}>
                 <p className="min-w-0 truncate text-[13px] font-bold text-system-900">{aporte.participantName}</p>
-                <Tag tone="ok">Aceptado</Tag>
+                <Tag tone="ok" className="shrink-0">Aceptado</Tag>
               </div>
-              <div className={vistaCuadricula ? "min-h-20" : "min-w-0"}>
+              <div className={vistaCuadricula ? "min-h-20" : "contents"}>
                 <h2 className="text-[13px] font-extrabold text-system-900">Aporte #{aporte.id}</h2>
-                <p className={vistaCuadricula ? "mt-1 line-clamp-2 text-[12px] leading-5 text-system-600" : "mt-1 line-clamp-1 text-[12px] leading-5 text-system-600"}>
+                <p className={vistaCuadricula ? "mt-1 line-clamp-2 text-[12px] leading-5 text-system-600" : "min-w-0 flex-1 truncate text-[12px] text-system-600"}>
                   {aporte.description || "Sin descripción"}
                 </p>
               </div>
-              <div className={vistaCuadricula ? "mt-auto grid grid-cols-2 gap-x-3 gap-y-2 border-t border-system-200 pt-3 text-[11px]" : "flex shrink-0 items-center gap-4 text-[11px] max-md:flex-wrap max-md:gap-x-3"}>
+              <div className={vistaCuadricula ? "mt-auto grid grid-cols-2 gap-x-3 gap-y-2 border-t border-system-200 pt-3 text-[11px]" : "flex shrink-0 items-center gap-4 whitespace-nowrap text-[11px]"}>
                 <p><span className="text-system-500">Tipo</span><br /><span className="font-semibold text-system-700">{NOMBRE_DE_TIPO[aporte.fileType as keyof typeof NOMBRE_DE_TIPO] ?? aporte.fileType}</span></p>
                 <p><span className="text-system-500">Enviado</span><br /><span className="font-mono text-system-600">{new Date(aporte.submittedAt).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" })}</span></p>
                 <p><span className="text-system-500">Aceptado</span><br /><span className="font-mono text-system-600">{aporte.acceptedAt ? new Date(aporte.acceptedAt).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" }) : "Sin dato"}</span></p>
