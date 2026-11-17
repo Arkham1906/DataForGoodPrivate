@@ -112,7 +112,7 @@ Comprueba además que otro supervisor no puede tomar una campaña ya reservada, 
 4. Envía suficientes aportes para ejercitar las cuotas; no uses archivos personales ni archivos maliciosos.
 
 - [ ] El creador ve los aportes en su bandeja; el participante ve los suyos en `/mis-aportes`.
-- [ ] Imagen, audio y video se muestran/reproducen cuando corresponde; documentos se descargan. El aporte de solo texto no intenta cargar un archivo.
+- [ ] Imagen, audio y video se muestran/reproducen cuando corresponde; el PDF se abre en el navegador y Word, PowerPoint y Excel se descargan. El aporte de solo texto no intenta cargar un archivo.
 - [ ] Al guardar una imagen y un documento, confirma que los archivos se sirven limpios de metadatos; la foto no debe revelar EXIF/GPS.
 - [ ] Prueba un tipo no habilitado y una extensión/contenido inválido: el servidor debe rechazarlo, no solo ocultar el control en la pantalla.
 - [ ] Confirma que el creador no puede aportar a su propia campaña, que un participante baneado no puede aportar y que la cuota no se puede exceder.
