@@ -1837,9 +1837,10 @@ export async function ensureAporteHistorialTables(): Promise<void> {
  *     protegido (cubierto con protector), sin_actividad o suspendido. El día se determina con la zona
  *     horaria de las campañas (SRS 1.5). El estado «provisional» (aportes en su ventana de 72 horas) se
  *     retiró el 2026-11-16: desde la v1.3 el día cuenta al enviar, sin esperar la revisión.
- *   - racha_eventos: protector consumido o devuelto, día consolidado a las 72 horas, día descartado
- *     por un rechazo e interrupción, con el aporte relacionado. clave_idempotencia evita duplicados
- *     ante reintentos (RF-GAM-08).
+ *   - racha_eventos: protector consumido, racha interrumpida y racha recuperada, con el aporte
+ *     relacionado. clave_idempotencia evita duplicados ante reintentos (RF-GAM-08). Los eventos de la
+ *     ventana de 72 horas (protector devuelto, día consolidado y día descartado) se retiraron el
+ *     2026-11-16: desde la v1.3 el día cuenta al enviar y ya no se escribían.
  */
 export async function ensureRachaTables(): Promise<void> {
   await pool.query(`
@@ -1854,7 +1855,7 @@ export async function ensureRachaTables(): Promise<void> {
     CREATE TABLE IF NOT EXISTS racha_eventos (
       id BIGSERIAL PRIMARY KEY,
       usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
-      tipo VARCHAR(25) NOT NULL CHECK (tipo IN ('protector_consumido', 'protector_devuelto', 'dia_consolidado', 'dia_descartado', 'racha_interrumpida')),
+      tipo VARCHAR(25) NOT NULL CHECK (tipo IN ('protector_consumido', 'racha_interrumpida', 'racha_recuperada')),
       dia DATE,
       aporte_id INTEGER REFERENCES aportes(id) ON DELETE SET NULL,
       detalle JSONB NOT NULL DEFAULT '{}'::jsonb,
@@ -1882,6 +1883,7 @@ export async function ensureRachaTables(): Promise<void> {
       END IF;
     END $$;
   `);
+  await pool.query(`DELETE FROM racha_eventos WHERE tipo IN ('protector_devuelto', 'dia_consolidado', 'dia_descartado')`);
 }
 
 /**
@@ -2344,8 +2346,8 @@ function restricciones(): ReadonlyArray<[tabla: string, nombre: string, condicio
     ["sanciones", "sanciones_tipo_check", `tipo IN (${lista(TIPOS_DE_SANCION)})`],
     ["usuarios", "usuarios_avatar_check", `avatar IN ('masculino', 'femenino', 'otro', 'foto')`],
     // racha_recuperada (2026-11-09): un aporte reavivó la racha después de perderla (medalla Fénix, lib/gamificacion/racha.ts).
-    ["racha_eventos", "racha_eventos_tipo_check",
-      `tipo IN ('protector_consumido', 'protector_devuelto', 'dia_consolidado', 'dia_descartado', 'racha_interrumpida', 'racha_recuperada')`],
+    // Sin los eventos de la ventana de 72 horas desde el 2026-11-16 (ensureRachaTables los borra).
+    ["racha_eventos", "racha_eventos_tipo_check", `tipo IN ('protector_consumido', 'racha_interrumpida', 'racha_recuperada')`],
     ["usuarios", "usuarios_baja_destino_aportes_check",
       `baja_destino_aportes IN (${lista(DESTINOS_DE_APORTES.map((d) => d.valor))})`],
   ];

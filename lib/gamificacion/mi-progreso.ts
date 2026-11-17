@@ -50,10 +50,8 @@ const ESTADO_DE_APORTE: Record<string, Pick<AporteDelDia, "estado" | "tono">> = 
 
 const TEXTO_DE_EVENTO: Record<string, string> = {
   protector_consumido: "Protector consumido.",
-  protector_devuelto: "Protector devuelto.",
-  dia_consolidado: "Día consolidado a las 72 horas.",
-  dia_descartado: "Día descartado por el rechazo de un aporte pendiente.",
   racha_interrumpida: "Racha interrumpida.",
+  racha_recuperada: "Racha reavivada.",
 };
 
 type FilaDeAscenso = { rango: number; alcanzado_en: Date; requisitos: unknown };
