@@ -35,7 +35,7 @@ export default function CampaignCard({ campaign, onAbrir, hrefAlAbrir, compact =
   }, "Sin ubicación");
 
   return (
-    <Card className={`flex flex-col ${compact ? "gap-2 p-3 max-md:gap-1.5 max-md:p-2.5 xl:grid xl:grid-cols-[minmax(165px,1.25fr)_minmax(145px,1.15fr)_minmax(135px,1fr)_minmax(145px,1.15fr)_minmax(135px,1fr)_auto] xl:items-center xl:gap-4 xl:p-4" : "gap-3 max-md:gap-2.5 max-md:p-3.5"} ${mobileCompact ? "max-sm:gap-2 max-sm:p-2.5" : ""} ${onAbrir || hrefAlAbrir ? "relative cursor-pointer transition-colors hover:border-brand-600" : ""}`}>
+    <Card className={`flex flex-col ${compact ? "gap-2 p-3 max-md:gap-1.5 max-md:p-2.5 xl:grid xl:grid-cols-[minmax(250px,1.8fr)_minmax(165px,1.15fr)_minmax(135px,1fr)_minmax(145px,1.15fr)_minmax(135px,1fr)_auto] xl:items-center xl:gap-5 xl:p-4" : "gap-3 max-md:gap-2.5 max-md:p-3.5"} ${mobileCompact ? "max-sm:gap-2 max-sm:p-2.5" : ""} ${onAbrir || hrefAlAbrir ? "relative cursor-pointer transition-colors hover:border-brand-600" : ""}`}>
       {hrefAlAbrir ? (
         <Link
           href={hrefAlAbrir}
@@ -88,12 +88,35 @@ export default function CampaignCard({ campaign, onAbrir, hrefAlAbrir, compact =
         </>
       ) : (
         <>
-      <div className="min-w-0">
+      <div className={`min-w-0 ${compact ? "flex items-center gap-3" : ""}`}>
+        {compact && (
+          <div className="h-12 w-20 shrink-0 overflow-hidden rounded-md bg-system-100">
+            {campaign.hasBanner ? (
+              // eslint-disable-next-line @next/next/no-img-element -- el banner se sirve por una API autenticada.
+              <img
+                src={`${BASE_PATH}/api/campanas/${campaign.id}/banner?v=${encodeURIComponent(campaign.bannerVersion ?? "")}`}
+                alt=""
+                loading="lazy"
+                className="h-full w-full object-cover"
+                style={{
+                  objectPosition: `${campaign.bannerPositionX ?? 50}% ${campaign.bannerPositionY ?? 50}%`,
+                  transform: `scale(${campaign.bannerScale ?? 1})`,
+                }}
+              />
+            ) : (
+              <span className="flex h-full items-center justify-center text-[8px] font-semibold uppercase tracking-[0.06em] text-system-400">
+                Sin imagen
+              </span>
+            )}
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
         <h3 className={`line-clamp-2 break-words font-bold text-system-900 ${compact ? "text-[14px]" : "text-[15px]"} ${mobileCompact ? "max-sm:text-[14px]" : ""}`}>
           {campaign.name}
         </h3>
         <div className="mt-1">
           <Tag>{campaign.tematica || campaign.tag || "Sin temática"}</Tag>
+        </div>
         </div>
       </div>
       {!compact && campaign.hasBanner && <div className="aspect-[4/3] overflow-hidden rounded-md bg-system-100"><img src={`${BASE_PATH}/api/campanas/${campaign.id}/banner?v=${encodeURIComponent(campaign.bannerVersion ?? "")}`} alt="" className="h-full w-full object-contain" style={{ objectPosition: `${campaign.bannerPositionX ?? 50}% ${campaign.bannerPositionY ?? 50}%`, transform: `scale(${campaign.bannerScale ?? 1})` }} /></div>}

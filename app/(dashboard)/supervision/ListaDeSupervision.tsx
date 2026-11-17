@@ -238,15 +238,7 @@ export default function ListaDeSupervision() {
               </>
             ) : (
               <>
-                <div className="flex min-w-0 items-center justify-between gap-3 md:pr-8 xl:pr-14">
-                  <div className="min-w-0">
-                    <h2 className="min-w-0 break-words text-[15px] font-extrabold text-system-900">{campaign.name}</h2>
-                    {(campaign.tag || campaign.tematica) && (
-                      <div className="mt-2">
-                        <Tag tone="ok" className="max-w-full truncate whitespace-nowrap">{campaign.tag || campaign.tematica}</Tag>
-                      </div>
-                    )}
-                  </div>
+                <div className="flex min-w-0 items-center justify-start gap-3 md:pr-8 xl:pr-14">
                   {campaign.hasBanner ? (
                     <div className="hidden h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-system-100 md:flex">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -261,6 +253,14 @@ export default function ListaDeSupervision() {
                   ) : (
                     <div className="hidden h-12 w-12 shrink-0 md:block" aria-hidden="true" />
                   )}
+                  <div className="min-w-0">
+                    <h2 className="min-w-0 break-words text-[15px] font-extrabold text-system-900">{campaign.name}</h2>
+                    {(campaign.tag || campaign.tematica) && (
+                      <div className="mt-2">
+                        <Tag tone="ok" className="max-w-full truncate whitespace-nowrap">{campaign.tag || campaign.tematica}</Tag>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="min-w-0 space-y-1 text-[11px] text-system-600">
                   <p className="truncate" title={campaign.creatorName || "Usuario"}>

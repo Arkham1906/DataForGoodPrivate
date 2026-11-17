@@ -21,6 +21,7 @@ import ChecklistsDelAporte from "@/components/aportes/ChecklistsDelAporte";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import { AvisoNoEncontrado } from "@/components/ui/AvisoNoEncontrado";
 import IndicadorDeCarga from "@/components/ui/IndicadorDeCarga";
+import VentanaDeConfirmacion from "@/components/ui/VentanaDeConfirmacion";
 import { InscripcionACampana } from "@/components/ui/AcuerdosDeAporte";
 import { textoDelProposito } from "@/lib/campanas/proposito";
 import SelectorDeArchivo from "@/components/ui/SelectorDeArchivo";
@@ -53,6 +54,7 @@ export default function AportarPage() {
   const [inscrito, setInscrito] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [aporteEnviado, setAporteEnviado] = useState(false);
 
   // En vivo (2026-10-31): si la campaña se pausa, finaliza o se llena, o banean a la persona, la
   // pantalla lo muestra sin recargar. Solo vuelve a leer la campaña y la cuota: lo escrito no se pierde.
@@ -159,7 +161,8 @@ export default function AportarPage() {
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error ?? "No se pudo enviar el aporte");
 
-      router.push(`/mis-aportes/${campaign.id}`);
+      setSubmitting(false);
+      setAporteEnviado(true);
     } catch (cause) {
       setSubmitError(cause instanceof Error ? cause.message : "No se pudo enviar el aporte");
       setSubmitting(false);
@@ -256,6 +259,19 @@ export default function AportarPage() {
           </p>
         </div>
       </form>
+      <VentanaDeConfirmacion
+        abierto={aporteEnviado}
+        titulo="Aporte enviado"
+        ocultarCancelar
+        textoConfirmar="Continuar"
+        textoOcupado="Abriendo…"
+        onCancelar={() => router.push(`/campanas/${campaign.id}`)}
+        onConfirmar={() => router.push(`/campanas/${campaign.id}`)}
+      >
+        <p className="text-[13px] leading-5 text-system-700">
+          Tu aporte fue enviado correctamente y quedó pendiente de revisión.
+        </p>
+      </VentanaDeConfirmacion>
     </div>
   );
 }

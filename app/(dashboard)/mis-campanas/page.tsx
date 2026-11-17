@@ -19,7 +19,6 @@ import Link from "next/link";
 import Button from "@/components/ui/Button";
 import ButtonLink from "@/components/ui/ButtonLink";
 import Tag from "@/components/ui/Tag";
-import RutaDeTematica from "@/components/ui/RutaDeTematica";
 import ProgressBar from "@/components/ui/ProgressBar";
 import type { Campaign, CampaignStatus } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
@@ -28,7 +27,7 @@ import VentanaDeConfirmacion from "@/components/ui/VentanaDeConfirmacion";
 import MenuDeAcciones from "@/components/ui/MenuDeAcciones";
 import CompartirCampana from "@/app/(dashboard)/campanas/[id]/compartir";
 import { textoDeUbicacion } from "@/lib/campanas/ubicacion";
-import { resumenDeIncentivos, textoDelPeriodo } from "@/lib/campanas/especial-reglas";
+import { resumenDeIncentivos } from "@/lib/campanas/especial-reglas";
 import { porcentajeDeMeta } from "@/lib/campanas/meta";
 import { fechaDDMMAAAA, inicioEnElFuturo, ZONA_DE_CAMPANAS } from "@/lib/fecha-de-tepic";
 import { ETIQUETA_DE_CAMPANA } from "@/lib/campanas/sistema-opciones";
@@ -146,6 +145,11 @@ function mapCampaign(row: Record<string, unknown>): CampanaDeMisCampanas {
     creatorName: String(row.creatorName ?? ""),
     name: String(row.name ?? ""),
     description: String(row.description ?? ""),
+    hasBanner: row.hasBanner === true,
+    bannerVersion: row.bannerVersion ? String(row.bannerVersion) : undefined,
+    bannerScale: typeof row.bannerScale === "number" ? row.bannerScale : undefined,
+    bannerPositionX: typeof row.bannerPositionX === "number" ? row.bannerPositionX : undefined,
+    bannerPositionY: typeof row.bannerPositionY === "number" ? row.bannerPositionY : undefined,
     tag: String(row.tag ?? ""),
     tematica: String(row.tematica ?? ""),
     // Subtemáticas (2026-10-27); las pendientes de aprobar se marcan.
@@ -464,7 +468,7 @@ export default function MisCampanasPage() {
           {filtro === "proximas" ? "No tienes campañas próximas a finalizar." : "No tienes campañas en este estado."}
         </p>
       ) : (
-        <div className={vistaCuadricula ? "grid grid-cols-2 gap-2 sm:gap-3" : "flex flex-col gap-2.5 sm:gap-3"}>
+        <div className={vistaCuadricula ? "grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-3" : "flex flex-col gap-2.5 sm:gap-3"}>
           {visibles.map((campaign) => {
             const pct = porcentajeDeMeta(campaign.approvedContributions, campaign.goalContributions);
             const puedeFinalizar = campaign.status === "activa" || campaign.status === "pausada";
@@ -480,7 +484,7 @@ export default function MisCampanasPage() {
                 className={
                   vistaCuadricula
                     ? "relative flex h-full min-w-0 cursor-pointer flex-col rounded-lg border border-system-200 bg-white p-3 transition-colors hover:border-brand-600 max-md:p-2.5"
-                    : "relative flex min-w-0 cursor-pointer flex-col rounded-lg border border-system-200 bg-white p-4 transition-colors hover:border-brand-600 max-md:p-3 md:min-h-[190px] md:grid md:grid-cols-[minmax(0,1.35fr)_minmax(260px,1fr)_auto] md:grid-rows-[56px_minmax(0,1fr)] md:items-stretch md:gap-x-5 md:overflow-hidden lg:h-auto lg:min-h-0 lg:grid-rows-[auto_auto] lg:overflow-visible xl:min-h-[160px] xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] xl:grid-rows-[56px_minmax(0,1fr)] xl:gap-x-0"
+                    : "relative flex min-w-0 cursor-pointer flex-col rounded-lg border border-system-200 bg-white p-4 transition-colors hover:border-brand-600 max-md:p-3 md:min-h-[100px] md:grid md:grid-cols-[96px_minmax(0,1fr)_auto] md:grid-rows-[auto_minmax(0,1fr)] md:items-stretch md:gap-x-4 md:overflow-hidden lg:h-auto lg:min-h-0 lg:grid-rows-[auto_auto] lg:overflow-visible xl:min-h-[100px] xl:grid-cols-[96px_minmax(0,1fr)_auto] xl:grid-rows-[auto_minmax(0,1fr)] xl:gap-x-4"
                 }
               >
                 <Link
@@ -488,7 +492,31 @@ export default function MisCampanasPage() {
                   aria-label={`Ver la información de ${campaign.name}`}
                   className="absolute inset-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
                 />
-                <div className={vistaCuadricula ? "mb-1 flex items-start justify-between gap-2 max-md:h-12 max-md:shrink-0 max-md:overflow-hidden" : "relative mb-1 flex min-w-0 items-center justify-between gap-2 max-md:min-h-8 max-md:shrink-0 md:col-start-1 md:row-start-1 md:mb-0 md:h-[56px] md:min-w-0 md:content-center md:overflow-hidden xl:grid xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center xl:gap-x-3"}>
+                <div
+                  className={vistaCuadricula
+                    ? "mb-3 aspect-[16/10] overflow-hidden rounded-md bg-system-100"
+                    : "mb-3 aspect-[16/10] overflow-hidden rounded-md bg-system-100 md:col-start-1 md:row-span-2 md:row-start-1 md:mb-0 md:aspect-auto md:h-14 md:w-20 md:self-center"
+                  }
+                >
+                  {campaign.hasBanner ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- el banner se sirve por una API autenticada.
+                    <img
+                      src={`${BASE_PATH}/api/campanas/${campaign.id}/banner?v=${encodeURIComponent(campaign.bannerVersion ?? "")}`}
+                      alt=""
+                      loading="lazy"
+                      className="h-full w-full object-cover"
+                      style={{
+                        objectPosition: `${campaign.bannerPositionX ?? 50}% ${campaign.bannerPositionY ?? 50}%`,
+                        transform: `scale(${campaign.bannerScale ?? 1})`,
+                      }}
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-[11px] font-semibold uppercase tracking-[0.08em] text-system-400">
+                      Sin imagen
+                    </div>
+                  )}
+                </div>
+                <div className={vistaCuadricula ? "mb-1 flex items-start justify-between gap-2 max-md:h-12 max-md:shrink-0 max-md:overflow-hidden" : "relative mb-1 flex min-w-0 items-center justify-between gap-2 max-md:min-h-8 max-md:shrink-0 md:col-start-2 md:row-start-1 md:mb-0 md:min-w-0 md:content-center md:overflow-hidden xl:grid xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center xl:gap-x-3"}>
                   <div className={vistaCuadricula ? "contents" : "flex min-w-0 flex-1 items-center gap-2"}>
                     <p className={`line-clamp-2 min-w-0 break-words font-medium leading-4 text-system-900 ${vistaCuadricula ? "text-[12px] max-md:text-[11.5px]" : "text-[13.5px] max-md:flex-1 max-md:truncate max-md:whitespace-nowrap max-md:text-[13px] md:w-auto md:shrink xl:w-[140px] xl:shrink-0"}`} title={campaign.name}>
                       {campaign.name}
@@ -505,8 +533,7 @@ export default function MisCampanasPage() {
                     </Tag>
                   </span>
                 </div>
-                <RutaDeTematica tematica={campaign.tematica || campaign.tag} className={vistaCuadricula ? "mb-1.5 text-[10.5px] max-md:mb-1 max-md:text-[10px]" : "mb-2 md:col-start-1 md:row-start-2 md:mb-0 md:max-h-full md:overflow-hidden"} />
-                <div className={vistaCuadricula ? "min-w-0" : "min-h-0 min-w-0 md:col-start-2 md:row-span-2 md:row-start-1 md:max-h-full md:overflow-hidden md:border-l md:border-system-100 md:pl-5"}>
+                <div className={vistaCuadricula ? "flex min-w-0 flex-1 flex-col justify-center" : "min-h-0 min-w-0 md:col-start-2 md:row-start-2 md:translate-y-10 md:max-h-full md:overflow-hidden md:border-l md:border-system-100 md:pl-4"}>
                 {campaign.status === "rechazada" ? (
                   // Por qué se rechazó (2026-10-22, a pedido del usuario; antes solo en la notificación).
                   // Ocupa el lugar de fechas, barra y números con la misma altura (65 px + margen = los
@@ -532,18 +559,10 @@ export default function MisCampanasPage() {
                   </div>
                 ) : (
                   <>
-                    <p className={`${vistaCuadricula ? "mb-2 font-mono text-[10px] max-md:mb-1.5 max-md:text-[9px]" : "mb-2.5 font-mono text-[11.5px] max-md:text-[10.5px]"} max-md:truncate text-system-600`}>
-                      {campaign.startDate ? fechaDDMMAAAA(campaign.startDate) : "Sin fecha"} al{" "}
-                      {campaign.endDate ? fechaDDMMAAAA(campaign.endDate) : "Sin fecha"}
-                    </p>
                     {/* En revisión no hay barra ni cifras (2026-11-01, a pedido del usuario): todavía no recibe aportes. */}
                     {!sinAportesTodavia(campaign.status) && (
                       <>
                         <ProgressBar pct={pct} tone={campaign.status === "finalizada" ? "ok" : "accent"} conPorcentaje />
-                        <p className={`${vistaCuadricula ? "my-2 font-mono text-[10px] max-md:my-1.5 max-md:text-[9px]" : "my-2.5 font-mono text-[12px] max-md:text-[11px]"} text-system-600 max-md:line-clamp-2 max-md:overflow-hidden`}>
-                          {campaign.approvedContributions} / {campaign.goalContributions} aprobados · {campaign.pendingContributions} aportes pendientes
-                          {campaign.especial && <> · {textoDelPeriodo(campaign.especial)}</>}
-                        </p>
                       </>
                     )}
                     {campaign.especial && (
@@ -566,7 +585,7 @@ export default function MisCampanasPage() {
                 {/* Las campañas activas, pausadas y finalizadas conservan acceso
                     a sus aportes y panel para consultar la información recopilada. */}
                 </div>
-                <div className={vistaCuadricula ? "relative z-10 mt-auto flex flex-nowrap items-center justify-between gap-1 border-t border-system-100 pt-2.5 max-lg:mt-auto max-lg:flex-col max-lg:items-stretch max-lg:gap-2 max-lg:pt-2 lg:flex-row lg:items-center lg:gap-1" : "relative z-10 mt-4 flex flex-nowrap items-center gap-1.5 border-t border-system-100 pt-3 max-md:mt-2 max-md:shrink-0 max-md:flex-col max-md:items-stretch max-md:gap-2 max-md:pt-2 md:col-start-3 md:row-span-2 md:row-start-1 md:my-0 md:flex-col md:items-end md:gap-2 md:self-center md:border-l md:border-t-0 md:pl-5"}>
+                <div className={vistaCuadricula ? "relative z-10 mt-auto flex flex-nowrap items-center justify-between gap-1 border-t border-system-100 pt-2.5 max-lg:mt-auto max-lg:flex-col max-lg:items-stretch max-lg:gap-2 max-lg:pt-2 lg:flex-row lg:items-center lg:gap-1" : "relative z-10 mt-4 flex flex-nowrap items-center gap-1.5 border-t border-system-100 pt-3 max-md:mt-2 max-md:shrink-0 max-md:flex-col max-md:items-stretch max-md:gap-2 max-md:pt-2 md:col-start-3 md:row-span-2 md:row-start-1 md:my-0 md:flex-col md:items-end md:gap-2 md:self-center md:border-l md:border-t-0 md:pl-4"}>
                   <div className={vistaCuadricula ? "flex min-w-0 flex-nowrap items-center gap-0.5 overflow-visible max-lg:w-full max-lg:flex-col max-lg:items-stretch max-lg:gap-1 lg:w-auto lg:flex-row lg:items-center lg:gap-0.5" : "flex items-center gap-1.5 md:order-2 max-md:w-full max-md:flex-col max-md:items-stretch max-md:gap-2"}>
                   {campaign.status === "rechazada" ? (
                     <ButtonLink href={`/mis-campanas/nueva?edit=${campaign.id}`} variant="primary" size="sm" className={vistaCuadricula ? "whitespace-nowrap max-md:px-1 max-md:py-1 max-md:text-[10px] max-lg:w-full lg:w-auto" : "max-md:w-full max-md:justify-center"}>

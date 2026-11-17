@@ -20,6 +20,7 @@ export default function VentanaDeConfirmacion({
   peligro = false,
   confirmarDeshabilitado = false,
   textoCancelar = "Cancelar",
+  ocultarCancelar = false,
   onCancelar,
   onConfirmar,
 }: {
@@ -35,6 +36,7 @@ export default function VentanaDeConfirmacion({
   confirmarDeshabilitado?: boolean;
   /** Texto del botón para cerrar sin hacer nada (p. ej. "Ahora no" en un aviso). */
   textoCancelar?: string;
+  ocultarCancelar?: boolean;
   onCancelar: () => void;
   onConfirmar: () => void;
 }) {
@@ -83,9 +85,11 @@ export default function VentanaDeConfirmacion({
         <div className={VENTANA.cuerpo}>{children}</div>
 
         <div className={VENTANA.pie}>
-          <Button type="button" variant="ghost" onClick={cancelar} disabled={ocupado}>
-            {textoCancelar}
-          </Button>
+          {!ocultarCancelar && (
+            <Button type="button" variant="ghost" onClick={cancelar} disabled={ocupado}>
+              {textoCancelar}
+            </Button>
+          )}
           <Button type="button" variant={peligro ? "danger" : "primary"} onClick={onConfirmar} disabled={ocupado || confirmarDeshabilitado}>
             {ocupado ? (
               <span className="inline-flex items-center gap-2">

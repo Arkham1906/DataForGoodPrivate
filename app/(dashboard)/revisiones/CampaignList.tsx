@@ -222,16 +222,42 @@ export default function CampaignList({ completed = false }: { completed?: boolea
                 </div>
               </Link>
             ) : (
-              <Link key={campaign.id} href={`/revisiones/campanas/${campaign.id}`} className="block rounded-lg border border-system-200 bg-white p-5 shadow-sm transition-colors hover:border-brand-600">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <h3 className="line-clamp-2 text-[16px] font-extrabold text-system-900">{campaign.name}</h3>
-                    <p className="mt-1 text-[12.5px] text-system-600">{campaign.tag || "Sin temática"} · {campaign.participants} participantes</p>
-                    {campaign.description && <p className="mt-3 line-clamp-2 max-w-2xl text-[13px] leading-5 text-system-600">{campaign.description}</p>}
+              <Link key={campaign.id} href={`/revisiones/campanas/${campaign.id}`} className="grid min-w-0 grid-cols-1 items-center gap-3 rounded-lg border border-system-200 bg-white p-4 shadow-sm transition-colors hover:border-brand-600 md:grid-cols-[minmax(240px,1.6fr)_minmax(170px,1fr)_minmax(140px,0.8fr)_minmax(190px,1.1fr)] md:gap-x-5">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="h-12 w-20 shrink-0 overflow-hidden rounded-md bg-system-100">
+                    {campaign.hasBanner ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- el banner se sirve por una API autenticada.
+                      <img
+                        src={`${BASE_PATH}/api/campanas/${campaign.id}/banner?v=${encodeURIComponent(campaign.bannerVersion ?? "")}`}
+                        alt=""
+                        loading="lazy"
+                        className="h-full w-full object-cover"
+                        style={{ objectPosition: `${campaign.bannerPositionX}% ${campaign.bannerPositionY}%`, transform: `scale(${campaign.bannerScale})` }}
+                      />
+                    ) : (
+                      <span className="flex h-full items-center justify-center text-[8px] font-semibold uppercase tracking-[0.06em] text-system-400">Sin imagen</span>
+                    )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    {!completed && <Tag tone="warn">{campaign.pendingContributions} pendientes</Tag>}
-                    <span className="ml-auto text-[12.5px] font-bold text-brand-600">Abrir campaña →</span>
+                  <div className="min-w-0">
+                    <h3 className="line-clamp-2 break-words text-[15px] font-extrabold text-system-900">{campaign.name}</h3>
+                    <div className="mt-1">
+                      <Tag tone="ok" className="max-w-full truncate whitespace-nowrap">{campaign.tag || campaign.tematica || "Sin temÃ¡tica"}</Tag>
+                    </div>
+                  </div>
+                </div>
+                <div className="min-w-0 text-[11px] text-system-600">
+                  <p className="truncate" title={campaign.creatorName || "Usuario"}><span className="font-semibold text-system-700">Creador:</span> {campaign.creatorName || "Usuario"}</p>
+                  <p className="mt-1">{campaign.participants} participantes</p>
+                </div>
+                <div className="min-w-0 text-[11px] text-system-600">
+                  <p className="font-semibold text-system-700">Meta total:</p>
+                  <p className="font-mono">{campaign.goalContributions.toLocaleString("es-MX")} aportes</p>
+                  {!completed && <Tag tone="warn" className="mt-1">{campaign.pendingContributions} pendientes</Tag>}
+                </div>
+                <div className="min-w-0">
+                  <p className="mb-1 text-[11px] font-semibold text-system-700">Tipo de dato:</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {campaign.dataTypes.map((type) => <Tag key={type}>{NOMBRE_DE_TIPO[type as keyof typeof NOMBRE_DE_TIPO] ?? type}</Tag>)}
                   </div>
                 </div>
               </Link>
