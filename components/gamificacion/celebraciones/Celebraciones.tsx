@@ -11,8 +11,12 @@
 //   - La pantalla de aportar avisa con EVENTO_CELEBRAR_RACHA el cambio de racha que devolvió POST /api/aportes; la
 //     racha va primero y después se piden las pendientes (Llama Constante puede subir con el mismo envío).
 // «Siguiente» marca vistas las del paso y pasa al otro; «Cerrar», un enlace o Esc marcan vistas todas las de la cola.
+// Espera su turno (2026-11-17): mientras otra ventana modal de la app esté abierta, o mientras haya en la página un
+// elemento con `data-pausar-celebraciones` (aportar lo pone mientras envía y mientras muestra "Aporte enviado"), la cola
+// se guarda y no se muestra; sale en cuanto se cierra o se quita. Antes la celebración que llegaba en vivo con el mismo
+// envío (rango, medalla) se abría encimada con "Aporte enviado".
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { BASE_PATH } from "@/lib/base-path";
 import { EVENTO_NOTIFICACIONES } from "@/lib/notificaciones/tipos";
 import { TEXTOS } from "@/lib/gamificacion/textos";
@@ -57,6 +61,26 @@ const CLASE_DE_VENTANA: Record<Paso["tipo"], string> = {
   // Teléfono: hoja pegada abajo. Desde sm: ventana centrada.
   medallas: `${MARCO} mt-auto w-full max-h-[92dvh] rounded-t-3xl bg-white text-system-900 shadow-2xl backdrop:bg-system-900/55 sm:m-auto sm:w-[calc(100%-2rem)] sm:max-w-[520px] sm:rounded-2xl`,
 };
+
+/** ¿Hay que esperar? Una pausa pedida por la pantalla, o una ventana modal que no sea de las celebraciones (`:modal` = abierta con showModal()). */
+function hayQueEsperar(): boolean {
+  if (document.querySelector("[data-pausar-celebraciones]")) return true;
+  return Array.from(document.querySelectorAll("dialog")).some((ventana) => {
+    if (ventana.classList.contains("celebracion")) return false;
+    try {
+      return ventana.matches(":modal");
+    } catch {
+      return ventana.open;
+    }
+  });
+}
+
+/** Avisa cuando se abre, se cierra o se quita del DOM cualquier <dialog>, o cuando se pone o quita una pausa. */
+function suscribirAVentanas(avisar: () => void) {
+  const observador = new MutationObserver(avisar);
+  observador.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["open", "data-pausar-celebraciones"] });
+  return () => observador.disconnect();
+}
 
 /** El <dialog> de un paso: se abre como modal antes de pintarse (sin parpadeo entre pasos) y enfoca su botón principal. */
 function Ventana({ tipo, alEscapar, children }: { tipo: Paso["tipo"]; alEscapar: () => void; children: ReactNode }) {
@@ -168,8 +192,11 @@ export default function Celebraciones() {
     terminar();
   }, [terminar]);
 
+  const enEspera = useSyncExternalStore(suscribirAVentanas, hayQueEsperar, () => false);
+
   const actual = cola[0];
-  if (!actual) return null;
+  // En espera, la cola se guarda (no se pierde ni se marca vista).
+  if (!actual || enEspera) return null;
   const total = hechos + cola.length;
   const paso = total > 1 ? T.paso(hechos + 1, total) : null;
   const siguiente = textoDeSiguiente(cola[1]);

@@ -184,10 +184,12 @@ export default function AportarPage() {
     if (campaign) router.push(`/campanas/${campaign.id}`);
   }
 
-  const canSubmit = inscrito &&!quotaReached && !todoLleno && !sinTiposPropios && (Boolean(file) || archivoEsOpcional(tipos)) && camposDelAporteCompletos(soloTexto, description, texto) && !submitting;
+  const canSubmit = inscrito && !quotaReached && !todoLleno && !sinTiposPropios && (Boolean(file) || archivoEsOpcional(tipos)) && camposDelAporteCompletos(soloTexto, description, texto) && !submitting;
 
   return (
-    <div className="mx-auto max-w-3xl">
+    // Mientras se envía y mientras está "Aporte enviado", las celebraciones que llegan en vivo con el mismo envío
+    // (rango, medalla) esperan a que se salga de aquí (components/gamificacion/celebraciones/Celebraciones.tsx).
+    <div className="mx-auto max-w-3xl" data-pausar-celebraciones={submitting || aporteEnviado ? "" : undefined}>
       <h1 className="text-xl font-extrabold text-system-900">Nuevo aporte</h1>
       <p className="mb-6 text-[13px] text-system-600">
         {campaign.name} · aporte {Math.min(submittedCount + 1, campaign.quotaPerUser)}{" "}
