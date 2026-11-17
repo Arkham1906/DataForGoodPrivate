@@ -117,7 +117,7 @@ export default function BotonPantallaCompletaDeAporte({
     } catch (error) {
       if (!abortController.signal.aborted && solicitud === solicitudRef.current) {
         console.error("Error preparando la vista previa local del archivo", error);
-        setErrorDocumento("No se pudo abrir la vista previa. Puedes descargar el archivo para abrirlo con una aplicación compatible.");
+        setErrorDocumento("No se pudo abrir la vista previa del archivo.");
       }
     } finally {
       if (solicitud === solicitudRef.current) setCargandoDocumento(false);
@@ -209,15 +209,6 @@ export default function BotonPantallaCompletaDeAporte({
           >
             Cerrar
           </button>
-          {tipo === "documento" && (
-            <a
-              href={src}
-              download
-              className="absolute right-24 top-2 z-10 rounded-pill bg-system-800 px-4 py-2 text-sm font-semibold text-white hover:bg-system-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-            >
-              Descargar original
-            </a>
-          )}
           {abierto && (sinArchivo ? (
             <div className="max-h-full w-full max-w-3xl overflow-y-auto rounded-lg bg-white p-6 text-system-900">
               <h2 className="mb-3 text-lg font-bold">Aporte de solo texto</h2>

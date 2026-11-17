@@ -1617,11 +1617,13 @@ paths:
       - $ref: "#/components/parameters/Id"
     get:
       tags: [Aportes]
-      summary: Descargar el archivo del aporte
+      summary: Ver el archivo del aporte
       description: |
-        Quien aportó, el creador o un revisor aceptado. Fotos, video, audio y texto se muestran en el
-        navegador; PDF y Word se descargan (`Content-Disposition: attachment`). Acepta `Range`
-        (un solo rango) para que video y audio se puedan adelantar.
+        Quien aportó, el creador o un revisor aceptado. Fotos, video, audio, texto y PDF se muestran en el
+        navegador (`Content-Disposition: inline`). Word, PowerPoint y Excel responden con
+        `Content-Disposition: attachment`, pero la app los lee con este endpoint y los muestra en su
+        vista previa: en pantalla todo se visualiza. Acepta `Range` (un solo rango) para que video y
+        audio se puedan adelantar.
       parameters:
         - name: Range
           in: header
