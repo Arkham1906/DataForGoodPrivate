@@ -15,6 +15,21 @@ const nfDecimal = new Intl.NumberFormat("es-MX", { minimumFractionDigits: 1, max
 const d = (valor: number) => nfDecimal.format(valor);
 const plural = (cuenta: number, uno: string, varios: string) => (cuenta === 1 ? uno : varios);
 
+/** Medallas: unidad de cada medida (campo `mide` del catálogo), en singular y plural. */
+const UNIDADES_DE_MEDALLA: Record<string, readonly [string, string]> = {
+  aportes_aceptados: ["aporte aceptado", "aportes aceptados"],
+  aportes_excepcionales: ["aporte de 5★", "aportes de 5★"],
+  racha_maxima: ["día de racha máxima", "días de racha máxima"],
+  campanas_completadas: ["campaña completada", "campañas completadas"],
+  campanas_distintas: ["campaña distinta", "campañas distintas"],
+  exp_total: ["EXP", "EXP"],
+  tipos_distintos: ["tipo de dato", "tipos de dato"],
+  aceptados_consecutivos: ["aceptado seguido", "aceptados seguidos"],
+  rachas_recuperadas: ["racha reavivada", "rachas reavivadas"],
+  aportes_en_potenciador: ["aporte en un potenciador", "aportes en un potenciador"],
+  tematicas_distintas: ["temática distinta", "temáticas distintas"],
+};
+
 export const TEXTOS = {
   mapaDeAportes: {
     titulo: "Tu mapa de aportes",
@@ -293,5 +308,105 @@ export const TEXTOS = {
     comoMisiones: "Las misiones dan una cantidad fija de EXP.",
     comoDescuento: "Si un reporte rechaza un aporte aceptado, se descuenta su EXP. Tu rango y tus medallas no cambian.",
     comoPie: "Valores vigentes de la plataforma. Si cambian, lo ya ganado no se recalcula.",
+  },
+  /** Pestaña Medallas de Mi progreso (2026-11-15; lienzo aprobado el mismo día). */
+  medallas: {
+    titulo: "Medallas",
+    intro: "Evolucionan cuando crece lo que miden. No dan EXP ni cuentan para tu rango, y un nivel alcanzado es tuyo para siempre.",
+    introNueva: "Tu primer aporte aceptado empieza a llenar varias a la vez.",
+    conNivel: "medallas con nivel",
+    niveles: "niveles desbloqueados",
+    deTotal: (total: number) => ` de ${n(total)}`,
+    cerca: "Más cerca de subir",
+    faltanPara: (faltan: number, nivel: string) => `Faltan ${n(faltan)} para ${nivel}`,
+    grupos: { hitos: "Medallas de hitos", adicionales: "Medallas adicionales" } as Record<string, string>,
+    resumenDeGrupo: (con: number, total: number) => `${n(con)} de ${n(total)} con nivel`,
+
+    sinNivel: "Sin desbloquear",
+    /** «Arbusto · nivel 3 de 5»; si el nivel no tiene nombre propio («Nivel 3»), solo «Nivel 3 de 5». */
+    nivelDe: (nombre: string, nivel: number, total: number) =>
+      /^nivel \d+$/i.test(nombre.trim()) ? `Nivel ${n(nivel)} de ${n(total)}` : `${nombre} · nivel ${n(nivel)} de ${n(total)}`,
+    nivelMaximo: (nombre: string) => `Nivel máximo · ${nombre}`,
+    para: (nivel: string) => `Para ${nivel}`,
+    completa: "Completaste todos sus niveles",
+    avance: (valor: number, meta: number) => `${n(valor)} de ${n(meta)}`,
+    tarjetaAria: (nombre: string, estado: string, siguiente: string, avance: string) =>
+      `${nombre}, ${estado}. ${siguiente}: ${avance}. Abre su ficha.`,
+
+    fichaPosicion: (posicion: number, total: number) => `${n(posicion)} de ${n(total)}`,
+    anterior: (nombre: string) => `Ver la medalla anterior: ${nombre}`,
+    siguiente: (nombre: string) => `Ver la medalla siguiente: ${nombre}`,
+    cerrar: "Cerrar",
+    valorHoy: (unidad: string, faltan: number | null, nivel: string | null) =>
+      `${unidad}.` + (faltan !== null && nivel ? ` Faltan ${n(faltan)} para ${nivel}.` : " Ya tienes todos sus niveles."),
+    nivelesTitulo: "Niveles",
+    umbral: (valor: number, unidad: string) => `${n(valor)} ${unidad}`,
+    alcanzadoEl: (fecha: string) => `Alcanzado el ${fecha}`,
+    alcanzado: "Alcanzado",
+    porAlcanzar: "Por alcanzar",
+    permanencia: "No perderas nunca un nivel de medalla una vez obtenido",
+    notas: {
+      aceptados_consecutivos:
+        "Cuenta tu mejor secuencia de aportes aceptados seguidos, ordenados por hora de envío. Si un rechazo llega tarde la cifra puede bajar, pero el nivel que ya alcanzaste se queda.",
+    } as Record<string, string>,
+    /** Unidad de lo que mide cada medalla, en singular o plural (campo `mide` del catálogo); "" si no la conoce. */
+    unidad: (mide: string | null, cantidad: number): string => {
+      const u = mide ? UNIDADES_DE_MEDALLA[mide] : undefined;
+      return u ? plural(cantidad, u[0], u[1]) : "";
+    },
+
+    error: "Todavía no podemos mostrar tus medallas. Intenta de nuevo en unos minutos.",
+    cargando: "Cargando tus medallas…",
+  },
+  /** Celebraciones de rango, medalla y racha (2026-11-16; lienzo aprobado el mismo día). Reconocen, no presionan (RF-GAM-62). */
+  celebraciones: {
+    paso: (actual: number, total: number) => `${n(actual)} de ${n(total)}`,
+    cerrar: "Cerrar",
+    continuar: "Continuar",
+    listo: "Listo",
+    /** Botón que pasa al siguiente paso de la cola. */
+    siguiente: { racha: "Siguiente: tu racha", rango: "Siguiente: tu nuevo rango", medallas: (cuantas: number, primera: string) => (cuantas === 1 ? `Siguiente: ${primera}` : `Siguiente: ${n(cuantas)} medallas`) },
+
+    rangoEyebrow: (numero: number, total: number) => `Nuevo rango · ${n(numero)} de ${n(total)}`,
+    rangosEyebrow: (cuantos: number, numero: number, total: number) => `Subiste ${n(cuantos)} rangos · ${n(numero)} de ${n(total)}`,
+    rangoTexto: "Es tuyo para siempre: no se pierde por inactividad ni por perder la racha.",
+    rangosTexto: (numero: number) => `Llegaste al rango ${n(numero)}. Todos son tuyos para siempre.`,
+    intermedio: (numero: number, nombre: string) => `También pasaste por el rango ${n(numero)} · ${nombre}`,
+    intermedioDetalle: "Se alcanzaron juntos.",
+    etapa: (etapa: number) => `Etapa ${n(etapa)} de tu avatar`,
+    etapaDetalle: "Tu avatar evolucionó y no retrocede.",
+    insignia: (rango: number) => `Insignia del rango ${n(rango)}`,
+    insigniaDetalle: "Ya está en tu trayectoria.",
+    coleccionable: (nombre: string) => `Coleccionable: ${nombre}`,
+    coleccionableDetalle: "Ya está en tu inventario.",
+    revelado: (numero: number, nombre: string) => `Se reveló el rango ${n(numero)} · ${nombre}`,
+    reveladoDetalle: (avistado: number | null) =>
+      "Es tu siguiente rango: ya puedes ver su avance." + (avistado ? ` Y avistaste el ${n(avistado)}.` : ""),
+    ultimoRango: "Completaste la trayectoria",
+    ultimoRangoDetalle: "Es el último rango. Nadie te lo quita.",
+    verTrayectoria: "Ver tu trayectoria",
+
+    medallaEyebrow: "Nuevo nivel de medalla",
+    medallaPrimera: "Tu primer nivel de esta medalla",
+    medallaSalto: (cuantos: number) => `Subiste ${n(cuantos)} niveles de una vez`,
+    medallaFuego: "Tu racha alimentó una medalla",
+    medallasEyebrow: "Nuevos niveles de medalla",
+    medallasTitulo: (cuantas: number) => `Subiste en ${n(cuantas)} medallas`,
+    pasastePor: (nombres: readonly string[]) => `Pasaste por ${nombres.join(", ")}.`,
+    medallaNota: "Las medallas no dan EXP ni cuentan para tu rango. Un nivel alcanzado no se pierde.",
+    verMedallas: "Ver tus medallas",
+
+    racha: {
+      alarga: { titulo: (dias: number) => `¡Racha de ${n(dias)} días!`, texto: "Tu primer aporte de hoy la mantuvo encendida." },
+      empieza: { titulo: () => "Encendiste tu racha", texto: "Cada día con al menos un aporte la hace crecer." },
+      reaviva: { titulo: () => "Reavivaste tu racha", texto: "Volvió a encenderse. Tu rango y tus medallas siguieron intactos." },
+    },
+    numeroDeRacha: (dias: number) => `${n(dias)} ${plural(dias, "día", "días")} de racha.`,
+    semana: "Últimos 7 días",
+    /** Inicial de cada día, de domingo a sábado (Date.getUTCDay). */
+    inicialesDeDias: ["D", "L", "M", "M", "J", "V", "S"] as readonly string[],
+    nombresDeDias: ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"] as readonly string[],
+    dia: (nombre: string, conAporte: boolean, hoy: boolean) =>
+      `${hoy ? "Hoy" : nombre[0].toUpperCase() + nombre.slice(1)}, ${conAporte ? "con aporte" : "sin aporte"}`,
   },
 } as const;

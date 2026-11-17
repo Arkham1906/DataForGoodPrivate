@@ -1778,71 +1778,45 @@ export async function ensureRangoAscensosTable(): Promise<void> {
     -- Celebraciones que faltan por mostrar al volver a la aplicación.
     CREATE INDEX IF NOT EXISTS rango_ascensos_pendientes_idx ON rango_ascensos (usuario_id) WHERE celebracion_vista_en IS NULL;
     CREATE INDEX IF NOT EXISTS rango_ascensos_rango_idx ON rango_ascensos (rango);
+    -- Celebraciones (2026-11-16): como en medalla_ascensos, lo de antes de esa fecha no se celebra de golpe.
+    UPDATE rango_ascensos SET celebracion_vista_en = alcanzado_en
+      WHERE celebracion_vista_en IS NULL AND alcanzado_en < TIMESTAMPTZ '2026-11-16 00:00:00-07';
   `);
 }
 
 /**
- * Historial de moderación de aportes (RF-GAM-27, 72; RA-GAM-15) y de calidad (RF-GAM-71, 65).
- *   - aporte_eventos: enviado, aceptado, rechazado y cancelado, con la hora del servidor. Resuelve la
- *     ventana de 72 horas y las decisiones fuera de orden. aporte_id NO es llave foránea a propósito:
- *     borrar un aporte pendiente es su "cancelación" (propuesta P8) y el evento tiene que sobrevivir.
- *     Por eso guarda también el tipo y cuándo se envió. Los aportes anónimos no se registran.
- *   - aporte_calidad_historial: cada asignación y corrección de calidad, con valor anterior, quién
- *     (un REV, o el creador con Buena fija), motivo (obligatorio al corregir) y fecha.
+ * Retiro de aporte_eventos y aporte_calidad_historial (2026-11-16, aprobado por el responsable). Nunca se usaron:
+ *   - aporte_eventos era la bitácora enviado / aceptado / rechazado / cancelado para la ventana de 72 horas
+ *     (RF-GAM-27, 72), retirada en la v1.3: el día de racha cuenta al enviar.
+ *   - aporte_calidad_historial guardaba asignaciones y correcciones de calidad con la escala buena / excelente /
+ *     excepcional (RF-GAM-13, 65, 71); la corrección se retiró en la v1.2 y la calidad son estrellas desde el 3 nov.
+ * Una bitácora de moderación futura se diseñaría de nuevo con los estados y las estrellas vigentes.
+ * Sin CASCADE: si algo dependiera de ellas, el arranque lo diría en vez de borrarlo en silencio.
  */
-export async function ensureAporteHistorialTables(): Promise<void> {
+export async function retirarTablasDeHistorialDeAportes(): Promise<void> {
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS aporte_eventos (
-      id BIGSERIAL PRIMARY KEY,
-      aporte_id INTEGER NOT NULL,
-      usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
-      campana_id INTEGER REFERENCES campanas(id) ON DELETE SET NULL,
-      evento VARCHAR(12) NOT NULL CHECK (evento IN ('enviado', 'aceptado', 'rechazado', 'cancelado')),
-      tipo_aporte VARCHAR(20) CHECK (tipo_aporte IN ('texto', 'foto', 'video', 'audio', 'documento')),
-      enviado_en TIMESTAMPTZ NOT NULL,
-      decidido_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
-      motivo TEXT,
-      creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-    CREATE INDEX IF NOT EXISTS aporte_eventos_aporte_idx ON aporte_eventos (aporte_id, creado_en);
-    CREATE INDEX IF NOT EXISTS aporte_eventos_usuario_idx ON aporte_eventos (usuario_id, enviado_en);
-    CREATE INDEX IF NOT EXISTS aporte_eventos_campana_idx ON aporte_eventos (campana_id);
-    CREATE INDEX IF NOT EXISTS aporte_eventos_decidido_por_idx ON aporte_eventos (decidido_por);
-    -- Un aporte se envía una sola vez.
-    CREATE UNIQUE INDEX IF NOT EXISTS aporte_eventos_enviado_unico_idx ON aporte_eventos (aporte_id) WHERE evento = 'enviado';
-
-    CREATE TABLE IF NOT EXISTS aporte_calidad_historial (
-      id SERIAL PRIMARY KEY,
-      aporte_id INTEGER NOT NULL REFERENCES aportes(id) ON DELETE CASCADE,
-      calidad_anterior VARCHAR(12) CHECK (calidad_anterior IN ('buena', 'excelente', 'excepcional')),
-      calidad_nueva VARCHAR(12) NOT NULL CHECK (calidad_nueva IN ('buena', 'excelente', 'excepcional')),
-      origen VARCHAR(15) NOT NULL CHECK (origen IN ('rev', 'admin_campana')),
-      asignada_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
-      motivo TEXT,
-      creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      -- Corregir (hay valor anterior) exige motivo (RF-GAM-13).
-      CHECK (calidad_anterior IS NULL OR length(trim(COALESCE(motivo, ''))) > 0)
-    );
-    CREATE INDEX IF NOT EXISTS aporte_calidad_historial_aporte_idx ON aporte_calidad_historial (aporte_id, creado_en);
-    CREATE INDEX IF NOT EXISTS aporte_calidad_historial_asignada_por_idx ON aporte_calidad_historial (asignada_por);
+    DROP TABLE IF EXISTS aporte_eventos;
+    DROP TABLE IF EXISTS aporte_calidad_historial;
   `);
 }
 
 /**
  * Racha por día y sus eventos (RF-GAM-85, 86).
- *   - racha_dias: estado de cada día para el calendario: confirmado, provisional (aportes pendientes
- *     dentro de su ventana de 72 horas), protegido (cubierto con protector), sin_actividad o
- *     suspendido. El día se determina con la zona horaria del servidor (SRS 1.5).
- *   - racha_eventos: protector consumido o devuelto, día consolidado a las 72 horas, día descartado
- *     por un rechazo e interrupción, con el aporte relacionado. clave_idempotencia evita duplicados
- *     ante reintentos (RF-GAM-08).
+ *   - racha_dias: estado de cada día para el calendario: confirmado (con al menos un aporte enviado),
+ *     protegido (cubierto con protector), sin_actividad o suspendido. El día se determina con la zona
+ *     horaria de las campañas (SRS 1.5). El estado «provisional» (aportes en su ventana de 72 horas) se
+ *     retiró el 2026-11-16: desde la v1.3 el día cuenta al enviar, sin esperar la revisión.
+ *   - racha_eventos: protector consumido, racha interrumpida y racha recuperada, con el aporte
+ *     relacionado. clave_idempotencia evita duplicados ante reintentos (RF-GAM-08). Los eventos de la
+ *     ventana de 72 horas (protector devuelto, día consolidado y día descartado) se retiraron el
+ *     2026-11-16: desde la v1.3 el día cuenta al enviar y ya no se escribían.
  */
 export async function ensureRachaTables(): Promise<void> {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS racha_dias (
       usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
       dia DATE NOT NULL,
-      estado VARCHAR(15) NOT NULL CHECK (estado IN ('confirmado', 'provisional', 'protegido', 'sin_actividad', 'suspendido')),
+      estado VARCHAR(15) NOT NULL CHECK (estado IN ('confirmado', 'protegido', 'sin_actividad', 'suspendido')),
       actualizado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       PRIMARY KEY (usuario_id, dia)
     );
@@ -1850,7 +1824,7 @@ export async function ensureRachaTables(): Promise<void> {
     CREATE TABLE IF NOT EXISTS racha_eventos (
       id BIGSERIAL PRIMARY KEY,
       usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
-      tipo VARCHAR(25) NOT NULL CHECK (tipo IN ('protector_consumido', 'protector_devuelto', 'dia_consolidado', 'dia_descartado', 'racha_interrumpida')),
+      tipo VARCHAR(25) NOT NULL CHECK (tipo IN ('protector_consumido', 'racha_interrumpida', 'racha_recuperada')),
       dia DATE,
       aporte_id INTEGER REFERENCES aportes(id) ON DELETE SET NULL,
       detalle JSONB NOT NULL DEFAULT '{}'::jsonb,
@@ -1860,6 +1834,25 @@ export async function ensureRachaTables(): Promise<void> {
     CREATE INDEX IF NOT EXISTS racha_eventos_usuario_idx ON racha_eventos (usuario_id, creado_en DESC);
     CREATE INDEX IF NOT EXISTS racha_eventos_aporte_idx ON racha_eventos (aporte_id);
   `);
+  // Retiro de «provisional» (2026-11-16). Un día provisional tenía aportes enviados, y desde la v1.3 eso basta para
+  // que cuente: pasa a confirmado, como ya lo trataba el cálculo de la racha. Después se quita el valor de la
+  // restricción. Solo corre mientras la restricción vieja exista.
+  await pool.query(`
+    DO $$
+    BEGIN
+      IF EXISTS (
+        SELECT 1 FROM pg_constraint
+          WHERE conrelid = 'racha_dias'::regclass AND contype = 'c'
+            AND pg_get_constraintdef(oid) LIKE '%provisional%'
+      ) THEN
+        UPDATE racha_dias SET estado = 'confirmado', actualizado_en = NOW() WHERE estado = 'provisional';
+        ALTER TABLE racha_dias DROP CONSTRAINT IF EXISTS racha_dias_estado_check;
+        ALTER TABLE racha_dias ADD CONSTRAINT racha_dias_estado_check
+          CHECK (estado IN ('confirmado', 'protegido', 'sin_actividad', 'suspendido'));
+      END IF;
+    END $$;
+  `);
+  await pool.query(`DELETE FROM racha_eventos WHERE tipo IN ('protector_devuelto', 'dia_consolidado', 'dia_descartado')`);
 }
 
 /**
@@ -2117,6 +2110,10 @@ export async function ensureMedallaNivelesTables(): Promise<void> {
       FOREIGN KEY (medalla_id, nivel) REFERENCES medalla_niveles (medalla_id, nivel)
     );
     CREATE INDEX IF NOT EXISTS medalla_ascensos_pendientes_idx ON medalla_ascensos (usuario_id) WHERE celebracion_vista_en IS NULL;
+    -- Celebraciones (2026-11-16): lo alcanzado antes de que existieran no se celebra de golpe al entrar. Solo toca
+    -- filas de antes de esa fecha: repetirlo no cambia nada.
+    UPDATE medalla_ascensos SET celebracion_vista_en = alcanzado_en
+      WHERE celebracion_vista_en IS NULL AND alcanzado_en < TIMESTAMPTZ '2026-11-16 00:00:00-07';
   `);
   await sincronizarMedallas();
 }
@@ -2163,12 +2160,20 @@ async function sincronizarMedalla(m: MedallaDelCatalogo, orden: number): Promise
     [m.clave, m.nombre, m.descripcion, m.mide, m.grupo, orden, JSON.stringify({ mide: m.mide }), m.activa],
   );
   await pool.query(
-    `INSERT INTO medalla_niveles (medalla_id, nivel, nombre, umbral)
-     SELECT md.id, n.nivel, n.nombre, n.umbral
-       FROM medallas md, unnest($2::smallint[], $3::text[], $4::int[]) AS n(nivel, nombre, umbral)
+    `INSERT INTO medalla_niveles (medalla_id, nivel, nombre, umbral, ilustracion_path)
+     SELECT md.id, n.nivel, n.nombre, n.umbral, n.ilustracion
+       FROM medallas md, unnest($2::smallint[], $3::text[], $4::int[], $5::text[]) AS n(nivel, nombre, umbral, ilustracion)
       WHERE md.clave = $1
-     ON CONFLICT (medalla_id, nivel) DO UPDATE SET nombre = EXCLUDED.nombre, umbral = EXCLUDED.umbral`,
-    [m.clave, m.niveles.map((_, i) => i + 1), m.niveles.map((n) => n.nombre), m.niveles.map((n) => n.umbral)],
+     ON CONFLICT (medalla_id, nivel) DO UPDATE SET
+       nombre = EXCLUDED.nombre, umbral = EXCLUDED.umbral, ilustracion_path = EXCLUDED.ilustracion_path`,
+    [
+      m.clave,
+      m.niveles.map((_, i) => i + 1),
+      m.niveles.map((n) => n.nombre),
+      m.niveles.map((n) => n.umbral),
+      // Archivo de la ilustración cuando no sigue «<nivel>-<nombre>» (lib/gamificacion/recursos.ts); NULL si sí.
+      m.niveles.map((n) => n.ilustracion ?? null),
+    ],
   );
   const sobrantes = await pool.query<{ nivel: number; alcanzado: boolean }>(
     `SELECT n.nivel, EXISTS (SELECT 1 FROM medalla_ascensos a WHERE a.medalla_id = n.medalla_id AND a.nivel = n.nivel) AS alcanzado
@@ -2272,7 +2277,7 @@ export async function ensureGamificacion(): Promise<void> {
   await ensureUsuarioProgresoTable();
   await ensureUsuarioContadoresTable();
   await ensureRangoAscensosTable();
-  await ensureAporteHistorialTables();
+  await retirarTablasDeHistorialDeAportes();
   await ensureRachaTables();
   await ensurePotenciadoresTable(); // antes de exp_movimientos
   await ensureObjetosTables();
@@ -2310,8 +2315,8 @@ function restricciones(): ReadonlyArray<[tabla: string, nombre: string, condicio
     ["sanciones", "sanciones_tipo_check", `tipo IN (${lista(TIPOS_DE_SANCION)})`],
     ["usuarios", "usuarios_avatar_check", `avatar IN ('masculino', 'femenino', 'otro', 'foto')`],
     // racha_recuperada (2026-11-09): un aporte reavivó la racha después de perderla (medalla Fénix, lib/gamificacion/racha.ts).
-    ["racha_eventos", "racha_eventos_tipo_check",
-      `tipo IN ('protector_consumido', 'protector_devuelto', 'dia_consolidado', 'dia_descartado', 'racha_interrumpida', 'racha_recuperada')`],
+    // Sin los eventos de la ventana de 72 horas desde el 2026-11-16 (ensureRachaTables los borra).
+    ["racha_eventos", "racha_eventos_tipo_check", `tipo IN ('protector_consumido', 'racha_interrumpida', 'racha_recuperada')`],
     ["usuarios", "usuarios_baja_destino_aportes_check",
       `baja_destino_aportes IN (${lista(DESTINOS_DE_APORTES.map((d) => d.valor))})`],
   ];

@@ -304,9 +304,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Ya alcanzaste tu cuota en esta campaña" }, { status: 400 });
     }
 
-    await actualizarRacha(user.id);
+    // La racha cambia al enviar; si crece, la pantalla la celebra (2026-11-16, claude/pantallas-v12/celebracion-propuesta.md).
+    const racha = await actualizarRacha(user.id);
     await actualizarMisiones(user.id);
-    return NextResponse.json({ message: "Aporte enviado", data: mapAporte(insertado.fila) }, { status: 201 });
+    return NextResponse.json({ message: "Aporte enviado", data: mapAporte(insertado.fila), racha }, { status: 201 });
   } catch (error) {
     console.error("Error creando aporte", error);
     return NextResponse.json({ error: "No se pudo enviar el aporte" }, { status: 500 });

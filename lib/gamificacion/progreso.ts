@@ -61,7 +61,7 @@ export type FilaDeRango = {
 
 const NOMBRES_DE_DIA = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
 const LETRAS_DE_DIA = ["D", "L", "M", "M", "J", "V", "S"];
-const ESTADOS_DE_DIA = new Set<string>(["confirmado", "provisional", "protegido", "sin_actividad", "suspendido"]);
+const ESTADOS_DE_DIA = new Set<string>(["confirmado", "protegido", "sin_actividad", "suspendido"]);
 
 export function requisitosDe(r: FilaDeRango): ValoresPorRequisito {
   return {

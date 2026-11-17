@@ -24,11 +24,6 @@ type Estado = DiaDelCalendario["estado"];
 
 const ESTADOS: Record<Estado, { nombre: string; celda: string; tono: "default" | "ok" | "warn" | "info" }> = {
   confirmado: { nombre: "Con actividad", celda: "bg-success-700 text-white", tono: "ok" },
-  provisional: {
-    nombre: "Provisional",
-    celda: "border border-warning-500 bg-[repeating-linear-gradient(135deg,var(--color-warning-100)_0_4px,var(--color-warning-300)_4px_6px)] text-warning-900",
-    tono: "warn",
-  },
   protegido: { nombre: "Con protector", celda: "bg-brand-200 text-brand-800", tono: "info" },
   sin_actividad: { nombre: "Sin actividad", celda: "border border-system-200 bg-white text-system-600", tono: "default" },
   suspendido: { nombre: "Suspendido", celda: "bg-system-300 text-system-800", tono: "default" },
@@ -58,7 +53,7 @@ function fechaLarga(dia: string): string {
 }
 
 function textoDelDia(d: DiaDelCalendario): string {
-  if (d.estado === "confirmado" || d.estado === "provisional") return "Enviaste al menos un aporte: el día cuenta para tu racha, sea cual sea el resultado de su revisión.";
+  if (d.estado === "confirmado") return "Enviaste al menos un aporte: el día cuenta para tu racha, sea cual sea el resultado de su revisión.";
   if (d.estado === "protegido") return "Se usó un protector y la racha siguió.";
   if (d.estado === "suspendido") return "Tu racha estuvo suspendida este día.";
   if (d.hoy) return "Envía un aporte hoy para que el día cuente.";

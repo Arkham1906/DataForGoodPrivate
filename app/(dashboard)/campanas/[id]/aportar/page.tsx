@@ -9,12 +9,13 @@
 // sin inscribirse (p. ej. desde /c/[token]), arriba del formulario van las casillas (ui/AcuerdosDeAporte).
 // Con ?enlace=<token> (viene de /c/[token]) lo reenvía para atribuir el aporte a ese enlace.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Button from "@/components/ui/Button";
 import CamposDelAporte, { camposDelAporteCompletos } from "@/components/aportes/CamposDelAporte";
 import type { Campaign } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
+import { EVENTO_CELEBRAR_RACHA } from "@/lib/gamificacion/celebraciones-tipos";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 import { respuestasValidas, seccionesParaElAporte } from "@/lib/campanas/checklist";
 import ChecklistsDelAporte from "@/components/aportes/ChecklistsDelAporte";
@@ -55,6 +56,7 @@ export default function AportarPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [aporteEnviado, setAporteEnviado] = useState(false);
+  const rachaPorCelebrar = useRef<unknown>(null);
 
   // En vivo (2026-10-31): si la campaña se pausa, finaliza o se llena, o banean a la persona, la
   // pantalla lo muestra sin recargar. Solo vuelve a leer la campaña y la cuota: lo escrito no se pierde.
@@ -161,6 +163,10 @@ export default function AportarPage() {
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error ?? "No se pudo enviar el aporte");
 
+      // Si el envío hizo crecer la racha, las celebraciones del panel la muestran (2026-11-16, Andrey), pero
+      // después de la ventana "Aporte enviado" (Gerard): se guarda aquí y se avisa al cerrarla, para no abrir
+      // las dos ventanas a la vez.
+      rachaPorCelebrar.current = payload.racha ?? null;
       setSubmitting(false);
       setAporteEnviado(true);
     } catch (cause) {
@@ -169,7 +175,16 @@ export default function AportarPage() {
     }
   }
 
-  const canSubmit = inscrito && !quotaReached && !todoLleno && !sinTiposPropios && (Boolean(file) || archivoEsOpcional(tipos)) && camposDelAporteCompletos(soloTexto, description, texto) && !submitting;
+  // Al cerrar "Aporte enviado": primero se avisa la racha (las celebraciones viven en ShellDeUsuario y siguen
+  // abiertas tras navegar) y luego se vuelve a la campaña.
+  function salirTrasEnviar() {
+    const racha = rachaPorCelebrar.current;
+    rachaPorCelebrar.current = null;
+    if (racha) window.dispatchEvent(new CustomEvent(EVENTO_CELEBRAR_RACHA, { detail: racha }));
+    if (campaign) router.push(`/campanas/${campaign.id}`);
+  }
+
+  const canSubmit = inscrito &&!quotaReached && !todoLleno && !sinTiposPropios && (Boolean(file) || archivoEsOpcional(tipos)) && camposDelAporteCompletos(soloTexto, description, texto) && !submitting;
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -265,8 +280,8 @@ export default function AportarPage() {
         ocultarCancelar
         textoConfirmar="Continuar"
         textoOcupado="Abriendo…"
-        onCancelar={() => router.push(`/campanas/${campaign.id}`)}
-        onConfirmar={() => router.push(`/campanas/${campaign.id}`)}
+        onCancelar={salirTrasEnviar}
+        onConfirmar={salirTrasEnviar}
       >
         <p className="text-[13px] leading-5 text-system-700">
           Tu aporte fue enviado correctamente y quedó pendiente de revisión.

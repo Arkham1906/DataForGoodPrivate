@@ -15,9 +15,19 @@ function slug(texto: string): string {
 export type LadoDeMedalla = 128 | 256 | 640;
 export type LadoDeMision = 96 | 192 | 640;
 
-/** Ilustración de un nivel: /gamificacion/v1/medallas/bosque_de_datos/3-arbusto@128.webp */
-export function imagenDeMedalla(clave: string, nivel: number, nombreDelNivel: string, lado: LadoDeMedalla = 128): string {
-  return `${BASE}/medallas/${clave}/${nivel}-${slug(nombreDelNivel)}@${lado}.webp`;
+/**
+ * Ilustración de un nivel: /gamificacion/v1/medallas/bosque_de_datos/3-arbusto@128.webp. `ilustracion` (de
+ * medalla_niveles.ilustracion_path, que copia lib/datos/medallas.json) reemplaza «3-arbusto» cuando el archivo se llama
+ * distinto, como el nivel 4 de Orquesta de Datos («5-orquesta»).
+ */
+export function imagenDeMedalla(
+  clave: string,
+  nivel: number,
+  nombreDelNivel: string,
+  lado: LadoDeMedalla = 128,
+  ilustracion?: string | null,
+): string {
+  return `${BASE}/medallas/${clave}/${ilustracion || `${nivel}-${slug(nombreDelNivel)}`}@${lado}.webp`;
 }
 
 /** /gamificacion/v1/misiones/d_foto@96.webp, o null si la misión aún no tiene icono. */

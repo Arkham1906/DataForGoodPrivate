@@ -14,8 +14,6 @@ import {
 
 const CLASE_DEL_DIA: Record<EstadoDeDiaDeRacha, string> = {
   confirmado: "bg-brand-700",
-  // Valor que ya no se escribe (SRS v1.3); se conserva para días guardados antes del cambio.
-  provisional: "bg-[repeating-linear-gradient(135deg,var(--color-brand-700)_0_2px,#fff_2px_6px)]",
   protegido: "border-2 border-success-700 bg-success-100",
   sin_actividad: "border border-dashed border-brand-300 bg-white",
   suspendido: "bg-system-300",
@@ -23,7 +21,6 @@ const CLASE_DEL_DIA: Record<EstadoDeDiaDeRacha, string> = {
 
 const TEXTO_DEL_DIA: Record<EstadoDeDiaDeRacha, string> = {
   confirmado: "con actividad",
-  provisional: "con un aporte en revisión",
   protegido: "cubierto con protector",
   sin_actividad: "sin actividad",
   suspendido: "suspendido",

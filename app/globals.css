@@ -755,3 +755,351 @@ input::-ms-clear {
     transform: translateY(-4px);
   }
 }
+
+/* ── Celebraciones (2026-11-16) ───────────────────────────────────────────
+ * Ascenso de rango, nivel de medalla y racha (components/gamificacion/celebraciones/; lienzo aprobado el mismo día,
+ * claude/pantallas-v12/celebracion-propuesta.md). Solo transform y opacity. Cada pieza espera su turno con --d (ms);
+ * las chispas y las brasas toman su destino de --dx / --dy, puestos en el mismo elemento.
+ * - cel-solo-mov: lo que solo existe en movimiento (insignia o número de antes, anillos, chispas, rayos, destello,
+ *   brasas, llama apagada). Sin animaciones queda oculto: se ve directamente el estado final.
+ * - Los bucles (rayos que giran, insignia que flota, llama que parpadea, brasas) solo viven mientras la celebración
+ *   está abierta. Los rebotes son fotogramas clave sobre la curva de salida, sin resortes.
+ * Con movimiento reducido: todo aparece con un fundido de 160 ms, sin bucles ni piezas de movimiento. */
+.celebracion {
+  --fuego-50: #fffaf3;
+  --fuego-100: #ffedd5;
+  --fuego-200: #fed7aa;
+  --fuego-300: #fdba74;
+  --fuego-400: #fb923c;
+  --fuego-600: #ea580c;
+  --fuego-700: #c2410c;
+  --fuego-800: #9a3412;
+  --fuego-900: #7c2d12;
+}
+.cel-solo-mov {
+  display: none;
+}
+.cel-capa {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cel-solo-mov {
+    display: block;
+  }
+  .cel-entra {
+    animation: cel-entra 280ms var(--ease-salida) var(--d, 0ms) both;
+  }
+  .cel-linea {
+    animation: cel-linea 260ms var(--ease-salida) var(--d, 0ms) both;
+  }
+  .cel-palabra {
+    display: inline-block;
+    animation: cel-palabra 280ms var(--ease-salida) var(--d, 0ms) both;
+  }
+  .cel-pop {
+    animation: cel-pop 260ms var(--ease-salida) var(--d, 0ms) both;
+  }
+  .cel-giro-sale {
+    animation: cel-giro-sale 180ms var(--ease-movimiento) 340ms both;
+  }
+  .cel-giro-entra {
+    animation: cel-giro-entra 380ms var(--ease-salida) 520ms both;
+  }
+  .cel-destello {
+    animation: cel-destello 520ms var(--ease-salida) 540ms both;
+  }
+  .cel-anillo {
+    animation: cel-anillo 640ms var(--ease-salida) var(--d, 0ms) both;
+  }
+  .cel-chispa {
+    animation: cel-chispa 680ms var(--ease-salida) var(--d, 0ms) both;
+  }
+  .cel-rayos {
+    animation: cel-aparecer 400ms var(--ease-salida) 600ms both;
+  }
+  .cel-rayos > svg {
+    animation: cel-girar 24s linear infinite;
+  }
+  .cel-flotar {
+    animation: cel-flotar 1800ms var(--ease-movimiento) 1400ms infinite alternate both;
+  }
+  .cel-sale {
+    animation: cel-sale 200ms var(--ease-salida) var(--d, 300ms) both;
+  }
+  .cel-aparece {
+    animation: cel-aparece 280ms var(--ease-salida) var(--d, 380ms) both;
+  }
+  .cel-surge {
+    animation: cel-surge 320ms var(--ease-salida) var(--d, 640ms) both;
+  }
+  .cel-halo {
+    animation: cel-halo 560ms var(--ease-salida) var(--d, 400ms) both;
+  }
+  .cel-llenar {
+    transform-origin: left center;
+    animation: cel-llenar 260ms var(--ease-salida) var(--d, 0ms) both;
+  }
+  .cel-ventana {
+    animation: cel-ventana 240ms var(--ease-salida) both;
+  }
+  .cel-encender {
+    animation: cel-encender 420ms var(--ease-salida) var(--d, 200ms) both;
+  }
+  .cel-apagar {
+    animation: cel-apagar 260ms var(--ease-salida) 640ms both;
+  }
+  .cel-brillo {
+    animation: cel-brillo 600ms var(--ease-salida) var(--d, 300ms) both;
+  }
+  .cel-capa-1 {
+    animation: cel-parpadeo 820ms var(--ease-movimiento) 640ms infinite alternate;
+  }
+  .cel-capa-2 {
+    animation: cel-parpadeo 640ms var(--ease-movimiento) 700ms infinite alternate-reverse;
+  }
+  .cel-capa-3 {
+    animation: cel-parpadeo 520ms var(--ease-movimiento) 760ms infinite alternate;
+  }
+  .cel-brasa {
+    animation: cel-brasa 1500ms var(--ease-salida) var(--d, 0ms) infinite both;
+  }
+  .cel-numero-sale {
+    animation: cel-numero-sale 200ms var(--ease-salida) 880ms both;
+  }
+  .cel-numero {
+    animation: cel-numero 380ms var(--ease-salida) 940ms both;
+  }
+  .cel-hoy {
+    animation: cel-pop 300ms var(--ease-salida) 1320ms both;
+  }
+}
+/* En teléfono la ventana de medalla es una hoja que sube desde abajo (curva de cajón, como las fichas). */
+@media (prefers-reduced-motion: no-preference) and (max-width: 639px) {
+  .cel-ventana {
+    animation: cel-subir 280ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cel-entra,
+  .cel-linea,
+  .cel-palabra,
+  .cel-pop,
+  .cel-giro-entra,
+  .cel-aparece,
+  .cel-surge,
+  .cel-llenar,
+  .cel-ventana,
+  .cel-encender,
+  .cel-brillo,
+  .cel-numero,
+  .cel-hoy {
+    animation: cel-aparecer 160ms ease both;
+  }
+}
+
+@keyframes cel-aparecer {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes cel-entra {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+@keyframes cel-linea {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+@keyframes cel-palabra {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+@keyframes cel-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+}
+@keyframes cel-giro-sale {
+  to {
+    opacity: 0;
+    transform: rotateY(90deg);
+  }
+}
+@keyframes cel-giro-entra {
+  0% {
+    opacity: 0;
+    transform: rotateY(-90deg) scale(0.92);
+  }
+  1% {
+    opacity: 1;
+  }
+  65% {
+    transform: rotateY(0) scale(1.08);
+  }
+}
+@keyframes cel-destello {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  30% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.3);
+  }
+}
+@keyframes cel-anillo {
+  from {
+    opacity: 0.7;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.6);
+  }
+}
+@keyframes cel-chispa {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.6);
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx), var(--dy)) scale(1);
+  }
+}
+@keyframes cel-girar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes cel-flotar {
+  to {
+    transform: translateY(-5px);
+  }
+}
+@keyframes cel-sale {
+  to {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}
+@keyframes cel-aparece {
+  from {
+    opacity: 0;
+    transform: scale(0.88);
+  }
+}
+@keyframes cel-surge {
+  from {
+    opacity: 0;
+    transform: translateY(28px) scale(0.9);
+  }
+}
+@keyframes cel-halo {
+  from {
+    opacity: 0.8;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.4);
+  }
+}
+@keyframes cel-llenar {
+  from {
+    transform: scaleX(0);
+  }
+}
+@keyframes cel-ventana {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+@keyframes cel-subir {
+  from {
+    transform: translateY(100%);
+  }
+}
+@keyframes cel-encender {
+  0% {
+    opacity: 0;
+    transform: translateY(30px) scale(0.2);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-4px) scale(1.12);
+  }
+}
+@keyframes cel-apagar {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes cel-brillo {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+@keyframes cel-parpadeo {
+  50% {
+    transform: scale(0.96, 1.06);
+  }
+  100% {
+    transform: scale(1.03, 0.97);
+  }
+}
+@keyframes cel-brasa {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(1);
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx), -130px) scale(0.4);
+  }
+}
+@keyframes cel-numero-sale {
+  to {
+    opacity: 0;
+    transform: translateY(-70%);
+  }
+}
+@keyframes cel-numero {
+  0% {
+    opacity: 0;
+    transform: translateY(70%);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(-8%);
+  }
+}

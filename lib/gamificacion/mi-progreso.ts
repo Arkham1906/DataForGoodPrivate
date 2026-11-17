@@ -38,7 +38,7 @@ import {
 
 const MEDALLAS_CERCA = 3;
 const ESTRELLAS: readonly CalificacionDeAporte[] = [5, 4, 3, 2, 1];
-const ESTADOS_DE_DIA = new Set<string>(["confirmado", "provisional", "protegido", "sin_actividad", "suspendido"]);
+const ESTADOS_DE_DIA = new Set<string>(["confirmado", "protegido", "sin_actividad", "suspendido"]);
 
 /** Las mismas palabras que /mis-aportes e /inicio. */
 const ESTADO_DE_APORTE: Record<string, Pick<AporteDelDia, "estado" | "tono">> = {
@@ -50,10 +50,8 @@ const ESTADO_DE_APORTE: Record<string, Pick<AporteDelDia, "estado" | "tono">> = 
 
 const TEXTO_DE_EVENTO: Record<string, string> = {
   protector_consumido: "Protector consumido.",
-  protector_devuelto: "Protector devuelto.",
-  dia_consolidado: "Día consolidado a las 72 horas.",
-  dia_descartado: "Día descartado por el rechazo de un aporte pendiente.",
   racha_interrumpida: "Racha interrumpida.",
+  racha_recuperada: "Racha reavivada.",
 };
 
 type FilaDeAscenso = { rango: number; alcanzado_en: Date; requisitos: unknown };
@@ -181,7 +179,7 @@ export async function obtenerMedallasCercaDeSubir(usuarioId: number | string): P
         [usuarioId],
       ),
       pool.query<NivelDeMedalla & { medalla_id: number }>(
-        `SELECT medalla_id, nivel, nombre, umbral FROM medalla_niveles ORDER BY medalla_id, nivel`,
+        `SELECT medalla_id, nivel, nombre, umbral, ilustracion_path AS ilustracion FROM medalla_niveles ORDER BY medalla_id, nivel`,
       ),
       valoresDeMedallas(pool, usuarioId),
     ]);

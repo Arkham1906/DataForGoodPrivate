@@ -33,7 +33,7 @@ export default function MedallasCercaDeSubir({ medallas }: { medallas: MedallaCe
             <li key={m.clave} className="flex items-center gap-3">
               {/* eslint-disable-next-line @next/next/no-img-element -- WebP ya optimizado en public/ */}
               <img
-                src={imagenDeMedalla(m.clave, m.imagen.nivel, m.imagen.nombre)}
+                src={imagenDeMedalla(m.clave, m.imagen.nivel, m.imagen.nombre, 128, m.imagen.ilustracion)}
                 alt=""
                 width={52}
                 height={52}
