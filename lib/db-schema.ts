@@ -1785,49 +1785,18 @@ export async function ensureRangoAscensosTable(): Promise<void> {
 }
 
 /**
- * Historial de moderación de aportes (RF-GAM-27, 72; RA-GAM-15) y de calidad (RF-GAM-71, 65).
- *   - aporte_eventos: enviado, aceptado, rechazado y cancelado, con la hora del servidor. Resuelve la
- *     ventana de 72 horas y las decisiones fuera de orden. aporte_id NO es llave foránea a propósito:
- *     borrar un aporte pendiente es su "cancelación" (propuesta P8) y el evento tiene que sobrevivir.
- *     Por eso guarda también el tipo y cuándo se envió. Los aportes anónimos no se registran.
- *   - aporte_calidad_historial: cada asignación y corrección de calidad, con valor anterior, quién
- *     (un REV, o el creador con Buena fija), motivo (obligatorio al corregir) y fecha.
+ * Retiro de aporte_eventos y aporte_calidad_historial (2026-11-16, aprobado por el responsable). Nunca se usaron:
+ *   - aporte_eventos era la bitácora enviado / aceptado / rechazado / cancelado para la ventana de 72 horas
+ *     (RF-GAM-27, 72), retirada en la v1.3: el día de racha cuenta al enviar.
+ *   - aporte_calidad_historial guardaba asignaciones y correcciones de calidad con la escala buena / excelente /
+ *     excepcional (RF-GAM-13, 65, 71); la corrección se retiró en la v1.2 y la calidad son estrellas desde el 3 nov.
+ * Una bitácora de moderación futura se diseñaría de nuevo con los estados y las estrellas vigentes.
+ * Sin CASCADE: si algo dependiera de ellas, el arranque lo diría en vez de borrarlo en silencio.
  */
-export async function ensureAporteHistorialTables(): Promise<void> {
+export async function retirarTablasDeHistorialDeAportes(): Promise<void> {
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS aporte_eventos (
-      id BIGSERIAL PRIMARY KEY,
-      aporte_id INTEGER NOT NULL,
-      usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
-      campana_id INTEGER REFERENCES campanas(id) ON DELETE SET NULL,
-      evento VARCHAR(12) NOT NULL CHECK (evento IN ('enviado', 'aceptado', 'rechazado', 'cancelado')),
-      tipo_aporte VARCHAR(20) CHECK (tipo_aporte IN ('texto', 'foto', 'video', 'audio', 'documento')),
-      enviado_en TIMESTAMPTZ NOT NULL,
-      decidido_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
-      motivo TEXT,
-      creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-    CREATE INDEX IF NOT EXISTS aporte_eventos_aporte_idx ON aporte_eventos (aporte_id, creado_en);
-    CREATE INDEX IF NOT EXISTS aporte_eventos_usuario_idx ON aporte_eventos (usuario_id, enviado_en);
-    CREATE INDEX IF NOT EXISTS aporte_eventos_campana_idx ON aporte_eventos (campana_id);
-    CREATE INDEX IF NOT EXISTS aporte_eventos_decidido_por_idx ON aporte_eventos (decidido_por);
-    -- Un aporte se envía una sola vez.
-    CREATE UNIQUE INDEX IF NOT EXISTS aporte_eventos_enviado_unico_idx ON aporte_eventos (aporte_id) WHERE evento = 'enviado';
-
-    CREATE TABLE IF NOT EXISTS aporte_calidad_historial (
-      id SERIAL PRIMARY KEY,
-      aporte_id INTEGER NOT NULL REFERENCES aportes(id) ON DELETE CASCADE,
-      calidad_anterior VARCHAR(12) CHECK (calidad_anterior IN ('buena', 'excelente', 'excepcional')),
-      calidad_nueva VARCHAR(12) NOT NULL CHECK (calidad_nueva IN ('buena', 'excelente', 'excepcional')),
-      origen VARCHAR(15) NOT NULL CHECK (origen IN ('rev', 'admin_campana')),
-      asignada_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
-      motivo TEXT,
-      creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      -- Corregir (hay valor anterior) exige motivo (RF-GAM-13).
-      CHECK (calidad_anterior IS NULL OR length(trim(COALESCE(motivo, ''))) > 0)
-    );
-    CREATE INDEX IF NOT EXISTS aporte_calidad_historial_aporte_idx ON aporte_calidad_historial (aporte_id, creado_en);
-    CREATE INDEX IF NOT EXISTS aporte_calidad_historial_asignada_por_idx ON aporte_calidad_historial (asignada_por);
+    DROP TABLE IF EXISTS aporte_eventos;
+    DROP TABLE IF EXISTS aporte_calidad_historial;
   `);
 }
 
@@ -2308,7 +2277,7 @@ export async function ensureGamificacion(): Promise<void> {
   await ensureUsuarioProgresoTable();
   await ensureUsuarioContadoresTable();
   await ensureRangoAscensosTable();
-  await ensureAporteHistorialTables();
+  await retirarTablasDeHistorialDeAportes();
   await ensureRachaTables();
   await ensurePotenciadoresTable(); // antes de exp_movimientos
   await ensureObjetosTables();
