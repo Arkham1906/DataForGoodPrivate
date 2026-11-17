@@ -241,7 +241,7 @@ export default function CampaignList({ completed = false }: { completed?: boolea
                   <div className="min-w-0">
                     <h3 className="line-clamp-2 break-words text-[15px] font-extrabold text-system-900">{campaign.name}</h3>
                     <div className="mt-1">
-                      <Tag tone="ok" className="max-w-full truncate whitespace-nowrap">{campaign.tag || campaign.tematica || "Sin temÃ¡tica"}</Tag>
+                      <Tag tone="ok" className="max-w-full truncate whitespace-nowrap">{campaign.tag || campaign.tematica || "Sin temática"}</Tag>
                     </div>
                   </div>
                 </div>
