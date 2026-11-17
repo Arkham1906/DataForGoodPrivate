@@ -101,7 +101,7 @@ export async function actualizarRacha(usuarioId: number | string): Promise<Cambi
     );
     const diasR = await client.query<{ dia: string; estado: string }>(
       `SELECT to_char(dia, 'YYYY-MM-DD') AS dia, estado FROM racha_dias
-        WHERE usuario_id = $1 AND estado IN ('confirmado', 'provisional')`,
+        WHERE usuario_id = $1 AND estado = 'confirmado'`,
       [usuarioId],
     );
 
@@ -186,7 +186,7 @@ export async function actualizarRacha(usuarioId: number | string): Promise<Cambi
 
 /**
  * Personas cuya racha hay que recalcular sin que hayan enviado nada: pasó un día sin aportes, o quedó algo por corregir
- * (un envío cuya actualización falló, o un día provisional de la versión anterior). Corre en instrumentation-node.ts.
+ * (un envío cuya actualización falló). Corre en instrumentation-node.ts.
  */
 export const HORA_DE_AVISOS_DE_RACHA = 1;
 export const RACHA_MINIMA_PARA_AVISO = 2;
@@ -249,8 +249,6 @@ export async function revisarRachas(): Promise<void> {
     const { rows } = await pool.query<{ usuario_id: number }>(
       `SELECT usuario_id FROM usuario_progreso
         WHERE racha_actual > 0 AND (ultimo_dia_activo IS NULL OR ultimo_dia_activo < $1::date)
-        UNION
-        SELECT usuario_id FROM racha_dias WHERE estado = 'provisional'
         UNION
         SELECT a.user_id FROM aportes a
         JOIN usuario_progreso p ON p.usuario_id = a.user_id

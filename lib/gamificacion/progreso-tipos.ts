@@ -47,7 +47,7 @@ export type ResumenDeMisiones = {
 };
 
 /** Estado de un día de la racha (RF-GAM-85). */
-export type EstadoDeDiaDeRacha = "confirmado" | "provisional" | "protegido" | "sin_actividad" | "suspendido";
+export type EstadoDeDiaDeRacha = "confirmado" | "protegido" | "sin_actividad" | "suspendido";
 
 export type DiaDeRacha = {
   /** YYYY-MM-DD. */

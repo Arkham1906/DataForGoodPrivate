@@ -1833,9 +1833,10 @@ export async function ensureAporteHistorialTables(): Promise<void> {
 
 /**
  * Racha por día y sus eventos (RF-GAM-85, 86).
- *   - racha_dias: estado de cada día para el calendario: confirmado, provisional (aportes pendientes
- *     dentro de su ventana de 72 horas), protegido (cubierto con protector), sin_actividad o
- *     suspendido. El día se determina con la zona horaria del servidor (SRS 1.5).
+ *   - racha_dias: estado de cada día para el calendario: confirmado (con al menos un aporte enviado),
+ *     protegido (cubierto con protector), sin_actividad o suspendido. El día se determina con la zona
+ *     horaria de las campañas (SRS 1.5). El estado «provisional» (aportes en su ventana de 72 horas) se
+ *     retiró el 2026-11-16: desde la v1.3 el día cuenta al enviar, sin esperar la revisión.
  *   - racha_eventos: protector consumido o devuelto, día consolidado a las 72 horas, día descartado
  *     por un rechazo e interrupción, con el aporte relacionado. clave_idempotencia evita duplicados
  *     ante reintentos (RF-GAM-08).
@@ -1845,7 +1846,7 @@ export async function ensureRachaTables(): Promise<void> {
     CREATE TABLE IF NOT EXISTS racha_dias (
       usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
       dia DATE NOT NULL,
-      estado VARCHAR(15) NOT NULL CHECK (estado IN ('confirmado', 'provisional', 'protegido', 'sin_actividad', 'suspendido')),
+      estado VARCHAR(15) NOT NULL CHECK (estado IN ('confirmado', 'protegido', 'sin_actividad', 'suspendido')),
       actualizado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       PRIMARY KEY (usuario_id, dia)
     );
@@ -1862,6 +1863,24 @@ export async function ensureRachaTables(): Promise<void> {
     );
     CREATE INDEX IF NOT EXISTS racha_eventos_usuario_idx ON racha_eventos (usuario_id, creado_en DESC);
     CREATE INDEX IF NOT EXISTS racha_eventos_aporte_idx ON racha_eventos (aporte_id);
+  `);
+  // Retiro de «provisional» (2026-11-16). Un día provisional tenía aportes enviados, y desde la v1.3 eso basta para
+  // que cuente: pasa a confirmado, como ya lo trataba el cálculo de la racha. Después se quita el valor de la
+  // restricción. Solo corre mientras la restricción vieja exista.
+  await pool.query(`
+    DO $$
+    BEGIN
+      IF EXISTS (
+        SELECT 1 FROM pg_constraint
+          WHERE conrelid = 'racha_dias'::regclass AND contype = 'c'
+            AND pg_get_constraintdef(oid) LIKE '%provisional%'
+      ) THEN
+        UPDATE racha_dias SET estado = 'confirmado', actualizado_en = NOW() WHERE estado = 'provisional';
+        ALTER TABLE racha_dias DROP CONSTRAINT IF EXISTS racha_dias_estado_check;
+        ALTER TABLE racha_dias ADD CONSTRAINT racha_dias_estado_check
+          CHECK (estado IN ('confirmado', 'protegido', 'sin_actividad', 'suspendido'));
+      END IF;
+    END $$;
   `);
 }
 

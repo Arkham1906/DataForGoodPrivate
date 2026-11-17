@@ -38,7 +38,7 @@ import {
 
 const MEDALLAS_CERCA = 3;
 const ESTRELLAS: readonly CalificacionDeAporte[] = [5, 4, 3, 2, 1];
-const ESTADOS_DE_DIA = new Set<string>(["confirmado", "provisional", "protegido", "sin_actividad", "suspendido"]);
+const ESTADOS_DE_DIA = new Set<string>(["confirmado", "protegido", "sin_actividad", "suspendido"]);
 
 /** Las mismas palabras que /mis-aportes e /inicio. */
 const ESTADO_DE_APORTE: Record<string, Pick<AporteDelDia, "estado" | "tono">> = {
