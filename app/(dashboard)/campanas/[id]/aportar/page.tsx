@@ -8,10 +8,18 @@
 // la persona esté inscrita (aceptó los acuerdos una vez; antes salía una ventana en cada aporte). Si llega
 // sin inscribirse (p. ej. desde /c/[token]), arriba del formulario van las casillas (ui/AcuerdosDeAporte).
 // Con ?enlace=<token> (viene de /c/[token]) lo reenvía para atribuir el aporte a ese enlace.
+// Diseño (2026-11-18, a pedido del usuario): encabezado con banner y avance de la cuota, avisos en un recuadro,
+// pasos numerados en tarjetas (Paso, se marcan en verde al quedar listos) y a la derecha "Antes de enviar"
+// con lo que falta y el botón (fijo al bajar en escritorio; al final en móvil). Sin lugar para otro aporte
+// (cuota, límites o máximo por tipo) se muestra la razón en vez del formulario.
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Button from "@/components/ui/Button";
+import ButtonLink from "@/components/ui/ButtonLink";
+import ProgressBar from "@/components/ui/ProgressBar";
+import { IconoFlechaAtras, IconoFoto, IconoInfo, IconoListo, IconoReloj } from "@/components/aportes/IconosDelAporte";
 import CamposDelAporte, { camposDelAporteCompletos } from "@/components/aportes/CamposDelAporte";
 import type { Campaign } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
@@ -186,96 +194,175 @@ export default function AportarPage() {
 
   const canSubmit = inscrito && !quotaReached && !todoLleno && !sinTiposPropios && (Boolean(file) || archivoEsOpcional(tipos)) && camposDelAporteCompletos(soloTexto, description, texto) && !submitting;
 
+  // Pasos (2026-11-18, rediseño a pedido del usuario): cada tarjeta numerada se marca en verde al quedar lista.
+  const archivoListo = Boolean(file) || (soloTexto && archivoEsOpcional(tipos));
+  const camposListos = camposDelAporteCompletos(soloTexto, description, texto);
+  const conChecklists = visibles.length > 0 || faltaArchivo;
+  const pasoInscripcion = 1;
+  const pasoArchivo = inscrito ? 1 : 2;
+  const pasoCampos = pasoArchivo + 1;
+  const pasoChecklists = pasoCampos + 1;
+  // Sin lugar para otro aporte: en vez del formulario, un aviso con la razón.
+  const bloqueo = quotaReached
+    ? "Alcanzaste tu cuota en esta campaña. La campaña sigue abierta para otras personas, pero ya no puedes enviar más aportes."
+    : todoLleno || (sinTiposPropios ? "Ya enviaste el máximo de cada tipo que permite esta campaña." : null);
+  const avisos = [
+    loQueQueda && <>Máximo por persona de cada tipo. Te quedan <b className="font-semibold text-system-900">{loQueQueda}</b>.</>,
+    sugerencia && !loQueQueda && <>Puedes mandar cualquier tipo. Para que los datos queden balanceados, te sugerimos <b className="font-semibold text-system-900">{sugerencia}</b>.</>,
+    resumenLimites && <>Esta campaña recibe en total como máximo <b className="font-semibold text-system-900">{resumenLimites}</b>.</>,
+  ].filter(Boolean);
+  const requisitos = [
+    ...(!inscrito ? [{ listo: false, texto: "Inscribirte en la campaña" }] : []),
+    { listo: archivoListo, texto: soloTexto ? "Archivo opcional: va solo el texto" : "Elegir tu archivo" },
+    { listo: camposListos, texto: soloTexto ? "Escribir el título y el texto" : "Escribir la descripción" },
+  ];
+
   return (
     // Mientras se envía y mientras está "Aporte enviado", las celebraciones que llegan en vivo con el mismo envío
     // (rango, medalla) esperan a que se salga de aquí (components/gamificacion/celebraciones/Celebraciones.tsx).
-    <div className="mx-auto max-w-3xl" data-pausar-celebraciones={submitting || aporteEnviado ? "" : undefined}>
-      <h1 className="text-xl font-extrabold text-system-900">Nuevo aporte</h1>
-      <p className="mb-6 text-[13px] text-system-600">
-        {campaign.name} · aporte {Math.min(submittedCount + 1, campaign.quotaPerUser)}{" "}
-        de tu cuota de {campaign.quotaPerUser}
-      </p>
-      {loQueQueda && !quotaReached && (
-        <p className="-mt-4 mb-6 text-[12.5px] text-system-600">
-          Máximo por persona de cada tipo. Te quedan <span className="font-semibold text-system-900">{loQueQueda}</span>.
-        </p>
-      )}
-      {sinTiposPropios && !quotaReached && !todoLleno && (
-        <p className="mb-5 rounded-lg border border-system-300 bg-system-100 p-3 text-[13px] text-system-700">
-          Ya enviaste el máximo de cada tipo que permite esta campaña.
-        </p>
-      )}
-      {sugerencia && !loQueQueda && !quotaReached && (
-        <p className="-mt-4 mb-6 text-[12.5px] text-system-600">
-          Puedes mandar cualquier tipo. Para que los datos queden balanceados, te sugerimos{" "}
-          <span className="font-semibold text-system-900">{sugerencia}</span>.
-        </p>
-      )}
+    <div className="mx-auto max-w-5xl" data-pausar-celebraciones={submitting || aporteEnviado ? "" : undefined}>
+      <Link
+        href={`/campanas/${campaign.id}`}
+        className="mb-3 inline-flex items-center gap-1.5 rounded-pill px-1 text-[13px] font-semibold text-system-600 hover:text-brand-700"
+      >
+        <IconoFlechaAtras className="size-4" />
+        Volver a la campaña
+      </Link>
 
-      {resumenLimites && !quotaReached && (
-        <p className="-mt-4 mb-6 text-[12.5px] text-system-600">
-          Esta campaña recibe en total como máximo <span className="font-semibold text-system-900">{resumenLimites}</span>.
-        </p>
-      )}
-      {todoLleno && !quotaReached && (
-        <p className="mb-5 rounded-lg border border-system-300 bg-system-100 p-3 text-[13px] text-system-700">{todoLleno}</p>
-      )}
-
-      {quotaReached && <p className="mb-5 rounded-lg border border-success-700 bg-success-50 p-3 text-[13px] text-success-700">Alcanzaste tu cuota en esta campaña. La campaña sigue abierta para otras personas, pero ya no puedes enviar más aportes.</p>}
-
-      {!inscrito && !quotaReached && (
-        <div className="mb-6 rounded-lg border border-brand-200 bg-white p-4">
-          <InscripcionACampana
-            campanaId={campaign.id}
-            onInscrito={() => setInscrito(true)}
-            proposito={textoDelProposito(campaign.proposito, campaign.propositoOtro)}
-          />
+      <header className="mb-5 flex items-center gap-4 overflow-hidden rounded-xl border border-system-200 bg-white p-4 shadow-sm max-sm:flex-col max-sm:items-stretch">
+        <div className="flex h-20 w-32 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-system-200 bg-gradient-to-br from-brand-100 to-success-100 text-brand-400 max-sm:h-32 max-sm:w-full">
+          {!campaign.hasBanner && <IconoFoto className="size-8" />}
+          {campaign.hasBanner && (
+            // eslint-disable-next-line @next/next/no-img-element -- el banner se sirve por una API autenticada.
+            <img
+              src={`${BASE_PATH}/api/campanas/${campaign.id}/banner?v=${encodeURIComponent(campaign.bannerVersion ?? "")}`}
+              alt=""
+              className="h-full w-full object-cover"
+              style={{ objectPosition: `${campaign.bannerPositionX ?? 50}% ${campaign.bannerPositionY ?? 50}%`, transform: `scale(${campaign.bannerScale ?? 1})` }}
+            />
+          )}
         </div>
-      )}
-
-      <form onSubmit={(e) => void handleSubmit(e)} className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-        <SelectorDeArchivo
-          tipos={tipos}
-          formatosDeDocumento={campaign.formatosDeDocumento ?? []}
-          archivo={file}
-          error={fileError}
-          onCambio={(elegido, problema) => {
-            setFile(elegido);
-            setFileError(problema);
-          }}
-        />
-
-        <div>
-          <CamposDelAporte
-            soloTexto={soloTexto}
-            descripcion={description}
-            onDescripcion={setDescription}
-            texto={texto}
-            onTexto={setTexto}
-          />
-
-          <ChecklistsDelAporte
-            visibles={visibles}
-            faltaArchivo={faltaArchivo}
-            marcadas={caracteristicas}
-            onAlternar={toggleCaracteristica}
-          />
-
-          {submitError && <p className="mb-3 rounded border border-error-700 bg-error-50 p-2 text-[12px] text-error-700">{submitError}</p>}
-
-          <Button variant="primary" type="submit" className="w-full" disabled={!canSubmit}>
-            {submitting ? (
-              <span className="inline-flex items-center gap-2">
-                <IndicadorDeCarga />
-                Enviando…
+        <div className="min-w-0 flex-1">
+          <p className="text-[11.5px] font-bold uppercase tracking-[0.08em] text-brand-600">Nuevo aporte</p>
+          <h1 className="mt-0.5 line-clamp-2 break-words text-xl font-extrabold text-system-900" title={campaign.name}>{campaign.name}</h1>
+          <div className="mt-2.5 max-w-md">
+            <div className="mb-1 flex items-baseline justify-between gap-3 text-[12px] text-system-600">
+              <span>
+                {quotaReached ? "Cuota completa" : <>Este es tu aporte <b className="font-semibold text-system-900">{Math.min(submittedCount + 1, campaign.quotaPerUser)}</b> de {campaign.quotaPerUser}</>}
               </span>
-            ) : "Enviar aporte"}
-          </Button>
-          <p className="mt-2 text-center text-[11.5px] text-system-500">
-            Quedará pendiente de revisión
-          </p>
+              <span className="font-mono text-[11px]">{submittedCount} {submittedCount === 1 ? "enviado" : "enviados"}</span>
+            </div>
+            <ProgressBar pct={campaign.quotaPerUser > 0 ? (submittedCount / campaign.quotaPerUser) * 100 : 0} tone="ok" />
+          </div>
         </div>
-      </form>
+      </header>
+
+      {avisos.length > 0 && !bloqueo && (
+        <div className="mb-5 flex gap-3 rounded-xl border border-brand-200 bg-brand-50 p-3.5 text-[12.5px] leading-5 text-system-700">
+          <IconoInfo className="mt-0.5 size-5 shrink-0 text-brand-600" />
+          <ul className="flex flex-col gap-1">
+            {avisos.map((aviso, i) => <li key={i}>{aviso}</li>)}
+          </ul>
+        </div>
+      )}
+
+      {bloqueo ? (
+        <div className="flex flex-col items-center gap-3 rounded-xl border border-system-200 bg-white px-6 py-10 text-center shadow-sm">
+          <span className={`flex size-12 items-center justify-center rounded-full ${quotaReached ? "bg-success-100 text-success-700" : "bg-system-100 text-system-600"}`}>
+            {quotaReached ? <IconoListo className="size-6" /> : <IconoInfo className="size-6" />}
+          </span>
+          <p className="max-w-md text-[14px] leading-6 text-system-700">{bloqueo}</p>
+          <ButtonLink href={`/campanas/${campaign.id}`}>Volver a la campaña</ButtonLink>
+        </div>
+      ) : (
+        <form onSubmit={(e) => void handleSubmit(e)} className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_290px]">
+          <div className="flex min-w-0 flex-col gap-4">
+            {!inscrito && (
+              <Paso numero={pasoInscripcion} titulo="Inscríbete en la campaña" listo={false}>
+                <InscripcionACampana
+                  campanaId={campaign.id}
+                  onInscrito={() => setInscrito(true)}
+                  proposito={textoDelProposito(campaign.proposito, campaign.propositoOtro)}
+                />
+              </Paso>
+            )}
+
+            <Paso
+              numero={pasoArchivo}
+              titulo={archivoEsOpcional(tipos) ? "Elige tu archivo o envía solo texto" : "Elige tu archivo"}
+              nota={archivoEsOpcional(tipos) ? "Opcional" : undefined}
+              listo={Boolean(file)}
+            >
+              <SelectorDeArchivo
+                amplio
+                tipos={tipos}
+                formatosDeDocumento={campaign.formatosDeDocumento ?? []}
+                archivo={file}
+                error={fileError}
+                onCambio={(elegido, problema) => {
+                  setFile(elegido);
+                  setFileError(problema);
+                }}
+              />
+            </Paso>
+
+            <Paso numero={pasoCampos} titulo={soloTexto ? "Escribe tu texto" : "Describe tu aporte"} listo={camposListos}>
+              <CamposDelAporte
+                soloTexto={soloTexto}
+                descripcion={description}
+                onDescripcion={setDescription}
+                texto={texto}
+                onTexto={setTexto}
+              />
+            </Paso>
+
+            {conChecklists && (
+              <Paso numero={pasoChecklists} titulo="Marca lo que aplique" nota="Opcional" listo={respuestasValidas(caracteristicas, visibles).length > 0}>
+                <ChecklistsDelAporte
+                  fichas
+                  visibles={visibles}
+                  faltaArchivo={faltaArchivo}
+                  marcadas={caracteristicas}
+                  onAlternar={toggleCaracteristica}
+                />
+              </Paso>
+            )}
+          </div>
+
+          <aside className="flex flex-col gap-3 rounded-xl border border-system-200 bg-white p-4 shadow-sm lg:sticky lg:top-20">
+            <h2 className="text-[14px] font-bold text-system-900">Antes de enviar</h2>
+            <ul className="flex flex-col gap-2">
+              {requisitos.map((r) => (
+                <li key={r.texto} className={`flex items-center gap-2 text-[12.5px] ${r.listo ? "text-system-700" : "text-system-500"}`}>
+                  <span
+                    aria-hidden="true"
+                    className={`flex size-5 shrink-0 items-center justify-center rounded-full border ${r.listo ? "border-success-700 bg-success-700 text-white" : "border-system-300 bg-white"}`}
+                  >
+                    {r.listo && <IconoListo className="size-3.5" strokeWidth={2.5} />}
+                  </span>
+                  <span className={r.listo ? "font-medium" : ""}>{r.texto}</span>
+                  <span className="sr-only">{r.listo ? "(listo)" : "(pendiente)"}</span>
+                </li>
+              ))}
+            </ul>
+
+            {submitError && <p role="alert" className="rounded-lg border border-error-700 bg-error-50 p-2.5 text-[12px] text-error-700">{submitError}</p>}
+
+            <Button variant="primary" type="submit" className="w-full" disabled={!canSubmit}>
+              {submitting ? (
+                <span className="inline-flex items-center gap-2">
+                  <IndicadorDeCarga />
+                  Enviando…
+                </span>
+              ) : "Enviar aporte"}
+            </Button>
+            <p className="flex items-center justify-center gap-1.5 text-center text-[11.5px] text-system-500">
+              <IconoReloj className="size-3.5" />
+              Quedará pendiente de revisión
+            </p>
+          </aside>
+        </form>
+      )}
       <VentanaDeConfirmacion
         abierto={aporteEnviado}
         titulo="Aporte enviado"
@@ -290,5 +377,27 @@ export default function AportarPage() {
         </p>
       </VentanaDeConfirmacion>
     </div>
+  );
+}
+
+/** Tarjeta numerada de un paso del formulario; el número cambia a una palomita verde cuando queda listo. */
+function Paso({ numero, titulo, nota, listo, children }: { numero: number; titulo: string; nota?: string; listo: boolean; children: React.ReactNode }) {
+  return (
+    <section className={`rounded-xl border bg-white p-4 shadow-sm transition-colors sm:p-5 ${listo ? "border-success-300" : "border-system-200"}`}>
+      <div className="mb-3.5 flex items-center gap-2.5">
+        <span
+          aria-hidden="true"
+          className={`flex size-7 shrink-0 items-center justify-center rounded-full text-[13px] font-bold transition-colors ${listo ? "bg-success-700 text-white" : "bg-brand-50 text-brand-700 ring-1 ring-brand-200"}`}
+        >
+          {listo ? <IconoListo className="size-4" strokeWidth={2.5} /> : numero}
+        </span>
+        <h2 className="min-w-0 flex-1 text-[15px] font-bold text-system-900">
+          <span className="sr-only">Paso {numero}: </span>
+          {titulo}
+        </h2>
+        {nota && <span className="shrink-0 rounded-pill bg-system-100 px-2 py-0.5 text-[11px] font-medium text-system-600">{nota}</span>}
+      </div>
+      <div className="[&>*:last-child]:mb-0">{children}</div>
+    </section>
   );
 }
