@@ -72,7 +72,7 @@ export default function TarjetaDeCampanaPublica({
     return (
       <Link href={`/campanas/${c.id}`} {...entradaDeTarjeta(indice)}>
         <article className="landing-tarjeta flex h-full min-w-0 flex-col overflow-hidden rounded-[18px] border border-system-200 bg-white hover:border-brand-600">
-          <div data-campana-banner className="aspect-[16/10] overflow-hidden bg-system-100">
+      <div data-campana-banner className="mx-3 mt-3 aspect-[16/10] overflow-hidden rounded-lg border border-system-300 bg-system-100">
             {c.hasBanner && (
               <>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -80,7 +80,7 @@ export default function TarjetaDeCampanaPublica({
                   src={`${BASE_PATH}/api/campanas/${c.id}/banner?v=${encodeURIComponent(c.bannerVersion ?? "")}`}
                   alt=""
                   loading="lazy"
-                  className="h-full w-full object-cover"
+            className="h-full w-full object-cover"
                   style={{ objectPosition: `${c.bannerPositionX ?? 50}% ${c.bannerPositionY ?? 50}%`, transform: `scale(${c.bannerScale ?? 1})` }}
                 />
               </>

@@ -176,11 +176,11 @@ export default function DetalleDeMisCampanasPage() {
       <div className="flex flex-col gap-5">
         <section className="overflow-hidden rounded-lg border border-system-200 bg-white">
           {campana.hasBanner && (
-            <div className="border-b border-system-200 bg-system-50 p-3 sm:p-4">
+            <div className="flex justify-center border-b border-system-200 bg-system-50 p-3 sm:p-4">
               <img
                 src={`${BASE_PATH}/api/campanas/${campana.id}/banner?v=${encodeURIComponent(campana.bannerVersion ?? "")}`}
                 alt={`Banner de ${campana.name}`}
-                className="aspect-[4/3] w-full rounded-lg bg-system-100 object-contain"
+                className="aspect-[4/3] w-full max-w-md rounded-lg bg-system-100 object-contain"
                 style={{ objectPosition: `${campana.bannerPositionX ?? 50}% ${campana.bannerPositionY ?? 50}%`, transform: `scale(${campana.bannerScale ?? 1})` }}
               />
             </div>

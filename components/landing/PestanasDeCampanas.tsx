@@ -42,7 +42,7 @@ function TarjetaDeCampana({ campana }: { campana: CampanaDePortada }) {
       href={`/campanas/${campana.id}`}
       className="landing-tarjeta flex h-full flex-col overflow-hidden rounded-[18px] border border-system-200 bg-white hover:border-brand-600"
     >
-      <div data-campana-banner className="aspect-[16/10] overflow-hidden bg-system-100">
+        <div data-campana-banner className="mx-3 mt-3 aspect-[16/10] overflow-hidden rounded-lg border border-system-300 bg-system-100">
         {campana.hasBanner && (
           <>
             {/* eslint-disable-next-line @next/next/no-img-element */}
