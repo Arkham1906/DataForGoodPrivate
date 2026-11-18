@@ -7,6 +7,7 @@ import { useState } from "react";
 import Tag from "@/components/ui/Tag";
 import type { MisionCompletada } from "@/lib/gamificacion/misiones";
 import type { Periodicidad } from "@/lib/gamificacion/misiones-reglas";
+import { TEXTOS } from "@/lib/gamificacion/textos";
 import IconoDeMision from "./IconoDeMision";
 
 type Filtro = "todas" | Periodicidad;
@@ -16,13 +17,20 @@ const FILTROS: { valor: Filtro; etiqueta: string }[] = [
   { valor: "diaria", etiqueta: "Diarias" },
   { valor: "semanal", etiqueta: "Semanales" },
 ];
+/** Solo si hay alguna completada: la mayoría de las cuentas ya pasó su primera semana (2026-11-18). */
+const FILTRO_DE_INICIO: { valor: Filtro; etiqueta: string } = { valor: "inicio", etiqueta: TEXTOS.misionesDeInicio.filtro };
 
-const NOMBRE_DE_PERIODO: Record<Periodicidad, string> = { diaria: "Diaria", semanal: "Semanal" };
+const NOMBRE_DE_PERIODO: Record<Periodicidad, string> = {
+  diaria: "Diaria",
+  semanal: "Semanal",
+  inicio: TEXTOS.misionesDeInicio.nombreDelPeriodo,
+};
 
 export default function HistorialDeMisiones({ historial }: { historial: MisionCompletada[] }) {
   const [filtro, setFiltro] = useState<Filtro>("todas");
   const filas = historial.filter((h) => filtro === "todas" || h.periodicidad === filtro);
   const conRecompensas = historial.some((h) => h.recompensa);
+  const filtros = historial.some((h) => h.periodicidad === "inicio") ? [...FILTROS, FILTRO_DE_INICIO] : FILTROS;
 
   return (
     <section aria-labelledby="misiones-historial" className="flex min-w-0 flex-col gap-3 rounded-lg border border-system-200 bg-white p-5 shadow-sm">
@@ -30,8 +38,8 @@ export default function HistorialDeMisiones({ historial }: { historial: MisionCo
         <h2 id="misiones-historial" className="text-lg font-extrabold text-system-900">
           Historial de misiones completadas
         </h2>
-        <div role="group" aria-label="Filtrar historial" className="flex gap-1.5">
-          {FILTROS.map((f) => (
+        <div role="group" aria-label="Filtrar historial" className="flex flex-wrap gap-1.5">
+          {filtros.map((f) => (
             <button
               key={f.valor}
               type="button"

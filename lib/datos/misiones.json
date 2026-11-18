@@ -1,6 +1,11 @@
 {
   "seleccion": { "diaria": 3, "semanal": 3 },
   "misiones": [
+    {"clave": "i_primer_aporte", "nombre": "Envía tu primer aporte", "periodicidad": "inicio", "grupo": "bienvenida", "activa": true, "condicion": {"mide": "aportes", "objetivo": 1}, "recompensa": {"tipo": "exp", "cantidad": 10}},
+    {"clave": "i_guarda_campana", "nombre": "Guarda una campaña que te interese", "periodicidad": "inicio", "grupo": "bienvenida", "activa": true, "condicion": {"mide": "campanas_guardadas", "objetivo": 1}, "recompensa": {"tipo": "exp", "cantidad": 5}},
+    {"clave": "i_inscripcion", "nombre": "Inscríbete en una campaña", "periodicidad": "inicio", "grupo": "bienvenida", "activa": true, "condicion": {"mide": "inscripciones", "objetivo": 1}, "recompensa": {"tipo": "exp", "cantidad": 5}},
+    {"clave": "i_dos_dias", "nombre": "Envía aportes en 2 días distintos", "periodicidad": "inicio", "grupo": "bienvenida", "activa": true, "condicion": {"mide": "dias_distintos", "objetivo": 2}, "recompensa": {"tipo": "exp", "cantidad": 10}},
+    {"clave": "i_primer_aceptado", "nombre": "Logra tu primer aporte aceptado", "periodicidad": "inicio", "grupo": "bienvenida", "activa": true, "condicion": {"mide": "aportes", "objetivo": 1, "soloAceptados": true}, "recompensa": {"tipo": "exp", "cantidad": 10}},
     {"clave": "d_texto", "nombre": "Envía un aporte de texto", "periodicidad": "diaria", "grupo": "formato", "activa": true, "condicion": {"mide": "aportes", "objetivo": 1, "tipos": ["texto"]}},
     {"clave": "d_foto", "nombre": "Envía un aporte de foto", "periodicidad": "diaria", "grupo": "formato", "activa": true, "condicion": {"mide": "aportes", "objetivo": 1, "tipos": ["foto"]}},
     {"clave": "d_video", "nombre": "Envía un aporte de video", "periodicidad": "diaria", "grupo": "formato", "activa": true, "condicion": {"mide": "aportes", "objetivo": 1, "tipos": ["video"]}},

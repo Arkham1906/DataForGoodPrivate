@@ -37,15 +37,17 @@ const TEXTOS: Record<ClaveDeRequisito, { etiqueta: string; plural: string; nuevo
     plural: "aportes excepcionales (5★)",
     nuevo: "un aporte excepcional (5★)",
   },
-  racha: { etiqueta: "Racha actual", plural: "días de racha", nuevo: "una racha de días seguidos" },
+  racha: { etiqueta: "Racha máxima", plural: "días de racha máxima", nuevo: "una racha de días seguidos" },
   misiones: { etiqueta: "Misiones completadas", plural: "misiones completadas", nuevo: "una misión completada" },
 };
 
 /**
- * Cómo cuenta la racha (SRS v1.3: RF-GAM-25, 27, RN-GAM-39). Es el único requisito que no depende de la aceptación,
- * por eso lleva una ayuda junto a su etiqueta en la trayectoria y en la ficha del rango siguiente.
+ * Cómo cuenta la racha (SRS v1.4: RF-GAM-19, 25, 27, RN-GAM-39). Es el único requisito que no depende de la aceptación,
+ * por eso lleva una ayuda junto a su etiqueta en la trayectoria y en la ficha del rango siguiente. Los rangos usan la
+ * racha más larga que se haya logrado.
  */
-export const TEXTO_DE_LA_RACHA = "Cuenta cada día en que envías al menos un aporte, aunque después lo rechacen.";
+export const TEXTO_DE_LA_RACHA =
+  "Cuenta la racha más larga que hayas logrado: días seguidos en que enviaste al menos un aporte, aunque después lo rechacen. Si pierdes tu racha, lo que ya lograste sigue contando.";
 
 /** Etiquetas cortas de cada requisito, para el bloque de rango de /progreso. */
 export const ETIQUETAS_CORTAS: Record<ClaveDeRequisito, string> = {
@@ -132,8 +134,8 @@ function unirConY(lista: string[]): string {
   return `${lista.slice(0, -1).join(", ")} y ${lista[lista.length - 1]}`;
 }
 
-/** Lo que falta en un requisito, con su plural: «1 aporte aceptado», «3 aportes de 4★ o más», «2 días de racha». */
-function frase(clave: ClaveDeRequisito, faltan: number): string {
+/** Lo que falta en un requisito, con su plural: «1 aporte aceptado», «3 aportes de 4★ o más», «una racha de 4 días». */
+function frase(clave: ClaveDeRequisito, faltan: number, meta: number): string {
   const uno = faltan === 1;
   switch (clave) {
     case "exp":
@@ -145,7 +147,8 @@ function frase(clave: ClaveDeRequisito, faltan: number): string {
     case "excepcionales":
       return `${faltan} ${uno ? "aporte" : "aportes"} de 5★`;
     case "racha":
-      return `${faltan} ${uno ? "día de racha" : "días de racha"}`;
+      // Es la racha máxima: lo que falta es lograr una racha de esa longitud, no sumar días sueltos.
+      return `una racha de ${meta} ${meta === 1 ? "día" : "días"}`;
     case "misiones":
       return `${faltan} ${uno ? "misión" : "misiones"}`;
   }
@@ -157,8 +160,9 @@ export function textoQueFalta(avances: AvanceDeRequisito[]): string {
   if (pendientes.length === 0) {
     return "Ya cumples todo. Subirás en cuanto el sistema lo compruebe.";
   }
-  const plural = pendientes.length > 1 || pendientes[0].faltan !== 1;
-  return `${plural ? "Te faltan" : "Te falta"} ${unirConY(pendientes.map((a) => frase(a.clave, a.faltan)))}.`;
+  // «una racha de N días» es singular aunque falten varios días.
+  const plural = pendientes.length > 1 || (pendientes[0].clave !== "racha" && pendientes[0].faltan !== 1);
+  return `${plural ? "Te faltan" : "Te falta"} ${unirConY(pendientes.map((a) => frase(a.clave, a.faltan, a.meta)))}.`;
 }
 
 /**

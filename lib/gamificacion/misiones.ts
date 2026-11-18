@@ -7,6 +7,10 @@
 // Decisiones tomadas con la propuesta del SRS, pendientes de confirmar (DA-GAM-17): periodos de 24 horas y 7 días desde
 // el primer inicio de sesión; una cuenta existente se ancla en su siguiente inicio de sesión o actividad; la recompensa
 // se entrega al completarse. Los aportes anónimos no tienen user_id: no cuentan (RF-GAM-43).
+//
+// Misiones de inicio (2026-11-18; SRS v1.4: RF-GAM-103, RN-GAM-41): se asignan todas, una sola vez, en el periodo
+// «inicio» (la semana de bienvenida). Al terminar la semana ya no se pueden completar, aunque se acepte después un
+// aporte enviado dentro de ella (CA-GAM-95).
 
 import type { PoolClient } from "pg";
 import { pool } from "@/lib/db";
@@ -16,6 +20,7 @@ import { SELECCION_DE_MISIONES } from "./catalogos";
 import { evaluarProgresoDe } from "./evaluacion";
 import {
   DURACION_MS,
+  type PeriodicidadSorteada,
   avanceDeMision,
   elegirMisiones,
   periodoEn,
@@ -94,7 +99,7 @@ export async function actualizarMisiones(
     // El periodo vigente y, si se aceptó un aporte tarde, el periodo en que se envió.
     const puntos = [Date.now(), ...instantes.map((i) => new Date(i).getTime())];
     const periodos = new Map<string, { periodicidad: Periodicidad } & Periodo>();
-    for (const periodicidad of ["diaria", "semanal"] as const) {
+    for (const periodicidad of ["diaria", "semanal", "inicio"] as const) {
       for (const punto of puntos) {
         const periodo = periodoEn(ancla, punto, periodicidad);
         if (periodo) periodos.set(`${periodicidad}:${periodo.inicio}`, { periodicidad, ...periodo });
@@ -118,16 +123,18 @@ export async function actualizarMisiones(
     let contexto: ContextoDeSeleccion | null = null;
     for (const { periodicidad, inicio, fin } of periodos.values()) {
       if (clavesDe(previas.rows, periodicidad, inicio).length > 0) continue;
-      contexto ??= await contextoDeSeleccion(client, intereses);
-      const elegidas = elegirMisiones(
-        misiones.filter((m) => m.activa && m.periodicidad === periodicidad),
-        {
-          semilla: `${usuarioId}:${periodicidad}:${inicio}`,
-          cuantas: SELECCION_DE_MISIONES[periodicidad],
-          contexto,
-          anteriores: new Set(clavesDe(previas.rows, periodicidad, inicio - DURACION_MS[periodicidad])),
-        },
-      );
+      const activas = misiones.filter((m) => m.activa && m.periodicidad === periodicidad);
+      // Las de inicio no se sortean: salen todas (RF-GAM-103).
+      if (periodicidad !== "inicio") contexto ??= await contextoDeSeleccion(client, intereses);
+      const elegidas =
+        periodicidad === "inicio" || !contexto
+          ? activas
+          : elegirMisiones(activas, {
+              semilla: `${usuarioId}:${periodicidad}:${inicio}`,
+              cuantas: SELECCION_DE_MISIONES[periodicidad as PeriodicidadSorteada],
+              contexto,
+              anteriores: new Set(clavesDe(previas.rows, periodicidad, inicio - DURACION_MS[periodicidad])),
+            });
       for (const mision of elegidas) {
         await client.query(
           `INSERT INTO mision_instancias (usuario_id, mision_id, periodo_inicio, periodo_fin, objetivo)
@@ -193,6 +200,8 @@ export async function actualizarMisiones(
       if (!mision || instancia.completada) continue;
       const periodo = periodos.get(`${mision.periodicidad}:${Math.round(instancia.inicio)}`);
       if (!periodo) continue;
+      // Terminada la semana de bienvenida, las de inicio ya no avanzan (RF-GAM-103, CA-GAM-95).
+      if (mision.periodicidad === "inicio" && Date.now() >= periodo.fin) continue;
       const avance = Math.min(avanceDeMision(mision.condicion, datos, periodo), instancia.objetivo);
       // El avance solo sube, salvo tras un descuento por reporte (2026-11-13, A1): ahí baja en las misiones que aún no
       // se completan. Una misión completada no se toca (su recompensa ya se entregó).
@@ -247,17 +256,28 @@ export async function actualizarMisiones(
   }
 }
 
-/** Abre los periodos que tocan al leer: la renovación no necesita ningún proceso en segundo plano. */
+/**
+ * Abre los periodos que tocan al leer: la renovación no necesita ningún proceso en segundo plano. Las de inicio solo
+ * se buscan durante la semana de bienvenida (o si la cuenta aún no tiene ancla).
+ */
 export async function asegurarMisionesVigentes(usuarioId: number | string): Promise<void> {
   const { rows } = await pool.query<{ faltan: boolean }>(
     `SELECT EXISTS (
         SELECT 1 FROM (SELECT DISTINCT periodicidad FROM misiones WHERE activa) p
-        WHERE NOT EXISTS (
+        WHERE (
+          p.periodicidad <> 'inicio'
+          OR EXISTS (
+            SELECT 1 FROM usuarios u
+            WHERE u.id = $1
+              AND (u.primer_inicio_sesion_en IS NULL OR u.primer_inicio_sesion_en > NOW() - make_interval(secs => $2 / 1000.0))
+          )
+        )
+        AND NOT EXISTS (
           SELECT 1 FROM mision_instancias i JOIN misiones m ON m.id = i.mision_id
           WHERE i.usuario_id = $1 AND m.periodicidad = p.periodicidad AND i.periodo_inicio <= NOW() AND i.periodo_fin > NOW()
         )
       ) AS faltan`,
-    [usuarioId],
+    [usuarioId, DURACION_MS.inicio],
   );
   if (rows[0]?.faltan) await actualizarMisiones(usuarioId);
 }
@@ -297,6 +317,8 @@ export type MisionCompletada = {
 
 export type DatosDeMisiones = {
   total: number;
+  /** Misiones de la semana de bienvenida; sin misiones fuera de ella (RF-GAM-103). */
+  inicio: GrupoDeMisiones;
   diarias: GrupoDeMisiones;
   semanales: GrupoDeMisiones;
   historial: MisionCompletada[];
@@ -393,6 +415,7 @@ export async function obtenerMisiones(usuarioId: number | string): Promise<Datos
 
     return {
       total: totalR.rows[0]?.misiones_completadas ?? 0,
+      inicio: grupoDe(vigentesR.rows, "inicio"),
       diarias: grupoDe(vigentesR.rows, "diaria"),
       semanales: grupoDe(vigentesR.rows, "semanal"),
       historial: historialR.rows.map((h) => ({

@@ -12,6 +12,7 @@ import {
   TIPOS_DE_APORTE,
   type CondicionDeMision,
   type Periodicidad,
+  type PeriodicidadSorteada,
   type RecompensaDeMision,
 } from "./misiones-reglas";
 
@@ -34,7 +35,8 @@ export type MisionDelCatalogo = {
   recompensa?: RecompensaDeMision;
 };
 
-export type SeleccionDelCatalogo = Record<Periodicidad, number>;
+/** Las de inicio no se sortean: salen todas (RF-GAM-103). */
+export type SeleccionDelCatalogo = Record<PeriodicidadSorteada, number>;
 
 export type MedallaDelCatalogo = {
   /** Identifica la medalla para siempre: el historial de quien la ganó cuelga de ella. No se cambia. */
@@ -81,7 +83,7 @@ export function erroresDeMisiones(misiones: MisionDelCatalogo[], seleccion: Sele
     if (claves.has(m.clave)) errores.push(`${quien}: clave repetida.`);
     claves.add(m.clave);
     if (!esTexto(m.nombre)) errores.push(`${quien}: falta el nombre.`);
-    if (m.periodicidad !== "diaria" && m.periodicidad !== "semanal") errores.push(`${quien}: periodicidad debe ser diaria o semanal.`);
+    if (!["diaria", "semanal", "inicio"].includes(m.periodicidad)) errores.push(`${quien}: periodicidad debe ser diaria, semanal o inicio.`);
     if (!esTexto(m.grupo)) errores.push(`${quien}: falta el grupo.`);
     if (typeof m.activa !== "boolean") errores.push(`${quien}: activa debe ser true o false.`);
     const c = m.condicion;

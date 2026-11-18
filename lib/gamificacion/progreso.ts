@@ -185,7 +185,8 @@ export async function obtenerResumenDeProgreso(usuarioId: number | string): Prom
       aportes: p.aportes_aceptados,
       excelentes: p.aportes_excelentes,
       excepcionales: p.aportes_excepcionales,
-      racha: p.racha_actual,
+      // Los rangos miden la racha máxima (SRS v1.4: RF-GAM-19).
+      racha: p.racha_maxima,
       misiones: p.misiones_completadas,
     };
 

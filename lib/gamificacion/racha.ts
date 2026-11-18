@@ -167,7 +167,7 @@ export async function actualizarRacha(usuarioId: number | string): Promise<Cambi
     client.release();
   }
 
-  // La racha actual es requisito de rango y la máxima y las recuperaciones miden medallas (RF-GAM-18, 47).
+  // La racha máxima es requisito de rango (SRS v1.4: RF-GAM-19) y, con las recuperaciones, mide medallas (RF-GAM-47).
   if (cambio) await evaluarProgresoDe(usuarioId);
 
   // Aviso de RF-GAM-61, ya confirmado el cambio. Reconoce lo logrado: no presiona (RF-GAM-62).

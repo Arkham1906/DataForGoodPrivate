@@ -1,7 +1,12 @@
 // Reglas de las misiones (2026-11-04; SRS v1.3: RF-GAM-40 a 45). Lógica pura, sin base de datos ni reloj propio:
 // tipos del catálogo, periodo de cada cuenta y avance de una misión. La usan el servidor y los componentes.
+//
+// Misiones de inicio (2026-11-18; SRS v1.4: RF-GAM-103, RN-GAM-41): periodicidad «inicio», un solo periodo por cuenta,
+// los 7 días de la semana de bienvenida desde el primer inicio de sesión. No se sortean: salen todas las activas.
 
-export type Periodicidad = "diaria" | "semanal";
+export type Periodicidad = "diaria" | "semanal" | "inicio";
+/** Las que se sortean en cada periodo (seleccion de misiones.json). */
+export type PeriodicidadSorteada = Exclude<Periodicidad, "inicio">;
 
 export const TIPOS_DE_APORTE = ["texto", "foto", "video", "audio", "documento"] as const;
 
@@ -40,17 +45,20 @@ export type CondicionDeMision = {
  */
 export type RecompensaDeMision = { tipo: "exp"; cantidad: number } | null;
 
-export const DURACION_MS: Record<Periodicidad, number> = { diaria: 86_400_000, semanal: 604_800_000 };
+/** «inicio» dura la semana de bienvenida: los primeros 7 días desde el primer inicio de sesión (RF-GAM-103, 106). */
+export const DURACION_MS: Record<Periodicidad, number> = { diaria: 86_400_000, semanal: 604_800_000, inicio: 604_800_000 };
 
 export type Periodo = { inicio: number; fin: number };
 
 /**
  * Bloques consecutivos de 24 horas o 7 días desde el primer inicio de sesión (propuesta de RF-GAM-41, DA-GAM-17).
- * null si el instante es anterior al ancla: ese aporte no pertenece a ningún periodo.
+ * null si el instante es anterior al ancla: ese aporte no pertenece a ningún periodo. «inicio» tiene un solo bloque, el
+ * primero: después de la semana de bienvenida también es null (RN-GAM-41).
  */
 export function periodoEn(ancla: number, instante: number, periodicidad: Periodicidad): Periodo | null {
   if (instante < ancla) return null;
   const duracion = DURACION_MS[periodicidad];
+  if (periodicidad === "inicio") return instante < ancla + duracion ? { inicio: ancla, fin: ancla + duracion } : null;
   const inicio = ancla + Math.floor((instante - ancla) / duracion) * duracion;
   return { inicio, fin: inicio + duracion };
 }

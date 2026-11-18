@@ -1966,7 +1966,8 @@ async function sincronizarMisiones(): Promise<void> {
 
 /**
  * Misiones (RF-GAM-40 a 45, 75). El catálogo vive en lib/datos/misiones.json (lib/gamificacion/catalogos.ts).
- *   - misiones: periodicidad diaria o semanal, condición y recompensa en JSON (la forma la define el catálogo).
+ *   - misiones: periodicidad diaria, semanal o inicio (semana de bienvenida, 2026-11-18), condición y recompensa en
+ *     JSON (la forma la define el catálogo).
  *   - mision_instancias: una por persona, misión y periodo. El periodo tiene inicio y fin explícitos,
  *     calculados desde primer_inicio_sesion_en (RF-GAM-41); el UNIQUE impide contar dos veces la misma
  *     finalización (RF-GAM-42). recompensa_entregada_en separa "completada" de "recompensa concedida"
@@ -1980,7 +1981,7 @@ export async function ensureMisionesTables(): Promise<void> {
       clave VARCHAR(60) NOT NULL UNIQUE,
       nombre VARCHAR(120) NOT NULL,
       descripcion TEXT,
-      periodicidad VARCHAR(10) NOT NULL CHECK (periodicidad IN ('diaria', 'semanal')),
+      periodicidad VARCHAR(10) NOT NULL CHECK (periodicidad IN ('diaria', 'semanal', 'inicio')),
       condicion JSONB NOT NULL,
       recompensa JSONB NOT NULL DEFAULT '{}'::jsonb,
       activa BOOLEAN NOT NULL DEFAULT true,
@@ -2014,6 +2015,21 @@ export async function ensureMisionesTables(): Promise<void> {
       PRIMARY KEY (instancia_id, aporte_id)
     );
     CREATE INDEX IF NOT EXISTS mision_instancia_aportes_aporte_idx ON mision_instancia_aportes (aporte_id);
+  `);
+  // Misiones de inicio (2026-11-18, RF-GAM-103): la regla de periodicidad admite «inicio». Va antes de sincronizar, para
+  // que el catálogo pueda guardarlas en el mismo arranque. Solo corre mientras la regla vieja exista.
+  await pool.query(`
+    DO $$
+    BEGIN
+      IF EXISTS (
+        SELECT 1 FROM pg_constraint
+          WHERE conrelid = 'misiones'::regclass AND contype = 'c'
+            AND pg_get_constraintdef(oid) LIKE '%periodicidad%' AND pg_get_constraintdef(oid) NOT LIKE '%inicio%'
+      ) THEN
+        ALTER TABLE misiones DROP CONSTRAINT IF EXISTS misiones_periodicidad_check;
+        ALTER TABLE misiones ADD CONSTRAINT misiones_periodicidad_check CHECK (periodicidad IN ('diaria', 'semanal', 'inicio'));
+      END IF;
+    END $$;
   `);
   await sincronizarMisiones();
 }

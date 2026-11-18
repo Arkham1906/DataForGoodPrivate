@@ -87,7 +87,7 @@ export default function TablaDeRequisitosDeRangos({
         </div>
         <p className="text-[12.5px] text-system-600">
           «4★ o más» cuenta los aportes Sobresalientes (4★) y Excepcionales (5★); «5★», solo los Excepcionales. La racha es la
-          que tengas al momento de subir.
+          más larga que hayas logrado, aunque después la pierdas.
         </p>
       </div>
     </section>

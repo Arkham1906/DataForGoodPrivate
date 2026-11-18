@@ -65,7 +65,18 @@ function Mision({ mision }: { mision: MisionVigente }) {
   );
 }
 
-export default function GrupoDeMisiones({ id, titulo, grupo }: { id: string; titulo: string; grupo: DatosDelGrupo }) {
+export default function GrupoDeMisiones({
+  id,
+  titulo,
+  grupo,
+  etiquetaDelPlazo = "Se renuevan en",
+}: {
+  id: string;
+  titulo: string;
+  grupo: DatosDelGrupo;
+  /** Las de inicio no se renuevan: terminan con la semana de bienvenida (2026-11-18). */
+  etiquetaDelPlazo?: string;
+}) {
   return (
     <section aria-labelledby={id} className="flex min-w-0 flex-col gap-1.5 rounded-lg border border-system-200 bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -75,7 +86,11 @@ export default function GrupoDeMisiones({ id, titulo, grupo }: { id: string; tit
           </h2>
           {grupo.periodo && <p className="mt-0.5 text-[13px] text-system-700">Periodo: {grupo.periodo}</p>}
         </div>
-        {grupo.seRenuevanEn && <Tag tone="info">Se renuevan en {grupo.seRenuevanEn}</Tag>}
+        {grupo.seRenuevanEn && (
+          <Tag tone="info">
+            {etiquetaDelPlazo} {grupo.seRenuevanEn}
+          </Tag>
+        )}
       </div>
       {grupo.misiones.length === 0 ? (
         <p className="py-3 text-[13px] text-system-600">Por ahora no hay misiones en este periodo.</p>

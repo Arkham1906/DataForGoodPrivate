@@ -152,8 +152,8 @@ function Cuerpo({ ficha, total }: { ficha: DatosDeFicha; total: number }) {
         <div id="ficha-rango-intro" className="space-y-1">
           <p className="text-base font-bold text-system-900">{ficha.textoQueFalta}</p>
           <p className="text-[15px] text-system-700">
-            Cumples {ficha.cumplidos} de {ficha.requisitos.length}. Subes en cuanto cumplas todos a la vez; la racha se toma
-            tal como esté en ese momento.
+            Cumples {ficha.cumplidos} de {ficha.requisitos.length}. Subes en cuanto cumplas todos a la vez; la racha que cuenta
+            es la más larga que hayas logrado.
           </p>
         </div>
         <Descripcion texto={ficha.descripcion} />

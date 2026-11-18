@@ -1,6 +1,6 @@
 // Pantalla /progreso/misiones, pestaña Misiones de «Mi progreso» (2026-11-04; diseño v10, SRS v1.3: RF-GAM-40 a 45, 75).
-// De arriba abajo: total de misiones y lo que pide el rango siguiente, misiones diarias y semanales vigentes, historial
-// y «Cómo cuentan». El título y las pestañas están en ../layout.tsx.
+// De arriba abajo: total de misiones y lo que pide el rango siguiente, misiones de la primera semana (solo durante la
+// semana de bienvenida, 2026-11-18, RF-GAM-103), misiones diarias y semanales vigentes, historial y «Cómo cuentan». El título y las pestañas están en ../layout.tsx.
 // Server Component. Acceso: sesión de usuario. Datos: obtenerMisiones() (lib/gamificacion/misiones.ts) y
 // obtenerResumenDeProgreso(). Solo muestra: el avance se calcula al enviar, aceptar o guardar.
 
@@ -11,6 +11,7 @@ import HistorialDeMisiones from "@/components/gamificacion/HistorialDeMisiones";
 import { exigirUsuario } from "@/lib/session";
 import { obtenerMisiones } from "@/lib/gamificacion/misiones";
 import { obtenerResumenDeProgreso } from "@/lib/gamificacion/progreso";
+import { TEXTOS } from "@/lib/gamificacion/textos";
 import type { FichaDeRangoSiguiente } from "@/lib/gamificacion/rangos";
 
 export const metadata: Metadata = { title: "Misiones" };
@@ -37,6 +38,8 @@ export default async function MisionesPage() {
     );
   }
 
+  const deInicio = datos.inicio.misiones.length > 0;
+  const comoCuentan = deInicio ? [...COMO_CUENTAN, TEXTOS.misionesDeInicio.comoCuentan] : COMO_CUENTAN;
   const siguiente = progreso?.fichas.find((f): f is FichaDeRangoSiguiente => f.estado === "siguiente");
   const meta = siguiente?.requisitos.find((r) => r.clave === "misiones");
 
@@ -67,6 +70,15 @@ export default async function MisionesPage() {
         </div>
       </section>
 
+      {deInicio && (
+        <GrupoDeMisiones
+          id="misiones-inicio"
+          titulo={TEXTOS.misionesDeInicio.titulo}
+          grupo={datos.inicio}
+          etiquetaDelPlazo={TEXTOS.misionesDeInicio.plazo}
+        />
+      )}
+
       <div className="grid gap-5 lg:grid-cols-2">
         <GrupoDeMisiones id="misiones-diarias" titulo="Diarias" grupo={datos.diarias} />
         <GrupoDeMisiones id="misiones-semanales" titulo="Semanales" grupo={datos.semanales} />
@@ -79,7 +91,7 @@ export default async function MisionesPage() {
             Cómo cuentan
           </h2>
           <ul className="mt-2.5 list-disc space-y-2 pl-4 text-[13px] text-brand-800">
-            {COMO_CUENTAN.map((texto) => (
+            {comoCuentan.map((texto) => (
               <li key={texto}>{texto}</li>
             ))}
           </ul>

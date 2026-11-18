@@ -223,7 +223,13 @@ export const TEXTOS = {
       ajuste: "Ajuste de EXP",
     },
     periodicidad: (periodicidad: string) =>
-      periodicidad === "diaria" ? "Misión diaria" : periodicidad === "semanal" ? "Misión semanal" : "Misión",
+      periodicidad === "diaria"
+        ? "Misión diaria"
+        : periodicidad === "semanal"
+          ? "Misión semanal"
+          : periodicidad === "inicio"
+            ? "Misión de tu primera semana"
+            : "Misión",
     tituloAporte: (tipo: string | null, estrellas: number, nombre: string) =>
       `${tipo ? `${tipo} · ` : ""}${n(estrellas)}★ ${nombre}`,
     tituloAporteSinDatos: "Aporte aceptado",
@@ -358,6 +364,16 @@ export const TEXTOS = {
     error: "Todavía no podemos mostrar tus medallas. Intenta de nuevo en unos minutos.",
     cargando: "Cargando tus medallas…",
   },
+  /** Misiones de inicio en /progreso/misiones (2026-11-18; SRS v1.4: RF-GAM-103). */
+  misionesDeInicio: {
+    titulo: "Tu primera semana",
+    plazo: "Terminan en",
+    filtro: "Primera semana",
+    nombreDelPeriodo: "Primera semana",
+    comoCuentan:
+      "Durante tus primeros 7 días tienes también las misiones de tu primera semana. Salen una sola vez y, al terminar la semana, las que no completaste desaparecen.",
+  },
+
   /** Celebraciones de rango, medalla y racha (2026-11-16; lienzo aprobado el mismo día). Reconocen, no presionan (RF-GAM-62). */
   celebraciones: {
     paso: (actual: number, total: number) => `${n(actual)} de ${n(total)}`,
