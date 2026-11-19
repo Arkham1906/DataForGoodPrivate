@@ -10,6 +10,8 @@
 //     pendientes de rango y medalla. Así salen en vivo cuando aceptan el aporte que hizo subir, o al volver.
 //   - La pantalla de aportar avisa con EVENTO_CELEBRAR_RACHA el cambio de racha que devolvió POST /api/aportes; la
 //     racha va primero y después se piden las pendientes (Llama Constante puede subir con el mismo envío).
+//     2026-11-19: la medalla o el rango del mismo envío llegan en vivo antes que la racha y esperan en la cola sin
+//     mostrarse; la racha se pone delante de ellos. Solo se respeta (queda primero) un paso que ya se vio en pantalla.
 // «Siguiente» marca vistas las del paso y pasa al otro; «Cerrar», un enlace o Esc marcan vistas todas las de la cola.
 // Espera su turno (2026-11-17): mientras otra ventana modal de la app esté abierta, o mientras haya en la página un
 // elemento con `data-pausar-celebraciones` (aportar lo pone mientras envía y mientras muestra "Aporte enviado"), la cola
@@ -83,14 +85,15 @@ function suscribirAVentanas(avisar: () => void) {
 }
 
 /** El <dialog> de un paso: se abre como modal antes de pintarse (sin parpadeo entre pasos) y enfoca su botón principal. */
-function Ventana({ tipo, alEscapar, children }: { tipo: Paso["tipo"]; alEscapar: () => void; children: ReactNode }) {
+function Ventana({ clave, tipo, alMostrarse, alEscapar, children }: { clave: string; tipo: Paso["tipo"]; alMostrarse: (clave: string) => void; alEscapar: () => void; children: ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null);
   useLayoutEffect(() => {
     const ventana = ref.current;
     if (!ventana) return;
     if (!ventana.open) ventana.showModal();
     ventana.querySelector<HTMLElement>("[data-foco]")?.focus();
-  }, []);
+    alMostrarse(clave);
+  }, [clave, alMostrarse]);
   return (
     <dialog
       ref={ref}
@@ -117,12 +120,18 @@ export default function Celebraciones() {
   useLayoutEffect(() => {
     colaRef.current = cola;
   }, [cola]);
+  // Clave del paso que ya llegó a verse en pantalla (no basta con ser el primero de la cola: puede estar en espera).
+  const pasoVisto = useRef<string | null>(null);
 
   const agregar = useCallback((nuevos: Paso[], alFrente = false) => {
     if (nuevos.length === 0) return;
     if (colaRef.current.length === 0) origen.current = document.activeElement as HTMLElement | null;
-    // Al frente, pero sin tapar el paso que ya se está viendo.
-    setCola((c) => (alFrente && c.length > 0 ? [c[0], ...nuevos, ...c.slice(1)] : alFrente ? [...nuevos, ...c] : [...c, ...nuevos]));
+    // Al frente, pero sin tapar el paso que ya se está viendo; uno que aún espera su turno sí queda detrás.
+    const visto = pasoVisto.current;
+    setCola((c) => {
+      if (!alFrente) return [...c, ...nuevos];
+      return c.length > 0 && c[0].clave === visto ? [c[0], ...nuevos, ...c.slice(1)] : [...nuevos, ...c];
+    });
   }, []);
 
   const cargar = useCallback(async () => {
@@ -151,7 +160,6 @@ export default function Celebraciones() {
 
   useEffect(() => {
     // La cola cambia después de la respuesta, no durante el efecto: es la suscripción a lo pendiente del servidor.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void cargar();
     const alAviso = () => void cargar();
     const alCrecerLaRacha = (evento: Event) => {
@@ -192,6 +200,10 @@ export default function Celebraciones() {
     terminar();
   }, [terminar]);
 
+  const alMostrarse = useCallback((clave: string) => {
+    pasoVisto.current = clave;
+  }, []);
+
   const enEspera = useSyncExternalStore(suscribirAVentanas, hayQueEsperar, () => false);
 
   const actual = cola[0];
@@ -203,7 +215,7 @@ export default function Celebraciones() {
   const comunes = { paso, siguiente, alSiguiente, alCerrar };
 
   return (
-    <Ventana key={actual.clave} tipo={actual.tipo} alEscapar={alCerrar}>
+    <Ventana key={actual.clave} clave={actual.clave} tipo={actual.tipo} alMostrarse={alMostrarse} alEscapar={alCerrar}>
       {actual.tipo === "racha" && <CelebracionDeRacha racha={actual.racha} {...comunes} />}
       {actual.tipo === "rango" && <CelebracionDeRango rango={actual.rango} {...comunes} />}
       {actual.tipo === "medallas" && <CelebracionDeMedallas medallas={actual.medallas} {...comunes} />}
