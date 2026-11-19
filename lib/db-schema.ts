@@ -1951,12 +1951,22 @@ async function sincronizarMisiones(): Promise<void> {
   }
   for (const m of MISIONES_DEL_CATALOGO) {
     await pool.query(
-      `INSERT INTO misiones (clave, nombre, descripcion, periodicidad, grupo, condicion, recompensa, activa)
-       VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8)
+      `INSERT INTO misiones (clave, nombre, descripcion, periodicidad, grupo, condicion, recompensa, activa, dificultad)
+       VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, $9)
        ON CONFLICT (clave) DO UPDATE SET
          nombre = EXCLUDED.nombre, descripcion = EXCLUDED.descripcion, periodicidad = EXCLUDED.periodicidad, grupo = EXCLUDED.grupo,
-         condicion = EXCLUDED.condicion, recompensa = EXCLUDED.recompensa, activa = EXCLUDED.activa`,
-      [m.clave, m.nombre, m.descripcion ?? null, m.periodicidad, m.grupo, JSON.stringify(m.condicion), JSON.stringify(m.recompensa ?? {}), m.activa],
+         condicion = EXCLUDED.condicion, recompensa = EXCLUDED.recompensa, activa = EXCLUDED.activa, dificultad = EXCLUDED.dificultad`,
+      [
+        m.clave,
+        m.nombre,
+        m.descripcion ?? null,
+        m.periodicidad,
+        m.grupo,
+        JSON.stringify(m.condicion),
+        JSON.stringify(m.recompensa ?? {}),
+        m.activa,
+        m.dificultad ?? "normal",
+      ],
     );
   }
   await pool.query(`UPDATE misiones SET activa = false WHERE activa AND clave <> ALL($1::text[])`, [
@@ -1989,6 +1999,9 @@ export async function ensureMisionesTables(): Promise<void> {
     );
     -- Variedad de la selección aleatoria (lib/gamificacion/misiones-reglas.ts, 2026-11-04).
     ALTER TABLE misiones ADD COLUMN IF NOT EXISTS grupo VARCHAR(40);
+    -- Dificultad (2026-11-19, RF-GAM-44, 122): como máximo una difícil por periodo.
+    ALTER TABLE misiones ADD COLUMN IF NOT EXISTS dificultad VARCHAR(10) NOT NULL DEFAULT 'normal'
+      CHECK (dificultad IN ('normal', 'dificil'));
 
     CREATE TABLE IF NOT EXISTS mision_instancias (
       id BIGSERIAL PRIMARY KEY,
@@ -2004,6 +2017,9 @@ export async function ensureMisionesTables(): Promise<void> {
       UNIQUE (usuario_id, mision_id, periodo_inicio)
     );
     CREATE INDEX IF NOT EXISTS mision_instancias_mision_idx ON mision_instancias (mision_id);
+    -- Lo que da la instancia, fijado al asignarla (2026-11-19): en una difícil, el objeto que salió en el sorteo. NULL en
+    -- las asignadas antes: usan la recompensa del catálogo.
+    ALTER TABLE mision_instancias ADD COLUMN IF NOT EXISTS recompensa JSONB;
     -- Total histórico de misiones completadas (requisito de rango) y recompensas por entregar.
     CREATE INDEX IF NOT EXISTS mision_instancias_completadas_idx ON mision_instancias (usuario_id) WHERE completada_en IS NOT NULL;
     CREATE INDEX IF NOT EXISTS mision_instancias_sin_recompensa_idx ON mision_instancias (usuario_id)

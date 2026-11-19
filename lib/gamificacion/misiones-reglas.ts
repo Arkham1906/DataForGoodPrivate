@@ -3,6 +3,11 @@
 //
 // Misiones de inicio (2026-11-18; SRS v1.4: RF-GAM-103, RN-GAM-41): periodicidad «inicio», un solo periodo por cuenta,
 // los 7 días de la semana de bienvenida desde el primer inicio de sesión. No se sortean: salen todas las activas.
+//
+// «Envía…» y «Logra…», dificultad y recompensas (2026-11-19; SRS v1.4: RF-GAM-43, 44, 122, RN-GAM-40, tabla 4.6, con la
+// decisión del responsable del 19 nov): cuándo cuenta una misión se deduce de su condición (cuandoCuenta). Las difíciles
+// tienen recompensa «sorteo»: al asignarse la misión sale un potenciador o un protector, 50/50 según los pesos de
+// misiones.json, y como máximo una difícil por periodo.
 
 export type Periodicidad = "diaria" | "semanal" | "inicio";
 /** Las que se sortean en cada periodo (seleccion de misiones.json). */
@@ -39,11 +44,25 @@ export type CondicionDeMision = {
   soloEspeciales?: boolean;
 };
 
+export type Dificultad = "normal" | "dificil";
+
+export const OBJETOS_DE_MISION = ["potenciador", "protector"] as const;
+export type ObjetoDeMision = (typeof OBJETOS_DE_MISION)[number];
+
 /**
- * Opcional: las recompensas se definen después. Una misión sin recompensa se completa y cuenta para los rangos.
- * Solo EXP por ahora: los potenciadores dependen de DA-GAM-13 y los protectores aún no existen.
+ * EXP o un objeto. «sorteo» solo vive en el catálogo: al asignar la misión se cambia por el objeto que salió
+ * (sortearObjeto) y eso se guarda en la instancia. Una misión sin recompensa se completa y cuenta para los rangos.
  */
-export type RecompensaDeMision = { tipo: "exp"; cantidad: number } | null;
+export type RecompensaDeMision = { tipo: "exp"; cantidad: number } | { tipo: ObjetoDeMision } | { tipo: "sorteo" } | null;
+
+/** Cuándo avanza una misión: al enviar («Envía…»), al aceptarse el aporte («Logra…») o al hacer la acción (RN-GAM-40). */
+export type CuandoCuenta = "envio" | "aceptacion" | "accion";
+
+export function cuandoCuenta(c: CondicionDeMision): CuandoCuenta {
+  if (c.mide === "campanas_guardadas" || c.mide === "inscripciones") return "accion";
+  // Una cuota solo se completa con aportes aceptados.
+  return c.soloAceptados || c.mide === "cuotas_completadas" ? "aceptacion" : "envio";
+}
 
 /** «inicio» dura la semana de bienvenida: los primeros 7 días desde el primer inicio de sesión (RF-GAM-103, 106). */
 export const DURACION_MS: Record<Periodicidad, number> = { diaria: 86_400_000, semanal: 604_800_000, inicio: 604_800_000 };
@@ -157,19 +176,43 @@ export function avanceDeMision(condicion: CondicionDeMision, datos: DatosParaMis
 /** Las tablas guardan «sin recompensa» como {}. */
 export function recompensaDesde(valor: unknown): RecompensaDeMision {
   const r = valor as { tipo?: string; cantidad?: number } | null;
-  return r?.tipo === "exp" && typeof r.cantidad === "number" ? { tipo: "exp", cantidad: r.cantidad } : null;
+  if (r?.tipo === "exp" && typeof r.cantidad === "number") return { tipo: "exp", cantidad: r.cantidad };
+  if (r?.tipo === "potenciador" || r?.tipo === "protector" || r?.tipo === "sorteo") return { tipo: r.tipo };
+  return null;
 }
 
-/** «15 EXP»; null sin recompensa. */
+/** «15 EXP», «1 protector», «1 potenciador o 1 protector»; null sin recompensa. */
 export function textoDeRecompensa(recompensa: RecompensaDeMision): string | null {
-  return recompensa ? `${recompensa.cantidad} EXP` : null;
+  if (!recompensa) return null;
+  if (recompensa.tipo === "exp") return `${recompensa.cantidad} EXP`;
+  if (recompensa.tipo === "sorteo") return "1 potenciador o 1 protector";
+  return `1 ${recompensa.tipo}`;
+}
+
+/** Tipo para el ícono de la tarjeta; null sin recompensa. */
+export function tipoDeRecompensa(recompensa: RecompensaDeMision): "exp" | ObjetoDeMision | null {
+  return recompensa && recompensa.tipo !== "sorteo" ? recompensa.tipo : null;
+}
+
+/**
+ * Objeto de una misión difícil. Repetible con la misma semilla (persona, misión y periodo): un reintento no lo cambia.
+ * Con los pesos de misiones.json (1 y 1) es 50/50.
+ */
+export function sortearObjeto(semilla: string, pesos: Record<ObjetoDeMision, number>): ObjetoDeMision {
+  const total = OBJETOS_DE_MISION.reduce((suma, o) => suma + pesos[o], 0);
+  let punto = (hash(semilla) / 0x1_0000_0000) * total;
+  for (const objeto of OBJETOS_DE_MISION) {
+    punto -= pesos[objeto];
+    if (punto < 0) return objeto;
+  }
+  return OBJETOS_DE_MISION[OBJETOS_DE_MISION.length - 1];
 }
 
 // ---------------------------------------------------------------------------------------------------
 // Selección aleatoria de cada periodo.
 // ---------------------------------------------------------------------------------------------------
 
-export type MisionParaElegir = { clave: string; grupo: string | null; condicion: CondicionDeMision };
+export type MisionParaElegir = { clave: string; grupo: string | null; condicion: CondicionDeMision; dificultad?: Dificultad };
 
 /** Lo que hay en la app ahora, para no pedir algo imposible. */
 export type ContextoDeSeleccion = {
@@ -201,13 +244,13 @@ function hash(texto: string): number {
 /**
  * Elige las misiones de un periodo. Es aleatorio para cada persona y periodo, pero repetible: la semilla decide, así un
  * reintento no cambia el resultado. Evita lo del periodo anterior y prefiere un grupo distinto para cada misión; si no
- * alcanza, completa con lo que quede.
+ * alcanza, completa con lo que quede. Nunca pasa de `maximoDificiles` misiones difíciles (RF-GAM-44, CA-GAM-112).
  */
 export function elegirMisiones<T extends MisionParaElegir>(
   misiones: T[],
-  entrada: { semilla: string; cuantas: number; contexto: ContextoDeSeleccion; anteriores: ReadonlySet<string> },
+  entrada: { semilla: string; cuantas: number; contexto: ContextoDeSeleccion; anteriores: ReadonlySet<string>; maximoDificiles?: number },
 ): T[] {
-  const { semilla, cuantas, contexto, anteriores } = entrada;
+  const { semilla, cuantas, contexto, anteriores, maximoDificiles = Infinity } = entrada;
   const barajadas = misiones
     .filter((m) => misionPosible(m.condicion, contexto))
     .map((mision) => ({ mision, orden: hash(`${semilla}:${mision.clave}`) }))
@@ -216,15 +259,16 @@ export function elegirMisiones<T extends MisionParaElegir>(
 
   const elegidas: T[] = [];
   const grupos = new Set<string>();
+  const cabe = (m: T) => m.dificultad !== "dificil" || elegidas.filter((e) => e.dificultad === "dificil").length < maximoDificiles;
   for (const m of barajadas) {
     if (elegidas.length === cuantas) break;
-    if (m.grupo && grupos.has(m.grupo)) continue;
+    if ((m.grupo && grupos.has(m.grupo)) || !cabe(m)) continue;
     elegidas.push(m);
     if (m.grupo) grupos.add(m.grupo);
   }
   for (const m of barajadas) {
     if (elegidas.length === cuantas) break;
-    if (!elegidas.includes(m)) elegidas.push(m);
+    if (!elegidas.includes(m) && cabe(m)) elegidas.push(m);
   }
   return elegidas;
 }

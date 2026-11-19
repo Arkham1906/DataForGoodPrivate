@@ -1,12 +1,19 @@
 // Tarjeta de misiones de un periodo en /progreso/misiones (2026-11-04; diseño v10, RF-GAM-40, 41, 75): cuándo empieza y
 // termina el periodo, cada misión con su avance y su recompensa. El estado se dice con texto, no solo con color.
 // Sin estado: Server Component.
+//
+// 2026-11-19 (SRS v1.4: RF-GAM-43, 122; lienzo «Misiones: Envía/Logra, dificultad y recompensa», aprobado): la recompensa
+// va con su ícono (EXP, protector o potenciador), las difíciles llevan la etiqueta «Difícil» con ícono, y una línea dice
+// cuándo cuenta la misión. Íconos de protector, potenciador y Difícil: provisionales hasta los de la tabla 4.5.
 
 import ProgressBar from "@/components/ui/ProgressBar";
 import Tag from "@/components/ui/Tag";
 import type { GrupoDeMisiones as DatosDelGrupo, MisionVigente } from "@/lib/gamificacion/misiones";
 import type { MedidaDeMision } from "@/lib/gamificacion/misiones-reglas";
+import { TEXTOS } from "@/lib/gamificacion/textos";
 import IconoDeMision from "./IconoDeMision";
+
+const T = TEXTOS.misiones;
 
 /** Hasta cuántos pasos se dibujan como tramos; con más, una barra continua (igual que MisionesDeHoy). */
 const MAXIMO_DE_TRAMOS = 5;
@@ -29,14 +36,47 @@ const ICONOS: Record<MedidaDeMision, string> = {
   campanas_guardadas: "M12 3l2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3l-5.6 2.9 1.1-6.2L3 9.6l6.2-.9z",
 };
 
+// Íconos provisionales (Lucide): EXP, protector, potenciador, Difícil, enviar y aceptado.
+const ICONO_DE_RECOMPENSA = {
+  exp: "M12 3l1.9 5.8L20 10.7l-5.1 3.7L16.8 21 12 17.3 7.2 21l1.9-6.6L4 10.7l6.1-1.9z",
+  protector: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",
+  potenciador: "M13 2L3 14h9l-1 8 10-12h-9l1-8z",
+} as const;
+const MONTANA = "M8 3l4 8 5-5 5 15H2L8 3z";
+const ICONO_DE_CUENTA = {
+  envio: "M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z",
+  aceptacion: "M22 11.1V12a10 10 0 1 1-5.9-9.1M22 4L12 14l-3-3",
+} as const;
+const CLASE_DE_RECOMPENSA = {
+  exp: "border-brand-200 bg-brand-50 text-brand-800",
+  protector: "border-system-300 bg-system-100 text-system-800",
+  potenciador: "border-warning-200 bg-warning-50 text-warning-800",
+} as const;
+
+function Trazo({ d, className }: { d: string; className: string }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" className={className} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d={d} />
+    </svg>
+  );
+}
+
 function Mision({ mision }: { mision: MisionVigente }) {
   const { completada, objetivo, progreso } = mision;
   return (
     <li className="grid grid-cols-[44px_1fr] items-start gap-3.5 border-t border-system-100 py-4 first:border-t-0">
-      <IconoDeMision clave={mision.clave} completada= {completada} respaldo={ICONOS[mision.mide]} />
+      <IconoDeMision clave={mision.clave} completada={completada} respaldo={ICONOS[mision.mide]} />
       <div className="flex min-w-0 flex-col gap-2">
-        <p className="flex flex-wrap items-baseline justify-between gap-x-2.5">
-          <strong className="text-sm text-system-900">{mision.nombre}</strong>
+        <p className="flex flex-wrap items-center justify-between gap-x-2.5 gap-y-1">
+          <span className="inline-flex flex-wrap items-center gap-2">
+            <strong className="text-sm text-system-900">{mision.nombre}</strong>
+            {mision.dificil && (
+              <span className="inline-flex items-center gap-1 rounded-pill bg-brand-950 py-0.5 pl-1.5 pr-2.5 text-[11.5px] font-bold text-white">
+                <Trazo d={MONTANA} className="h-3.5 w-3.5" />
+                {T.dificil}
+              </span>
+            )}
+          </span>
           <span className={`whitespace-nowrap text-[13px] font-bold ${completada ? "text-success-800" : "text-system-900"}`}>
             {completada ? "Completada" : `${progreso} de ${objetivo}`}
           </span>
@@ -52,12 +92,24 @@ function Mision({ mision }: { mision: MisionVigente }) {
             <ProgressBar pct={(progreso / objetivo) * 100} tone={completada ? "ok" : "accent"} />
           )}
         </div>
-        {mision.recompensa && (
-          <p className="flex flex-wrap items-center gap-2">
-            <Tag tone="info">{mision.recompensa}</Tag>
-            <span className={`text-[12.5px] font-semibold ${completada ? "text-success-800" : "text-system-600"}`}>
-              {completada ? "Recompensa entregada" : "Se entrega sola al completarla"}
-            </span>
+        {(mision.recompensa || (!completada && mision.cuenta !== "accion")) && (
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            {mision.recompensa && mision.tipoDeRecompensa && (
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-pill border py-1 pl-2 pr-2.5 text-[12.5px] font-bold ${
+                  completada ? "border-success-200 bg-success-50 text-success-800" : CLASE_DE_RECOMPENSA[mision.tipoDeRecompensa]
+                }`}
+              >
+                <Trazo d={ICONO_DE_RECOMPENSA[mision.tipoDeRecompensa]} className="h-[15px] w-[15px]" />
+                {completada ? T.recibiste(mision.recompensa) : T.recompensa(mision.recompensa)}
+              </span>
+            )}
+            {!completada && mision.cuenta !== "accion" && (
+              <span className="inline-flex items-start gap-1.5 text-[12.5px] font-semibold text-system-600">
+                <Trazo d={ICONO_DE_CUENTA[mision.cuenta]} className="mt-px h-3.5 w-3.5 shrink-0" />
+                {T.cuenta[mision.cuenta]}
+              </span>
+            )}
           </p>
         )}
       </div>

@@ -374,6 +374,28 @@ export const TEXTOS = {
       "Durante tus primeros 7 días tienes también las misiones de tu primera semana. Salen una sola vez y, al terminar la semana, las que no completaste desaparecen.",
   },
 
+  /**
+   * Tarjetas de misión (2026-11-19; SRS v1.4: RF-GAM-43, 122; lienzo aprobado el mismo día): cuándo cuenta, la etiqueta
+   * de las difíciles y la recompensa.
+   */
+  misiones: {
+    cuenta: {
+      envio: "Cuenta al enviar, aunque no lo acepten",
+      aceptacion: "Cuenta cuando lo aceptan, en el periodo en que lo enviaste",
+    },
+    dificil: "Difícil",
+    /** «+20 EXP» o «1 protector». */
+    recompensa: (texto: string) => (texto.endsWith("EXP") ? `+${texto}` : texto),
+    recibiste: (texto: string) => `Recibiste ${texto.endsWith("EXP") ? `+${texto}` : texto}`,
+    /** Notificación al completarla: «recibiste 20 EXP», «ganaste 1 protector». */
+    ganaste: (texto: string) => (texto.endsWith("EXP") ? `recibiste ${texto}` : `ganaste ${texto}`),
+    comoCuentan: [
+      "Las misiones «Envía…» cuentan al enviar el aporte, aunque después no lo acepten.",
+      "Las misiones «Logra…» cuentan cuando aceptan el aporte, en el periodo en que lo enviaste.",
+      "Cada semana puede salir una misión difícil. Da un protector o un potenciador en lugar de EXP; la tarjeta dice cuál.",
+    ] as readonly string[],
+  },
+
   /** Celebraciones de rango, medalla y racha (2026-11-16; lienzo aprobado el mismo día). Reconocen, no presionan (RF-GAM-62). */
   celebraciones: {
     paso: (actual: number, total: number) => `${n(actual)} de ${n(total)}`,

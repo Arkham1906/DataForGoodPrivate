@@ -39,7 +39,8 @@ export default async function MisionesPage() {
   }
 
   const deInicio = datos.inicio.misiones.length > 0;
-  const comoCuentan = deInicio ? [...COMO_CUENTAN, TEXTOS.misionesDeInicio.comoCuentan] : COMO_CUENTAN;
+  // «Envía…», «Logra…» y las difíciles (2026-11-19, RF-GAM-43, 44).
+  const comoCuentan = [...COMO_CUENTAN, ...TEXTOS.misiones.comoCuentan, ...(deInicio ? [TEXTOS.misionesDeInicio.comoCuentan] : [])];
   const siguiente = progreso?.fichas.find((f): f is FichaDeRangoSiguiente => f.estado === "siguiente");
   const meta = siguiente?.requisitos.find((r) => r.clave === "misiones");
 

@@ -150,7 +150,7 @@ export async function obtenerResumenDeProgreso(usuarioId: number | string): Prom
         renueva_en_segundos: number;
         clave: string;
       }>(
-        `SELECT mi.id::text AS id, m.clave, m.nombre, m.recompensa, mi.objetivo, mi.progreso,
+        `SELECT mi.id::text AS id, m.clave, m.nombre, COALESCE(mi.recompensa, m.recompensa) AS recompensa, mi.objetivo, mi.progreso,
           (mi.completada_en IS NOT NULL) AS completada,
           (mi.recompensa_entregada_en IS NOT NULL) AS entregada,
           GREATEST(0, EXTRACT(EPOCH FROM (mi.periodo_fin - NOW())))::int AS renueva_en_segundos
