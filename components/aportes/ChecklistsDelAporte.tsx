@@ -12,6 +12,7 @@ export default function ChecklistsDelAporte({
   marcadas,
   onAlternar,
   compactoEnEscritorio = false,
+  fichas = false,
 }: {
   visibles: SeccionDeChecklist[];
   faltaArchivo: boolean;
@@ -19,7 +20,40 @@ export default function ChecklistsDelAporte({
   onAlternar: (valor: string) => void;
   /** Distribuye los checklists en dos columnas solo en escritorio. */
   compactoEnEscritorio?: boolean;
+  /** Opciones como fichas que se marcan al tocarlas, sin recuadro por checklist (2026-11-18, /campanas/[id]/aportar). */
+  fichas?: boolean;
 }) {
+  if (fichas) {
+    return (
+      <div className="flex flex-col gap-4">
+        {faltaArchivo && (
+          <p className="rounded-lg border border-dashed border-system-300 bg-system-50 p-3 text-[12.5px] text-system-600">
+            Elige tu archivo para ver qué puedes marcar sobre él.
+          </p>
+        )}
+        {visibles.map((seccion, i) => (
+          <fieldset key={`${seccion.tipo ?? ""}-${seccion.titulo || i}`} className="min-w-0">
+            <legend className="mb-2 text-[13px] font-semibold text-system-900">{seccion.titulo || "Marca lo que aplique"}</legend>
+            <div className="flex flex-wrap gap-2">
+              {seccion.opciones.map((opcion) => {
+                const valor = etiquetaDeRespuesta(seccion.titulo, opcion);
+                return (
+                  <label
+                    key={opcion}
+                    className="flex min-h-9 cursor-pointer items-center gap-2 rounded-pill border border-system-300 bg-white px-3.5 py-1.5 text-[12.5px] text-system-700 transition-colors hover:border-brand-500 has-[:checked]:border-brand-600 has-[:checked]:bg-brand-50 has-[:checked]:font-semibold has-[:checked]:text-brand-800 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-brand-600"
+                  >
+                    <input type="checkbox" className="size-4 accent-brand-600" checked={marcadas.includes(valor)} onChange={() => onAlternar(valor)} />
+                    {opcion}
+                  </label>
+                );
+              })}
+            </div>
+          </fieldset>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className={compactoEnEscritorio ? "lg:grid lg:grid-cols-2 lg:gap-x-3" : ""}>
       {faltaArchivo && (
