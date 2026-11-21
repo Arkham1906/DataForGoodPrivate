@@ -33,7 +33,8 @@ interface Limite {
 
 const MINUTO = 60_000;
 
-// TODO(dominio): cifras provisionales (2026-11-20), por decidir con el equipo.
+// Cifras confirmadas por el usuario el 2026-11-20 (generosas a propósito: en una escuela muchas
+// personas salen por la misma IP). Si se cambian, actualizar docs/rutas.md y roles-y-sesiones.md.
 export const LIMITES_POR_IP = {
   /** Contraseñas equivocadas (o correos sin cuenta) al entrar. */
   login: { maximo: 30, ventanaMs: 15 * MINUTO },
