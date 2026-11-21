@@ -306,7 +306,7 @@ export async function POST(request: Request) {
 
     // La racha cambia al enviar; si crece, la pantalla la celebra (2026-11-16, claude/pantallas-v12/celebracion-propuesta.md).
     const racha = await actualizarRacha(user.id);
-    await actualizarMisiones(user.id);
+    await actualizarMisiones(user.id, [], { presente: true });
     return NextResponse.json({ message: "Aporte enviado", data: mapAporte(insertado.fila), racha }, { status: 201 });
   } catch (error) {
     console.error("Error creando aporte", error);

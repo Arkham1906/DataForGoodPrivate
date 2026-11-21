@@ -396,6 +396,44 @@ export const TEXTOS = {
     ] as readonly string[],
   },
 
+  /**
+   * Protectores y potenciadores ganados en misiones (2026-11-19; lienzo de misiones aprobado el mismo día): la ventana
+   * «ya tienes el máximo» y lo que dice la tarjeta de la misión según qué pasó con el objeto.
+   */
+  inventario: {
+    nombre: (objeto: "protector" | "potenciador") => `1 ${objeto}`,
+    completada: (mision: string) => `Misión completada: ${mision}`,
+    tituloLleno: (objeto: "protector" | "potenciador") => (objeto === "protector" ? "Ya tienes 3 protectores" : "Ya tienes 4 potenciadores"),
+    tituloAmbos: "Tu inventario está lleno",
+    tienes: (objeto: "protector" | "potenciador", protectores: number, activo: boolean, enEspera: number) =>
+      objeto === "protector"
+        ? `Tus protectores: ${n(protectores)} de 3`
+        : `Tus potenciadores: ${activo ? "1 activo y " : ""}${n(enEspera)} en espera`,
+    tienesAmbos: (protectores: number, potenciadores: number) => `${n(protectores)} protectores y ${n(potenciadores)} potenciadores`,
+    noCabe: (objeto: "protector" | "potenciador", alternativa: "protector" | "potenciador") =>
+      `Es lo máximo que puedes ${objeto === "protector" ? "guardar" : "tener"}, así que este ${objeto} no cabe. ¿Lo cambias por un ${alternativa}?`,
+    noCabeAmbos: (objeto: "protector" | "potenciador") =>
+      `Tienes el máximo de protectores y de potenciadores, así que este ${objeto} no cabe y se pierde. Cuando uses alguno, podrás guardar los que ganes después.`,
+    explica: {
+      protector: "Cubre un día sin aportes para que tu racha no se rompa. Puedes guardar hasta 3.",
+      potenciador: "Suma +0.5 a la EXP de los aportes que envíes durante 15 minutos. Empieza solo, o espera su turno si ya tienes uno activo.",
+    },
+    nota: (objeto: "protector" | "potenciador") =>
+      `Con «No, gracias» el ${objeto} se pierde. Si cierras la ventana, te lo preguntamos en tu siguiente visita.`,
+    cambiar: (alternativa: "protector" | "potenciador") => `Cambiar por un ${alternativa}`,
+    noGracias: "No, gracias",
+    entendido: "Entendido",
+    perdidoTitulo: (objeto: "protector" | "potenciador") => (objeto === "protector" ? "Un protector no cupo" : "Un potenciador no cupo"),
+    perdidoMensaje: (objeto: "protector" | "potenciador") =>
+      `Tenías el máximo y el ${objeto} de tu misión se perdió. Lo que ya tenías sigue igual.`,
+    /** Tarjeta de la misión completada, según qué pasó con su objeto. */
+    tarjeta: {
+      pendiente: (texto: string) => `${texto} · por decidir: tu inventario está lleno`,
+      cambiada: (texto: string) => `Recibiste ${texto} a cambio`,
+      perdida: (texto: string) => `${texto} · no cupo`,
+    },
+  },
+
   /** Celebraciones de rango, medalla y racha (2026-11-16; lienzo aprobado el mismo día). Reconocen, no presionan (RF-GAM-62). */
   celebraciones: {
     paso: (actual: number, total: number) => `${n(actual)} de ${n(total)}`,
@@ -403,7 +441,7 @@ export const TEXTOS = {
     continuar: "Continuar",
     listo: "Listo",
     /** Botón que pasa al siguiente paso de la cola. */
-    siguiente: { racha: "Siguiente: tu racha", rango: "Siguiente: tu nuevo rango", medallas: (cuantas: number, primera: string) => (cuantas === 1 ? `Siguiente: ${primera}` : `Siguiente: ${n(cuantas)} medallas`) },
+    siguiente: { racha: "Siguiente: tu racha", rango: "Siguiente: tu nuevo rango", objeto: "Siguiente: tu recompensa", medallas: (cuantas: number, primera: string) => (cuantas === 1 ? `Siguiente: ${primera}` : `Siguiente: ${n(cuantas)} medallas`) },
 
     rangoEyebrow: (numero: number, total: number) => `Nuevo rango · ${n(numero)} de ${n(total)}`,
     rangosEyebrow: (cuantos: number, numero: number, total: number) => `Subiste ${n(cuantos)} rangos · ${n(numero)} de ${n(total)}`,

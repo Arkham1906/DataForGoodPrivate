@@ -16,6 +16,7 @@ import { hoyEnTepic } from "@/lib/fecha-de-tepic";
 import { asegurarMisionesVigentes } from "./misiones";
 import { evaluarProgresoDe } from "./evaluacion";
 import { recompensaDesde, textoDeRecompensa } from "./misiones-reglas";
+import { entregarObjetosDeMisiones } from "./inventario";
 import { textoDeTiempoRestante } from "./misiones";
 import type {
   DiaDeRacha,
@@ -104,6 +105,8 @@ export async function obtenerResumenDeProgreso(usuarioId: number | string): Prom
   try {
     await asegurarMisionesVigentes(usuarioId);
     await evaluarProgresoDe(usuarioId);
+    // La persona está viendo su progreso: vence o activa potenciadores y entrega los objetos que ya caben (2026-11-19).
+    await entregarObjetosDeMisiones(usuarioId, { presente: true });
     const hoy = hoyEnTepic();
     const [progresoR, rangosR, ascensosR, potenciadoresR, misionesR, rachaR] = await Promise.all([
       pool.query<FilaDeProgreso>(
@@ -135,7 +138,7 @@ export async function obtenerResumenDeProgreso(usuarioId: number | string): Prom
         `SELECT estado, bonificacion::float8 AS bonificacion, duracion_minutos,
                 CASE WHEN estado = 'activo' THEN GREATEST(0, EXTRACT(EPOCH FROM (vence_en - NOW())))::int END AS segundos
          FROM potenciadores
-         WHERE usuario_id = $1 AND estado IN ('activo', 'espera')`,
+         WHERE usuario_id = $1 AND estado IN ('activo', 'espera', 'guardado')`,
         [usuarioId],
       ),
       pool.query<{
@@ -266,7 +269,7 @@ export async function obtenerResumenDeProgreso(usuarioId: number | string): Prom
               segundosRestantes: activoFila.segundos ?? 0,
             }
           : null,
-        enEspera: potenciadoresR.rows.filter((f) => f.estado === "espera").length,
+        enEspera: potenciadoresR.rows.filter((f) => f.estado === "espera" || f.estado === "guardado").length,
       },
       misiones: { diarias: misiones, seRenuevanA: faltan == null ? null : textoDeTiempoRestante(faltan * 1000), },
       racha: {

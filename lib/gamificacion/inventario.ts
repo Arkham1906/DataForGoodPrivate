@@ -1,0 +1,238 @@
+// Inventario de protectores y potenciadores (2026-11-19; SRS v1.4: RF-GAM-30, 32 a 36, 44, 50, 75, con las decisiones
+// del responsable del 19 nov). Documento: claude/inventario-5a-implementacion.md.
+//
+// Los objetos llegan de las misiones difíciles: mision_instancias.recompensa guarda el que salió en el sorteo y, al
+// completarse la misión, queda pendiente (recompensa_entregada_en NULL). entregarObjetosDeMisiones() los mete al
+// inventario si caben:
+//   - Protector: usuario_progreso.protectores, máximo 3 (RF-GAM-30).
+//   - Potenciador: tabla potenciadores, máximo 1 activo y 3 en espera (RF-GAM-35). Si la persona lo ganó con algo que
+//     hizo ella (enviar, guardar, inscribirse: `presente`), se activa al momento o entra a la cola; si llegó porque
+//     aceptaron su aporte, se guarda («guardado») y se activa la próxima vez que abra la app (RF-GAM-33).
+// Si no cabe, se queda pendiente y la persona decide en la ventana «ya tienes el máximo», que entra en la cola de las
+// celebraciones: cambiarlo por el otro objeto o dejarlo pasar (decidirObjeto). Cerrar la ventana no decide nada: vuelve
+// en la siguiente visita. Si al mostrarla ya hay lugar, se entrega sin preguntar (decisión del 19 nov).
+//
+// La cola de potenciadores se mantiene al leer (mantenerPotenciadores): vence el activo y, uno tras otro, activa los que
+// esperan, con sus 15 minutos completos y sin solaparse (RF-GAM-34). Los tiempos se encadenan: el siguiente empieza
+// cuando terminó el anterior aunque nadie estuviera mirando, para que la EXP de un aporte enviado en ese rato use el
+// potenciador correcto (RF-GAM-36).
+
+import type { PoolClient } from "pg";
+import { pool } from "@/lib/db";
+import { notificar } from "@/lib/notificaciones/notificaciones";
+import { MAXIMO_DE_POTENCIADORES_EN_ESPERA, MAXIMO_DE_PROTECTORES } from "./progreso-tipos";
+import { OBJETOS_DE_MISION, recompensaDesde, type ObjetoDeMision } from "./misiones-reglas";
+import type { ObjetoPorDecidir } from "./celebraciones-tipos";
+import { TEXTOS } from "./textos";
+
+type Consulta = Pick<PoolClient, "query">;
+
+/** Activo, en espera y guardados: todos ocupan lugar (1 activo y 3 en espera). */
+const MAXIMO_DE_POTENCIADORES = 1 + MAXIMO_DE_POTENCIADORES_EN_ESPERA;
+
+export type Inventario = { protectores: number; potenciadorActivo: boolean; potenciadoresEnEspera: number };
+
+const otro = (objeto: ObjetoDeMision): ObjetoDeMision => (objeto === "protector" ? "potenciador" : "protector");
+
+/**
+ * Vence el potenciador activo y activa los que esperan, en orden. Con `presente`, los guardados pasan a la cola desde
+ * ahora (la persona abrió la app). Debe correr dentro de una transacción con la fila de usuario_progreso bloqueada.
+ */
+export async function mantenerPotenciadores(client: Consulta, usuarioId: number | string, presente: boolean): Promise<void> {
+  if (presente) {
+    await client.query(
+      `UPDATE potenciadores SET estado = 'espera', obtenido_en = NOW() WHERE usuario_id = $1 AND estado = 'guardado'`,
+      [usuarioId],
+    );
+  }
+  for (let vueltas = 0; vueltas <= MAXIMO_DE_POTENCIADORES; vueltas++) {
+    await client.query(`UPDATE potenciadores SET estado = 'expirado' WHERE usuario_id = $1 AND estado = 'activo' AND vence_en <= NOW()`, [
+      usuarioId,
+    ]);
+    // El siguiente de la cola empieza cuando terminó el último que estuvo activo, o cuando se obtuvo si fue después.
+    const { rows } = await client.query<{ id: number }>(
+      `UPDATE potenciadores p
+          SET estado = 'activo',
+              activado_en = GREATEST(p.obtenido_en, COALESCE(u.fin, p.obtenido_en)),
+              vence_en = GREATEST(p.obtenido_en, COALESCE(u.fin, p.obtenido_en)) + make_interval(mins => p.duracion_minutos)
+        FROM (SELECT MAX(vence_en) AS fin FROM potenciadores WHERE usuario_id = $1 AND activado_en IS NOT NULL) u
+        WHERE p.id = (
+            SELECT id FROM potenciadores
+              WHERE usuario_id = $1 AND estado = 'espera'
+              ORDER BY obtenido_en, id
+              LIMIT 1)
+          AND NOT EXISTS (SELECT 1 FROM potenciadores WHERE usuario_id = $1 AND estado = 'activo')
+        RETURNING p.id`,
+      [usuarioId],
+    );
+    if (rows.length === 0) return;
+  }
+}
+
+async function leerInventario(client: Consulta, usuarioId: number | string): Promise<Inventario> {
+  const { rows } = await client.query<{ protectores: number; activo: boolean; espera: number }>(
+    `SELECT p.protectores,
+            EXISTS (SELECT 1 FROM potenciadores WHERE usuario_id = $1 AND estado = 'activo') AS activo,
+            (SELECT COUNT(*)::int FROM potenciadores WHERE usuario_id = $1 AND estado IN ('espera', 'guardado')) AS espera
+      FROM usuario_progreso p WHERE p.usuario_id = $1`,
+    [usuarioId],
+  );
+  const fila = rows[0];
+  return { protectores: fila?.protectores ?? 0, potenciadorActivo: !!fila?.activo, potenciadoresEnEspera: fila?.espera ?? 0 };
+}
+
+function cabe(objeto: ObjetoDeMision, inventario: Inventario): boolean {
+  if (objeto === "protector") return inventario.protectores < MAXIMO_DE_PROTECTORES;
+  return Number(inventario.potenciadorActivo) + inventario.potenciadoresEnEspera < MAXIMO_DE_POTENCIADORES;
+}
+
+/** Mete el objeto al inventario. Supone que cabe (cabe()). La clave de idempotencia evita un segundo potenciador. */
+async function guardarObjeto(
+  client: Consulta,
+  usuarioId: number | string,
+  objeto: ObjetoDeMision,
+  instanciaId: string,
+  presente: boolean,
+): Promise<void> {
+  if (objeto === "protector") {
+    await client.query(`UPDATE usuario_progreso SET protectores = protectores + 1, actualizado_en = NOW() WHERE usuario_id = $1`, [usuarioId]);
+    return;
+  }
+  // Sin la persona en la app se guarda; con ella entra a la cola y, si no hay otro activo, se activa al momento con su
+  // duración de la tabla (RF-GAM-33, 34).
+  await client.query(
+    `INSERT INTO potenciadores (usuario_id, estado, origen, obtenido_en, clave_idempotencia)
+      VALUES ($1, $2::varchar, 'mision', NOW(), $3)
+      ON CONFLICT (clave_idempotencia) DO NOTHING`,
+    [usuarioId, presente ? "espera" : "guardado", `mision:${instanciaId}`],
+  );
+  if (presente) await mantenerPotenciadores(client, usuarioId, false);
+}
+
+type Pendiente = { id: string; mision: string; objeto: ObjetoDeMision };
+
+/** Misiones completadas cuyo objeto aún no se entrega ni se decidió. */
+async function objetosPendientes(client: Consulta, usuarioId: number | string): Promise<Pendiente[]> {
+  const { rows } = await client.query<{ id: string; mision: string; recompensa: unknown }>(
+    `SELECT i.id::text AS id, m.nombre AS mision, i.recompensa
+      FROM mision_instancias i JOIN misiones m ON m.id = i.mision_id
+      WHERE i.usuario_id = $1 AND i.completada_en IS NOT NULL AND i.recompensa_entregada_en IS NULL
+        AND i.recompensa_resultado IS NULL AND i.recompensa->>'tipo' = ANY($2::text[])
+      ORDER BY i.completada_en, i.id`,
+    [usuarioId, [...OBJETOS_DE_MISION]],
+  );
+  return rows.flatMap((r) => {
+    const recompensa = recompensaDesde(r.recompensa);
+    return recompensa?.tipo === "potenciador" || recompensa?.tipo === "protector" ? [{ id: r.id, mision: r.mision, objeto: recompensa.tipo }] : [];
+  });
+}
+
+function marcar(client: Consulta, instanciaId: string, resultado: "entregada" | "cambiada" | "perdida") {
+  return client.query(
+    `UPDATE mision_instancias
+        SET recompensa_resultado = $2::varchar, recompensa_entregada_en = CASE WHEN $2::varchar = 'perdida' THEN NULL ELSE NOW() END
+      WHERE id = $1`,
+    [instanciaId, resultado],
+  );
+}
+
+/**
+ * Entrega los objetos pendientes que caben y mantiene la cola de potenciadores. Devuelve los que no caben: esos se
+ * deciden en la ventana. Nunca lanza.
+ */
+export async function entregarObjetosDeMisiones(usuarioId: number | string, opciones: { presente: boolean }): Promise<ObjetoPorDecidir[]> {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const bloqueo = await client.query(`SELECT 1 FROM usuario_progreso WHERE usuario_id = $1 FOR UPDATE`, [usuarioId]);
+    if (bloqueo.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return [];
+    }
+    await mantenerPotenciadores(client, usuarioId, opciones.presente);
+    const porDecidir: ObjetoPorDecidir[] = [];
+    for (const pendiente of await objetosPendientes(client, usuarioId)) {
+      const inventario = await leerInventario(client, usuarioId);
+      if (cabe(pendiente.objeto, inventario)) {
+        await guardarObjeto(client, usuarioId, pendiente.objeto, pendiente.id, opciones.presente);
+        await marcar(client, pendiente.id, "entregada");
+        continue;
+      }
+      const alternativa = otro(pendiente.objeto);
+      porDecidir.push({
+        instanciaId: pendiente.id,
+        mision: pendiente.mision,
+        objeto: pendiente.objeto,
+        alternativa: cabe(alternativa, inventario) ? alternativa : null,
+        protectores: inventario.protectores,
+        potenciadorActivo: inventario.potenciadorActivo,
+        potenciadoresEnEspera: inventario.potenciadoresEnEspera,
+      });
+    }
+    await client.query("COMMIT");
+    return porDecidir;
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error(`Error entregando los objetos del usuario ${usuarioId}`, error);
+    return [];
+  } finally {
+    client.release();
+  }
+}
+
+export type AccionSobreObjeto = "cambiar" | "rechazar";
+export type ResultadoDeObjeto = "entregada" | "cambiada" | "perdida";
+
+/**
+ * La respuesta de la ventana. Se vuelve a mirar el inventario: si el objeto ya cabe, se entrega tal cual; si se pidió el
+ * cambio y el otro cabe, se entrega el otro; si no, se pierde. null si no hay nada pendiente con ese id (ya se decidió).
+ */
+export async function decidirObjeto(
+  usuarioId: number | string,
+  instanciaId: string,
+  accion: AccionSobreObjeto,
+): Promise<ResultadoDeObjeto | null> {
+  let resultado: ResultadoDeObjeto | null = null;
+  let objetoPerdido: ObjetoDeMision | null = null;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(`SELECT 1 FROM usuario_progreso WHERE usuario_id = $1 FOR UPDATE`, [usuarioId]);
+    await mantenerPotenciadores(client, usuarioId, true);
+    const pendiente = (await objetosPendientes(client, usuarioId)).find((p) => p.id === instanciaId);
+    if (!pendiente) {
+      await client.query("ROLLBACK");
+      return null;
+    }
+    const inventario = await leerInventario(client, usuarioId);
+    if (cabe(pendiente.objeto, inventario)) {
+      await guardarObjeto(client, usuarioId, pendiente.objeto, pendiente.id, true);
+      resultado = "entregada";
+    } else if (accion === "cambiar" && cabe(otro(pendiente.objeto), inventario)) {
+      await guardarObjeto(client, usuarioId, otro(pendiente.objeto), pendiente.id, true);
+      resultado = "cambiada";
+    } else {
+      resultado = "perdida";
+      objetoPerdido = pendiente.objeto;
+    }
+    await marcar(client, pendiente.id, resultado);
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error(`Error decidiendo el objeto ${instanciaId} del usuario ${usuarioId}`, error);
+    return null;
+  } finally {
+    client.release();
+  }
+  // Aviso de RF-GAM-61 (protector o potenciador perdido).
+  if (objetoPerdido) {
+    await notificar({
+      usuarioId: Number(usuarioId),
+      tipo: "objeto_perdido",
+      titulo: TEXTOS.inventario.perdidoTitulo(objetoPerdido),
+      mensaje: TEXTOS.inventario.perdidoMensaje(objetoPerdido),
+      enlace: "/progreso/misiones",
+    });
+  }
+  return resultado;
+}

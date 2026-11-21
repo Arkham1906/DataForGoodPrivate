@@ -14,6 +14,7 @@ import { TEXTOS } from "@/lib/gamificacion/textos";
 import IconoDeMision from "./IconoDeMision";
 
 const T = TEXTOS.misiones;
+const I = TEXTOS.inventario;
 
 /** Hasta cuántos pasos se dibujan como tramos; con más, una barra continua (igual que MisionesDeHoy). */
 const MAXIMO_DE_TRAMOS = 5;
@@ -61,8 +62,24 @@ function Trazo({ d, className }: { d: string; className: string }) {
   );
 }
 
+/** La recompensa de una misión completada: lo que recibió, o qué pasó con su objeto (2026-11-19). */
+function recompensaCompletada(mision: MisionVigente): { tipo: "exp" | "potenciador" | "protector"; texto: string; clase: string } | null {
+  if (!mision.recompensa || !mision.tipoDeRecompensa) return null;
+  const recibida = "border-success-200 bg-success-50 text-success-800";
+  const neutra = "border-system-300 bg-white text-system-600";
+  const tipo = mision.tipoDeRecompensa;
+  if (mision.objeto === "pendiente") return { tipo, texto: I.tarjeta.pendiente(mision.recompensa), clase: neutra };
+  if (mision.objeto === "perdida") return { tipo, texto: I.tarjeta.perdida(mision.recompensa), clase: neutra };
+  if (mision.objeto === "cambiada" && tipo !== "exp") {
+    const otro = tipo === "protector" ? "potenciador" : "protector";
+    return { tipo: otro, texto: I.tarjeta.cambiada(I.nombre(otro)), clase: recibida };
+  }
+  return { tipo, texto: T.recibiste(mision.recompensa), clase: recibida };
+}
+
 function Mision({ mision }: { mision: MisionVigente }) {
   const { completada, objetivo, progreso } = mision;
+  const hecha = completada ? recompensaCompletada(mision) : null;
   return (
     <li className="grid grid-cols-[44px_1fr] items-start gap-3.5 border-t border-system-100 py-4 first:border-t-0">
       <IconoDeMision clave={mision.clave} completada={completada} respaldo={ICONOS[mision.mide]} />
@@ -94,14 +111,18 @@ function Mision({ mision }: { mision: MisionVigente }) {
         </div>
         {(mision.recompensa || (!completada && mision.cuenta !== "accion")) && (
           <p className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-            {mision.recompensa && mision.tipoDeRecompensa && (
+            {mision.recompensa && mision.tipoDeRecompensa && !completada && (
               <span
-                className={`inline-flex items-center gap-1.5 rounded-pill border py-1 pl-2 pr-2.5 text-[12.5px] font-bold ${
-                  completada ? "border-success-200 bg-success-50 text-success-800" : CLASE_DE_RECOMPENSA[mision.tipoDeRecompensa]
-                }`}
+                className={`inline-flex items-center gap-1.5 rounded-pill border py-1 pl-2 pr-2.5 text-[12.5px] font-bold ${CLASE_DE_RECOMPENSA[mision.tipoDeRecompensa]}`}
               >
                 <Trazo d={ICONO_DE_RECOMPENSA[mision.tipoDeRecompensa]} className="h-[15px] w-[15px]" />
-                {completada ? T.recibiste(mision.recompensa) : T.recompensa(mision.recompensa)}
+                {T.recompensa(mision.recompensa)}
+              </span>
+            )}
+            {completada && hecha && (
+              <span className={`inline-flex items-center gap-1.5 rounded-pill border py-1 pl-2 pr-2.5 text-[12.5px] font-bold ${hecha.clase}`}>
+                <Trazo d={ICONO_DE_RECOMPENSA[hecha.tipo]} className="h-[15px] w-[15px]" />
+                {hecha.texto}
               </span>
             )}
             {!completada && mision.cuenta !== "accion" && (

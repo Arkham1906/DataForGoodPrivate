@@ -1869,7 +1869,7 @@ export async function ensurePotenciadoresTable(): Promise<void> {
     CREATE TABLE IF NOT EXISTS potenciadores (
       id SERIAL PRIMARY KEY,
       usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
-      estado VARCHAR(10) NOT NULL DEFAULT 'espera' CHECK (estado IN ('espera', 'activo', 'expirado', 'perdido')),
+      estado VARCHAR(10) NOT NULL DEFAULT 'espera' CHECK (estado IN ('espera', 'guardado', 'activo', 'expirado', 'perdido')),
       bonificacion NUMERIC(3, 2) NOT NULL DEFAULT 0.50 CHECK (bonificacion > 0),
       duracion_minutos SMALLINT NOT NULL DEFAULT 15 CHECK (duracion_minutos > 0),
       origen VARCHAR(40),
@@ -2020,6 +2020,10 @@ export async function ensureMisionesTables(): Promise<void> {
     -- Lo que da la instancia, fijado al asignarla (2026-11-19): en una difícil, el objeto que salió en el sorteo. NULL en
     -- las asignadas antes: usan la recompensa del catálogo.
     ALTER TABLE mision_instancias ADD COLUMN IF NOT EXISTS recompensa JSONB;
+    -- Qué pasó con el objeto de una misión difícil (2026-11-19, lib/gamificacion/inventario.ts): entregada, cambiada por el
+    -- otro objeto o perdida porque no cabía. NULL mientras está pendiente.
+    ALTER TABLE mision_instancias ADD COLUMN IF NOT EXISTS recompensa_resultado VARCHAR(10)
+      CHECK (recompensa_resultado IN ('entregada', 'cambiada', 'perdida'));
     -- Total histórico de misiones completadas (requisito de rango) y recompensas por entregar.
     CREATE INDEX IF NOT EXISTS mision_instancias_completadas_idx ON mision_instancias (usuario_id) WHERE completada_en IS NOT NULL;
     CREATE INDEX IF NOT EXISTS mision_instancias_sin_recompensa_idx ON mision_instancias (usuario_id)
@@ -2349,6 +2353,8 @@ function restricciones(): ReadonlyArray<[tabla: string, nombre: string, condicio
     // racha_recuperada (2026-11-09): un aporte reavivó la racha después de perderla (medalla Fénix, lib/gamificacion/racha.ts).
     // Sin los eventos de la ventana de 72 horas desde el 2026-11-16 (ensureRachaTables los borra).
     ["racha_eventos", "racha_eventos_tipo_check", `tipo IN ('protector_consumido', 'racha_interrumpida', 'racha_recuperada')`],
+    // guardado (2026-11-19): ganado sin la persona en la app; se activa al volver (RF-GAM-33, lib/gamificacion/inventario.ts).
+    ["potenciadores", "potenciadores_estado_check", `estado IN ('espera', 'guardado', 'activo', 'expirado', 'perdido')`],
     ["usuarios", "usuarios_baja_destino_aportes_check",
       `baja_destino_aportes IN (${lista(DESTINOS_DE_APORTES.map((d) => d.valor))})`],
   ];

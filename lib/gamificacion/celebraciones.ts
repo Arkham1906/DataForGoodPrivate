@@ -8,6 +8,7 @@
 
 import { pool } from "@/lib/db";
 import { imagenDeMedalla } from "./recursos";
+import { entregarObjetosDeMisiones } from "./inventario";
 import {
   MEDIDAS_CON_FUEGO,
   type CelebracionDeMedalla,
@@ -112,14 +113,18 @@ async function medallasPendientes(usuarioId: number | string): Promise<Celebraci
   return salida;
 }
 
-/** Nunca lanza: si falla, no hay celebración (lo pendiente sigue pendiente y sale en la siguiente carga). */
+/**
+ * Nunca lanza: si falla, no hay celebración (lo pendiente sigue pendiente y sale en la siguiente carga). La persona está
+ * en la app: se activan sus potenciadores guardados y se entregan los objetos que ya caben; los que no, se preguntan.
+ */
 export async function obtenerCelebracionesPendientes(usuarioId: number | string): Promise<CelebracionesPendientes> {
   try {
+    const objetos = await entregarObjetosDeMisiones(usuarioId, { presente: true });
     const [rango, medallas] = await Promise.all([rangoPendiente(usuarioId), medallasPendientes(usuarioId)]);
-    return { rango, medallas };
+    return { rango, medallas, objetos };
   } catch (error) {
     console.error(`Error leyendo las celebraciones pendientes del usuario ${usuarioId}`, error);
-    return { rango: null, medallas: [] };
+    return { rango: null, medallas: [], objetos: [] };
   }
 }
 

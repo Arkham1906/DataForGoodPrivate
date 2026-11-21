@@ -17,6 +17,9 @@
 // elemento con `data-pausar-celebraciones` (aportar lo pone mientras envía y mientras muestra "Aporte enviado"), la cola
 // se guarda y no se muestra; sale en cuanto se cierra o se quita. Antes la celebración que llegaba en vivo con el mismo
 // envío (rango, medalla) se abría encimada con "Aporte enviado".
+// Objetos (2026-11-19): el protector o potenciador de una misión difícil que no cabe en el inventario va al final de la
+// cola, un paso por objeto (CelebracionDeObjeto). No se marca visto: lo quita la decisión. Cerrar la cola con Esc lo deja
+// para la siguiente visita (enCola evita que vuelva a salir en esta).
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { BASE_PATH } from "@/lib/base-path";
@@ -28,17 +31,20 @@ import {
   type CelebracionDeMedalla,
   type CelebracionDeRango as DatosDeRango,
   type CelebracionesPendientes,
+  type ObjetoPorDecidir,
 } from "@/lib/gamificacion/celebraciones-tipos";
 import CelebracionDeRacha from "./CelebracionDeRacha";
 import CelebracionDeRango from "./CelebracionDeRango";
 import CelebracionDeMedallas from "./CelebracionDeMedallas";
+import CelebracionDeObjeto from "./CelebracionDeObjeto";
 
 const T = TEXTOS.celebraciones;
 
 type Paso =
   | { clave: string; tipo: "racha"; racha: CambioDeRacha }
   | { clave: string; tipo: "rango"; rango: DatosDeRango }
-  | { clave: string; tipo: "medallas"; medallas: CelebracionDeMedalla[] };
+  | { clave: string; tipo: "medallas"; medallas: CelebracionDeMedalla[] }
+  | { clave: string; tipo: "objeto"; objeto: ObjetoPorDecidir };
 
 const RUTA = `${BASE_PATH}/api/progreso/celebraciones`;
 
@@ -53,6 +59,7 @@ function marcarVistas(pasos: Paso[]) {
 function textoDeSiguiente(paso: Paso | undefined): string | null {
   if (!paso) return null;
   if (paso.tipo === "racha") return T.siguiente.racha;
+  if (paso.tipo === "objeto") return T.siguiente.objeto;
   return paso.tipo === "rango" ? T.siguiente.rango : T.siguiente.medallas(paso.medallas.length, paso.medallas[0]?.nombre ?? "");
 }
 
@@ -62,6 +69,7 @@ const CLASE_DE_VENTANA: Record<Paso["tipo"], string> = {
   racha: `${MARCO} fixed inset-0 h-dvh w-full bg-[var(--fuego-50)] text-system-900`,
   // Teléfono: hoja pegada abajo. Desde sm: ventana centrada.
   medallas: `${MARCO} mt-auto w-full max-h-[92dvh] rounded-t-3xl bg-white text-system-900 shadow-2xl backdrop:bg-system-900/55 sm:m-auto sm:w-[calc(100%-2rem)] sm:max-w-[520px] sm:rounded-2xl`,
+  objeto: `${MARCO} mt-auto w-full max-h-[92dvh] rounded-t-3xl bg-white text-system-900 shadow-2xl backdrop:bg-system-900/55 sm:m-auto sm:w-[calc(100%-2rem)] sm:max-w-[480px] sm:rounded-2xl`,
 };
 
 /** ¿Hay que esperar? Una pausa pedida por la pantalla, o una ventana modal que no sea de las celebraciones (`:modal` = abierta con showModal()). */
@@ -152,6 +160,11 @@ export default function Celebraciones() {
         medallas.forEach((m) => reservar("m", m.ids));
         nuevos.push({ clave: `medallas-${medallas.flatMap((m) => m.ids).join("-")}`, tipo: "medallas", medallas });
       }
+      for (const objeto of pendientes.objetos ?? []) {
+        if (enCola.current.has(`o${objeto.instanciaId}`)) continue;
+        enCola.current.add(`o${objeto.instanciaId}`);
+        nuevos.push({ clave: `objeto-${objeto.instanciaId}`, tipo: "objeto", objeto });
+      }
       agregar(nuevos);
     } catch {
       // Sin red no hay celebración: lo pendiente sale en la siguiente carga.
@@ -219,6 +232,7 @@ export default function Celebraciones() {
       {actual.tipo === "racha" && <CelebracionDeRacha racha={actual.racha} {...comunes} />}
       {actual.tipo === "rango" && <CelebracionDeRango rango={actual.rango} {...comunes} />}
       {actual.tipo === "medallas" && <CelebracionDeMedallas medallas={actual.medallas} {...comunes} />}
+      {actual.tipo === "objeto" && <CelebracionDeObjeto datos={actual.objeto} paso={paso} alSiguiente={alSiguiente} />}
     </Ventana>
   );
 }

@@ -5,6 +5,12 @@
 // Hay tres celebraciones: ascenso de rango, nivel de medalla y racha. Las dos primeras salen de rango_ascensos y
 // medalla_ascensos con celebracion_vista_en sin fecha (pendientes) y se marcan vistas al cerrarlas: se ven una vez.
 // La de racha no se guarda: la devuelve POST /api/aportes cuando el envío alarga, empieza o reaviva la racha.
+//
+// Ventana «ya tienes el máximo» (2026-11-19; lienzo de misiones aprobado el mismo día): el objeto de una misión difícil
+// que no cabe en el inventario entra en la misma cola, después de racha, rango y medallas. No se marca vista: se quita
+// al decidir (POST con `objeto`); cerrarla la deja para la siguiente visita (lib/gamificacion/inventario.ts).
+
+import type { ObjetoDeMision } from "./misiones-reglas";
 
 /** Lo que trae un ascenso (rango_ascensos.recompensas, que escribe evaluacion.ts). */
 export type RecompensaDeRango =
@@ -52,10 +58,28 @@ export type CelebracionDeMedalla = {
   siguiente: { nombre: string; umbral: number } | null;
 };
 
+/** Objeto de una misión que no cabe en el inventario. */
+export type ObjetoPorDecidir = {
+  /** mision_instancias.id. */
+  instanciaId: string;
+  /** Nombre de la misión que lo dio. */
+  mision: string;
+  objeto: ObjetoDeMision;
+  /** El otro objeto, si cabe; null si también está al máximo (solo se avisa que se pierde). */
+  alternativa: ObjetoDeMision | null;
+  protectores: number;
+  potenciadorActivo: boolean;
+  potenciadoresEnEspera: number;
+};
+
 export type CelebracionesPendientes = {
   rango: CelebracionDeRango | null;
   medallas: CelebracionDeMedalla[];
+  objetos: ObjetoPorDecidir[];
 };
+
+/** Respuesta de la ventana: cambiar por el otro objeto o dejarlo pasar («No, gracias» o «Entendido»). */
+export type DecisionDeObjeto = { instancia: string; accion: "cambiar" | "rechazar" };
 
 /** Lo que mide una medalla para que su celebración lleve fuego: la racha (decisión del 2026-11-16). */
 export const MEDIDAS_CON_FUEGO: ReadonlySet<string> = new Set(["racha_maxima"]);

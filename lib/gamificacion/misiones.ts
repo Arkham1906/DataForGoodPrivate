@@ -15,7 +15,10 @@
 // Recompensas y dificultad (2026-11-19; SRS v1.4: RF-GAM-44, 122, tabla 4.6, decisión del 19 nov): al asignar una misión
 // se guarda en mision_instancias.recompensa lo que dará; en las difíciles es el objeto sorteado (potenciador o protector),
 // así la tarjeta lo muestra desde el inicio. La EXP se concede al completarla. Un objeto queda registrado como pendiente
-// de entregar (recompensa_entregada_en NULL): lo entrega el inventario de protectores y potenciadores (punto 5 del plan).
+// de entregar (recompensa_entregada_en NULL) y, al terminar, entregarObjetosDeMisiones() lo mete al inventario o lo deja
+// para la ventana «ya tienes el máximo» (lib/gamificacion/inventario.ts, 2026-11-19). `presente` dice si la persona
+// provocó el cambio (enviar, guardar, inscribirse) o llegó sin ella (aceptaron su aporte): decide si un potenciador se
+// activa ya o se guarda hasta que vuelva (RF-GAM-33).
 
 import type { PoolClient } from "pg";
 import { pool } from "@/lib/db";
@@ -23,6 +26,7 @@ import { ZONA_DE_CAMPANAS, hoyEnTepic } from "@/lib/fecha-de-tepic";
 import { notificar } from "@/lib/notificaciones/notificaciones";
 import { DIFICILES_DEL_CATALOGO, SELECCION_DE_MISIONES } from "./catalogos";
 import { evaluarProgresoDe } from "./evaluacion";
+import { entregarObjetosDeMisiones } from "./inventario";
 import {
   DURACION_MS,
   type PeriodicidadSorteada,
@@ -91,7 +95,7 @@ async function contextoDeSeleccion(client: Pick<PoolClient, "query">, intereses:
 export async function actualizarMisiones(
   usuarioId: number | string,
   instantes: (Date | string)[] = [],
-  opciones: { permitirBajar?: boolean } = {},
+  opciones: { permitirBajar?: boolean; presente?: boolean } = {},
 ): Promise<void> {
   const completadas: { nombre: string; recompensa: RecompensaDeMision }[] = [];
   const client = await pool.connect();
@@ -283,6 +287,10 @@ export async function actualizarMisiones(
 
   // Las misiones completadas son requisito de rango y su EXP mide Energía de Impacto (RF-GAM-18, 47).
   if (completadas.length > 0) await evaluarProgresoDe(usuarioId);
+  // Protectores y potenciadores de las difíciles: al inventario si caben; si no, a la ventana.
+  if (completadas.some((c) => c.recompensa && c.recompensa.tipo !== "exp")) {
+    await entregarObjetosDeMisiones(usuarioId, { presente: opciones.presente ?? false });
+  }
 
   for (const { nombre, recompensa } of completadas) {
     const texto = textoDeRecompensa(recompensa);
@@ -338,6 +346,8 @@ export type MisionVigente = {
   /** Para el ícono de la recompensa. */
   tipoDeRecompensa: "exp" | "potenciador" | "protector" | null;
   dificil: boolean;
+  /** Qué pasó con el objeto de una difícil completada; null si no da objeto o no se completó. */
+  objeto: "pendiente" | "entregada" | "cambiada" | "perdida" | null;
   /** «Envía…» cuenta al enviar; «Logra…» al aceptarse (RF-GAM-43). */
   cuenta: CuandoCuenta;
   clave: string;
@@ -396,6 +406,7 @@ function grupoDe(filas: FilaVigente[], periodicidad: Periodicidad): GrupoDeMisio
     seRenuevanEn: primera ? textoDeTiempoRestante(primera.fin - Date.now()) : null,
     misiones: delGrupo.map((f) => {
       const recompensa = recompensaDeInstancia(f.recompensa_instancia, f.recompensa);
+      const daObjeto = recompensa?.tipo === "potenciador" || recompensa?.tipo === "protector";
       return {
         id: f.id,
         nombre: f.nombre,
@@ -406,6 +417,7 @@ function grupoDe(filas: FilaVigente[], periodicidad: Periodicidad): GrupoDeMisio
         recompensa: textoDeRecompensa(recompensa),
         tipoDeRecompensa: tipoDeRecompensa(recompensa),
         dificil: f.dificultad === "dificil",
+        objeto: daObjeto && f.completada ? (f.recompensa_resultado ?? "pendiente") : null,
         cuenta: cuandoCuenta(f.condicion),
         clave: f.clave,
       };
@@ -420,6 +432,7 @@ type FilaVigente = {
   condicion: CondicionDeMision;
   recompensa: unknown;
   recompensa_instancia: unknown;
+  recompensa_resultado: "entregada" | "cambiada" | "perdida" | null;
   dificultad: Dificultad;
   progreso: number;
   objetivo: number;
@@ -436,7 +449,7 @@ export async function obtenerMisiones(usuarioId: number | string): Promise<Datos
     const [vigentesR, historialR, totalR] = await Promise.all([
       pool.query<FilaVigente>(
         `SELECT i.id::text AS id, m.clave, m.nombre, m.periodicidad, m.condicion, m.recompensa,
-                i.recompensa AS recompensa_instancia, m.dificultad, i.progreso, i.objetivo,
+                i.recompensa AS recompensa_instancia, i.recompensa_resultado, m.dificultad, i.progreso, i.objetivo,
                 (i.completada_en IS NOT NULL) AS completada,
                 (EXTRACT(EPOCH FROM i.periodo_inicio) * 1000)::float8 AS inicio,
                 (EXTRACT(EPOCH FROM i.periodo_fin) * 1000)::float8 AS fin

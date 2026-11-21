@@ -41,6 +41,7 @@ import type { NuevaNotificacion } from "@/lib/notificaciones/notificaciones";
 import { bonoDeCuota, calcularExpDeAporte, redondearExp } from "./exp-reglas";
 import { leerParametros } from "./parametros";
 import { enviarAvisos, evaluarProgreso } from "./evaluacion";
+import { mantenerPotenciadores } from "./inventario";
 
 type Consultor = Pick<PoolClient, "query">;
 
@@ -172,6 +173,9 @@ async function otorgar(client: Consultor, aporteId: number | string): Promise<Nu
     return evaluarProgreso(client, usuarioId);
   }
 
+  // La cola de potenciadores al día (sin la persona presente: los guardados siguen guardados), para que el encadenado de
+  // los que esperaban esté calculado antes de buscar el vigente (2026-11-19, lib/gamificacion/inventario.ts).
+  await mantenerPotenciadores(client, usuarioId, false);
   // El potenciador vigente a la hora de envío, aunque ya haya expirado (RF-GAM-36).
   const potenciadorR = await client.query<{ id: number; bonificacion: number }>(
     `SELECT p.id, p.bonificacion::float8 AS bonificacion
