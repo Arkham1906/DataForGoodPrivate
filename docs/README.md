@@ -210,7 +210,7 @@ Están anotados para que no te sorprendan. No los "arregles de paso": cada uno e
 
 | Problema | Dónde |
 | --- | --- |
-| **Tope de aportes anónimos por IP en memoria:** se reinicia con cada despliegue y no se comparte entre instancias. En local, sin proxy delante, todas las peticiones caen en la misma "IP" (`desconocida`) y comparten el tope de 20 por hora | `lib/campanas/aportes-anonimos.ts` |
+| **Topes por IP en memoria** (aportes anónimos, y desde el 2026-11-20 las rutas de cuenta y el bloqueo del login por correo): se reinician con cada despliegue y no se comparten entre instancias. **Aceptado a propósito** (decisión del usuario, 2026-11-20): llevarlos a Postgres obligaría a guardar la IP o su huella, y la IP de quien no tiene cuenta no se guarda (2026-10-01). En local, sin proxy delante, todas las peticiones caen en la misma "IP" (`desconocida`) y comparten cada tope | `lib/campanas/aportes-anonimos.ts`, `lib/limite-por-ip.ts` |
 | **El tope y la espera por IP confían en `X-Forwarded-For`.** Detrás del proxy es correcto; si el puerto de la app queda abierto a Internet, alguien puede inventar su IP. La cuota por dispositivo sí aplica. Se resuelve en el despliegue, no en el código | `lib/ip.ts`, `docker-compose.yml` |
 | **Fotos anteriores al 2026-10-01 en el servidor:** pueden conservar su EXIF (GPS incluido) hasta correr `scripts/limpiar-metadatos.mjs --aplicar` (comando en su cabecera) | MinIO |
 | **La CSP permite estilos en línea** (`'unsafe-inline'` en `style-src`; los scripts sí van con nonce desde el 2026-11-20): React escribe atributos `style` y la vista previa de documentos trae los suyos. Cada bloqueo de la CSP queda en el log como "CSP bloqueó ..." | `lib/csp.ts` |

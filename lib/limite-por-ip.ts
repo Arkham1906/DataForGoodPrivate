@@ -5,7 +5,10 @@
 // correos sin fin.
 //
 // Ventana fija en memoria, como el tope de /root (lib/root-acceso.ts): la app corre en un solo
-// proceso (next start). Se pierde al reiniciar y no se comparte entre réplicas.
+// proceso (next start). Se pierde al reiniciar y no se comparte entre réplicas. Es A PROPÓSITO
+// (decisión del usuario, 2026-11-20): pasarlo a Postgres obligaría a guardar la IP o su huella, y
+// desde el 2026-10-01 la IP de quien no tiene cuenta no se guarda en ningún lado. Revisar solo si
+// un día hay varias copias del servidor.
 //
 // La IP sale de ipDelCliente (lib/ip.ts): el último valor de X-Forwarded-For. Mientras el puerto
 // de la app sea accesible sin pasar por el proxy, quien cambie ese encabezado en cada petición
