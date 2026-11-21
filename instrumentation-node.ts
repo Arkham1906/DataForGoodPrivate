@@ -2,6 +2,7 @@
 // su propio archivo porque Next también analiza instrumentation.ts para el
 // runtime Edge, donde process.exit y `pg` no existen.
 import { ensureCoreSchema } from "@/lib/db-schema";
+import { problemasDeAppOrigin } from "@/lib/app-url";
 import { ejecutarBajasVencidas } from "@/lib/usuarios/baja";
 import { enviarAvisosPeriodicos } from "@/lib/notificaciones/periodicas";
 import { activateScheduledCampaigns, finalizeExpiredCampaigns } from "@/lib/campaign-date";
@@ -70,6 +71,10 @@ function programarRachas(): void {
 }
 
 export async function crearEsquemaAlArrancar(): Promise<void> {
+  // APP_ORIGIN mal puesta no tumba la app, pero rompe enlaces, redirecciones, Google y las
+  // mutaciones detrás de un proxy: se avisa al arrancar (2026-11-20, lib/app-url.ts).
+  for (const problema of problemasDeAppOrigin()) console.error(`Configuración: ${problema}`);
+
   // Falta de configuración: reintentar no sirve de nada, así que se avisa
   // de inmediato (antes esperaba 30 intentos para decir lo mismo).
   if (!process.env.DATABASE_URL && !process.env.POSTGRES_URL) {

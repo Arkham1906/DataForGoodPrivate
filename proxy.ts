@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { absoluteUrl } from "@/lib/app-url";
+import { absoluteUrl, hostDeAppOrigin } from "@/lib/app-url";
 import { CABECERA_CSP, nuevoNonce, politicaDePagina } from "@/lib/csp";
 
 const SESSION_COOKIE = "session_token";
@@ -38,7 +38,8 @@ function origenPermitido(request: NextRequest): boolean {
 
   const permitidos = [
     request.headers.get("host"),
-    process.env.APP_ORIGIN ? new URL(process.env.APP_ORIGIN).host : null,
+    // Sin lanzar si APP_ORIGIN no es una URL (antes, un valor roto tiraba cada mutación de /api).
+    hostDeAppOrigin(),
   ];
   return permitidos.some((host) => host && host === hostDeOrigen);
 }

@@ -17,7 +17,7 @@
 | `minio.ts` | Cliente de MinIO: guardar, leer (entero o por partes) y borrar archivos | `guardarArchivo`, `readUploadedFile`, `abrirArchivo`, `tamanoDeArchivo`, `borrarArchivo` |
 | `base-path.ts` 🟢 | Prefijo de la app (`/dataforgood` en producción, vacío en `next dev`) | `BASE_PATH` |
 | `duracion.ts` 🟢 | `duracion(segundos)` ("35 min", "5 h", "3 días") y `esperaDesde(iso, ahora)` (2026-11-13) | Dashboards de `/revisiones` y `/supervision` |
-| `app-url.ts` | URL absoluta con `APP_ORIGIN` + `BASE_PATH` (para redirecciones y correos) | `absoluteUrl` |
+| `app-url.ts` | URL absoluta con `APP_ORIGIN` + `BASE_PATH` (para redirecciones y correos); `hostDeAppOrigin()` (sin lanzar, para `proxy.ts`) y `problemasDeAppOrigin()` (2026-11-20: avisos al arrancar si falta, no es URL, lleva subruta, es http en producción o no coincide con `GOOGLE_REDIRECT_URI`) | `absoluteUrl`, `proxy.ts`, `instrumentation-node.ts` |
 | `ip.ts` | IP real del cliente detrás del proxy | `ipDelCliente` |
 | `limite-por-ip.ts` | Topes por IP en memoria de las rutas de cuenta sin sesión (2026-11-20): `LIMITES_POR_IP` (cifras confirmadas por el usuario el 2026-11-20), `segundosDeBloqueo`, `sumarAlLimite` (fallos), `contarPeticion` (cada petición) y `respuestaDeLimite` (429); bloqueo del login por correo: `segundosDeBloqueoDeCorreo`, `sumarFalloDeCorreo`, `limpiarFallosDeCorreoEnIp`, `limpiarFallosDeCorreo` y `respuestaDeBloqueoDeCorreo` | login, registro, verificar, reenviar, recuperar y restablecer |
 | `csp.ts` | Content-Security-Policy de las páginas (2026-11-20): `nuevoNonce()`, `politicaDePagina(nonce)` y `CABECERA_CSP`. Sin imports de servidor | `proxy.ts` |
