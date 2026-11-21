@@ -10,9 +10,9 @@
 // desde el 2026-10-01 la IP de quien no tiene cuenta no se guarda en ningún lado. Revisar solo si
 // un día hay varias copias del servidor.
 //
-// La IP sale de ipDelCliente (lib/ip.ts): el último valor de X-Forwarded-For. Mientras el puerto
-// de la app sea accesible sin pasar por el proxy, quien cambie ese encabezado en cada petición
-// esquiva el tope (pendiente de despliegue: que solo el proxy llegue al puerto).
+// La IP sale de ipDelCliente (lib/ip.ts): el último valor de X-Forwarded-For, que pone el proxy.
+// Por eso la app solo se publica en 127.0.0.1 (docker-compose.yml, APP_HOST, 2026-11-20): si
+// alguien llegara directo al puerto, inventaría ese encabezado y esquivaría el tope.
 //
 // Las cifras son generosas a propósito: en una escuela o empresa muchas personas salen por la
 // misma IP. Donde se puede, se cuentan solo los FALLOS (contraseña o código equivocados), no

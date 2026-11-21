@@ -14,7 +14,7 @@ docker compose logs -f app
 ```
 
 - **Servicios:** `postgres`, `minio`, `minio-init` y `app`. `minio-init` crea el bucket privado y un usuario de MinIO limitado a ese bucket (`MINIO_ACCESS_KEY`/`MINIO_SECRET_KEY`), y termina. La app nunca recibe el root de MinIO.
-- **Puertos:** Postgres y MinIO no publican puertos; solo la app publica `APP_PORT` (3000 por defecto, 3002 en producción).
+- **Puertos:** Postgres y MinIO no publican puertos; solo la app publica `APP_PORT` (3000 por defecto, 3002 en producción), y solo en `127.0.0.1` (`APP_HOST`): de fuera se llega únicamente por el proxy del mismo servidor.
 - **Desarrollo en tu máquina** (`next dev` fuera de Docker, o para abrir la consola de MinIO): publica los puertos solo en `127.0.0.1` con:
   ```bash
   docker compose -f docker-compose.yml -f docker-compose.local.yml up -d

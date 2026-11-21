@@ -90,7 +90,7 @@ Actualización en vivo: `components/supervision/RefrescoEnVivo.tsx` hace `router
 
 - **Levantar:** `docker compose up -d` (agrega `--build` si cambió código, `Dockerfile` o dependencias). Logs: `docker compose logs -f app`.
 - **Servicios:** `postgres` (16-alpine, con healthcheck), `minio`, `minio-init` (crea el bucket privado y el usuario limitado, y termina) y `app`, que espera a `postgres` healthy y a que `minio-init` termine bien.
-- **Puertos:** solo la app publica un puerto, `APP_PORT` (3000 por defecto, 3002 en producción) → 3000 del contenedor; Postgres y MinIO no. Para `next dev` o la consola de MinIO, usa `docker compose -f docker-compose.yml -f docker-compose.local.yml up -d`, que los publica en `127.0.0.1`. No publiques Postgres ni MinIO en el compose base.
+- **Puertos:** solo la app publica un puerto, `APP_PORT` (3000 por defecto, 3002 en producción) → 3000 del contenedor, **solo en `127.0.0.1`** (`APP_HOST`, 2026-11-20: el proxy del CICESE está en el mismo servidor; si se publica en todas las interfaces, cualquiera se salta el proxy e inventa su IP con `X-Forwarded-For`, y en Linux Docker abre el puerto por encima de ufw); Postgres y MinIO no. Para `next dev` o la consola de MinIO, usa `docker compose -f docker-compose.yml -f docker-compose.local.yml up -d`, que los publica en `127.0.0.1`. No publiques Postgres ni MinIO en el compose base.
 - **Secretos:** todos salen de `.env` (plantilla versionada en `.env.example`). Los `${VAR:?}` hacen que Compose no arranque si falta alguno. `DATABASE_URL` se arma con `POSTGRES_USER/PASSWORD/DB`. `lib/db.ts` y `lib/minio.ts` no tienen credenciales por defecto: crean la conexión en el primer uso y fallan si falta la variable (no al importar, porque `next build` los importa sin entorno). Migrar un servidor existente: ver `README.md`.
 - **Dos `.env`, ambos gitignored y no intercambiables:**
   - `.env.local` lo lee `next dev`. Ahí un `$` literal se escapa con `\$`.
@@ -107,7 +107,7 @@ Actualización en vivo: `components/supervision/RefrescoEnVivo.tsx` hace `router
 Críticos resueltos el 2026-09-25: puertos, credenciales en el compose, usuario limitado de MinIO, volumen de Windows y límite de intentos de `/root`. Siguen pendientes:
 
 - **Imagen de MinIO:** ya no se puede descargar (MinIO dejó de publicar en `quay.io/minio/*` y en Docker Hub); solo sirve la que está en caché (`RELEASE.2025-09-07T16-13-09Z`), y no recibe parches. Hay que decidir el reemplazo (compilar desde el código fuente o migrar a otro almacenamiento compatible con S3).
-- La app publica `APP_PORT` en todas las interfaces: si el proxy vive en el mismo host, conviene `127.0.0.1:${APP_PORT}:3000`.
+- ~~La app publica `APP_PORT` en todas las interfaces~~: desde el 2026-11-20 solo en `127.0.0.1`. Si el proxy pasa a otra máquina o a un contenedor (ahí 127.0.0.1 es el del contenedor), cambiar `APP_HOST` a la IP interna o a la del puente de Docker; nunca `0.0.0.0`.
 - Sin `/api/health` y sin respaldos (`pg_dump` + copia del volumen de MinIO).
 
 No los "arregles de paso": son una tarea propia que hay que acordar.

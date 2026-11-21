@@ -119,8 +119,14 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:?Falta MINIO_ACCESS_KEY en .env}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?Falta MINIO_SECRET_KEY en .env}
     ports:
-      # Puerto del host al que apunta el proxy (en producción, 3002).
-      - "${APP_PORT:-3000}:3000"
+      # Puerto del host al que apunta el proxy (en producción, 3002), publicado SOLO en 127.0.0.1
+      # (2026-11-20): el proxy del CICESE corre en el mismo servidor. Antes iba en todas las
+      # interfaces y cualquiera podía llegar directo, saltarse el proxy e inventar su IP con
+      # X-Forwarded-For (los topes por IP confían en ese encabezado; lib/ip.ts). En Linux, Docker
+      # abre los puertos publicados por encima del firewall (ufw), así que el firewall no basta.
+      # APP_HOST en .env cambia la interfaz solo si el proxy deja de estar en esta máquina o corre
+      # en un contenedor (ahí 127.0.0.1 es el del contenedor: usar la IP del puente de Docker).
+      - "${APP_HOST:-127.0.0.1}:${APP_PORT:-3000}:3000"
     depends_on:
       postgres:
         condition: service_healthy
