@@ -426,6 +426,12 @@ export const TEXTOS = {
     perdidoTitulo: (objeto: "protector" | "potenciador") => (objeto === "protector" ? "Un protector no cupo" : "Un potenciador no cupo"),
     perdidoMensaje: (objeto: "protector" | "potenciador") =>
       `Tenías el máximo y el ${objeto} de tu misión se perdió. Lo que ya tenías sigue igual.`,
+    /** Aviso cuando un protector cubre un día sin aportes (2026-11-20, RF-GAM-28, 61). */
+    protectorUsadoTitulo: "Un protector cuidó tu racha",
+    protectorUsadoMensaje: (dia: string, racha: number, quedan: number) =>
+      `Cubrió el ${new Date(`${dia}T12:00:00Z`).toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" })} y tu racha sigue en ${n(racha)} ${racha === 1 ? "día" : "días"}. ${quedan === 0 ? "Ya no te quedan protectores." : `Te ${quedan === 1 ? "queda 1 protector" : `quedan ${n(quedan)} protectores`}.`}`,
+    /** Fila de protectores en la racha de Inicio y en el calendario. */
+    protectores: (cuantos: number, maximo: number) => `Protectores: ${n(cuantos)} de ${n(maximo)}`,
     /** Tarjeta de la misión completada, según qué pasó con su objeto. */
     tarjeta: {
       pendiente: (texto: string) => `${texto} · por decidir: tu inventario está lleno`,
@@ -484,5 +490,6 @@ export const TEXTOS = {
     nombresDeDias: ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"] as readonly string[],
     dia: (nombre: string, conAporte: boolean, hoy: boolean) =>
       `${hoy ? "Hoy" : nombre[0].toUpperCase() + nombre.slice(1)}, ${conAporte ? "con aporte" : "sin aporte"}`,
+    diaProtegido: (nombre: string) => `${nombre[0].toUpperCase() + nombre.slice(1)}, cubierto con protector`,
   },
 } as const;

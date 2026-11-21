@@ -65,6 +65,13 @@
   --color-warning-800: #854d0e;
   --color-warning-900: #713f12;
   --color-warning-950: #422006;
+  /* Fuego (2026-11-20): el protector (escudo naranja con llama) y lo que tiene que ver con él: su chip en las misiones,
+   * el día protegido del calendario y su ventana. Mismos valores que --fuego-* de las celebraciones. */
+  --color-fuego-50: #fff7ed;
+  --color-fuego-100: #ffedd5;
+  --color-fuego-200: #fed7aa;
+  --color-fuego-700: #c2410c;
+  --color-fuego-800: #9a3412;
   /* Success: verdes (también el botón principal) */
   --color-success-50: #e4f4ec;
   --color-success-100: #d8ede2;

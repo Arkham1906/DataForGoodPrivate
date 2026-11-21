@@ -85,7 +85,13 @@ export type DecisionDeObjeto = { instancia: string; accion: "cambiar" | "rechaza
 export const MEDIDAS_CON_FUEGO: ReadonlySet<string> = new Set(["racha_maxima"]);
 
 /** Día de la fila de la semana en la celebración de racha: los últimos 7 días, hoy al final. */
-export type DiaDeLaCelebracion = { dia: string; conAporte: boolean; hoy: boolean };
+export type DiaDeLaCelebracion = {
+  dia: string;
+  conAporte: boolean;
+  hoy: boolean;
+  /** Cubierto por un protector (2026-11-20): se ve con el escudo; une la racha sin sumar. */
+  protegido?: boolean;
+};
 
 /**
  * Cambio de la racha que provocó un envío, cuando hay que celebrarlo: el primer aporte del día la alarga, la empieza o

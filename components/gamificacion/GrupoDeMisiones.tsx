@@ -4,7 +4,7 @@
 //
 // 2026-11-19 (SRS v1.4: RF-GAM-43, 122; lienzo «Misiones: Envía/Logra, dificultad y recompensa», aprobado): la recompensa
 // va con su ícono (EXP, protector o potenciador), las difíciles llevan la etiqueta «Difícil» con ícono, y una línea dice
-// cuándo cuenta la misión. Íconos de protector, potenciador y Difícil: provisionales hasta los de la tabla 4.5.
+// cuándo cuenta la misión. 2026-11-20: protector y potenciador con su glifo aprobado (escudo naranja, frasco azul).
 
 import ProgressBar from "@/components/ui/ProgressBar";
 import Tag from "@/components/ui/Tag";
@@ -12,6 +12,7 @@ import type { GrupoDeMisiones as DatosDelGrupo, MisionVigente } from "@/lib/gami
 import type { MedidaDeMision } from "@/lib/gamificacion/misiones-reglas";
 import { TEXTOS } from "@/lib/gamificacion/textos";
 import IconoDeMision from "./IconoDeMision";
+import { GlifoDeObjeto } from "./ObjetoDeInventario";
 
 const T = TEXTOS.misiones;
 const I = TEXTOS.inventario;
@@ -37,12 +38,8 @@ const ICONOS: Record<MedidaDeMision, string> = {
   campanas_guardadas: "M12 3l2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3l-5.6 2.9 1.1-6.2L3 9.6l6.2-.9z",
 };
 
-// Íconos provisionales (Lucide): EXP, protector, potenciador, Difícil, enviar y aceptado.
-const ICONO_DE_RECOMPENSA = {
-  exp: "M12 3l1.9 5.8L20 10.7l-5.1 3.7L16.8 21 12 17.3 7.2 21l1.9-6.6L4 10.7l6.1-1.9z",
-  protector: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",
-  potenciador: "M13 2L3 14h9l-1 8 10-12h-9l1-8z",
-} as const;
+// EXP, Difícil, enviar y aceptado (Lucide); protector y potenciador, su glifo (ObjetoDeInventario).
+const ESTRELLA = "M12 3l1.9 5.8L20 10.7l-5.1 3.7L16.8 21 12 17.3 7.2 21l1.9-6.6L4 10.7l6.1-1.9z";
 const MONTANA = "M8 3l4 8 5-5 5 15H2L8 3z";
 const ICONO_DE_CUENTA = {
   envio: "M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z",
@@ -50,9 +47,17 @@ const ICONO_DE_CUENTA = {
 } as const;
 const CLASE_DE_RECOMPENSA = {
   exp: "border-brand-200 bg-brand-50 text-brand-800",
-  protector: "border-system-300 bg-system-100 text-system-800",
-  potenciador: "border-warning-200 bg-warning-50 text-warning-800",
+  protector: "border-fuego-200 bg-fuego-50 text-fuego-800",
+  potenciador: "border-brand-300 bg-brand-100 text-brand-800",
 } as const;
+
+function IconoDeRecompensa({ tipo }: { tipo: "exp" | "potenciador" | "protector" }) {
+  return tipo === "exp" ? (
+    <Trazo d={ESTRELLA} className="h-[15px] w-[15px]" />
+  ) : (
+    <GlifoDeObjeto objeto={tipo} className="h-[15px] w-[15px]" />
+  );
+}
 
 function Trazo({ d, className }: { d: string; className: string }) {
   return (
@@ -115,13 +120,13 @@ function Mision({ mision }: { mision: MisionVigente }) {
               <span
                 className={`inline-flex items-center gap-1.5 rounded-pill border py-1 pl-2 pr-2.5 text-[12.5px] font-bold ${CLASE_DE_RECOMPENSA[mision.tipoDeRecompensa]}`}
               >
-                <Trazo d={ICONO_DE_RECOMPENSA[mision.tipoDeRecompensa]} className="h-[15px] w-[15px]" />
+                <IconoDeRecompensa tipo={mision.tipoDeRecompensa} />
                 {T.recompensa(mision.recompensa)}
               </span>
             )}
             {completada && hecha && (
               <span className={`inline-flex items-center gap-1.5 rounded-pill border py-1 pl-2 pr-2.5 text-[12.5px] font-bold ${hecha.clase}`}>
-                <Trazo d={ICONO_DE_RECOMPENSA[hecha.tipo]} className="h-[15px] w-[15px]" />
+                <IconoDeRecompensa tipo={hecha.tipo} />
                 {hecha.texto}
               </span>
             )}

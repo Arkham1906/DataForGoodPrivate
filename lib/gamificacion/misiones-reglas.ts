@@ -194,6 +194,11 @@ export function tipoDeRecompensa(recompensa: RecompensaDeMision): "exp" | Objeto
   return recompensa && recompensa.tipo !== "sorteo" ? recompensa.tipo : null;
 }
 
+/** Semilla del sorteo de una instancia: persona, misión y periodo. La misma al asignarla y al completarla. */
+export function semillaDelObjeto(usuarioId: number | string, clave: string, inicioDelPeriodo: number): string {
+  return `${usuarioId}:${clave}:${Math.round(inicioDelPeriodo)}`;
+}
+
 /**
  * Objeto de una misión difícil. Repetible con la misma semilla (persona, misión y periodo): un reintento no lo cambia.
  * Con los pesos de misiones.json (1 y 1) es 50/50.

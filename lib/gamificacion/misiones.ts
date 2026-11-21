@@ -35,6 +35,7 @@ import {
   elegirMisiones,
   periodoEn,
   recompensaDesde,
+  semillaDelObjeto,
   sortearObjeto,
   textoDeRecompensa,
   tipoDeRecompensa,
@@ -65,12 +66,13 @@ type FilaDeMision = {
 };
 
 /**
- * Lo que da una instancia: lo guardado al asignarla o, en las asignadas antes del 19 nov, lo del catálogo. Un «sorteo»
- * sin resolver (difícil asignada antes del cambio) no da nada.
+ * Lo que da una instancia: lo guardado al asignarla o, en las asignadas antes del 19 nov, lo del catálogo. Una difícil
+ * asignada antes del cambio no tiene su objeto guardado: se sortea con la misma semilla que al asignar, así la tarjeta
+ * y la entrega coinciden (corrección del 2026-11-20: antes no daba nada).
  */
-function recompensaDeInstancia(deInstancia: unknown, delCatalogo: unknown): RecompensaDeMision {
+function recompensaDeInstancia(deInstancia: unknown, delCatalogo: unknown, semilla: string): RecompensaDeMision {
   const recompensa = recompensaDesde(deInstancia ?? delCatalogo);
-  return recompensa?.tipo === "sorteo" ? null : recompensa;
+  return recompensa?.tipo === "sorteo" ? { tipo: sortearObjeto(semilla, DIFICILES_DEL_CATALOGO.pesosDelSorteo) } : recompensa;
 }
 
 async function contextoDeSeleccion(client: Pick<PoolClient, "query">, intereses: string[]): Promise<ContextoDeSeleccion> {
@@ -175,7 +177,7 @@ export async function actualizarMisiones(
         const delCatalogo = recompensaDesde(mision.recompensa);
         const recompensa: RecompensaDeMision =
           delCatalogo?.tipo === "sorteo"
-            ? { tipo: sortearObjeto(`${usuarioId}:${mision.clave}:${inicio}`, DIFICILES_DEL_CATALOGO.pesosDelSorteo) }
+            ? { tipo: sortearObjeto(semillaDelObjeto(usuarioId, mision.clave, inicio), DIFICILES_DEL_CATALOGO.pesosDelSorteo) }
             : delCatalogo;
         await client.query(
           `INSERT INTO mision_instancias (usuario_id, mision_id, periodo_inicio, periodo_fin, objetivo, recompensa)
@@ -252,14 +254,20 @@ export async function actualizarMisiones(
         continue;
       }
 
-      const recompensa = recompensaDeInstancia(instancia.recompensa, mision.recompensa);
+      const recompensa = recompensaDeInstancia(
+        instancia.recompensa,
+        mision.recompensa,
+        semillaDelObjeto(usuarioId, mision.clave, instancia.inicio),
+      );
       const exp = recompensa?.tipo === "exp" ? recompensa.cantidad : 0;
-      // La EXP se entrega aquí. Un objeto queda pendiente (recompensa_entregada_en NULL) hasta que exista el inventario.
+      // La EXP se entrega aquí. Un objeto queda pendiente (recompensa_entregada_en NULL) y lo entrega
+      // entregarObjetosDeMisiones al terminar. Se guarda lo que dio, también en las asignadas antes del 19 nov.
       await client.query(
         `UPDATE mision_instancias
-          SET progreso = $2, completada_en = NOW(), recompensa_entregada_en = CASE WHEN $3 THEN NOW() END
+          SET progreso = $2, completada_en = NOW(), recompensa_entregada_en = CASE WHEN $3 THEN NOW() END,
+              recompensa = COALESCE(recompensa, $4::jsonb)
           WHERE id = $1`,
-        [instancia.id, avance, exp > 0],
+        [instancia.id, avance, exp > 0, recompensa ? JSON.stringify(recompensa) : null],
       );
       if (exp > 0) {
         await client.query(
@@ -398,14 +406,14 @@ export function textoDeTiempoRestante(ms: number): string {
   return `${horas} h ${String(minutos % 60).padStart(2, "0")} min`;
 }
 
-function grupoDe(filas: FilaVigente[], periodicidad: Periodicidad): GrupoDeMisiones {
+function grupoDe(filas: FilaVigente[], periodicidad: Periodicidad, usuarioId: number | string): GrupoDeMisiones {
   const delGrupo = filas.filter((f) => f.periodicidad === periodicidad);
   const primera = delGrupo[0];
   return {
     periodo: primera ? `${FECHA_Y_HORA.format(primera.inicio)} → ${FECHA_Y_HORA.format(primera.fin)}` : null,
     seRenuevanEn: primera ? textoDeTiempoRestante(primera.fin - Date.now()) : null,
     misiones: delGrupo.map((f) => {
-      const recompensa = recompensaDeInstancia(f.recompensa_instancia, f.recompensa);
+      const recompensa = recompensaDeInstancia(f.recompensa_instancia, f.recompensa, semillaDelObjeto(usuarioId, f.clave, f.inicio));
       const daObjeto = recompensa?.tipo === "potenciador" || recompensa?.tipo === "protector";
       return {
         id: f.id,
@@ -484,16 +492,18 @@ export async function obtenerMisiones(usuarioId: number | string): Promise<Datos
 
     return {
       total: totalR.rows[0]?.misiones_completadas ?? 0,
-      inicio: grupoDe(vigentesR.rows, "inicio"),
-      diarias: grupoDe(vigentesR.rows, "diaria"),
-      semanales: grupoDe(vigentesR.rows, "semanal"),
+      inicio: grupoDe(vigentesR.rows, "inicio", usuarioId),
+      diarias: grupoDe(vigentesR.rows, "diaria", usuarioId),
+      semanales: grupoDe(vigentesR.rows, "semanal", usuarioId),
       historial: historialR.rows.map((h) => ({
         id: h.id,
         nombre: h.nombre,
         periodicidad: h.periodicidad,
         periodo: `${FECHA.format(h.inicio)} – ${FECHA.format(h.fin)}`,
         completadaEn: FECHA_Y_HORA.format(h.completada),
-        recompensa: textoDeRecompensa(recompensaDeInstancia(h.recompensa_instancia, h.recompensa)),
+        recompensa: textoDeRecompensa(
+          recompensaDeInstancia(h.recompensa_instancia, h.recompensa, semillaDelObjeto(usuarioId, h.clave, h.inicio)),
+        ),
         clave : h.clave,
       })),
     };

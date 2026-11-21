@@ -7,10 +7,13 @@
 // No decide nada sobre la cola ni sobre qué pasa con la capacidad llena (DA-GAM-13, pendiente): solo muestra lo
 // que hay. Sin potenciador, explica lo que es sin prometer cómo se consigue (el catálogo de misiones sigue
 // abierto, DA-GAM-06).
+// 2026-11-20 (lienzo de objetos aprobado): el frasco azul dentro del anillo del tiempo que queda; sin potenciador
+// activo, el frasco apagado.
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ResumenDePotenciadores } from "@/lib/gamificacion/progreso-tipos";
+import { ImagenDeObjeto } from "./ObjetoDeInventario";
 
 const RADIO = 20;
 const CIRCUNFERENCIA = 2 * Math.PI * RADIO;
@@ -51,19 +54,22 @@ export default function PotenciadorActivo({ potenciadores }: { potenciadores: Re
       <h2 className="text-lg font-extrabold text-system-900">Potenciador</h2>
       {activo ? (
         <div className="flex items-center gap-4">
-          <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false" className="h-12 w-12 shrink-0 -rotate-90">
-            <circle cx="24" cy="24" r={RADIO} fill="none" strokeWidth="5" className="stroke-white" />
-            <circle
-              cx="24"
-              cy="24"
-              r={RADIO}
-              fill="none"
-              strokeWidth="5"
-              strokeLinecap="round"
-              className="stroke-brand-700"
-              strokeDasharray={`${CIRCUNFERENCIA * Math.min(1, segundos / (activo.duracionMinutos * 60))} ${CIRCUNFERENCIA}`}
-            />
-          </svg>
+          <span className="relative block h-[72px] w-[72px] shrink-0">
+            <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false" className="absolute inset-0 h-[72px] w-[72px] -rotate-90">
+              <circle cx="24" cy="24" r={RADIO} fill="none" strokeWidth="3" className="stroke-white" />
+              <circle
+                cx="24"
+                cy="24"
+                r={RADIO}
+                fill="none"
+                strokeWidth="3"
+                strokeLinecap="round"
+                className="stroke-brand-700"
+                strokeDasharray={`${CIRCUNFERENCIA * Math.min(1, segundos / (activo.duracionMinutos * 60))} ${CIRCUNFERENCIA}`}
+              />
+            </svg>
+            <ImagenDeObjeto objeto="potenciador" tamano={48} lado={96} className="absolute left-3 top-3 h-12 w-12" />
+          </span>
           <div>
             <p role="timer" className="font-mono text-2xl font-extrabold leading-none text-system-900">
               {Math.floor(segundos / 60)}:{String(segundos % 60).padStart(2, "0")}
@@ -75,12 +81,15 @@ export default function PotenciadorActivo({ potenciadores }: { potenciadores: Re
           </div>
         </div>
       ) : (
-        <p className="text-sm text-brand-800">
-          No tienes potenciadores.
-          {enEspera > 0
-            ? ` ${enEspera === 1 ? "Tienes 1 en espera" : `Tienes ${enEspera} en espera`}: se activa solo en cuanto puede.`
-            : " Cuando obtengas uno, se activa solo y suma a los aportes que envíes mientras dure."}
-        </p>
+        <div className="flex items-start gap-3">
+          <ImagenDeObjeto objeto="potenciador" tamano={44} lado={96} className="h-11 w-11 shrink-0 opacity-50 grayscale" />
+          <p className="text-sm text-brand-800">
+            No tienes potenciadores.
+            {enEspera > 0
+              ? ` ${enEspera === 1 ? "Tienes 1 en espera" : `Tienes ${enEspera} en espera`}: se activa solo en cuanto puede.`
+              : " Se ganan en algunas misiones difíciles de la semana y suman a lo que envíes mientras duran."}
+          </p>
+        </div>
       )}
     </>
   );

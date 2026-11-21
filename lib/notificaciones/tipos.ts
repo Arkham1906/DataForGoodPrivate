@@ -12,6 +12,8 @@ export type TipoDeNotificacion =
   | "mision_completada"
   // El objeto de una misión difícil no cabía y la persona eligió dejarlo pasar (lib/gamificacion/inventario.ts, 2026-11-19).
   | "objeto_perdido"
+  // Un protector cubrió un día sin aportes (lib/gamificacion/racha.ts, 2026-11-20).
+  | "protector_consumido"
   // Subió de rango, o una medalla subió de nivel (lib/gamificacion/evaluacion.ts, RF-GAM-49, 61, 62; 2026-11-09).
   | "rango_ascenso"
   | "medalla_nivel"

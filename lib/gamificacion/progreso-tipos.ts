@@ -9,8 +9,11 @@ import type { FichaDeRango } from "./rangos";
 
 /** Protectores que se conservan como máximo (RF-GAM-30). */
 export const MAXIMO_DE_PROTECTORES = 3;
-/** Los protectores aún no existen (2026-11-04): la interfaz no los muestra y la racha se interrumpe con un día faltante. */
-export const PROTECTORES_ACTIVOS = false;
+/**
+ * Protectores activos (2026-11-20; SRS v1.4: RF-GAM-28): se ganan en misiones difíciles (lib/gamificacion/inventario.ts)
+ * y cubren los días sin aportes (lib/gamificacion/racha.ts). La interfaz los muestra en Inicio y en el calendario.
+ */
+export const PROTECTORES_ACTIVOS = true;
 /** Potenciadores en espera como máximo, además del activo (RF-GAM-35). */
 export const MAXIMO_DE_POTENCIADORES_EN_ESPERA = 3;
 

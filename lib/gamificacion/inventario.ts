@@ -21,7 +21,8 @@ import type { PoolClient } from "pg";
 import { pool } from "@/lib/db";
 import { notificar } from "@/lib/notificaciones/notificaciones";
 import { MAXIMO_DE_POTENCIADORES_EN_ESPERA, MAXIMO_DE_PROTECTORES } from "./progreso-tipos";
-import { OBJETOS_DE_MISION, recompensaDesde, type ObjetoDeMision } from "./misiones-reglas";
+import { DIFICILES_DEL_CATALOGO } from "./catalogos";
+import { OBJETOS_DE_MISION, recompensaDesde, semillaDelObjeto, sortearObjeto, type ObjetoDeMision } from "./misiones-reglas";
 import type { ObjetoPorDecidir } from "./celebraciones-tipos";
 import { TEXTOS } from "./textos";
 
@@ -111,8 +112,30 @@ async function guardarObjeto(
 
 type Pendiente = { id: string; mision: string; objeto: ObjetoDeMision };
 
+/**
+ * Difíciles asignadas antes del 19 nov y completadas sin objeto guardado: se sortea con la misma semilla que al asignar
+ * y se guarda, para que se entreguen como las demás (corrección del 2026-11-20).
+ */
+async function repararObjetosSinSortear(client: Consulta, usuarioId: number | string): Promise<void> {
+  const { rows } = await client.query<{ id: string; clave: string; inicio: number }>(
+    `SELECT i.id::text AS id, m.clave, (EXTRACT(EPOCH FROM i.periodo_inicio) * 1000)::float8 AS inicio
+      FROM mision_instancias i JOIN misiones m ON m.id = i.mision_id
+      WHERE i.usuario_id = $1 AND i.completada_en IS NOT NULL AND i.recompensa IS NULL
+        AND i.recompensa_entregada_en IS NULL AND i.recompensa_resultado IS NULL AND m.recompensa->>'tipo' = 'sorteo'`,
+    [usuarioId],
+  );
+  for (const fila of rows) {
+    const objeto = sortearObjeto(semillaDelObjeto(usuarioId, fila.clave, fila.inicio), DIFICILES_DEL_CATALOGO.pesosDelSorteo);
+    await client.query(`UPDATE mision_instancias SET recompensa = $2::jsonb WHERE id = $1 AND recompensa IS NULL`, [
+      fila.id,
+      JSON.stringify({ tipo: objeto }),
+    ]);
+  }
+}
+
 /** Misiones completadas cuyo objeto aún no se entrega ni se decidió. */
 async function objetosPendientes(client: Consulta, usuarioId: number | string): Promise<Pendiente[]> {
+  await repararObjetosSinSortear(client, usuarioId);
   const { rows } = await client.query<{ id: string; mision: string; recompensa: unknown }>(
     `SELECT i.id::text AS id, m.nombre AS mision, i.recompensa
       FROM mision_instancias i JOIN misiones m ON m.id = i.mision_id

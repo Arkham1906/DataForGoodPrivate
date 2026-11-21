@@ -6,29 +6,28 @@
 // - Los dos están al máximo: solo avisa que se pierde, con «Entendido».
 // Cerrarla con Esc no decide nada: vuelve en la siguiente visita. La decisión la toma el servidor con el inventario de
 // ese momento (lib/gamificacion/inventario.ts, decidirObjeto). Ventana; en teléfono, hoja que sube desde abajo.
-// Íconos de protector y potenciador provisionales (tabla 4.5).
+// 2026-11-20: con las ilustraciones aprobadas (escudo naranja, frasco azul).
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { BASE_PATH } from "@/lib/base-path";
 import { TEXTOS } from "@/lib/gamificacion/textos";
 import type { DecisionDeObjeto, ObjetoPorDecidir } from "@/lib/gamificacion/celebraciones-tipos";
+import { ImagenDeObjeto } from "../ObjetoDeInventario";
 import { Accion, Icono, Paso, TRAZOS } from "./piezas";
 
 const I = TEXTOS.inventario;
 
 const ESTILO = {
-  protector: { trazo: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z", caja: "border-system-300 bg-system-100", color: "text-system-800" },
-  potenciador: { trazo: "M13 2L3 14h9l-1 8 10-12h-9l1-8z", caja: "border-warning-200 bg-warning-50", color: "text-warning-800" },
+  protector: { caja: "border-fuego-200 bg-fuego-50", color: "text-fuego-800" },
+  potenciador: { caja: "border-brand-300 bg-brand-50", color: "text-brand-800" },
 } as const;
 
 function Casillas({ objeto, cuantas }: { objeto: "protector" | "potenciador"; cuantas: number }) {
   return (
     <>
       {Array.from({ length: cuantas }, (_, i) => (
-        <span key={`${objeto}-${i}`} className={`flex h-7 w-7 items-center justify-center rounded-lg bg-white ${ESTILO[objeto].color}`}>
-          <Icono trazo={ESTILO[objeto].trazo} className="h-4 w-4" grosor={2} />
-        </span>
+        <ImagenDeObjeto key={`${objeto}-${i}`} objeto={objeto} tamano={28} lado={96} className="h-7 w-7" />
       ))}
     </>
   );
@@ -86,10 +85,8 @@ export default function CelebracionDeObjeto({
         </div>
         <p className="text-sm text-system-800">{alternativa ? I.noCabe(objeto, alternativa) : I.noCabeAmbos(objeto)}</p>
         {alternativa && (
-          <div className={`grid grid-cols-[40px_1fr] items-start gap-3 rounded-xl border px-3.5 py-3 ${ESTILO[alternativa].caja}`}>
-            <span aria-hidden="true" className={`flex h-10 w-10 items-center justify-center rounded-[10px] bg-white ${ESTILO[alternativa].color}`}>
-              <Icono trazo={ESTILO[alternativa].trazo} className="h-[22px] w-[22px]" grosor={2} />
-            </span>
+          <div className={`grid grid-cols-[48px_1fr] items-center gap-3 rounded-xl border px-3.5 py-3 ${ESTILO[alternativa].caja}`}>
+            <ImagenDeObjeto objeto={alternativa} tamano={48} lado={96} className="h-12 w-12" />
             <span className="flex flex-col gap-0.5">
               <strong className={`text-sm ${ESTILO[alternativa].color}`}>{I.nombre(alternativa)}</strong>
               <span className="text-[13px] text-system-700">{I.explica[alternativa]}</span>
