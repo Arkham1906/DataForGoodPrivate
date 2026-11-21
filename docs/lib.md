@@ -20,6 +20,7 @@
 | `app-url.ts` | URL absoluta con `APP_ORIGIN` + `BASE_PATH` (para redirecciones y correos) | `absoluteUrl` |
 | `ip.ts` | IP real del cliente detrás del proxy | `ipDelCliente` |
 | `limite-por-ip.ts` | Topes por IP en memoria de las rutas de cuenta sin sesión (2026-11-20): `LIMITES_POR_IP` (cifras provisionales), `segundosDeBloqueo`, `sumarAlLimite` (fallos), `contarPeticion` (cada petición) y `respuestaDeLimite` (429); bloqueo del login por correo: `segundosDeBloqueoDeCorreo`, `sumarFalloDeCorreo`, `limpiarFallosDeCorreoEnIp`, `limpiarFallosDeCorreo` y `respuestaDeBloqueoDeCorreo` | login, registro, verificar, reenviar, recuperar y restablecer |
+| `csp.ts` | Content-Security-Policy de las páginas (2026-11-20): `nuevoNonce()`, `politicaDePagina(nonce)` y `CABECERA_CSP`. Sin imports de servidor | `proxy.ts` |
 | `formulario.ts` | `leerFormulario(request)`: el `multipart/form-data` del cuerpo o `null` si no es un formulario, para responder 400 en vez de 500 (2026-11-20) | `POST /api/aportes`, aportes sin cuenta, crear y editar campaña con banner, avatar |
 | `api-docs.ts` | Decide si se puede ver `/api/docs` | `puedeVerDocs` |
 | `animaciones.ts` 🟢 | Ayudantes de las animaciones de entrada de las páginas públicas (clases `.landing-*` de `globals.css`) | `retraso`, `entradaDeTarjeta` |

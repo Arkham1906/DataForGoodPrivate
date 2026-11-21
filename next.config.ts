@@ -25,8 +25,9 @@ const nextConfig: NextConfig = {
   },
   // Sin "X-Powered-By: Next.js": no anunciar la tecnología.
   poweredByHeader: false,
-  // Cabeceras de seguridad para todo (páginas y API). Sin CSP global: la ruta del
-  // archivo de un aporte manda la suya, y una CSP completa necesita probar Google OAuth.
+  // Cabeceras de seguridad para todo (páginas y API). La CSP de las páginas va en proxy.ts
+  // (2026-11-20, lib/csp.ts) porque lleva un nonce por petición; /api/docs y el archivo de un
+  // aporte mandan la suya.
   async headers() {
     return [
       {
@@ -41,6 +42,13 @@ const nextConfig: NextConfig = {
           // (2026-10-31: zona por ubicación, lib/ubicacion/); nunca para un iframe ni otro origen.
           { key: "Permissions-Policy", value: "geolocation=(self), camera=(), microphone=()" },
         ],
+      },
+      {
+        // El texto de un aporte se ve en un iframe del propio sitio (ui/BotonPantallaCompletaDeAporte):
+        // con DENY salía vacío (2026-11-20). SAMEORIGIN reemplaza al DENY de arriba solo aquí (la
+        // última cabecera con el mismo nombre gana); otro sitio sigue sin poder incrustarlo.
+        source: "/api/aportes/:id/archivo",
+        headers: [{ key: "X-Frame-Options", value: "SAMEORIGIN" }],
       },
       {
         // Service worker de las notificaciones push: siempre la versión más nueva y solo scripts propios.

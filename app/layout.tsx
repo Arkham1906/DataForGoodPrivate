@@ -4,6 +4,7 @@
 import type { Metadata } from "next";
 import { PLANTILLA_DE_TITULO } from "@/lib/titulo";
 import localFont from "next/font/local";
+import { connection } from "next/server";
 import "./globals.css";
 import { BASE_PATH } from "@/lib/base-path";
 
@@ -41,11 +42,15 @@ export const metadata: Metadata = {
   appleWebApp: { capable: true, title: "DataForGood", statusBarStyle: "default" },
 };
 
-export default function RootLayout({
+// connection() (2026-11-20): toda página se arma en cada visita para que sus scripts lleven el
+// nonce de la CSP que pone proxy.ts (lib/csp.ts). Una página generada al compilar no tendría
+// nonce y el navegador bloquearía sus scripts.
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  await connection();
   return (
     <html lang="es">
       <body className={`${jakarta.variable} ${jetbrainsMono.variable} font-sans`}>

@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { absoluteUrl } from "@/lib/app-url";
+import { CABECERA_CSP, nuevoNonce, politicaDePagina } from "@/lib/csp";
 
 const SESSION_COOKIE = "session_token";
 const ROOT_SESSION_COOKIE = "root_session_token";
 const METODOS_SEGUROS = new Set(["GET", "HEAD", "OPTIONS"]);
 // Lo lee app/(dashboard)/layout.tsx: la ficha /campanas/[id] se muestra sin sesión.
 const ENCABEZADO_DETALLE_PUBLICO = "x-public-campaign-detail";
+// Zona de usuario que manda a /entrar sin cookie (las rutas que tenía el matcher hasta el 2026-11-20).
+const ZONA_DE_USUARIO =
+  /^\/(inicio|campanas|mis-aportes|mis-campanas|cuenta|progreso|notificaciones|revisiones|supervision)(\/|$)/;
 
 /**
  * Protección CSRF para las mutaciones de /api. La cookie de sesión va con
@@ -74,27 +78,45 @@ export function proxy(request: NextRequest) {
     return idInvalido(request) ?? NextResponse.next();
   }
 
-  if (pathname.startsWith("/sistema")) {
+  // Páginas: CSP con un nonce nuevo (2026-11-20, lib/csp.ts). Va en la petición, de donde Next lo
+  // toma para sus scripts, y en la respuesta, que es la que aplica el navegador.
+  const nonce = nuevoNonce();
+  const csp = politicaDePagina(nonce);
+
+  // El encabezado del detalle público solo lo pone este proxy: si lo manda el navegador se borra
+  // (2026-11-11). Antes pasaba tal cual y, escrito a mano, abría sin sesión cualquier pantalla de usuario.
+  const encabezados = new Headers(request.headers);
+  encabezados.delete(ENCABEZADO_DETALLE_PUBLICO);
+  encabezados.set(CABECERA_CSP, csp);
+
+  const seguir = () => {
+    const respuesta = NextResponse.next({ request: { headers: encabezados } });
+    respuesta.headers.set(CABECERA_CSP, csp);
+    return respuesta;
+  };
+
+  if (/^\/sistema(\/|$)/.test(pathname)) {
     const hasRootSession = Boolean(request.cookies.get(ROOT_SESSION_COOKIE)?.value);
 
     if (!hasRootSession) {
       return NextResponse.redirect(absoluteUrl("/root"));
     }
 
-    return NextResponse.next();
+    return seguir();
   }
 
-  // El encabezado del detalle público solo lo pone este proxy: si lo manda el navegador se borra
-  // (2026-11-11). Antes pasaba tal cual y, escrito a mano, abría sin sesión cualquier pantalla de usuario.
-  const encabezados = new Headers(request.headers);
-  encabezados.delete(ENCABEZADO_DETALLE_PUBLICO);
+  // Desde el 2026-11-20 el proxy pasa por todas las páginas (por la CSP), pero solo la zona de
+  // usuario manda a /entrar sin cookie: las mismas rutas que tenía el matcher antes.
+  if (!ZONA_DE_USUARIO.test(pathname)) {
+    return seguir();
+  }
 
   // El detalle de una campaña pública se puede consultar sin cuenta (desde /explorar), también con una
   // cookie de sesión vencida o inválida: el layout decide con la sesión real. Las acciones para participar
   // siguen protegidas por sus propios endpoints y las demás pantallas de usuario siguen pidiendo sesión.
   if (/^\/campanas\/[1-9]\d*$/.test(pathname)) {
     encabezados.set(ENCABEZADO_DETALLE_PUBLICO, "1");
-    return NextResponse.next({ request: { headers: encabezados } });
+    return seguir();
   }
 
   const hasSession = Boolean(request.cookies.get(SESSION_COOKIE)?.value);
@@ -106,22 +128,17 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(absoluteUrl(`/entrar?next=${destino}`));
   }
 
-  return NextResponse.next({ request: { headers: encabezados } });
+  return seguir();
 }
 
 export const config = {
+  // Toda página, para la CSP (2026-11-20), menos los archivos estáticos (_next/static, imágenes,
+  // fuentes, sw.js, el manifest...). No se salta el prefetch de <Link>: también debe pasar por aquí
+  // para que nadie meta el encabezado del detalle público.
   matcher: [
     "/api/:path*",
-    "/inicio/:path*",
-    "/campanas/:path*",
-    "/mis-aportes/:path*",
-    "/mis-campanas/:path*",
-    "/cuenta/:path*",
-    "/progreso/:path*",
-    "/notificaciones/:path*",
-    // Faltaba (2026-11-11): toda la zona de usuario pasa por aquí para que nadie meta el encabezado.
-    "/revisiones/:path*",
-    "/supervision/:path*",
-    "/sistema/:path*",
+    // La portada aparte: con basePath, /dataforgood no entra en el patrón de abajo.
+    "/",
+    "/((?!_next/static|_next/image|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff2?|js|mjs|css|map|txt|xml|json|webmanifest)$).*)",
   ],
 };

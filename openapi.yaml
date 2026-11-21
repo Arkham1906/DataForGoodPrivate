@@ -85,6 +85,22 @@ paths:
           description: Cuenta suspendida, baneada o sin verificar (en ese caso guarda `verificacion_pendiente` con una ficha nueva y manda código si pasa la espera y el tope por hora)
           content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
 
+  /api/csp-reporte:
+    post:
+      tags: [Auth]
+      summary: Reporte de la CSP (lo manda el navegador)
+      description: |
+        Destino de `report-uri` de la CSP de las páginas (2026-11-20, lib/csp.ts). Acepta el formato
+        viejo `{ "csp-report": {...} }` y el de la Reporting API (`[{ body: {...} }]`); solo escribe
+        "CSP bloqueó ..." en el log del servidor. Tope de 100 por IP en 15 minutos; siempre 204.
+      security: []
+      requestBody:
+        content:
+          application/csp-report: { schema: { type: object } }
+          application/json: { schema: { type: object } }
+      responses:
+        "204": { description: Recibido }
+
   /api/auth/logout:
     post:
       tags: [Auth]

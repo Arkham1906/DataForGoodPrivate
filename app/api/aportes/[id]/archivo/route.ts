@@ -110,7 +110,9 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
       // HTML) en archivos viejos que no pasaron por la limpieza.
       "Content-Type": servible?.contentType ?? "application/octet-stream",
       "X-Content-Type-Options": "nosniff",
-      "Content-Security-Policy": "default-src 'none'; sandbox",
+      // frame-ancestors 'self' (2026-11-20): el texto se ve en un iframe del propio sitio, de nadie más
+      // (con X-Frame-Options: SAMEORIGIN de next.config.ts).
+      "Content-Security-Policy": "default-src 'none'; sandbox; frame-ancestors 'self'",
       "Cache-Control": "private, max-age=3600",
       "Accept-Ranges": "bytes",
       // Los documentos no compatibles con vista previa se descargan; PDF puede mostrarse dentro de la app.

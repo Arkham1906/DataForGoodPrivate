@@ -47,6 +47,8 @@ export const LIMITES_POR_IP = {
   recuperar: { maximo: 20, ventanaMs: 15 * MINUTO },
   /** Códigos de recuperación equivocados. */
   restablecer: { maximo: 30, ventanaMs: 15 * MINUTO },
+  /** Reportes de la CSP (POST /api/csp-reporte): solo para no llenar el log. */
+  cspReporte: { maximo: 100, ventanaMs: 15 * MINUTO },
   /** Contraseñas equivocadas de un correo desde una IP (clave: correo + IP). */
   loginCorreoIp: { maximo: 5, ventanaMs: 15 * MINUTO },
   /** Contraseñas equivocadas de un correo desde cualquier IP (clave: correo). */
