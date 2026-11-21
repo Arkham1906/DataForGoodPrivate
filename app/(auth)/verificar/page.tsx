@@ -2,7 +2,9 @@
 
 // Pantalla /verificar: código de 6 dígitos enviado por correo.
 // Datos y acciones: GET/POST /api/auth/verificar y POST /api/auth/verificar/reenviar.
-// La cuenta pendiente se identifica por la cookie pending_verification_id. Siguiente: /bienvenida.
+// La cuenta pendiente se identifica por la cookie verificacion_pendiente (ficha al azar, 2026-11-20).
+// "Reenviar código" espera lo que diga el servidor (resendAvailableAt: 30 s entre códigos y un tope
+// por hora, lib/verification.ts) y muestra los segundos que faltan. Siguiente: /bienvenida.
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -41,6 +43,8 @@ function VerificarForm() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [resending, setResending] = useState(false);
+  // Desde cuándo se puede pedir otro código (lo dice el servidor).
+  const [reenviarDesde, setReenviarDesde] = useState<number | null>(null);
   // Hora de referencia de la cuenta regresiva. Se fija junto con expiresAt
   // (nunca durante el render: Date.now() no es puro) y el intervalo la avanza.
   const [now, setNow] = useState<number | null>(null);
@@ -59,6 +63,7 @@ function VerificarForm() {
         setExpiresAt(payload.data.expiresAt ? new Date(payload.data.expiresAt).getTime() : null);
         setNow(Date.now());
         setAttemptsLeft(payload.data.attemptsLeft ?? MAX_ATTEMPTS);
+        setReenviarDesde(payload.data.resendAvailableAt ? new Date(payload.data.resendAvailableAt).getTime() : null);
       } catch {
         router.replace(conDestino("/entrar", next));
       } finally {
@@ -75,6 +80,8 @@ function VerificarForm() {
 
   const remainingMs = expiresAt && now !== null ? expiresAt - now : 0;
   const expired = expiresAt !== null && now !== null && remainingMs <= 0;
+  const segundosParaReenviar =
+    reenviarDesde !== null && now !== null ? Math.max(0, Math.ceil((reenviarDesde - now) / 1000)) : 0;
 
   function handleChange(index: number, value: string) {
     const clean = value.replace(/[^0-9]/g, "").slice(-1);
@@ -137,8 +144,13 @@ function VerificarForm() {
       const response = await fetch(`${BASE_PATH}/api/auth/verificar/reenviar`, { method: "POST" });
       const payload = await response.json().catch(() => ({}));
 
+      if (payload.data?.resendAvailableAt) {
+        setReenviarDesde(new Date(payload.data.resendAvailableAt).getTime());
+      }
+
       if (!response.ok) {
         setError(payload.error ?? "No se pudo reenviar el código");
+        setNow(Date.now());
         return;
       }
 
@@ -227,9 +239,13 @@ function VerificarForm() {
           type="button"
           className="mt-2.5 w-full"
           onClick={handleResend}
-          disabled={resending}
+          disabled={resending || segundosParaReenviar > 0}
         >
-          {resending ? "Enviando..." : "Reenviar código"}
+          {resending
+            ? "Enviando..."
+            : segundosParaReenviar > 0
+              ? `Reenviar código (${formatRemaining(segundosParaReenviar * 1000)})`
+              : "Reenviar código"}
         </Button>
       </form>
 

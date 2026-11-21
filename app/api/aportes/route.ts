@@ -30,6 +30,7 @@ import { cuotaPorTipoDesdeFila } from "@/lib/campanas/cuota-por-tipo";
 import { inscripcionDe } from "@/lib/campanas/inscripciones";
 import { avisoDePausa, pausaDesdeFila } from "@/lib/campanas/pausa";
 import { calificacionDesde } from "@/lib/aportes/calificacion";
+import { leerFormulario, respuestaDeFormularioInvalido } from "@/lib/formulario";
 
 function mapAporte(row: Record<string, unknown>) {
   return {
@@ -165,7 +166,8 @@ export async function POST(request: Request) {
     if (cuerpoDemasiadoGrande(request)) {
       return NextResponse.json({ error: MENSAJE_CUERPO_GRANDE }, { status: 413 });
     }
-    const formData = await request.formData();
+    const formData = await leerFormulario(request);
+    if (!formData) return respuestaDeFormularioInvalido();
     const campaignId = String(formData.get("campaignId") ?? "").trim();
     const description = String(formData.get("description") ?? "").trim();
     const rawCaracteristicas = formData.getAll("caracteristicas").map(String);

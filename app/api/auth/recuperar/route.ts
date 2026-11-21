@@ -6,8 +6,14 @@
 import { after, NextResponse } from "next/server";
 import { isValidEmail } from "@/lib/validation";
 import { solicitarRecuperacion } from "@/lib/usuarios/recuperacion";
+import { contarPeticion, respuestaDeLimite } from "@/lib/limite-por-ip";
 
+// Tope por IP que cuenta cada petición (2026-11-20, lib/limite-por-ip.ts): cada cuenta ya tiene
+// 30 s entre correos, pero sin esto una IP podía pedir códigos para muchas cuentas a la vez.
 export async function POST(request: Request) {
+  const bloqueo = contarPeticion("recuperar", request.headers);
+  if (bloqueo !== null) return respuestaDeLimite(bloqueo);
+
   const body = await request.json().catch(() => ({}));
   const email = String(body.email ?? "").trim().toLowerCase();
 

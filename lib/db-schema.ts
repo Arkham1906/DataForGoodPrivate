@@ -162,6 +162,10 @@ export async function ensureUsuarioPreferenciasTable(): Promise<void> {
  * pone o recupera la contraseña (lib/usuarios/recuperacion.ts). La fila se borra al usarse.
  * enviado_en marca la espera entre correos. Antes eran 7 columnas de usuarios
  * (verification_* y recuperacion_*): los códigos vigentes se copian aquí y las columnas se borran.
+ * Solo 'verificacion' (2026-11-20, arreglo de seguridad): ficha_hash es el sha256 de la ficha al azar
+ * que lleva la cookie verificacion_pendiente (antes la cookie llevaba el id del usuario y cualquiera
+ * podía ponerse el de otra cuenta), ficha_creada_en su hora, y envios_en_hora / envios_desde el tope
+ * de códigos por hora. Aquí también va verificaciones_senuelo (registro con un correo que ya existe).
  */
 export async function ensureCodigosUsuarioTable(): Promise<void> {
   await pool.query(`
@@ -172,8 +176,32 @@ export async function ensureCodigosUsuarioTable(): Promise<void> {
       vence_en TIMESTAMPTZ NOT NULL,
       intentos INTEGER NOT NULL DEFAULT 0,
       enviado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      ficha_hash VARCHAR(64),
+      ficha_creada_en TIMESTAMPTZ,
+      envios_en_hora INTEGER NOT NULL DEFAULT 0,
+      envios_desde TIMESTAMPTZ,
       PRIMARY KEY (usuario_id, proposito)
     );
+    ALTER TABLE codigos_usuario ADD COLUMN IF NOT EXISTS ficha_hash VARCHAR(64);
+    ALTER TABLE codigos_usuario ADD COLUMN IF NOT EXISTS ficha_creada_en TIMESTAMPTZ;
+    ALTER TABLE codigos_usuario ADD COLUMN IF NOT EXISTS envios_en_hora INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE codigos_usuario ADD COLUMN IF NOT EXISTS envios_desde TIMESTAMPTZ;
+    CREATE UNIQUE INDEX IF NOT EXISTS codigos_usuario_ficha_idx
+      ON codigos_usuario (ficha_hash) WHERE ficha_hash IS NOT NULL;
+    -- Registro con un correo que ya tiene cuenta (2026-11-20, hallazgo #4): la respuesta es la misma
+    -- que una cuenta nueva y /verificar se ve igual, pero con esta ficha ningún código sirve. Mismas
+    -- columnas de espera y tope que codigos_usuario; no se liga a la cuenta. Se borran a las 24 h.
+    CREATE TABLE IF NOT EXISTS verificaciones_senuelo (
+      ficha_hash VARCHAR(64) PRIMARY KEY,
+      email VARCHAR(255) NOT NULL,
+      vence_en TIMESTAMPTZ NOT NULL,
+      intentos INTEGER NOT NULL DEFAULT 0,
+      enviado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      envios_en_hora INTEGER NOT NULL DEFAULT 1,
+      envios_desde TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      creada_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS verificaciones_senuelo_email_idx ON verificaciones_senuelo (email, creada_en);
     DO $$
     BEGIN
       IF EXISTS (SELECT 1 FROM information_schema.columns

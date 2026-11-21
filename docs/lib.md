@@ -19,6 +19,8 @@
 | `duracion.ts` 🟢 | `duracion(segundos)` ("35 min", "5 h", "3 días") y `esperaDesde(iso, ahora)` (2026-11-13) | Dashboards de `/revisiones` y `/supervision` |
 | `app-url.ts` | URL absoluta con `APP_ORIGIN` + `BASE_PATH` (para redirecciones y correos) | `absoluteUrl` |
 | `ip.ts` | IP real del cliente detrás del proxy | `ipDelCliente` |
+| `limite-por-ip.ts` | Topes por IP en memoria de las rutas de cuenta sin sesión (2026-11-20): `LIMITES_POR_IP` (cifras provisionales), `segundosDeBloqueo`, `sumarAlLimite` (fallos), `contarPeticion` (cada petición) y `respuestaDeLimite` (429); bloqueo del login por correo: `segundosDeBloqueoDeCorreo`, `sumarFalloDeCorreo`, `limpiarFallosDeCorreoEnIp`, `limpiarFallosDeCorreo` y `respuestaDeBloqueoDeCorreo` | login, registro, verificar, reenviar, recuperar y restablecer |
+| `formulario.ts` | `leerFormulario(request)`: el `multipart/form-data` del cuerpo o `null` si no es un formulario, para responder 400 en vez de 500 (2026-11-20) | `POST /api/aportes`, aportes sin cuenta, crear y editar campaña con banner, avatar |
 | `api-docs.ts` | Decide si se puede ver `/api/docs` | `puedeVerDocs` |
 | `animaciones.ts` 🟢 | Ayudantes de las animaciones de entrada de las páginas públicas (clases `.landing-*` de `globals.css`) | `retraso`, `entradaDeTarjeta` |
 
@@ -29,9 +31,9 @@
 | `session.ts` | Sesión del usuario: crearla, leerla, cerrarla; detectar si está bloqueado | `getSessionUser`, `exigirUsuario`, `createSession`, `destroySession`, `obtenerBloqueoDeLaSesion`, `SessionUser` |
 | `rootSession.ts` | Sesión del SuperUsuario (cookie de `/root` o token Bearer de `POST /api/auth/root/token`) | `emitirTokenRoot`, `createRootSession`, `hasRootSession`, `destroyRootSession` |
 | `root-acceso.ts` | Valida la credencial de SuperUsuario del entorno con límite de intentos; la usan `POST /api/auth/root` y `POST /api/auth/root/token` | `verificarCredencialRoot` |
-| `password.ts` | Hash y verificación de contraseñas (bcrypt; migra hashes viejos) y límites del bloqueo por intentos fallidos | `hashPassword`, `verifyPassword`, `wasLegacyHash`, `MAX_FAILED_ATTEMPTS`, `LOCK_DURATION_MS` |
+| `password.ts` | Hash y verificación de contraseñas (bcrypt; migra hashes viejos) y límites del bloqueo por intentos fallidos (desde el 2026-11-20 solo de la contraseña actual con sesión; el login usa `limite-por-ip.ts`) | `hashPassword`, `verifyPassword`, `wasLegacyHash`, `MAX_FAILED_ATTEMPTS`, `LOCK_DURATION_MS` |
 | `reglas-contrasena.ts` 🟢 | Requisitos de una contraseña nueva (registro y `/cuenta`) | `REGLAS_DE_CONTRASENA`, `cumpleReglasDeContrasena`, `LARGO_MAXIMO_DE_CONTRASENA` |
-| `verification.ts` | Código de verificación por correo | `startVerification`, `verifyCode`, `getPendingVerification`, `PENDING_COOKIE` |
+| `verification.ts` | Código de verificación por correo; cookie `verificacion_pendiente` con ficha al azar, espera entre códigos y tope por hora (2026-11-20) | `startVerification`, `startVerificacionSenuelo` (registro con un correo que ya existe), `reenviarCodigo`, `verifyCode`, `getPendingVerification`, `mensajeDeEnvioDetenido`, `PENDING_COOKIE` |
 | `correo.ts` | Envío de correos con Gmail (nodemailer) y escape de HTML | `enviarCorreo`, `escaparHtml` |
 | `google.ts` | OAuth de Google | `getGoogleAuthUrl`, `exchangeCodeForProfile` |
 | `redireccion.ts` 🟢 | Valida el parámetro `?next=` para que solo apunte a rutas internas | `destinoSeguro`, `conDestino`, `DESTINO_POR_DEFECTO` |
@@ -77,6 +79,7 @@
 
 | Archivo | Qué hace | Lo usa |
 | --- | --- | --- |
+| `sin-datos-internos.ts` 🟢 | `sinDatosInternos(campana)`: vacía `creatorId`, `supervisorId`, `supervisedByRoot` y `latestSupervisionAction` para quien no tiene sesión (2026-11-20) | `GET /api/campanas`, `GET /api/campanas/[id]` |
 | `publicas.ts` | Búsqueda de campañas activas con filtros (`limite` opcional desde el 2026-11-12; orden `mas_aportes` desde el 2026-11-13), `buscarCampanasPorTematica(orden, porTematica)` (2026-11-13: las N de cada temática con `ROW_NUMBER`, por más aportes aprobados o más recientes) y `resolverTematicaDeRuta(slug)` | `/explorar`, `/explorar/tematica/[slug]`, "Lo más reciente" de la landing |
 | `panel.ts` | Métricas de una campaña (aportes por estado, participantes, avance) | Paneles de `/supervision`, `/supervisar`, `/sistema/campanas/[id]` |
 | `baneos.ts` | Baneos por campaña: consultar, listar, quitar | API de baneos, `/api/aportes`, `/usuarios/[id]` |

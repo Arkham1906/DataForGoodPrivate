@@ -10,6 +10,8 @@ import { especialDesdeFila } from "@/lib/campanas/especial";
 import { pool } from "@/lib/db";
 import { avisarCampanaPorRevisar } from "@/lib/notificaciones/avisos-a-supervisores";
 import { getSessionUser } from "@/lib/session";
+import { sinDatosInternos } from "@/lib/campanas/sin-datos-internos";
+import { leerFormulario, respuestaDeFormularioInvalido } from "@/lib/formulario";
 import { idsDeCampanasConBaneo, motivoDeBaneo } from "@/lib/campanas/baneos";
 import { yaReporto } from "@/lib/reportes/reportes";
 import { inscripcionDe } from "@/lib/campanas/inscripciones";
@@ -197,8 +199,11 @@ export async function GET(request: Request) {
     const [savedIds, bannedIds] = user
       ? await Promise.all([obtenerIdsGuardados(user.id), idsDeCampanasConBaneo(user.id)])
       : [new Set<number>(), new Set<number>()];
+    // Sin sesión (ni la raíz) no van los ids de creador y supervisor (2026-11-20,
+    // lib/campanas/sin-datos-internos.ts).
+    const conDatosInternos = user !== null || (await hasRootSession());
     const conIsSaved = (row: Record<string, unknown>) => ({
-      ...mapCampaign(row),
+      ...(conDatosInternos ? mapCampaign(row) : sinDatosInternos(mapCampaign(row))),
       isSaved: savedIds.has(Number(row.id)),
       // Su creador lo baneó: las listas la marcan y no la ofrecen para aportar.
       isBanned: bannedIds.has(Number(row.id)),
@@ -341,7 +346,8 @@ export async function POST(request: Request) {
     let bannerFile: File | null = null;
     let bannerImagen: ImagenLimpia | null = null;
     if (request.headers.get("content-type")?.includes("multipart/form-data")) {
-      const form = await request.formData();
+      const form = await leerFormulario(request);
+      if (!form) return respuestaDeFormularioInvalido();
       try {
         body = JSON.parse(String(form.get("payload") ?? "{}")) as Record<string, unknown>;
       } catch {

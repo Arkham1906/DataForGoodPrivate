@@ -48,6 +48,11 @@ paths:
     post:
       tags: [Auth]
       summary: Iniciar sesión con correo y contraseña
+      description: |
+        Desde el 2026-11-20 ya no bloquea la cuenta en la BD (antes 5 fallos daban 423 "Cuenta bloqueada"
+        solo con correos que tienen cuenta). El bloqueo es por el correo escrito, exista o no la cuenta:
+        5 fallos del mismo correo desde la misma IP, o 50 desde cualquier IP, en 15 minutos → 429 con el
+        mismo texto. Recuperar la contraseña lo quita. Además, el tope de 30 fallos por IP.
       security: []
       requestBody:
         required: true
@@ -72,11 +77,12 @@ paths:
                   data: { $ref: "#/components/schemas/User" }
                   bajaCancelada: { type: boolean, description: "true si la cuenta tenía una baja en curso: iniciar sesión la canceló" }
         "400": { $ref: "#/components/responses/BadRequest" }
+        "429": { $ref: "#/components/responses/LimitePorIp" }
         "401":
           description: Correo o contraseña incorrectos, correo inexistente o cuenta solo de Google (misma respuesta para no revelar qué correos existen)
           content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
         "403":
-          description: Cuenta suspendida, baneada o sin verificar (en ese caso guarda `pending_verification_id`)
+          description: Cuenta suspendida, baneada o sin verificar (en ese caso guarda `verificacion_pendiente` con una ficha nueva y manda código si pasa la espera y el tope por hora)
           content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
 
   /api/auth/logout:
@@ -105,7 +111,7 @@ paths:
     get:
       tags: [Auth]
       summary: Consultar la verificación de correo pendiente
-      description: Usa la cookie `pending_verification_id` que dejan el registro o el login.
+      description: Usa la cookie `verificacion_pendiente` (ficha al azar) que dejan el registro o el login.
       security: [pendingVerificationCookie: []]
       responses:
         "200": { description: Datos de la verificación pendiente }
@@ -126,12 +132,14 @@ paths:
       responses:
         "200": { $ref: "#/components/responses/Message" }
         "400": { $ref: "#/components/responses/BadRequest" }
+        "429": { $ref: "#/components/responses/LimitePorIp" }
         "404": { $ref: "#/components/responses/NotFound" }
 
   /api/auth/verificar/reenviar:
     post:
       tags: [Auth]
       summary: Reenviar el código de verificación
+      description: Hay 30 s de espera entre códigos y 5 por hora como máximo (2026-11-20). Fuera de eso responde 429 y el último código sigue valiendo, sin reiniciar sus intentos.
       security: [pendingVerificationCookie: []]
       responses:
         "200":
@@ -146,7 +154,23 @@ paths:
                     type: object
                     properties:
                       expiresAt: { type: string, format: date-time }
+                      resendAvailableAt: { type: string, format: date-time, description: Desde cuándo se puede pedir otro }
         "404": { $ref: "#/components/responses/NotFound" }
+        "429":
+          description: Aún no pasan 30 s desde el último código o ya van 5 en la hora
+          headers:
+            Retry-After: { schema: { type: integer } }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+                  esperaSegundos: { type: integer }
+                  data:
+                    type: object
+                    properties:
+                      resendAvailableAt: { type: string, format: date-time }
 
   /api/auth/recuperar:
     post:
@@ -177,6 +201,7 @@ paths:
                 properties:
                   message: { type: string }
         "400": { $ref: "#/components/responses/BadRequest" }
+        "429": { $ref: "#/components/responses/LimitePorIp" }
 
   /api/auth/recuperar/restablecer:
     post:
@@ -212,6 +237,7 @@ paths:
                     properties:
                       ok: { type: boolean }
         "400": { $ref: "#/components/responses/BadRequest" }
+        "429": { $ref: "#/components/responses/LimitePorIp" }
 
   /api/auth/google:
     get:
@@ -306,7 +332,11 @@ paths:
     post:
       tags: [Usuarios]
       summary: Registro de cuenta
-      description: Envía el código de verificación por correo y guarda la cookie `pending_verification_id`.
+      description: |
+        Envía el código de verificación por correo y guarda la cookie `verificacion_pendiente` (ficha al azar).
+        Desde el 2026-11-20 responde igual si el correo ya tiene cuenta (antes 409): misma respuesta y
+        misma cookie, con una ficha señuelo donde ningún código sirve, y a quien es dueño del correo le
+        llega un aviso para entrar o recuperar la contraseña. Los correos salen después de responder.
       security: []
       requestBody:
         required: true
@@ -316,9 +346,7 @@ paths:
       responses:
         "201": { $ref: "#/components/responses/Message" }
         "400": { $ref: "#/components/responses/BadRequest" }
-        "409":
-          description: El correo ya está registrado
-          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+        "429": { $ref: "#/components/responses/LimitePorIp" }
     get:
       tags: [Usuarios]
       summary: Listar los usuarios del sistema (SuperUsuario) o buscar candidatos a revisor
@@ -458,7 +486,7 @@ paths:
       summary: Pedir la baja de la propia cuenta
       description: |
         Solo la cuenta propia. Exige `confirmacion: "ELIMINAR"` y, si la cuenta tiene contraseña,
-        `contrasena` (una equivocada suma al bloqueo del login, 423 al llegar a 5). Las cuentas de
+        `contrasena` (una equivocada suma al bloqueo de la cuenta, 423 al llegar a 5; desde el 2026-11-20 el login ya no usa ese bloqueo). Las cuentas de
         Google no la mandan. Efectos inmediatos: se cierran todas las sesiones, las campañas propias
         activas o pausadas se finalizan y las que no tienen aportes (y no están finalizadas) se borran.
         A los 30 días se aplica `destino` a los aportes y la cuenta se vacía de datos personales;
@@ -567,7 +595,7 @@ paths:
         Solo la cuenta propia (403 con otro id) y solo si tiene contraseña (400 si es de Google).
         `nueva` debe tener 8 caracteres o más (y como máximo 72 bytes), una mayúscula, un número y
         un carácter especial, y ser distinta de `actual`. Una `actual` equivocada suma un intento
-        fallido al mismo contador del login: con 5 la cuenta queda bloqueada 15 minutos (423).
+        fallido al contador de la cuenta: con 5 queda bloqueada 15 minutos para este cambio y la baja (423). Desde el 2026-11-20 el login ya no usa ese contador.
         Las sesiones abiertas se conservan. Se registra en audit_log como `usuario.contrasena_cambiar`.
         Desde el 2026-10-07 ninguna pantalla lo usa (/cuenta cambia con código); queda para clientes de la API.
       requestBody:
@@ -2120,8 +2148,8 @@ components:
     pendingVerificationCookie:
       type: apiKey
       in: cookie
-      name: pending_verification_id
-      description: La dejan el registro o un login sin verificar.
+      name: verificacion_pendiente
+      description: Ficha al azar (en la BD solo su sha256) que dejan el registro o un login sin verificar; dura 24 h. Hasta el 2026-11-20 era pending_verification_id con el id del usuario.
     rootBearer:
       type: http
       scheme: bearer
@@ -2143,6 +2171,17 @@ components:
             type: object
             properties:
               message: { type: string }
+    LimitePorIp:
+      description: "Tope por IP de las rutas de cuenta, o en el login también bloqueo por correo (2026-11-20, lib/limite-por-ip.ts): demasiados intentos"
+      headers:
+        Retry-After: { schema: { type: integer } }
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error: { type: string }
+              esperaSegundos: { type: integer }
     BadRequest:
       description: Datos inválidos
       content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }

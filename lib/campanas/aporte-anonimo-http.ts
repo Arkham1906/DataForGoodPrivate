@@ -9,6 +9,7 @@ import { MENSAJE_CUERPO_GRANDE, cuerpoDemasiadoGrande } from "@/lib/aportes/comu
 import { errorDeConsentimiento } from "@/lib/aportes/consentimiento";
 import { enviarAporteAnonimo, type OrigenDelAporteAnonimo } from "@/lib/campanas/aportes-anonimos";
 import { ipDelCliente } from "@/lib/ip";
+import { leerFormulario, respuestaDeFormularioInvalido } from "@/lib/formulario";
 import { getSessionUser } from "@/lib/session";
 
 // multipart/form-data: file, description, texto (solo texto, 2026-11-11: se guarda como .txt y
@@ -28,7 +29,8 @@ export async function responderAporteAnonimo(request: Request, origen: OrigenDel
     if (cuerpoDemasiadoGrande(request)) {
       return NextResponse.json({ error: MENSAJE_CUERPO_GRANDE }, { status: 413 });
     }
-    const formData = await request.formData();
+    const formData = await leerFormulario(request);
+    if (!formData) return respuestaDeFormularioInvalido();
     const errorConsentimiento = errorDeConsentimiento(formData);
     if (errorConsentimiento) {
       return NextResponse.json({ error: errorConsentimiento }, { status: 400 });

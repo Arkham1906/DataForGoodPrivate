@@ -9,7 +9,8 @@ import { columnaDeRoles } from "@/lib/usuarios/tabla-roles";
 import { hashPassword } from "@/lib/password";
 import { cumpleReglasDeContrasena } from "@/lib/reglas-contrasena";
 import { isValidEmail } from "@/lib/validation";
-import { startVerification } from "@/lib/verification";
+import { clearPendingVerificationCookie, startVerificacionSenuelo, startVerification } from "@/lib/verification";
+import { respuestaDeLimite, segundosDeBloqueo, sumarAlLimite } from "@/lib/limite-por-ip";
 import { getSessionUser } from "@/lib/session";
 import { hasRootSession } from "@/lib/rootSession";
 import { buscarUsuarios, POR_PAGINA } from "@/lib/usuarios/directorio";
@@ -19,7 +20,12 @@ import { resolverEspecialidad } from "@/lib/usuarios/especialidades";
 import { resolverOrganizacion } from "@/lib/usuarios/organizaciones";
 
 // POST: registro. Crea la cuenta sin verificar y envía el código por correo.
+// Responde igual exista o no el correo (2026-11-20, ver abajo). Tope por IP (lib/limite-por-ip.ts):
+// cuenta cada registro que pasa las validaciones.
 export async function POST(request: Request) {
+  const bloqueo = segundosDeBloqueo("registro", request.headers);
+  if (bloqueo !== null) return respuestaDeLimite(bloqueo);
+
   try {
     const body = await request.json();
 
@@ -77,57 +83,58 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: MENSAJE_CORREO_BLOQUEADO }, { status: 403 });
     }
 
-    const emailExists = await pool.query(
-      `SELECT 1 FROM usuarios WHERE email = $1 LIMIT 1`,
-      [email]
-    );
-
-    if (emailExists.rowCount && emailExists.rowCount > 0) {
-      return NextResponse.json(
-        { error: "El email ya está registrado" },
-        { status: 409 }
-      );
-    }
-
+    // Correo que ya tiene cuenta (2026-11-20, hallazgo #4): antes respondía 409 "El email ya está
+    // registrado" y así se sabía qué correos tienen cuenta. Ahora la respuesta es la misma que con una
+    // cuenta nueva (mismo cuerpo, misma cookie, mismo bcrypt antes de buscar) y /verificar se ve
+    // igual, con una ficha señuelo donde ningún código sirve; a quien es dueño del correo le llega un
+    // aviso para entrar o recuperar la contraseña (lib/verification.ts). Los correos salen después
+    // de responder. Cuenta para el tope por IP igual que una cuenta creada.
     const passwordHash = await hashPassword(password);
-
-    const result = await pool.query(
-      `INSERT INTO usuarios (nombre, apellidos, email, password_hash, state, city, specialty, intereses, xp_total, level, streak_days, organizacion)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, 0, 1, 0, $9)
-       RETURNING id, nombre, apellidos, email, state, city, specialty, organizacion, intereses, ${columnaDeRoles()}, xp_total, level, streak_days, email_verificado`,
-      [nombre, apellidos, email, passwordHash, state, city, especialidad, JSON.stringify(intereses), organizacionResuelta.valor]
-    );
-
-    const usuario = result.rows[0];
-    let emailEnviado = true;
+    sumarAlLimite("registro", request.headers);
     const response = NextResponse.json(
-      { message: "Usuario creado", data: usuario, emailEnviado },
+      { message: "Te enviamos un código de verificación a tu correo" },
       { status: 201 }
     );
 
+    const emailExists = await pool.query(`SELECT 1 FROM usuarios WHERE email = $1 LIMIT 1`, [email]);
+    if (emailExists.rowCount) {
+      await startVerificacionSenuelo(email, response);
+      return response;
+    }
+
+    let usuario: { id: number; email: string; nombre: string };
     try {
-      const { expiresAt } = await startVerification(usuario.id, usuario.email, usuario.nombre, response);
-      response.cookies.set("pending_verification_id", String(usuario.id), {
-        httpOnly: true,
-        sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
-        path: "/",
-        expires: expiresAt,
-      });
+      const result = await pool.query(
+        `INSERT INTO usuarios (nombre, apellidos, email, password_hash, state, city, specialty, intereses, xp_total, level, streak_days, organizacion)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, 0, 1, 0, $9)
+         RETURNING id, nombre, email`,
+        [nombre, apellidos, email, passwordHash, state, city, especialidad, JSON.stringify(intereses), organizacionResuelta.valor]
+      );
+      usuario = result.rows[0];
+    } catch (error) {
+      // Dos registros del mismo correo a la vez: el segundo choca con la llave única y se trata
+      // como un correo que ya tiene cuenta (antes daba 500 con el detalle del error).
+      if ((error as { code?: string }).code === "23505") {
+        await startVerificacionSenuelo(email, response);
+        return response;
+      }
+      throw error;
+    }
+
+    try {
+      // Deja la cookie verificacion_pendiente con una ficha al azar; el código sale después de
+      // responder (lib/verification.ts). Si falla, la persona pide otro en /verificar.
+      await startVerification(usuario.id, usuario.email, usuario.nombre, response);
     } catch (verificationError) {
-      console.error("No se pudo enviar el correo de verificación", verificationError);
-      emailEnviado = false;
-      response.cookies.delete("pending_verification_id");
+      console.error("No se pudo preparar la verificación", verificationError);
+      await clearPendingVerificationCookie(response);
     }
 
     return response;
   } catch (error) {
+    // Sin el detalle del error en la respuesta (2026-11-20): podía traer datos de la BD.
     console.error("POST /api/usuarios: ", error);
-    const message = error instanceof Error ? error.message : String(error);
-    return NextResponse.json(
-      { error: "No se pudo crear el usuario", detail: message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "No se pudo crear el usuario" }, { status: 500 });
   }
 }
 

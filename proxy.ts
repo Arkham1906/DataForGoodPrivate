@@ -15,6 +15,9 @@ const ENCABEZADO_DETALLE_PUBLICO = "x-public-campaign-detail";
  * (o con APP_ORIGIN). Los clientes que no son navegador no mandan Origin y
  * no pueden usar la cookie de otra persona, así que se dejan pasar. Las
  * server actions no pasan por aquí: Next ya verifica su Origin.
+ * Desde el 2026-11-20 (hallazgo #5 de las pruebas de seguridad) ya no se
+ * acepta X-Forwarded-Host: lo puede escribir el cliente. Detrás del proxy o
+ * del túnel, el dominio público entra por APP_ORIGIN (que debe estar puesto).
  */
 function origenPermitido(request: NextRequest): boolean {
   const origin = request.headers.get("origin");
@@ -30,7 +33,6 @@ function origenPermitido(request: NextRequest): boolean {
   }
 
   const permitidos = [
-    request.headers.get("x-forwarded-host"),
     request.headers.get("host"),
     process.env.APP_ORIGIN ? new URL(process.env.APP_ORIGIN).host : null,
   ];

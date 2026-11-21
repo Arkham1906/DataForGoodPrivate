@@ -24,6 +24,8 @@ import { registrarAuditoria } from "@/lib/auditoria";
 import { eliminarCampana } from "@/lib/campanas/eliminar";
 import { pool } from "@/lib/db";
 import { getSessionUser } from "@/lib/session";
+import { sinDatosInternos } from "@/lib/campanas/sin-datos-internos";
+import { leerFormulario, respuestaDeFormularioInvalido } from "@/lib/formulario";
 import { ACCIONES_DE_SUPERVISION, registrarDecisionDeCampana, tomarCampanaParaSupervisar, type AccionDeSupervision } from "@/lib/supervision/decision";
 import { CAMBIOS_DE_ESTADO_POR_SUPERVISION, cambiarEstadoPorSupervision, type CambioDeEstadoPorSupervision } from "@/lib/supervision/estado-por-supervision";
 import { pausaDesdeFila } from "@/lib/campanas/pausa";
@@ -173,9 +175,14 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       return NextResponse.json({ error: "Campaña no encontrada" }, { status: 404 });
     }
 
-    await agregarEtiquetas(result.rows, user, await hasRootSession());
+    const esRoot = await hasRootSession();
+    await agregarEtiquetas(result.rows, user, esRoot);
     const campaign = mapCampaign(result.rows[0]);
-    return NextResponse.json({ data: campaign, viewer: { isCreator: user ? campaign.creatorId === String(user.id) : false } });
+    // Sin sesión no van los ids de creador y supervisor (2026-11-20, lib/campanas/sin-datos-internos.ts).
+    return NextResponse.json({
+      data: user || esRoot ? campaign : sinDatosInternos(campaign),
+      viewer: { isCreator: user ? campaign.creatorId === String(user.id) : false },
+    });
   } catch (error) {
     console.error("Error obteniendo campaña", error);
     return NextResponse.json({ error: "No se pudo obtener la campaña" }, { status: 500 });
@@ -215,7 +222,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     let body: Record<string, unknown> = {};
     let bannerImagen: ImagenLimpia | null = null;
     if (request.headers.get("content-type")?.includes("multipart/form-data")) {
-      const form = await request.formData();
+      const form = await leerFormulario(request);
+      if (!form) return respuestaDeFormularioInvalido();
       try {
         body = JSON.parse(String(form.get("payload") ?? "{}")) as Record<string, unknown>;
       } catch {

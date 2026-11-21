@@ -7,6 +7,7 @@ import { apareceEnLaClasificacion } from "@/lib/gamificacion/clasificacion";
 import { getSessionUser } from "@/lib/session";
 import { cambiarAvatar, leerFotoDePerfil } from "@/lib/usuarios/avatar";
 import { ELECCIONES_DE_AVATAR, errorDeFotoDePerfil, type EleccionDeAvatar } from "@/lib/usuarios/avatar-opciones";
+import { leerFormulario, respuestaDeFormularioInvalido } from "@/lib/formulario";
 
 async function cuentaPropia(id: string) {
   const usuario = await getSessionUser();
@@ -57,7 +58,8 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     const { error } = await cuentaPropia(id);
     if (error) return error;
 
-    const formData = await request.formData();
+    const formData = await leerFormulario(request);
+    if (!formData) return respuestaDeFormularioInvalido();
     const eleccion = String(formData.get("avatar") ?? "");
     if (!ELECCIONES_DE_AVATAR.has(eleccion)) {
       return NextResponse.json({ error: "Opción de ícono no válida" }, { status: 400 });

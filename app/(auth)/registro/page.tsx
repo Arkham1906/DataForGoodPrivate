@@ -54,7 +54,6 @@ function RegistroForm() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const [emailTaken, setEmailTaken] = useState(false);
   const [serverError, setServerError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -66,7 +65,6 @@ function RegistroForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setServerError("");
-    setEmailTaken(false);
 
     if (!canSubmit) {
       return;
@@ -88,13 +86,10 @@ function RegistroForm() {
       });
 
       if (!response.ok) {
+        // Desde el 2026-11-20 un correo que ya tiene cuenta no da error (se ve igual que una cuenta
+        // nueva, para no revelar qué correos tienen cuenta; ver POST /api/usuarios).
         const payload = await response.json().catch(() => ({}));
-        if (response.status === 409) {
-          setEmailTaken(true);
-          setServerError("Ese correo ya está registrado");
-        } else {
-          setServerError(payload.error ?? "No se pudo crear la cuenta");
-        }
+        setServerError(payload.error ?? "No se pudo crear la cuenta");
         return;
       }
 
@@ -145,17 +140,9 @@ function RegistroForm() {
           <Input
             type="email"
             value={email}
-            onChange={(e) => {
-              setEmail(e.target.value);
-              // El aviso de correo ya registrado es de este campo: se quita al corregirlo.
-              if (emailTaken) {
-                setEmailTaken(false);
-                setServerError("");
-              }
-            }}
+            onChange={(e) => setEmail(e.target.value)}
             placeholder="carlos@correo.com"
             required
-            className={emailTaken ? "border-error-700 bg-error-50" : ""}
           />
           {serverError && (
             <p className="mt-1.5 text-[12px] text-error-700">{serverError}</p>

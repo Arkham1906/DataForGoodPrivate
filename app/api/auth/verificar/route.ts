@@ -1,9 +1,11 @@
 // /api/auth/verificar — verificación del correo con código de 6 dígitos (lib/verification.ts).
-// La cuenta pendiente se identifica por la cookie pending_verification_id. Lo usa /verificar.
+// La cuenta pendiente se identifica por la ficha al azar de la cookie verificacion_pendiente
+// (2026-11-20; antes pending_verification_id con el id). Lo usa /verificar.
 
 import { NextResponse } from "next/server";
 import { createSession } from "@/lib/session";
 import { getPendingVerification, verifyCode, clearPendingVerificationCookie } from "@/lib/verification";
+import { respuestaDeLimite, segundosDeBloqueo, sumarAlLimite } from "@/lib/limite-por-ip";
 
 // GET: correo al que se envió el código (para mostrarlo en /verificar).
 export async function GET() {
@@ -19,6 +21,7 @@ export async function GET() {
         email: pending.email,
         expiresAt: pending.expiresAt,
         attemptsLeft: pending.attemptsLeft,
+        resendAvailableAt: pending.resendAvailableAt,
       },
     });
   } catch (error) {
@@ -28,7 +31,11 @@ export async function GET() {
 }
 
 // POST: valida el código. Si es correcto, marca la cuenta como verificada y abre sesión.
+// Tope por IP de códigos equivocados (2026-11-20, lib/limite-por-ip.ts).
 export async function POST(request: Request) {
+  const bloqueo = segundosDeBloqueo("verificar", request.headers);
+  if (bloqueo !== null) return respuestaDeLimite(bloqueo);
+
   try {
     const pending = await getPendingVerification();
 
@@ -43,11 +50,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "El código es obligatorio" }, { status: 400 });
     }
 
-    const result = await verifyCode(pending.id, code);
+    // Con una verificación señuelo (registro con un correo que ya tiene cuenta) nunca acierta.
+    const result = await verifyCode(pending, code);
 
-    if (!result.success) {
+    if (!result.success || pending.id === null) {
+      sumarAlLimite("verificar", request.headers);
       return NextResponse.json(
-        { error: result.error, attemptsLeft: result.attemptsLeft },
+        result.success
+          ? { error: "Código incorrecto", attemptsLeft: 0 }
+          : { error: result.error, attemptsLeft: result.attemptsLeft },
         { status: 400 }
       );
     }

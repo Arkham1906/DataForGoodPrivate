@@ -180,15 +180,15 @@ Todos los archivos están en `app/api/<ruta>/route.ts`. Respuesta: `{ data }` o 
 
 | Método y ruta | Acceso | Qué hace | La llama |
 | --- | --- | --- | --- |
-| `POST /api/auth/login` | Libre | Correo + contraseña. 5 fallos → bloqueo de 15 min. Rechaza cuentas sin verificar. Mismo 401 si el correo no existe, si la cuenta es de Google o si la contraseña está mal (y tarda lo mismo). Crea la cookie `session_token` | `/entrar` |
+| `POST /api/auth/login` | Libre | Correo + contraseña. 5 fallos del mismo correo desde la misma IP, o 50 desde cualquiera → 429 por 15 min, igual exista o no la cuenta (2026-11-20; antes bloqueaba la cuenta con un 423 que delataba los correos con cuenta). Rechaza cuentas sin verificar. Mismo 401 si el correo no existe, si la cuenta es de Google o si la contraseña está mal (y tarda lo mismo). Crea la cookie `session_token`. Tope por IP (2026-11-20, `lib/limite-por-ip.ts`): 30 fallos en 15 min (correo sin cuenta, contraseña equivocada o cuenta bloqueada) → 429 antes de buscar la cuenta | `/entrar` |
 | `POST /api/auth/logout` | Libre | Borra la sesión y la cookie | `LogoutButton` |
 | `GET /api/auth/sesion` | Libre | Devuelve el usuario de la sesión o `null` | `/bienvenida`, `/campanas`, `/supervision`, `VigilanteDeSesion` |
 | `GET /api/auth/google` | Libre | Redirige a Google (guarda `state` y `next` en cookies) | `/entrar`, `/registro` |
 | `GET /api/auth/google/callback` | Libre | Vincula o crea la cuenta, inicia sesión y redirige | Google |
-| `GET`, `POST /api/auth/verificar` | Cookie `pending_verification_id` | GET: correo pendiente. POST: valida el código de 6 dígitos (vence en 15 min, 3 intentos) | `/verificar` |
-| `POST /api/auth/verificar/reenviar` | Cookie pendiente | Genera y envía un código nuevo | `/verificar` |
-| `POST /api/auth/recuperar` | Libre | Pide el código de recuperación. Misma respuesta exista o no la cuenta; el correo sale después de responder (`after`). Máximo un código cada 30 s por cuenta | `/recuperar` |
-| `POST /api/auth/recuperar/restablecer` | Libre | `{ email, codigo, nueva }`. Código de 6 dígitos (15 min, 3 intentos; mismo error para todo fallo). Guarda la contraseña, quita el bloqueo, marca el correo verificado, cierra todas las sesiones y quita los avisos push. No abre sesión | `/recuperar` |
+| `GET`, `POST /api/auth/verificar` | Cookie `verificacion_pendiente` (ficha al azar, 2026-11-20; antes `pending_verification_id` con el id) | GET: correo pendiente, intentos y `resendAvailableAt`. POST: valida el código de 6 dígitos (vence en 15 min, 3 intentos, descontados sin carrera). Tope por IP (2026-11-20, `lib/limite-por-ip.ts`): 30 códigos equivocados en 15 min → 429 | `/verificar` |
+| `POST /api/auth/verificar/reenviar` | Cookie pendiente | Genera y envía un código nuevo; 429 con `esperaSegundos` si no pasaron 30 s o ya van 5 en la hora (2026-11-20); además 20 peticiones por IP en una hora | `/verificar` |
+| `POST /api/auth/recuperar` | Libre | Pide el código de recuperación. Misma respuesta exista o no la cuenta; el correo sale después de responder (`after`). Máximo un código cada 30 s por cuenta. Tope por IP (2026-11-20, `lib/limite-por-ip.ts`): 20 peticiones en 15 min → 429 | `/recuperar` |
+| `POST /api/auth/recuperar/restablecer` | Libre | `{ email, codigo, nueva }`. Código de 6 dígitos (15 min, 3 intentos; mismo error para todo fallo). Guarda la contraseña, quita el bloqueo, marca el correo verificado, cierra todas las sesiones y quita los avisos push. No abre sesión. Tope por IP (2026-11-20, `lib/limite-por-ip.ts`): 30 códigos equivocados en 15 min → 429 | `/recuperar` |
 | `POST /api/auth/root` | Libre (5 intentos/min por IP) | Valida `ROOT_USER_ID` + `ROOT_PASSWORD_HASH` y crea la cookie `root_session_token` | `/root` |
 | `POST /api/auth/root/token` | Libre (mismo límite) | Misma credencial; devuelve un token Bearer de 2 horas (sin cookie) para usar la API desde Swagger u otro cliente. Bitácora `root.token_api` | Swagger (`/api/docs`) |
 
@@ -196,7 +196,7 @@ Todos los archivos están en `app/api/<ruta>/route.ts`. Respuesta: `{ data }` o 
 
 | Método y ruta | Acceso | Qué hace | La llama |
 | --- | --- | --- | --- |
-| `POST /api/usuarios` | Libre | Registro. Crea la cuenta sin verificar, siempre con el rol `usuario`, y envía el código | `/registro` |
+| `POST /api/usuarios` | Libre | Registro. Crea la cuenta sin verificar, siempre con el rol `usuario`, y envía el código. Con un correo que ya tiene cuenta responde igual (201) con una ficha señuelo y avisa a quien es dueño del correo (2026-11-20; antes 409). Tope por IP (2026-11-20, `lib/limite-por-ip.ts`): 30 registros en una hora → 429 | `/registro` |
 | `GET /api/usuarios?q=&rol=&estado=&pagina=` | Sesión raíz (cookie o Bearer) | Todos los usuarios del sistema, 20 por página (`buscarUsuarios()` del directorio) | Swagger |
 | `GET /api/usuarios?campanaId=&q=&pagina=` | Sesión + creador de esa campaña | Lista a todos los usuarios verificados para invitar como revisor, 30 por página; `q` filtra por nombre y apellidos (o correo completo); correo oculto | `agregar-revisor` |
 | `GET /api/usuarios/[id]` | Sesión + la cuenta propia, o sesión raíz (cualquier id) | Perfil | Swagger |

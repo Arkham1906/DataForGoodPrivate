@@ -19,7 +19,7 @@ Este archivo partió de las pantallas y los textos del prototipo (rama `Prueba1`
 
 Fuentes: `(auth)/registro`, `verificar`, `bienvenida` y `entrar`.
 
-- **Registro:** alias, correo único y contraseña confirmada, más aceptar los términos de uso y el aviso de privacidad. Si el correo ya existe, se muestra "Ese correo ya está registrado".
+- **Registro:** alias, correo único y contraseña confirmada, más aceptar los términos de uso y el aviso de privacidad. Si el correo ya existe, desde el 2026-11-20 no se dice: la pantalla sigue a `/verificar` como con una cuenta nueva (ningún código sirve) y a quien es dueño del correo le llega un aviso para entrar o recuperar la contraseña (antes se mostraba "Ese correo ya está registrado", y así se sabía qué correos tienen cuenta; `references/roles-y-sesiones.md`).
 - **Contraseña:** mínimo 8 caracteres, al menos una mayúscula, un número y un carácter especial.
 - **Verificación por correo:** código de 6 dígitos, que vence (la pantalla muestra una cuenta regresiva de unos 15 minutos) y admite **3 intentos**, con opción de reenviarlo. **Hasta verificar, la cuenta queda inactiva y no puede participar en campañas.**
 - **Perfil inicial (se puede omitir):** estado, ciudad, especialidad opcional (en `/cuenta` la etiqueta dice "¿En qué área eres experto?" desde el 2026-10-21, cambio de Gerard; solo es un título informativo: **no** influye en qué campañas supervisa alguien) y temas de interés. Si se omite, se asignan etiquetas por defecto según las campañas más populares de la zona.
