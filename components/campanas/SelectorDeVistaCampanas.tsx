@@ -81,7 +81,7 @@ export default function SelectorDeVistaCampanas({
           </Button>
         </div>
       </div>
-      <div data-vista={vistaCuadricula ? "cuadricula" : "lista"} className={`group ${vistaCuadricula ? "grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3" : "flex flex-col gap-3 [&_[data-campana-banner]]:hidden"}`}>
+      <div data-vista={vistaCuadricula ? "cuadricula" : "lista"} className={`group ${vistaCuadricula ? "grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3" : "flex flex-col gap-3"}`}>
         {renderChildren ? renderChildren(vistaCuadricula) : children}
       </div>
     </div>

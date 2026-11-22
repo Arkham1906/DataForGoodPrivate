@@ -5,6 +5,8 @@
 // Con sesión invita a aportar con la cuenta; sin sesión muestra el formulario anónimo (aporte-anonimo.tsx),
 // UN aporte por dispositivo y campaña, o el aviso de por qué no (motivoSinFormulario).
 
+import { BASE_PATH } from "@/lib/base-path";
+import { IconoFlechaAtras, IconoFoto } from "@/components/aportes/IconosDelAporte";
 import { textoDeUbicacion } from "@/lib/campanas/ubicacion";
 import type { ReactNode } from "react";
 import Link from "next/link";
@@ -54,22 +56,11 @@ export function PantallaPublica({ children, pantallaDeAporte = false }: { childr
         id="contenido"
         className={
           pantallaDeAporte
-            ? "mx-auto max-w-xl px-6 pb-24 pt-3 max-md:px-4 lg:flex lg:min-h-screen lg:max-w-7xl lg:flex-col lg:pb-3"
+            ? "mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-8"
             : "mx-auto max-w-xl px-6 pb-24 pt-14 max-md:px-4 max-md:pt-8"
         }
       >
-        {pantallaDeAporte && (
-          <Link
-            href="/"
-            className="mb-3 inline-flex items-center gap-2 text-[13px] text-system-600 hover:text-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="size-4" aria-hidden="true">
-              <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            Volver al inicio
-          </Link>
-        )}
-        {pantallaDeAporte ? <div className="lg:flex lg:flex-1 lg:items-center">{children}</div> : children}
+        {children}
       </main>
       <ActualizacionEnVivo />
       {pantallaDeAporte ? (
@@ -237,8 +228,37 @@ function Invitacion({
 
   if (conFormulario) {
     return (
-      <AporteAnonimoConAccesos {...datosDelAporte} etiqueta={etiqueta}>
-        {ficha}
+      <AporteAnonimoConAccesos {...datosDelAporte}>
+        <>
+      <Link
+        href={`/campanas/${campana.id}`}
+        className="mb-3 inline-flex items-center gap-1.5 rounded-pill px-1 text-[13px] font-semibold text-system-600 hover:text-brand-700"
+      >
+        <IconoFlechaAtras className="size-4" />
+        Volver a la campaña
+      </Link>
+
+      <header className="mb-5 flex items-center gap-4 overflow-hidden rounded-xl border border-system-200 bg-white p-4 shadow-sm max-sm:flex-col max-sm:items-stretch">
+        <div className="flex h-20 w-32 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-system-200 bg-gradient-to-br from-brand-100 to-success-100 text-brand-400 max-sm:h-32 max-sm:w-full">
+          {campana.banner ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={`${BASE_PATH}${campana.banner}`} alt="" className="h-full w-full object-cover" />
+          ) : <IconoFoto className="size-8" />}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[11.5px] font-bold uppercase tracking-[0.08em] text-brand-600">Nuevo aporte</p>
+          <h1 className="mt-0.5 line-clamp-2 break-words text-xl font-extrabold text-system-900" title={campana.nombre}>{campana.nombre}</h1>
+          <div className="mt-2.5 max-w-md">
+            <div className="mb-1 flex items-baseline justify-between gap-3 text-[12px] text-system-600">
+              <span>{restantes <= 0 ? "Cuota completa" : <>Este es tu aporte <b className="font-semibold text-system-900">1</b> de 1</>}</span>
+              <span className="font-mono text-[11px]">{restantes <= 0 ? "1 enviado" : "0 enviados"}</span>
+            </div>
+            <ProgressBar pct={restantes <= 0 ? 100 : 0} tone="ok" />
+          </div>
+        </div>
+      </header>
+
+        </>
       </AporteAnonimoConAccesos>
     );
   }

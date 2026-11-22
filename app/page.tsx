@@ -301,11 +301,11 @@ export default async function LandingPage() {
           {/* 5 cifras: en 2 columnas la última ocupa la fila entera para quedar centrada. */}
           <div className="grid grid-cols-2 gap-6 text-center sm:grid-cols-5 max-sm:[&>*:last-child]:col-span-2">
             {[
-              { valor: cifras.campanasActivas, etiqueta: "Campañas activas" },
-              { valor: cifras.campanasCreadas, etiqueta: "Bases de datos disponibles" },
-              { valor: cifras.usuariosRegistrados, etiqueta: "Usuarios registrados" },
-              { valor: cifras.datosRecolectados, etiqueta: "Aportes aprobados" },
               { valor: cifras.organizaciones, etiqueta: "Organizaciones" },
+              { valor: cifras.usuariosRegistrados, etiqueta: "Usuarios registrados" },
+              { valor: cifras.campanasActivas, etiqueta: "Campañas activas" },
+              { valor: cifras.datosRecolectados, etiqueta: "Aportes aprobados" },
+              { valor: cifras.campanasCreadas, etiqueta: "Bases de datos disponibles" },
             ].map((k) => (
               <div key={k.etiqueta}>
                 <ContadorAnimado valor={k.valor} className="block text-[30px] font-semibold tracking-tight text-system-900" />
@@ -315,9 +315,7 @@ export default async function LandingPage() {
           </div>
         </section>
 
-        {/* Lo más reciente (2026-11-12, a pedido del usuario, como el inicio de GoFundMe): las campañas activas
-            más nuevas de todas las temáticas. Desde el 2026-11-13 (a pedido del usuario) solo las 3 más nuevas y sin
-            la fila de temáticas: el listado general está en /explorar ("Ver todas": la lista completa, ya ordenada por recientes). */}
+        {/* Lo más reciente: las campañas activas más nuevas de todas las temáticas. */}
         {recientes.length > 0 && (
           <section aria-labelledby="campanas-recientes" className={`${ANCHO} py-12 md:py-20`}>
             <EncabezadoDeSeccion
@@ -325,7 +323,7 @@ export default async function LandingPage() {
               etiqueta="Lo más reciente"
               titulo="Campañas recién abiertas"
               texto="Las últimas campañas que empezaron a recibir aportes, de todas las temáticas."
-              enlace={{ href: "/explorar?vista=todas&orden=recientes", texto: "Ver todas" }}
+              enlace={{ href: "/explorar", texto: "Ver todas" }}
             />
             <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {recientes.map((c, i) => (

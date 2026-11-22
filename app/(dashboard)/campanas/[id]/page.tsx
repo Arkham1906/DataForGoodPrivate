@@ -9,10 +9,12 @@
 // "Compartir" abre el cuadro de compartir.tsx (enlace público /c/[token] y QR).
 // "Reportar campaña" (reportar.tsx) para quien no la creó: va a la bandeja del SuperUsuario.
 // Compartir, Favorita (estrella) y Reportar (bandera) son íconos (ui/BotonDeIcono) en la fila de la temática
-// (2026-11-10, a pedido del usuario). Sin sesión (2026-11-11) los tres van deshabilitados y, con el tope de
-// anónimos lleno (viewer.topeAnonimoLleno), la ficha da el aviso en vez de "Aportar sin cuenta".
+// (2026-11-10, a pedido del usuario). Sin sesión los tres van deshabilitados. Al aportar se elige
+// iniciar sesión (con destino al formulario de esta campaña) o participar sin cuenta, si está disponible.
 
 import { textoDeUbicacion } from "@/lib/campanas/ubicacion";
+import { conDestino } from "@/lib/redireccion";
+import VentanaDeConfirmacion from "@/components/ui/VentanaDeConfirmacion";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -43,6 +45,7 @@ export default function CampaignDetailPage() {
   const router = useRouter();
   // Ventana de los acuerdos para inscribirse (2026-11-10).
   const [aceptandoAcuerdos, setAceptandoAcuerdos] = useState(false);
+  const [eligiendoComoAportar, setEligiendoComoAportar] = useState(false);
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [conSesion, setConSesion] = useState<boolean | null>(null);
   const [aporteSinCuenta, setAporteSinCuenta] = useState(false);
@@ -136,7 +139,9 @@ export default function CampaignDetailPage() {
 
         {/* Compartir, Favorita y Reportar como íconos en la fila de la temática (2026-11-10, a pedido del usuario;
             antes, botones con texto: Compartir aquí, Favorita bajo "Realizar un aporte" y Reportar al final). */}
-        <h1 className="mb-2 text-[26px] font-extrabold text-system-900">{campaign.name}</h1>
+        <p className="mb-1 text-[12px] font-semibold uppercase tracking-wide text-system-600">Título</p>
+        <h1 className="mb-3 text-[26px] font-extrabold text-system-900">{campaign.name}</h1>
+        <p className="mb-1 text-[12px] font-semibold uppercase tracking-wide text-system-600">Temática</p>
         <div className="mb-2 flex items-center justify-between gap-3">
           <RutaDeTematica tematica={campaign.tematica || campaign.tag} etiquetas={campaign.etiquetas} />
           {!conSesion ? (
@@ -225,10 +230,10 @@ export default function CampaignDetailPage() {
         )}
 
         <div className="mb-4 rounded-lg border border-system-200 bg-white p-3.5 lg:mb-2 lg:p-3">
-          <h2 className="text-[15px] font-bold text-system-900">¿De qué trata esta campaña?</h2>
+          <h2 className="text-[15px] font-bold text-system-900">Descripción</h2>
           <p className="mt-1 text-[12px] leading-5 text-system-600">{campaign.description}</p>
         </div>
-          <h2 className="mb-2 mt-5 text-lg font-bold text-system-900 lg:mb-1 lg:mt-3">¿Qué puedes aportar?</h2>
+          <h2 className="mb-2 mt-5 text-lg font-bold text-system-900 lg:mb-1 lg:mt-3">Tipos de datos</h2>
         <p className="mb-3 text-[13px] text-system-600 lg:mb-2">
           Comparte la información que tengas. Cada aporte es valioso.
         </p>
@@ -348,21 +353,37 @@ export default function CampaignDetailPage() {
 
               <div className="w-full shrink-0 sm:w-64">
                 {!conSesion ? (
-                  campaign.status === "activa" && !campaign.permiteAnonimos ? (
-                    <p className="rounded-lg bg-system-100 p-3 text-center text-[12.5px] text-system-600">
-                      Esta campaña solo recibe aportes con cuenta.
-                    </p>
-                  ) : campaign.status === "activa" && topeAnonimoLleno ? (
-                    // Tope de anónimos lleno (2026-11-11; desde el 2026-11-13 lo elige el creador; sin número, el 10% de la meta): el aviso en vez de "Aportar sin cuenta".
-                    <p className="rounded-lg bg-system-100 p-3 text-center text-[12.5px] text-system-600">{topeAnonimoLleno}</p>
-                  ) : campaign.status === "activa" && aporteSinCuenta ? (
-                    <Link href={`/participa/${campaign.id}`} className={buttonClasses("primary", "md", "w-full")}>
-                      Aportar sin cuenta
-                    </Link>
-                  ) : campaign.status === "activa" ? (
-                    <p className="rounded-lg bg-system-100 p-3 text-center text-[12.5px] text-system-600">
-                      Los aportes sin cuenta no están disponibles en este momento.
-                    </p>
+                  campaign.status === "activa" ? (
+                    <>
+                      <Button variant="primary" className="w-full" onClick={() => setEligiendoComoAportar(true)} aria-haspopup="dialog">
+                        Realizar un aporte
+                      </Button>
+                      <VentanaDeConfirmacion
+                        abierto={eligiendoComoAportar}
+                        titulo="¿Cómo quieres aportar?"
+                        ocultarCancelar
+                        textoConfirmar="Cerrar"
+                        textoOcupado="Cerrando…"
+                        onCancelar={() => setEligiendoComoAportar(false)}
+                        onConfirmar={() => setEligiendoComoAportar(false)}
+                      >
+                        <div className="flex flex-col gap-3">
+                          <p className="text-[13px] text-system-600">Elige cómo quieres participar en esta campaña.</p>
+                          <Link href={conDestino("/entrar", `/campanas/${campaign.id}/aportar`)} className={buttonClasses("primary", "md", "w-full")}>
+                            Iniciar sesión y aportar
+                          </Link>
+                          {campaign.permiteAnonimos && !topeAnonimoLleno && aporteSinCuenta ? (
+                            <Link href={`/participa/${campaign.id}`} className={buttonClasses("secondary", "md", "w-full")}>
+                              Aportar sin iniciar sesión
+                            </Link>
+                          ) : (
+                            <p className="rounded-lg bg-system-100 p-3 text-[12.5px] text-system-600">
+                              {!campaign.permiteAnonimos ? "Esta campaña solo recibe aportes con cuenta." : topeAnonimoLleno || "Los aportes sin cuenta no están disponibles en este momento."}
+                            </p>
+                          )}
+                        </div>
+                      </VentanaDeConfirmacion>
+                    </>
                   ) : (
                     <p className="rounded-lg bg-system-100 p-3 text-center text-[12.5px] text-system-600">
                       Esta campaña no está recibiendo aportes.

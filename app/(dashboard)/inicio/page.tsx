@@ -22,15 +22,15 @@ import type { Metadata } from "next";
 import ButtonLink from "@/components/ui/ButtonLink";
 import Card from "@/components/ui/Card";
 import MetricCard from "@/components/ui/MetricCard";
-import Tag from "@/components/ui/Tag";
+import { ListadoDeAportes, SelectorDeVistaAportes } from "@/components/aportes/ListadoDeAportes";
 import { exigirUsuario, marcarBienvenidaVista } from "@/lib/session";
-import { ahoraEnZona, ZONA_DE_CAMPANAS } from "@/lib/fecha-de-tepic";
+import { ahoraEnZona } from "@/lib/fecha-de-tepic";
 import { obtenerResumenDeInicio } from "@/lib/usuarios/inicio";
 import { obtenerResumenDeProgreso } from "@/lib/gamificacion/progreso";
 import { obtenerMedallasCercaDeSubir } from "@/lib/gamificacion/mi-progreso";
 import { zonaDetectadaDe } from "@/lib/ubicacion/zona-detectada";
 import CampanasParaTi from "@/components/campanas/CampanasParaTi";
-import EstrellasDeCalificacion from "@/components/aportes/EstrellasDeCalificacion";
+import TarjetaDeCampanaPublica from "@/components/campanas/TarjetaDeCampanaPublica";
 import BotonCrearCampana from "@/components/campanas/BotonCrearCampana";
 import AvisoSinTematicas from "@/components/campanas/AvisoSinTematicas";
 import ResumenDeRango from "@/components/gamificacion/ResumenDeRango";
@@ -42,25 +42,6 @@ import { rutaDePantalla } from "@/lib/gamificacion/pantallas-de-progreso";
 export const metadata: Metadata = { title: "Inicio" };
 
 const nf = new Intl.NumberFormat("es-MX");
-const FECHA_DE_APORTE = new Intl.DateTimeFormat("es-MX", {
-  day: "numeric",
-  month: "short",
-  hour: "2-digit",
-  minute: "2-digit",
-  timeZone: ZONA_DE_CAMPANAS,
-});
-
-/** Etiqueta del estado de un aporte, con las mismas palabras que /mis-aportes. */
-const ESTADO_DE_APORTE: Record<string, { texto: string; tono: "default" | "ok" | "warn" | "danger" }> = {
-  pendiente: { texto: "En revisión", tono: "warn" },
-  espera_final: { texto: "En revisión", tono: "warn" },
-  aceptado: { texto: "Aceptado", tono: "ok" },
-  rechazado: { texto: "Rechazado", tono: "danger" },
-};
-
-/** Como Card, pero sin relleno: las filas de la lista llevan el suyo. */
-const CAJA_DE_LISTA = "overflow-hidden rounded-lg border border-system-200 bg-white shadow-sm";
-
 function saludoDeInicio(): string {
   const hora = ahoraEnZona().hour;
   if (hora < 12) return "Buenos días";
@@ -154,6 +135,7 @@ export default async function InicioPage() {
 
 
       <CampanasParaTi
+        renderTarjeta={(c) => c.tarjeta ? <TarjetaDeCampanaPublica campana={c.tarjeta} indice={resumen.paraTi.indexOf(c)} nivel="h3" compacta /> : null}
         id="inicio-para-ti"
         campanas={conParaTi ? resumen.paraTi : []}
         accion={
@@ -183,6 +165,7 @@ export default async function InicioPage() {
               Tus últimos aportes
             </h2>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <SelectorDeVistaAportes />
               <ButtonLink href="/campanas" size="sm">
                 Aportar a una campaña
               </ButtonLink>
@@ -191,34 +174,16 @@ export default async function InicioPage() {
               </Link>
             </div>
           </div>
-          <div className={CAJA_DE_LISTA}>
-            {resumen.recientes.length === 0 ? (
-              <p className="p-4 text-[13px] text-system-600">Todavía no envías aportes. Elige una campaña para empezar.</p>
-            ) : (
-              <ul className="divide-y divide-system-200">
-                {resumen.recientes.map((a) => {
-                  const estado = ESTADO_DE_APORTE[a.estado] ?? { texto: a.estado, tono: "default" as const };
-                  return (
-                    <li key={a.id}>
-                      <Link href={`/mis-aportes/${a.campanaId}`} className="flex items-center gap-3 px-4 py-3 hover:bg-system-50">
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-[13.5px] font-semibold text-system-900">{a.campana}</span>
-                          <span className="block truncate text-[12px] text-system-500">
-                            {a.enviadoEn ? FECHA_DE_APORTE.format(new Date(a.enviadoEn)) : ""}
-                            {a.descripcion ? ` · ${a.descripcion}` : ""}
-                          </span>
-                        </span>
-                        <span className="flex shrink-0 flex-wrap justify-end gap-1.5">
-                          <EstrellasDeCalificacion valor={a.calificacion} className="self-center text-[13px]" />
-                          <Tag tone={estado.tono}>{estado.texto}</Tag>
-                        </span>
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
+          {resumen.recientes.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-system-300 p-6 text-sm text-system-600">Todavía no envías aportes. Elige una campaña para empezar.</p>
+          ) : (
+            <ListadoDeAportes items={resumen.recientes.map((a) => ({
+              id: a.id, campaignId: a.campanaId, campaignName: a.campana,
+              campaignTematica: a.tematica, fileType: a.tipo, fileMimeType: a.mimeType,
+              sinArchivo: a.sinArchivo, status: a.estado, calificacion: a.calificacion ?? undefined,
+              expOtorgada: a.expOtorgada, submittedAt: a.enviadoEn,
+            }))} />
+          )}
         </section>
       </div>
     </div>

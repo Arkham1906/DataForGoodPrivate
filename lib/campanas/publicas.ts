@@ -77,7 +77,7 @@ export type FiltrosDeCampanas = {
   limite?: number;
 };
 
-function mapCampana(row: Record<string, unknown>): CampanaPublica {
+export function mapCampana(row: Record<string, unknown>): CampanaPublica {
   return {
     id: String(row.id),
     name: String(row.name ?? ""),

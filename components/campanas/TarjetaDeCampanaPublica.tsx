@@ -41,18 +41,18 @@ export default function TarjetaDeCampanaPublica({
   if (lista) {
     return (
       <Link href={`/campanas/${c.id}`} {...entradaDeTarjeta(indice)}>
-        <article className="landing-tarjeta grid min-w-0 grid-cols-1 gap-x-5 gap-y-4 rounded-[18px] border border-system-200 bg-white p-3 hover:border-brand-600 max-md:gap-y-2.5 max-md:p-2.5 md:grid-cols-[minmax(0,1fr)_48px] xl:grid-cols-[minmax(165px,1.25fr)_minmax(145px,1.15fr)_minmax(135px,1fr)_minmax(145px,1.15fr)_auto] xl:items-center xl:gap-x-10 xl:p-4">
+        <article className="landing-tarjeta grid min-w-0 grid-cols-1 gap-x-5 gap-y-4 rounded-[18px] border border-system-200 bg-white p-3 hover:border-brand-600 max-md:gap-y-2.5 max-md:p-2.5 md:grid-cols-[88px_minmax(0,1fr)] xl:grid-cols-[100px_minmax(165px,1.25fr)_minmax(145px,1.15fr)_minmax(135px,1fr)_auto] xl:items-center xl:gap-x-8 xl:p-4">
+          <div data-campana-banner className="flex h-16 w-[100px] items-center justify-center overflow-hidden rounded-md bg-system-100 xl:justify-self-start">
+            {c.hasBanner && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={`${BASE_PATH}/api/campanas/${c.id}/banner?v=${encodeURIComponent(c.bannerVersion ?? "")}`} alt="" loading="lazy" className="h-full w-full object-cover" style={{ objectPosition: `${c.bannerPositionX ?? 50}% ${c.bannerPositionY ?? 50}%`, transform: `scale(${c.bannerScale ?? 1})` }} />
+            )}
+          </div>
           <div className="min-w-0">
             <Titulo className="line-clamp-2 break-words text-[14px] font-bold text-system-900" title={c.name}>{c.name}</Titulo>
             <div className="mt-1">
               <Tag tone="ok" className="max-w-full truncate whitespace-nowrap">{c.tematica || "Sin temática"}</Tag>
             </div>
-          </div>
-          <div data-campana-banner className="hidden h-12 w-12 items-center justify-center overflow-hidden rounded-md bg-system-100 md:flex xl:justify-self-start">
-            {c.hasBanner && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={`${BASE_PATH}/api/campanas/${c.id}/banner?v=${encodeURIComponent(c.bannerVersion ?? "")}`} alt="" loading="lazy" className="h-full w-full object-cover" style={{ objectPosition: `${c.bannerPositionX}% ${c.bannerPositionY}%`, transform: `scale(${c.bannerScale})` }} />
-            )}
           </div>
           <div className="col-span-1 min-w-0 space-y-1 text-[10.5px] text-system-600 md:col-span-2 xl:col-span-1">
             <p className="truncate" title={c.creatorName || "Sin especificar"}><span className="font-semibold text-system-700">Creador:</span> {c.creatorName || "Sin especificar"}</p>

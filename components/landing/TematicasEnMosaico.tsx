@@ -3,8 +3,7 @@
 // ui/SelectorDeTemas). Solo temáticas con campañas visibles (obtenerTematicasParaExplorar), de la que
 // más tiene a la que menos. Cada mosaico va a `hrefDe(valor)`: desde el 2026-11-13 (a pedido del
 // usuario) /explorar los manda a la pantalla de la temática (/explorar/tematica/[slug]); antes filtraban
-// la lista. `activa` marca una temática; el último mosaico, `todas`, se marca con `todas.actual` (o, sin
-// él, cuando no hay `activa`).
+// la lista. `activa` marca una temática.
 // 3 por fila en móvil, 5 en tableta y 8 en escritorio (2026-11-13, a pedido del usuario, cuadros más
 // chicos como los de GoFundMe; antes 4 y 6). *Historia:* ese día también estuvo en la
 // landing ("Campañas destacadas") y se quitó a pedido del usuario.
@@ -21,17 +20,13 @@ export default function TematicasEnMosaico({
   tematicas,
   activa,
   hrefDe,
-  todas,
 }: {
   tematicas: { valor: string; total: number }[];
   /** Temática elegida: se marca y su enlace quita el filtro. */
   activa?: string;
   hrefDe: (valor: string) => string;
-  /** Mosaico final, p. ej. "Todas" (la lista completa). `actual`: si es la vista que se está viendo. */
-  todas: { href: string; texto: string; actual?: boolean };
 }) {
   if (tematicas.length === 0) return null;
-  const todasMarcada = todas.actual ?? !activa;
 
   return (
     <nav aria-labelledby="tematicas-en-mosaico">
@@ -70,25 +65,6 @@ export default function TematicasEnMosaico({
             </li>
           );
         })}
-        <li className="min-w-0">
-          <Link href={todas.href} aria-current={todasMarcada ? "page" : undefined} className={ENLACE}>
-            <span
-              className={`${CUADRO} border-dashed ${
-                todasMarcada
-                  ? "border-brand-600 bg-brand-50 text-brand-700"
-                  : "border-system-300 bg-white text-system-600 group-hover:border-brand-600 group-hover:text-brand-700"
-              }`}
-            >
-              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-[34%] w-[34%]" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="4" y="4" width="6" height="6" rx="1" />
-                <rect x="14" y="4" width="6" height="6" rx="1" />
-                <rect x="4" y="14" width="6" height="6" rx="1" />
-                <rect x="14" y="14" width="6" height="6" rx="1" />
-              </svg>
-            </span>
-            <span className={`w-full text-[13px] font-semibold leading-4 ${todasMarcada ? "text-brand-800" : "text-system-900"}`}>{todas.texto}</span>
-          </Link>
-        </li>
       </ul>
     </nav>
   );

@@ -14,7 +14,9 @@ import Button from "@/components/ui/Button";
 import ButtonLink from "@/components/ui/ButtonLink";
 import Card from "@/components/ui/Card";
 import IndicadorDeCarga from "@/components/ui/IndicadorDeCarga";
-import Tag from "@/components/ui/Tag";
+import Paso from "@/components/aportes/PasoDelAporte";
+import { IconoInfo, IconoListo, IconoReloj } from "@/components/aportes/IconosDelAporte";
+import VentanaDeConfirmacion from "@/components/ui/VentanaDeConfirmacion";
 import { CasillasDeAcuerdos, SIN_ACUERDOS, acuerdosCompletos, agregarAcuerdos } from "@/components/ui/AcuerdosDeAporte";
 import SelectorDeArchivo from "@/components/ui/SelectorDeArchivo";
 import CamposDelAporte, { camposDelAporteCompletos } from "@/components/aportes/CamposDelAporte";
@@ -56,30 +58,8 @@ export function BotonesDeCuenta({ entrar, registro }: { entrar: string; registro
 }
 
 /** Agrupa el resumen, los accesos superiores y el formulario. */
-export function AporteAnonimoConAccesos({ children, etiqueta, ...props }: Props & { children: ReactNode; etiqueta: string }) {
-  const [mostrarAccesos, setMostrarAccesos] = useState(props.restantesIniciales > 0);
-
-  return (
-    <div className="mx-auto w-full max-w-7xl">
-      {mostrarAccesos && (
-        <>
-          <div className="mb-3 hidden flex-col items-center gap-2 text-center lg:flex">
-            <p className="text-[12px] text-system-500">¿Prefieres que tus aportes queden en tu historial?</p>
-            <div className="w-full max-w-[440px]">
-              <BotonesDeCuenta entrar={props.entrar} registro={props.registro} />
-            </div>
-          </div>
-          <div className="mb-2">
-            <Tag tone="info">{etiqueta}</Tag>
-          </div>
-        </>
-      )}
-      {children}
-      <div className="mt-5 lg:mt-3">
-        <AporteAnonimo {...props} onAporteEnviado={() => setMostrarAccesos(false)} />
-      </div>
-    </div>
-  );
+export function AporteAnonimoConAccesos({ children, ...props }: Props & { children: ReactNode }) {
+  return <div className="mx-auto w-full max-w-5xl">{children}<AporteAnonimo {...props} /></div>;
 }
 
 export default function AporteAnonimo({
@@ -105,6 +85,7 @@ export default function AporteAnonimo({
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [enviado, setEnviado] = useState(false);
+  const [confirmacionAbierta, setConfirmacionAbierta] = useState(false);
   // Cambia la key del input de archivo para vaciarlo después de enviar.
   const [vuelta, setVuelta] = useState(0);
 
@@ -158,6 +139,7 @@ export default function AporteAnonimo({
       setRestantes(Number(payload.data?.restantes ?? 0));
       setEspera(Number(payload.data?.esperaSegundos ?? 0));
       setEnviado(true);
+      setConfirmacionAbierta(true);
       onAporteEnviado?.();
       setArchivo(null);
       setDescripcion("");
@@ -172,7 +154,7 @@ export default function AporteAnonimo({
   }
 
   // Ya usó su aporte sin cuenta: para el siguiente, que se registre (o entre).
-  if (restantes <= 0) {
+  if (restantes <= 0 && !confirmacionAbierta) {
     return (
       <Card>
         {enviado && (
@@ -204,81 +186,102 @@ export default function AporteAnonimo({
     !enviando &&
     espera === 0;
 
+  const camposListos = camposDelAporteCompletos(soloTexto, descripcion, texto);
+  const conChecklists = visibles.length > 0 || faltaArchivo;
+  const requisitos = [
+    { listo: Boolean(archivo) || soloTexto, texto: soloTexto ? "Archivo opcional: va solo el texto" : "Elegir tu archivo" },
+    { listo: camposListos, texto: soloTexto ? "Escribir el título y el texto" : "Escribir la descripción" },
+  ];
   return (
     <>
-      <Card className="lg:p-3">
-        <h2 className="mb-1 text-[15px] font-bold text-system-900">Aporta sin crear una cuenta</h2>
-        <p className="mb-4 max-w-4xl text-[12.5px] text-system-600 lg:mb-2">
+      <div className="mb-5 flex gap-3 rounded-xl border border-brand-200 bg-brand-50 p-3.5 text-[12.5px] leading-5 text-system-700"><IconoInfo className="mt-0.5 size-5 shrink-0 text-brand-600" />        <p>
           No pedimos tu nombre ni tu correo: el aporte se registra como anónimo. Las fotos y los documentos se
           guardan sin sus metadatos (ubicación, fecha, modelo del teléfono, autor). Sin cuenta puedes enviar un
           aporte a esta campaña; para enviar más, crea una cuenta.
         </p>
-        <form onSubmit={(e) => void enviar(e)}>
-          <div className="grid gap-0 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:gap-3">
-            <SelectorDeArchivo
-              className="mb-4 lg:mb-0"
-              compactoEnEscritorio
-              tipos={tipos}
-              formatosDeDocumento={formatosDeDocumento}
-              archivo={archivo}
-              error={errorArchivo}
-              reinicio={vuelta}
-              onCambio={(elegido, problema) => {
-                setArchivo(elegido);
-                setErrorArchivo(problema);
-              }}
-            />
+      </div>
+        <form onSubmit={(e) => void enviar(e)} className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_290px]">
+          <div className="flex min-w-0 flex-col gap-4">
+            <Paso
+              numero={1}
+              titulo={archivoEsOpcional(tipos) ? "Elige tu archivo o envía solo texto" : "Elige tu archivo"}
+              nota={archivoEsOpcional(tipos) ? "Opcional" : undefined}
+              listo={Boolean(archivo)}
+            >
+              <SelectorDeArchivo
+                amplio
+                reinicio={vuelta}
+                tipos={tipos}
+                formatosDeDocumento={formatosDeDocumento}
+                archivo={archivo}
+                error={errorArchivo}
+                onCambio={(elegido, problema) => {
+                  setArchivo(elegido);
+                  setErrorArchivo(problema);
+                }}
+              />
+            </Paso>
 
-            <div>
+            <Paso numero={2} titulo={soloTexto ? "Escribe tu texto" : "Describe tu aporte"} listo={camposListos}>
               <CamposDelAporte
                 soloTexto={soloTexto}
                 descripcion={descripcion}
                 onDescripcion={setDescripcion}
                 texto={texto}
                 onTexto={setTexto}
-                placeholderDescripcion="Describe lo que aportas"
-                compactoEnEscritorio
               />
-            </div>
+            </Paso>
+
+            {conChecklists && (
+              <Paso numero={3} titulo="Marca lo que aplique" nota="Opcional" listo={respuestasValidas(marcadas, visibles).length > 0}>
+                <ChecklistsDelAporte
+                  fichas
+                  visibles={visibles}
+                  faltaArchivo={faltaArchivo}
+                  marcadas={marcadas}
+                  onAlternar={alternar}
+                />
+              </Paso>
+            )}
           </div>
 
-          <ChecklistsDelAporte
-            visibles={visibles}
-            faltaArchivo={faltaArchivo}
-            marcadas={marcadas}
-            onAlternar={alternar}
-            compactoEnEscritorio
-          />
+          <aside className="flex flex-col gap-3 rounded-xl border border-system-200 bg-white p-4 shadow-sm lg:sticky lg:top-20">
+            <h2 className="text-[14px] font-bold text-system-900">Antes de enviar</h2>
+            <CasillasDeAcuerdos acuerdos={acuerdos} onCambio={setAcuerdos} deshabilitado={enviando} proposito={proposito} />
+            <ul className="flex flex-col gap-2">
+              {requisitos.map((r) => (
+                <li key={r.texto} className={`flex items-center gap-2 text-[12.5px] ${r.listo ? "text-system-700" : "text-system-500"}`}>
+                  <span
+                    aria-hidden="true"
+                    className={`flex size-5 shrink-0 items-center justify-center rounded-full border ${r.listo ? "border-success-700 bg-success-700 text-white" : "border-system-300 bg-white"}`}
+                  >
+                    {r.listo && <IconoListo className="size-3.5" strokeWidth={2.5} />}
+                  </span>
+                  <span className={r.listo ? "font-medium" : ""}>{r.texto}</span>
+                  <span className="sr-only">{r.listo ? "(listo)" : "(pendiente)"}</span>
+                </li>
+              ))}
+            </ul>
 
-          <div className="grid lg:grid-cols-[32rem_auto] lg:items-center lg:justify-center lg:gap-x-4">
-            <div className="mb-4 rounded-lg border border-system-200 bg-white p-3.5 lg:col-start-1 lg:row-start-1 lg:mb-0 lg:p-2.5">
-              <CasillasDeAcuerdos acuerdos={acuerdos} onCambio={setAcuerdos} deshabilitado={enviando} proposito={proposito} />
-            </div>
+            {error && <p role="alert" className="rounded-lg border border-error-700 bg-error-50 p-2.5 text-[12px] text-error-700">{error}</p>}
 
-            {error && (
-              <p className="mb-3 rounded border border-error-700 bg-error-50 p-2 text-[12px] text-error-700 lg:col-span-2 lg:row-start-2 lg:mb-0" role="alert">
-                {error}
-              </p>
-            )}
-
-            <Button variant="primary" type="submit" className="w-full lg:col-start-2 lg:row-start-1 lg:w-auto lg:min-w-64" disabled={!puedeEnviar}>
+            <Button variant="primary" type="submit" className="w-full" disabled={!puedeEnviar || confirmacionAbierta}>
               {enviando ? (
                 <span className="inline-flex items-center gap-2">
                   <IndicadorDeCarga />
                   Enviando…
                 </span>
-              ) : espera > 0 ? `Podrás enviar en ${espera} s` : "Enviar aporte sin cuenta"}
+              ) : espera > 0 ? "Podrás enviar en " + espera + " s" : "Enviar aporte"}
             </Button>
-          </div>
-          <p className="mt-2 text-center text-[11.5px] text-system-500">
-            Se registra como anónimo y queda pendiente de revisión. Es tu único aporte sin cuenta a esta campaña.
-          </p>
+            <p className="flex items-center justify-center gap-1.5 text-center text-[11.5px] text-system-500">
+              <IconoReloj className="size-3.5" />
+              Quedará pendiente de revisión
+            </p>
+          </aside>
         </form>
-      </Card>
-      <div className="mt-5 flex flex-col gap-2.5 lg:hidden">
-        <p className="text-center text-[12px] text-system-500">¿Prefieres que tus aportes queden en tu historial?</p>
-        <BotonesDeCuenta entrar={entrar} registro={registro} />
-      </div>
+      <VentanaDeConfirmacion abierto={confirmacionAbierta} titulo="Aporte enviado" ocultarCancelar textoConfirmar="Continuar" textoOcupado="Abriendo…" onCancelar={() => setConfirmacionAbierta(false)} onConfirmar={() => setConfirmacionAbierta(false)}>
+        <p className="text-[13px] leading-5 text-system-700">Tu aporte fue enviado correctamente y quedó pendiente de revisión.</p>
+      </VentanaDeConfirmacion>
     </>
   );
 }

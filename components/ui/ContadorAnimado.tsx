@@ -7,6 +7,11 @@
 import { useEffect, useRef } from "react";
 
 const nf = new Intl.NumberFormat("es-MX");
+const compacto = new Intl.NumberFormat("es-MX", {
+  notation: "compact",
+  compactDisplay: "long",
+  maximumFractionDigits: 1,
+});
 const DURACION_MS = 1400;
 
 export default function ContadorAnimado({ valor, className = "" }: { valor: number; className?: string }) {
@@ -20,7 +25,7 @@ export default function ContadorAnimado({ valor, className = "" }: { valor: numb
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
     let cuadro = 0;
-    el.textContent = nf.format(0);
+    el.textContent = compacto.format(0);
 
     const observador = new IntersectionObserver(
       ([entrada]) => {
@@ -30,7 +35,7 @@ export default function ContadorAnimado({ valor, className = "" }: { valor: numb
         const paso = (ahora: number) => {
           const t = Math.min(1, (ahora - inicio) / DURACION_MS);
           // Sale rápido y frena al final (ease-out cúbico).
-          el.textContent = nf.format(Math.round(valor * (1 - (1 - t) ** 3)));
+          el.textContent = compacto.format(Math.round(valor * (1 - (1 - t) ** 3)));
           if (t < 1) cuadro = requestAnimationFrame(paso);
         };
         cuadro = requestAnimationFrame(paso);
@@ -42,14 +47,14 @@ export default function ContadorAnimado({ valor, className = "" }: { valor: numb
     return () => {
       observador.disconnect();
       cancelAnimationFrame(cuadro);
-      el.textContent = nf.format(valor);
+      el.textContent = compacto.format(valor);
     };
   }, [valor]);
 
   return (
-    <span className={className}>
+    <span className={className} title={nf.format(valor)}>
       <span ref={ref} aria-hidden="true">
-        {nf.format(valor)}
+        {compacto.format(valor)}
       </span>
       <span className="sr-only">{nf.format(valor)}</span>
     </span>

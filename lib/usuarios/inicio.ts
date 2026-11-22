@@ -2,6 +2,10 @@
 // campañas, campañas para él y actividad reciente. Solo lectura y solo de la persona con sesión.
 
 import { pool } from "@/lib/db";
+import { columnasDeArchivo } from "@/lib/aportes/tabla-archivos";
+import { mapCampana, type CampanaPublica } from "@/lib/campanas/publicas";
+import { columnaDeTipos } from "@/lib/campanas/tipos-de-campana";
+import type { Contribution, DataType } from "@/types";
 import { calificacionDesde, type CalificacionDeAporte } from "@/lib/aportes/calificacion";
 import { listarNotificaciones } from "@/lib/notificaciones/notificaciones";
 import type { Notificacion } from "@/lib/notificaciones/tipos";
@@ -12,6 +16,7 @@ export const APORTES_RECIENTES = 5;
 export const NOTIFICACIONES_RECIENTES = 3;
 
 export type CampanaParaTi = {
+  tarjeta?: CampanaPublica;
   id: string;
   nombre: string;
   tematica: string;
@@ -28,7 +33,12 @@ export type AporteReciente = {
   campana: string;
   descripcion: string;
   /** pendiente, espera_final, aceptado o rechazado. */
-  estado: string;
+  estado: Contribution["status"];
+  tipo: DataType;
+  mimeType?: string;
+  sinArchivo: boolean;
+  tematica: string;
+  expOtorgada: number | null;
   /** De 1 a 5 estrellas (aportes.calificacion); null si aún no se decide. 2026-11-03: en vez de la calidad
    *  buena/excelente/excepcional de la gamificación (decisión del usuario: se dejan las estrellas). */
   calificacion: CalificacionDeAporte | null;
@@ -76,6 +86,9 @@ export async function campanasParaTi(
     `WITH candidatas AS (
        SELECT c.id, c.name, COALESCE(NULLIF(c.tematica, ''), c.tag) AS tematica, est.approved_contributions,
               c.goal_contributions, est.participants, c.created_at,
+              c.description, c.end_date, c.banner_path, c.updated_at,
+              c.banner_scale, c.banner_position_x, c.banner_position_y,
+              c.location_city, c.location_state, c.todo_el_pais, ${columnaDeTipos("c")},
               CASE WHEN lower(COALESCE(NULLIF(c.tematica, ''), c.tag)) = ANY($2::text[]) THEN 'interes'
                    WHEN ($3 <> '' AND (c.todo_el_pais OR lower(trim(c.location_state)) = $3))
                      OR ($5 <> '' AND (c.todo_el_pais OR (lower(trim(c.location_state)) = $5
@@ -95,6 +108,7 @@ export async function campanasParaTi(
     [usuario.id, intereses, estado, limite, zonaEstado, zonaMunicipio, Boolean(opciones.sinPopulares)]
   );
   return r.rows.map((f) => ({
+    tarjeta: mapCampana(f),
     id: String(f.id),
     nombre: String(f.name ?? ""),
     tematica: String(f.tematica ?? ""),
@@ -136,6 +150,8 @@ export async function obtenerResumenDeInicio(
       campanasParaTi(usuario, CAMPANAS_PARA_TI, { zona, sinPopulares: true }),
       pool.query(
         `SELECT a.id, a.campaign_id, c.name AS campana, a.description, a.status, a.calificacion,
+                a.file_type, ${columnasDeArchivo("a")},
+                c.tematica, a.exp_otorgada,
                 to_char(a.submitted_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS enviado_en
          FROM aportes a JOIN campanas c ON c.id = a.campaign_id
          WHERE a.user_id = $1
@@ -167,7 +183,12 @@ export async function obtenerResumenDeInicio(
         campanaId: String(r.campaign_id),
         campana: String(r.campana ?? ""),
         descripcion: String(r.description ?? ""),
-        estado: String(r.status ?? ""),
+        estado: String(r.status ?? "pendiente") as Contribution["status"],
+        tipo: String(r.file_type ?? "foto") as DataType,
+        mimeType: r.file_mime_type ? String(r.file_mime_type) : undefined,
+        sinArchivo: !r.file_path,
+        tematica: String(r.tematica ?? ""),
+        expOtorgada: r.exp_otorgada == null ? null : Number(r.exp_otorgada),
         calificacion: calificacionDesde(r.calificacion),
         enviadoEn: String(r.enviado_en ?? ""),
       })),
