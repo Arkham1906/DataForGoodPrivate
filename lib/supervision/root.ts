@@ -9,6 +9,7 @@ import { datosAbiertosDesdeFila, type DatosAbiertosDeCampana } from "@/lib/campa
 import { agregarEtiquetas } from "@/lib/etiquetas/catalogo";
 import type { EtiquetaDeCampana } from "@/lib/etiquetas/reglas";
 import { cuotaPorTipoDesdeFila, type CuotaPorTipo } from "@/lib/campanas/cuota-por-tipo";
+import { camposDelBanner } from "@/lib/campanas/banner-predeterminado";
 
 /*
  * Datos del modo supervisor del SuperUsuario (/supervisar, dentro de
@@ -98,11 +99,8 @@ function mapear(row: Record<string, unknown>): CampanaSupervisable {
     quotaPerUser: Number(row.quota_per_user ?? 0),
     cuotaPorTipo: cuotaPorTipoDesdeFila(row),
     description: String(row.description ?? ""),
-    hasBanner: Boolean(row.banner_path),
-    bannerVersion: row.updated_at ? String(row.updated_at) : undefined,
-    bannerScale: Number(row.banner_scale ?? 1),
-    bannerPositionX: Number(row.banner_position_x ?? 50),
-    bannerPositionY: Number(row.banner_position_y ?? 50),
+    // Siempre con imagen: la suya o la de su temática (2026-11-21).
+    ...camposDelBanner(row),
     organizer: String(row.organizer ?? ""),
     proposito: row.proposito ? String(row.proposito) : null,
     propositoOtro: row.proposito_otro ? String(row.proposito_otro) : null,

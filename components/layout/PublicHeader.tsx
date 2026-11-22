@@ -1,16 +1,20 @@
 // Encabezado de las pantallas públicas (landing, /explorar, /datos...).
 // `variante="portada"` (landing, 2026-11-06): fijo arriba también en escritorio, contenido al ancho de la
 // página, menú junto al logo y "Registrarse" como botón principal.
+// "Inicio" sale en todas, también en la landing (2026-11-22, a pedido del usuario; antes la landing lo ocultaba con
+// `mostrarInicio={false}`); ahí `enInicio` lo marca como la página actual
+// para lectores de pantalla (aria-current), sin cambiar su aspecto, igual que los demás enlaces.
 
 import Link from "next/link";
 import ButtonLink from "@/components/ui/ButtonLink";
 import Logo from "@/components/layout/Logo";
 
 export default function PublicHeader({
-  mostrarInicio = true,
+  enInicio = false,
   variante = "normal",
 }: {
-  mostrarInicio?: boolean;
+  /** true en la landing: "Inicio" queda marcado como la página actual. */
+  enInicio?: boolean;
   variante?: "normal" | "portada";
 }) {
   const portada = variante === "portada";
@@ -30,11 +34,13 @@ export default function PublicHeader({
             portada ? "md:ml-4 md:mr-auto" : ""
           }`}
         >
-          {mostrarInicio && (
-            <Link href="/" className="hover:text-system-900">
-              Inicio
-            </Link>
-          )}
+          <Link
+            href="/"
+            aria-current={enInicio ? "page" : undefined}
+            className="hover:text-system-900"
+          >
+            Inicio
+          </Link>
           <Link href="/explorar" className="hover:text-system-900">
             Campañas
           </Link>

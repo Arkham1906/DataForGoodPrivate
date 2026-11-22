@@ -1,6 +1,8 @@
 // /api/aportes/[id]/archivo — el archivo del aporte en MinIO, tras comprobar permisos.
 // Se usa como src de <img>, <video> y <audio>, y como enlace de descarga de documentos.
 // Nunca se exponen URLs directas al bucket.
+// Sin sesión (o sin permiso), solo los aportes de la comunidad (2026-11-22, lib/aportes/comunidad.ts): los
+// aprobados de campañas públicas, que se ven en la landing y en /comunidad.
 
 import { Readable } from "node:stream";
 import { NextResponse } from "next/server";
@@ -11,6 +13,7 @@ import { getSessionUser } from "@/lib/session";
 import { abrirArchivo, tamanoDeArchivo } from "@/lib/minio";
 import { extensionForMime } from "@/lib/open-data";
 import { borrarArchivoDeAporteAnonimo } from "@/lib/aportes/sanciones-anonimas";
+import { esAporteDeLaComunidad } from "@/lib/aportes/comunidad";
 
 /**
  * Los tipos que puede tener un aporte (lib/aportes/limpiar-archivo.ts) y si el navegador lo
@@ -58,7 +61,9 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   try {
     const { id } = await context.params;
     const user = await getSessionUser();
-    if (!user) return NextResponse.json({ error: "Debes iniciar sesion" }, { status: 401 });
+    // Sin sesión, solo un aporte de la comunidad (2026-11-22).
+    const deLaComunidad = await esAporteDeLaComunidad(id);
+    if (!user && !deLaComunidad) return NextResponse.json({ error: "Debes iniciar sesion" }, { status: 401 });
 
     const result = await pool.query(
       `SELECT a.user_id, ${columnasDeArchivo("a")}, a.campaign_id, a.status, a.first_pass_by_user_id,
@@ -75,21 +80,25 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     }
 
     const row = result.rows[0];
-    const isOwner = Number(row.user_id) === Number(user.id);
-    const isCampaignCreator = Number(row.campaign_creator_id) === Number(user.id);
-    const reviewer = await pool.query(
-      `SELECT 1 FROM campana_revisores WHERE campana_id = $1 AND usuario_id = $2 AND estado = 'aceptado' LIMIT 1`,
-      [row.campaign_id, user.id]
-    );
-    const isAssignedReviewer = reviewer.rowCount !== 0;
-    const canViewAsReviewer = isAssignedReviewer && (
-      String(row.status) === "pendiente" || Number(row.first_pass_by_user_id) === Number(user.id)
-    );
+    let puedeVer = deLaComunidad;
+    if (!puedeVer && user) {
+      const isOwner = Number(row.user_id) === Number(user.id);
+      const isCampaignCreator = Number(row.campaign_creator_id) === Number(user.id);
+      const reviewer = await pool.query(
+        `SELECT 1 FROM campana_revisores WHERE campana_id = $1 AND usuario_id = $2 AND estado = 'aceptado' LIMIT 1`,
+        [row.campaign_id, user.id]
+      );
+      const isAssignedReviewer = reviewer.rowCount !== 0;
+      const canViewAsReviewer = isAssignedReviewer && (
+        String(row.status) === "pendiente" || Number(row.first_pass_by_user_id) === Number(user.id)
+      );
+      puedeVer = isOwner || isCampaignCreator || canViewAsReviewer;
+    }
 
     // El rol de supervisor no da acceso al archivo (dictamina campañas, no
     // aportes), pero tampoco lo quita: un supervisor lo ve si es quien aportó,
     // quien creó la campaña o revisor aceptado de ella, como cualquiera.
-    if (!isOwner && !isCampaignCreator && !canViewAsReviewer) {
+    if (!puedeVer) {
       return NextResponse.json({ error: "No tienes permiso para ver este archivo" }, { status: 403 });
     }
 

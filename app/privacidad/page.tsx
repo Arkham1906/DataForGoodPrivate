@@ -89,6 +89,7 @@ const SECCIONES: SeccionLegal[] = [
           <li>Que participes en campañas, envíes aportes y que estos se revisen y supervisen.</li>
           <li>Avisarte en la plataforma de lo que pasa con tus aportes, tus campañas, tus roles y tu cuenta.</li>
           <li>Cuidar la seguridad de la plataforma: atender reportes, aplicar sanciones e impedir que una cuenta baneada vuelva a registrarse.</li>
+          <li>Mostrar en la página principal, sin tu nombre, los últimos aportes aprobados.</li>
           <li>Publicar como datos abiertos los aportes aprobados de las campañas que terminan (ver la sección 4).</li>
         </ul>
         <p>

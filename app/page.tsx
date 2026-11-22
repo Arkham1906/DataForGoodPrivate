@@ -28,6 +28,9 @@ import TablaDeLideres from "@/components/gamificacion/TablaDeLideres";
 import { obtenerTablasPorPeriodo, tablaTieneDatos } from "@/lib/gamificacion/clasificacion";
 import { DATA_TYPE_LABELS, buscarConjuntosAbiertos, contarConjuntosPublicados } from "@/lib/open-data";
 import type { DataType } from "@/types";
+import { camposDelBanner } from "@/lib/campanas/banner-predeterminado";
+import { aportesDeLaPortada, type AporteDeLaComunidad } from "@/lib/aportes/comunidad";
+import TarjetaDeAporteDeLaComunidad from "@/components/aportes/TarjetaDeAporteDeLaComunidad";
 
 // En vivo (2026-10-31): se arma en cada visita, sin la caché de cinco minutos de antes.
 export const dynamic = "force-dynamic";
@@ -154,11 +157,8 @@ async function campanasDeLaVitrina(orden: string): Promise<CampanaDePortada[]> {
     id: String(row.id),
     name: String(row.name ?? ""),
     tematica: String(row.tematica ?? ""),
-    hasBanner: Boolean(row.banner_path),
-    bannerVersion: row.updated_at ? String(row.updated_at) : undefined,
-    bannerScale: Number(row.banner_scale ?? 1),
-    bannerPositionX: Number(row.banner_position_x ?? 50),
-    bannerPositionY: Number(row.banner_position_y ?? 50),
+    // Siempre con imagen: la suya o la de su temática (2026-11-21).
+    ...camposDelBanner(row),
     tipos: (row.tipos as DataType[]).map((tipo) => DATA_TYPE_LABELS[tipo] ?? tipo),
     daysRemaining: calculateCampaignDaysRemaining(row.cierre),
     pct: porcentajeDeMeta(Number(row.approved_contributions ?? 0), Number(row.goal_contributions ?? 0)),
@@ -182,50 +182,14 @@ async function obtenerVitrina(): Promise<PestanaDeCampanas[]> {
   }
 }
 
-interface AporteReciente {
-  id: string;
-  tag: string;
-  description: string;
-  submittedAt: string; // ISO
-}
-
-function comoHashtag(texto: string): string {
-  const limpio = texto
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  return `#${limpio || "campana"}`;
-}
-
 /**
- * Últimos aportes YA APROBADOS de campañas visibles públicamente (activa,
- * pausada o finalizada). Nunca incluye quién aportó (dominio.md § 9): solo
- * la temática de la campaña, la hora y una parte de la descripción.
- * Deliberadamente no se muestran aportes "pendiente" para no exhibir
- * contenido todavía sin revisar en la página pública.
+ * Últimos aportes YA APROBADOS de campañas visibles públicamente, completos (con su archivo) desde el
+ * 2026-11-22 (lib/aportes/comunidad.ts, que también abre su archivo sin sesión). "Ver más" lleva a /comunidad. Nunca incluye quién
+ * aportó (dominio.md § 9). Deliberadamente sin aportes "pendiente": nada sin revisar en la página pública.
  */
-async function obtenerAportesRecientes(): Promise<AporteReciente[]> {
+async function obtenerAportesRecientes(): Promise<AporteDeLaComunidad[]> {
   try {
-    const result = await pool.query(
-      // Sale como ISO en UTC con "Z" para no depender de la zona del proceso (UTC en Docker,
-      // la de la máquina en `next dev`).
-      `SELECT a.id, COALESCE(NULLIF(c.tag, ''), c.tematica) AS tag, a.description,
-              to_char(a.submitted_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS submitted_at
-        FROM aportes a
-        JOIN campanas c ON c.id = a.campaign_id
-        WHERE a.status = 'aceptado' AND c.status IN ('activa', 'pausada', 'finalizada')
-        ORDER BY a.submitted_at DESC
-        LIMIT 4`
-    );
-    return result.rows.map((row) => ({
-      id: String(row.id),
-      tag: String(row.tag ?? ""),
-      description: String(row.description ?? ""),
-      submittedAt: row.submitted_at ? new Date(String(row.submitted_at)).toISOString() : new Date().toISOString(),
-    }));
+    return await aportesDeLaPortada();
   } catch {
     return [];
   }
@@ -281,7 +245,7 @@ export default async function LandingPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      <PublicHeader mostrarInicio={false} variante="portada" />
+      <PublicHeader enInicio variante="portada" />
 
       {/* Todo el contenido va en <main> (antes las secciones de abajo quedaban fuera de toda región). */}
       <main id="contenido">
@@ -460,31 +424,18 @@ export default async function LandingPage() {
               titulo="Lo último que aportó la comunidad"
               texto="Aportes ya aprobados, sin datos de quién los envió."
             />
+            {/* 8 aportes en dos filas de 4 en escritorio (2026-11-22, a pedido del usuario), con el aporte completo arriba. */}
             <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {aportesRecientes.map((post) => (
-                <li
-                  key={post.id}
-                  className="landing-revelar landing-tarjeta flex min-h-[150px] flex-col justify-between rounded-[18px] border border-system-200 bg-white p-4"
-                >
-                  <p className="text-[14px] leading-snug text-system-900">
-                    &ldquo;{post.description.length > 90 ? `${post.description.slice(0, 90)}…` : post.description}&rdquo;
-                  </p>
-                  <div className="mt-4 flex items-center justify-between">
-                    <div>
-                      <p className="text-[12px] font-medium text-brand-600">{comoHashtag(post.tag)}</p>
-                      <p className="font-mono text-[11px] text-system-500">
-                        {new Date(post.submittedAt).toLocaleTimeString("es-MX", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          timeZone: ZONA_DE_CAMPANAS,
-                        })}
-                      </p>
-                    </div>
-                    <Tag tone="ok">Aprobado</Tag>
-                  </div>
-                </li>
+                <TarjetaDeAporteDeLaComunidad key={post.id} aporte={post} className="landing-revelar landing-tarjeta" />
               ))}
             </ul>
+            {/* Todos los aportes de la comunidad, en vivo (2026-11-22, a pedido del usuario). */}
+            <div className="landing-revelar mt-8 flex justify-center">
+              <ButtonLink href="/comunidad" variant="secondary" size="sm">
+                Ver más →
+              </ButtonLink>
+            </div>
           </section>
         )}
 

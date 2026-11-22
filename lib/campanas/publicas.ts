@@ -5,6 +5,7 @@ import { activateScheduledCampaigns, calculateCampaignDaysRemaining, finalizeExp
 import { etiquetasDeCampanas } from "@/lib/etiquetas/catalogo";
 import { tematicasVisibles } from "@/lib/tematicas/catalogo";
 import { slugDeTematica } from "@/lib/tematicas/ruta";
+import { camposDelBanner } from "@/lib/campanas/banner-predeterminado";
 
 /**
  * Campañas de la vitrina pública /explorar: solo las activas. Del 2026-10-24 al 2026-11-03 también salían
@@ -81,11 +82,8 @@ function mapCampana(row: Record<string, unknown>): CampanaPublica {
     id: String(row.id),
     name: String(row.name ?? ""),
     description: String(row.description ?? ""),
-    hasBanner: Boolean(row.banner_path),
-    bannerVersion: row.updated_at ? String(row.updated_at) : undefined,
-    bannerScale: Number(row.banner_scale ?? 1),
-    bannerPositionX: Number(row.banner_position_x ?? 50),
-    bannerPositionY: Number(row.banner_position_y ?? 50),
+    // Siempre con imagen: la suya o la de su temática (2026-11-21).
+    ...camposDelBanner(row),
     tematica: String(row.tematica ?? ""),
     etiquetas: [],
     organizer: String(row.organizer ?? ""),

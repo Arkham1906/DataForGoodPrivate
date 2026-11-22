@@ -14,10 +14,12 @@ export const CASILLA_DE_USO = "Acepto el acuerdo de uso del aporte";
 export const CAMPO_ACEPTA_USO = "aceptaUso";
 export const CAMPO_CONFIRMA_CONTENIDO = "confirmaContenido";
 
+// 2026-11-22 (a pedido del usuario): suma que un aporte aprobado puede mostrarse en la página principal
+// (lib/aportes/comunidad.ts: la landing y /comunidad). Los aportes de antes se aceptaron con el texto anterior.
 export const AVISO_DE_USO =
   "Acepto que DataForGood y quien organiza esta campaña usen mi aporte (el archivo, la descripción y lo que marque) " +
-  "para los fines de la campaña y que, si se aprueba, se publique como dato abierto con licencia CC BY 4.0 " +
-  "cuando la campaña termine, sin mi nombre ni mi correo.";
+  "para los fines de la campaña y que, si se aprueba, pueda mostrarse en la página principal de DataForGood " +
+  "y se publique como dato abierto con licencia CC BY 4.0 cuando la campaña termine, siempre sin mi nombre ni mi correo.";
 
 export const AVISO_DE_CONTENIDO =
   "Confirmo que mi aporte corresponde a la temática y a la descripción de esta campaña, y que no contiene " +

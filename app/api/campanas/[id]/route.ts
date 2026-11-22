@@ -51,6 +51,7 @@ import { asegurarEnlaceVigente } from "@/lib/campanas/enlaces";
 import { errorDeOrganizacion } from "@/lib/campanas/organizacion";
 import { estaTerminada } from "@/lib/campanas/terminada";
 import { activateScheduledCampaigns, ahoraEnZona, hoyEnTepic, calculateCampaignDaysRemaining, errorDeFinAntesDeInicio, errorDeInicioPasado, errorDeReanudarAntesDeInicio, finalizeExpiredCampaigns, hasCampaignEnded, normalizeCampaignDate, normalizeCampaignTime } from "@/lib/campaign-date";
+import { camposDelBanner } from "@/lib/campanas/banner-predeterminado";
 
 function normalizeDataTypes(input: unknown): string[] {
   if (!Array.isArray(input)) {
@@ -103,11 +104,8 @@ function mapCampaign(row: Record<string, unknown>) {
     supervisedByRoot: Boolean(row.supervisado_por_root),
     name: String(row.name ?? ""),
     description: String(row.description ?? ""),
-    hasBanner: Boolean(row.banner_path),
-    bannerVersion: row.updated_at ? String(row.updated_at) : undefined,
-    bannerScale: Number(row.banner_scale ?? 1),
-    bannerPositionX: Number(row.banner_position_x ?? 50),
-    bannerPositionY: Number(row.banner_position_y ?? 50),
+    // Siempre con imagen: la suya o la de su temática (2026-11-21).
+    ...camposDelBanner(row),
     tematica: String(row.tematica ?? row.tag ?? ""),
     tag: String(row.tag ?? String(row.tematica ?? "")),
     // Subtemáticas (2026-10-27): las pone agregarEtiquetas antes de mapear.

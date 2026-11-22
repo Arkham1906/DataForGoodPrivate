@@ -3,11 +3,13 @@
 // X, Telegram y LinkedIn lo descargan sin sesión), la vista previa del cuadro Compartir y el adjunto de
 // "Más opciones". Misma visibilidad que el banner original (../route.ts): sin sesión, solo campañas públicas.
 // Si no se puede generar, entrega el original para que la vista previa no se quede sin imagen.
+// Sin banner propio, la imagen predeterminada de su temática en 1200 × 630 (2026-11-21).
 
 import { NextResponse } from "next/server";
 import { pool } from "@/lib/db";
 import { condicionDeVisibilidad } from "@/lib/campanas/visibilidad";
 import { vistaPreviaDelBanner } from "@/lib/campanas/banner-vista-previa";
+import { bannerPredeterminado } from "@/lib/campanas/banner-predeterminado-imagen";
 import { readUploadedFile } from "@/lib/minio";
 import { getSessionUser } from "@/lib/session";
 
@@ -22,19 +24,29 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     banner_scale: number | null;
     banner_position_x: number | null;
     banner_position_y: number | null;
+    tematica: string | null;
   }>(
-    `SELECT banner_path, banner_scale, banner_position_x, banner_position_y
+    `SELECT banner_path, banner_scale, banner_position_x, banner_position_y, tematica
        FROM campanas WHERE id = $1 AND ${visible.sql} LIMIT 1`,
     [id, ...visible.params],
   );
   const fila = result.rows[0];
-  if (!fila?.banner_path) return new NextResponse("No encontrado", { status: 404 });
+  if (!fila) return new NextResponse("No encontrado", { status: 404 });
 
   const cabeceras = {
     // La URL lleva ?v=<fecha de cambio>: puede guardarse un día sin servir una vieja.
     "Cache-Control": "public, max-age=86400",
     "X-Content-Type-Options": "nosniff",
   };
+  if (!fila.banner_path) {
+    try {
+      const contenido = await bannerPredeterminado(fila.tematica ?? "", "vista-previa");
+      return new NextResponse(new Uint8Array(contenido), { headers: { ...cabeceras, "Content-Type": "image/jpeg" } });
+    } catch (error) {
+      console.error("No se pudo generar la vista previa del banner predeterminado", error);
+      return new NextResponse("No encontrado", { status: 404 });
+    }
+  }
   try {
     const contenido = await vistaPreviaDelBanner({
       campanaId: Number(id),

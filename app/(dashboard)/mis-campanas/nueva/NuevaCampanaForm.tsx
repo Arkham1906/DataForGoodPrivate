@@ -24,6 +24,7 @@ import { municipiosDe, NOMBRES_DE_ESTADOS } from "@/lib/mexico-geo";
 import { opcionesCon } from "@/lib/perfil-opciones";
 import { TEMAS_DE_INTERES } from "@/lib/intereses";
 import { BASE_PATH } from "@/lib/base-path";
+import { urlDelBannerPredeterminado } from "@/lib/campanas/banner-predeterminado";
 import { MAX_LARGO_TEXTO, claveDeTexto } from "@/lib/campanas/checklist";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import VentanaDeOrganizacionRequerida from "@/components/campanas/VentanaDeOrganizacionRequerida";
@@ -441,7 +442,9 @@ function CampanaFormulario({
   const [name, setName] = useState(editingCampaign?.name ?? "");
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [bannerPreviewUrl, setBannerPreviewUrl] = useState<string | null>(null);
-  const [mostrarSelectorBanner, setMostrarSelectorBanner] = useState(!editingCampaign?.hasBanner);
+  const [mostrarSelectorBanner, setMostrarSelectorBanner] = useState(!editingCampaign?.bannerPropio);
+  // Imagen elegida o banner ya subido; si no, la vista previa enseña la imagen predeterminada de la temática (2026-11-21).
+  const conBannerPropio = Boolean(bannerPreviewUrl || editingCampaign?.bannerPropio);
   const [description, setDescription] = useState(editingCampaign?.description ?? "");
   const [organizer, setOrganizer] = useState(editingCampaign?.organizer ?? organizacionPerfil);
   // Propósito: ¿para qué se usarán los datos? (2026-10-27). Uno de la lista u "Otro" con una frase.
@@ -1449,7 +1452,7 @@ function CampanaFormulario({
                   {name.length} / 80
                 </p>
 
-                <Field label="Banner de la campaña" hint={editingCampaign ? (pausadaPorSupervision ? "No se puede cambiar mientras la supervisión mantenga pausada la campaña." : "Puedes cambiar la imagen. Al guardar, deberás enviarla a revisión.") : "Opcional. JPG o PNG, máximo 5 MB."}>
+                <Field label="Banner de la campaña" hint={editingCampaign ? (pausadaPorSupervision ? "No se puede cambiar mientras la supervisión mantenga pausada la campaña." : "Puedes cambiar la imagen. Al guardar, deberás enviarla a revisión.") : "Opcional. JPG o PNG, máximo 5 MB. Si no subes una, se usa la imagen de su temática."}>
                     {editingCampaign && !mostrarSelectorBanner ? (
                       <button
                         type="button"
@@ -1472,32 +1475,43 @@ function CampanaFormulario({
                         className="block w-full rounded border border-system-300 bg-white px-3 py-2 text-sm text-system-700 file:mr-3 file:rounded file:border-0 file:bg-brand-50 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-brand-700"
                       />
                     )}
-                    {(bannerPreviewUrl || editingCampaign?.hasBanner) && (
-                      <div className="mt-3 overflow-hidden rounded-lg border border-system-200 bg-system-50">
-                        <p className="px-3 pt-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-system-500">Vista previa del banner</p>
-                        <div
-                          className="mx-auto mt-2 h-40 w-full max-w-xl overflow-hidden bg-system-100 sm:h-48"
-                          aria-label="Vista previa del banner. Arrastra la imagen para ajustar su posición."
-                        >
-                          <img
-                            src={bannerPreviewUrl ?? `${BASE_PATH}/api/campanas/${editingCampaign?.id}/banner?v=${encodeURIComponent(editingCampaign?.bannerVersion ?? "")}`}
-                            alt="Vista previa del banner de la campaña"
-                            className="h-full w-full object-contain"
-                          />
-                        </div>
-                        <div className="hidden grid gap-3 border-t border-system-200 p-3 text-[12px] text-system-700 sm:grid-cols-3">
-                          <label className="flex flex-col gap-1">
-                            <span className="font-semibold">Tamaño</span>
-                          </label>
-                          <label className="flex flex-col gap-1">
-                            <span className="font-semibold">Posición horizontal</span>
-                          </label>
-                          <label className="flex flex-col gap-1">
-                            <span className="font-semibold">Posición vertical</span>
-                          </label>
-                        </div>
+                    {/* Sin imagen elegida ni banner propio, la imagen predeterminada de la temática (2026-11-21). */}
+                    <div className="mt-3 overflow-hidden rounded-lg border border-system-200 bg-system-50">
+                      <p className="px-3 pt-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-system-500">
+                        {conBannerPropio ? "Vista previa del banner" : "Imagen predeterminada"}
+                      </p>
+                      {!conBannerPropio && (
+                        <p className="px-3 pt-1 text-[12px] text-system-600">
+                          {theme ? `Es la imagen de «${theme}». Se usa mientras no subas una.` : "Cambia según la temática que elijas. Se usa mientras no subas una."}
+                        </p>
+                      )}
+                      <div
+                        className="mx-auto mt-2 h-40 w-full max-w-xl overflow-hidden bg-system-100 sm:h-48"
+                        aria-label="Vista previa del banner. Arrastra la imagen para ajustar su posición."
+                      >
+                        <img
+                          src={
+                            bannerPreviewUrl ??
+                            (editingCampaign?.bannerPropio
+                              ? `${BASE_PATH}/api/campanas/${editingCampaign.id}/banner?v=${encodeURIComponent(editingCampaign.bannerVersion ?? "")}`
+                              : urlDelBannerPredeterminado(theme))
+                          }
+                          alt={conBannerPropio ? "Vista previa del banner de la campaña" : "Imagen predeterminada de la temática"}
+                          className="h-full w-full object-contain"
+                        />
                       </div>
-                    )}
+                      <div className="hidden grid gap-3 border-t border-system-200 p-3 text-[12px] text-system-700 sm:grid-cols-3">
+                        <label className="flex flex-col gap-1">
+                          <span className="font-semibold">Tamaño</span>
+                        </label>
+                        <label className="flex flex-col gap-1">
+                          <span className="font-semibold">Posición horizontal</span>
+                        </label>
+                        <label className="flex flex-col gap-1">
+                          <span className="font-semibold">Posición vertical</span>
+                        </label>
+                      </div>
+                    </div>
                 </Field>
 
                 <p className="mb-1.5 text-[13px] font-medium text-system-900">

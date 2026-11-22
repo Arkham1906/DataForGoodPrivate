@@ -5,6 +5,7 @@ import { pool } from "@/lib/db";
 import { columnaDeTipos } from "@/lib/campanas/tipos-de-campana";
 import { getSessionUser } from "@/lib/session";
 import { calculateCampaignDaysRemaining, normalizeCampaignDate } from "@/lib/campaign-date";
+import { camposDelBanner } from "@/lib/campanas/banner-predeterminado";
 
 export async function GET() {
   try {
@@ -39,11 +40,8 @@ export async function GET() {
         status: String(row.status),
         tag: String(row.tag ?? row.tematica ?? ""),
         tematica: String(row.tematica ?? row.tag ?? ""),
-        hasBanner: Boolean(row.banner_path),
-        bannerVersion: row.updated_at ? String(row.updated_at) : undefined,
-        bannerScale: Number(row.banner_scale ?? 1),
-        bannerPositionX: Number(row.banner_position_x ?? 50),
-        bannerPositionY: Number(row.banner_position_y ?? 50),
+        // Siempre con imagen: la suya o la de su temática (2026-11-21).
+        ...camposDelBanner(row),
         goalContributions: Number(row.goal_contributions ?? 0),
         approvedContributions: Number(row.approved_contributions ?? 0),
         pendingContributions: Number(row.por_revisar ?? 0),

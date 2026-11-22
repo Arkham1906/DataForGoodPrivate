@@ -37,6 +37,7 @@ import { campanasParaTi } from "@/lib/usuarios/inicio";
 import { activateScheduledCampaigns, ahoraEnZona, calculateCampaignDaysRemaining, errorDeFinAntesDeInicio, errorDeInicioPasado, finalizeExpiredCampaigns, normalizeCampaignDate, normalizeCampaignTime } from "@/lib/campaign-date";
 import { limpiarImagen, type ImagenLimpia } from "@/lib/aportes/imagen";
 import { borrarArchivo, guardarArchivo } from "@/lib/minio";
+import { camposDelBanner } from "@/lib/campanas/banner-predeterminado";
 
 async function obtenerIdsGuardados(usuarioId: number): Promise<Set<number>> {
   const result = await pool.query<{ campana_id: number }>(
@@ -101,11 +102,8 @@ function mapCampaign(row: Record<string, unknown>) {
     latestSupervisionAction: row.latest_supervision_action ? String(row.latest_supervision_action) : null,
     name: String(row.name ?? ""),
     description: String(row.description ?? ""),
-    hasBanner: Boolean(row.banner_path),
-    bannerVersion: row.updated_at ? String(row.updated_at) : undefined,
-    bannerScale: Number(row.banner_scale ?? 1),
-    bannerPositionX: Number(row.banner_position_x ?? 50),
-    bannerPositionY: Number(row.banner_position_y ?? 50),
+    // Siempre con imagen: la suya o la de su temática (2026-11-21).
+    ...camposDelBanner(row),
     tematica: String(row.tematica ?? row.tag ?? ""),
     tag: String(row.tag ?? String(row.tematica ?? "")),
     // Subtemáticas (2026-10-27): las pone agregarEtiquetas antes de mapear; las pendientes solo para el creador y la supervisión.

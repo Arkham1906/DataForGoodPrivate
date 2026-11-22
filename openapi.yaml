@@ -1663,7 +1663,9 @@ paths:
       tags: [Aportes]
       summary: Ver el archivo del aporte
       description: |
-        Quien aportó, el creador o un revisor aceptado. Fotos, video, audio, texto y PDF se muestran en el
+        Quien aportó, el creador o un revisor aceptado. Sin sesión (2026-11-22), solo los aportes de la
+        comunidad: aprobados de campañas activas, pausadas o finalizadas (los que se ven en la landing y en
+        /comunidad); cualquier otro responde 401. Fotos, video, audio, texto y PDF se muestran en el
         navegador (`Content-Disposition: inline`). Word, PowerPoint y Excel responden con
         `Content-Disposition: attachment`, pero la app los lee con este endpoint y los muestra en su
         vista previa: en pantalla todo se visualiza. Acepta `Range` (un solo rango) para que video y

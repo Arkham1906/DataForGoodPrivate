@@ -51,7 +51,10 @@ export interface Campaign {
   creatorName: string;
   name: string;
   description: string;
+  /** Siempre true desde el 2026-11-21: sin banner propio se muestra la imagen predeterminada de su temática. */
   hasBanner?: boolean;
+  /** true si el creador subió su banner (2026-11-21). */
+  bannerPropio?: boolean;
   bannerVersion?: string;
   bannerScale?: number;
   bannerPositionX?: number;

@@ -240,8 +240,9 @@ export type CampanaDelEnlace = {
   /** Para qué se usarán los datos (2026-10-27), como se lee; null si no tiene. */
   proposito: string | null;
   /**
-   * Ruta de la vista previa del banner sin BASE_PATH (/api/campanas/<id>/banner/vista-previa?v=<versión>), o null si no tiene (2026-11-13: va
+   * Ruta de la vista previa del banner sin BASE_PATH (/api/campanas/<id>/banner/vista-previa?v=<versión>) (2026-11-13: va
    * como og:image de /c/[token] para que las redes lo muestren al compartir). El banner es público en activas.
+   * Desde el 2026-11-21 siempre hay: sin banner propio, la ruta entrega la imagen predeterminada de su temática.
    */
   banner: string | null;
 };
@@ -325,7 +326,8 @@ function campanaDesdeFila(row: QueryResultRow, campanaId: number): CampanaDelEnl
     formatosDeDocumento: normalizarFormatosDeDocumento(row.formatos_de_documento),
     pausa: pausaDesdeFila(row),
     proposito: textoDelProposito(row.proposito, row.proposito_otro),
-    banner: row.banner_path ? rutaDelBanner(campanaId, row.updated_at) : null,
+    // Siempre: sin banner propio, la ruta entrega la imagen predeterminada de su temática (2026-11-21).
+    banner: rutaDelBanner(campanaId, row.updated_at),
   };
 }
 

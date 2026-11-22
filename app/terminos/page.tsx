@@ -94,7 +94,7 @@ const SECCIONES: SeccionLegal[] = [
           <li>Lo creaste tú o tienes derecho a compartirlo.</li>
           <li>
             DataForGood y quien organiza la campaña pueden usarlo para los fines de la campaña y, si se aprueba,
-            publicarlo como dato abierto con licencia{" "}
+            mostrarlo en la página principal de DataForGood (sin tu nombre) y publicarlo como dato abierto con licencia{" "}
             <a
               href="https://creativecommons.org/licenses/by/4.0/deed.es"
               target="_blank"
