@@ -3,6 +3,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import AyudaEmergente from "@/components/ui/AyudaEmergente";
 import ButtonLink from "@/components/ui/ButtonLink";
 import ProgressBar from "@/components/ui/ProgressBar";
+import { fondoDeAvance } from "@/lib/gamificacion/color-de-avance";
 import Tag from "@/components/ui/Tag";
 import {
   TEXTO_DE_LA_RACHA,
@@ -91,7 +92,7 @@ function ListaDeAvance({ requisitos }: { requisitos: AvanceDeRequisito[] }) {
             </span>
           </div>
           <div className="mt-1.5 pl-[30px]">
-            <ProgressBar pct={r.porcentaje} tone={r.cumplido ? "ok" : "accent"} />
+            <ProgressBar pct={r.porcentaje} color={fondoDeAvance(r.cumplido ? 1 : r.porcentaje / 100)} />
           </div>
         </li>
       ))}

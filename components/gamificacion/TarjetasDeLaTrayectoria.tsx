@@ -5,6 +5,7 @@ import AyudaEmergente from "@/components/ui/AyudaEmergente";
 import { buttonClasses } from "@/components/ui/Button";
 import ButtonLink from "@/components/ui/ButtonLink";
 import ProgressBar from "@/components/ui/ProgressBar";
+import { fondoDeAvance } from "@/lib/gamificacion/color-de-avance";
 import Tag from "@/components/ui/Tag";
 import { rutaDePantalla } from "@/lib/gamificacion/pantallas-de-progreso";
 import {
@@ -101,7 +102,7 @@ export function TarjetaDelRangoActual({
             </span>
             <span className={`font-mono text-[13px] font-bold ${r.cumplido ? "text-success-800" : "text-system-900"}`}>{r.textoAvance}</span>
             <span className="col-start-2 col-end-4">
-              <ProgressBar pct={r.porcentaje} tone={r.cumplido ? "ok" : "accent"} />
+              <ProgressBar pct={r.porcentaje} color={fondoDeAvance(r.cumplido ? 1 : r.porcentaje / 100)} />
             </span>
           </li>
         ))}

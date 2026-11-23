@@ -5,6 +5,7 @@
 
 import Link from "next/link";
 import ProgressBar from "@/components/ui/ProgressBar";
+import { fondoDeAvance } from "@/lib/gamificacion/color-de-avance";
 import type { MedallaCercaDeSubir } from "@/lib/gamificacion/medallas";
 import { rutaDePantalla } from "@/lib/gamificacion/pantallas-de-progreso";
 import { imagenDeMedalla } from "@/lib/gamificacion/recursos";
@@ -48,7 +49,7 @@ export default function MedallasCercaDeSubir({ medallas }: { medallas: MedallaCe
                     {nf.format(m.valor)} de {nf.format(m.umbral)}
                   </span>
                 </p>
-                <ProgressBar pct={m.porcentaje} />
+                <ProgressBar pct={m.porcentaje} color={fondoDeAvance(m.porcentaje / 100)} />
                 {m.queMide && <p className="text-[12px] text-system-600">{m.queMide}</p>}
               </div>
             </li>

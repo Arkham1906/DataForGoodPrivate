@@ -65,8 +65,6 @@
   --color-warning-800: #854d0e;
   --color-warning-900: #713f12;
   --color-warning-950: #422006;
-  /* Fuego (2026-11-20): el protector (escudo naranja con llama) y lo que tiene que ver con él: su chip en las misiones,
-   * el día protegido del calendario y su ventana. Mismos valores que --fuego-* de las celebraciones. */
   --color-fuego-50: #fff7ed;
   --color-fuego-100: #ffedd5;
   --color-fuego-200: #fed7aa;
@@ -84,13 +82,17 @@
   --color-success-800: #0a6244;
   --color-success-900: #004a31;
   --color-success-950: #002f1e;
+  --color-avance-1: #4f46e5;
+  --color-avance-2: #0284c7;
+  --color-avance-3: #0d9488;
+  --color-avance-claro-1: #a5b4fc;
+  --color-avance-claro-2: #7dd3fc;
+  --color-avance-claro-3: #5eead4;
   --radius-pill: var(--pill);
   --radius-lg: var(--r-lg);
   --font-sans: var(--font-jakarta), ui-sans-serif, sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, monospace;
-  /* Curvas de movimiento (2026-11-12, Sendero de rangos). Las de CSS (ease-out…) son demasiado blandas.
-   * salida: entradas, salidas y respuestas de la interfaz. movimiento: algo que se desplaza o late en pantalla.
-   * Generan las utilidades ease-salida y ease-movimiento. */
+  /* Curvas de movimiento (2026-11-12, Sendero de rangos).*/
   --ease-salida: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-movimiento: cubic-bezier(0.77, 0, 0.175, 1);
 }

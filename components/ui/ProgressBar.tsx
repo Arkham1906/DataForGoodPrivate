@@ -3,19 +3,21 @@
 interface ProgressBarProps {
   pct: number;
   tone?: "accent" | "ok";
+  /** Relleno CSS (color o degradado); manda sobre `tone` (2026-11-23: barras de misiones, rangos y medallas). */
+  color?: string;
   /** Muestra el porcentaje junto a la barra (2026-11-04). */
   conPorcentaje?: boolean;
 }
 
-export default function ProgressBar({ pct, tone = "accent", conPorcentaje = false }: ProgressBarProps) {
-  const fill = tone === "ok" ? "bg-success-700" : "bg-brand-600";
+export default function ProgressBar({ pct, tone = "accent", color, conPorcentaje = false }: ProgressBarProps) {
+  const fill = color ? "" : tone === "ok" ? "bg-success-700" : "bg-brand-600";
   const clamped = Math.min(Math.max(pct, 0), 100);
 
   const barra = (
     <div className="h-[7px] w-full overflow-hidden rounded-pill bg-system-100">
       <div
         className={`h-full rounded-pill ${fill}`}
-        style={{ width: `${clamped}%` }}
+        style={{ width: `${clamped}%`, ...(color ? { background: color } : {}) }}
       />
     </div>
   );

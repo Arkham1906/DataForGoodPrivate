@@ -5,6 +5,7 @@
 // Sin misiones activas en lib/datos/misiones.json, la lista queda vacía y lo dice.
 
 import Link from "next/link";
+import { colorDeAvance, fondoDeAvance } from "@/lib/gamificacion/color-de-avance";
 import ProgressBar from "@/components/ui/ProgressBar";
 import { rutaDePantalla } from "@/lib/gamificacion/pantallas-de-progreso";
 import type { MisionDeHoy, ResumenDeMisiones } from "@/lib/gamificacion/progreso-tipos";
@@ -48,11 +49,15 @@ export default function MisionesDeHoy({ misiones }: { misiones: ResumenDeMisione
                   {m.objetivo <= MAXIMO_DE_TRAMOS ? (
                     <div className="flex gap-1">
                       {Array.from({ length: m.objetivo }, (_, i) => (
-                        <span key={i} className={`h-1.5 flex-1 rounded-pill ${i < hechos ? "bg-brand-700" : "bg-white"}`} />
+                        <span
+                          key={i}
+                          className={`h-1.5 flex-1 rounded-pill ${i < hechos ? "" : "bg-white"}`}
+                          style={i < hechos ? { background: colorDeAvance(hechos / m.objetivo) } : undefined}
+                        />
                       ))}
                     </div>
                   ) : (
-                    <ProgressBar pct={(hechos / m.objetivo) * 100} />
+                    <ProgressBar pct={(hechos / m.objetivo) * 100} color={fondoDeAvance(hechos / m.objetivo)} />
                   )}
                 </div>
               </li>

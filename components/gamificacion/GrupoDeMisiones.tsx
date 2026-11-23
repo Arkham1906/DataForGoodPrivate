@@ -13,6 +13,7 @@ import type { MedidaDeMision } from "@/lib/gamificacion/misiones-reglas";
 import { TEXTOS } from "@/lib/gamificacion/textos";
 import IconoDeMision from "./IconoDeMision";
 import { GlifoDeObjeto } from "./ObjetoDeInventario";
+import { colorDeAvance, fondoDeAvance } from "@/lib/gamificacion/color-de-avance";
 
 const T = TEXTOS.misiones;
 const I = TEXTOS.inventario;
@@ -85,6 +86,9 @@ function recompensaCompletada(mision: MisionVigente): { tipo: "exp" | "potenciad
 function Mision({ mision }: { mision: MisionVigente }) {
   const { completada, objetivo, progreso } = mision;
   const hecha = completada ? recompensaCompletada(mision) : null;
+  // Paleta «azul a verde» según el avance (2026-11-23): segmentos en color plano, barra continua en degradado.
+  const fraccion = completada ? 1 : progreso / Math.max(1, objetivo);
+  const color = colorDeAvance(fraccion);
   return (
     <li className="grid grid-cols-[44px_1fr] items-start gap-3.5 border-t border-system-100 py-4 first:border-t-0">
       <IconoDeMision clave={mision.clave} completada={completada} respaldo={ICONOS[mision.mide]} />
@@ -107,11 +111,15 @@ function Mision({ mision }: { mision: MisionVigente }) {
           {objetivo <= MAXIMO_DE_TRAMOS ? (
             <div className="flex gap-1">
               {Array.from({ length: objetivo }, (_, i) => (
-                <span key={i} className={`h-2 flex-1 rounded-pill ${i >= progreso ? "bg-system-200" : completada ? "bg-success-700" : "bg-brand-600"}`} />
+                <span
+                  key={i}
+                  className={`h-2 flex-1 rounded-pill ${i >= progreso && !completada ? "bg-system-200" : ""}`}
+                  style={i < progreso || completada ? { background: color } : undefined}
+                />
               ))}
             </div>
           ) : (
-            <ProgressBar pct={(progreso / objetivo) * 100} tone={completada ? "ok" : "accent"} />
+            <ProgressBar pct={completada ? 100 : (progreso / objetivo) * 100} color={fondoDeAvance(fraccion)} />
           )}
         </div>
         {(mision.recompensa || (!completada && mision.cuenta !== "accion")) && (
