@@ -28,6 +28,7 @@ import { RACHA_PERDIDA_MINIMA_PARA_FENIX } from "./medallas";
 import { calcularRacha, diaDeRuptura, diasAProteger, sumarDias } from "./racha-reglas";
 import { PROTECTORES_ACTIVOS } from "./progreso-tipos";
 import { TEXTOS } from "./textos";
+import { rutaDePantalla } from "./pantallas-de-progreso";
 import type { CambioDeRacha } from "./celebraciones-tipos";
 
 const USUARIOS_POR_REVISION = 500;
@@ -230,7 +231,7 @@ export async function actualizarRacha(usuarioId: number | string): Promise<Cambi
       tipo: "protector_consumido",
       titulo: TEXTOS.inventario.protectorUsadoTitulo,
       mensaje: TEXTOS.inventario.protectorUsadoMensaje(dia, rachaSostenida, protectoresAntes - i - 1),
-      enlace: "/inicio",
+      enlace: rutaDePantalla("resumen") ?? "progreso",
       metadata: { dia },
     });
   }
@@ -243,7 +244,7 @@ export async function actualizarRacha(usuarioId: number | string): Promise<Cambi
       titulo: "Tu racha se interrumpió",
       mensaje: `Tu racha de ${diasPerdidos} ${diasPerdidos === 1 ? "día" : "días"} terminó. Tu rango y tus medallas no cambian.`,
       // El calendario de la racha está en Inicio (2026-11-12: el Resumen de /progreso se eliminó).
-      enlace: "/inicio",
+      enlace: rutaDePantalla("resumen") ?? "/progreso",
     });
   }
   return celebracion;

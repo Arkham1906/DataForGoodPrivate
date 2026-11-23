@@ -27,17 +27,13 @@ import { exigirUsuario, marcarBienvenidaVista } from "@/lib/session";
 import { ahoraEnZona, ZONA_DE_CAMPANAS } from "@/lib/fecha-de-tepic";
 import { obtenerResumenDeInicio } from "@/lib/usuarios/inicio";
 import { obtenerResumenDeProgreso } from "@/lib/gamificacion/progreso";
-import { obtenerMedallasCercaDeSubir } from "@/lib/gamificacion/mi-progreso";
 import { zonaDetectadaDe } from "@/lib/ubicacion/zona-detectada";
 import CampanasParaTi from "@/components/campanas/CampanasParaTi";
 import EstrellasDeCalificacion from "@/components/aportes/EstrellasDeCalificacion";
 import BotonCrearCampana from "@/components/campanas/BotonCrearCampana";
-import AvisoSinTematicas from "@/components/campanas/AvisoSinTematicas";
-import ResumenDeRango from "@/components/gamificacion/ResumenDeRango";
-import ResumenDeHoy from "@/components/gamificacion/ResumenDeHoy";
-import CalendarioDeRacha from "@/components/gamificacion/CalendarioDeRacha";
-import MedallasCercaDeSubir from "@/components/gamificacion/MedallasCercaDeSubir";
+import AvisoSinTematicas from "@/components/campanas/AvisoSinTematicas"; 
 import { rutaDePantalla } from "@/lib/gamificacion/pantallas-de-progreso";
+import RangoCompacto from "@/components/gamificacion/RangoCompacto";
 
 export const metadata: Metadata = { title: "Inicio" };
 
@@ -72,12 +68,11 @@ export default async function InicioPage() {
   const usuario = await exigirUsuario();
   const mostrarBienvenida = !usuario.bienvenida_vista && (await marcarBienvenidaVista(usuario.id));
   const zona = await zonaDetectadaDe(Number(usuario.id)).catch(() => null);
-  const [resumen, progreso, medallasCerca] = await Promise.all([
+  const [resumen, progreso] = await Promise.all([
     obtenerResumenDeInicio(usuario, zona),
     obtenerResumenDeProgreso(usuario.id),
-    obtenerMedallasCercaDeSubir(usuario.id),
   ]);
-  const trayectoria = rutaDePantalla("trayectoria") ?? "/progreso";
+  const miProgreso = rutaDePantalla("resumen") ?? "/progreso";
   const conParaTi = usuario.intereses.length > 0 || Boolean(usuario.state?.trim()) || zona !== null;
   const { aportes, campanas } = resumen;
   // Va debajo del título de "Campañas para ti" (2026-11-13); sin nada "para ti", con "Ahora no" queda una línea para
@@ -110,19 +105,14 @@ export default async function InicioPage() {
       </div>
 
       {progreso ? (
-        <>
-          <ResumenDeRango progreso={progreso} enlaces={{ trayectoria }} idDelTitulo="inicio-rango" />
-          <ResumenDeHoy progreso={progreso} accionDeRacha={<CalendarioDeRacha racha={progreso.racha} />} />
-          {medallasCerca && medallasCerca.length > 0 && <MedallasCercaDeSubir medallas={medallasCerca} />}
-        </>
+        <RangoCompacto progreso={progreso} enlace={miProgreso} idDelTitulo="inicio-rango"/>
       ) : (
-        // Sin datos de progreso (cuenta recién creada o un fallo al leerlos): Mi progreso no tiene otra entrada.
         <Card className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-extrabold text-system-900">Tu progreso</h2>
-            <p className="text-[13px] text-system-600">Tu rango, tus misiones y tu racha están en Mi progreso.</p>
+            <p className="text-[13px] text-system-600">Tu rango, tus misiones y racha estan en Mi progreso</p>
           </div>
-          <ButtonLink href={trayectoria} variant="secondary" size="sm">
+          <ButtonLink href={miProgreso} variant="secondary" size="sm">
             Ver tu progreso
           </ButtonLink>
         </Card>
