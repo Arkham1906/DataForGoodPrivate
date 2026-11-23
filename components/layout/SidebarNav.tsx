@@ -20,6 +20,8 @@ import {
 import { claseDeOpcionMarcada, useIndicadorDeMenu } from "@/components/ui/useIndicadorDeMenu";
 import type { SessionUser } from "@/lib/session";
 import AvisoDelMenu, { type AvisoDelMenu as AvisoDelMenuTipo } from "@/components/layout/AvisoDelMenu";
+import PotenciadorDelMenu from "@/components/gamificacion/PotenciadorDelMenu";
+import type { ResumenDePotenciadores } from "@/lib/gamificacion/progreso-tipos";
 
 type Opcion = {
   href: string;
@@ -46,7 +48,16 @@ const NAV_ITEMS: Opcion[] = [
 
 // Sin contador de reportes junto a "Supervisión" (2026-10-15, a pedido del usuario): cada reporte llega
 // como notificación a la campana (lib/notificaciones/avisos-a-supervisores.ts).
-export default function SidebarNav({ usuario, aviso }: { usuario: SessionUser; aviso: AvisoDelMenuTipo }) {
+export default function SidebarNav({
+  usuario,
+  aviso,
+  potenciadores,
+}: {
+  usuario: SessionUser;
+  aviso: AvisoDelMenuTipo;
+  /** Potenciador activo, debajo del aviso (2026-11-23); null si no hay datos de progreso. */
+  potenciadores: ResumenDePotenciadores | null;
+}) {
   const pathname = usePathname();
   const roles = Array.isArray(usuario.role) ? usuario.role : [];
 
@@ -102,6 +113,7 @@ export default function SidebarNav({ usuario, aviso }: { usuario: SessionUser; a
       {/* Nota, no botón: fondo claro y franja lateral para no confundirse con la opción activa del menú. */}
       {/* "Tu siguiente paso" (2026-11-10): lo calcula ShellDeUsuario con lib/usuarios/aviso-del-menu.ts. */}
       <AvisoDelMenu aviso={aviso} className="mt-6" />
+      <PotenciadorDelMenu potenciadores={potenciadores} />
     </aside>
   );
 }

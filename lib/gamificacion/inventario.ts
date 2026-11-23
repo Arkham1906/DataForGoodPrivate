@@ -20,7 +20,7 @@
 import type { PoolClient } from "pg";
 import { pool } from "@/lib/db";
 import { notificar } from "@/lib/notificaciones/notificaciones";
-import { MAXIMO_DE_POTENCIADORES_EN_ESPERA, MAXIMO_DE_PROTECTORES } from "./progreso-tipos";
+import { MAXIMO_DE_POTENCIADORES_EN_ESPERA, MAXIMO_DE_PROTECTORES, type ResumenDePotenciadores } from "./progreso-tipos";
 import { DIFICILES_DEL_CATALOGO } from "./catalogos";
 import { OBJETOS_DE_MISION, recompensaDesde, semillaDelObjeto, sortearObjeto, type ObjetoDeMision } from "./misiones-reglas";
 import type { ObjetoPorDecidir } from "./celebraciones-tipos";
@@ -67,6 +67,50 @@ export async function mantenerPotenciadores(client: Consulta, usuarioId: number 
       [usuarioId],
     );
     if (rows.length === 0) return;
+  }
+}
+
+/** El activo (con los segundos del reloj de la base, RNF-GAM-12) y cuántos esperan. Lo usan el progreso y el menú. */
+export async function leerPotenciadores(client: Consulta, usuarioId: number | string): Promise<ResumenDePotenciadores> {
+  const { rows } = await client.query<{ estado: string; bonificacion: number; duracion_minutos: number; segundos: number | null }>(
+    `SELECT estado, bonificacion::float8 AS bonificacion, duracion_minutos,
+            CASE WHEN estado = 'activo' THEN GREATEST(0, EXTRACT(EPOCH FROM (vence_en - NOW())))::int END AS segundos
+     FROM potenciadores
+     WHERE usuario_id = $1 AND estado IN ('activo', 'espera', 'guardado')`,
+    [usuarioId],
+  );
+  const activo = rows.find((f) => f.estado === "activo" && (f.segundos ?? 0) > 0);
+  return {
+    activo: activo
+      ? { bonificacion: activo.bonificacion, duracionMinutos: activo.duracion_minutos, segundosRestantes: activo.segundos ?? 0 }
+      : null,
+    enEspera: rows.filter((f) => f.estado === "espera" || f.estado === "guardado").length,
+  };
+}
+
+/**
+ * Potenciadores para el menú lateral (2026-11-23): mantiene la cola como presente (la persona tiene la app abierta) y
+ * los lee. null si no tiene progreso o algo falla: el menú simplemente no los muestra.
+ */
+export async function obtenerPotenciadores(usuarioId: number | string): Promise<ResumenDePotenciadores | null> {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const bloqueo = await client.query(`SELECT 1 FROM usuario_progreso WHERE usuario_id = $1 FOR UPDATE`, [usuarioId]);
+    if (bloqueo.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return null;
+    }
+    await mantenerPotenciadores(client, usuarioId, true);
+    const potenciadores = await leerPotenciadores(client, usuarioId);
+    await client.query("COMMIT");
+    return potenciadores;
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error(`Error leyendo los potenciadores del usuario ${usuarioId}`, error);
+    return null;
+  } finally {
+    client.release();
   }
 }
 

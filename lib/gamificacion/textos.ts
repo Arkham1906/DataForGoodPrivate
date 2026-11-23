@@ -441,6 +441,23 @@ export const TEXTOS = {
     },
   },
 
+  /** Potenciador en el menú lateral y en la burbuja de teléfono*/
+  potenciadorFlotante: {
+    titulo: "Potenciador activo",
+    suma: (bonificacion: number) => `+${d(bonificacion)} a lo que envíes ahora.`,
+    enEspera: (cuantos: number) => (cuantos === 1 ? "1 más en espera." : `${n(cuantos)} más en espera.`),
+    reloj: (segundos: number) => `${Math.floor(segundos / 60)}:${String(segundos % 60).padStart(2, "0")}`,
+    quedan: (segundos: number) => {
+      const min = Math.floor(segundos / 60);
+      const seg = segundos % 60;
+      return `Quedan ${n(min)} ${min === 1 ? "minuto" : "minutos"} y ${n(seg)} ${seg === 1 ? "segundo" : "segundos"}`;
+    },
+    burbuja: (segundos: number) =>
+      `Potenciador activo. Quedan ${n(Math.floor(segundos / 60))} min ${n(segundos % 60)} s. Toca para ver el detalle.`,
+    mover: "Mantén presionada la burbuja y arrástrala para moverla.",
+    cerrar: "Cerrar",
+  },
+
   /** Pestaña Resumen de «Mi progreso» (2026-11-23; lienzo «Resumen e Inicio compacto», aprobado el mismo día). */
   resumen: {
     rango: (actual: number, total: number) => `Rango ${n(actual)} de ${n(total)}`,
@@ -478,7 +495,6 @@ export const TEXTOS = {
       dificil: "Difícil",
       verTodas: "Ver todas tus misiones →",
     },
-    medalla: "Tu medalla más cerca de subir",
     exp: {
       titulo: "EXP reciente",
       vacio: "Aún no tienes movimientos de EXP. Llegan cuando se acepta un aporte o completas una misión.",

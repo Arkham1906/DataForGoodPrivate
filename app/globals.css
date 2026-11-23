@@ -909,6 +909,23 @@ input::-ms-clear {
   }
 }
 
+/* Potenciador del menú lateral y burbuja entra con desvanecido y escala; con movimiento reducido, solo
+   desvanecido. */
+.potenciador-entra {
+  animation: potenciador-entra 220ms var(--ease-salida) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .potenciador-entra {
+    animation: cel-aparecer 160ms ease both;
+  }
+}
+@keyframes potenciador-entra {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
+
 @keyframes cel-aparecer {
   from {
     opacity: 0;

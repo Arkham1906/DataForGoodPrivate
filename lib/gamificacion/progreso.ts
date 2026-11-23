@@ -16,7 +16,7 @@ import { hoyEnTepic } from "@/lib/fecha-de-tepic";
 import { asegurarMisionesVigentes } from "./misiones";
 import { evaluarProgresoDe } from "./evaluacion";
 import { recompensaDesde, textoDeRecompensa } from "./misiones-reglas";
-import { entregarObjetosDeMisiones } from "./inventario";
+import { entregarObjetosDeMisiones, leerPotenciadores } from "./inventario";
 import { textoDeTiempoRestante } from "./misiones";
 import type {
   DiaDeRacha,
@@ -108,7 +108,7 @@ export async function obtenerResumenDeProgreso(usuarioId: number | string): Prom
     // La persona está viendo su progreso: vence o activa potenciadores y entrega los objetos que ya caben (2026-11-19).
     await entregarObjetosDeMisiones(usuarioId, { presente: true });
     const hoy = hoyEnTepic();
-    const [progresoR, rangosR, ascensosR, potenciadoresR, misionesR, rachaR] = await Promise.all([
+    const [progresoR, rangosR, ascensosR, potenciadores, misionesR, rachaR] = await Promise.all([
       pool.query<FilaDeProgreso>(
         `SELECT p.rango_actual, p.exp_total, p.aportes_aceptados, p.aportes_excelentes, p.aportes_excepcionales,
                 p.misiones_completadas, p.racha_actual, p.racha_maxima, p.protectores,
@@ -136,13 +136,7 @@ export async function obtenerResumenDeProgreso(usuarioId: number | string): Prom
         [usuarioId],
       ),
       // Los segundos salen del reloj de la base (RNF-GAM-12), no del navegador.
-      pool.query<{ estado: string; bonificacion: number; duracion_minutos: number; segundos: number | null }>(
-        `SELECT estado, bonificacion::float8 AS bonificacion, duracion_minutos,
-                CASE WHEN estado = 'activo' THEN GREATEST(0, EXTRACT(EPOCH FROM (vence_en - NOW())))::int END AS segundos
-         FROM potenciadores
-         WHERE usuario_id = $1 AND estado IN ('activo', 'espera', 'guardado')`,
-        [usuarioId],
-      ),
+      leerPotenciadores(pool, usuarioId),
       pool.query<{
         id: string;
         nombre: string;
@@ -247,7 +241,6 @@ export async function obtenerResumenDeProgreso(usuarioId: number | string): Prom
       }
     }
 
-    const activoFila = potenciadoresR.rows.find((f) => f.estado === "activo" && (f.segundos ?? 0) > 0);
     const faltan = misionesR.rows[0]?.renueva_en_segundos;
     const misiones: MisionDeHoy[] = misionesR.rows.map((m) => ({
       id: m.id,
@@ -267,16 +260,7 @@ export async function obtenerResumenDeProgreso(usuarioId: number | string): Prom
       etapaDelAvatar: filaActual.etapa_avatar ?? actual,
       siguiente,
       fichas,
-      potenciadores: {
-        activo: activoFila
-          ? {
-              bonificacion: activoFila.bonificacion,
-              duracionMinutos: activoFila.duracion_minutos,
-              segundosRestantes: activoFila.segundos ?? 0,
-            }
-          : null,
-        enEspera: potenciadoresR.rows.filter((f) => f.estado === "espera" || f.estado === "guardado").length,
-      },
+      potenciadores,
       misiones: { diarias: misiones, seRenuevanA: faltan == null ? null : textoDeTiempoRestante(faltan * 1000), },
       racha: {
         actual: p.racha_actual,

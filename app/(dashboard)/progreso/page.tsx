@@ -1,9 +1,9 @@
 // Pantalla /progreso, pestaña Resumen de «Mi progreso» (2026-11-23; pedido del Dr., lienzo «Resumen e Inicio compacto»
 // aprobado el mismo día). Del 12 al 23 nov esta ruta redirigía a Trayectoria (hoy «Progreso»); vuelve a ser la entrada.
 // Cada dato se ve completo en una sola pestaña; aquí va su versión corta con el enlace:
-// rango en una fila (requisitos en Progreso) · cifras · a la izquierda, las 2 misiones más cerca de completarse (todas en
-// Misiones) y la EXP reciente (Historial); a la derecha, racha con protectores y calendario, potenciador y la medalla
-// más cerca de subir (todas en Medallas). Dos columnas de alto parecido.
+// rango en una fila (requisitos en Progreso) · cifras · las 2 misiones más cerca de completarse (todas en Misiones) junto
+// a la racha con protectores y calendario · EXP reciente (Historial). Sin medalla ni potenciador (2026-11-23, decisión
+// del responsable): la medalla sobresalía y el potenciador pasó al menú lateral.
 // Server Component. Acceso: sesión de usuario. Solo lectura. Datos: obtenerResumenDeProgreso(), obtenerMisiones(),
 // obtenerPantallaDeMedallas() y obtenerHistorialDeExp(), los mismos de cada pestaña. Si falla uno, su bloque lo dice
 // y los demás siguen; sin el progreso no hay pantalla.
@@ -22,8 +22,6 @@ import RangoCompacto from "@/components/gamificacion/RangoCompacto";
 import MisionesDelResumen from "@/components/gamificacion/MisionesDelResumen";
 import RachaSemanal from "@/components/gamificacion/RachaSemanal";
 import CalendarioDeRacha from "@/components/gamificacion/CalendarioDeRacha";
-import PotenciadorActivo from "@/components/gamificacion/PotenciadorActivo";
-import MedallasCercaDeSubir from "@/components/gamificacion/MedallasCercaDeSubir";
 import ExpReciente from "@/components/gamificacion/ExpReciente";
 
 export const metadata: Metadata = { title: "Mi progreso" };
@@ -84,29 +82,22 @@ export default async function ResumenPage() {
         />
       </section>
 
-      <div className="grid items-start gap-5 lg:grid-cols-[1.45fr_1fr]">
-        <div className="flex min-w-0 flex-col gap-5">
-          {misiones ? (
-            <MisionesDelResumen diarias={misiones.diarias} semanales={misiones.semanales} enlace={rutas.misiones} />
-          ) : (
-            <Aviso que="tus misiones" />
-          )}
-          {historial ? (
-            <ExpReciente movimientos={historial.pagina.movimientos.slice(0, MOVIMIENTOS_RECIENTES)} enlace={rutas.historial} />
-          ) : (
-            <Aviso que="tu EXP" />
-          )}
-        </div>
-        <div className="flex min-w-0 flex-col gap-5">
-          <div className={TARJETA}>
-            <RachaSemanal racha={progreso.racha} accion={<CalendarioDeRacha racha={progreso.racha} />} />
-          </div>
-          <div className={TARJETA}>
-            <PotenciadorActivo potenciadores={progreso.potenciadores} />
-          </div>
-          {medallas ? <MedallasCercaDeSubir medallas={medallas.cerca.slice(0, 1)} titulo={T.medalla} /> : <Aviso que="tus medallas" />}
+      <div className="grid gap-5 lg:grid-cols-[1.45fr_1fr]">
+        {misiones ? (
+          <MisionesDelResumen diarias={misiones.diarias} semanales={misiones.semanales} enlace={rutas.misiones} />
+        ) : (
+          <Aviso que="tus misiones" />
+        )}
+        <div className={TARJETA}>
+          <RachaSemanal racha={progreso.racha} accion={<CalendarioDeRacha racha={progreso.racha} />} />
         </div>
       </div>
+
+      {historial ? (
+        <ExpReciente movimientos={historial.pagina.movimientos.slice(0, MOVIMIENTOS_RECIENTES)} enlace={rutas.historial} />
+      ) : (
+        <Aviso que="tu EXP" />
+      )}
     </div>
   );
 }
