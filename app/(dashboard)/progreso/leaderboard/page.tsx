@@ -30,7 +30,7 @@ import {
 import { exigirUsuario } from "@/lib/session";
 
 export const metadata: Metadata = {
-    title: "Tabla de líderes",
+    title: "Clasificación global",
     description: "Las personas que más aportan a la comunidad de DataForGood: por aportes, por rango o por temática.",
 };
 
@@ -81,7 +81,7 @@ export default async function LideresPage({ searchParams }: { searchParams: Prom
         <div>
             {/* h2: el h1 «Mi progreso» ya lo pone ../layout.tsx. */}
             <div className="text-center">
-            <h2 className="text-xl font-semibold text-system-900">Tabla de líderes</h2>
+            <h2 className="text-xl font-semibold text-system-900">Clasificación global</h2>
             <p className="mt-1 text-[13px] text-system-600">
                 Quienes más aportan a la comunidad.{" "}
                 {categoria === "rango"

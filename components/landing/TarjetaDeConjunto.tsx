@@ -1,8 +1,9 @@
-// Tarjeta horizontal de un conjunto de datos abiertos (2026-11-06), con portada de color y la temática encima.
+// Tarjeta horizontal de un conjunto de datos abiertos, con el banner de la campaña y su temática encima.
 // La usan la landing y /datos; `detalle` agrega lo que solo importa al comparar en el catálogo: verificado,
 // fecha de cierre y lugar. Server Component: recibe el conjunto ya armado por lib/open-data.ts.
 
 import Link from "next/link";
+import { BASE_PATH } from "@/lib/base-path";
 import Tag from "@/components/ui/Tag";
 import { textoDeUbicacion } from "@/lib/campanas/ubicacion";
 import { DATA_TYPE_LABELS, type OpenDataset } from "@/lib/open-data";
@@ -36,8 +37,20 @@ export default function TarjetaDeConjunto({
       href={`/datos/${c.id}`}
       className="landing-tarjeta grid h-full grid-cols-[96px_1fr] overflow-hidden rounded-[18px] border border-system-200 bg-white hover:border-brand-600 sm:grid-cols-[170px_1fr]"
     >
-      <div className={`flex items-end bg-gradient-to-br p-3 ${PORTADAS[indice % PORTADAS.length]}`}>
-        <span className="font-mono text-[11.5px] leading-snug text-white">{c.tematica || "Sin temática"}</span>
+      <div className={`relative flex min-h-36 items-end overflow-hidden bg-gradient-to-br p-3 ${PORTADAS[indice % PORTADAS.length]}`}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={`${BASE_PATH}/api/campanas/${c.id}/banner?v=${encodeURIComponent(c.bannerVersion ?? "")}`}
+          alt=""
+          loading="lazy"
+          className="absolute inset-0 h-full w-full object-cover"
+          style={{
+            objectPosition: `${c.bannerPositionX ?? 50}% ${c.bannerPositionY ?? 50}%`,
+            transform: `scale(${c.bannerScale ?? 1})`,
+          }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+        <span className="relative font-mono text-[11.5px] leading-snug text-white">{c.tematica || "Sin temática"}</span>
       </div>
       <div className="flex min-w-0 flex-col p-4">
         <p className="truncate text-[12.5px] text-system-600">

@@ -9,6 +9,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import ProgressBar from "@/components/ui/ProgressBar";
 import Tag from "@/components/ui/Tag";
 import BarraDeFiltros, { type ValoresDeFiltros } from "@/components/campanas/BarraDeFiltros";
 import SelectorDeVistaCampanas from "@/components/campanas/SelectorDeVistaCampanas";
@@ -188,18 +189,23 @@ export default function ListaDeSupervision() {
     [flaggedCampaigns, filtros]
   );
 
-  const renderPendingList = () => filteredPendingCampaigns.length === 0 ? (
+  const renderCampaignList = (items: CampaignApiItem[], total: number, vacio: string) => items.length === 0 ? (
     <div className="rounded-lg border border-system-200 bg-white p-5 text-[13px] text-system-600">
-      {avisoSinResultados(pendingCampaigns.length, "No hay campañas pendientes por revisar.")}
+      {avisoSinResultados(total, vacio)}
     </div>
   ) : (
     <SelectorDeVistaCampanas
       toolbar={<span className="text-[12px] text-system-500">Vista</span>}
       persistKey="dfg:supervision:campanas:vista"
-      renderChildren={(vistaCuadricula) => filteredPendingCampaigns.map((campaign) => {
-        const etiquetaDeEstado = campaign.supervisorId
-          ? <Tag tone="ok">La supervisas tú</Tag>
-          : <Tag tone="warn">Disponible</Tag>;
+      renderChildren={(vistaCuadricula) => items.map((campaign) => {
+        const etiquetaDeEstado = activeTab === "pending"
+          ? campaign.supervisorId ? <Tag tone="ok">La supervisas tú</Tag> : <Tag tone="warn">Disponible</Tag>
+          : activeTab === "supervised"
+            ? <Tag tone={campaign.status === "activa" ? "ok" : "warn"}>{campaign.status === "activa" ? "Activa" : "Aceptada"}</Tag>
+            : activeTab === "flagged"
+              ? <Tag tone={campaign.latestSupervisionAction === "reportada" ? "warn" : "danger"}>{campaign.latestSupervisionAction === "reportada" ? "Reportada" : "Rechazada"}</Tag>
+              : <Tag>Finalizada</Tag>;
+        const datosPorDecidir = activeTab === "finished" && campaign.datosAbiertos?.estado === "pendiente";
         const ubicacion = textoDeUbicacion({
           todoElPais: campaign.todoElPais,
           municipio: campaign.locationCity,
@@ -218,7 +224,7 @@ export default function ListaDeSupervision() {
               <>
                 <div className="mb-1.5 flex flex-wrap items-start justify-between gap-3">
                   <h2 className="text-[15px] font-extrabold text-system-900">{campaign.name}</h2>
-                  {etiquetaDeEstado}
+                  <div className="flex flex-wrap gap-1.5">{etiquetaDeEstado}{datosPorDecidir && <Tag tone="warn">Datos por decidir</Tag>}</div>
                 </div>
                 {campaign.hasBanner && (
                   <div data-campana-banner className="mt-3 aspect-[4/3] overflow-hidden rounded-lg bg-system-100">
@@ -235,6 +241,7 @@ export default function ListaDeSupervision() {
                 <p className="text-[12.5px] text-system-500">
                   {(campaign.creatorName || "Usuario")} · {(campaign.tag || campaign.tematica || "Sin temática")} · meta {Number(campaign.goalContributions ?? 0)} aportes
                 </p>
+                {activeTab === "supervised" && <div className="mt-3"><ProgressBar pct={porcentajeDeMeta(Number(campaign.approvedContributions ?? 0), Number(campaign.goalContributions ?? 0))} tone="ok" /><p className="mt-2 text-[11px] text-system-600">{campaign.approvedContributions ?? 0} / {campaign.goalContributions ?? 0} aportes aprobados · {campaign.participants ?? 0} participantes</p></div>}
               </>
             ) : (
               <>
@@ -255,6 +262,7 @@ export default function ListaDeSupervision() {
                   )}
                   <div className="min-w-0">
                     <h2 className="min-w-0 break-words text-[15px] font-extrabold text-system-900">{campaign.name}</h2>
+                    {activeTab !== "pending" && <div className="mt-1 flex flex-wrap gap-1.5">{etiquetaDeEstado}{datosPorDecidir && <Tag tone="warn">Datos por decidir</Tag>}</div>}
                     {(campaign.tag || campaign.tematica) && (
                       <div className="mt-2">
                         <Tag tone="ok" className="max-w-full truncate whitespace-nowrap">{campaign.tag || campaign.tematica}</Tag>
@@ -273,6 +281,7 @@ export default function ListaDeSupervision() {
                 <div className="min-w-0 text-[11px] text-system-600">
                   <p className="font-semibold text-system-700">Meta total:</p>
                   <p className="font-mono">{Number(campaign.goalContributions ?? 0).toLocaleString("es-MX")} aportes</p>
+                  {activeTab === "supervised" && <p className="mt-1">{campaign.approvedContributions ?? 0} aprobados · {campaign.participants ?? 0} participantes</p>}
                 </div>
                 <div className="min-w-0">
                   <p className="mb-1 text-[11px] font-semibold text-system-700">Tipo de dato:</p>
@@ -288,118 +297,6 @@ export default function ListaDeSupervision() {
         );
       })}
     />
-  );
-
-  const renderSupervisedList = () => (
-    <div className="overflow-hidden rounded-lg border border-system-200 bg-white shadow-sm">
-      <div className="flex items-center justify-between border-b border-system-200 bg-system-100 px-4 py-3">
-        <p className="text-[13px] font-semibold text-system-900">Campañas que estás supervisando</p>
-        <Tag tone="ok">{supervisedCount}</Tag>
-      </div>
-
-      {filteredSupervisedCampaigns.length === 0 ? (
-        <div className="p-5 text-[13px] text-system-600">{avisoSinResultados(supervisedCampaigns.length, "Todavía no tienes campañas aceptadas bajo supervisión.")}</div>
-      ) : (
-        <div className="divide-y divide-system-200">
-          {filteredSupervisedCampaigns.map((campaign) => {
-            const progress = Number(campaign.goalContributions ?? 0) > 0
-              ? `${Number(campaign.approvedContributions ?? 0)} / ${Number(campaign.goalContributions ?? 0)}`
-              : "0 / 0";
-            const percent = `${porcentajeDeMeta(Number(campaign.approvedContributions ?? 0), Number(campaign.goalContributions ?? 0))}%`;
-
-            return (
-              <div key={campaign.id} className="p-4">
-                <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h2 className="text-[15px] font-extrabold text-system-900">{campaign.name}</h2>
-                    <p className="text-[12.5px] text-system-500">{campaign.tag || campaign.tematica || "Sin temática"}</p>
-                  </div>
-                  <Tag tone={campaign.status === "activa" ? "ok" : "warn"}>{campaign.status === "activa" ? "Activa" : "Aceptada"}</Tag>
-                </div>
-
-                <div className="flex items-center justify-between gap-4 text-[12px] text-system-600">
-                  <span>Progreso</span>
-                  <span className="font-mono">{progress}</span>
-                </div>
-
-                <div className="mt-2 h-2 overflow-hidden rounded-pill bg-system-100">
-                  <div className="h-full rounded-pill bg-success-700" style={{ width: percent }} />
-                </div>
-
-                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[12px] text-system-600">
-                  <span>{Number(campaign.participants ?? 0)} participantes</span>
-                  <Link href={`/supervision/${campaign.id}`} className="font-bold text-brand-600">Ver detalle</Link>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-
-  const renderFlaggedList = () => (
-    <div className="overflow-hidden rounded-lg border border-system-200 bg-white shadow-sm">
-      <div className="flex items-center justify-between border-b border-system-200 bg-system-100 px-4 py-3">
-        <p className="text-[13px] font-semibold text-system-900">Campañas reportadas o rechazadas</p>
-        <Tag tone="danger">{flaggedCount}</Tag>
-      </div>
-
-      {filteredFlaggedCampaigns.length === 0 ? (
-        <div className="p-5 text-[13px] text-system-600">{avisoSinResultados(flaggedCampaigns.length, "No tienes campañas reportadas o rechazadas.")}</div>
-      ) : (
-        <div className="divide-y divide-system-200">
-          {filteredFlaggedCampaigns.map((campaign) => {
-            const isReported = campaign.latestSupervisionAction === "reportada";
-            return (
-              <div key={campaign.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
-                <div>
-                  <h2 className="text-[15px] font-extrabold text-system-900">{campaign.name}</h2>
-                  <p className="text-[12.5px] text-system-500">
-                    {campaign.creatorName || "Usuario"} · {campaign.tag || campaign.tematica || "Sin temática"}
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Tag tone={isReported ? "warn" : "danger"}>{isReported ? "Reportada" : "Rechazada"}</Tag>
-                  <Link href={`/supervision/${campaign.id}`} className="font-bold text-brand-600">Ver detalle</Link>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-
-  const renderFinishedList = () => (
-    <div className="overflow-hidden rounded-lg border border-system-200 bg-white shadow-sm">
-      <div className="flex items-center justify-between border-b border-system-200 bg-system-100 px-4 py-3">
-        <p className="text-[13px] font-semibold text-system-900">Campañas finalizadas</p>
-        <Tag>{finishedCount}</Tag>
-      </div>
-
-      {filteredFinishedCampaigns.length === 0 ? (
-        <div className="p-5 text-[13px] text-system-600">{avisoSinResultados(finishedCampaigns.length, "Todavía no tienes campañas finalizadas.")}</div>
-      ) : (
-        <div className="divide-y divide-system-200">
-          {filteredFinishedCampaigns.map((campaign) => (
-            <div key={campaign.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
-              <div>
-                <h2 className="text-[15px] font-extrabold text-system-900">{campaign.name}</h2>
-                <p className="text-[12.5px] text-system-500">
-                  {campaign.creatorName || "Usuario"} · {campaign.tag || campaign.tematica || "Sin temática"}
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                {campaign.datosAbiertos?.estado === "pendiente" && <Tag tone="warn">Datos por decidir</Tag>}
-                <Tag>Finalizada</Tag>
-                <Link href={`/supervision/${campaign.id}`} className="font-bold text-brand-600">Ver detalle</Link>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
   );
 
   if (loading) {
@@ -434,7 +331,13 @@ export default function ListaDeSupervision() {
         colapsableEnMovil
       />
 
-      {activeTab === "pending" ? renderPendingList() : activeTab === "supervised" ? renderSupervisedList() : activeTab === "finished" ? renderFinishedList() : renderFlaggedList()}
+      {activeTab === "pending"
+        ? renderCampaignList(filteredPendingCampaigns, pendingCampaigns.length, "No hay campañas pendientes por revisar.")
+        : activeTab === "supervised"
+          ? renderCampaignList(filteredSupervisedCampaigns, supervisedCampaigns.length, "Todavía no tienes campañas aceptadas bajo supervisión.")
+          : activeTab === "finished"
+            ? renderCampaignList(filteredFinishedCampaigns, finishedCampaigns.length, "Todavía no tienes campañas finalizadas.")
+            : renderCampaignList(filteredFlaggedCampaigns, flaggedCampaigns.length, "No tienes campañas reportadas o rechazadas.")}
     </div>
   );
 }

@@ -11,7 +11,7 @@ import PublicFooter from "@/components/layout/PublicFooter";
 import ActualizacionEnVivo from "@/components/layout/ActualizacionEnVivo";
 import ButtonLink from "@/components/ui/ButtonLink";
 import ContadorAnimado from "@/components/ui/ContadorAnimado";
-import Tag from "@/components/ui/Tag";
+import { BASE_PATH } from "@/lib/base-path";
 import FranjaDeCampo from "@/components/landing/FranjaDeCampo";
 import TarjetaDeConjunto from "@/components/landing/TarjetaDeConjunto";
 import PalabraRotativa from "@/components/landing/PalabraRotativa";
@@ -280,16 +280,24 @@ export default async function LandingPage() {
               <div className={`${ANCHO} relative flex h-full items-end justify-center pb-5 md:justify-end`}>
                 <Link
                   href={`/campanas/${campanaDestacada.id}`}
-                  className="landing-tarjeta w-full max-w-[320px] rounded-[18px] bg-white p-4 text-left shadow-sm"
+                  className="landing-tarjeta flex w-full max-w-[360px] items-center gap-3 rounded-[18px] bg-white p-3 text-left shadow-sm"
                 >
-                  <span className="flex items-center justify-between gap-2">
-                    <Tag tone="info">Campaña activa</Tag>
+                  <span className="block h-24 w-28 shrink-0 overflow-hidden rounded-lg bg-system-100">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`${BASE_PATH}/api/campanas/${campanaDestacada.id}/banner?v=${encodeURIComponent(campanaDestacada.bannerVersion ?? "")}`}
+                      alt=""
+                      className="h-full w-full object-cover"
+                      style={{ objectPosition: `${campanaDestacada.bannerPositionX ?? 50}% ${campanaDestacada.bannerPositionY ?? 50}%`, transform: `scale(${campanaDestacada.bannerScale ?? 1})` }}
+                    />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block line-clamp-2 text-[14.5px] font-medium text-system-900">{campanaDestacada.name}</span>
+                    <span className="mt-1 block font-mono text-[12px] text-system-500">Creada el {campanaDestacada.creada}</span>
                     {campanaDestacada.cierre && (
-                      <span className="font-mono text-[12px] text-system-500">Cierra el {campanaDestacada.cierre}</span>
+                      <span className="mt-1 block font-mono text-[12px] text-system-500">Cierra el {campanaDestacada.cierre}</span>
                     )}
                   </span>
-                  <span className="mt-2.5 block truncate text-[14.5px] font-medium text-system-900">{campanaDestacada.name}</span>
-                  <span className="mt-1 block font-mono text-[12px] text-system-500">Creada el {campanaDestacada.creada}</span>
                 </Link>
               </div>
             )}

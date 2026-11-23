@@ -211,6 +211,7 @@ function Invitacion({
   );
 
   const datosDelAporte = {
+    campanaId: String(campana.id),
     urlDeEnvio,
     secciones: campana.secciones,
     tipos: tiposDentroDeSuCuota(

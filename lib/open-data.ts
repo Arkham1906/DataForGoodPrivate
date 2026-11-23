@@ -5,6 +5,7 @@ import type { DataType } from "@/types";
 import { quienOrganiza } from "@/lib/campanas/organizacion";
 import { textoDelProposito } from "@/lib/campanas/proposito";
 import { sqlDatosPublicados } from "@/lib/campanas/datos-abiertos";
+import { camposDelBanner } from "@/lib/campanas/banner-predeterminado";
 
 /**
  * Un "conjunto de datos abierto" es una campaña terminada que la supervisión
@@ -15,6 +16,10 @@ import { sqlDatosPublicados } from "@/lib/campanas/datos-abiertos";
  * toma los aportes aceptados de la campaña tal como están hoy en la BD.
  */
 export interface OpenDataset {
+  bannerVersion?: string;
+  bannerScale: number;
+  bannerPositionX: number;
+  bannerPositionY: number;
   id: string;
   name: string;
   description: string;
@@ -111,6 +116,7 @@ export interface OpenDataFilters {
 const SELECT = `
   SELECT c.id, c.name, c.description, c.tematica, c.tag, c.proposito, c.proposito_otro, ${columnaDeTipos("c")},
          est.approved_contributions,
+         c.banner_path, c.updated_at, c.banner_scale, c.banner_position_x, c.banner_position_y,
          c.location_city, c.location_state, c.todo_el_pais, c.organizer, c.creator_name,
          c.end_date, c.supervisor_id, c.supervisado_por_root, est.downloads_count,
          COALESCE(f.size_bytes, 0) AS size_bytes,
@@ -132,6 +138,7 @@ function mapDataset(row: Record<string, unknown>): OpenDataset {
   const sizeBytes = Number(row.size_bytes ?? 0);
 
   return {
+    ...camposDelBanner(row),
     id: String(row.id ?? ""),
     name: String(row.name ?? ""),
     description: String(row.description ?? ""),

@@ -43,6 +43,7 @@ export default function SelectorDeArchivo({
   className = "",
   compactoEnEscritorio = false,
   amplio = false,
+  mostrarAyudaSoloTexto = true,
 }: {
   tipos: TipoDeArchivo[];
   /** Formatos de "Archivo" que acepta la campaña (2026-10-28); [] = todos. */
@@ -58,6 +59,7 @@ export default function SelectorDeArchivo({
   compactoEnEscritorio?: boolean;
   /** Vista grande con vista previa y arrastrar y soltar (pantalla de aportar con cuenta). */
   amplio?: boolean;
+  mostrarAyudaSoloTexto?: boolean;
 }) {
   // Al quitar el archivo se vacía también el <input>, para poder volver a elegir el mismo.
   const [vaciado, setVaciado] = useState(0);
@@ -160,7 +162,7 @@ export default function SelectorDeArchivo({
             </span>
           </label>
         )}
-        {opcional && !archivo && (
+        {mostrarAyudaSoloTexto && opcional && !archivo && (
           <p className="mt-2 text-[12px] text-system-600">
             ¿No tienes archivo? Puedes enviar <span className="font-semibold text-system-900">solo un texto</span>: escríbelo en el siguiente paso.
           </p>

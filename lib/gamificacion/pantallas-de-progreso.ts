@@ -10,7 +10,7 @@ export const PANTALLAS_DE_PROGRESO: readonly { clave: PantallaDeProgreso; etique
   { clave: "medallas", etiqueta: "Medallas", href: "/progreso/medallas" },
   { clave: "avatar", etiqueta: "Avatar e inventario", href: null },
   { clave: "historial", etiqueta: "Historial de EXP", href: "/progreso/historial" },
-  { clave: "leaderboard", etiqueta: "Líderes", href: "/progreso/leaderboard" },
+  { clave: "leaderboard", etiqueta: "Clasificación global", href: "/progreso/leaderboard" },
 ];
 
 export function rutaDePantalla(clave: PantallaDeProgreso): string | null {

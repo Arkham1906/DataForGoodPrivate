@@ -40,6 +40,8 @@ export default function CamposDelAporte({
   onTexto,
   placeholderDescripcion = "Describe qué se ve en el contenido",
   compactoEnEscritorio = false,
+  etiquetaDescripcion = "Descripción",
+  etiquetaTexto = "Texto",
 }: {
   soloTexto: boolean;
   descripcion: string;
@@ -49,13 +51,15 @@ export default function CamposDelAporte({
   placeholderDescripcion?: string;
   /** Reduce la altura de los campos al mostrarlos junto al selector de archivo en escritorio. */
   compactoEnEscritorio?: boolean;
+  etiquetaDescripcion?: string;
+  etiquetaTexto?: string;
 }) {
   const id = useId();
 
   if (!soloTexto) {
     return (
       <>
-        <Field label="Descripción" required>
+        <Field label={etiquetaDescripcion} required>
           <Textarea
             rows={4}
             value={descripcion}
@@ -73,9 +77,6 @@ export default function CamposDelAporte({
 
   return (
     <>
-      <p className="mb-3 rounded-lg border border-system-200 bg-system-50 p-3 text-[12px] leading-5 text-system-600 lg:mb-2 lg:p-2">
-        Aporte de solo texto: ponle un título y escribe tu texto abajo. Se guarda como un archivo .txt.
-      </p>
       <Field label="Título del texto" required>
         <Input
           value={descripcion}
@@ -87,7 +88,7 @@ export default function CamposDelAporte({
         />
       </Field>
       <Contador id={`${id}-titulo`} actual={descripcion.length} maximo={LARGO_MAXIMO_TITULO_DEL_TEXTO} />
-      <Field label="Texto" required>
+      <Field label={etiquetaTexto} required>
         <Textarea
           rows={8}
           value={texto}

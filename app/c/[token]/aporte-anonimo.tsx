@@ -9,13 +9,13 @@
 // Sin cuenta no hay inscripción: las dos casillas de los acuerdos (ui/AcuerdosDeAporte) van en el
 // formulario, sin ventana (2026-10-15).
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import Button from "@/components/ui/Button";
 import ButtonLink from "@/components/ui/ButtonLink";
 import Card from "@/components/ui/Card";
 import IndicadorDeCarga from "@/components/ui/IndicadorDeCarga";
 import Paso from "@/components/aportes/PasoDelAporte";
-import { IconoInfo, IconoListo, IconoReloj } from "@/components/aportes/IconosDelAporte";
+import { IconoInfo, IconoListo, IconoReloj, IconoSubir, IconoTexto } from "@/components/aportes/IconosDelAporte";
 import VentanaDeConfirmacion from "@/components/ui/VentanaDeConfirmacion";
 import { CasillasDeAcuerdos, SIN_ACUERDOS, acuerdosCompletos, agregarAcuerdos } from "@/components/ui/AcuerdosDeAporte";
 import SelectorDeArchivo from "@/components/ui/SelectorDeArchivo";
@@ -24,8 +24,10 @@ import { archivoEsOpcional, type FormatoDeDocumento, type TipoDeArchivo } from "
 import { BASE_PATH } from "@/lib/base-path";
 import { respuestasValidas, seccionesParaElAporte, type SeccionDeChecklist } from "@/lib/campanas/checklist";
 import ChecklistsDelAporte from "@/components/aportes/ChecklistsDelAporte";
+import { hayAcuerdosPrevios, borrarAcuerdosPrevios } from "@/lib/aportes/acuerdos-previos";
 
 type Props = {
+  campanaId: string;
   /** A dónde se envía, sin BASE_PATH (2026-11-11). */
   urlDeEnvio: string;
   secciones: SeccionDeChecklist[];
@@ -43,6 +45,9 @@ type Props = {
   entrar: string;
   registro: string;
 };
+
+const suscribirAcuerdos = () => () => {};
+const sinAcuerdosEnServidor = () => false;
 
 export function BotonesDeCuenta({ entrar, registro }: { entrar: string; registro: string }) {
   return (
@@ -63,6 +68,7 @@ export function AporteAnonimoConAccesos({ children, ...props }: Props & { childr
 }
 
 export default function AporteAnonimo({
+  campanaId,
   urlDeEnvio,
   secciones,
   tipos,
@@ -79,9 +85,14 @@ export default function AporteAnonimo({
   const [archivo, setArchivo] = useState<File | null>(null);
   const [errorArchivo, setErrorArchivo] = useState<string | null>(null);
   const [descripcion, setDescripcion] = useState("");
+  const [modoTexto, setModoTexto] = useState(false);
+  const [tituloTexto, setTituloTexto] = useState("");
   const [texto, setTexto] = useState("");
   const [marcadas, setMarcadas] = useState<string[]>([]);
-  const [acuerdos, setAcuerdos] = useState(SIN_ACUERDOS);
+  const [acuerdosManuales, setAcuerdos] = useState(SIN_ACUERDOS);
+  const aceptadosAntes = useSyncExternalStore(suscribirAcuerdos,
+    () => hayAcuerdosPrevios(campanaId, "anonimo", proposito), sinAcuerdosEnServidor);
+  const acuerdos = aceptadosAntes ? { confirmaContenido: true, aceptaUso: true } : acuerdosManuales;
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [enviado, setEnviado] = useState(false);
@@ -98,9 +109,11 @@ export default function AporteAnonimo({
   }, [enEspera]);
 
   // Solo los checklists del tipo de lo que se manda (2026-10-28).
-  const { visibles, faltaArchivo } = seccionesParaElAporte(secciones, tipos, archivo);
-  // Sin archivo en una campaña que acepta texto: título + texto en vez de descripción (2026-11-11).
-  const soloTexto = !archivo && archivoEsOpcional(tipos);
+  const soloTexto = modoTexto && archivoEsOpcional(tipos);
+  const archivoActivo = soloTexto ? null : archivo;
+  const descripcionActiva = soloTexto ? tituloTexto : descripcion;
+  const archivoListo = soloTexto || (Boolean(archivoActivo) && !errorArchivo);
+  const { visibles, faltaArchivo } = seccionesParaElAporte(secciones, soloTexto ? ["texto"] : tipos.filter((tipo) => tipo !== "texto"), archivoActivo);
 
   function alternar(valor: string) {
     setMarcadas((actual) => (actual.includes(valor) ? actual.filter((v) => v !== valor) : [...actual, valor]));
@@ -113,10 +126,10 @@ export default function AporteAnonimo({
     setError(null);
     try {
       const datos = new FormData();
-      if (archivo) datos.set("file", archivo);
+      if (archivoActivo) datos.set("file", archivoActivo);
       // Solo texto (2026-11-11): description es el título y el texto va aparte; el servidor lo guarda como .txt.
       else if (soloTexto) datos.set("texto", texto);
-      datos.set("description", descripcion);
+      datos.set("description", descripcionActiva);
       // Solo lo marcado en los checklists que se ven (cambiar de archivo puede esconder alguno).
       respuestasValidas(marcadas, visibles).forEach((valor) => datos.append("caracteristicas", valor));
       agregarAcuerdos(datos, acuerdos);
@@ -139,10 +152,14 @@ export default function AporteAnonimo({
       setRestantes(Number(payload.data?.restantes ?? 0));
       setEspera(Number(payload.data?.esperaSegundos ?? 0));
       setEnviado(true);
+      borrarAcuerdosPrevios(campanaId, "anonimo");
       setConfirmacionAbierta(true);
       onAporteEnviado?.();
       setArchivo(null);
       setDescripcion("");
+      setTituloTexto("");
+      setModoTexto(false);
+      setErrorArchivo(null);
       setTexto("");
       setMarcadas([]);
       setVuelta((v) => v + 1);
@@ -180,16 +197,16 @@ export default function AporteAnonimo({
   }
 
   const puedeEnviar =
-    (Boolean(archivo) || archivoEsOpcional(tipos)) &&
-    camposDelAporteCompletos(soloTexto, descripcion, texto) &&
+    archivoListo &&
+    camposDelAporteCompletos(soloTexto, descripcionActiva, texto) &&
     acuerdosCompletos(acuerdos) &&
     !enviando &&
     espera === 0;
 
-  const camposListos = camposDelAporteCompletos(soloTexto, descripcion, texto);
+  const camposListos = camposDelAporteCompletos(soloTexto, descripcionActiva, texto);
   const conChecklists = visibles.length > 0 || faltaArchivo;
   const requisitos = [
-    { listo: Boolean(archivo) || soloTexto, texto: soloTexto ? "Archivo opcional: va solo el texto" : "Elegir tu archivo" },
+    { listo: archivoListo, texto: soloTexto ? "Aporte de solo texto" : "Elegir tu archivo" },
     { listo: camposListos, texto: soloTexto ? "Escribir el título y el texto" : "Escribir la descripción" },
   ];
   return (
@@ -204,12 +221,22 @@ export default function AporteAnonimo({
           <div className="flex min-w-0 flex-col gap-4">
             <Paso
               numero={1}
-              titulo={archivoEsOpcional(tipos) ? "Elige tu archivo o envía solo texto" : "Elige tu archivo"}
-              nota={archivoEsOpcional(tipos) ? "Opcional" : undefined}
-              listo={Boolean(archivo)}
+              titulo="Prepara tu aporte"
+              listo={archivoListo}
             >
-              <SelectorDeArchivo
+              {archivoEsOpcional(tipos) && (
+                <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="Cómo quieres aportar">
+                  <Button type="button" disabled={enviando} aria-pressed={!soloTexto} variant={!soloTexto ? "primary" : "secondary"} onClick={() => { setModoTexto(false); setError(null); }}>
+                    <span className="inline-flex items-center gap-2"><IconoSubir className="size-4" />Subir archivo</span>
+                  </Button>
+                  <Button type="button" disabled={enviando} aria-pressed={soloTexto} variant={soloTexto ? "primary" : "secondary"} onClick={() => { setModoTexto(true); setError(null); }}>
+                    <span className="inline-flex items-center gap-2"><IconoTexto className="size-4" />Escribir texto</span>
+                  </Button>
+                </div>
+              )}
+              {soloTexto ? <p className="text-sm text-system-600">Escribe el título y el contenido de tu aporte en el siguiente paso.</p> : <SelectorDeArchivo
                 amplio
+                mostrarAyudaSoloTexto={false}
                 reinicio={vuelta}
                 tipos={tipos}
                 formatosDeDocumento={formatosDeDocumento}
@@ -219,14 +246,17 @@ export default function AporteAnonimo({
                   setArchivo(elegido);
                   setErrorArchivo(problema);
                 }}
-              />
+              />}
             </Paso>
 
             <Paso numero={2} titulo={soloTexto ? "Escribe tu texto" : "Describe tu aporte"} listo={camposListos}>
               <CamposDelAporte
                 soloTexto={soloTexto}
-                descripcion={descripcion}
-                onDescripcion={setDescripcion}
+                descripcion={descripcionActiva}
+                onDescripcion={soloTexto ? setTituloTexto : setDescripcion}
+                etiquetaDescripcion="Descripción del archivo"
+                etiquetaTexto="Contenido del aporte"
+                placeholderDescripcion="Describe qué contiene el archivo y su contexto"
                 texto={texto}
                 onTexto={setTexto}
               />
@@ -247,7 +277,7 @@ export default function AporteAnonimo({
 
           <aside className="flex flex-col gap-3 rounded-xl border border-system-200 bg-white p-4 shadow-sm lg:sticky lg:top-20">
             <h2 className="text-[14px] font-bold text-system-900">Antes de enviar</h2>
-            <CasillasDeAcuerdos acuerdos={acuerdos} onCambio={setAcuerdos} deshabilitado={enviando} proposito={proposito} />
+            {!aceptadosAntes && <CasillasDeAcuerdos acuerdos={acuerdos} onCambio={setAcuerdos} deshabilitado={enviando} proposito={proposito} />}
             <ul className="flex flex-col gap-2">
               {requisitos.map((r) => (
                 <li key={r.texto} className={`flex items-center gap-2 text-[12.5px] ${r.listo ? "text-system-700" : "text-system-500"}`}>

@@ -13,7 +13,7 @@
 // iniciar sesión (con destino al formulario de esta campaña) o participar sin cuenta, si está disponible.
 
 import { textoDeUbicacion } from "@/lib/campanas/ubicacion";
-import { conDestino } from "@/lib/redireccion";
+import AcuerdosAntesDeAportar from "@/components/aportes/AcuerdosAntesDeAportar";
 import VentanaDeConfirmacion from "@/components/ui/VentanaDeConfirmacion";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -46,6 +46,7 @@ export default function CampaignDetailPage() {
   // Ventana de los acuerdos para inscribirse (2026-11-10).
   const [aceptandoAcuerdos, setAceptandoAcuerdos] = useState(false);
   const [eligiendoComoAportar, setEligiendoComoAportar] = useState(false);
+  const [modoDeAcuerdos, setModoDeAcuerdos] = useState<"cuenta" | "anonimo" | null>(null);
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [conSesion, setConSesion] = useState<boolean | null>(null);
   const [aporteSinCuenta, setAporteSinCuenta] = useState(false);
@@ -369,13 +370,13 @@ export default function CampaignDetailPage() {
                       >
                         <div className="flex flex-col gap-3">
                           <p className="text-[13px] text-system-600">Elige cómo quieres participar en esta campaña.</p>
-                          <Link href={conDestino("/entrar", `/campanas/${campaign.id}/aportar`)} className={buttonClasses("primary", "md", "w-full")}>
+                          <Button onClick={() => { setEligiendoComoAportar(false); setModoDeAcuerdos("cuenta"); }} variant="primary" className="w-full">
                             Iniciar sesión y aportar
-                          </Link>
+                          </Button>
                           {campaign.permiteAnonimos && !topeAnonimoLleno && aporteSinCuenta ? (
-                            <Link href={`/participa/${campaign.id}`} className={buttonClasses("secondary", "md", "w-full")}>
+                            <Button onClick={() => { setEligiendoComoAportar(false); setModoDeAcuerdos("anonimo"); }} className="w-full">
                               Aportar sin iniciar sesión
-                            </Link>
+                            </Button>
                           ) : (
                             <p className="rounded-lg bg-system-100 p-3 text-[12.5px] text-system-600">
                               {!campaign.permiteAnonimos ? "Esta campaña solo recibe aportes con cuenta." : topeAnonimoLleno || "Los aportes sin cuenta no están disponibles en este momento."}
@@ -383,6 +384,7 @@ export default function CampaignDetailPage() {
                           )}
                         </div>
                       </VentanaDeConfirmacion>
+                      {modoDeAcuerdos && <AcuerdosAntesDeAportar campanaId={campaign.id} modo={modoDeAcuerdos} proposito={textoDelProposito(campaign.proposito, campaign.propositoOtro)} onCerrar={() => setModoDeAcuerdos(null)} />}
                     </>
                   ) : (
                     <p className="rounded-lg bg-system-100 p-3 text-center text-[12.5px] text-system-600">

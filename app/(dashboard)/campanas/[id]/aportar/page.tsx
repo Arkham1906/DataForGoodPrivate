@@ -20,7 +20,7 @@ import Paso from "@/components/aportes/PasoDelAporte";
 import Button from "@/components/ui/Button";
 import ButtonLink from "@/components/ui/ButtonLink";
 import ProgressBar from "@/components/ui/ProgressBar";
-import { IconoFlechaAtras, IconoFoto, IconoInfo, IconoListo, IconoReloj } from "@/components/aportes/IconosDelAporte";
+import { IconoFlechaAtras, IconoFoto, IconoInfo, IconoListo, IconoReloj, IconoTexto, IconoSubir } from "@/components/aportes/IconosDelAporte";
 import CamposDelAporte, { camposDelAporteCompletos } from "@/components/aportes/CamposDelAporte";
 import type { Campaign } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
@@ -34,6 +34,8 @@ import IndicadorDeCarga from "@/components/ui/IndicadorDeCarga";
 import VentanaDeConfirmacion from "@/components/ui/VentanaDeConfirmacion";
 import { InscripcionACampana } from "@/components/ui/AcuerdosDeAporte";
 import { textoDelProposito } from "@/lib/campanas/proposito";
+import { hayAcuerdosPrevios, borrarAcuerdosPrevios } from "@/lib/aportes/acuerdos-previos";
+import { CAMPO_CONFIRMA_CONTENIDO, CAMPO_ACEPTA_USO } from "@/lib/aportes/consentimiento";
 import SelectorDeArchivo from "@/components/ui/SelectorDeArchivo";
 import { archivoEsOpcional, tiposAceptados } from "@/lib/aportes/archivo";
 import { avisoDeTodoLleno, resumenDeLimites, tiposConLugar } from "@/lib/campanas/limite-por-tipo";
@@ -59,6 +61,8 @@ export default function AportarPage() {
   const [file, setFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [description, setDescription] = useState("");
+  const [modoTexto, setModoTexto] = useState(false);
+  const [tituloTexto, setTituloTexto] = useState("");
   const [texto, setTexto] = useState("");
   const [caracteristicas, setCaracteristicas] = useState<string[]>([]);
   const [inscrito, setInscrito] = useState(false);
@@ -84,11 +88,26 @@ export default function AportarPage() {
           return;
         }
         if (!campaignRes.ok) throw new Error(campaignPayload.error ?? "No se pudo cargar la campaña");
-        setCampaign(campaignPayload.data as Campaign);
+        const cargada = campaignPayload.data as Campaign;
+        let yaInscrito = Boolean(campaignPayload.viewer?.inscrito);
+        if (!yaInscrito && hayAcuerdosPrevios(cargada.id, "cuenta", textoDelProposito(cargada.proposito, cargada.propositoOtro))) {
+          const inscripcion = await fetch(`${BASE_PATH}/api/campanas/${encodeURIComponent(cargada.id)}/inscripcion`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ [CAMPO_CONFIRMA_CONTENIDO]: "si", [CAMPO_ACEPTA_USO]: "si" }),
+          });
+          if (!inscripcion.ok) {
+            const fallo = await inscripcion.json().catch(() => ({}));
+            throw new Error(fallo.error ?? "No se pudo registrar la aceptación de los acuerdos. Recarga para reintentar.");
+          }
+          yaInscrito = true;
+        }
+        if (yaInscrito) borrarAcuerdosPrevios(cargada.id, "cuenta");
+        setCampaign(cargada);
         setIsCreator(Boolean(campaignPayload.viewer?.isCreator));
         setBaneado(Boolean(campaignPayload.viewer?.baneado));
         setMotivoDeBaneo(campaignPayload.viewer?.motivoDeBaneo ?? null);
-        setInscrito(Boolean(campaignPayload.viewer?.inscrito));
+        setInscrito(yaInscrito);
 
         const aportesPayload = await aportesRes.json().catch(() => ({}));
         if (aportesRes.ok) {
@@ -140,9 +159,10 @@ export default function AportarPage() {
   const todoLleno = avisoDeTodoLleno(todosLosTipos, limitePorTipo, enviadosPorTipo);
   // La API ya convierte las campañas viejas (lista plana) en un checklist sin título. Solo se
   // muestran los del tipo de lo que se manda (2026-10-28).
-  const { visibles, faltaArchivo } = seccionesParaElAporte(campaign.checklistSecciones ?? [], tipos, file);
-  // Sin archivo en una campaña que acepta texto: título + texto en vez de descripción (2026-11-11).
-  const soloTexto = !file && archivoEsOpcional(tipos);
+  const soloTexto = modoTexto && archivoEsOpcional(tipos);
+  const archivoActivo = soloTexto ? null : file;
+  const descripcionActiva = soloTexto ? tituloTexto : description;
+  const { visibles, faltaArchivo } = seccionesParaElAporte(campaign.checklistSecciones ?? [], soloTexto ? ["texto"] : tipos.filter((tipo) => tipo !== "texto"), archivoActivo);
 
   function toggleCaracteristica(value: string) {
     setCaracteristicas((current) =>
@@ -160,8 +180,8 @@ export default function AportarPage() {
     try {
       const formData = new FormData();
       formData.set("campaignId", campaign.id);
-      formData.set("description", description);
-      if (file) formData.set("file", file);
+      formData.set("description", descripcionActiva);
+      if (archivoActivo) formData.set("file", archivoActivo);
       // Solo texto (2026-11-11): description es el título y el texto va aparte; el servidor lo guarda como .txt.
       else if (soloTexto) formData.set("texto", texto);
       // Solo lo marcado en los checklists que se ven (cambiar de archivo puede esconder alguno).
@@ -193,11 +213,11 @@ export default function AportarPage() {
     if (campaign) router.push(`/campanas/${campaign.id}`);
   }
 
-  const canSubmit = inscrito && !quotaReached && !todoLleno && !sinTiposPropios && (Boolean(file) || archivoEsOpcional(tipos)) && camposDelAporteCompletos(soloTexto, description, texto) && !submitting;
+  const canSubmit = inscrito && !quotaReached && !todoLleno && !sinTiposPropios && (soloTexto || (Boolean(archivoActivo) && !fileError)) && camposDelAporteCompletos(soloTexto, descripcionActiva, texto) && !submitting;
 
   // Pasos (2026-11-18, rediseño a pedido del usuario): cada tarjeta numerada se marca en verde al quedar lista.
-  const archivoListo = Boolean(file) || (soloTexto && archivoEsOpcional(tipos));
-  const camposListos = camposDelAporteCompletos(soloTexto, description, texto);
+  const archivoListo = soloTexto || (Boolean(archivoActivo) && !fileError);
+  const camposListos = camposDelAporteCompletos(soloTexto, descripcionActiva, texto);
   const conChecklists = visibles.length > 0 || faltaArchivo;
   const pasoInscripcion = 1;
   const pasoArchivo = inscrito ? 1 : 2;
@@ -214,7 +234,7 @@ export default function AportarPage() {
   ].filter(Boolean);
   const requisitos = [
     ...(!inscrito ? [{ listo: false, texto: "Inscribirte en la campaña" }] : []),
-    { listo: archivoListo, texto: soloTexto ? "Archivo opcional: va solo el texto" : "Elegir tu archivo" },
+    { listo: archivoListo, texto: soloTexto ? "Aporte de solo texto" : "Elegir tu archivo" },
     { listo: camposListos, texto: soloTexto ? "Escribir el título y el texto" : "Escribir la descripción" },
   ];
 
@@ -290,12 +310,22 @@ export default function AportarPage() {
 
             <Paso
               numero={pasoArchivo}
-              titulo={archivoEsOpcional(tipos) ? "Elige tu archivo o envía solo texto" : "Elige tu archivo"}
-              nota={archivoEsOpcional(tipos) ? "Opcional" : undefined}
-              listo={Boolean(file)}
+              titulo="Prepara tu aporte"
+              listo={archivoListo}
             >
-              <SelectorDeArchivo
+              {archivoEsOpcional(tipos) && (
+                <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="Cómo quieres aportar">
+                  <Button type="button" disabled={submitting} aria-pressed={!soloTexto} variant={!soloTexto ? "primary" : "secondary"} onClick={() => { setModoTexto(false); setSubmitError(null); }}>
+                    <span className="inline-flex items-center gap-2"><IconoSubir className="size-4" />Subir archivo</span>
+                  </Button>
+                  <Button type="button" disabled={submitting} aria-pressed={soloTexto} variant={soloTexto ? "primary" : "secondary"} onClick={() => { setModoTexto(true); setSubmitError(null); }}>
+                    <span className="inline-flex items-center gap-2"><IconoTexto className="size-4" />Escribir texto</span>
+                  </Button>
+                </div>
+              )}
+              {soloTexto ? <p className="text-sm text-system-600">Escribe el título y el contenido de tu aporte en el siguiente paso.</p> : <SelectorDeArchivo
                 amplio
+                mostrarAyudaSoloTexto={false}
                 tipos={tipos}
                 formatosDeDocumento={campaign.formatosDeDocumento ?? []}
                 archivo={file}
@@ -304,14 +334,17 @@ export default function AportarPage() {
                   setFile(elegido);
                   setFileError(problema);
                 }}
-              />
+              />}
             </Paso>
 
             <Paso numero={pasoCampos} titulo={soloTexto ? "Escribe tu texto" : "Describe tu aporte"} listo={camposListos}>
               <CamposDelAporte
                 soloTexto={soloTexto}
-                descripcion={description}
-                onDescripcion={setDescription}
+                descripcion={descripcionActiva}
+                onDescripcion={soloTexto ? setTituloTexto : setDescription}
+                etiquetaDescripcion="Descripción del archivo"
+                etiquetaTexto="Contenido del aporte"
+                placeholderDescripcion="Describe qué contiene el archivo y su contexto"
                 texto={texto}
                 onTexto={setTexto}
               />

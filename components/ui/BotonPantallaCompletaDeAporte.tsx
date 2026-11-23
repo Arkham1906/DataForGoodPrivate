@@ -3,7 +3,7 @@
 // Abre el archivo del aporte a pantalla completa desde la pantalla de vista previa.
 
 import { useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import Button from "@/components/ui/Button";
 import { BASE_PATH } from "@/lib/base-path";
 import type { DataType } from "@/types";
@@ -67,6 +67,7 @@ export default function BotonPantallaCompletaDeAporte({
 }) {
   const proteccion = useProteccionDeAportes();
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const origenRef = useRef<{ boton: HTMLButtonElement; x: number; y: number } | null>(null);
   const solicitudRef = useRef(0);
   const solicitudAbortadaRef = useRef<AbortController | null>(null);
   const [abierto, setAbierto] = useState(false);
@@ -133,8 +134,10 @@ export default function BotonPantallaCompletaDeAporte({
     setErrorDocumento(null);
   }
 
-  function abrir() {
+  function abrir(event: MouseEvent<HTMLButtonElement>) {
+    event.stopPropagation();
     if (dialogRef.current?.open) return;
+    origenRef.current = { boton: event.currentTarget, x: window.scrollX, y: window.scrollY };
     dialogRef.current?.showModal();
     setAbierto(true);
     if (tipo === "documento") void cargarDocumento();
@@ -189,11 +192,21 @@ export default function BotonPantallaCompletaDeAporte({
 
       <dialog
         ref={dialogRef}
-        onClose={() => {
+        onClose={(event) => {
+          event.stopPropagation();
           setAbierto(false);
           limpiarDocumento();
+          // El foco nativo del dialog puede desplazar la página hasta otra sección.
+          // Restituir el botón y la posición exacta también al cerrar con Escape.
+          const origen = origenRef.current;
+          origenRef.current = null;
+          if (origen) {
+            origen.boton.focus({ preventScroll: true });
+            window.scrollTo({ left: origen.x, top: origen.y, behavior: "instant" });
+          }
         }}
         onClick={(event) => {
+          event.stopPropagation();
           if (event.target === dialogRef.current) cerrar();
         }}
         className="fixed inset-0 m-0 h-dvh max-h-none w-screen max-w-none border-0 bg-system-950 p-4 text-white backdrop:bg-system-950/90"

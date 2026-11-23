@@ -61,10 +61,12 @@ export default function VentanaDeConfirmacion({
       // otro <dialog> (p. ej. el aviso de riesgos de "Permitir aportes sin cuenta" en Compartir), cerrar esta ventana
       // también cerraba la de afuera.
       onClose={(e) => {
+        if (e.target !== e.currentTarget) return;
         e.stopPropagation();
         if (abierto) onCancelar();
       }}
       onCancel={(e) => {
+        if (e.target !== e.currentTarget) return;
         e.stopPropagation();
         if (ocupado) e.preventDefault();
       }}
