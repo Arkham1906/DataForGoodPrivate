@@ -84,10 +84,11 @@ function textosDe(e: EslabonDeLaTrayectoria, hito: HitoDelRecorrido | undefined,
       return {
         antes: fechaDe(hito) ? `Estás aquí · desde ${fechaDe(hito)}` : "Estás aquí",
         titulo: nombreActual,
-        nota: "Este rango es tuyo para siempre.",
+        // Presentación «completar tu rango» (2026-11-22): el avance es de tu rango, no del siguiente.
+        nota: e.expQuePide === null ? "Completaste la trayectoria." : `Para completarlo cumples ${e.detalle}.`,
       };
     case "siguiente":
-      return { antes: "Tu siguiente parada", titulo: nombre, nota: `Cumples ${e.detalle}.` };
+      return { antes: "Tu siguiente parada", titulo: nombre, nota: "Llegas cuando completes tu rango." };
     case "avistado":
       return {
         antes: `Rango ${e.numero} · a la vista`,
@@ -102,13 +103,13 @@ function textosDe(e: EslabonDeLaTrayectoria, hito: HitoDelRecorrido | undefined,
 function etiquetaDe(e: EslabonDeLaTrayectoria, textos: Textos): string {
   const estado = {
     alcanzado: "alcanzado",
-    actual: "tu rango actual",
-    siguiente: `tu siguiente rango, cumples ${e.detalle}`,
+    actual: e.expQuePide === null ? "tu rango actual, el último" : `tu rango actual, para completarlo cumples ${e.detalle}`,
+    siguiente: "tu siguiente rango, llegas cuando completes el tuyo",
     avistado: "a la vista, con pista",
     oculto: "por descubrir",
   }[e.estado];
   const nombre = e.nombreCorto ? `Investigador ${e.nombreCorto}` : "nombre por descubrir";
-  return `Rango ${e.numero}, ${nombre}, ${estado}${e.estado === "avistado" ? `: ${textos.titulo}` : ""}. Pide ${nf.format(e.expQuePide)} EXP. Abre su ficha.`;
+  return `Rango ${e.numero}, ${nombre}, ${estado}${e.estado === "avistado" ? `: ${textos.titulo}` : ""}. ${e.expQuePide === null ? "Es el último rango" : `Completarlo pide ${nf.format(e.expQuePide)} EXP`}. Abre su ficha.`;
 }
 
 function Chevron({ abierta, hacia }: { abierta: boolean; hacia: "arriba" | "abajo" }) {
@@ -270,14 +271,14 @@ export default function SenderoDeRangos({
                 <Ficha
                   numero={e.numero}
                   alcanzado={false}
-                  etiqueta={`Rango ${e.numero}${e.numero === total ? ", el último" : ""}, por descubrir. Pide ${nf.format(e.expQuePide)} EXP. Abre su ficha.`}
+                  etiqueta={`Rango ${e.numero}${e.numero === total ? ", el último" : ""}, por descubrir. ${e.expQuePide === null ? "Es el último rango" : `Completarlo pide ${nf.format(e.expQuePide)} EXP`}. Abre su ficha.`}
                   onAbrir={onAbrir}
                 />
               </li>
             ))}
           </ul>
           <p className="mt-2 text-[12.5px] text-system-600">
-            Más arriba todo es niebla… por ahora. Toca un número para ver lo que pide; su nombre aparece cuando sea tu siguiente rango.
+            Más arriba todo es niebla… por ahora. Toca un número para ver lo que pide completarlo; su nombre aparece cuando sea tu siguiente rango.
           </p>
         </Tapa>
       )}

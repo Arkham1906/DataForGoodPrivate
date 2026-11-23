@@ -121,8 +121,10 @@ export async function obtenerResumenDeProgreso(usuarioId: number | string): Prom
         `SELECT r.numero, r.nombre, r.descripcion, r.etapa_avatar, r.req_exp, r.req_aportes, r.req_excelentes,
                 r.req_excepcionales, r.req_racha, r.req_misiones
          FROM rangos r
+         -- Hasta el actual + 3: del que sigue al avistado solo se usan sus requisitos, para decir lo que pide completar el
+         -- avistado (presentación del 2026-11-22). Su nombre no sale de aquí (RNF-GAM-14).
          WHERE r.numero BETWEEN (SELECT rango_actual FROM usuario_progreso WHERE usuario_id = $1)
-                            AND (SELECT rango_actual FROM usuario_progreso WHERE usuario_id = $1) + 2
+                            AND (SELECT rango_actual FROM usuario_progreso WHERE usuario_id = $1) + 3
          ORDER BY r.numero`,
         [usuarioId],
       ),
@@ -182,6 +184,8 @@ export async function obtenerResumenDeProgreso(usuarioId: number | string): Prom
     }
     const filaSiguiente = rangosR.rows.find((r) => r.numero === actual + 1);
     const filaAvistado = rangosR.rows.find((r) => r.numero === actual + 2);
+    // Lo que pide completar el avistado (presentación del 2026-11-22: ver rangos.ts).
+    const filaTrasAvistado = rangosR.rows.find((r) => r.numero === actual + 3);
 
     const progreso: ValoresPorRequisito = {
       exp: p.exp_total,
@@ -194,6 +198,10 @@ export async function obtenerResumenDeProgreso(usuarioId: number | string): Prom
     };
 
     const ascenso = (rango: number) => ascensosR.rows.find((a) => a.rango === rango)?.alcanzado_en ?? null;
+    // Lo que pide completar el rango actual es lo que el catálogo pide para llegar al siguiente (2026-11-22).
+    const avances = filaSiguiente ? avanceDeRequisitos(requisitosDe(filaSiguiente), progreso) : [];
+    const cumplidos = avances.filter((a) => a.cumplido).length;
+    const queFalta = filaSiguiente ? textoQueFalta(avances) : "";
     const fichas: FichaDeRango[] = [
       {
         estado: "actual",
@@ -201,26 +209,23 @@ export async function obtenerResumenDeProgreso(usuarioId: number | string): Prom
         nombre: filaActual.nombre,
         descripcion: filaActual.descripcion,
         etapaDelAvatar: filaActual.etapa_avatar ?? actual,
-        requisitos: requisitosDeRango(requisitosDe(filaActual)),
+        requisitos: avances,
+        cumplidos,
+        textoQueFalta: queFalta,
         textoDeAscenso: textoDeAscenso(actual, ascenso(actual), ascenso(actual - 1)),
       },
     ];
 
     let siguiente: ResumenDeProgreso["siguiente"] = null;
     if (filaSiguiente) {
-      const avances = avanceDeRequisitos(requisitosDe(filaSiguiente), progreso);
-      const cumplidos = avances.filter((a) => a.cumplido).length;
       const pasos = [...avances.filter((a) => a.cumplido), ...avances.filter((a) => !a.cumplido)].map((a) => a.cumplido);
-      const queFalta = textoQueFalta(avances);
       fichas.push({
         estado: "siguiente",
         numero: filaSiguiente.numero,
         nombre: filaSiguiente.nombre,
         descripcion: filaSiguiente.descripcion,
         etapaDelAvatar: filaSiguiente.etapa_avatar ?? filaSiguiente.numero,
-        requisitos: avances,
-        cumplidos,
-        textoQueFalta: queFalta,
+        requisitos: filaAvistado ? requisitosDeRango(requisitosDe(filaAvistado)) : [],
       });
       siguiente = {
         numero: filaSiguiente.numero,
@@ -231,12 +236,13 @@ export async function obtenerResumenDeProgreso(usuarioId: number | string): Prom
         textoQueFalta: queFalta,
       };
       if (filaAvistado) {
-        // Del avistado solo salen el número, la pista y los requisitos (RF-GAM-78 c, RNF-GAM-14).
+        // Del avistado solo salen el número, la pista y los requisitos (RF-GAM-78 c, RNF-GAM-14). La pista compara lo
+        // que pedirá completarlo con lo que pide completar el siguiente.
         fichas.push({
           estado: "avistado",
           numero: filaAvistado.numero,
-          pista: pistaDelRango(requisitosDe(filaAvistado), requisitosDe(filaSiguiente)),
-          requisitos: requisitosDeRango(requisitosDe(filaAvistado)),
+          pista: filaTrasAvistado ? pistaDelRango(requisitosDe(filaTrasAvistado), requisitosDe(filaAvistado)) : "Es el último rango.",
+          requisitos: filaTrasAvistado ? requisitosDeRango(requisitosDe(filaTrasAvistado)) : [],
         });
       }
     }

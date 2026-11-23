@@ -13,7 +13,7 @@ import HistorialDeExp from "@/components/gamificacion/HistorialDeExp";
 import { exigirUsuario } from "@/lib/session";
 import { obtenerHistorialDeExp } from "@/lib/gamificacion/historial-exp";
 import { obtenerResumenDeProgreso } from "@/lib/gamificacion/progreso";
-import type { FichaDeRangoSiguiente } from "@/lib/gamificacion/rangos";
+import type { FichaDeRangoActual } from "@/lib/gamificacion/rangos";
 import type { ReglasDeExp } from "@/lib/gamificacion/historial-exp-tipos";
 import { NOMBRES_DE_ESTRELLAS, calificacionDesde } from "@/lib/aportes/calificacion";
 import { NOMBRE_DE_TIPO } from "@/lib/campanas/sistema-opciones";
@@ -94,8 +94,9 @@ export default async function HistorialDeExpPage() {
     );
   }
 
-  const siguiente = progreso?.fichas.find((f): f is FichaDeRangoSiguiente => f.estado === "siguiente");
-  const meta = siguiente?.requisitos.find((r) => r.clave === "exp");
+  // Lo que pide completar el rango actual (presentación del 2026-11-22, lib/gamificacion/rangos.ts).
+  const actual = progreso?.fichas.find((f): f is FichaDeRangoActual => f.estado === "actual");
+  const meta = actual?.requisitos.find((r) => r.clave === "exp");
   const desglose = [
     { clave: "aportes", etiqueta: T.desglose.aportes, valor: datos.desglose.aportes, ver: true },
     { clave: "misiones", etiqueta: T.desglose.misiones, valor: datos.desglose.misiones, ver: true },
@@ -119,7 +120,7 @@ export default async function HistorialDeExpPage() {
               <span className="font-mono text-[26px] font-extrabold leading-none">{nf.format(datos.total)}</span>
               <span className="text-[13px] text-brand-200">{T.total}</span>
             </p>
-            {meta && siguiente && <p className="text-[13px] font-semibold text-success-100">{T.siguiente(siguiente.numero, meta.meta, meta.faltan)}</p>}
+            {meta && actual && <p className="text-[13px] font-semibold text-success-100">{T.siguiente(actual.numero, meta.meta, meta.faltan)}</p>}
           </div>
         </div>
         {datos.hayMovimientos && (

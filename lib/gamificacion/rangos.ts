@@ -5,6 +5,12 @@
 // Los requisitos de cada rango NO se escriben aquí: salen de la tabla `rangos` (RNF-GAM-05) y esto solo los
 // interpreta. Lo que la persona ve de cada rango lo decide el servidor al armar las fichas (RF-GAM-78,
 // RNF-GAM-14): los tipos de ficha hacen imposible que un rango «avistado» lleve nombre, descripción o etapa.
+//
+// Presentación «completar tu rango» (2026-11-22, a pedido del Dr. por medio del responsable): a la persona se le
+// muestra que está en el rango cuyos requisitos va cumpliendo, y que al completarlos pasa al siguiente. Internamente no
+// cambia nada (rangos.json, la evaluación y el rango guardado son los mismos): los requisitos que en el catálogo son
+// «para llegar al rango N+1» se muestran como «para completar el rango N». Por eso en todas las fichas `requisitos` es lo
+// que pide COMPLETAR ese rango (lo del rango siguiente en el catálogo), y el último rango no tiene nada que completar.
 
 import { ZONA_DE_CAMPANAS } from "@/lib/fecha-de-tepic";
 
@@ -154,11 +160,11 @@ function frase(clave: ClaveDeRequisito, faltan: number, meta: number): string {
   }
 }
 
-/** «Te faltan 33 EXP y 2 aportes de 4★ o más.» (RF-GAM-22). Con todo cumplido, avisa que el ascenso se registra solo. */
+/** «Te faltan 33 EXP y 2 aportes de 4★ o más.» (RF-GAM-22). Con todo cumplido, avisa que el paso se registra solo. */
 export function textoQueFalta(avances: AvanceDeRequisito[]): string {
   const pendientes = avances.filter((a) => !a.cumplido);
   if (pendientes.length === 0) {
-    return "Ya cumples todo. Subirás en cuanto el sistema lo compruebe.";
+    return "Completaste tu rango. Pasas al siguiente en cuanto el sistema lo compruebe.";
   }
   // «una racha de N días» es singular aunque falten varios días.
   const plural = pendientes.length > 1 || (pendientes[0].clave !== "racha" && pendientes[0].faltan !== 1);
@@ -190,31 +196,45 @@ export function pistaDelRango(rango: ValoresPorRequisito, anterior: ValoresPorRe
 // Fichas de rango (RF-GAM-78): lo que el servidor envía de cada rango según su posición.
 // ---------------------------------------------------------------------------------------------------
 
-/** Rango actual: se ve todo, incluido lo que pidió y cuándo se alcanzó. */
+/**
+ * Rango actual: se ve todo. `requisitos` es lo que pide completarlo, con el avance (RF-GAM-22); vacío en el último
+ * rango, que no tiene nada que completar.
+ */
 export type FichaDeRangoActual = {
   estado: "actual";
   numero: number;
   nombre: string;
   descripcion: string | null;
   etapaDelAvatar: number;
-  requisitos: RequisitoDeRango[];
-  /** «Alcanzado el 21 oct, 11 días después del rango 8.» */
+  requisitos: AvanceDeRequisito[];
+  cumplidos: number;
+  /** "" en el último rango. */
+  textoQueFalta: string;
+  /** «Lo alcanzaste el 21 oct, 11 días después del rango 8.» */
   textoDeAscenso: string;
 };
 
-/** Rango ya alcanzado: lo mismo que el actual (RF-GAM-78 a, 83). */
-export type FichaDeRangoAlcanzado = Omit<FichaDeRangoActual, "estado"> & { estado: "alcanzado" };
+/** Rango ya completado (RF-GAM-78 a, 83): lo que pidió completarlo y cuándo se completó. */
+export type FichaDeRangoAlcanzado = {
+  estado: "alcanzado";
+  numero: number;
+  nombre: string;
+  descripcion: string | null;
+  etapaDelAvatar: number;
+  requisitos: RequisitoDeRango[];
+  textoDeAscenso: string;
+  /** «Lo completaste el 2 nov, 11 días después de llegar.» */
+  textoDeCompletado: string;
+};
 
-/** Rango siguiente: nombre y descripción visibles; requisitos con avance y lo que se recibirá. */
+/** Rango siguiente: nombre y descripción visibles; lo que pedirá completarlo y lo que se recibe al llegar. */
 export type FichaDeRangoSiguiente = {
   estado: "siguiente";
   numero: number;
   nombre: string;
   descripcion: string | null;
   etapaDelAvatar: number;
-  requisitos: AvanceDeRequisito[];
-  cumplidos: number;
-  textoQueFalta: string;
+  requisitos: RequisitoDeRango[];
 };
 
 /**
@@ -228,7 +248,7 @@ export type FichaDeRangoAvistado = {
   requisitos: RequisitoDeRango[];
 };
 
-/** Rango por descubrir: solo número y requisitos (RF-GAM-78 d, 80). Los demás datos no salen del servidor. */
+/** Rango por descubrir: solo número y lo que pide completarlo (RF-GAM-78 d, 80). Los demás datos no salen del servidor. */
 export type FichaDeRangoOculto = {
   estado: "oculto";
   numero: number;
@@ -279,6 +299,19 @@ export function lapsoDeAscenso(numero: number, alcanzadoEn: Date | null, anterio
   const dias = diasEntre(DIA_EN_ZONA.format(anteriorEn), DIA_EN_ZONA.format(alcanzadoEn));
   if (dias <= 0) return "El mismo día";
   return `${dias} ${dias === 1 ? "día" : "días"} después`;
+}
+
+/**
+ * «Lo completaste el 2 nov, 11 días después de llegar.» Un rango se completa el día que se llega al siguiente. Texto
+ * vacío sin fecha registrada: no se inventa.
+ */
+export function textoDeCompletado(llegada: Date | null, completado: Date | null, ahora: Date = new Date()): string {
+  if (!completado) return "";
+  const dia = DIA_EN_ZONA.format(completado);
+  const cuando = dia === DIA_EN_ZONA.format(ahora) ? "hoy" : `el ${FECHA_CORTA.format(completado)}`;
+  if (!llegada) return `Lo completaste ${cuando}.`;
+  const dias = diasEntre(DIA_EN_ZONA.format(llegada), dia);
+  return `Lo completaste ${cuando}, ${dias <= 0 ? "el mismo día que llegaste" : `${dias} ${dias === 1 ? "día" : "días"} después de llegar`}.`;
 }
 
 /**

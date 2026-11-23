@@ -12,7 +12,7 @@ import { exigirUsuario } from "@/lib/session";
 import { obtenerMisiones } from "@/lib/gamificacion/misiones";
 import { obtenerResumenDeProgreso } from "@/lib/gamificacion/progreso";
 import { TEXTOS } from "@/lib/gamificacion/textos";
-import type { FichaDeRangoSiguiente } from "@/lib/gamificacion/rangos";
+import type { FichaDeRangoActual } from "@/lib/gamificacion/rangos";
 
 export const metadata: Metadata = { title: "Misiones" };
 
@@ -41,8 +41,9 @@ export default async function MisionesPage() {
   const deInicio = datos.inicio.misiones.length > 0;
   // «Envía…», «Logra…» y las difíciles (2026-11-19, RF-GAM-43, 44).
   const comoCuentan = [...COMO_CUENTAN, ...TEXTOS.misiones.comoCuentan, ...(deInicio ? [TEXTOS.misionesDeInicio.comoCuentan] : [])];
-  const siguiente = progreso?.fichas.find((f): f is FichaDeRangoSiguiente => f.estado === "siguiente");
-  const meta = siguiente?.requisitos.find((r) => r.clave === "misiones");
+  // Lo que pide completar el rango actual (presentación del 2026-11-22, lib/gamificacion/rangos.ts).
+  const actual = progreso?.fichas.find((f): f is FichaDeRangoActual => f.estado === "actual");
+  const meta = actual?.requisitos.find((r) => r.clave === "misiones");
 
   return (
     <div className="space-y-5">
@@ -61,11 +62,11 @@ export default async function MisionesPage() {
             <span className="font-mono text-[26px] font-extrabold leading-none">{nf.format(datos.total)}</span>
             <span className="text-[13px] text-brand-200">{datos.total === 1 ? "misión completada" : "misiones completadas"} en total</span>
           </p>
-          {meta && siguiente && (
+          {meta && actual && (
             <p className="text-[13px] font-semibold text-success-100">
               {meta.cumplido
-                ? `Ya cumples lo que pide el rango ${siguiente.numero}.`
-                : `El rango ${siguiente.numero} pide ${nf.format(meta.meta)}: ${meta.faltan === 1 ? "te falta 1" : `te faltan ${nf.format(meta.faltan)}`}.`}
+                ? `Ya tienes las misiones para completar tu rango ${actual.numero}.`
+                : `Completar tu rango ${actual.numero} pide ${nf.format(meta.meta)}: ${meta.faltan === 1 ? "te falta 1" : `te faltan ${nf.format(meta.faltan)}`}.`}
             </p>
           )}
         </div>

@@ -196,10 +196,11 @@ export const TEXTOS = {
     titulo: "Historial de EXP",
     intro: "Cada EXP que ganaste, de dónde vino y cómo se calculó. Solo tú ves esta información.",
     total: "EXP acumulada",
+    /** Lo que pide completar el rango actual (presentación del 2026-11-22). */
     siguiente: (rango: number, meta: number, faltan: number) =>
       faltan > 0
-        ? `El rango ${n(rango)} pide ${n(meta)} EXP: ${plural(faltan, "te falta", "te faltan")} ${n(faltan)}.`
-        : `Ya tienes la EXP que pide el rango ${n(rango)}.`,
+        ? `Completar tu rango ${n(rango)} pide ${n(meta)} EXP: ${plural(faltan, "te falta", "te faltan")} ${n(faltan)}.`
+        : `Ya tienes la EXP para completar tu rango ${n(rango)}.`,
     desgloseEtiqueta: "De dónde viene tu EXP",
     desglose: {
       aportes: "Aportes aceptados",
@@ -463,7 +464,7 @@ export const TEXTOS = {
     coleccionableDetalle: "Ya está en tu inventario.",
     revelado: (numero: number, nombre: string) => `Se reveló el rango ${n(numero)} · ${nombre}`,
     reveladoDetalle: (avistado: number | null) =>
-      "Es tu siguiente rango: ya puedes ver su avance." + (avistado ? ` Y avistaste el ${n(avistado)}.` : ""),
+      "Es al que pasas cuando completes tu nuevo rango." + (avistado ? ` Y avistaste el ${n(avistado)}.` : ""),
     ultimoRango: "Completaste la trayectoria",
     ultimoRangoDetalle: "Es el último rango. Nadie te lo quita.",
     verTrayectoria: "Ver tu trayectoria",

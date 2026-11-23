@@ -32,6 +32,7 @@ import {
   nombreCortoDeRango,
   requisitosDeRango,
   textoDeAscenso,
+  textoDeCompletado,
   type ClaveDeRequisito,
   type FichaDeRango,
   type ValoresPorRequisito,
@@ -81,7 +82,18 @@ async function leerAscensos(usuarioId: number | string) {
 
 type Ascensos = Awaited<ReturnType<typeof leerAscensos>>;
 
-/** Una ficha por rango: los alcanzados se completan aquí; actual, siguiente y avistado ya vienen armadas. */
+/**
+ * Lo que pide completar cada rango (presentación del 2026-11-22, ver rangos.ts): lo que el catálogo pide para llegar al
+ * siguiente. Si ese siguiente ya se alcanzó, lo que pidió al subir (rango_ascensos); si no, el catálogo vigente. null en
+ * el último rango.
+ */
+function paraCompletar(rangos: FilaDeRango[], numero: number, actual: number, ascensos: Ascensos): ValoresPorRequisito | null {
+  const siguiente = rangos.find((r) => r.numero === numero + 1);
+  if (!siguiente) return null;
+  return siguiente.numero <= actual ? ascensos.pidio(siguiente) : requisitosDe(siguiente);
+}
+
+/** Una ficha por rango: los alcanzados y los por descubrir se arman aquí; actual, siguiente y avistado ya vienen armadas. */
 function fichasDeLaTrayectoria(
   rangos: FilaDeRango[],
   actual: number,
@@ -92,8 +104,8 @@ function fichasDeLaTrayectoria(
   const fichas: FichaDeRango[] = [];
   for (const r of rangos) {
     const estado = estadoDeRango(r.numero, actual);
-    // Alcanzado y actual: lo que se pidió al subir. Los demás: el catálogo vigente.
-    const requisitos = requisitosDeRango(estado === "alcanzado" || estado === "actual" ? ascensos.pidio(r) : requisitosDe(r));
+    const completar = paraCompletar(rangos, r.numero, actual, ascensos);
+    const requisitos = completar ? requisitosDeRango(completar) : [];
     if (estado === "alcanzado") {
       fichas.push({
         estado,
@@ -103,12 +115,14 @@ function fichasDeLaTrayectoria(
         etapaDelAvatar: r.etapa_avatar ?? r.numero,
         requisitos,
         textoDeAscenso: textoDeAscenso(r.numero, ascenso(r.numero), ascenso(r.numero - 1)),
+        // Un rango se completa el día que se llega al siguiente; el rango 1 se tiene desde que se crea la cuenta.
+        textoDeCompletado: textoDeCompletado(r.numero === 1 ? null : ascenso(r.numero), ascenso(r.numero + 1)),
       });
     } else if (estado === "oculto") {
       fichas.push({ estado, numero: r.numero, requisitos });
     } else {
       const armada = armadas.find((f) => f.numero === r.numero);
-      if (armada) fichas.push(armada.estado === "actual" ? { ...armada, requisitos } : armada);
+      if (armada) fichas.push(armada);
     }
   }
   return fichas;
@@ -219,9 +233,11 @@ function eslabonesDeLaTrayectoria(
       estado === "alcanzado"
         ? fechaCortaDeAscenso(ascenso(r.numero)) || "Alcanzado"
         : estado === "actual"
-          ? "Tu rango"
+          ? progreso.siguiente
+            ? `${progreso.siguiente.cumplidos} de ${progreso.siguiente.activos} requisitos`
+            : "Tu rango"
           : estado === "siguiente"
-            ? `${progreso.siguiente?.cumplidos ?? 0} de ${progreso.siguiente?.activos ?? 0} requisitos`
+            ? "Al completar tu rango"
             : estado === "avistado"
               ? "Tiene pista"
               : r.numero === progreso.totalDeRangos
@@ -232,8 +248,8 @@ function eslabonesDeLaTrayectoria(
       estado,
       nombreCorto: visible ? nombreCortoDeRango(r.nombre) : null,
       detalle,
-      // Alcanzado y actual: la EXP que se pidió al subir (RF-GAM-83); los demás, la del catálogo.
-      expQuePide: estado === "alcanzado" || estado === "actual" ? ascensos.pidio(r).exp : r.req_exp,
+      // La EXP que pide completarlo (2026-11-22); null en el último rango.
+      expQuePide: paraCompletar(rangos, r.numero, actual, ascensos)?.exp ?? null,
     };
   });
 }
@@ -267,11 +283,11 @@ export async function obtenerDatosDeTrayectoria(
         lapso: lapsoDeAscenso(r.numero, ascenso(r.numero), ascenso(r.numero - 1)),
       }));
 
+    // Cada fila dice lo que pide completar ese rango (2026-11-22); la del último va vacía.
     const tabla = rangos.map((r) => {
       const estado = estadoDeRango(r.numero, actual);
       const visible = estado === "alcanzado" || estado === "actual" || estado === "siguiente";
-      const requisitos = estado === "alcanzado" || estado === "actual" ? ascensosR.pidio(r) : requisitosDe(r);
-      return { numero: r.numero, estado, nombre: visible ? r.nombre : null, requisitos };
+      return { numero: r.numero, estado, nombre: visible ? r.nombre : null, requisitos: paraCompletar(rangos, r.numero, actual, ascensosR) };
     });
 
     return {
