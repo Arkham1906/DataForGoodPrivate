@@ -81,13 +81,16 @@ Los roles están en la tabla `usuario_roles` (una fila por rol, desde el 2026-10
 
 | Rol | Cómo se obtiene | Qué habilita |
 | --- | --- | --- |
-| `usuario` | Toda cuenta | Explorar, aportar, **crear y administrar sus propias campañas** (no hace falta otro rol) |
+| `usuario` | Toda cuenta | Explorar y administrar sus propias campañas |
+| `creador` (Creador de campaña, 2026-11-22) | Toda cuenta desde que se crea; **solo el SuperUsuario lo quita o lo devuelve** (`/usuarios/[id]/roles`) | Crear campañas y enviar a revisión un borrador o una rechazada (403 sin él). Sin él sigue administrando las que ya tiene |
+| `aportador` (Aportador, 2026-11-22) | Igual que `creador` | Inscribirse a campañas y enviar aportes con cuenta (403 sin él). Sus aportes enviados se conservan |
 | `revisor` | Por campaña: el creador invita (`POST /api/campanas/[id]/revisores`) y la persona acepta desde sus notificaciones. Se guarda en `campana_revisores`, y también da el rol `revisor` en `usuario_roles`; `getSessionUser()` lo agrega al vuelo | `/revisiones` para las campañas donde aceptó |
 | `supervisor` | **Solo el SuperUsuario** lo asigna (`asignarRol`). Al revocarlo, sus campañas `en_revision` quedan libres | `/supervision`: tomar y dictaminar campañas `en_revision` que no sean suyas |
 | `admin` | Existe en el código, sin uso definido | — |
 | SuperUsuario | Credencial raíz (no es un rol de la tabla) | Panel `/sistema`, `/usuarios`, `/supervisar` |
 
 - Los roles se combinan (un supervisor puede ser revisor y crear campañas).
+- Hasta el 2026-11-22 crear campañas y aportar no requerían rol; desde entonces sí, pero toda cuenta los tiene.
 - Se leen en cada petición, así que un cambio de rol aplica sin volver a iniciar sesión.
 
 ## 5. Permisos por campaña

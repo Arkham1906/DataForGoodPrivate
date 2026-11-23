@@ -1,14 +1,23 @@
 "use client";
 
-// Filtros del directorio /usuarios: los escribe en la URL (searchParams).
+// Filtros del directorio /usuarios: los escribe en la URL (searchParams). Desde el 2026-11-22 también por
+// organización (?organizacion=, a pedido del usuario): las que tienen al menos una cuenta, con cuántas, y "Sin
+// organización" (lib/usuarios/directorio.ts, organizacionesDelDirectorio y SIN_ORGANIZACION).
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useId, useState, useTransition } from "react";
 
+/** El mismo valor que SIN_ORGANIZACION de lib/usuarios/directorio.ts (ese módulo usa pg: no se importa aquí). */
+const SIN_ORGANIZACION = "__ninguna";
+
+// "Sin rol de creador" y "Sin rol de aportador" (2026-11-22): quienes perdieron ese permiso del usuario común
+// (lib/usuarios/directorio.ts, FILTRO_SIN_PERMISO). "Creador de campaña" y "Aportador" no van: los tiene casi todos.
 const ROLES = [
   { valor: "usuario", etiqueta: "Usuario común" },
   { valor: "supervisor", etiqueta: "Supervisor" },
   { valor: "revisor", etiqueta: "Revisor de aportes" },
+  { valor: "sin_creador", etiqueta: "Sin rol de creador" },
+  { valor: "sin_aportador", etiqueta: "Sin rol de aportador" },
 ];
 const ESTADOS = [
   { valor: "ACTIVA", etiqueta: "Activo" },
@@ -28,10 +37,15 @@ export default function Filtros({
   q,
   rol,
   estado,
+  organizacion,
+  organizaciones,
 }: {
   q: string;
   rol: string;
   estado: string;
+  organizacion: string;
+  /** Opciones del filtro, con cuántas cuentas tiene cada una. */
+  organizaciones: { opciones: { nombre: string; total: number }[]; sinOrganizacion: number };
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -40,8 +54,12 @@ export default function Filtros({
   const idBusqueda = useId();
   const idRol = useId();
   const idEstado = useId();
+  const idOrganizacion = useId();
 
   const [texto, setTexto] = useState(q);
+  // El servidor compara sin mayúsculas: el select marca la opción aunque la URL la escriba distinto ("cicese").
+  const organizacionElegida =
+    organizaciones.opciones.find((o) => o.nombre.toLowerCase() === organizacion.toLowerCase())?.nombre ?? organizacion;
 
   // La búsqueda se aplica sola tras una pausa al teclear, sin botón aparte.
   useEffect(() => {
@@ -113,6 +131,33 @@ export default function Filtros({
               {e2.etiqueta}
             </option>
           ))}
+        </select>
+      </div>
+
+      <div className="max-w-full">
+        <label className="sr-only" htmlFor={idOrganizacion}>
+          Filtrar por organización
+        </label>
+        <select
+          id={idOrganizacion}
+          value={organizacionElegida}
+          onChange={(e) => aplicar("organizacion", e.target.value)}
+          className={`${CLASE_SELECT} max-w-full sm:max-w-[260px]`}
+        >
+          <option value="">Organización: todas</option>
+          {organizaciones.sinOrganizacion > 0 && (
+            <option value={SIN_ORGANIZACION}>Sin organización ({organizaciones.sinOrganizacion})</option>
+          )}
+          {organizaciones.opciones.map((o) => (
+            <option key={o.nombre} value={o.nombre}>
+              {o.nombre} ({o.total})
+            </option>
+          ))}
+          {/* La de la URL, aunque ya no tenga cuentas, para que el select no la pierda. */}
+          {organizacion && organizacion !== SIN_ORGANIZACION &&
+            !organizaciones.opciones.some((o) => o.nombre.toLowerCase() === organizacion.toLowerCase()) && (
+              <option value={organizacion}>{organizacion} (0)</option>
+            )}
         </select>
       </div>
     </div>

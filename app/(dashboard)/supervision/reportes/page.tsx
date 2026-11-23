@@ -10,8 +10,8 @@ import { exigirModerador } from "@/lib/moderacion/moderador";
 export const metadata: Metadata = { title: "Reportes" };
 export const dynamic = "force-dynamic";
 
-export default async function ReportesPage({ searchParams }: { searchParams: Promise<{ estado?: string }> }) {
+export default async function ReportesPage({ searchParams }: { searchParams: Promise<{ estado?: string; q?: string; tipo?: string }> }) {
   const moderador = await exigirModerador("supervision");
-  const { estado } = await searchParams;
-  return <PantallaDeReportes zona="supervision" moderador={moderador} estado={estado} />;
+  const { estado, q, tipo } = await searchParams;
+  return <PantallaDeReportes zona="supervision" moderador={moderador} estado={estado} filtros={{ q, tipo }} />;
 }

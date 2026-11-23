@@ -1,5 +1,7 @@
 // Pantalla /usuarios/[id]/roles: asignar o revocar roles.
 // Server Component. Datos: obtenerUsuario(). Botones en botones-de-rol.tsx.
+// Arriba, "Permisos de usuario común" (2026-11-22, a pedido del usuario): creador de campaña y aportador, que
+// toda cuenta tiene; aquí se quitan o se devuelven (lib/usuarios/rol-asignable.ts).
 
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -15,13 +17,15 @@ import {
 } from "@/components/sistema/ui";
 import Tag from "@/components/sistema/Tag";
 import {
+  AL_QUITAR,
   NOMBRE_DE_ROL,
+  PERMISOS_DE_USUARIO,
   QUIEN_ASIGNA,
   formatearFecha,
   obtenerUsuario,
   type RolAsignable,
 } from "@/lib/usuarios/directorio";
-import { BotonAsignar, BotonRevocar } from "./botones-de-rol";
+import { BotonAsignar, BotonDePermiso, BotonRevocar } from "./botones-de-rol";
 import { exigirSesionRoot } from "@/lib/supervision/root";
 
 export const dynamic = "force-dynamic";
@@ -57,6 +61,7 @@ export default async function RolesPage({
           u.rolDesde ? ` desde ${formatearFecha(u.rolDesde)}` : ""
         }`
       : `${u.correo} · actualmente usuario común`;
+  const retirados = u.rolesRetirados.length > 0 ? ` · ${u.rolesRetirados.join(" · ").toLowerCase()}` : "";
 
   return (
     <div>
@@ -65,13 +70,38 @@ export default async function RolesPage({
       <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-extrabold text-system-900">Roles de {u.nombre}</h1>
-          <p className="mt-1 font-mono text-[13px] text-system-600">{detalle}</p>
+          <p className="mt-1 font-mono text-[13px] text-system-600">{detalle}{retirados}</p>
         </div>
         <EnlaceBoton href={`/usuarios/${u.id}`}>Ver ficha completa</EnlaceBoton>
       </header>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="flex flex-col gap-8">
         <section>
+          <TituloDeSeccion>Permisos de usuario común</TituloDeSeccion>
+          <p className="mb-2.5 text-[13px] text-system-600">
+            Toda cuenta los tiene desde que se registra. Quitarlos no toca lo que ya hizo.
+          </p>
+          <div className="mb-6 flex flex-col gap-2">
+            {PERMISOS_DE_USUARIO.map((permiso) => {
+              const tiene = u.permisos.includes(permiso);
+              return (
+                <Tarjeta key={permiso} className={tiene ? "" : "border-warning-200"}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="flex flex-wrap items-center gap-2 text-[13.5px] font-semibold text-system-900">
+                        {NOMBRE_DE_ROL[permiso]}
+                        <Tag tone={tiene ? "ok" : "warn"}>{tiene ? "Lo tiene" : "Retirado"}</Tag>
+                      </p>
+                      <p className="mt-1 text-[12.5px] text-system-500">{QUIEN_ASIGNA[permiso]}</p>
+                      {tiene && <p className="mt-1 text-[12.5px] text-system-600">Al quitarlo: {AL_QUITAR[permiso]}</p>}
+                    </div>
+                    <BotonDePermiso usuarioId={u.id} usuario={u.nombre} permiso={permiso} tiene={tiene} />
+                  </div>
+                </Tarjeta>
+              );
+            })}
+          </div>
+
           <TituloDeSeccion>Asignar rol</TituloDeSeccion>
           <div className="mb-4 flex flex-col gap-2">
             {ASIGNABLES.map((rol) => {
@@ -92,7 +122,7 @@ export default async function RolesPage({
                       {asignado ? "Asignado" : "Por invitación"}
                     </Tag>
                   ) : (
-                    <BotonAsignar usuarioId={u.id} rol={rol} asignado={asignado} />
+                    <BotonAsignar usuarioId={u.id} usuario={u.nombre} rol={rol} asignado={asignado} />
                   )}
                 </Tarjeta>
               );
@@ -131,8 +161,7 @@ export default async function RolesPage({
                 <p className="mb-1 text-[13.5px] font-semibold text-system-900">Sin rol asignado</p>
                 <p className="text-[12.5px] text-system-600">
                   Es usuario común. Ha creado {formatearNumero(u.campanasCreadas)}{" "}
-                  campañas, cosa que no requiere rol alguno, y lleva{" "}
-                  {formatearNumero(u.aportesEnviados)} aportes enviados.
+                  campañas y lleva {formatearNumero(u.aportesEnviados)} aportes enviados.
                 </p>
               </Tarjeta>
 
@@ -163,7 +192,7 @@ export default async function RolesPage({
                   Al revocar el rol, sus campañas activas siguen corriendo y pasan
                   a la tutela del supervisor del área.
                 </Aviso>
-                <BotonRevocar usuarioId={u.id} rol="SUPERVISOR" />
+                <BotonRevocar usuarioId={u.id} usuario={u.nombre} rol="SUPERVISOR" />
               </div>
             )}
             {esRevisor && (
@@ -172,7 +201,7 @@ export default async function RolesPage({
                   Al revocar, deja de ser revisor en todas las campañas donde esté
                   aceptado; el creador de cada una deberá invitar a alguien más.
                 </Aviso>
-                <BotonRevocar usuarioId={u.id} rol="REVISOR_DE_APORTES" />
+                <BotonRevocar usuarioId={u.id} usuario={u.nombre} rol="REVISOR_DE_APORTES" />
               </div>
             )}
             {!esSupervisor && !esRevisor && u.strikes > 0 && (

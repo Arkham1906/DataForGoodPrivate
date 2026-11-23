@@ -8,6 +8,7 @@ import { columnasCalculadas } from "@/lib/campanas/tipos-de-campana";
 import { columnasDeArchivo, registrarArchivo } from "@/lib/aportes/tabla-archivos";
 import { columnaDeRespuestas, guardarRespuestas } from "@/lib/campanas/tabla-checklists";
 import { getSessionUser } from "@/lib/session";
+import { SIN_ROL_DE_APORTADOR, puedeAportar } from "@/lib/usuarios/rol-asignable";
 import { estaBaneadoDeCampana } from "@/lib/campanas/baneos";
 import { respuestasValidas, seccionesDelTipo, seccionesDesdeFila } from "@/lib/campanas/checklist";
 import { idDeEnlaceVigente } from "@/lib/campanas/enlaces";
@@ -156,11 +157,15 @@ export async function GET(request: Request) {
 // Exige estar inscrito a la campaña (aceptó los acuerdos una vez: lib/campanas/inscripciones.ts, 403 si no);
 // guarda la hora de la inscripción en consentimiento_en.
 // Campo opcional `enlace`: token de /c/[token]; si es el vigente de la campaña, se guarda en enlace_id.
+// Sin el rol de aportador (2026-11-22, lo quita el SuperUsuario): 403.
 export async function POST(request: Request) {
   try {
     const user = await getSessionUser();
     if (!user) {
       return NextResponse.json({ error: "Debes iniciar sesion" }, { status: 401 });
+    }
+    if (!puedeAportar(user.role)) {
+      return NextResponse.json({ error: SIN_ROL_DE_APORTADOR }, { status: 403 });
     }
 
     if (cuerpoDemasiadoGrande(request)) {

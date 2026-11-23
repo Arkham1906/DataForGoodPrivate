@@ -14,6 +14,7 @@
 
 import { textoDeUbicacion } from "@/lib/campanas/ubicacion";
 import AcuerdosAntesDeAportar from "@/components/aportes/AcuerdosAntesDeAportar";
+import { SIN_ROL_DE_APORTADOR } from "@/lib/usuarios/rol-asignable";
 import VentanaDeConfirmacion from "@/components/ui/VentanaDeConfirmacion";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -53,6 +54,8 @@ export default function CampaignDetailPage() {
   const [topeAnonimoLleno, setTopeAnonimoLleno] = useState<string | null>(null);
   const [isCreator, setIsCreator] = useState(false);
   const [baneado, setBaneado] = useState(false);
+  // El SuperUsuario le quitó el rol de aportador (2026-11-22): aviso en vez de "Realizar un aporte".
+  const [sinRolDeAportador, setSinRolDeAportador] = useState(false);
   const [motivoDeBaneo, setMotivoDeBaneo] = useState<string | null>(null);
   const [yaReportada, setYaReportada] = useState(false);
   const [inscrito, setInscrito] = useState(false);
@@ -82,6 +85,7 @@ export default function CampaignDetailPage() {
         setTopeAnonimoLleno(payload.viewer?.topeAnonimoLleno ?? null);
         setIsCreator(Boolean(payload.viewer?.isCreator));
         setBaneado(Boolean(payload.viewer?.baneado));
+        setSinRolDeAportador(Boolean(payload.viewer?.sinRolDeAportador));
         setMotivoDeBaneo(payload.viewer?.motivoDeBaneo ?? null);
         setYaReportada(Boolean(payload.viewer?.yaReportada));
         setInscrito(Boolean(payload.viewer?.inscrito));
@@ -345,7 +349,7 @@ export default function CampaignDetailPage() {
                     ? ` · máximo ${resumenDeLimites(campaign.dataTypes, campaign.limitePorTipo ?? {}, campaign.enviadosPorTipo ?? {})}`
                     : ""}
                 </p>
-                {!isCreator && !baneado && campaign.status === "activa" && !inscrito && (
+                {!isCreator && !baneado && !sinRolDeAportador && campaign.status === "activa" && !inscrito && (
                   <p className="mt-1 text-[12px] text-system-500">
                     Antes de aportar aceptas los acuerdos de la campaña; solo se piden una vez.
                   </p>
@@ -397,7 +401,13 @@ export default function CampaignDetailPage() {
                   <p className="rounded-lg bg-error-50 p-3 text-center text-[12.5px] text-error-700">
                     Quien creó esta campaña te retiró la posibilidad de aportar en ella.
                     {motivoDeBaneo && <span className="mt-1 block font-semibold">Motivo: {motivoDeBaneo}</span>}
+                    {/* Apelar (2026-11-22, lib/apelaciones): dentro de los 30 días del baneo. */}
+                    <Link href="/mis-apelaciones" className="mt-1.5 block font-semibold underline">
+                      Si crees que es un error, puedes apelarlo
+                    </Link>
                   </p>
+                ) : sinRolDeAportador ? (
+                  <p className="rounded-lg bg-warning-50 p-3 text-center text-[12.5px] text-warning-800">{SIN_ROL_DE_APORTADOR}</p>
                 ) : campaign.status === "activa" && !inscrito ? (
                   // Sin inscribirse, "Realizar un aporte" abre la ventana de los acuerdos; al aceptarlos va al
                   // formulario (2026-11-10, a pedido del usuario; antes las casillas iban aquí mismo).

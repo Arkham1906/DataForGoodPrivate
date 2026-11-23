@@ -182,6 +182,21 @@ export default async function CuentaPage() {
               </div>
             </div>
 
+            {/* Apelaciones (2026-11-22): sanciones de la cuenta y baneos en una campaña. */}
+            <div className="rounded border border-system-200 bg-system-100 p-4">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-bold text-system-900">Apelaciones</p>
+                  <p className="text-[12.5px] text-system-600">
+                    Si recibiste una sanción o un baneo en una campaña que crees injusto, puedes apelarlo
+                  </p>
+                </div>
+                <ButtonLink href="/mis-apelaciones" size="sm">
+                  Ver
+                </ButtonLink>
+              </div>
+            </div>
+
             <PreferenciasDeComunicacion
               usuarioId={currentUser.id}
               iniciales={{

@@ -6,14 +6,16 @@
 // - Tus decisiones: aportes de esas campañas que decidió ella (aportes.first_pass_by_user_id, reviewed_at):
 //   aceptados, rechazados, hoy y en 7 días (hora de Tepic), mediana del tiempo de respuesta en 30 días y
 //   estrellas que dio (1 a 5; solo los aceptados llevan calificación desde el 2026-11-07).
-// - Actividad: sus decisiones por día en los últimos DIAS_DE_ACTIVIDAD días, en hora de Tepic.
+// - Actividad: sus decisiones (aceptados y rechazados) por día, semana, mes o año del periodo que elige en la pantalla
+//   (2026-11-22; antes, siempre los últimos 14 días): serieDeTiempo() de lib/series-de-tiempo.ts, en hora de Tepic.
 // Si una consulta falla devuelve null y la pantalla muestra la lista sin el dashboard.
 
 import { pool } from "@/lib/db";
 import { ZONA_DE_CAMPANAS } from "@/lib/fecha-de-tepic";
+import type { Periodo, SerieDeTiempo } from "@/lib/periodo";
+import { serieDeTiempo } from "@/lib/series-de-tiempo";
 import { ESTADOS_TERMINADOS } from "@/lib/campanas/terminada";
 
-export const DIAS_DE_ACTIVIDAD = 14;
 /** Campañas con pendientes que se listan (las que más tienen). */
 const CAMPANAS_CON_PENDIENTES = 5;
 
@@ -23,13 +25,6 @@ export type CampanaConPendientes = {
   pendientes: number;
   /** ISO del pendiente más antiguo. */
   masAntiguo: string;
-};
-
-export type DiaDeActividad = {
-  /** AAAA-MM-DD en hora de Tepic. */
-  dia: string;
-  aceptados: number;
-  rechazados: number;
 };
 
 export type DashboardDelRevisor = {
@@ -48,10 +43,14 @@ export type DashboardDelRevisor = {
   promedioDeEstrellas: number | null;
   /** Cuántos aceptados calificó con 1, 2, 3, 4 y 5 estrellas (índice 0 = 1 estrella). */
   porEstrellas: number[];
-  actividad: DiaDeActividad[];
+  /** Aceptados y rechazados (en ese orden) por cubeta del periodo. */
+  actividad: SerieDeTiempo;
 };
 
-export async function obtenerDashboardDelRevisor(usuarioId: number | string): Promise<DashboardDelRevisor | null> {
+export async function obtenerDashboardDelRevisor(
+  usuarioId: number | string,
+  periodo: Periodo,
+): Promise<DashboardDelRevisor | null> {
   const terminados = [...ESTADOS_TERMINADOS];
   try {
     const [campanasR, pendientesR, decisionesR, estrellasR, actividadR] = await Promise.all([
@@ -97,25 +96,15 @@ export async function obtenerDashboardDelRevisor(usuarioId: number | string): Pr
           GROUP BY a.calificacion`,
         [usuarioId],
       ),
-      pool.query<{ dia: string; aceptados: number; rechazados: number }>(
-        `WITH dias AS (
-           SELECT generate_series((NOW() AT TIME ZONE $2)::date - ($3::int - 1), (NOW() AT TIME ZONE $2)::date, INTERVAL '1 day')::date AS dia
-         ),
-         decisiones AS (
-           SELECT (a.reviewed_at AT TIME ZONE $2)::date AS dia, a.status
-             FROM aportes a
-             JOIN campana_revisores cr ON cr.campana_id = a.campaign_id AND cr.usuario_id = $1 AND cr.estado = 'aceptado'
-            WHERE a.first_pass_by_user_id = $1 AND a.status IN ('aceptado', 'rechazado')
-              AND a.reviewed_at >= NOW() - ($3::int + 1) * INTERVAL '1 day'
-         )
-         SELECT to_char(d.dia, 'YYYY-MM-DD') AS dia,
-                COUNT(x.status) FILTER (WHERE x.status = 'aceptado')::int AS aceptados,
-                COUNT(x.status) FILTER (WHERE x.status = 'rechazado')::int AS rechazados
-           FROM dias d LEFT JOIN decisiones x ON x.dia = d.dia
-          GROUP BY d.dia
-          ORDER BY d.dia`,
-        [usuarioId, ZONA_DE_CAMPANAS, DIAS_DE_ACTIVIDAD],
-      ),
+      serieDeTiempo({
+        fuente: `SELECT a.reviewed_at AS t, a.status AS s
+                   FROM aportes a
+                   JOIN campana_revisores cr ON cr.campana_id = a.campaign_id AND cr.usuario_id = $1 AND cr.estado = 'aceptado'
+                  WHERE a.first_pass_by_user_id = $1 AND a.status IN ('aceptado', 'rechazado') AND a.reviewed_at IS NOT NULL`,
+        parametros: [usuarioId],
+        series: ["aceptado", "rechazado"],
+        periodo,
+      }),
     ]);
 
     const pendientes = pendientesR.rows;
@@ -141,11 +130,7 @@ export async function obtenerDashboardDelRevisor(usuarioId: number | string): Pr
       medianaDeRespuesta: decisiones?.mediana == null ? null : Number(decisiones.mediana),
       promedioDeEstrellas: decisiones?.promedio == null ? null : Number(decisiones.promedio),
       porEstrellas,
-      actividad: actividadR.rows.map((f) => ({
-        dia: String(f.dia),
-        aceptados: Number(f.aceptados),
-        rechazados: Number(f.rechazados),
-      })),
+      actividad: actividadR,
     };
   } catch (error) {
     console.error("No se pudo armar el dashboard del revisor", error);

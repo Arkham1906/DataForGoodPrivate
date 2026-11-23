@@ -5,9 +5,11 @@
 //   - Cola de revisión: hasta MAX_CAMPANAS_EN_REVISION en revisión a la vez; con la cola llena, solo
 //     borrador. No hay tope de campañas creadas ni activas (2026-11-04, decisión del usuario).
 //   - Contadores, "especial", "revisor asignado" y XP no los decide el creador.
+//   - Sin el rol de creador de campaña (2026-11-22) no crea ni envía a revisión un borrador o una rechazada.
 
 import { pool } from "@/lib/db";
 import { MAX_CAMPANAS_EN_REVISION } from "@/lib/campanas/cola-de-revision";
+import { SIN_ROL_DE_CREADOR, puedeCrearCampanas } from "@/lib/usuarios/rol-asignable";
 
 /** Estados que el creador puede pedir al crear o al editar por completo. */
 export const ESTADOS_QUE_ELIGE_EL_CREADOR = new Set(["borrador", "en_revision"]);
@@ -131,6 +133,26 @@ export async function errorDeEstadoPedido(
   }
   if (estado === "en_revision" && (await colaDeRevisionLlena(usuarioId, campanaId))) {
     return `Ya tienes ${MAX_CAMPANAS_EN_REVISION} campañas en revisión: guárdala como borrador y envíala cuando la supervisión acepte o rechace alguna.`;
+  }
+  return null;
+}
+
+/**
+ * Rol de creador de campaña (2026-11-22, a pedido del usuario; lib/usuarios/rol-asignable.ts): sin él no se
+ * crea una campaña (estadoActual null, en cualquier estado) ni se envía a revisión una que nunca se aprobó
+ * (borrador o rechazada). Lo demás de sus campañas lo sigue administrando: editar la que ya está en revisión,
+ * pausar, reanudar, finalizar, y las ediciones de una pausada o programada que la regresan a revisión.
+ * Devuelve el motivo del 403, o null si puede.
+ */
+export function errorDeRolDeCreador(
+  roles: readonly string[],
+  estadoNuevo: string | null,
+  estadoActual: string | null,
+): string | null {
+  if (puedeCrearCampanas(roles)) return null;
+  if (estadoActual === null) return SIN_ROL_DE_CREADOR;
+  if (estadoNuevo === "en_revision" && (estadoActual === "borrador" || estadoActual === "rechazada")) {
+    return SIN_ROL_DE_CREADOR;
   }
   return null;
 }

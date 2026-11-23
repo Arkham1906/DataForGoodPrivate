@@ -46,6 +46,7 @@ import { maximosDesdeLaCuota } from "@/lib/campanas/cuota-por-tipo";
 import { LIMITE_MAXIMO_POR_TIPO } from "@/lib/campanas/limite-por-tipo";
 import { FORMATOS_DE_DOCUMENTO, type FormatoDeDocumento } from "@/lib/aportes/archivo";
 import CampanasParecidasDelRechazo from "@/components/campanas/CampanasParecidasDelRechazo";
+import { SIN_ROL_DE_CREADOR, puedeCrearCampanas } from "@/lib/usuarios/rol-asignable";
 
 /** Campos del formulario que pueden tener un problema al guardar (2026-10-27). "general": nada en particular. */
 type CampoDeCampana =
@@ -298,6 +299,8 @@ export default function NuevaCampanaForm() {
   const [organizacionPerfil, setOrganizacionPerfil] = useState<string | undefined>(undefined);
   // Lo demás del perfil que usa el formulario (2026-11-02), de la misma consulta a la sesión.
   const [perfil, setPerfil] = useState<DatosDelPerfil>({ sinTematicas: false, zona: null });
+  // Rol de creador de campaña (2026-11-22): sin él no se crea ni se envía a revisión un borrador o una rechazada.
+  const [puedeCrear, setPuedeCrear] = useState(true);
   const [errorCarga, setErrorCarga] = useState("");
 
   useEffect(() => {
@@ -318,6 +321,7 @@ export default function NuevaCampanaForm() {
           ? sesion.data.organizacion.trim()
           : "";
         if (activo) setOrganizacionPerfil(organizacion);
+        if (activo) setPuedeCrear(puedeCrearCampanas(Array.isArray(sesion.data?.role) ? sesion.data.role.map(String) : []));
         const intereses: unknown = sesion.data?.intereses;
         const estado: unknown = sesion.data?.state;
         const municipio: unknown = sesion.data?.city;
@@ -354,6 +358,9 @@ export default function NuevaCampanaForm() {
     // Programada (2026-11-10): sus cambios amplios vuelven a revisión.
     editingCampaign.status === "aceptada";
   const colaLlena = vaARevision && campanasEnRevision >= MAX_CAMPANAS_EN_REVISION;
+  // Sin el rol de creador, un borrador o una rechazada se editan y se guardan, pero no van a revisión.
+  const sinRolParaEnviar =
+    !puedeCrear && (editingCampaign?.status === "borrador" || editingCampaign?.status === "rechazada");
 
   // Mientras carga, no se monta el formulario: sus campos leen
   // editingCampaign una sola vez, al montar (ver CampanaFormulario). Si se
@@ -369,6 +376,16 @@ export default function NuevaCampanaForm() {
 
   if (cargando || organizacionPerfil === undefined) {
     return <PantallaEsqueleto tipo="formulario" etiqueta="Cargando el formulario…" />;
+  }
+
+  if (!editingCampaign && !puedeCrear) {
+    return (
+      <div role="alert" className="rounded-lg border border-warning-200 bg-warning-50 p-5 text-sm text-warning-800">
+        <p className="font-semibold">No puedes crear campañas</p>
+        <p className="mt-1">{SIN_ROL_DE_CREADOR}</p>
+        <ButtonLink href="/mis-campanas" size="sm" className="mt-3">Volver a Mis campañas</ButtonLink>
+      </div>
+    );
   }
 
   if (!editingCampaign && !organizacionPerfil) {
@@ -393,6 +410,7 @@ export default function NuevaCampanaForm() {
       perfil={perfil}
       campanasEnRevision={campanasEnRevision}
       colaLlena={colaLlena}
+      sinRolParaEnviar={sinRolParaEnviar}
       restaurarEstado={restaurarEstado}
     />
   );
@@ -404,6 +422,7 @@ function CampanaFormulario({
   perfil,
   campanasEnRevision,
   colaLlena,
+  sinRolParaEnviar,
   restaurarEstado,
 }: {
   editingCampaign: Campaign | undefined;
@@ -411,6 +430,8 @@ function CampanaFormulario({
   perfil: DatosDelPerfil;
   campanasEnRevision: number;
   colaLlena: boolean;
+  /** Borrador o rechazada sin el rol de creador (2026-11-22): se guarda, pero no se envía a revisión. */
+  sinRolParaEnviar: boolean;
   restaurarEstado: boolean;
 }) {
   const router = useRouter();
@@ -1124,6 +1145,7 @@ function CampanaFormulario({
     if (asDraft) return lista;
 
     if (colaLlena) agregar("general", avisoDeColaLlena);
+    if (sinRolParaEnviar) agregar("general", SIN_ROL_DE_CREADOR);
     if (dataTypes.length === 0) agregar("tipos", "Selecciona al menos un tipo de dato");
     revisarMeta();
     const cuotaIncompleta = errorDeCuota();
@@ -1400,6 +1422,14 @@ function CampanaFormulario({
             <p className="mt-1 text-system-600">Además se aplicó {editingCampaign.rechazo.sancion} a tu cuenta.</p>
           )}
           <p className="mt-1 text-system-600">Corrige lo que se indica y vuelve a enviarla a revisión.</p>
+        </div>
+      )}
+
+      {sinRolParaEnviar && (
+        <div role="status" className="mb-6 rounded-lg border border-warning-200 bg-warning-50 p-4 text-[13px] text-warning-800">
+          <p>
+            <b>No puedes enviarla a revisión.</b> {SIN_ROL_DE_CREADOR} Puedes seguir guardándola como borrador.
+          </p>
         </div>
       )}
 

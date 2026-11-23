@@ -2,10 +2,11 @@
 
 // Botón "Quitar bloqueo" de un dispositivo anónimo. Llama a la server action
 // quitarBloqueoDeDispositivo (lib/moderacion/acciones.ts) con la zona (/supervisar o /supervision).
-
-import { useState, useTransition } from "react";
+// Desde el 2026-11-22 pregunta en una ventana ("¿Seguro que quieres…?", components/sistema/useConfirmacion) en vez del
+// "No / Confirmar" en el renglón.
 
 import Button from "@/components/sistema/Button";
+import { useConfirmacion } from "@/components/sistema/useConfirmacion";
 import { quitarBloqueoDeDispositivo } from "@/lib/moderacion/acciones";
 import type { ZonaDeModeracion } from "@/lib/moderacion/rutas";
 
@@ -18,52 +19,34 @@ export default function BotonQuitarBloqueo({
   bloqueoId: string;
   anchoCompleto?: boolean;
 }) {
-  const [pendiente, iniciar] = useTransition();
-  const [confirmando, setConfirmando] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { pedirConfirmacion, ventana, ocupado } = useConfirmacion();
 
-  if (!confirmando) {
-    return (
+  return (
+    <>
       <Button
         variant="secondary"
         size="sm"
         className={anchoCompleto ? "w-full md:w-auto" : ""}
-        onClick={() => setConfirmando(true)}
+        disabled={ocupado}
+        onClick={() =>
+          pedirConfirmacion({
+            pregunta: `¿Seguro que quieres quitar el bloqueo del dispositivo anónimo #${bloqueoId}?`,
+            detalle: (
+              <p>
+                Ese dispositivo podrá volver a aportar sin cuenta en cualquier campaña desde ahora, antes de que venza el
+                bloqueo. Si vuelve a enviar aportes inapropiados, se bloquea otra vez.
+              </p>
+            ),
+            textoConfirmar: "Sí, quitar bloqueo",
+            textoOcupado: "Quitando…",
+            accion: () => quitarBloqueoDeDispositivo(zona, bloqueoId),
+          })
+        }
       >
         Quitar bloqueo
         <span className="sr-only"> del dispositivo {bloqueoId}</span>
       </Button>
-    );
-  }
-
-  return (
-    <div className={`flex flex-col gap-1 ${anchoCompleto ? "w-full items-stretch md:w-auto md:items-end" : "items-end"}`}>
-      <div className={`flex flex-nowrap items-center gap-2 ${anchoCompleto ? "w-full justify-stretch" : "justify-end"}`}>
-        <Button
-          variant="secondary"
-          size="sm"
-          className={anchoCompleto ? "flex-1 md:flex-none" : ""}
-          onClick={() => setConfirmando(false)}
-        >
-          No
-        </Button>
-        <Button
-          variant="primary"
-          size="sm"
-          className={anchoCompleto ? "flex-1 md:flex-none" : ""}
-          disabled={pendiente}
-          onClick={() =>
-            iniciar(async () => {
-              const resultado = await quitarBloqueoDeDispositivo(zona, bloqueoId);
-              if (resultado.ok) setConfirmando(false);
-              else setError(resultado.error);
-            })
-          }
-        >
-          {pendiente ? "…" : "Confirmar"}
-        </Button>
-      </div>
-      {error && <p className={`text-[12px] text-error-700 ${anchoCompleto ? "text-center" : ""}`}>{error}</p>}
-    </div>
+      {ventana}
+    </>
   );
 }

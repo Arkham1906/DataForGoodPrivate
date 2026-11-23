@@ -9,6 +9,7 @@
 // a la persona después del COMMIT y detalleDeAuditoria arma el detalle de `sancion.aplicar`.
 
 import type { PoolClient } from "pg";
+import { DIAS_PARA_APELAR } from "@/lib/apelaciones/reglas";
 
 import { notificar } from "@/lib/notificaciones/notificaciones";
 import { TIPOS_DE_SANCION } from "@/lib/sanciones";
@@ -70,7 +71,7 @@ export async function sancionarEnTransaccion(
   if (usuario.rowCount === 0) return { ok: false, error: "El usuario no existe." };
 
   const { rows: previos } = await client.query<{ avisos: number; baneo_id: number | null }>(
-    `SELECT COUNT(*) FILTER (WHERE tipo = 'STRIKE')::int AS avisos,
+    `SELECT COUNT(*) FILTER (WHERE tipo = 'STRIKE' AND anulada_en IS NULL)::int AS avisos, -- sin los anulados por apelación
             MAX(id) FILTER (WHERE activa AND tipo = 'BANEO_DE_CAMPANA') AS baneo_id
      FROM sanciones WHERE usuario_id = $1`,
     [usuarioId],
@@ -180,8 +181,8 @@ export async function avisarSancion(usuarioId: number, s: SancionAplicada, motiv
             restantes > 0 ? ` El siguiente: ${describirConsecuencia(consecuenciaDelAviso(aviso.numero + 1))}.` : ""
           }`
         : ""
-    }`,
-    // "Ver" lleva a su cuenta (2026-11-07, a pedido del usuario).
+    } Si crees que es un error, puedes apelarla en Mis apelaciones durante ${DIAS_PARA_APELAR} días.`,
+    // "Ver" lleva a su cuenta (2026-11-07, a pedido del usuario); ahí está "Apelaciones" (2026-11-22).
     enlace: "/cuenta",
     metadata: {
       sancionId: aviso?.id ?? bloqueo?.id,

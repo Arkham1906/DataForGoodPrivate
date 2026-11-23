@@ -2,20 +2,21 @@
 
 // "Descartar reportes" de la bandeja de reportes de la moderación (/supervisar o /supervision): pide una
 // nota opcional y llama a la server action descartarReportes (lib/moderacion/acciones.ts). Resuelve todos
-// los pendientes del caso (campaña o aporte).
+// los pendientes del caso (campaña o aporte). Desde el 2026-11-22, "Descartar reportes" pregunta antes
+// ("¿Seguro que quieres…?", components/sistema/useConfirmacion).
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 
 import Button from "@/components/sistema/Button";
 import { Field, Textarea } from "@/components/sistema/Input";
+import { useConfirmacion } from "@/components/sistema/useConfirmacion";
 import { descartarReportes } from "@/lib/moderacion/acciones";
 import type { ZonaDeModeracion } from "@/lib/moderacion/rutas";
 
 export default function BotonDescartar({ zona, clave, caso }: { zona: ZonaDeModeracion; clave: string; caso: string }) {
   const [abierto, setAbierto] = useState(false);
   const [nota, setNota] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [pendiente, iniciar] = useTransition();
+  const { pedirConfirmacion, ventana, ocupado: pendiente } = useConfirmacion();
 
   if (!abierto) {
     return (
@@ -30,11 +31,6 @@ export default function BotonDescartar({ zona, clave, caso }: { zona: ZonaDeMode
       <Field label="Nota (opcional)" hint="Por qué no amerita aviso. Solo la ve quien modera.">
         <Textarea value={nota} onChange={(e) => setNota(e.target.value)} maxLength={500} className="min-h-[70px]" />
       </Field>
-      {error && (
-        <p role="alert" className="mb-2 text-[12.5px] text-error-700">
-          {error}
-        </p>
-      )}
       <div className="flex flex-wrap justify-end gap-2">
         <Button variant="ghost" size="sm" disabled={pendiente} onClick={() => setAbierto(false)}>
           Cancelar
@@ -44,16 +40,24 @@ export default function BotonDescartar({ zona, clave, caso }: { zona: ZonaDeMode
           size="sm"
           disabled={pendiente}
           onClick={() =>
-            iniciar(async () => {
-              setError(null);
-              const r = await descartarReportes(zona, clave, nota);
-              if (!r.ok) setError(r.error);
+            pedirConfirmacion({
+              pregunta: `¿Seguro que quieres descartar los reportes de ${caso}?`,
+              detalle: (
+                <p>
+                  Se resuelven todos los reportes pendientes de este caso sin sancionar a nadie y no cuentan para la escala
+                  de avisos. No se puede deshacer.
+                </p>
+              ),
+              textoConfirmar: "Sí, descartar",
+              textoOcupado: "Descartando…",
+              accion: () => descartarReportes(zona, clave, nota),
             })
           }
         >
-          {pendiente ? "Descartando…" : "Confirmar"}
+          Descartar reportes
         </Button>
       </div>
+      {ventana}
     </div>
   );
 }

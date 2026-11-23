@@ -2,37 +2,50 @@
 
 // Botón "Ocultar" / "Mostrar" de una temática en /sistema/tematicas. Llama a la server action
 // cambiarVisibilidadDeTematica (lib/tematicas/acciones-tematicas.ts), que revalida la página.
-
-import { useState, useTransition } from "react";
+// Desde el 2026-11-22 pide confirmación ("¿Seguro que quieres…?", components/sistema/useConfirmacion).
 
 import Button from "@/components/sistema/Button";
+import { useConfirmacion } from "@/components/sistema/useConfirmacion";
 import { cambiarVisibilidadDeTematica } from "@/lib/tematicas/acciones-tematicas";
 
 export default function BotonDeVisibilidad({ id, nombre, oculta }: { id: number; nombre: string; oculta: boolean }) {
-  const [pendiente, iniciar] = useTransition();
-  const [error, setError] = useState<string | null>(null);
+  const { pedirConfirmacion, ventana, ocupado } = useConfirmacion();
 
   return (
     <>
-      {error ? (
-        <span role="alert" className="text-[12px] text-error-700">
-          {error}
-        </span>
-      ) : null}
       <Button
         size="sm"
         variant={oculta ? "secondary" : "danger"}
-        disabled={pendiente}
+        disabled={ocupado}
         onClick={() =>
-          iniciar(async () => {
-            const resultado = await cambiarVisibilidadDeTematica(id, !oculta);
-            setError(resultado.ok ? null : resultado.error);
-          })
+          pedirConfirmacion(
+            oculta
+              ? {
+                  pregunta: `¿Seguro que quieres volver a mostrar «${nombre}»?`,
+                  detalle: <p>Se vuelve a ofrecer al crear campañas y al elegir intereses en el perfil.</p>,
+                  textoConfirmar: "Sí, mostrar",
+                  // El segundo argumento es `oculta`.
+                  accion: () => cambiarVisibilidadDeTematica(id, false),
+                }
+              : {
+                  pregunta: `¿Seguro que quieres ocultar «${nombre}»?`,
+                  detalle: (
+                    <>
+                      <p>Deja de ofrecerse al crear campañas y al elegir intereses, y nadie podrá volver a agregarla.</p>
+                      <p>Los perfiles y las campañas que ya la tienen la conservan. Puedes volver a mostrarla cuando quieras.</p>
+                    </>
+                  ),
+                  textoConfirmar: "Sí, ocultar",
+                  peligro: true,
+                  accion: () => cambiarVisibilidadDeTematica(id, true),
+                },
+          )
         }
       >
-        {pendiente ? "Guardando…" : oculta ? "Mostrar" : "Ocultar"}
+        {oculta ? "Mostrar" : "Ocultar"}
         <span className="sr-only"> {nombre}</span>
       </Button>
+      {ventana}
     </>
   );
 }

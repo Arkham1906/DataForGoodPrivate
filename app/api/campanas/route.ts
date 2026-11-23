@@ -22,7 +22,7 @@ import { cuotaPorTipoDesdeFila, errorDeMaximoSobreLimite, resolverCuotaYMaximos 
 import { normalizarFormatosDeDocumento } from "@/lib/aportes/archivo";
 import { columnasCalculadas, guardarTiposDeCampana } from "@/lib/campanas/tipos-de-campana";
 import { guardarChecklists } from "@/lib/campanas/tabla-checklists";
-import { XP_POR_APORTE, errorDeEstadoPedido } from "@/lib/campanas/estado-del-creador";
+import { XP_POR_APORTE, errorDeEstadoPedido, errorDeRolDeCreador } from "@/lib/campanas/estado-del-creador";
 import { pausaDesdeFila } from "@/lib/campanas/pausa";
 import { datosAbiertosDesdeFila } from "@/lib/campanas/datos-abiertos";
 import { avisoDeTopeAnonimoLleno } from "@/lib/campanas/aportes-anonimos";
@@ -34,6 +34,7 @@ import { validarProposito } from "@/lib/campanas/proposito";
 import { crearPropuestas, revisarTematicaDeCampana } from "@/lib/tematicas/catalogo";
 import { hasRootSession } from "@/lib/rootSession";
 import { campanasParaTi } from "@/lib/usuarios/inicio";
+import { puedeAportar } from "@/lib/usuarios/rol-asignable";
 import { activateScheduledCampaigns, ahoraEnZona, calculateCampaignDaysRemaining, errorDeFinAntesDeInicio, errorDeInicioPasado, finalizeExpiredCampaigns, normalizeCampaignDate, normalizeCampaignTime } from "@/lib/campaign-date";
 import { limpiarImagen, type ImagenLimpia } from "@/lib/aportes/imagen";
 import { borrarArchivo, guardarArchivo } from "@/lib/minio";
@@ -255,6 +256,8 @@ export async function GET(request: Request) {
           // con el motivo que escribió el creador.
           baneado: campaign.isBanned,
           motivoDeBaneo: user && campaign.isBanned ? await motivoDeBaneo(campaign.id, user.id) : null,
+          // El SuperUsuario le quitó el rol de aportador (2026-11-22): la pantalla avisa en vez de ofrecer aportar.
+          sinRolDeAportador: user ? !puedeAportar(user.role) : false,
           // Ya reportó la campaña: /campanas/[id] no le ofrece reportarla otra vez.
           yaReportada: user ? await yaReporto({ tipo: "campana", id: Number(campaign.id) }, Number(user.id)) : false,
           // Ya aceptó los acuerdos para aportar (lib/campanas/inscripciones.ts).
@@ -328,12 +331,15 @@ export async function GET(request: Request) {
   }
 }
 
-// POST: crea una campaña. Exige organización en el perfil y valida campos obligatorios salvo en borrador.
+// POST: crea una campaña. Exige el rol de creador de campaña (2026-11-22; 403 sin él) y organización en el
+// perfil, y valida campos obligatorios salvo en borrador.
 export async function POST(request: Request) {
   try {
     // La campaña siempre es de quien tiene la sesión: nunca se toma el creador del body.
     const sessionUser = await getSessionUser();
     if (!sessionUser) return NextResponse.json({ error: "Debes iniciar sesión" }, { status: 401 });
+    const errorDeRol = errorDeRolDeCreador(sessionUser.role, null, null);
+    if (errorDeRol) return NextResponse.json({ error: errorDeRol }, { status: 403 });
     if (!sessionUser.organizacion?.trim()) {
       return NextResponse.json(
         { error: "Debes pertenecer a una organización para crear una campaña. Agrégala en Mi cuenta." },

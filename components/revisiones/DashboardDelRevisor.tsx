@@ -2,22 +2,26 @@
 // Server Component: recibe lo que arma obtenerDashboardDelRevisor() (lib/revisiones/dashboard.ts).
 // - Cuatro cifras: por revisar (con la espera más larga), revisados hoy (y en 7 días), tasa de aceptación y
 //   mediana del tiempo de respuesta en 30 días.
-// - Actividad: tus decisiones por día (GraficaDeDecisiones, cliente, con detalle al pasar el cursor).
+// - Actividad: tus decisiones por día, semana, mes o año (ui/GraficaDeTiempo, con detalle al pasar el cursor) del
+//   periodo que eliges arriba de la gráfica (ui/SelectorDePeriodo, este mes por defecto; 2026-11-22).
 // - Estrellas que das: cuántos aceptados calificaste con cada número de estrellas (una sola serie, sin leyenda).
 // - Campañas con pendientes: las que más tienen, con la espera más larga y "Revisar" a su bandeja.
 // Se actualiza solo: ActualizacionEnVivo refresca la página del servidor cuando cambia algo.
 
 import Link from "next/link";
 import MetricCard from "@/components/ui/MetricCard";
-import GraficaDeDecisiones from "@/components/revisiones/GraficaDeDecisiones";
+import { Suspense } from "react";
+import GraficaDeTiempo from "@/components/ui/GraficaDeTiempo";
+import SelectorDePeriodo from "@/components/ui/SelectorDePeriodo";
 import Panel from "@/components/ui/PanelDeDashboard";
 import { duracion, esperaDesde } from "@/lib/duracion";
-import { DIAS_DE_ACTIVIDAD, type DashboardDelRevisor as Datos } from "@/lib/revisiones/dashboard";
+import type { DashboardDelRevisor as Datos } from "@/lib/revisiones/dashboard";
+import { NOMBRE_DE_UNIDAD, textoDelPeriodo, type Periodo } from "@/lib/periodo";
 
 const nf = new Intl.NumberFormat("es-MX");
 const decimal = new Intl.NumberFormat("es-MX", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
-export default function DashboardDelRevisor({ datos }: { datos: Datos }) {
+export default function DashboardDelRevisor({ datos, periodo }: { datos: Datos; periodo: Periodo }) {
   // eslint-disable-next-line react-hooks/purity -- Server Component: la espera se calcula al armar la página.
   const ahora = Date.now();
   const decididos = datos.aceptados + datos.rechazados;
@@ -59,8 +63,21 @@ export default function DashboardDelRevisor({ datos }: { datos: Datos }) {
       </div>
 
       <div className="mb-4 grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-        <Panel titulo={`Tus decisiones, últimos ${DIAS_DE_ACTIVIDAD} días`}>
-          <GraficaDeDecisiones dias={datos.actividad} />
+        <Panel titulo={`Tus decisiones ${NOMBRE_DE_UNIDAD[datos.actividad.unidad]} · ${textoDelPeriodo(periodo)}`}>
+          <div className="mb-3">
+            <Suspense fallback={null}>
+              <SelectorDePeriodo periodo={periodo} defecto="mes" />
+            </Suspense>
+          </div>
+          <GraficaDeTiempo
+            serie={datos.actividad}
+            series={[
+              { nombre: "Aceptados", color: "brand" },
+              { nombre: "Rechazados", color: "error" },
+            ]}
+            descripcion={`Tus decisiones ${NOMBRE_DE_UNIDAD[datos.actividad.unidad]}, ${textoDelPeriodo(periodo)}`}
+            vacio="Aún no decides aportes en este periodo."
+          />
         </Panel>
 
         <Panel titulo="Estrellas que das">

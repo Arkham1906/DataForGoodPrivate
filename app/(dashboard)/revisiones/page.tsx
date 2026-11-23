@@ -11,12 +11,19 @@ import DashboardDelRevisor from "@/components/revisiones/DashboardDelRevisor";
 import PestanasDelRevisor, { RUTA_DE_CAMPANAS_DEL_REVISOR } from "@/components/revisiones/PestanasDelRevisor";
 import { obtenerDashboardDelRevisor } from "@/lib/revisiones/dashboard";
 import { exigirUsuario } from "@/lib/session";
+import { periodoDesde } from "@/lib/periodo";
 
 export const metadata: Metadata = { title: "Revisiones" };
 
-export default async function RevisionesPage() {
+// ?periodo= o ?desde=&hasta= (2026-11-22): el periodo de la gráfica "Tus decisiones" (lib/periodo.ts).
+export default async function RevisionesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ periodo?: string; desde?: string; hasta?: string }>;
+}) {
   const usuario = await exigirUsuario();
-  const datos = await obtenerDashboardDelRevisor(usuario.id);
+  const periodo = periodoDesde(await searchParams, "mes");
+  const datos = await obtenerDashboardDelRevisor(usuario.id, periodo);
 
   return (
     <div className="mx-auto max-w-5xl lg:mx-0 lg:max-w-none">
@@ -26,7 +33,7 @@ export default async function RevisionesPage() {
         <p className="mt-1 text-[13px] text-system-600">Tu resumen como revisor de aportes.</p>
       </div>
       {datos && datos.campanas > 0 ? (
-        <DashboardDelRevisor datos={datos} />
+        <DashboardDelRevisor datos={datos} periodo={periodo} />
       ) : (
         <p className="rounded-lg border border-system-200 bg-white p-5 text-[13px] text-system-600">
           {datos

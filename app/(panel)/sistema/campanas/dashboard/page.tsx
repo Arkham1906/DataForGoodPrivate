@@ -57,7 +57,7 @@ export default async function DashboardDeCampanasPage() {
         <MetricCard label="Avance medio de meta" value={`${d.avanceMedio}%`} />
       </div>
 
-      <div className="mb-6 grid gap-6 md:grid-cols-2">
+      <div className="mb-8 flex flex-col gap-8">
         <section>
           <TituloDeSeccion>Por temática · activas</TituloDeSeccion>
           {d.porTematica.length === 0 ? (
@@ -82,7 +82,7 @@ export default async function DashboardDeCampanasPage() {
         </section>
       </div>
 
-      <div className="mb-6 grid gap-6 md:grid-cols-2">
+      <div className="mb-8 flex flex-col gap-8">
         <section>
           <TituloDeSeccion>Por estado</TituloDeSeccion>
           <ListaClaveValor

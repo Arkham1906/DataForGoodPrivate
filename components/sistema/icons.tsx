@@ -100,6 +100,18 @@ export function IconoEdificio(props: IconoProps) {
   );
 }
 
+/** Apelaciones (2026-11-22): una balanza. */
+export function IconoBalanza(props: IconoProps) {
+  return (
+    <Base {...props}>
+      <path d="M12 4v16M8 20h8" />
+      <path d="M5 7h14" />
+      <path d="M5 7l-3 6a3 3 0 0 0 6 0L5 7z" />
+      <path d="M19 7l-3 6a3 3 0 0 0 6 0l-3-6z" />
+    </Base>
+  );
+}
+
 /** Reportes: triángulo de alerta (Campañas ya usa la bandera). */
 export function IconoAlerta(props: IconoProps) {
   return (

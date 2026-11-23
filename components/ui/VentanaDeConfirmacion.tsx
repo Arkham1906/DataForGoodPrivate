@@ -4,8 +4,9 @@
 // window.confirm: título, contenido libre y botones "Cancelar" y el de la acción. Mientras
 // `ocupado` es true no se cierra (ni con Esc ni con clic afuera) y el botón muestra `textoOcupado`.
 // La usan "Pausar campaña" y "Finalizar campaña" en /mis-campanas y "Reportar campaña" en /campanas/[id] (ui/ReportarAPlataforma).
+// En el panel, a través de components/sistema/useConfirmacion (2026-11-22).
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 import Button from "@/components/ui/Button";
 import IndicadorDeCarga from "@/components/ui/IndicadorDeCarga";
 import { VENTANA, claseDeVentana } from "@/components/ui/ventana-emergente";
@@ -41,6 +42,8 @@ export default function VentanaDeConfirmacion({
   onConfirmar: () => void;
 }) {
   const dialogo = useRef<HTMLDialogElement>(null);
+  // Id propio de cada ventana (2026-11-22; antes fijo, por eso hay que montarla solo abierta si hay varias).
+  const idTitulo = useId();
 
   useEffect(() => {
     const el = dialogo.current;
@@ -56,7 +59,7 @@ export default function VentanaDeConfirmacion({
   return (
     <dialog
       ref={dialogo}
-      aria-labelledby="ventana-de-confirmacion-titulo"
+      aria-labelledby={idTitulo}
       // stopPropagation (2026-11-13): React hace subir "close" y "cancel" por el árbol de componentes, así que, dentro de
       // otro <dialog> (p. ej. el aviso de riesgos de "Permitir aportes sin cuenta" en Compartir), cerrar esta ventana
       // también cerraba la de afuera.
@@ -79,7 +82,7 @@ export default function VentanaDeConfirmacion({
     >
       <div className={VENTANA.marco}>
         <div className={VENTANA.encabezado}>
-          <h2 id="ventana-de-confirmacion-titulo" className={VENTANA.titulo}>
+          <h2 id={idTitulo} className={VENTANA.titulo}>
             {titulo}
           </h2>
         </div>

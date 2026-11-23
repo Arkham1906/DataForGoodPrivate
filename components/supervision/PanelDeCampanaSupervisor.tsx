@@ -1,12 +1,16 @@
 // Panel de métricas de una campaña, compartido por /supervision/[id]/panel y /supervisar/[id]/panel.
 // Recibe los datos ya calculados por lib/campanas/panel.ts y, desde el 2026-10-27, las métricas
 // generales de lib/campanas/metricas-generales.ts (components/campanas/MetricasGenerales).
+// Desde el 2026-11-22 la recolección es components/campanas/RecoleccionDeCampana: fecha en cada columna y
+// periodo elegible (este mes por defecto, histórico o fechas específicas; ?periodo= de la página).
 
 import Link from "next/link";
 import Tag from "@/components/ui/Tag";
 import type { PanelDeCampana } from "@/lib/campanas/panel";
 import MetricasGenerales from "@/components/campanas/MetricasGenerales";
 import TextoDeActualizacion from "@/components/campanas/TextoDeActualizacion";
+import RecoleccionDeCampana from "@/components/campanas/RecoleccionDeCampana";
+import type { Periodo } from "@/lib/periodo";
 import type { MetricasGenerales as DatosDeMetricas } from "@/lib/campanas/metricas-generales-tipos";
 import RefrescoEnVivo from "./RefrescoEnVivo";
 
@@ -37,19 +41,19 @@ function formatearFecha(fecha: string | null, conAnio = true) {
  */
 export default function PanelDeCampanaSupervisor({
   panel,
+  periodo,
   metricasGenerales,
   volverHref,
   volverTexto,
 }: {
   panel: PanelDeCampana;
+  /** El de la gráfica de recolección (lo lee la página de la URL). */
+  periodo: Periodo;
   metricasGenerales: DatosDeMetricas | null;
   volverHref: string;
   volverTexto: string;
 }) {
   const enVivo = panel.status === "activa";
-  const maxDiario = Math.max(...panel.recoleccionDiaria.map((d) => d.valor), 1);
-  const primerDia = panel.recoleccionDiaria[0];
-  const ultimoDia = panel.recoleccionDiaria[panel.recoleccionDiaria.length - 1];
 
   const metricas: [string, string | number][] = [
     ["Aportes aprobados", panel.metricas.aprobados],
@@ -103,27 +107,9 @@ export default function PanelDeCampanaSupervisor({
         ))}
       </div>
 
-      <section className="mb-6 rounded-lg border border-system-200 bg-white p-5 shadow-sm">
-        <h2 className="text-[13px] font-bold text-system-900">
-          Recolección diaria <span className="font-normal text-system-500">· últimos 14 días</span>
-        </h2>
-        <div className="mt-5 flex h-36 items-end gap-2 border-b border-system-200 px-1">
-          {panel.recoleccionDiaria.map((dia) => (
-            <div
-              key={dia.fecha}
-              className="flex-1 rounded-t bg-brand-600"
-              style={{ height: `${(dia.valor / maxDiario) * 100}%`, minHeight: dia.valor > 0 ? 2 : 0 }}
-              title={`${dia.etiqueta}: ${dia.valor} aporte${dia.valor === 1 ? "" : "s"}`}
-              role="img"
-                aria-label={`${dia.etiqueta}: ${dia.valor} aporte${dia.valor === 1 ? "" : "s"}`}
-            />
-          ))}
-        </div>
-        <div className="mt-2 flex justify-between font-mono text-[10px] text-system-500">
-          <span>{primerDia?.etiqueta}</span>
-          <span>{ultimoDia?.etiqueta}</span>
-        </div>
-      </section>
+      <div className="mb-6">
+        <RecoleccionDeCampana serie={panel.recoleccion} periodo={periodo} nombre={panel.nombre} />
+      </div>
 
         <section className="rounded-lg border border-system-200 bg-white p-5 shadow-sm">
           <h2 className="text-[13px] font-bold text-system-900">Progreso hacia la meta</h2>

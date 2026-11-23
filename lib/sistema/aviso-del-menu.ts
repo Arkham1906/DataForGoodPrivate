@@ -22,6 +22,8 @@ export async function avisoDelMenuParaRoot(contados: {
   reportes: number;
   tematicas: number;
   subtematicas: number;
+  /** Apelaciones por resolver (2026-11-22). */
+  apelaciones?: number;
 }): Promise<AvisoDelMenu> {
   try {
     const { rows } = await pool.query<{ por_supervisar: number; datos: number }>(
@@ -50,6 +52,12 @@ export async function avisoDelMenuParaRoot(contados: {
       renglones.push({
         texto: `${plural(contados.subtematicas, "subtemática", "subtemáticas")} por revisar`,
         href: "/sistema/tematicas",
+      });
+    }
+    if ((contados.apelaciones ?? 0) > 0) {
+      renglones.push({
+        texto: `${plural(contados.apelaciones ?? 0, "apelación", "apelaciones")} por resolver`,
+        href: "/apelaciones",
       });
     }
     if (contados.reportes > 0) {

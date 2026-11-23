@@ -58,6 +58,12 @@ export type AccionAuditada =
   | "root.acceso"
   | "root.acceso_fallido"
   | "root.token_api"
+  // Cierre de sesión del SuperUsuario desde la barra del panel (DELETE /api/auth/root, 2026-11-22).
+  | "root.salida"
+  // Apelaciones (2026-11-22, lib/apelaciones): la persona apela; el SuperUsuario acepta o rechaza.
+  | "apelacion.enviar"
+  | "apelacion.aceptar"
+  | "apelacion.rechazar"
   | "usuario.contrasena_cambiar"
   // "¿Olvidaste tu contraseña?" (lib/usuarios/recuperacion.ts).
   | "usuario.contrasena_recuperar"

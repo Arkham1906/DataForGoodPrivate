@@ -93,6 +93,7 @@ export default async function SupervisarCampanaPage({
 
       <AccionesDeSupervision
         campaignId={campaign.id}
+        nombre={campaign.name}
         status={campaign.status}
         supervision={campaign.supervision}
         similares={similares?.campanas.map(({ id, name, status }) => ({ id, name, status })) ?? []}
@@ -155,17 +156,13 @@ export default async function SupervisarCampanaPage({
         <div className="p-5">
           <p className="text-[13.5px] leading-6 text-system-600">{campaign.description}</p>
 
-          <div className="mt-5 grid gap-4 sm:grid-cols-2">
-          {filas.map((columna, i) => (
-            <div key={i} className="space-y-3">
-              {columna.map(([etiqueta, valor]) => (
-                <div key={etiqueta} className="flex justify-between gap-4 border-b border-system-200 pb-3 text-[13px]">
-                  <span className="text-system-600">{etiqueta}</span>
-                  <span className="text-right">{valor}</span>
-                </div>
-              ))}
-            </div>
-          ))}
+          <div className="mt-5 space-y-3">
+            {filas.flat().map(([etiqueta, valor]) => (
+              <div key={etiqueta} className="flex justify-between gap-4 border-b border-system-200 pb-3 text-[13px]">
+                <span className="text-system-600">{etiqueta}</span>
+                <span className="text-right">{valor}</span>
+              </div>
+            ))}
           </div>
 
           <div className="mt-5 flex flex-wrap gap-3">

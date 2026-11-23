@@ -82,7 +82,7 @@ export default async function RevertirAccionPage({ params }: { params: Params })
         </p>
       </header>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="flex flex-col gap-8">
         <div>
           <TituloDeSeccion>La decisión original</TituloDeSeccion>
           <ListaClaveValor
@@ -114,12 +114,14 @@ export default async function RevertirAccionPage({ params }: { params: Params })
           </Aviso>
         </div>
 
-        <div>
+        {/* El formulario no ocupa todo el ancho: los campos largos cuestan de leer. */}
+        <div className="max-w-2xl">
           <FormularioDeReversion
             supervisorId={id}
             accionId={accionId}
             supervisor={supervisor.nombre}
             notificable={d.notificable}
+            efecto={d.efecto}
           />
         </div>
       </div>

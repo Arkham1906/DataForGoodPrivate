@@ -17,6 +17,8 @@ import { rutasDeModeracion, type ZonaDeModeracion } from "@/lib/moderacion/rutas
 import { formatearFechaYHora } from "@/lib/usuarios/directorio";
 import ListaDeReportes, { type GrupoParaLista } from "./ListaDeReportes";
 import PestanasDeModeracion from "./PestanasDeModeracion";
+import FiltrosEnLaUrl from "@/components/sistema/FiltrosEnLaUrl";
+import { busquedaDeLaUrl, coincideConLaBusqueda, cuantosDeCuantos, opcionDeLaUrl } from "@/lib/filtros-en-la-url";
 
 const NOMBRE_DE_SANCION: Record<string, string> = {
   STRIKE: "Aviso",
@@ -28,11 +30,14 @@ export default async function PantallaDeReportes({
   zona,
   moderador,
   estado,
+  filtros = {},
 }: {
   zona: ZonaDeModeracion;
   moderador: Moderador;
   /** ?estado= de la URL: "resueltos" o nada (pendientes). */
   estado?: string;
+  /** Filtros de la lista (2026-11-22): ?q= (campaña, persona reportada, motivo o quién reportó) y ?tipo=. */
+  filtros?: { q?: string; tipo?: string };
 }) {
   const rutas = rutasDeModeracion(zona);
   const filtro: FiltroDeReportes = estado === "resueltos" ? "resueltos" : "pendientes";
@@ -44,7 +49,29 @@ export default async function PantallaDeReportes({
     contarReportesPendientes(propia, supervisorId),
   ]);
 
-  const paraLista: GrupoParaLista[] = grupos.map((g) => ({
+  const q = busquedaDeLaUrl(filtros.q);
+  const tipo = opcionDeLaUrl(filtros.tipo, ["campana", "aporte"] as const);
+  const filtrados = grupos.filter(
+    (g) =>
+      (!tipo || g.tipo === tipo) &&
+      coincideConLaBusqueda(
+        q,
+        g.campana.nombre,
+        g.reportado?.nombre,
+        g.aporteId,
+        ...g.reportes.flatMap((r) => [r.motivo, r.descripcion, r.quien]),
+      ),
+  );
+
+  // Pendientes y Resueltos conservan la búsqueda y el tipo.
+  const conservar = new URLSearchParams();
+  if (typeof filtros.q === "string" && filtros.q.trim()) conservar.set("q", filtros.q.trim().slice(0, 100));
+  if (tipo) conservar.set("tipo", tipo);
+  const extra = conservar.toString();
+  const hrefPendientes = extra ? `${rutas.reportes}?${extra}` : rutas.reportes;
+  const hrefResueltos = extra ? `${rutas.reportesResueltos}&${extra}` : rutas.reportesResueltos;
+
+  const paraLista: GrupoParaLista[] = filtrados.map((g) => ({
     clave: g.clave,
     tipo: g.tipo,
     campana: g.campana,
@@ -85,20 +112,45 @@ export default async function PantallaDeReportes({
         className="dashboard-nav mb-4 w-full min-w-0 max-w-full touch-pan-x flex flex-nowrap gap-2 overflow-x-auto overscroll-x-contain pb-2 [-webkit-overflow-scrolling:touch] md:flex-wrap md:overflow-visible md:pb-0"
         aria-label="Filtrar reportes"
       >
-        <Link href={rutas.reportes} scroll={false} className={claseChip(filtro === "pendientes")} aria-current={filtro === "pendientes" ? "true" : undefined}>
+        <Link href={hrefPendientes} scroll={false} className={claseChip(filtro === "pendientes")} aria-current={filtro === "pendientes" ? "true" : undefined}>
           Pendientes&nbsp; <span className="font-mono text-[11px]">{formatearNumero(pendientes.reportes)}</span>
         </Link>
-        <Link href={rutas.reportesResueltos} scroll={false} className={claseChip(filtro === "resueltos")} aria-current={filtro === "resueltos" ? "true" : undefined}>
+        <Link href={hrefResueltos} scroll={false} className={claseChip(filtro === "resueltos")} aria-current={filtro === "resueltos" ? "true" : undefined}>
           Resueltos
         </Link>
       </nav>
 
-      {paraLista.length === 0 ? (
+      {grupos.length > 0 && (
+        <FiltrosEnLaUrl
+          busqueda={{ etiqueta: "Buscar reportes", placeholder: "Buscar por campaña, persona o motivo" }}
+          listas={[
+            {
+              clave: "tipo",
+              etiqueta: "Filtrar por qué se reportó",
+              todas: "Campañas y aportes",
+              opciones: [
+                { valor: "campana", etiqueta: "Solo campañas" },
+                { valor: "aporte", etiqueta: "Solo aportes" },
+              ],
+            },
+          ]}
+          className="mb-4"
+        />
+      )}
+
+      {grupos.length === 0 ? (
         <p className="py-7 text-[13px] text-system-600">
           {filtro === "pendientes" ? "No hay reportes por revisar." : "Todavía no se ha resuelto ningún reporte."}
         </p>
+      ) : paraLista.length === 0 ? (
+        <p className="py-7 text-[13px] text-system-600">Ningún reporte coincide con los filtros.</p>
       ) : (
-        <ListaDeReportes zona={zona} grupos={paraLista} />
+        <>
+          {paraLista.length < grupos.length && (
+            <p className="mb-3 text-[12.5px] text-system-500">{cuantosDeCuantos(paraLista.length, grupos.length)} casos</p>
+          )}
+          <ListaDeReportes zona={zona} grupos={paraLista} />
+        </>
       )}
 
       <Aviso tono="neutro" className="mt-5">

@@ -15,6 +15,7 @@ import {
   ESTADOS_CON_EDICION_COMPLETA,
   colaDeRevisionLlena,
   errorDeEstadoPedido,
+  errorDeRolDeCreador,
 } from "@/lib/campanas/estado-del-creador";
 import { MAX_CAMPANAS_EN_REVISION } from "@/lib/campanas/cola-de-revision";
 import { avisarAjustesEnPausa } from "@/lib/notificaciones/avisos-a-supervisores";
@@ -624,6 +625,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     let status = "status" in body ? normalizeCampaignStatus(body.status) : null;
     if (enviarRevisionAlEditar) status = "en_revision";
     if (bannerAjustado) status = "en_revision";
+    // Sin el rol de creador (2026-11-22) no envía a revisión un borrador ni una rechazada; lo demás sí.
+    const errorDeRol = errorDeRolDeCreador(user.role, status, currentStatus);
+    if (errorDeRol) return NextResponse.json({ error: errorDeRol }, { status: 403 });
     const dataTypes = "dataTypes" in body || "data_types" in body ? normalizeDataTypes(body.dataTypes ?? body.data_types) : null;
     // Formatos de "Archivo" (2026-10-28): si llegan o cambian los tipos; sin "documento", [].
     const formatosDeDocumento =
@@ -1014,6 +1018,8 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     if (status === null) {
       return NextResponse.json({ error: `status debe ser uno de: ${Array.from(ALLOWED_STATUS).join(", ")}` }, { status: 400 });
     }
+    const errorDeRol = errorDeRolDeCreador(user.role, status, estadoAnterior);
+    if (errorDeRol) return NextResponse.json({ error: errorDeRol }, { status: 403 });
     const errorDeEstado = await errorDeEstadoPedido(status, user.id, id);
     if (errorDeEstado) return NextResponse.json({ error: errorDeEstado }, { status: 400 });
 

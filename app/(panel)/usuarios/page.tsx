@@ -1,5 +1,7 @@
 // Pantalla /usuarios: directorio de usuarios con búsqueda y filtros.
 // Server Component. Datos: buscarUsuarios() de lib/usuarios/directorio.ts. Protegida solo por el layout del panel.
+// Filtros: búsqueda, rol, estado y, desde el 2026-11-22, organización (?organizacion=; organizacionesDelDirectorio).
+// Cada fila muestra la organización de la persona bajo su correo.
 
 import type { Metadata } from "next";
 import { Suspense } from "react";
@@ -8,14 +10,14 @@ import Subtabs from "@/components/sistema/subtabs";
 import { Encabezado, EnlaceBoton, Paginacion, formatearNumero } from "@/components/sistema/ui";
 import Tag from "@/components/sistema/Tag";
 import { PESTANAS_USUARIOS } from "@/lib/usuarios/dashboard";
-import { ETIQUETA_DE_ESTADO, POR_PAGINA, buscarUsuarios } from "@/lib/usuarios/directorio";
+import { ETIQUETA_DE_ESTADO, POR_PAGINA, buscarUsuarios, organizacionesDelDirectorio } from "@/lib/usuarios/directorio";
 import Filtros from "./filtros";
 import { exigirSesionRoot } from "@/lib/supervision/root";
 
 export const metadata: Metadata = { title: "Directorio de usuarios" };
 export const dynamic = "force-dynamic";
 
-type Busqueda = { q?: string; rol?: string; estado?: string; pagina?: string; movil?: string };
+type Busqueda = { q?: string; rol?: string; estado?: string; organizacion?: string; pagina?: string; movil?: string };
 
 export default async function DirectorioPage({
   searchParams,
@@ -26,12 +28,10 @@ export default async function DirectorioPage({
   const sp = await searchParams;
   const pagina = Math.max(1, Number(sp.pagina ?? 1) || 1);
 
-  const { filas, total } = await buscarUsuarios({
-    q: sp.q,
-    rol: sp.rol,
-    estado: sp.estado,
-    pagina,
-  });
+  const [{ filas, total }, organizaciones] = await Promise.all([
+    buscarUsuarios({ q: sp.q, rol: sp.rol, estado: sp.estado, organizacion: sp.organizacion, pagina }),
+    organizacionesDelDirectorio(),
+  ]);
 
   const paginas = Math.max(1, Math.ceil(total / POR_PAGINA));
   const desde = (pagina - 1) * POR_PAGINA + 1;
@@ -42,6 +42,7 @@ export default async function DirectorioPage({
     if (sp.q) params.set("q", sp.q);
     if (sp.rol) params.set("rol", sp.rol);
     if (sp.estado) params.set("estado", sp.estado);
+    if (sp.organizacion) params.set("organizacion", sp.organizacion);
     if (p > 1) params.set("pagina", String(p));
     const qs = params.toString();
     return qs ? `/usuarios?${qs}` : "/usuarios";
@@ -65,7 +66,13 @@ export default async function DirectorioPage({
         />
 
         <Suspense fallback={null}>
-          <Filtros q={sp.q ?? ""} rol={sp.rol ?? ""} estado={sp.estado ?? ""} />
+          <Filtros
+            q={sp.q ?? ""}
+            rol={sp.rol ?? ""}
+            estado={sp.estado ?? ""}
+            organizacion={sp.organizacion ?? ""}
+            organizaciones={organizaciones}
+          />
         </Suspense>
 
         {filas.length === 0 ? (
@@ -85,11 +92,15 @@ export default async function DirectorioPage({
                         {u.nombre}
                       </p>
                       <p className="mt-1 break-all font-mono text-[11px] text-system-500">{u.correo}</p>
+                      <p className="mt-0.5 break-words text-[12px] text-system-600">{u.organizacion ?? "Sin organización"}</p>
                     </div>
 
                     <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-system-200 pt-3">
                       {u.roles.map((rol) => (
                         <Tag key={rol}>{rol}</Tag>
+                      ))}
+                      {u.rolesRetirados.map((rol) => (
+                        <Tag key={rol} tone="warn">{rol}</Tag>
                       ))}
                       {u.rolDetalle ? (
                         <span className="text-[12.5px] text-system-500">{u.rolDetalle}</span>
@@ -131,11 +142,15 @@ export default async function DirectorioPage({
                         <td className="py-4">
                           <p className="font-bold text-system-900">{u.nombre}</p>
                           <p className="font-mono text-[11px] text-system-500">{u.correo}</p>
+                          <p className="text-[12px] text-system-600">{u.organizacion ?? "Sin organización"}</p>
                         </td>
                         <td>
                           <div className="flex flex-wrap items-center gap-1.5">
                             {u.roles.map((rol) => (
                               <Tag key={rol}>{rol}</Tag>
+                            ))}
+                            {u.rolesRetirados.map((rol) => (
+                              <Tag key={rol} tone="warn">{rol}</Tag>
                             ))}
                             {u.rolDetalle ? (
                               <span className="text-[12.5px] text-system-500">{u.rolDetalle}</span>

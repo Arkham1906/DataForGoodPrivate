@@ -4,6 +4,7 @@
 // (lib/aportes/sanciones-anonimas.ts).
 
 import { NextResponse } from "next/server";
+import { DIAS_PARA_APELAR } from "@/lib/apelaciones/reglas";
 import { pool } from "@/lib/db";
 import { getSessionUser, type SessionUser } from "@/lib/session";
 import { registrarAuditoria } from "@/lib/auditoria";
@@ -103,7 +104,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       usuarioId: row.user_id,
       tipo: "campana_baneo",
       titulo: "Ya no puedes aportar en una campaña",
-      mensaje: `Quien organiza "${row.name}" te retiró de la campaña y ya no puedes enviar aportes en ella. Motivo: ${reason}`,
+      mensaje: `Quien organiza "${row.name}" te retiró de la campaña y ya no puedes enviar aportes en ella. Motivo: ${reason} Si crees que es un error, puedes apelarlo en Mis apelaciones durante ${DIAS_PARA_APELAR} días.`,
       campanaId: campaignId,
       enlace: `/campanas/${campaignId}`,
       metadata: { motivo: reason },

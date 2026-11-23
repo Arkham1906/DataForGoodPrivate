@@ -10,8 +10,8 @@ import { exigirModerador } from "@/lib/moderacion/moderador";
 export const metadata: Metadata = { title: "Sanciones" };
 export const dynamic = "force-dynamic";
 
-export default async function SancionesPage({ searchParams }: { searchParams: Promise<{ buscar?: string }> }) {
+export default async function SancionesPage({ searchParams }: { searchParams: Promise<{ buscar?: string; q?: string; tipo?: string; vigencia?: string }> }) {
   const moderador = await exigirModerador("supervisar");
-  const { buscar } = await searchParams;
-  return <PantallaDeSanciones zona="supervisar" moderador={moderador} buscar={typeof buscar === "string" ? buscar : ""} />;
+  const { buscar, q, tipo, vigencia } = await searchParams;
+  return <PantallaDeSanciones zona="supervisar" moderador={moderador} buscar={typeof buscar === "string" ? buscar : ""} filtros={{ q, tipo, vigencia }} />;
 }

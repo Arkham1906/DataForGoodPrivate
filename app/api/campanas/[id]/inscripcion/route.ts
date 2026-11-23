@@ -5,12 +5,15 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/session";
 import { inscribir } from "@/lib/campanas/inscripciones";
+import { SIN_ROL_DE_APORTADOR, puedeAportar } from "@/lib/usuarios/rol-asignable";
 
 // POST { aceptaUso: "si", confirmaContenido: "si" }: campaña activa o pausada, sin ser su creador ni estar baneado.
+// Sin el rol de aportador (2026-11-22, lo quita el SuperUsuario): 403.
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const user = await getSessionUser();
     if (!user) return NextResponse.json({ error: "Debes iniciar sesión" }, { status: 401 });
+    if (!puedeAportar(user.role)) return NextResponse.json({ error: SIN_ROL_DE_APORTADOR }, { status: 403 });
 
     const { id } = await context.params;
     const campanaId = Number(id);

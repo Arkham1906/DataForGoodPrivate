@@ -1,12 +1,16 @@
 "use client";
 
-// Botón de creación que verifica la organización del perfil antes de abrir el formulario.
+// Botón de creación que verifica, antes de abrir el formulario, el rol de creador de campaña (2026-11-22: si
+// el SuperUsuario se lo quitó, avisa en una ventana) y la organización del perfil. El servidor lo vuelve a
+// exigir en POST /api/campanas.
 
 import { useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
+import VentanaDeConfirmacion from "@/components/ui/VentanaDeConfirmacion";
 import VentanaDeOrganizacionRequerida from "@/components/campanas/VentanaDeOrganizacionRequerida";
 import { BASE_PATH } from "@/lib/base-path";
+import { SIN_ROL_DE_CREADOR, puedeCrearCampanas } from "@/lib/usuarios/rol-asignable";
 
 export default function BotonCrearCampana({
   children,
@@ -22,6 +26,7 @@ export default function BotonCrearCampana({
   const router = useRouter();
   const [verificando, setVerificando] = useState(false);
   const [ventanaAbierta, setVentanaAbierta] = useState(false);
+  const [sinRol, setSinRol] = useState(false);
   const [error, setError] = useState("");
 
   async function crearCampana() {
@@ -35,11 +40,14 @@ export default function BotonCrearCampana({
       }
 
       const body = await response.json();
+      const roles: string[] = Array.isArray(body.data?.role) ? body.data.role.map(String) : [];
       const organizacion = typeof body.data?.organizacion === "string"
         ? body.data.organizacion.trim()
         : "";
 
-      if (organizacion) {
+      if (!puedeCrearCampanas(roles)) {
+        setSinRol(true);
+      } else if (organizacion) {
         router.push("/mis-campanas/nueva");
       } else {
         setVentanaAbierta(true);
@@ -69,6 +77,17 @@ export default function BotonCrearCampana({
         onCancelar={() => setVentanaAbierta(false)}
         onAgregar={() => router.push("/cuenta?resaltarOrganizacion=1#organizacion")}
       />
+      <VentanaDeConfirmacion
+        abierto={sinRol}
+        titulo="No puedes crear campañas"
+        ocultarCancelar
+        textoConfirmar="Entendido"
+        textoOcupado="Cerrando…"
+        onCancelar={() => setSinRol(false)}
+        onConfirmar={() => setSinRol(false)}
+      >
+        <p className="text-[13px] leading-5 text-system-700">{SIN_ROL_DE_CREADOR}</p>
+      </VentanaDeConfirmacion>
     </>
   );
 }

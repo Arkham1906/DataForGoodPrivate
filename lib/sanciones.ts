@@ -96,7 +96,8 @@ export async function contarSanciones(usuarioId: number): Promise<HistorialDeSan
             COUNT(*) FILTER (WHERE tipo = 'SUSPENSION_TEMPORAL')::int AS suspensiones,
             COUNT(*) FILTER (WHERE tipo = 'STRIKE')::int AS strikes
      FROM sanciones
-     WHERE usuario_id = $1`,
+     -- Las anuladas por una apelación (2026-11-22) ya no son parte de su historial.
+     WHERE usuario_id = $1 AND anulada_en IS NULL`,
     [usuarioId]
   );
   return result.rows[0] ?? { total: 0, baneos: 0, suspensiones: 0, strikes: 0 };

@@ -2,6 +2,8 @@
 
 // Server actions del panel sobre usuarios: asignarRol y revocarRol. Cada una verifica la sesión raíz
 // (exigirSuperUsuario), aplica la regla, registra en audit_log y notifica a la persona.
+// Desde el 2026-11-22 también dan y quitan los permisos del usuario común (creador de campaña y aportador,
+// lib/usuarios/rol-asignable.ts). Quitar el de creador no toca sus campañas: las sigue administrando.
 // Las sanciones (aviso, baneo, restaurar) ya no están aquí: desde el 2026-10-13 las aplica quien modera
 // desde /supervisar o /supervision (lib/moderacion/acciones.ts).
 
@@ -10,12 +12,54 @@ import { revalidatePath } from "next/cache";
 import { pool } from "@/lib/db";
 import { hasRootSession } from "@/lib/rootSession";
 import { agregarRol, columnaDeRoles, quitarRol } from "@/lib/usuarios/tabla-roles";
-import { CODIGO_DE_ROL, NOMBRE_DE_ROL, type RolAsignable } from "@/lib/usuarios/rol-asignable";
+import {
+  CODIGO_DE_ROL,
+  NOMBRE_DE_ROL,
+  SIN_ROL_DE_APORTADOR,
+  SIN_ROL_DE_CREADOR,
+  type RolAsignable,
+} from "@/lib/usuarios/rol-asignable";
 import { retirarComoRevisorDeTodasLasCampanas } from "@/lib/usuarios/revisor";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { notificar } from "@/lib/notificaciones/notificaciones";
 
 export type ResultadoDeAccion = { ok: true } | { ok: false; error: string };
+
+type Aviso = { titulo: string; mensaje: string; enlace?: string };
+
+/** Lo que se le avisa a la persona al darle el rol (el de revisor no llega aquí: lo da la invitación). */
+const AVISO_AL_ASIGNAR: Record<Exclude<RolAsignable, "REVISOR_DE_APORTES">, Aviso> = {
+  SUPERVISOR: {
+    titulo: `Ahora eres ${NOMBRE_DE_ROL.SUPERVISOR.toLowerCase()}`,
+    mensaje: "Ya puedes tomar campañas en revisión y dictaminarlas desde Supervisión.",
+    enlace: "/supervision",
+  },
+  // Creador y aportador (2026-11-22): toda cuenta los tiene, así que darlos es devolverlos.
+  CREADOR_DE_CAMPANAS: {
+    titulo: "Puedes volver a crear campañas",
+    mensaje: "La administración te devolvió el rol de creador de campaña: ya puedes crear campañas y enviarlas a revisión.",
+    enlace: "/mis-campanas",
+  },
+  APORTADOR: {
+    titulo: "Puedes volver a aportar",
+    mensaje: "La administración te devolvió el rol de aportador: ya puedes inscribirte a campañas y enviar aportes.",
+    enlace: "/campanas",
+  },
+};
+
+/** Lo que se le avisa a la persona al quitarle el rol. */
+const AVISO_AL_QUITAR: Record<RolAsignable, Aviso> = {
+  SUPERVISOR: {
+    titulo: `Ya no eres ${NOMBRE_DE_ROL.SUPERVISOR.toLowerCase()}`,
+    mensaje: "La administración retiró tu rol de supervisor. Las campañas que tomaste sin dictaminar quedaron libres.",
+  },
+  REVISOR_DE_APORTES: {
+    titulo: `Ya no eres ${NOMBRE_DE_ROL.REVISOR_DE_APORTES.toLowerCase()}`,
+    mensaje: "La administración retiró tu rol de revisor de aportes en todas las campañas.",
+  },
+  CREADOR_DE_CAMPANAS: { titulo: "Ya no puedes crear campañas", mensaje: SIN_ROL_DE_CREADOR, enlace: "/mis-campanas" },
+  APORTADOR: { titulo: "Ya no puedes aportar", mensaje: SIN_ROL_DE_APORTADOR, enlace: "/mis-aportes" },
+};
 
 async function exigirSuperUsuario(): Promise<void> {
   const autorizado = await hasRootSession();
@@ -66,14 +110,12 @@ export async function asignarRol(
       objetivo: { tipo: "usuario", id: numericId },
       detalle: { rol },
     });
-    // Aquí solo llega SUPERVISOR: el de revisor se rechaza arriba.
+    // Aquí no llega REVISOR_DE_APORTES: se rechaza arriba.
     if (!teniaElRol) {
       await notificar({
         usuarioId: numericId,
         tipo: "rol_asignado",
-        titulo: `Ahora eres ${NOMBRE_DE_ROL[rol].toLowerCase()}`,
-        mensaje: "Ya puedes tomar campañas en revisión y dictaminarlas desde Supervisión.",
-        enlace: "/supervision",
+        ...AVISO_AL_ASIGNAR[rol],
         metadata: { rol },
       });
     }
@@ -142,11 +184,7 @@ export async function revocarRol(
       await notificar({
         usuarioId: numericId,
         tipo: "rol_revocado",
-        titulo: `Ya no eres ${NOMBRE_DE_ROL[rol].toLowerCase()}`,
-        mensaje:
-          rol === "SUPERVISOR"
-            ? "La administración retiró tu rol de supervisor. Las campañas que tomaste sin dictaminar quedaron libres."
-            : "La administración retiró tu rol de revisor de aportes en todas las campañas.",
+        ...AVISO_AL_QUITAR[rol],
         metadata: { rol },
       });
     }

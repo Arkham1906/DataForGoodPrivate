@@ -51,8 +51,12 @@ export function Encabezado({
   );
 }
 
+/**
+ * Título de cada sección del panel. Desde el 2026-11-22 (a pedido del PM) es un h2 más marcado: las secciones van en
+ * una sola columna y el título es lo que separa una de otra.
+ */
 export function TituloDeSeccion({ children }: { children: ReactNode }) {
-  return <p className="mb-3 text-[12.5px] font-semibold text-system-900">{children}</p>;
+  return <h2 className="mb-3 text-[15px] font-bold text-system-900">{children}</h2>;
 }
 
 /** Link de retorno, mismo estilo en toda la sección /usuarios. */

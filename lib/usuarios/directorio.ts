@@ -5,15 +5,36 @@ import { AVISOS_PARA_BANEO } from "@/lib/usuarios/escala-de-avisos";
 import { pool } from "@/lib/db";
 import { columnaDeRoles, condicionDeRol } from "@/lib/usuarios/tabla-roles";
 import {
+  CODIGO_DE_ROL,
+  ETIQUETA_SIN_PERMISO,
   nombreDeRolPrincipal,
   nombresDeRoles,
+  permisosDesde,
+  permisosRetiradosDesde,
   rolesVigentesDesde,
+  type PermisoDeUsuario,
   type RolAsignable,
 } from "@/lib/usuarios/rol-asignable";
 import type { TonoDeEtiqueta } from "@/lib/usuarios/supervisores";
 
-export type { RolAsignable } from "@/lib/usuarios/rol-asignable";
-export { CODIGO_DE_ROL, NOMBRE_DE_ROL, QUIEN_ASIGNA } from "@/lib/usuarios/rol-asignable";
+export type { PermisoDeUsuario, RolAsignable } from "@/lib/usuarios/rol-asignable";
+export { AL_QUITAR, CODIGO_DE_ROL, NOMBRE_DE_ROL, PERMISOS_DE_USUARIO, QUIEN_ASIGNA } from "@/lib/usuarios/rol-asignable";
+
+/**
+ * Filtro "sin rol" del directorio (2026-11-22): quienes perdieron un permiso del usuario común. Los demás
+ * valores de ?rol= son códigos de usuario_roles (lib/roles.ts).
+ */
+const FILTRO_SIN_PERMISO: Record<string, PermisoDeUsuario> = {
+  sin_creador: "CREADOR_DE_CAMPANAS",
+  sin_aportador: "APORTADOR",
+};
+
+/**
+ * Filtro por organización del directorio (2026-11-22, a pedido del usuario): `?organizacion=<nombre>` compara con
+ * usuarios.organizacion (ya viene con el nombre del catálogo, lib/usuarios/organizaciones.ts) sin importar
+ * mayúsculas ni espacios de más; este valor pide a quien no tiene ninguna.
+ */
+export const SIN_ORGANIZACION = "__ninguna";
 
 /* ── modelo ─────────────────────────────────────────────────────────────── */
 
@@ -28,6 +49,10 @@ export type FilaDeUsuario = {
   roles: string[];
   /** Aclaración bajo el rol, p. ej. "(y creador de campañas)". */
   rolDetalle?: string;
+  /** Los permisos del usuario común que le quitaron, como etiqueta ("Sin rol de creador"; 2026-11-22). */
+  rolesRetirados: string[];
+  /** La de su perfil (usuarios.organizacion); null si no tiene (2026-11-22). */
+  organizacion: string | null;
   estado: EstadoDeCuenta;
   strikes: number;
 };
@@ -41,6 +66,8 @@ export type Usuario = FilaDeUsuario & {
   aportesAceptados: number;
   /** Puede tener cero, uno o los dos roles delegados a la vez. */
   rolesVigentes: RolAsignable[];
+  /** Creador de campaña y aportador, si los conserva (toda cuenta los tiene hasta que se los quitan). */
+  permisos: PermisoDeUsuario[];
   rolDesde: Date | null;
   interesesDeclarados: { tema: string; campanas: number }[];
   historialDeStrikes: { motivo: string; fecha: Date; campana: string }[];
@@ -167,6 +194,7 @@ type FilaUsuarioDB = {
   apellidos: string;
   email: string;
   role: string[] | null;
+  organizacion: string | null;
   strikes: string | number;
   suspendida: boolean;
   baneada: boolean;
@@ -177,7 +205,7 @@ export const RESUMEN_DE_SANCIONES = `
   LEFT JOIN (
     SELECT
       usuario_id,
-      COUNT(*) FILTER (WHERE tipo = 'STRIKE') AS strikes,
+      COUNT(*) FILTER (WHERE tipo = 'STRIKE' AND anulada_en IS NULL) AS strikes, -- sin los anulados por apelación
       BOOL_OR(
         activa AND tipo = 'SUSPENSION_TEMPORAL'
         AND aplicada_en + (COALESCE(dias, 0) || ' days')::interval > NOW()
@@ -204,6 +232,8 @@ function filaDesdeDB(row: FilaUsuarioDB): FilaDeUsuario {
     correo: row.email,
     rol: nombreDeRolPrincipal(roles),
     roles: nombresDeRoles(roles),
+    rolesRetirados: permisosRetiradosDesde(roles).map((p) => ETIQUETA_SIN_PERMISO[p]),
+    organizacion: row.organizacion?.trim() || null,
     estado: estadoDesdeSanciones(strikes, Boolean(row.suspendida), Boolean(row.baneada)),
     strikes,
   };
@@ -213,6 +243,8 @@ export async function buscarUsuarios(opciones: {
   q?: string;
   rol?: string;
   estado?: string;
+  /** Nombre de la organización, o SIN_ORGANIZACION (2026-11-22). */
+  organizacion?: string;
   pagina?: number;
 }): Promise<{ filas: FilaDeUsuario[]; total: number; pagina: number }> {
   const pagina = Math.max(1, opciones.pagina ?? 1);
@@ -220,6 +252,7 @@ export async function buscarUsuarios(opciones: {
   const q = (opciones.q ?? "").trim().replace(/\s+/g, " ");
   const rol = (opciones.rol ?? "").trim();
   const estado = (opciones.estado ?? "").trim() as EstadoDeCuenta | "";
+  const organizacion = (opciones.organizacion ?? "").trim().replace(/\s+/g, " ");
 
   // En una BD recién levantada `usuarios`/`sanciones` todavía no existen (las
   // crea bajo demanda el registro y el panel de sanciones): sin este
@@ -242,9 +275,18 @@ export async function buscarUsuarios(opciones: {
       valores.push(q);
     }
 
+    if (organizacion === SIN_ORGANIZACION) {
+      condiciones.push("NULLIF(btrim(u.organizacion), '') IS NULL");
+    } else if (organizacion) {
+      valores.push(organizacion);
+      condiciones.push(`lower(regexp_replace(btrim(u.organizacion), '\\s+', ' ', 'g')) = lower($${valores.length})`);
+    }
+
     if (rol) {
-      valores.push(rol);
-      condiciones.push(condicionDeRol("u", `$${valores.length}`));
+      const sinPermiso = FILTRO_SIN_PERMISO[rol];
+      valores.push(sinPermiso ? CODIGO_DE_ROL[sinPermiso] : rol);
+      const condicion = condicionDeRol("u", `$${valores.length}`);
+      condiciones.push(sinPermiso ? `NOT ${condicion}` : condicion);
     }
 
     const condicionDeEstado: Record<EstadoDeCuenta, string> = {
@@ -274,7 +316,7 @@ export async function buscarUsuarios(opciones: {
     const posicionOffset = valoresConPaginacion.length;
 
     const result = await pool.query<FilaUsuarioDB>(
-      `SELECT u.id, u.nombre, u.apellidos, u.email, ${columnaDeRoles("u")},
+      `SELECT u.id, u.nombre, u.apellidos, u.email, u.organizacion, ${columnaDeRoles("u")},
               COALESCE(rs.strikes, 0) AS strikes,
               COALESCE(rs.suspendida, false) AS suspendida,
               COALESCE(rs.baneada, false) AS baneada
@@ -293,6 +335,38 @@ export async function buscarUsuarios(opciones: {
   }
 }
 
+/**
+ * Opciones del filtro por organización del directorio (2026-11-22): las organizaciones que tiene al menos una
+ * cuenta, con cuántas, de la A a la Z, y cuántas cuentas no tienen ninguna. Las del catálogo sin nadie no salen.
+ */
+export async function organizacionesDelDirectorio(): Promise<{ opciones: { nombre: string; total: number }[]; sinOrganizacion: number }> {
+  try {
+    const { rows } = await pool.query<{ nombre: string | null; total: number }>(
+      `SELECT NULLIF(regexp_replace(btrim(organizacion), '\\s+', ' ', 'g'), '') AS nombre, COUNT(*)::int AS total
+         FROM usuarios
+        GROUP BY 1
+        ORDER BY lower(NULLIF(regexp_replace(btrim(organizacion), '\\s+', ' ', 'g'), '')) NULLS LAST`,
+    );
+    // Dos escrituras que solo difieren en mayúsculas cuentan juntas, con la primera que aparece.
+    const porClave = new Map<string, { nombre: string; total: number }>();
+    let sinOrganizacion = 0;
+    for (const fila of rows) {
+      if (!fila.nombre) {
+        sinOrganizacion += Number(fila.total);
+        continue;
+      }
+      const clave = fila.nombre.toLowerCase();
+      const actual = porClave.get(clave);
+      if (actual) actual.total += Number(fila.total);
+      else porClave.set(clave, { nombre: fila.nombre, total: Number(fila.total) });
+    }
+    return { opciones: [...porClave.values()], sinOrganizacion };
+  } catch (error) {
+    console.error("Error listando las organizaciones del directorio", error);
+    return { opciones: [], sinOrganizacion: 0 };
+  }
+}
+
 export async function obtenerUsuario(id: string): Promise<Usuario | null> {
   const numericId = Number(id);
   if (!Number.isInteger(numericId)) return null;
@@ -307,7 +381,7 @@ export async function obtenerUsuario(id: string): Promise<Usuario | null> {
         created_at: string;
       }
     >(
-      `SELECT u.id, u.nombre, u.apellidos, u.email, ${columnaDeRoles("u")}, u.state, u.city, u.specialty, u.intereses, u.created_at,
+      `SELECT u.id, u.nombre, u.apellidos, u.email, u.organizacion, ${columnaDeRoles("u")}, u.state, u.city, u.specialty, u.intereses, u.created_at,
               COALESCE(rs.strikes, 0) AS strikes,
               COALESCE(rs.suspendida, false) AS suspendida,
               COALESCE(rs.baneada, false) AS baneada
@@ -324,7 +398,7 @@ export async function obtenerUsuario(id: string): Promise<Usuario | null> {
     try {
       const strikesResult = await pool.query<{ detalle: string; aplicada_en: string }>(
         `SELECT detalle, aplicada_en FROM sanciones
-         WHERE usuario_id = $1 AND tipo = 'STRIKE'
+         WHERE usuario_id = $1 AND tipo = 'STRIKE' AND anulada_en IS NULL
          ORDER BY aplicada_en DESC`,
         [numericId],
       );
@@ -373,6 +447,7 @@ export async function obtenerUsuario(id: string): Promise<Usuario | null> {
       aportesEnviados,
       aportesAceptados,
       rolesVigentes: rolesVigentesDesde(row.role ?? []),
+      permisos: permisosDesde(row.role ?? []),
       rolDesde: null,
       interesesDeclarados: (row.intereses ?? []).map((tema) => ({ tema, campanas: 0 })),
       historialDeStrikes,
@@ -454,6 +529,7 @@ export async function listarSanciones(supervisorId?: number): Promise<RegistroDe
         aplicada_por: string;
         activa: boolean;
         restaurada_en: Date | null;
+        anulada_en: Date | null;
         usuario_id: number;
         nombre: string;
         apellidos: string;
@@ -464,10 +540,11 @@ export async function listarSanciones(supervisorId?: number): Promise<RegistroDe
         rep_aporte_id: number | null;
         reportes: number;
       }>(
-        `SELECT s.id, s.tipo, s.detalle, s.dias, s.aplicada_en, s.aplicada_por, s.activa, s.restaurada_en,
+        `SELECT s.id, s.tipo, s.detalle, s.dias, s.aplicada_en, s.aplicada_por, s.activa, s.restaurada_en, s.anulada_en,
                 u.id AS usuario_id, u.nombre, u.apellidos,
-                CASE WHEN s.tipo = 'STRIKE'
-                     THEN ROW_NUMBER() OVER (PARTITION BY s.usuario_id, s.tipo ORDER BY s.aplicada_en, s.id)
+                -- Los avisos anulados por una apelación no tienen número: la escala no los cuenta.
+                CASE WHEN s.tipo = 'STRIKE' AND s.anulada_en IS NULL
+                     THEN ROW_NUMBER() OVER (PARTITION BY s.usuario_id, s.tipo, (s.anulada_en IS NULL) ORDER BY s.aplicada_en, s.id)
                 END::int AS aviso,
                 rep.tipo AS rep_tipo, rep.campana_id AS rep_campana_id, c.name AS rep_campana,
                 rep.aporte_id AS rep_aporte_id, COALESCE(rep.n, 0)::int AS reportes
@@ -554,6 +631,17 @@ export async function listarSanciones(supervisorId?: number): Promise<RegistroDe
           quien: s.aplicada_por === "Automático" ? "Escala de avisos" : s.aplicada_por,
           fecha: s.aplicada_en,
         };
+        // Anulada por una apelación aceptada (2026-11-22, lib/apelaciones): ya no cuenta ni se restaura.
+        if (s.anulada_en) {
+          return {
+            ...base,
+            tipo: s.tipo === "STRIKE" ? "STRIKE" : s.tipo === "SUSPENSION_TEMPORAL" ? "SUSPENSION" : "BANEO",
+            ...(s.tipo === "SUSPENSION_TEMPORAL" ? { dias: s.dias ?? 0 } : {}),
+            estado: `Anulada por apelación el ${formatearFecha(s.anulada_en)}`,
+            vigente: false,
+            restaurable: false,
+          };
+        }
         if (s.tipo === "STRIKE") {
           return {
             ...base,

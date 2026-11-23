@@ -5,10 +5,12 @@
 // Rechazar la borra (2026-10-22): desaparece de la lista, ya no queda "Aprobar".
 // Desde el 2026-10-29 una campaña puede usar una temática propuesta: si alguna la usa, "Rechazar"
 // pide primero a qué temática aprobada pasan (decisión del usuario) y se confirma con "Rechazar y mover".
+// Desde el 2026-11-22, aprobar y rechazar piden confirmación ("¿Seguro que quieres…?", components/sistema/useConfirmacion).
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 
 import Button from "@/components/sistema/Button";
+import { useConfirmacion } from "@/components/sistema/useConfirmacion";
 import { revisarTematica } from "@/lib/tematicas/acciones-tematicas";
 
 export default function BotonesDeRevision({
@@ -24,7 +26,7 @@ export default function BotonesDeRevision({
   /** Temáticas aprobadas y visibles a las que pueden pasar esas campañas. */
   reemplazos?: string[];
 }) {
-  const [pendiente, iniciar] = useTransition();
+  const { pedirConfirmacion, ventana, ocupado: pendiente } = useConfirmacion();
   const [error, setError] = useState<string | null>(null);
   const [eligiendo, setEligiendo] = useState(false);
   const [reemplazo, setReemplazo] = useState("");
@@ -39,10 +41,41 @@ export default function BotonesDeRevision({
       setError("Elige a qué temática pasan las campañas.");
       return;
     }
-    iniciar(async () => {
-      const resultado = await revisarTematica(id, aprobada, aprobada ? undefined : reemplazo || undefined);
-      setError(resultado.ok ? null : resultado.error);
-    });
+    setError(null);
+    pedirConfirmacion(
+      aprobada
+        ? {
+            pregunta: `¿Seguro que quieres aprobar «${nombre}»?`,
+            detalle: (
+              <p>
+                Pasa al catálogo y se ofrece a todos al crear campañas y al elegir intereses. Se avisa a quien la propuso
+                {campanas > 0 ? " y a quienes la usan en su campaña" : ""}.
+              </p>
+            ),
+            textoConfirmar: "Sí, aprobar",
+            accion: () => revisarTematica(id, true),
+          }
+        : {
+            pregunta: `¿Seguro que quieres rechazar «${nombre}»?`,
+            detalle: (
+              <>
+                <p>
+                  Se borra del catálogo y se quita de los perfiles de quienes la escribieron. Se avisa a quien la propuso.
+                </p>
+                {campanas > 0 ? (
+                  <p>
+                    {campanas === 1 ? "La campaña que la usa pasa" : `Las ${campanas} campañas que la usan pasan`} a «{reemplazo}».
+                  </p>
+                ) : null}
+                <p>No se puede deshacer.</p>
+              </>
+            ),
+            textoConfirmar: campanas > 0 ? "Sí, rechazar y mover" : "Sí, rechazar",
+            peligro: true,
+            accion: () => revisarTematica(id, false, reemplazo || undefined),
+            alTerminar: () => setEligiendo(false),
+          },
+    );
   }
 
   if (eligiendo) {
@@ -76,9 +109,10 @@ export default function BotonesDeRevision({
           Cancelar
         </Button>
         <Button size="sm" variant="danger" disabled={pendiente} onClick={() => revisar(false)}>
-          {pendiente ? "Guardando…" : "Rechazar y mover"}
+          Rechazar y mover
           <span className="sr-only"> {nombre}</span>
         </Button>
+        {ventana}
       </div>
     );
   }
@@ -95,9 +129,10 @@ export default function BotonesDeRevision({
         <span className="sr-only"> {nombre}</span>
       </Button>
       <Button size="sm" variant="primary" disabled={pendiente} onClick={() => revisar(true)}>
-        {pendiente ? "Guardando…" : "Aprobar"}
+        Aprobar
         <span className="sr-only"> {nombre}</span>
       </Button>
+      {ventana}
     </>
   );
 }

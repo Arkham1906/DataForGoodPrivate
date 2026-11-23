@@ -5,7 +5,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import TextoDeActualizacion from "@/components/campanas/TextoDeActualizacion";
-import GraficaDeColumnas from "@/components/sistema/grafica-columnas";
+import RecoleccionDeCampana from "@/components/campanas/RecoleccionDeCampana";
+import { periodoDesde } from "@/lib/periodo";
 import MetricCard from "@/components/sistema/MetricCard";
 import ProgressBar from "@/components/sistema/ProgressBar";
 import Tag from "@/components/sistema/Tag";
@@ -30,13 +31,21 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   return { title: panel ? panel.nombre : "Campaña" };
 }
 
-export default async function PanelDeCampanaSistemaPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function PanelDeCampanaSistemaPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  // Periodo de la gráfica de recolección (2026-11-22): ?periodo= o ?desde=&hasta= (lib/periodo.ts).
+  searchParams: Promise<{ periodo?: string; desde?: string; hasta?: string }>;
+}) {
   await exigirSesionRoot();
   const { id } = await params;
+  const periodo = periodoDesde(await searchParams, "mes");
   // La cabecera exige sesión raíz; va primero para no leer nada sin ella.
   const cabecera = await obtenerCabeceraDeCampana(id);
   if (!cabecera) notFound();
-  const c = await obtenerPanelDeCampana(id);
+  const c = await obtenerPanelDeCampana(id, periodo);
   if (!c) notFound();
 
   const estado = esEstado(c.status) ?? "borrador";
@@ -115,29 +124,11 @@ export default async function PanelDeCampanaSistemaPage({ params }: { params: Pr
         )}
       </div>
 
-      <TituloDeSeccion>Recolección diaria · últimos 14 días</TituloDeSeccion>
-      <div className="mb-6 rounded-lg border border-system-200 bg-white p-4 shadow-sm">
-        <GraficaDeColumnas
-          columnas={c.recoleccionDiaria.map((d) => ({ etiqueta: d.etiqueta, valor: d.valor }))}
-          descripcion={`Aportes recibidos por día en ${c.nombre}, últimos 14 días`}
-        />
+      <div className="mb-6">
+        <RecoleccionDeCampana serie={c.recoleccion} periodo={periodo} nombre={c.nombre} />
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <section>
-          <TituloDeSeccion>{finalizada ? "Resultado por tipo de dato" : "Por tipo de dato"} · aprobados</TituloDeSeccion>
-          {c.porTipo.length === 0 || c.metricas.aprobados === 0 ? (
-            <p className="text-[12.5px] text-system-600">Todavía no hay aportes aprobados.</p>
-          ) : (
-            <Reparto
-              filas={c.porTipo.map((t) => ({ etiqueta: t.etiqueta, valor: t.valor }))}
-              anchoEtiqueta={80}
-              anchoValor={34}
-              maximo={c.metricas.aprobados}
-            />
-          )}
-        </section>
-
+      <div className="flex flex-col gap-8">
         <section>
           <TituloDeSeccion>{finalizada ? "Meta alcanzada" : "Progreso hacia la meta"}</TituloDeSeccion>
           <div role="img" aria-label={`${c.porcentajeMeta}% de la meta: ${c.metricas.recibidos} de ${c.meta} aportes`}>
@@ -164,6 +155,20 @@ export default async function PanelDeCampanaSistemaPage({ params }: { params: Pr
           <Tarjeta tenue>
             <p className="text-[12px] leading-relaxed text-system-600">{proyeccion}</p>
           </Tarjeta>
+        </section>
+
+        <section>
+          <TituloDeSeccion>{finalizada ? "Resultado por tipo de dato" : "Por tipo de dato"} · aprobados</TituloDeSeccion>
+          {c.porTipo.length === 0 || c.metricas.aprobados === 0 ? (
+            <p className="text-[12.5px] text-system-600">Todavía no hay aportes aprobados.</p>
+          ) : (
+            <Reparto
+              filas={c.porTipo.map((t) => ({ etiqueta: t.etiqueta, valor: t.valor }))}
+              anchoEtiqueta={80}
+              anchoValor={34}
+              maximo={c.metricas.aprobados}
+            />
+          )}
         </section>
       </div>
     </div>

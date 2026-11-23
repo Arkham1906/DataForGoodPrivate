@@ -321,7 +321,7 @@ function RenglonDeSancion({ s, conRestaurar, ...ctx }: { s: SancionParaLista; co
       <td className={`py-3 pr-3 ${claseEstado(s.vigente)}`}>{s.estado}</td>
       {conRestaurar && (
         <td className="py-3 text-right">
-          {puedeRestaurar(s, ctx) && s.sancionId && <BotonRestaurar zona={ctx.zona} sancionId={s.sancionId} usuario={s.usuario} />}
+          {puedeRestaurar(s, ctx) && s.sancionId && <BotonRestaurar zona={ctx.zona} sancionId={s.sancionId} usuario={s.usuario} tipo={s.tipo} />}
         </td>
       )}
     </tr>
@@ -358,7 +358,7 @@ function TarjetaDeSancion({ s, zona, cuentaPropia, soloLectura }: { s: SancionPa
 
       {!soloLectura && s.restaurable && s.sancionId && s.usuarioId !== cuentaPropia && (
         <div className="mt-3 grid">
-          <BotonRestaurar zona={zona} sancionId={s.sancionId} usuario={s.usuario} anchoCompleto />
+          <BotonRestaurar zona={zona} sancionId={s.sancionId} usuario={s.usuario} tipo={s.tipo} anchoCompleto />
         </div>
       )}
     </article>

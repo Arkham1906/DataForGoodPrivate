@@ -1,8 +1,9 @@
 // Códigos de rol válidos (tabla usuario_roles desde el 2026-10-30, lib/usuarios/tabla-roles.ts): usuario,
-// supervisor, revisor, admin.
+// creador y aportador (desde el 2026-11-22: toda cuenta los tiene y el SuperUsuario los quita), supervisor,
+// revisor, admin.
 // Los nombres para mostrar están en lib/usuarios/rol-asignable.ts.
 
-export const VALID_ROLES = new Set(["usuario", "supervisor", "revisor", "admin"]);
+export const VALID_ROLES = new Set(["usuario", "creador", "aportador", "supervisor", "revisor", "admin"]);
 
 export function normalizeRoles(input: unknown): string[] {
   const incoming = Array.isArray(input)

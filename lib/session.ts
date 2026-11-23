@@ -145,23 +145,32 @@ export async function marcarBienvenidaVista(usuarioId: number): Promise<boolean>
  * mostrar la pantalla de cuenta bloqueada: no da acceso a nada (para eso
  * está getSessionUser, que para estas cuentas devuelve null).
  */
+/**
+ * La cuenta de la sesión aunque esté suspendida o baneada (getSessionUser la rechaza). Solo para lo que una cuenta
+ * bloqueada sí puede hacer: ver por qué (/cuenta-bloqueada) y apelar (lib/apelaciones/acciones.ts, 2026-11-22).
+ */
+export const cuentaDeLaSesionAunqueBloqueada = cache(async (): Promise<{ id: number; nombre: string } | null> => {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(COOKIE_NAME)?.value;
+  if (!token) return null;
+
+  const result = await pool.query<{ id: number; nombre: string }>(
+    `SELECT u.id, u.nombre
+     FROM sessions s
+     JOIN usuarios u ON u.id = s.usuario_id
+     WHERE s.token_hash = $1 AND s.expires_at > NOW()
+     LIMIT 1`,
+    [hashToken(token)]
+  );
+  return result.rows[0] ?? null;
+});
+
 export const obtenerBloqueoDeLaSesion = cache(
   async (): Promise<{ nombre: string; bloqueo: Bloqueo; historial: HistorialDeSanciones } | null> => {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE_NAME)?.value;
-    if (!token) return null;
+    const cuenta = await cuentaDeLaSesionAunqueBloqueada();
+    if (!cuenta) return null;
 
-    const result = await pool.query<{ id: number; nombre: string }>(
-      `SELECT u.id, u.nombre
-       FROM sessions s
-       JOIN usuarios u ON u.id = s.usuario_id
-       WHERE s.token_hash = $1 AND s.expires_at > NOW()
-       LIMIT 1`,
-      [hashToken(token)]
-    );
-    if (result.rowCount === 0) return null;
-
-    const { id, nombre } = result.rows[0];
+    const { id, nombre } = cuenta;
     const bloqueo = await obtenerBloqueo(id);
     if (!bloqueo) return null;
     return { nombre, bloqueo, historial: await contarSanciones(id) };

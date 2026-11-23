@@ -1,5 +1,6 @@
 // Pantalla /usuarios/supervisores/[id]: historial de dictámenes de un supervisor.
 // Server Component. Datos: obtenerActividad() de lib/usuarios/supervisores.ts.
+// Filtros (2026-11-22): campañas a su cargo con ?qc= y ?estado=; historial de decisiones con ?qd= y ?accion=.
 
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -22,6 +23,8 @@ import {
   obtenerActividad,
 } from "@/lib/usuarios/supervisores";
 import { exigirSesionRoot } from "@/lib/supervision/root";
+import FiltrosEnLaUrl from "@/components/sistema/FiltrosEnLaUrl";
+import { busquedaDeLaUrl, coincideConLaBusqueda, cuantosDeCuantos, opcionDeLaUrl } from "@/lib/filtros-en-la-url";
 
 export const dynamic = "force-dynamic";
 
@@ -38,16 +41,25 @@ export async function generateMetadata({
 
 export default async function ActividadDeSupervisorPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ qc?: string; estado?: string; qd?: string; accion?: string }>;
 }) {
   await exigirSesionRoot();
   const { id } = await params;
   const s = await obtenerActividad(id);
   if (!s) notFound();
 
-  const mitad = Math.ceil(s.campanas.length / 2);
-  const columnas = [s.campanas.slice(0, mitad), s.campanas.slice(mitad)];
+  const filtros = await searchParams;
+  const qc = busquedaDeLaUrl(filtros.qc);
+  const estado = opcionDeLaUrl(filtros.estado, Object.keys(ETIQUETA_DE_ESTADO_DE_CAMPANA) as (keyof typeof ETIQUETA_DE_ESTADO_DE_CAMPANA)[]);
+  const campanas = s.campanas.filter((c) => (!estado || c.estado === estado) && coincideConLaBusqueda(qc, c.nombre, c.id));
+  const qd = busquedaDeLaUrl(filtros.qd);
+  const accion = opcionDeLaUrl(filtros.accion, Object.keys(ETIQUETA_DE_ACCION) as (keyof typeof ETIQUETA_DE_ACCION)[]);
+  const acciones = s.acciones.filter(
+    (a) => (!accion || a.tipo === accion) && coincideConLaBusqueda(qd, a.sobre, a.motivo, ETIQUETA_DE_ACCION[a.tipo].texto),
+  );
 
   return (
     <div>
@@ -75,32 +87,64 @@ export default async function ActividadDeSupervisorPage({
       </div>
 
       <TituloDeSeccion>Campañas a su cargo</TituloDeSeccion>
-      {s.campanas.length === 0 && (
+      {s.campanas.length === 0 ? (
         <p className="mb-6 text-[13px] text-system-600">Todavía no ha tomado ninguna campaña.</p>
+      ) : (
+        <FiltrosEnLaUrl
+          busqueda={{ clave: "qc", etiqueta: "Buscar campañas a su cargo", placeholder: "Buscar campaña" }}
+          listas={[
+            {
+              clave: "estado",
+              etiqueta: "Filtrar campañas por estado",
+              todas: "Estado: todos",
+              opciones: Object.entries(ETIQUETA_DE_ESTADO_DE_CAMPANA).map(([valor, e]) => ({ valor, etiqueta: e.texto })),
+            },
+          ]}
+          className="mb-3"
+        />
       )}
-      <div className="mb-6 grid grid-cols-1 gap-5 lg:grid-cols-2">
-        {columnas.map((col, i) => (
-          <ListaClaveValor
-            key={i}
-            filas={col.map((c) => {
-              const e = ETIQUETA_DE_ESTADO_DE_CAMPANA[c.estado];
-              return {
-                clave: (
-                  // La ficha del panel: /campanas/[id] es de la zona de usuario y pide otra sesión.
-                  <Link href={`/sistema/campanas/${c.id}`} className="hover:text-brand-600">
-                    {c.nombre}
-                  </Link>
-                ),
-                valor: <Tag tone={e.tono}>{e.texto}</Tag>,
-              };
-            })}
-          />
-        ))}
+      {s.campanas.length > 0 && campanas.length === 0 && (
+        <p className="mb-6 text-[13px] text-system-600">Ninguna campaña coincide con los filtros.</p>
+      )}
+      {campanas.length < s.campanas.length && campanas.length > 0 && (
+        <p className="mb-2 text-[12.5px] text-system-500">{cuantosDeCuantos(campanas.length, s.campanas.length)} campañas</p>
+      )}
+      <div className="mb-6">
+        <ListaClaveValor
+          filas={campanas.map((c) => {
+            const e = ETIQUETA_DE_ESTADO_DE_CAMPANA[c.estado];
+            return {
+              clave: (
+                // La ficha del panel: /campanas/[id] es de la zona de usuario y pide otra sesión.
+                <Link href={`/sistema/campanas/${c.id}`} className="hover:text-brand-600">
+                  {c.nombre}
+                </Link>
+              ),
+              valor: <Tag tone={e.tono}>{e.texto}</Tag>,
+            };
+          })}
+        />
       </div>
 
       <TituloDeSeccion>Historial de decisiones</TituloDeSeccion>
+      {s.acciones.length > 0 && (
+        <FiltrosEnLaUrl
+          busqueda={{ clave: "qd", etiqueta: "Buscar en el historial de decisiones", placeholder: "Buscar por campaña, persona o motivo" }}
+          listas={[
+            {
+              clave: "accion",
+              etiqueta: "Filtrar decisiones por acción",
+              todas: "Acción: todas",
+              opciones: Object.entries(ETIQUETA_DE_ACCION).map(([valor, e]) => ({ valor, etiqueta: e.texto })),
+            },
+          ]}
+          className="mb-3"
+        />
+      )}
       {s.acciones.length === 0 ? (
         <p className="text-[13px] text-system-600">Todavía no tiene acciones registradas.</p>
+      ) : acciones.length === 0 ? (
+        <p className="text-[13px] text-system-600">Ninguna decisión coincide con los filtros.</p>
       ) : (
       <div className="overflow-x-auto rounded-lg border border-system-200 bg-white p-5 shadow-sm">
         <table className="w-full min-w-[720px] text-left text-[13.5px]">
@@ -114,7 +158,7 @@ export default async function ActividadDeSupervisorPage({
             </tr>
           </thead>
           <tbody>
-            {s.acciones.map((a) => {
+            {acciones.map((a) => {
               const et = ETIQUETA_DE_ACCION[a.tipo];
               return (
                 <tr key={a.id} className="border-b border-system-200 last:border-0">
@@ -156,7 +200,7 @@ export default async function ActividadDeSupervisorPage({
       </div>
       )}
 
-      <p className="sr-only">{formatearNumero(s.acciones.length)} decisiones registradas.</p>
+      <p className="sr-only">{cuantosDeCuantos(acciones.length, s.acciones.length)} decisiones registradas.</p>
 
       {/* Lo que dejó el SuperUsuario al revertir con "Registrar una observación en el expediente". */}
       {s.observaciones.length > 0 && (

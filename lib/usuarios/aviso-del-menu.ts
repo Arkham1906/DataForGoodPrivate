@@ -24,6 +24,7 @@ import { contarReportesPendientes } from "@/lib/reportes/reportes";
 import { zonaDetectadaDe } from "@/lib/ubicacion/zona-detectada";
 import type { SessionUser } from "@/lib/session";
 import type { AvisoDelMenu } from "@/components/layout/AvisoDelMenu";
+import { puedeAportar, puedeCrearCampanas } from "@/lib/usuarios/rol-asignable";
 
 /** Días hacia adelante para "cierra pronto" (campaña que necesita aportes y favoritas en la cuota pendiente). */
 const DIAS_DE_CIERRE_PRONTO = 7;
@@ -150,7 +151,8 @@ async function pendientesDeRevisor(usuarioId: number, terminados: string[]): Pro
   return renglones;
 }
 
-async function pendientesDeCreador(usuarioId: number, terminados: string[]): Promise<Renglon[]> {
+/** `puedeEnviar`: sin el rol de creador (2026-11-22) no se le pide terminar borradores ni reenviar rechazadas. */
+async function pendientesDeCreador(usuarioId: number, terminados: string[], puedeEnviar: boolean): Promise<Renglon[]> {
   const [aportesR, propiasR] = await Promise.all([
     pool.query<{ id: number; name: string; pendientes: number }>(
       `SELECT c.id, c.name, COUNT(a.id)::int AS pendientes
@@ -180,7 +182,8 @@ async function pendientesDeCreador(usuarioId: number, terminados: string[]): Pro
         : { texto: `Revisar ${total} aportes de tus campañas`, href: "/mis-campanas" },
     );
   }
-  const de = (tipo: string) => propiasR.rows.filter((r) => r.tipo === tipo);
+  const de = (tipo: string) =>
+    propiasR.rows.filter((r) => r.tipo === tipo && (puedeEnviar || (tipo !== "rechazada" && tipo !== "borrador")));
   renglones.push(
     ...unoOVarios(
       de("rechazada"),
@@ -238,14 +241,18 @@ export async function avisoDelMenuParaUsuario(usuario: SessionUser): Promise<Avi
     const hoy = hoyEnTepic();
     const terminados = [...ESTADOS_TERMINADOS];
     const roles = usuario.role ?? [];
+    // Sin el rol de aportador (2026-11-22) no se le invita a aportar: ni cuotas ni sugerencia.
+    const aporta = puedeAportar(roles);
     const [supervisor, revisor, creador, cuotas, perfil] = await Promise.all([
       roles.includes("supervisor") ? pendientesDeSupervisor(usuario.id) : Promise.resolve([]),
       pendientesDeRevisor(usuario.id, terminados),
-      pendientesDeCreador(usuario.id, terminados),
-      campanasConCuotaPendiente(usuario.id, {
-        favoritasQueCierranAntesDe: sumarDias(hoy, DIAS_DE_CIERRE_PRONTO),
-        limite: CUOTAS_EN_EL_AVISO,
-      }),
+      pendientesDeCreador(usuario.id, terminados, puedeCrearCampanas(roles)),
+      aporta
+        ? campanasConCuotaPendiente(usuario.id, {
+            favoritasQueCierranAntesDe: sumarDias(hoy, DIAS_DE_CIERRE_PRONTO),
+            limite: CUOTAS_EN_EL_AVISO,
+          })
+        : Promise.resolve([]),
       pendientesDePerfil(usuario),
     ]);
     const aportar: Renglon[] = cuotas.map((c) => ({
@@ -253,7 +260,7 @@ export async function avisoDelMenuParaUsuario(usuario: SessionUser): Promise<Avi
       href: `/campanas/${c.id}`,
     }));
     const pendientes = [...supervisor, ...revisor, ...creador, ...aportar, ...perfil];
-    const sugerencia = await campanaQueNecesitaAportes(usuario, hoy, cuotas.map((c) => Number(c.id)));
+    const sugerencia = aporta ? await campanaQueNecesitaAportes(usuario, hoy, cuotas.map((c) => Number(c.id))) : null;
 
     if (pendientes.length > 0) {
       return {

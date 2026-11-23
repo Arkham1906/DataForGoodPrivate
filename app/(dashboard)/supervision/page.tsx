@@ -12,11 +12,18 @@ import DashboardDelSupervisor from "@/components/supervision/DashboardDelSupervi
 import { rutasDeModeracion } from "@/lib/moderacion/rutas";
 import { obtenerDashboardDelSupervisor } from "@/lib/supervision/dashboard";
 import { exigirUsuario } from "@/lib/session";
+import { periodoDesde } from "@/lib/periodo";
 
-export default async function SupervisionPage() {
+// ?periodo= o ?desde=&hasta= (2026-11-22): el periodo de la gráfica "Tus dictámenes" (lib/periodo.ts).
+export default async function SupervisionPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ periodo?: string; desde?: string; hasta?: string }>;
+}) {
   const usuario = await exigirUsuario();
   if (!usuario.role.includes("supervisor")) redirect("/campanas");
-  const datos = await obtenerDashboardDelSupervisor(Number(usuario.id));
+  const periodo = periodoDesde(await searchParams, "mes");
+  const datos = await obtenerDashboardDelSupervisor(Number(usuario.id), periodo);
 
   return (
     <div className="mx-auto max-w-4xl lg:mx-0 lg:max-w-none">
@@ -24,7 +31,7 @@ export default async function SupervisionPage() {
       {/* h1 con aspecto de etiqueta, como en la pestaña Campañas (WCAG 1.3.1). */}
       <h1 className="mb-4 font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-600">Supervisión</h1>
       {datos ? (
-        <DashboardDelSupervisor datos={datos} />
+        <DashboardDelSupervisor datos={datos} periodo={periodo} />
       ) : (
         <p className="rounded-lg border border-system-200 bg-white p-5 text-[13px] text-system-600">
           No se pudo cargar tu resumen. Tus campañas siguen en la pestaña{" "}

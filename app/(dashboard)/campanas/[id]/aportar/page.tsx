@@ -17,6 +17,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Paso from "@/components/aportes/PasoDelAporte";
+import { SIN_ROL_DE_APORTADOR } from "@/lib/usuarios/rol-asignable";
 import Button from "@/components/ui/Button";
 import ButtonLink from "@/components/ui/ButtonLink";
 import ProgressBar from "@/components/ui/ProgressBar";
@@ -50,6 +51,8 @@ export default function AportarPage() {
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [isCreator, setIsCreator] = useState(false);
   const [baneado, setBaneado] = useState(false);
+  // Sin el rol de aportador (2026-11-22): el servidor rechaza el envío; aquí se avisa antes del formulario.
+  const [sinRolDeAportador, setSinRolDeAportador] = useState(false);
   const [motivoDeBaneo, setMotivoDeBaneo] = useState<string | null>(null);
   const [submittedCount, setSubmittedCount] = useState(0);
   // Cuántos lleva de cada tipo, para el máximo por persona de cada tipo (2026-10-31).
@@ -106,6 +109,7 @@ export default function AportarPage() {
         setCampaign(cargada);
         setIsCreator(Boolean(campaignPayload.viewer?.isCreator));
         setBaneado(Boolean(campaignPayload.viewer?.baneado));
+        setSinRolDeAportador(Boolean(campaignPayload.viewer?.sinRolDeAportador));
         setMotivoDeBaneo(campaignPayload.viewer?.motivoDeBaneo ?? null);
         setInscrito(yaInscrito);
 
@@ -131,6 +135,7 @@ export default function AportarPage() {
   if (loadError) return <p className="text-sm text-error-700">{loadError}</p>;
   if (!campaign) return <PantallaEsqueleto tipo="formulario" etiqueta="Cargando campaña…" />;
   if (isCreator) return <p className="rounded-lg bg-system-100 p-4 text-sm text-system-600">No puedes aportar en una campaña que creaste.</p>;
+  if (sinRolDeAportador) return <p className="rounded-lg bg-warning-50 p-4 text-sm text-warning-800">{SIN_ROL_DE_APORTADOR}</p>;
   // El servidor también lo rechaza (POST /api/aportes); esto evita llenar el formulario en balde.
   if (baneado) {
     return (

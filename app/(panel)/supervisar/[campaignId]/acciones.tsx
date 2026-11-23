@@ -8,7 +8,8 @@
 // EstadoComoSuperUsuario: pausar, reanudar y finalizar (cambiarEstadoComoSuperUsuario).
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { useConfirmacion } from "@/components/sistema/useConfirmacion";
 import { cambiarEstadoComoSuperUsuario, decidirComoSuperUsuario, decidirDatosAbiertosComoSuperUsuario } from "@/lib/supervision/acciones-root";
 import DecisionDeDatosAbiertos from "@/components/supervision/DecisionDeDatosAbiertos";
 import type { DatosAbiertosDeCampana } from "@/lib/campanas/datos-abiertos";
@@ -76,12 +77,15 @@ export function EstadoComoSuperUsuario({
 
 export default function AccionesDeSupervision({
   campaignId,
+  nombre,
   status,
   supervision,
   encabezado,
   similares = [],
 }: {
   campaignId: string;
+  /** Nombre de la campaña, para la pregunta de confirmación. */
+  nombre: string;
   status: string;
   supervision: "libre" | "mia" | "otro";
   encabezado: ReactNode;
@@ -89,28 +93,56 @@ export default function AccionesDeSupervision({
   similares?: SimilarParaRechazo[];
 }) {
   const router = useRouter();
-  const [pendiente, iniciar] = useTransition();
-  const [accionEnCurso, setAccionEnCurso] = useState<AccionDeSupervision | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // Aceptar y rechazar preguntan antes (2026-11-22, components/sistema/useConfirmacion); el error sale en la ventana.
+  const { pedirConfirmacion, ventana, ocupado: pendiente } = useConfirmacion();
   const [showRejectForm, setShowRejectForm] = useState(false);
 
-  function decidir(accion: AccionDeSupervision, rechazo?: RechazoPedido) {
-    setError(null);
-    setAccionEnCurso(accion);
-    iniciar(async () => {
-      const resultado = await decidirComoSuperUsuario(
-        campaignId,
-        accion,
-        rechazo
-          ? { motivoDeLista: rechazo.motivoDeLista, motivo: rechazo.motivo, sancion: rechazo.sancion, similares: rechazo.similares }
-          : {},
-      );
-      setAccionEnCurso(null);
-      if (!resultado.ok) {
-        setError(resultado.error);
-        return;
-      }
-      router.push(accion === "aceptada" ? "/supervisar/campanas" : "/supervisar");
+  async function decidir(accion: AccionDeSupervision, rechazo?: RechazoPedido) {
+    const resultado = await decidirComoSuperUsuario(
+      campaignId,
+      accion,
+      rechazo
+        ? { motivoDeLista: rechazo.motivoDeLista, motivo: rechazo.motivo, sancion: rechazo.sancion, similares: rechazo.similares }
+        : {},
+    );
+    if (resultado.ok) router.push(accion === "aceptada" ? "/supervisar/campanas" : "/supervisar");
+    return resultado;
+  }
+
+  function aceptar() {
+    pedirConfirmacion({
+      pregunta: `¿Seguro que quieres aceptar «${nombre}»?`,
+      detalle: (
+        <>
+          <p>La campaña queda a tu cargo y se avisa a su creador.</p>
+          <p>
+            Se activa sola en su fecha de inicio (o ahora, si ya llegó): entonces entra al catálogo público, empieza a
+            recibir aportes y se avisa a quienes les interesa su temática.
+          </p>
+        </>
+      ),
+      textoConfirmar: "Sí, aceptar",
+      textoOcupado: "Aceptando…",
+      accion: () => decidir("aceptada"),
+    });
+  }
+
+  function rechazar(rechazo: RechazoPedido) {
+    pedirConfirmacion({
+      pregunta: `¿Seguro que quieres rechazar «${nombre}»?`,
+      detalle: (
+        <>
+          <p>
+            Su creador recibe el motivo y puede corregirla y volver a enviarla a revisión. Mientras tanto no recibe
+            aportes.
+          </p>
+          {rechazo.sancion ? <p>Además, se le aplica la sanción que elegiste.</p> : null}
+        </>
+      ),
+      textoConfirmar: rechazo.sancion ? "Sí, rechazar y sancionar" : "Sí, rechazar",
+      textoOcupado: "Rechazando…",
+      peligro: true,
+      accion: () => decidir("rechazada", rechazo),
     });
   }
 
@@ -130,10 +162,7 @@ export default function AccionesDeSupervision({
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => {
-                setError(null);
-                setShowRejectForm(true);
-              }}
+              onClick={() => setShowRejectForm(true)}
               disabled={pendiente}
               className="rounded-pill border border-error-700/40 bg-error-50 px-3.5 py-2 text-[12.5px] font-bold text-error-700 disabled:opacity-60"
             >
@@ -141,28 +170,25 @@ export default function AccionesDeSupervision({
             </button>
             <button
               type="button"
-              onClick={() => decidir("aceptada")}
+              onClick={aceptar}
               disabled={pendiente}
               className="rounded-pill border border-success-700/40 bg-success-50 px-3.5 py-2 text-[12.5px] font-bold text-success-700 disabled:opacity-60"
             >
-              {accionEnCurso === "aceptada" ? "Aceptando…" : "Aceptar campaña"}
+              Aceptar campaña
             </button>
           </div>
         ) : null}
       </div>
-
-      {error && (
-        <div className="mb-5 rounded-lg border border-error-700/30 bg-error-50 p-4 text-sm text-error-700">{error}</div>
-      )}
 
       {showRejectForm && puedeDictaminar && (
         <FormularioDeRechazo
           ocupado={pendiente}
           similares={similares}
           onCancelar={() => setShowRejectForm(false)}
-          onConfirmar={(rechazo) => decidir("rechazada", rechazo)}
+          onConfirmar={rechazar}
         />
       )}
+      {ventana}
     </>
   );
 }

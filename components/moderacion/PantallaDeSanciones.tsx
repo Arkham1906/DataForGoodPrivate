@@ -29,12 +29,23 @@ import { DIAS_DE_BLOQUEO, INAPROPIADOS_PARA_BLOQUEO, VENTANA_DE_DIAS, listarBloq
 import { listarListaNegra } from "@/lib/usuarios/lista-negra";
 import { AVISOS_PARA_BANEO } from "@/lib/usuarios/escala-de-avisos";
 import { BASE_PATH } from "@/lib/base-path";
+import FiltrosEnLaUrl from "@/components/sistema/FiltrosEnLaUrl";
+import { busquedaDeLaUrl, coincideConLaBusqueda, cuantosDeCuantos, opcionDeLaUrl } from "@/lib/filtros-en-la-url";
+
+const TIPOS_DE_SANCION = ["STRIKE", "SUSPENSION", "BANEO", "BANEO_EN_CAMPANA"] as const;
+const NOMBRE_DE_TIPO_DE_SANCION: Record<(typeof TIPOS_DE_SANCION)[number], string> = {
+  STRIKE: "Avisos",
+  SUSPENSION: "Suspensiones",
+  BANEO: "Baneos",
+  BANEO_EN_CAMPANA: "Baneos en campaña",
+};
 
 export default async function PantallaDeSanciones({
   zona,
   moderador,
   buscar = "",
   soloLectura = false,
+  filtros = {},
 }: {
   zona: ZonaDeModeracion;
   moderador: Moderador;
@@ -42,6 +53,8 @@ export default async function PantallaDeSanciones({
   buscar?: string;
   /** El SuperUsuario fuera del modo supervisor: solo consulta. */
   soloLectura?: boolean;
+  /** Filtros de la lista (2026-11-22): ?q= (persona, motivo, campaña o quién), ?tipo= y ?vigencia=. */
+  filtros?: { q?: string; tipo?: string; vigencia?: string };
 }) {
   const cuentaPropia = moderador.tipo === "usuario" ? String(moderador.usuarioId) : null;
   const rutas = rutasDeModeracion(zona);
@@ -55,6 +68,16 @@ export default async function PantallaDeSanciones({
     listarListaNegra(),
   ]);
   const vigentes = sanciones.filter((s) => s.vigente).length;
+
+  const q = busquedaDeLaUrl(filtros.q);
+  const tipo = opcionDeLaUrl(filtros.tipo, TIPOS_DE_SANCION);
+  const vigencia = opcionDeLaUrl(filtros.vigencia, ["vigentes", "pasadas"] as const);
+  const filtradas = sanciones.filter(
+    (s) =>
+      (!tipo || s.tipo === tipo) &&
+      (!vigencia || s.vigente === (vigencia === "vigentes")) &&
+      coincideConLaBusqueda(q, s.usuario, s.motivo, s.campana?.nombre, s.porReportes?.campana?.nombre, s.quien, s.aporteId),
+  );
 
   return (
     <div>
@@ -122,12 +145,46 @@ export default async function PantallaDeSanciones({
             : "Ningún usuario tiene sanciones."}
         </p>
       ) : (
-        <ListaDeSanciones
-          zona={zona}
-          cuentaPropia={cuentaPropia}
-          soloLectura={soloLectura}
-          sanciones={sanciones.map(({ fecha, ...s }) => ({ ...s, fechaTexto: formatearFechaYHora(fecha) }))}
-        />
+        <>
+          <FiltrosEnLaUrl
+            busqueda={{ etiqueta: "Buscar sanciones", placeholder: "Buscar por persona, motivo o campaña" }}
+            listas={[
+              {
+                clave: "tipo",
+                etiqueta: "Filtrar por tipo de sanción",
+                todas: "Tipo: todos",
+                opciones: TIPOS_DE_SANCION.map((t) => ({ valor: t, etiqueta: NOMBRE_DE_TIPO_DE_SANCION[t] })),
+              },
+              {
+                clave: "vigencia",
+                etiqueta: "Filtrar por vigencia",
+                todas: "Vigentes y pasadas",
+                opciones: [
+                  { valor: "vigentes", etiqueta: "Solo vigentes" },
+                  { valor: "pasadas", etiqueta: "Ya no vigentes" },
+                ],
+              },
+            ]}
+            className="mb-4"
+          />
+          {filtradas.length === 0 ? (
+            <p className="py-7 text-[13px] text-system-600">Ninguna sanción coincide con los filtros.</p>
+          ) : (
+            <>
+              {filtradas.length < sanciones.length && (
+                <p className="mb-3 text-[12.5px] text-system-500">
+                  {cuantosDeCuantos(filtradas.length, sanciones.length)} sanciones
+                </p>
+              )}
+              <ListaDeSanciones
+                zona={zona}
+                cuentaPropia={cuentaPropia}
+                soloLectura={soloLectura}
+                sanciones={filtradas.map(({ fecha, ...s }) => ({ ...s, fechaTexto: formatearFechaYHora(fecha) }))}
+              />
+            </>
+          )}
+        </>
       )}
 
       <Aviso tono="neutro" className="mt-5">

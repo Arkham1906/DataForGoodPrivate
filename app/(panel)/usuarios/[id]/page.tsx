@@ -64,11 +64,21 @@ export default async function FichaDeUsuarioPage({
         </div>
       </header>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="flex flex-col gap-8">
         <section>
+          <TituloDeSeccion>Datos de la cuenta</TituloDeSeccion>
           <ListaClaveValor
             filas={[
               { clave: "Rol", valor: u.rol },
+              // Permisos del usuario común (2026-11-22): toda cuenta los tiene hasta que el SuperUsuario los quita.
+              {
+                clave: "Permisos",
+                valor:
+                  u.rolesRetirados.length === 0
+                    ? "Crea campañas y aporta"
+                    : u.rolesRetirados.join(" · "),
+              },
+              { clave: "Organización", valor: u.organizacion ?? "Sin organización" },
               { clave: "Ubicación", valor: u.ubicacion ?? "No declarada" },
               { clave: "Especialidad", valor: u.especialidad ?? "No declarada" },
               { clave: "Registro", valor: formatearFecha(u.registradoEn) },

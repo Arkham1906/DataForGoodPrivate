@@ -4,6 +4,7 @@
 // las del catálogo y las que propusieron los creadores (arriba, "Por revisar": Aprobar/Rechazar),
 // Ocultar/Mostrar, "Más" → Editar/Borrar (components/sistema/catalogo) y "Nueva etiqueta".
 // Server actions en lib/etiquetas/acciones-etiquetas.ts, que revalidan la página.
+// Ocultar, mostrar, aprobar y rechazar piden confirmación desde el 2026-11-22 (components/sistema/useConfirmacion).
 
 import { useState, useTransition, type FormEvent } from "react";
 
@@ -11,6 +12,7 @@ import Button from "@/components/sistema/Button";
 import { Input } from "@/components/sistema/Input";
 import Tag from "@/components/sistema/Tag";
 import EditarOBorrarDelCatalogo from "@/components/sistema/catalogo/EditarOBorrarDelCatalogo";
+import { useConfirmacion } from "@/components/sistema/useConfirmacion";
 import {
   borrarEtiquetaDelPanel,
   cambiarVisibilidadDeEtiqueta,
@@ -37,12 +39,7 @@ export default function EtiquetasDeTematica({
   const [pendiente, iniciar] = useTransition();
   const porRevisar = etiquetas.filter((e) => !e.aprobada).length;
 
-  function ejecutar(accion: () => Promise<{ ok: true } | { ok: false; error: string }>, exito?: string) {
-    iniciar(async () => {
-      const resultado = await accion();
-      setAviso(resultado.ok ? (exito ? { tipo: "ok", texto: exito } : null) : { tipo: "error", texto: resultado.error });
-    });
-  }
+  const { pedirConfirmacion, ventana, ocupado } = useConfirmacion();
 
   function crear(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -88,8 +85,31 @@ export default function EtiquetasDeTematica({
                       <Button
                         size="sm"
                         variant={e.oculta ? "secondary" : "danger"}
-                        disabled={pendiente}
-                        onClick={() => ejecutar(() => cambiarVisibilidadDeEtiqueta(e.id, !e.oculta))}
+                        disabled={pendiente || ocupado}
+                        onClick={() =>
+                          pedirConfirmacion(
+                            e.oculta
+                              ? {
+                                  pregunta: `¿Seguro que quieres volver a mostrar #${e.nombre}?`,
+                                  detalle: <p>Se vuelve a ofrecer al crear campañas de {tematica}.</p>,
+                                  textoConfirmar: "Sí, mostrar",
+                                  // El segundo argumento es `oculta`.
+                                  accion: () => cambiarVisibilidadDeEtiqueta(e.id, false),
+                                }
+                              : {
+                                  pregunta: `¿Seguro que quieres ocultar #${e.nombre}?`,
+                                  detalle: (
+                                    <p>
+                                      Deja de ofrecerse al crear campañas de {tematica}. Las campañas y los perfiles que ya la tienen la
+                                      conservan. Puedes volver a mostrarla cuando quieras.
+                                    </p>
+                                  ),
+                                  textoConfirmar: "Sí, ocultar",
+                                  peligro: true,
+                                  accion: () => cambiarVisibilidadDeEtiqueta(e.id, true),
+                                },
+                          )
+                        }
                       >
                         {e.oculta ? "Mostrar" : "Ocultar"}
                         <span className="sr-only"> {e.nombre}</span>
@@ -98,10 +118,35 @@ export default function EtiquetasDeTematica({
                   ) : (
                     <>
                       <Tag tone="on">Por revisar</Tag>
-                      <Button size="sm" variant="danger" disabled={pendiente} onClick={() => ejecutar(() => revisarEtiqueta(e.id, false))}>
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        disabled={pendiente || ocupado}
+                        onClick={() =>
+                          pedirConfirmacion({
+                            pregunta: `¿Seguro que quieres rechazar #${e.nombre}?`,
+                            detalle: <p>Se borra y sale de la campaña que la propuso. No se puede deshacer.</p>,
+                            textoConfirmar: "Sí, rechazar",
+                            peligro: true,
+                            accion: () => revisarEtiqueta(e.id, false),
+                          })
+                        }
+                      >
                         Rechazar<span className="sr-only"> {e.nombre}</span>
                       </Button>
-                      <Button size="sm" variant="primary" disabled={pendiente} onClick={() => ejecutar(() => revisarEtiqueta(e.id, true))}>
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        disabled={pendiente || ocupado}
+                        onClick={() =>
+                          pedirConfirmacion({
+                            pregunta: `¿Seguro que quieres aprobar #${e.nombre}?`,
+                            detalle: <p>Pasa al catálogo de {tematica}: se ofrece a todos y se ve en la campaña que la propuso.</p>,
+                            textoConfirmar: "Sí, aprobar",
+                            accion: () => revisarEtiqueta(e.id, true),
+                          })
+                        }
+                      >
                         Aprobar<span className="sr-only"> {e.nombre}</span>
                       </Button>
                     </>
@@ -146,6 +191,7 @@ export default function EtiquetasDeTematica({
           </p>
         ) : null}
       </div>
+      {ventana}
     </details>
   );
 }

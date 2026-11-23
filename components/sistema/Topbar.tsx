@@ -1,10 +1,11 @@
 "use client";
 
-// Barra superior del panel del SuperUsuario.
+// Barra superior del panel del SuperUsuario. Desde el 2026-11-22, con "Cerrar sesión" (BotonCerrarSesionRoot).
 
 import Link from "next/link";
 import Logo from "@/components/layout/Logo";
 import { IconoCampana } from "./icons";
+import BotonCerrarSesionRoot from "./BotonCerrarSesionRoot";
 
 type TopbarProps = {
   /** Valor configurado en ROOT_USER_ID. La sesión raíz no es una persona con nombre propio. */
@@ -39,6 +40,8 @@ export default function Topbar({ identificador }: TopbarProps) {
             <span className="block text-[11px] text-system-500">Sesión raíz</span>
           </span>
         </span>
+
+        <BotonCerrarSesionRoot />
       </div>
     </header>
   );

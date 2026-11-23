@@ -153,7 +153,8 @@ const ESTADOS_DE_CUENTA = new Set<string>(["ACTIVA", "CON_STRIKES", "SUSPENDIDA"
 /**
  * GET /api/usuarios con sesión raíz (cookie de /root o token Bearer de
  * POST /api/auth/root/token) — directorio completo de usuarios del sistema,
- * el mismo de /usuarios: 20 por página, con filtros opcionales.
+ * el mismo de /usuarios: 20 por página, con filtros opcionales (q, rol, estado y, desde el 2026-11-22,
+ * organizacion: el nombre, o "__ninguna" para quien no tiene). Cada fila trae su `organizacion`.
  */
 async function listarTodos(url: URL) {
   const pagina = Number(url.searchParams.get("pagina") ?? "1");
@@ -172,6 +173,7 @@ async function listarTodos(url: URL) {
     q: url.searchParams.get("q") ?? "",
     rol: url.searchParams.get("rol") ?? "",
     estado,
+    organizacion: url.searchParams.get("organizacion") ?? "",
     pagina,
   });
   return NextResponse.json({

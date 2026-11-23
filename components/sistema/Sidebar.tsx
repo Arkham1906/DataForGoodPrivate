@@ -11,6 +11,7 @@ import AvisoDelMenu, { type AvisoDelMenu as AvisoDelMenuTipo } from "@/component
 
 import {
   IconoAportes,
+  IconoBalanza,
   IconoBirrete,
   IconoCampanas,
   IconoEdificio,
@@ -48,6 +49,8 @@ const MENU: Entrada[] = [
     seccion: ["/sistema/campanas"],
   },
   { href: "/aportes", etiqueta: "Aportes", Icono: IconoAportes, seccion: ["/aportes"] },
+  // Apelaciones de sanciones y baneos en campañas (2026-11-22): lleva el número de pendientes.
+  { href: "/apelaciones", etiqueta: "Apelaciones", Icono: IconoBalanza, seccion: ["/apelaciones"] },
   // Lleva el número de temáticas nuevas por revisar (2026-10-19).
   { href: "/sistema/tematicas", etiqueta: "Temáticas", Icono: IconoEtiqueta, seccion: ["/sistema/tematicas"] },
   // Catálogo de especialidades del perfil (2026-10-26).
@@ -71,15 +74,19 @@ const MENU: Entrada[] = [
 export default function Sidebar({
   reportesPendientes = 0,
   tematicasPendientes = 0,
+  apelacionesPendientes = 0,
   aviso,
 }: {
   reportesPendientes?: number;
   tematicasPendientes?: number;
+  /** contarApelacionesPendientes() de lib/apelaciones/apelaciones.ts (2026-11-22). */
+  apelacionesPendientes?: number;
   /** Recuadro azul del pie (2026-11-10): lo arma el layout con avisoDelMenuParaRoot(). */
   aviso: AvisoDelMenuTipo;
 }) {
   const pendientes: Record<string, { numero: number; texto: string }> = {
     "/supervisar": { numero: reportesPendientes, texto: "reportes pendientes" },
+    "/apelaciones": { numero: apelacionesPendientes, texto: "apelaciones por resolver" },
     // Temáticas y etiquetas (subtemáticas, 2026-10-27) por revisar: se revisan en la misma pantalla.
     "/sistema/tematicas": { numero: tematicasPendientes, texto: "temáticas o subtemáticas por revisar" },
   };

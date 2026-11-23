@@ -11,6 +11,7 @@
 import { useState } from "react";
 import { Textarea } from "@/components/ui/Input";
 import VentanaDeConfirmacion from "@/components/ui/VentanaDeConfirmacion";
+import { useConfirmacion } from "@/components/sistema/useConfirmacion";
 import { MAXIMO_MOTIVO_DE_SUPERVISION, type PausaDeCampana } from "@/lib/campanas/pausa";
 import { ZONA_DE_CAMPANAS } from "@/lib/fecha-de-tepic";
 
@@ -30,6 +31,8 @@ export default function EstadoDeCampanaSupervisada({
   const [enCurso, setEnCurso] = useState<CambioDeEstado | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [errorDeVentana, setErrorDeVentana] = useState<string | null>(null);
+  // Reanudar también pregunta (2026-11-22, components/sistema/useConfirmacion); pausar y finalizar ya lo hacían.
+  const confirmacion = useConfirmacion();
 
   if (status !== "activa" && status !== "pausada") return null;
   const pausadaPorSupervision = status === "pausada" && pausa?.por === "supervision";
@@ -66,12 +69,21 @@ export default function EstadoDeCampanaSupervisada({
     setVentana(null);
   }
 
-  async function reanudar() {
+  function reanudar() {
     setError(null);
-    setError(await cambiar("reanudar"));
+    confirmacion.pedirConfirmacion({
+      pregunta: "¿Seguro que quieres reanudar esta campaña?",
+      detalle: <p>Vuelve a recibir aportes desde ahora. Revisa antes que los ajustes de quien la organiza atiendan el motivo de la pausa.</p>,
+      textoConfirmar: "Sí, reanudar",
+      textoOcupado: "Reanudando…",
+      accion: async () => {
+        const fallo = await cambiar("reanudar");
+        return fallo ? { ok: false, error: fallo } : { ok: true };
+      },
+    });
   }
 
-  const ocupado = enCurso !== null;
+  const ocupado = enCurso !== null || confirmacion.ocupado;
 
   return (
     <section className="mb-5 rounded-lg border border-system-200 bg-white p-4 shadow-sm">
@@ -100,7 +112,7 @@ export default function EstadoDeCampanaSupervisada({
           {pausadaPorSupervision && (
             <button
               type="button"
-              onClick={() => void reanudar()}
+              onClick={reanudar}
               disabled={ocupado || !ajustesEn}
               title={ajustesEn ? undefined : "Se habilita cuando quien organiza guarde los ajustes"}
               className="rounded-pill border border-success-700/40 bg-success-50 px-3.5 py-2 text-[12.5px] font-bold text-success-700 disabled:opacity-60"
@@ -141,7 +153,7 @@ export default function EstadoDeCampanaSupervisada({
 
       <VentanaDeConfirmacion
         abierto={ventana !== null}
-        titulo={ventana === "finalizar" ? "¿Finalizar esta campaña?" : "¿Pausar esta campaña?"}
+        titulo={ventana === "finalizar" ? "¿Seguro que quieres finalizar esta campaña?" : "¿Seguro que quieres pausar esta campaña?"}
         textoConfirmar={ventana === "finalizar" ? "Finalizar campaña" : "Pausar campaña"}
         textoOcupado={ventana === "finalizar" ? "Finalizando…" : "Pausando…"}
         ocupado={ocupado}
@@ -183,6 +195,7 @@ export default function EstadoDeCampanaSupervisada({
           <p role="alert" className="mt-2 text-[15px] text-error-700">{errorDeVentana}</p>
         )}
       </VentanaDeConfirmacion>
+      {confirmacion.ventana}
     </section>
   );
 }

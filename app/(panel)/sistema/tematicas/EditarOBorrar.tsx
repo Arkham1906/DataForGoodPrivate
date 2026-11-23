@@ -102,7 +102,7 @@ export default function EditarOBorrar({
       {ventana === "borrar" ? (
         <VentanaDeConfirmacion
           abierto
-          titulo={`¿Borrar «${nombre}»?`}
+          titulo={`¿Seguro que quieres borrar «${nombre}»?`}
           textoConfirmar="Borrar"
           textoOcupado="Borrando…"
           ocupado={pendiente}

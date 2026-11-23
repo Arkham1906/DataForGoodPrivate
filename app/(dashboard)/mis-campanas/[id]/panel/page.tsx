@@ -7,10 +7,13 @@
 // antes veía las métricas). La recolección diaria ya respondía 403 a quien no la creó.
 // La meta cuenta solo los aprobados (lib/campanas/meta.ts). Los tipos de dato van solo en "Métricas generales"
 // (2026-11-05, a pedido del usuario: antes también había un bloque "Por tipo de dato").
+// Desde el 2026-11-22 la recolección es components/campanas/RecoleccionDeCampana: fecha en cada columna y periodo
+// elegible (?periodo= o ?desde=&hasta= de la URL, que se pasa a la API; este mes por defecto). También se ve en una
+// campaña finalizada (antes se ocultaba), para consultar su histórico.
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import Tag from "@/components/ui/Tag";
 import MetricCard from "@/components/ui/MetricCard";
 import ProgressBar from "@/components/ui/ProgressBar";
@@ -22,6 +25,8 @@ import { porcentajeDeMeta, pronosticoDeMeta } from "@/lib/campanas/meta";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 import MetricasGenerales from "@/components/campanas/MetricasGenerales";
 import TextoDeActualizacion from "@/components/campanas/TextoDeActualizacion";
+import RecoleccionDeCampana from "@/components/campanas/RecoleccionDeCampana";
+import { periodoDesde, type SerieDeTiempo } from "@/lib/periodo";
 import type { MetricasGenerales as DatosDeMetricas } from "@/lib/campanas/metricas-generales-tipos";
 
 const TEXTO_DEL_PRONOSTICO = {
@@ -31,12 +36,18 @@ const TEXTO_DEL_PRONOSTICO = {
   sin_datos: "Todavía no hay datos suficientes para estimar si se alcanza la meta.",
 } as const;
 
-type DiaDeRecoleccion = { fecha: string; etiqueta: string; valor: number };
-
 export default function PanelCampanaPage() {
   const params = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
+  const consulta = new URLSearchParams();
+  for (const nombre of ["periodo", "desde", "hasta"]) {
+    const valor = searchParams.get(nombre);
+    if (valor) consulta.set(nombre, valor);
+  }
+  const consultaDelPeriodo = consulta.toString();
+  const periodo = periodoDesde(Object.fromEntries(consulta), "mes");
   const [campaign, setCampaign] = useState<Campaign | null>(null);
-  const [recoleccionDiaria, setRecoleccionDiaria] = useState<DiaDeRecoleccion[]>([]);
+  const [recoleccion, setRecoleccion] = useState<SerieDeTiempo | null>(null);
   const [metricasGenerales, setMetricasGenerales] = useState<DatosDeMetricas | null>(null);
   const [actualizadoEn, setActualizadoEn] = useState<string | null>(null);
   const [noEncontrada, setNoEncontrada] = useState(false);
@@ -49,7 +60,7 @@ export default function PanelCampanaPage() {
     async function loadCampaign() {
       const [campaignResponse, recoleccionResponse, metricasResponse] = await Promise.all([
         fetch(`${BASE_PATH}/api/campanas?id=${params.id}`, { cache: "no-store" }),
-        fetch(`${BASE_PATH}/api/campanas/${params.id}/recoleccion-diaria`, { cache: "no-store" }),
+        fetch(`${BASE_PATH}/api/campanas/${params.id}/recoleccion-diaria${consultaDelPeriodo ? `?${consultaDelPeriodo}` : ""}`, { cache: "no-store" }),
         fetch(`${BASE_PATH}/api/campanas/${params.id}/metricas`, { cache: "no-store" }),
       ]);
       if (!activo) return;
@@ -63,7 +74,7 @@ export default function PanelCampanaPage() {
       setCampaign(body.data);
       if (recoleccionResponse.ok) {
         const body = await recoleccionResponse.json();
-        setRecoleccionDiaria(Array.isArray(body.data) ? body.data : []);
+        setRecoleccion(body.serie ?? null);
         setActualizadoEn(body.actualizadoEn ?? null);
       }
       if (metricasResponse.ok) {
@@ -80,7 +91,7 @@ export default function PanelCampanaPage() {
     return () => {
       activo = false;
     };
-  }, [params.id, recarga]);
+  }, [params.id, recarga, consultaDelPeriodo]);
 
   if (noEncontrada) return <AvisoNoEncontrado volverA="/mis-campanas" textoVolver="Volver a Mis campañas" />;
   if (!campaign) {
@@ -107,7 +118,6 @@ export default function PanelCampanaPage() {
     diasTranscurridos,
     diasRestantes: campaign.daysRemaining ?? 0,
   });
-  const maxDaily = Math.max(...recoleccionDiaria.map((d) => d.valor), 1);
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -147,34 +157,10 @@ export default function PanelCampanaPage() {
         <MetricCard label={isFinished ? "Meta alcanzada" : "Meta"} value={`${pct}%`} />
       </div>
 
-      {!isFinished && (
-        <>
-          <p className="mb-3 text-[12.5px] font-medium text-system-900">
-            Recolección diaria <span className="text-system-500">· últimos 14 días</span>
-          </p>
-          <div className="mb-1.5 flex h-32 items-end gap-1.5 border-b border-system-200">
-            {recoleccionDiaria.map((dia) => (
-              <div
-                key={dia.fecha}
-                title={`${dia.etiqueta}: ${dia.valor} aporte${dia.valor === 1 ? "" : "s"}`}
-                role="img"
-                aria-label={`${dia.etiqueta}: ${dia.valor} aporte${dia.valor === 1 ? "" : "s"}`}
-                className="flex-1 rounded-t bg-brand-600"
-                style={{ height: `${(dia.valor / maxDaily) * 100}%`, minHeight: dia.valor > 0 ? 2 : 0 }}
-              />
-            ))}
-          </div>
-          <div className="mb-8 flex gap-1.5">
-            {recoleccionDiaria.map((dia) => (
-              <span
-                key={dia.fecha}
-                className="flex-1 text-center font-mono text-[9px] text-system-500"
-              >
-                {dia.etiqueta}
-              </span>
-            ))}
-          </div>
-        </>
+      {recoleccion && (
+        <div className="mb-8">
+          <RecoleccionDeCampana serie={recoleccion} periodo={periodo} nombre={campaign.name} />
+        </div>
       )}
 
       <div>

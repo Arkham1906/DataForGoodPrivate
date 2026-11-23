@@ -1,6 +1,6 @@
 // Pantalla /supervisar/campanas: todas las campañas aceptadas (por el SuperUsuario o por cualquier supervisor;
 // 2026-10-15), en dos tablas (2026-10-16): las que supervisa el SuperUsuario y las de los otros supervisores,
-// con quién las supervisa.
+// con quién las supervisa. Filtros (2026-11-22): ?q= (campaña, creador, temática o supervisor) y ?estado=.
 // Server Component. Datos: listarCampanasParaRoot().
 
 import Link from "next/link";
@@ -10,13 +10,33 @@ import { porcentajeDeMeta } from "@/lib/campanas/meta";
 import { BackLink } from "../_ui";
 import type { Metadata } from "next";
 import { exigirSesionRoot } from "@/lib/supervision/root";
+import FiltrosEnLaUrl from "@/components/sistema/FiltrosEnLaUrl";
+import { busquedaDeLaUrl, coincideConLaBusqueda, cuantosDeCuantos, opcionDeLaUrl } from "@/lib/filtros-en-la-url";
 
 export const metadata: Metadata = { title: "Campañas supervisadas" };
 
-export default async function SupervisedCampaignsPage() {
+const ESTADOS = [
+  { valor: "activa", etiqueta: "Activas" },
+  { valor: "aceptada", etiqueta: "Aceptadas, sin empezar" },
+  { valor: "pausada", etiqueta: "Pausadas" },
+] as const;
+
+export default async function SupervisedCampaignsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; estado?: string }>;
+}) {
   await exigirSesionRoot();
   const { supervisadas } = await listarCampanasParaRoot();
-  const campaigns = supervisadas.filter((c) => c.status === "activa" || c.status === "aceptada" || c.status === "pausada");
+  const filtros = await searchParams;
+  const q = busquedaDeLaUrl(filtros.q);
+  const estado = opcionDeLaUrl(filtros.estado, ESTADOS.map((e) => e.valor));
+  const todas = supervisadas.filter((c) => c.status === "activa" || c.status === "aceptada" || c.status === "pausada");
+  const campaigns = todas.filter(
+    (c) =>
+      (!estado || c.status === estado) &&
+      coincideConLaBusqueda(q, c.name, c.creatorName, c.tag, c.supervisadaPor, c.id),
+  );
   const mias = campaigns.filter((c) => c.supervision === "mia");
   const deOtros = campaigns.filter((c) => c.supervision !== "mia");
 
@@ -24,8 +44,12 @@ export default async function SupervisedCampaignsPage() {
     <div className="mx-auto max-w-5xl">
       <BackLink href="/supervisar">Volver a supervisar</BackLink>
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div><p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-600">Modo supervisor · SuperUsuario</p><h1 className="mt-2 text-2xl font-extrabold text-system-900">Campañas supervisadas</h1><p className="mt-1 text-[13px] text-system-600">{campaigns.length} registradas · {mias.length} tuyas · {deOtros.length} de otros supervisores</p></div>
+        <div><p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-600">Modo supervisor · SuperUsuario</p><h1 className="mt-2 text-2xl font-extrabold text-system-900">Campañas supervisadas</h1><p className="mt-1 text-[13px] text-system-600">{cuantosDeCuantos(campaigns.length, todas.length)} registradas · {mias.length} tuyas · {deOtros.length} de otros supervisores</p></div>
       </div>
+      <FiltrosEnLaUrl
+        busqueda={{ etiqueta: "Buscar campañas", placeholder: "Buscar por campaña, creador, temática o supervisor" }}
+        listas={[{ clave: "estado", etiqueta: "Filtrar por estado", todas: "Estado: todos", opciones: [...ESTADOS] }]}
+      />
       <div className="space-y-6">
         <TablaDeSupervisadas titulo="Supervisadas por ti" campaigns={mias} vacio="Todavía no supervisas ninguna campaña aceptada." />
         <TablaDeSupervisadas titulo="Supervisadas por otros supervisores" campaigns={deOtros} vacio="Ningún supervisor tiene campañas aceptadas todavía." conSupervisor />

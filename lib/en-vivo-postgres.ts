@@ -31,6 +31,8 @@ const TABLAS_CON_AVISO = [
   "campana_enlaces",
   "campanas_guardadas",
   "sanciones",
+  // Apelaciones (2026-11-22): la bandeja del SuperUsuario y /mis-apelaciones.
+  "apelaciones",
   "reportes",
   "dispositivos_bloqueados",
   "lista_negra_correos",

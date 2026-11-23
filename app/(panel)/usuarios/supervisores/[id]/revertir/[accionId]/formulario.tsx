@@ -1,13 +1,15 @@
 "use client";
 
 // Formulario de reversión. Llama a revertirAccion (lib/usuarios/acciones-supervisor.ts), que al
-// terminar regresa a la actividad del supervisor.
+// terminar regresa a la actividad del supervisor. Desde el 2026-11-22, "Revertir acción" pregunta antes
+// ("¿Seguro que quieres…?" con `efecto`, components/sistema/useConfirmacion).
 
 import { useRouter } from "next/navigation";
-import { useId, useState, useTransition } from "react";
+import { useId, useState } from "react";
 
 import Button from "@/components/sistema/Button";
 import { Field, Textarea } from "@/components/sistema/Input";
+import { useConfirmacion } from "@/components/sistema/useConfirmacion";
 import { revertirAccion } from "@/lib/usuarios/acciones-supervisor";
 
 const MINIMO = 40;
@@ -24,34 +26,48 @@ export default function FormularioDeReversion({
   accionId,
   supervisor,
   notificable,
+  efecto,
 }: {
   supervisorId: string;
   accionId: string;
   supervisor: string;
   /** Texto de la casilla de notificación, o null si no aplica. */
   notificable: string | null;
+  /** Qué pasa al revertir (el mismo texto del aviso de la página). */
+  efecto: string;
 }) {
   const router = useRouter();
   const [causal, setCausal] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [notificar, setNotificar] = useState(false);
   const [observacion, setObservacion] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [pendiente, iniciar] = useTransition();
+  const { pedirConfirmacion, ventana, ocupado: pendiente } = useConfirmacion();
   const idCausal = useId();
 
   const corta = descripcion.trim().length < MINIMO;
 
   function enviar() {
-    setError(null);
-    iniciar(async () => {
-      const r = await revertirAccion(supervisorId, accionId, {
-        causal,
-        descripcion,
-        notificarAfectado: notificar,
-        observacionEnExpediente: observacion,
-      });
-      if (r && !r.ok) setError(r.error);
+    pedirConfirmacion({
+      pregunta: `¿Seguro que quieres revertir esta decisión de ${supervisor}?`,
+      detalle: (
+        <>
+          <p>{efecto}</p>
+          <p>
+            Queda asentado en el historial de {supervisor} y en el tuyo{observacion ? ", con una observación en su expediente" : ""}.{" "}
+            {notificar ? "Se avisa a la persona afectada." : ""} Una decisión revertida no se vuelve a revertir.
+          </p>
+        </>
+      ),
+      textoConfirmar: "Sí, revertir",
+      textoOcupado: "Revirtiendo…",
+      peligro: true,
+      accion: () =>
+        revertirAccion(supervisorId, accionId, {
+          causal,
+          descripcion,
+          notificarAfectado: notificar,
+          observacionEnExpediente: observacion,
+        }),
     });
   }
 
@@ -110,12 +126,6 @@ export default function FormularioDeReversion({
         </span>
       </label>
 
-      {error ? (
-        <p role="alert" className="mb-3 text-[12.5px] text-error-700">
-          {error}
-        </p>
-      ) : null}
-
       <div className="flex flex-wrap items-center justify-end gap-2.5">
         <Button
           type="button"
@@ -133,9 +143,10 @@ export default function FormularioDeReversion({
           disabled={pendiente || corta || !causal}
           onClick={enviar}
         >
-          {pendiente ? "Revirtiendo…" : "Revertir acción"}
+          Revertir acción
         </Button>
       </div>
+      {ventana}
       <p className="mt-2 text-right text-[11.5px] text-system-500">
         Queda asentado en el historial del supervisor y en el tuyo
       </p>

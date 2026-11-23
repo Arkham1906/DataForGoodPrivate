@@ -1,10 +1,13 @@
 // Pantalla /usuarios/dashboard: métricas de usuarios por rango de fechas.
-// Server Component. Datos: lib/usuarios/dashboard.ts. Rango en selector-de-rango.tsx.
+// Server Component. Datos: lib/usuarios/dashboard.ts. Periodo en ui/SelectorDePeriodo (2026-11-22: atajos, todo el
+// histórico o fechas específicas; ?rango= de antes sigue sirviendo). Altas en ui/GraficaDeTiempo. "Usuarios por aportes"
+// (2026-11-22): las cuentas agrupadas por cuántos aportes enviaron y cuántos les aprobaron en el periodo.
 
 import type { Metadata } from "next";
 import { Suspense } from "react";
 
-import GraficaDeColumnas from "@/components/sistema/grafica-columnas";
+import GraficaDeTiempo from "@/components/ui/GraficaDeTiempo";
+import SelectorDePeriodo from "@/components/ui/SelectorDePeriodo";
 import Subtabs from "@/components/sistema/subtabs";
 import {
   Encabezado,
@@ -20,30 +23,24 @@ import {
   PESTANAS_USUARIOS,
   formatearCorte,
   obtenerDashboardDeUsuarios,
-  type RangoDeFechas,
 } from "@/lib/usuarios/dashboard";
-import SelectorDeRango from "./selector-de-rango";
+import { periodoDesde, textoDelPeriodo } from "@/lib/periodo";
+import { NOMBRE_DE_UNIDAD } from "@/lib/series-de-tiempo";
 import { exigirSesionRoot } from "@/lib/supervision/root";
 
 export const metadata: Metadata = { title: "Dashboard de usuarios" };
 export const dynamic = "force-dynamic";
 
-const RANGOS: RangoDeFechas[] = ["30d", "90d", "12m"];
-
-function normalizarRango(valor?: string): RangoDeFechas {
-  return RANGOS.includes(valor as RangoDeFechas) ? (valor as RangoDeFechas) : "30d";
-}
-
 export default async function DashboardDeUsuariosPage({
   searchParams,
 }: {
   // En Next 16 searchParams llega como promesa.
-  searchParams: Promise<{ rango?: string }>;
+  searchParams: Promise<{ periodo?: string; desde?: string; hasta?: string; rango?: string }>;
 }) {
   await exigirSesionRoot();
-  const { rango } = await searchParams;
-  const activo = normalizarRango(rango);
-  const d = await obtenerDashboardDeUsuarios(activo);
+  const periodo = periodoDesde(await searchParams, "mes");
+  const d = await obtenerDashboardDeUsuarios(periodo);
+  const enElPeriodo = textoDelPeriodo(periodo);
 
   const e = d.estadoDeCuenta;
 
@@ -62,7 +59,7 @@ export default async function DashboardDeUsuariosPage({
         acciones={
           <>
             <Suspense fallback={null}>
-              <SelectorDeRango valor={activo} />
+              <SelectorDePeriodo periodo={periodo} defecto="mes" />
             </Suspense>
             <EnlaceBoton href="/usuarios">Ver lista</EnlaceBoton>
           </>
@@ -77,19 +74,63 @@ export default async function DashboardDeUsuariosPage({
           <MetricCard label="Altas del mes" value={formatearNumero(d.altasDelMes)} />
         </div>
         <div className="max-md:text-center">
-          <MetricCard label="Con aportes en el rango" value={formatearNumero(d.conAportesEnRango)} />
+          <MetricCard label="Con aportes en el periodo" value={formatearNumero(d.conAportesEnRango)} />
         </div>
         <div className="max-md:text-center">
           <MetricCard label="Cuentas restringidas" value={formatearNumero(d.cuentasRestringidas)} />
         </div>
       </div>
 
-      <TituloDeSeccion>Altas por mes</TituloDeSeccion>
+      <TituloDeSeccion>
+        Altas {d.altas ? NOMBRE_DE_UNIDAD[d.altas.unidad] : ""} · {enElPeriodo}
+      </TituloDeSeccion>
       <div className="mb-6">
-        <GraficaDeColumnas columnas={d.altasPorMes} descripcion="Altas de usuarios por mes" />
+        {d.altas ? (
+          <GraficaDeTiempo
+            serie={d.altas}
+            series={[{ nombre: "Altas", color: "brand" }]}
+            descripcion={`Altas de usuarios ${NOMBRE_DE_UNIDAD[d.altas.unidad]}, ${enElPeriodo}`}
+            vacio="No hubo altas en este periodo."
+          />
+        ) : (
+          <p className="text-[12.5px] text-system-600">Sin datos para la gráfica.</p>
+        )}
       </div>
 
-      <div className="mb-6 grid grid-cols-1 gap-5 lg:grid-cols-2">
+      {/* Usuarios por aportes (2026-11-22, a pedido del usuario): cuántas cuentas enviaron 0, 1, 2 a 5... aportes en el
+          periodo, y cuántas tienen esa cantidad de aprobados. Mismos grupos en las dos (GRUPOS_POR_APORTES). */}
+      <div className="mb-8 flex flex-col gap-8">
+        {([
+          ["Usuarios por aportes enviados", d.porAportes.enviados],
+          ["Usuarios por aportes aprobados", d.porAportes.aprobados],
+        ] as const).map(([titulo, grupos]) => (
+          <section key={titulo}>
+            <TituloDeSeccion>
+              {titulo} · {enElPeriodo}
+            </TituloDeSeccion>
+            {grupos.length === 0 ? (
+              <p className="text-[12.5px] text-system-600">Sin datos.</p>
+            ) : (
+              <Reparto
+                anchoEtiqueta={90}
+                anchoValor={76}
+                maximo={Math.max(1, d.totalRegistrados)}
+                filas={grupos.map((g) => ({
+                  etiqueta: g.etiqueta,
+                  valor: g.valor,
+                  display: `${formatearNumero(g.valor)} · ${d.totalRegistrados > 0 ? Math.round((g.valor / d.totalRegistrados) * 100) : 0}%`,
+                }))}
+              />
+            )}
+          </section>
+        ))}
+      </div>
+      <p className="-mt-5 mb-8 text-[12.5px] text-system-500">
+        Cuántas cuentas hay en cada grupo según los aportes que enviaron con su cuenta en el periodo, y cuántos de
+        esos se aprobaron; el porcentaje es del total de usuarios registrados. Los aportes sin cuenta no cuentan.
+      </p>
+
+      <div className="mb-8 flex flex-col gap-8">
         <section>
           <TituloDeSeccion>Por rol asignado</TituloDeSeccion>
           <Reparto filas={d.porRol} />
@@ -122,7 +163,7 @@ export default async function DashboardDeUsuariosPage({
         </section>
       </div>
 
-      <div className="mb-6 grid grid-cols-1 gap-5 lg:grid-cols-2">
+      <div className="mb-8 flex flex-col gap-8">
         <section>
           <TituloDeSeccion>Temáticas de interés declaradas</TituloDeSeccion>
           {d.interesesDeclarados.length === 0 ? (
@@ -144,14 +185,58 @@ export default async function DashboardDeUsuariosPage({
           </p>
         </section>
 
+        {/* Por estado y, al desplegarlo, por municipio (2026-11-22, a pedido del usuario). */}
         <section>
           <TituloDeSeccion>Por ubicación</TituloDeSeccion>
-          <ListaClaveValor
-            filas={d.porUbicacion.map((u) => ({
-              clave: u.etiqueta,
-              valor: formatearNumero(u.valor),
-            }))}
-          />
+          {d.porUbicacion.estados.length === 0 && d.porUbicacion.sinUbicacion === 0 ? (
+            <p className="text-[12.5px] text-system-600">Sin datos.</p>
+          ) : (
+            <div className="divide-y divide-system-200">
+              {d.porUbicacion.estados.map((e) => (
+                <details key={e.estado} className="group">
+                  <summary className="flex cursor-pointer select-none list-none items-center justify-between gap-3.5 py-2.5 text-[13.5px] [&::-webkit-details-marker]:hidden">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 16 16"
+                        className="h-3.5 w-3.5 shrink-0 text-system-500 transition-transform group-open:rotate-90 motion-reduce:transition-none"
+                      >
+                        <path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                      <span className="break-words font-semibold text-system-900">{e.estado}</span>
+                      <span className="shrink-0 text-[12px] text-system-500">
+                        · {e.municipios.length} {e.municipios.length === 1 ? "municipio" : "municipios"}
+                      </span>
+                    </span>
+                    <span className="shrink-0 font-mono tabular-nums">{formatearNumero(e.valor)}</span>
+                  </summary>
+                  <ul className="mb-2.5 ml-[22px] divide-y divide-system-100 border-l border-system-200 pl-3">
+                    {e.municipios.map((m) => (
+                      <li
+                        key={m.municipio ?? ""}
+                        className="flex items-center justify-between gap-3.5 py-2 text-[13px]"
+                      >
+                        <span className={m.municipio ? "break-words text-system-700" : "text-system-500"}>
+                          {m.municipio ?? "Sin municipio declarado"}
+                        </span>
+                        <span className="shrink-0 font-mono tabular-nums text-system-700">
+                          {formatearNumero(m.valor)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              ))}
+              {d.porUbicacion.sinUbicacion > 0 && (
+                <div className="flex items-center justify-between gap-3.5 py-2.5 pl-[22px] text-[13.5px]">
+                  <span className="text-system-500">Sin ubicación declarada</span>
+                  <span className="shrink-0 font-mono tabular-nums">
+                    {formatearNumero(d.porUbicacion.sinUbicacion)}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
         </section>
       </div>
 

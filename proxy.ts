@@ -10,7 +10,7 @@ const METODOS_SEGUROS = new Set(["GET", "HEAD", "OPTIONS"]);
 const ENCABEZADO_DETALLE_PUBLICO = "x-public-campaign-detail";
 // Zona de usuario que manda a /entrar sin cookie (las rutas que tenía el matcher hasta el 2026-11-20).
 const ZONA_DE_USUARIO =
-  /^\/(inicio|campanas|mis-aportes|mis-campanas|cuenta|progreso|notificaciones|revisiones|supervision)(\/|$)/;
+  /^\/(inicio|campanas|mis-aportes|mis-campanas|mis-apelaciones|cuenta|progreso|notificaciones|revisiones|supervision)(\/|$)/;
 
 /**
  * Protección CSRF para las mutaciones de /api. La cookie de sesión va con

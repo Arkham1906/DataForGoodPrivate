@@ -1,6 +1,8 @@
 import { pool } from "@/lib/db";
 import { columnaDeTipos } from "@/lib/campanas/tipos-de-campana";
 import { ZONA_DE_CAMPANAS, calculateCampaignDaysRemaining, hoyEnTepic, normalizeCampaignDate } from "@/lib/campaign-date";
+import type { Periodo } from "@/lib/periodo";
+import { serieDeTiempo, type SerieDeTiempo } from "@/lib/series-de-tiempo";
 
 /*
  * Datos del "Panel de campaña" de la vista de supervisor (usuario promovido
@@ -41,7 +43,11 @@ export type PanelDeCampana = {
   };
   /** Porcentaje de la meta, sobre aportes recibidos (igual que el panel del creador). */
   porcentajeMeta: number;
-  recoleccionDiaria: { fecha: string; etiqueta: string; valor: number }[];
+  /**
+   * Aportes recibidos por día, semana, mes o año del periodo pedido (2026-11-22; antes, siempre los últimos 14
+   * días). En el histórico empieza el día de inicio de la campaña. Lo pinta ui/GraficaDeTiempo.
+   */
+  recoleccion: SerieDeTiempo;
   /** Sobre aportes aprobados, por cada tipo de dato que admite la campaña. */
   porTipo: { tipo: string; etiqueta: string; valor: number; porcentaje: number }[];
   ritmo: {
@@ -79,7 +85,13 @@ export async function ultimaActualizacionDeCampana(campanaId: string | number): 
   return rows[0]?.actualizado_en?.toISOString() ?? null;
 }
 
-export async function obtenerPanelDeCampana(campanaId: string | number): Promise<PanelDeCampana | null> {
+/** El periodo de la gráfica de recolección cuando la pantalla no pide otro. */
+export const PERIODO_DEL_PANEL: Periodo = { clave: "mes", desde: null, hasta: null };
+
+export async function obtenerPanelDeCampana(
+  campanaId: string | number,
+  periodo: Periodo = PERIODO_DEL_PANEL,
+): Promise<PanelDeCampana | null> {
   const campanaResult = await pool.query(
     `SELECT id, name, status, start_date, end_date, goal_contributions, ${columnaDeTipos()} FROM campanas WHERE id = $1 LIMIT 1`,
     [campanaId],
@@ -90,7 +102,9 @@ export async function obtenerPanelDeCampana(campanaId: string | number): Promise
   const dias = diasRecientes(DIAS);
   const desde = dias[0]?.clave ?? "1970-01-01";
 
-  const [actualizadoEn, conteos, diaria, tipos] = await Promise.all([
+  const fechaInicio = normalizeCampaignDate(campana.start_date);
+
+  const [actualizadoEn, conteos, diaria, tipos, recoleccion] = await Promise.all([
     ultimaActualizacionDeCampana(campanaId),
     pool.query<{ recibidos: string; aprobados: string; pendientes: string; rechazados: string; participantes: string }>(
       `SELECT COUNT(*) AS recibidos,
@@ -114,6 +128,13 @@ export async function obtenerPanelDeCampana(campanaId: string | number): Promise
       `SELECT file_type, COUNT(*) AS n FROM aportes WHERE campaign_id = $1 AND status = 'aceptado' GROUP BY file_type`,
       [campanaId],
     ),
+    serieDeTiempo({
+      fuente: `SELECT submitted_at AS t, 'aportes' AS s FROM aportes WHERE campaign_id = $1`,
+      parametros: [campanaId],
+      series: ["aportes"],
+      periodo,
+      inicioHistorico: fechaInicio,
+    }),
   ]);
 
   const c = conteos.rows[0];
@@ -142,8 +163,7 @@ export async function obtenerPanelDeCampana(campanaId: string | number): Promise
   });
 
   // Ritmo: promedio diario de los últimos 14 días (o desde el inicio, si la
-  // campaña lleva menos), proyectado sobre lo que falta para la meta.
-  const fechaInicio = normalizeCampaignDate(campana.start_date);
+  // campaña lleva menos), proyectado sobre lo que falta para la meta. No depende del periodo de la gráfica.
   const fechaFin = normalizeCampaignDate(campana.end_date);
   const hoy = dias[dias.length - 1].clave;
   const inicioVentana = fechaInicio && fechaInicio > desde ? fechaInicio : desde;
@@ -169,7 +189,7 @@ export async function obtenerPanelDeCampana(campanaId: string | number): Promise
     actualizadoEn,
     metricas,
     porcentajeMeta: meta > 0 ? Math.min(100, Math.round((metricas.recibidos / meta) * 100)) : 0,
-    recoleccionDiaria,
+    recoleccion,
     porTipo,
     ritmo: {
       aportesPorDia: Math.round(aportesPorDia * 10) / 10,

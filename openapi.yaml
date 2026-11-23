@@ -304,6 +304,16 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "429": { description: Demasiados intentos }
+    delete:
+      tags: [Auth]
+      summary: Cerrar la sesión del SuperUsuario
+      description: |
+        Borra la sesión de la cookie `root_session_token` y la cookie. Se registra en `audit_log` como
+        `root.salida`. Sin sesión vigente también responde 204. No invalida un token Bearer de
+        `POST /api/auth/root/token`: ese vence solo a las 2 horas.
+      security: []
+      responses:
+        "204": { description: Sesión raíz cerrada }
 
   /api/auth/root/token:
     post:
@@ -378,7 +388,8 @@ paths:
         - sessionCookie: []
       parameters:
         - { name: q, in: query, required: false, schema: { type: string }, description: "SuperUsuario: nombre, apellidos, correo o id. Usuario: parte del nombre y apellidos, o el correo completo" }
-        - { name: rol, in: query, required: false, schema: { type: string, enum: [usuario, supervisor, revisor] }, description: Solo SuperUsuario }
+        - { name: rol, in: query, required: false, schema: { type: string, enum: [usuario, supervisor, revisor, sin_creador, sin_aportador] }, description: "Solo SuperUsuario. sin_creador y sin_aportador (2026-11-22): a quien le quitaron ese rol" }
+        - { name: organizacion, in: query, required: false, schema: { type: string }, description: "Solo SuperUsuario (2026-11-22): nombre de la organización del perfil, sin importar mayúsculas; __ninguna para quien no tiene" }
         - { name: estado, in: query, required: false, schema: { type: string, enum: [ACTIVA, CON_STRIKES, SUSPENDIDA, BANEADA] }, description: Solo SuperUsuario }
         - { name: pagina, in: query, required: false, schema: { type: integer, minimum: 1, default: 1 }, description: "SuperUsuario: 20 por página. Usuario: 30 por página" }
         - { name: campanaId, in: query, required: false, schema: { type: integer }, description: Solo usuario (obligatorio para él) }
@@ -733,7 +744,8 @@ paths:
       tags: [Campañas]
       summary: Crear campaña
       description: |
-        Exige sesión y una organización no vacía en el perfil; sin ella responde 403, incluso al
+        Exige sesión, el rol de creador de campaña (2026-11-22: toda cuenta lo tiene y el SuperUsuario
+        puede quitarlo; sin él, 403) y una organización no vacía en el perfil; sin ella responde 403, incluso al
         crear borradores. La campaña es de quien la crea. `status` solo `borrador` (por defecto) o
         `en_revision`; con 5 campañas en revisión del creador, solo `borrador`. El máximo por persona de un tipo
         (`cuotaPorTipo`) no puede pasar del límite de ese tipo (`limitePorTipo`): 400. Contadores, XP, `isSpecial` y
@@ -774,11 +786,13 @@ paths:
                       isMySupervision: { type: boolean }
                       baneado: { type: boolean }
                       motivoDeBaneo: { type: [string, "null"] }
+                      sinRolDeAportador: { type: boolean, description: "El SuperUsuario te quitó el rol de aportador (2026-11-22): no puedes inscribirte ni aportar" }
                       yaReportada: { type: boolean, description: "Ya reportaste esta campaña (POST /api/campanas/{id}/reportar)" }
         "404": { $ref: "#/components/responses/NotFound" }
     put:
       tags: [Campañas]
       summary: Editar campaña completa (solo el creador)
+      description: Solo en borrador, en revisión o rechazada. Sin el rol de creador de campaña (2026-11-22), `status` `en_revision` sobre un borrador o una rechazada da 403.
       requestBody:
         required: true
         content:
@@ -802,6 +816,8 @@ paths:
           todos los campos: pasa a `en_revision` en la misma petición (400 con 5 en revisión o con el cierre vencido), salvo con `status` `activa` o `pausada` y solo
           `goalContributions`, `metaPorTipo`, `limitePorTipo`, `endDate` y `endTime`: se guarda sin revisión (2026-11-06). Si la pausó la supervisión admite cambios parciales, sigue
           pausada y se avisa a su supervisor (`status: "en_revision"` da 403); solo la supervisión la reanuda, tras esos ajustes.
+          Sin el rol de creador de campaña (2026-11-22), enviar a revisión un borrador o una rechazada da 403; lo demás
+          (editar la que ya está en revisión, pausar, reanudar, finalizar, ediciones de una pausada o programada) sigue igual.
         - **Pausar y reanudar (solo el creador):** `{ "status": "pausada" }` sobre una `activa` y
           `{ "status": "activa" }` sobre una `pausada`, sin otros campos (o con los de arriba). Una pausada no recibe aportes
           ni aparece en las listas públicas. Reanudar da 400 si la fecha de cierre que queda ya pasó (la de la petición, si llega)
@@ -1013,7 +1029,7 @@ paths:
         tiene contenido inadecuado) y el de uso del aporte (se usa para la campaña y, si se
         aprueba, se publica como dato abierto CC BY 4.0 sin nombre ni correo). POST /api/aportes
         lo exige. Campaña activa o pausada; no su creador ni alguien baneado. Repetirla no cambia
-        nada. Bitácora `campana.inscribirse`.
+        nada. Bitácora `campana.inscribirse`. Sin el rol de aportador (2026-11-22, lo quita el SuperUsuario), 403.
       requestBody:
         required: true
         content:
@@ -1234,24 +1250,46 @@ paths:
       - $ref: "#/components/parameters/Id"
     get:
       tags: [Campañas]
-      summary: Aportes aprobados por día y por tipo
-      description: Solo el creador de la campaña.
+      summary: Aportes recibidos en el tiempo y aprobados por tipo
+      description: |
+        Solo el creador de la campaña. Desde el 2026-11-22 la serie cubre el periodo pedido (este mes por defecto) y va
+        por hora (un solo día), día, semana, mes o año según su largo (hasta 45 días, 30 semanas, 3 años; más, por año), en
+        hora de Tepic. `hoy`, `semana`, `mes` y `anio` son de calendario (de lunes, del día 1); los valores de antes (30d, 12m...) pasan a su equivalente.
+        El histórico empieza el día de inicio de la campaña. Antes devolvía `data` con los últimos 14 días.
+      parameters:
+        - { name: periodo, in: query, schema: { type: string, enum: [hoy, semana, mes, anio, historico] } }
+        - { name: desde, in: query, schema: { type: string, format: date }, description: "Fechas específicas (con `hasta`); gana sobre `periodo`" }
+        - { name: hasta, in: query, schema: { type: string, format: date } }
       responses:
         "200":
-          description: Serie diaria y reparto por tipo
+          description: Serie de tiempo y reparto por tipo
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  data:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        fecha: { type: string, format: date }
-                        etiqueta: { type: string }
-                        valor: { type: integer }
+                  serie:
+                    type: object
+                    properties:
+                      unidad: { type: string, enum: [hour, day, week, month, year] }
+                      desde: { type: string, format: date }
+                      hasta: { type: string, format: date }
+                      cubetas:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            inicio: { type: string, description: "AAAA-MM-DD, o AAAA-MM-DDTHH por hora" }
+                            eje: { type: string, description: "Texto bajo la columna: 9:00, 9 nov, nov o 2026" }
+                            anio: { type: string }
+                            detalle: { type: string, description: "Fecha completa o rango de la cubeta" }
+                            valores: { type: array, items: { type: integer } }
+                  periodo:
+                    type: object
+                    properties:
+                      clave: { type: string }
+                      desde: { type: [string, "null"], format: date }
+                      hasta: { type: [string, "null"], format: date }
                   porTipo:
                     type: array
                     items:
@@ -1425,7 +1463,8 @@ paths:
         documentos se guardan sin metadatos (EXIF con GPS, autor...); video y audio, tal cual. Si
         la campaña acepta texto, `file` es opcional. 413 si el cuerpo pasa de 51 MB. La persona debe
         estar inscrita a la campaña (aceptó los acuerdos con POST /api/campanas/{id}/inscripcion);
-        si no, 403. La hora de la inscripción se guarda en el aporte.
+        si no, 403. La hora de la inscripción se guarda en el aporte. Sin el rol de aportador (2026-11-22, lo
+        quita el SuperUsuario), 403.
       requestBody:
         required: true
         content:

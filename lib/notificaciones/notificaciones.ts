@@ -34,6 +34,8 @@ export const NOTIFICACIONES_ESENCIALES: ReadonlySet<TipoDeNotificacion> = new Se
   "rol_revocado",
   "sancion_aplicada",
   "sancion_restaurada",
+  "apelacion_aceptada",
+  "apelacion_rechazada",
   "campana_baneo",
   "campana_desbaneo",
   "invitacion_revisor",

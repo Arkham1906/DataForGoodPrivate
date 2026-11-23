@@ -1,16 +1,16 @@
-// GET /api/campanas/[id]/recoleccion-diaria — aportes por día y por tipo para las gráficas del panel.
-// Solo el creador de la campaña (es su panel: /mis-campanas/[id]/panel).
+// GET /api/campanas/[id]/recoleccion-diaria — aportes recibidos en el tiempo y por tipo para las gráficas del panel.
+// Solo el creador de la campaña (es su panel: /mis-campanas/[id]/panel). Desde el 2026-11-22 la serie va por hora, día,
+// semana, mes o año del periodo pedido (?periodo=hoy|semana|mes|anio|historico, o ?desde=&hasta=; este mes por
+// defecto; el histórico empieza el día de inicio de la campaña): lib/series-de-tiempo.ts.
 
 import { NextResponse } from "next/server";
-import { ZONA_DE_CAMPANAS, hoyEnTepic } from "@/lib/campaign-date";
+import { normalizeCampaignDate } from "@/lib/campaign-date";
 import { pool } from "@/lib/db";
 import { ultimaActualizacionDeCampana } from "@/lib/campanas/panel";
 import { columnaDeTipos } from "@/lib/campanas/tipos-de-campana";
 import { getSessionUser } from "@/lib/session";
-
-const DIAS = 14;
-
-const NOMBRE_DE_DIA = new Intl.DateTimeFormat("es-MX", { day: "2-digit", month: "short", timeZone: "UTC" });
+import { periodoDesde } from "@/lib/periodo";
+import { serieDeTiempo } from "@/lib/series-de-tiempo";
 
 const ETIQUETA_DE_TIPO: Record<string, string> = {
   texto: "Texto",
@@ -20,23 +20,9 @@ const ETIQUETA_DE_TIPO: Record<string, string> = {
   documento: "Archivo",
 };
 
-/** Últimos `dias` días de Tepic (más antiguo primero), como clave "YYYY-MM-DD" + etiqueta corta. */
-function diasRecientes(dias: number): { clave: string; etiqueta: string }[] {
-  const [anio, mes, dia] = hoyEnTepic().split("-").map(Number);
-  const lista: { clave: string; etiqueta: string }[] = [];
-  for (let i = dias - 1; i >= 0; i--) {
-    const fecha = new Date(Date.UTC(anio, mes - 1, dia - i));
-    lista.push({
-      clave: fecha.toISOString().slice(0, 10),
-      etiqueta: NOMBRE_DE_DIA.format(fecha).replace(".", ""),
-    });
-  }
-  return lista;
-}
-
-// Cuántos aportes (cualquier estado) se enviaron cada día de los últimos 14,
-// para la gráfica "Recolección diaria" del panel de campaña.
-export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
+// Cuántos aportes (cualquier estado) se enviaron en cada día, semana, mes o año del periodo (`serie`), para la
+// gráfica "Aportes recibidos" del panel de campaña, y los aprobados por tipo (`porTipo`).
+export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
     const user = await getSessionUser();
@@ -44,24 +30,30 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     if (!/^\d+$/.test(id)) return NextResponse.json({ error: "Campaña no encontrada" }, { status: 404 });
 
     // Antes solo pedía sesión: cualquiera veía la actividad diaria de cualquier campaña.
-    const dueno = await pool.query<{ creator_id: number }>(`SELECT creator_id FROM campanas WHERE id = $1`, [id]);
+    const dueno = await pool.query<{ creator_id: number; start_date: unknown }>(
+      `SELECT creator_id, start_date FROM campanas WHERE id = $1`,
+      [id],
+    );
     if (dueno.rowCount === 0) return NextResponse.json({ error: "Campaña no encontrada" }, { status: 404 });
     if (Number(dueno.rows[0].creator_id) !== Number(user.id)) {
       return NextResponse.json({ error: "Solo quien creó la campaña ve sus estadísticas" }, { status: 403 });
     }
 
-    const dias = diasRecientes(DIAS);
-    const desde = dias[0]?.clave ?? "1970-01-01";
+    const consulta = new URL(request.url).searchParams;
+    const periodo = periodoDesde(
+      { periodo: consulta.get("periodo") ?? undefined, desde: consulta.get("desde") ?? undefined, hasta: consulta.get("hasta") ?? undefined },
+      "mes",
+    );
 
-    const [diariaResult, tipoResult, campanaResult] = await Promise.all([
-      // Día en la hora de Tepic, igual que lib/campanas/panel.ts.
-      pool.query<{ dia: string; n: string }>(
-        `SELECT to_char(submitted_at AT TIME ZONE $3, 'YYYY-MM-DD') AS dia, COUNT(*) AS n
-         FROM aportes
-         WHERE campaign_id = $1 AND submitted_at >= ($2::date::timestamp AT TIME ZONE $3)
-         GROUP BY 1`,
-        [id, desde, ZONA_DE_CAMPANAS]
-      ),
+    const [serie, tipoResult, campanaResult] = await Promise.all([
+      // Igual que lib/campanas/panel.ts: días de Tepic.
+      serieDeTiempo({
+        fuente: `SELECT submitted_at AS t, 'aportes' AS s FROM aportes WHERE campaign_id = $1`,
+        parametros: [id],
+        series: ["aportes"],
+        periodo,
+        inicioHistorico: normalizeCampaignDate(dueno.rows[0].start_date),
+      }),
       // Base de "aportes aprobados", igual que el MetricCard de arriba del
       // panel: es la pregunta que responde esta sección ("¿de qué tipo son
       // los aportes que ya se aceptaron?"), no de todo lo enviado.
@@ -71,9 +63,6 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       ),
       pool.query<{ data_types: string[] }>(`SELECT ${columnaDeTipos()} FROM campanas WHERE id = $1 LIMIT 1`, [id]),
     ]);
-
-    const porDia = new Map(diariaResult.rows.map((r) => [r.dia, Number(r.n)]));
-    const data = dias.map((d) => ({ fecha: d.clave, etiqueta: d.etiqueta, valor: porDia.get(d.clave) ?? 0 }));
 
     const conteoPorTipo = new Map(tipoResult.rows.map((r) => [r.file_type, Number(r.n)]));
     const tiposDeLaCampana = Array.isArray(campanaResult.rows[0]?.data_types) ? campanaResult.rows[0].data_types : [];
@@ -88,7 +77,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       };
     });
 
-    return NextResponse.json({ data, porTipo, actualizadoEn: await ultimaActualizacionDeCampana(id) });
+    return NextResponse.json({ serie, periodo, porTipo, actualizadoEn: await ultimaActualizacionDeCampana(id) });
   } catch (error) {
     console.error("Error obteniendo la recolección diaria", error);
     return NextResponse.json({ error: "No se pudo obtener la recolección diaria" }, { status: 500 });

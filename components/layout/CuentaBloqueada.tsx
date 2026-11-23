@@ -1,6 +1,8 @@
 // Contenido de /cuenta-bloqueada: tipo de bloqueo, motivo, fecha de fin y contador de sanciones.
+// Debajo, desde el 2026-11-22, sus apelaciones (components/apelaciones/ApelacionesDeLaPersona).
 
-import Link from "next/link";
+import type { ComponentProps } from "react";
+import ApelacionesDeLaPersona from "@/components/apelaciones/ApelacionesDeLaPersona";
 import LogoutButton from "@/components/auth/LogoutButton";
 import Logo from "@/components/layout/Logo";
 import { formatearFinDeSuspension, type Bloqueo, type HistorialDeSanciones } from "@/lib/sanciones";
@@ -14,10 +16,12 @@ export default function CuentaBloqueada({
   nombre,
   bloqueo,
   historial,
+  apelaciones,
 }: {
   nombre: string;
   bloqueo: Bloqueo;
   historial: HistorialDeSanciones;
+  apelaciones: ComponentProps<typeof ApelacionesDeLaPersona>;
 }) {
   const contadores = [
     { etiqueta: "Sanciones en total", valor: historial.total },
@@ -66,12 +70,12 @@ export default function CuentaBloqueada({
             {bloqueo.permanente
               ? "Mientras tu cuenta esté baneada no puedes aportar, crear ni administrar campañas, ni revisar aportes."
               : "Durante la suspensión no puedes aportar, crear ni administrar campañas, ni revisar aportes. Al terminar, tu cuenta se reactiva sola."}{" "}
-            Si crees que se trata de un error, escríbenos desde la página de{" "}
-            <Link href="/contacto" className="font-semibold text-brand-600 hover:underline">
-              contacto
-            </Link>
-            .
+            Si crees que se trata de un error, puedes apelar la decisión aquí abajo.
           </p>
+        </div>
+
+        <div className="mt-8">
+          <ApelacionesDeLaPersona {...apelaciones} />
         </div>
       </main>
     </div>

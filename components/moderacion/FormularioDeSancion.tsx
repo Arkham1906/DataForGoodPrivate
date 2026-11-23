@@ -6,12 +6,16 @@
 // negra), una suspensión directa de 2 o 7 días (2026-10-16) o un baneo inmediato para casos graves (también
 // con lista negra). Las opciones son components/moderacion/OpcionesDeSancion.
 // Con `reportes` (desde la bandeja de reportes) la sanción confirma los reportes de esa campaña o aporte.
+// Desde el 2026-11-22, antes de aplicarla pregunta "¿Seguro que quieres…?" con lo que le pasa a la cuenta
+// (components/sistema/useConfirmacion).
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 
 import Button from "@/components/sistema/Button";
 import { Field, Textarea } from "@/components/sistema/Input";
+import { useConfirmacion } from "@/components/sistema/useConfirmacion";
+import { consecuenciaDelAviso, describirConsecuencia } from "@/lib/usuarios/escala-de-avisos";
 import OpcionesDeSancion, { SANCION_POR_DEFECTO, textoDeAplicar } from "@/components/moderacion/OpcionesDeSancion";
 import { aplicarSancion } from "@/lib/moderacion/acciones";
 import { rutasDeModeracion, type ZonaDeModeracion } from "@/lib/moderacion/rutas";
@@ -39,16 +43,34 @@ export default function FormularioDeSancion({
   const router = useRouter();
   const [sancion, setSancion] = useState(SANCION_POR_DEFECTO);
   const [detalle, setDetalle] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [pendiente, iniciar] = useTransition();
+  const { pedirConfirmacion, ventana, ocupado: pendiente } = useConfirmacion();
 
   const corto = detalle.trim().length < MINIMO;
 
   function enviar() {
-    setError(null);
-    iniciar(async () => {
-      const r = await aplicarSancion(zona, usuarioId, { tipo: sancion.tipo, dias: sancion.dias, detalle, reportes });
-      if (r && !r.ok) setError(r.error);
+    const efecto =
+      sancion.tipo === "STRIKE"
+        ? `Es su aviso número ${avisos + 1}: ${describirConsecuencia(consecuenciaDelAviso(avisos + 1))}.`
+        : sancion.tipo === "SUSPENSION_TEMPORAL"
+          ? `No podrá entrar a su cuenta durante ${sancion.dias} ${sancion.dias === 1 ? "día" : "días"}; después vuelve a entrar sola.`
+          : "La cuenta queda baneada de inmediato y su correo pasa a la lista negra: no podrá registrarse otra vez.";
+    pedirConfirmacion({
+      pregunta: `¿Seguro que quieres ${textoDeAplicar(sancion).toLowerCase()} a ${usuario}?`,
+      detalle: (
+        <>
+          <p>{efecto}</p>
+          <p>{usuario} recibe un aviso con el motivo que escribiste.{reportes ? " Los reportes de este caso quedan resueltos." : ""}</p>
+          {sancion.tipo === "STRIKE" ? (
+            <p>Un aviso no se puede quitar: cuenta para la escala para siempre.</p>
+          ) : (
+            <p>Se puede levantar después con «Restaurar» en Sanciones.</p>
+          )}
+        </>
+      ),
+      textoConfirmar: `Sí, ${textoDeAplicar(sancion).toLowerCase()}`,
+      textoOcupado: "Aplicando…",
+      peligro: true,
+      accion: () => aplicarSancion(zona, usuarioId, { tipo: sancion.tipo, dias: sancion.dias, detalle, reportes }),
     });
   }
 
@@ -71,12 +93,6 @@ export default function FormularioDeSancion({
         />
       </Field>
 
-      {error ? (
-        <p role="alert" className="mb-3 text-[12.5px] text-error-700">
-          {error}
-        </p>
-      ) : null}
-
       <div className="flex flex-wrap items-center justify-end gap-2.5">
         <Button
           type="button"
@@ -88,9 +104,10 @@ export default function FormularioDeSancion({
           Cancelar
         </Button>
         <Button type="button" variant="danger" size="sm" disabled={pendiente || corto} onClick={enviar}>
-          {pendiente ? "Aplicando…" : textoDeAplicar(sancion)}
+          {textoDeAplicar(sancion)}
         </Button>
       </div>
+      {ventana}
     </div>
   );
 }

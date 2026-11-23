@@ -83,7 +83,11 @@ export type TipoDeNotificacion =
   | "resumen_mensual"
   // Sanciones de la cuenta
   | "sancion_aplicada"
-  | "sancion_restaurada";
+  | "sancion_restaurada"
+  // Respuesta del SuperUsuario a una apelación (2026-11-22, lib/apelaciones); "aceptada" también le llega a quien
+  // organiza la campaña cuando se quita un baneo en ella.
+  | "apelacion_aceptada"
+  | "apelacion_rechazada";
 
 /** Notificación como la entrega GET /api/notificaciones (y la página /notificaciones). */
 export type Notificacion = {
@@ -141,6 +145,7 @@ export function categoriaDeNotificacion(tipo: string): CategoriaDeNotificacion {
     case "datos_no_publicados":
     case "campana_baneo":
     case "sancion_aplicada":
+    case "apelacion_rechazada":
       return "problema";
     // Necesitas hacer algo (revisar, aceptar o atender tu campaña).
     case "invitacion_revisor":
@@ -161,6 +166,7 @@ export function categoriaDeNotificacion(tipo: string): CategoriaDeNotificacion {
     case "revisor_acepto":
     case "rol_asignado":
     case "sancion_restaurada":
+    case "apelacion_aceptada":
     case "campana_desbaneo":
     case "aportes_recibidos":
     case "etiqueta_aprobada":
@@ -235,6 +241,7 @@ export const AVISOS_QUE_REFRESCAN: ReadonlySet<string> = new Set([
   "rol_revocado",
   "sancion_aplicada",
   "sancion_restaurada",
+  "apelacion_aceptada",
   "campana_baneo",
   "campana_desbaneo",
   "revisor_acepto",

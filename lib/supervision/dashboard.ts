@@ -3,7 +3,7 @@
 // - Por dictaminar: campañas 'en_revision' que no son suyas y están libres o ya son suyas (la misma regla que la
 //   lista "Por supervisar" de la página), con cuánto lleva esperando cada una (campanas.en_revision_desde).
 // - Tus dictámenes: filas de campana_supervisores con su supervisor_id y accion aceptada/rechazada: aceptadas,
-//   rechazadas, hoy y en 7 días (hora de Tepic), por día en los últimos DIAS_DE_ACTIVIDAD días, mediana del envío
+//   rechazadas, hoy y en 7 días (hora de Tepic), por día, semana, mes o año del periodo elegido (2026-11-22), mediana del envío
 //   al dictamen en 30 días (campana_supervisores.en_revision_desde → created_at; los dictámenes de antes del
 //   2026-11-13 no tienen hora y no cuentan) y los motivos de sus rechazos, agrupados por el motivo de la lista.
 // - Las que supervisa (campanas.supervisor_id): por estado, y lo que espera algo de él: datos abiertos por decidir
@@ -15,9 +15,9 @@ import { pool } from "@/lib/db";
 import { ZONA_DE_CAMPANAS } from "@/lib/fecha-de-tepic";
 import { contarReportesPendientes } from "@/lib/reportes/reportes";
 import { MOTIVOS_DE_RECHAZO_DE_CAMPANA, MOTIVO_CAMPANA_SIMILAR, OTRO_MOTIVO } from "@/lib/reportes/motivos";
-import type { DiaDeActividad } from "@/lib/revisiones/dashboard";
+import type { Periodo, SerieDeTiempo } from "@/lib/periodo";
+import { serieDeTiempo } from "@/lib/series-de-tiempo";
 
-export const DIAS_DE_ACTIVIDAD = 14;
 /** Campañas que se listan en "Esperan tu dictamen" y en "Por resolver" (las que más llevan esperando). */
 const CAMPANAS_EN_LISTA = 5;
 /** Lo que se muestra cuando el rechazo no trae motivo de la lista (solo la explicación, u "Otro"). */
@@ -50,7 +50,8 @@ export type DashboardDelSupervisor = {
   semana: number;
   /** Mediana, en segundos, del envío a revisión al dictamen en los últimos 30 días; null sin datos. */
   medianaDeDictamen: number | null;
-  actividad: DiaDeActividad[];
+  /** Aceptadas y rechazadas (en ese orden) por cubeta del periodo. */
+  actividad: SerieDeTiempo;
   /** Motivos de sus rechazos, de más a menos (sin los que tienen 0). */
   motivos: { motivo: string; total: number }[];
   supervisadas: { activas: number; programadas: number; pausadas: number; finalizadas: number };
@@ -71,7 +72,7 @@ function motivoDeLista(texto: string): string {
   return motivo ?? MOTIVO_SOLO_EXPLICACION;
 }
 
-export async function obtenerDashboardDelSupervisor(usuarioId: number): Promise<DashboardDelSupervisor | null> {
+export async function obtenerDashboardDelSupervisor(usuarioId: number, periodo: Periodo): Promise<DashboardDelSupervisor | null> {
   try {
     const [esperaR, dictamenesR, actividadR, motivosR, supervisadasR, porResolverR, reportes] = await Promise.all([
       pool.query<{ id: number; name: string; creator_name: string | null; desde: Date | null; tuya: boolean }>(
@@ -95,24 +96,13 @@ export async function obtenerDashboardDelSupervisor(usuarioId: number): Promise<
           WHERE supervisor_id = $1 AND accion IN ('aceptada', 'rechazada')`,
         [usuarioId, ZONA_DE_CAMPANAS],
       ),
-      pool.query<{ dia: string; aceptados: number; rechazados: number }>(
-        `WITH dias AS (
-           SELECT generate_series((NOW() AT TIME ZONE $2)::date - ($3::int - 1), (NOW() AT TIME ZONE $2)::date, INTERVAL '1 day')::date AS dia
-         ),
-         dictamenes AS (
-           SELECT (created_at AT TIME ZONE $2)::date AS dia, accion
-             FROM campana_supervisores
-            WHERE supervisor_id = $1 AND accion IN ('aceptada', 'rechazada')
-              AND created_at >= NOW() - ($3::int + 1) * INTERVAL '1 day'
-         )
-         SELECT to_char(d.dia, 'YYYY-MM-DD') AS dia,
-                COUNT(x.accion) FILTER (WHERE x.accion = 'aceptada')::int AS aceptados,
-                COUNT(x.accion) FILTER (WHERE x.accion = 'rechazada')::int AS rechazados
-           FROM dias d LEFT JOIN dictamenes x ON x.dia = d.dia
-          GROUP BY d.dia
-          ORDER BY d.dia`,
-        [usuarioId, ZONA_DE_CAMPANAS, DIAS_DE_ACTIVIDAD],
-      ),
+      serieDeTiempo({
+        fuente: `SELECT created_at AS t, accion AS s FROM campana_supervisores
+                  WHERE supervisor_id = $1 AND accion IN ('aceptada', 'rechazada')`,
+        parametros: [usuarioId],
+        series: ["aceptada", "rechazada"],
+        periodo,
+      }),
       pool.query<{ motivo: string | null }>(
         `SELECT motivo FROM campana_supervisores WHERE supervisor_id = $1 AND accion = 'rechazada'`,
         [usuarioId],
@@ -174,11 +164,7 @@ export async function obtenerDashboardDelSupervisor(usuarioId: number): Promise<
       hoy: Number(dictamenes?.hoy ?? 0),
       semana: Number(dictamenes?.semana ?? 0),
       medianaDeDictamen: dictamenes?.mediana == null ? null : Number(dictamenes.mediana),
-      actividad: actividadR.rows.map((f) => ({
-        dia: String(f.dia),
-        aceptados: Number(f.aceptados),
-        rechazados: Number(f.rechazados),
-      })),
+      actividad: actividadR,
       motivos,
       supervisadas: {
         activas: Number(supervisadas?.activas ?? 0),

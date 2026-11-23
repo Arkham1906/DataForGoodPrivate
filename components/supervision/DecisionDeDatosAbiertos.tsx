@@ -96,7 +96,7 @@ export default function DecisionDeDatosAbiertos({
 
       <VentanaDeConfirmacion
         abierto={ventana !== null}
-        titulo={ventana === "publicar_datos" ? "¿Publicar sus datos abiertos?" : "¿No publicar sus datos?"}
+        titulo={ventana === "publicar_datos" ? "¿Seguro que quieres publicar sus datos abiertos?" : "¿Seguro que no quieres publicar sus datos?"}
         textoConfirmar={ventana === "publicar_datos" ? "Publicar datos" : "No publicar"}
         textoOcupado="Guardando…"
         ocupado={ocupado}

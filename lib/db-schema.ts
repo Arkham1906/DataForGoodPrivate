@@ -868,19 +868,43 @@ export async function ensureCampanaTiposTable(): Promise<void> {
  * Revisor se da al aceptar una invitación y se quita con la última campaña (lib/campanas/revisores.ts);
  * supervisor lo da y lo quita el SuperUsuario. Antes era la columna JSONB usuarios.role: la primera
  * vez se copia y se borra.
+ * Creador de campaña y aportador (2026-11-22, a pedido del usuario; lib/usuarios/rol-asignable.ts): el
+ * trigger también los da a cada cuenta nueva y el SuperUsuario los quita o los devuelve. A las cuentas que
+ * ya existían se les dan UNA sola vez, en el mismo paso que amplía la regla CHECK: si se repartieran en
+ * cada arranque, un rol quitado volvería solo.
  */
 export async function ensureUsuarioRolesTable(): Promise<void> {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS usuario_roles (
       usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
-      rol VARCHAR(20) NOT NULL CHECK (rol IN ('usuario', 'supervisor', 'revisor', 'admin')),
+      rol VARCHAR(20) NOT NULL CONSTRAINT usuario_roles_rol_check
+        CHECK (rol IN ('usuario', 'creador', 'aportador', 'supervisor', 'revisor', 'admin')),
       asignado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       PRIMARY KEY (usuario_id, rol)
     );
     CREATE INDEX IF NOT EXISTS usuario_roles_rol_idx ON usuario_roles (rol);
+    -- Una base de antes del 2026-11-22: se amplía la regla y, solo esta vez, toda cuenta recibe los dos permisos.
+    DO $$
+    DECLARE regla RECORD;
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint
+                      WHERE conrelid = 'usuario_roles'::regclass AND contype = 'c'
+                        AND pg_get_constraintdef(oid) LIKE '%aportador%') THEN
+        FOR regla IN SELECT conname FROM pg_constraint
+                      WHERE conrelid = 'usuario_roles'::regclass AND contype = 'c' LOOP
+          EXECUTE format('ALTER TABLE usuario_roles DROP CONSTRAINT %I', regla.conname);
+        END LOOP;
+        ALTER TABLE usuario_roles ADD CONSTRAINT usuario_roles_rol_check
+          CHECK (rol IN ('usuario', 'creador', 'aportador', 'supervisor', 'revisor', 'admin'));
+        INSERT INTO usuario_roles (usuario_id, rol)
+        SELECT u.id, p.rol FROM usuarios u CROSS JOIN (VALUES ('creador'), ('aportador')) AS p(rol)
+        ON CONFLICT DO NOTHING;
+      END IF;
+    END $$;
     CREATE OR REPLACE FUNCTION dfg_crear_rol_usuario() RETURNS trigger AS $$
     BEGIN
-      INSERT INTO usuario_roles (usuario_id, rol) VALUES (NEW.id, 'usuario') ON CONFLICT DO NOTHING;
+      INSERT INTO usuario_roles (usuario_id, rol)
+      VALUES (NEW.id, 'usuario'), (NEW.id, 'creador'), (NEW.id, 'aportador') ON CONFLICT DO NOTHING;
       RETURN NULL;
     END;
     $$ LANGUAGE plpgsql;
@@ -896,6 +920,10 @@ export async function ensureUsuarioRolesTable(): Promise<void> {
          CROSS JOIN LATERAL jsonb_array_elements_text(
                 CASE WHEN jsonb_typeof(u.role) = 'array' THEN u.role ELSE '[]'::jsonb END) AS r(rol)
          WHERE r.rol IN ('usuario', 'supervisor', 'revisor', 'admin')
+        ON CONFLICT DO NOTHING;
+        -- Una base con la columna vieja nace con la regla nueva y no pasa por el reparto de arriba.
+        INSERT INTO usuario_roles (usuario_id, rol)
+        SELECT u.id, p.rol FROM usuarios u CROSS JOIN (VALUES ('creador'), ('aportador')) AS p(rol)
         ON CONFLICT DO NOTHING;
         -- El trigger de avisos en vivo mira OLD.role: se quita y ensureAvisosDeCambios lo vuelve a poner sin ella.
         DROP TRIGGER IF EXISTS dfg_avisar_cambio_visible ON usuarios;
@@ -1082,6 +1110,40 @@ export async function ensureSancionesTable(): Promise<void> {
       activa BOOLEAN NOT NULL DEFAULT true,
       restaurada_en TIMESTAMPTZ
     );
+    -- Anulada al aceptar una apelación (2026-11-22, lib/apelaciones): un aviso anulado deja de contar para la
+    -- escala y en el historial; una suspensión o un baneo anulados además quedan levantados (activa = false).
+    ALTER TABLE sanciones ADD COLUMN IF NOT EXISTS anulada_en TIMESTAMPTZ;
+  `);
+}
+
+/**
+ * Apelaciones (2026-11-22, a pedido del usuario): una persona apela una sanción de su cuenta (aviso, suspensión o
+ * baneo) o un baneo en una campaña, una sola vez y dentro de los 30 días siguientes (lib/apelaciones/reglas.ts). Solo
+ * las resuelve el SuperUsuario (/apelaciones del panel); aceptarla deshace la decisión. `decision` copia lo apelado al
+ * apelar, porque la sanción o el baneo pueden levantarse o borrarse después (por eso sancion_id y baneo_id van con
+ * SET NULL). Una por decisión: los índices únicos parciales. Se crea después de sanciones y campana_baneados.
+ */
+export async function ensureApelacionesTable(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS apelaciones (
+      id SERIAL PRIMARY KEY,
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+      tipo VARCHAR(20) NOT NULL CHECK (tipo IN ('sancion', 'baneo_campana')),
+      sancion_id INTEGER REFERENCES sanciones(id) ON DELETE SET NULL,
+      baneo_id INTEGER REFERENCES campana_baneados(id) ON DELETE SET NULL,
+      campana_id INTEGER REFERENCES campanas(id) ON DELETE SET NULL,
+      decision JSONB NOT NULL,
+      motivo TEXT NOT NULL,
+      estado VARCHAR(10) NOT NULL DEFAULT 'pendiente' CHECK (estado IN ('pendiente', 'aceptada', 'rechazada')),
+      respuesta TEXT,
+      creada_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      resuelta_en TIMESTAMPTZ
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS apelaciones_una_por_sancion ON apelaciones (sancion_id) WHERE sancion_id IS NOT NULL;
+    CREATE UNIQUE INDEX IF NOT EXISTS apelaciones_una_por_baneo ON apelaciones (baneo_id) WHERE baneo_id IS NOT NULL;
+    CREATE INDEX IF NOT EXISTS apelaciones_usuario_id_idx ON apelaciones (usuario_id);
+    CREATE INDEX IF NOT EXISTS apelaciones_campana_id_idx ON apelaciones (campana_id);
+    CREATE INDEX IF NOT EXISTS apelaciones_estado_idx ON apelaciones (estado, creada_en);
   `);
 }
 
@@ -2398,6 +2460,7 @@ export async function ensureCoreSchema(): Promise<void> {
   await ensureDispositivosBloqueadosTable(); // después de aportes: aporte_id la referencia
   await ensureSancionesTable();
   await ensureReportesTable(); // después de sanciones y aportes: los referencia
+  await ensureApelacionesTable(); // después de sanciones, campana_baneados y campanas: las referencia
   await ensureListaNegraTable();
   await ensureAuditLogTable();
   await ensureTematicasTable(); // después de usuarios: creada_por la referencia

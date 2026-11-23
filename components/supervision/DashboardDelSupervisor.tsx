@@ -2,7 +2,8 @@
 // Server Component: recibe lo que arma obtenerDashboardDelSupervisor() (lib/supervision/dashboard.ts).
 // - Cuatro cifras: por dictaminar (con la espera más larga), dictámenes de hoy (y en 7 días), tasa de aceptación
 //   y mediana del envío a revisión al dictamen en 30 días.
-// - Tus dictámenes por día (GraficaDeDecisiones, la del revisor, con textos de campañas) y "Motivos de tus
+// - Tus dictámenes por día, semana, mes o año del periodo elegido (ui/GraficaDeTiempo y ui/SelectorDePeriodo,
+//   2026-11-22; este mes por defecto) y "Motivos de tus
 //   rechazos" (una sola serie, sin leyenda).
 // - "Esperan tu dictamen": las que más llevan en revisión, con "Revisar" a su ficha, y "Campañas que supervisas"
 //   (cuántas por estado y lo que espera algo de ti: reportes, datos abiertos por decidir, pausadas ya ajustadas).
@@ -12,9 +13,12 @@ import Link from "next/link";
 import MetricCard from "@/components/ui/MetricCard";
 import Panel from "@/components/ui/PanelDeDashboard";
 import Tag from "@/components/ui/Tag";
-import GraficaDeDecisiones from "@/components/revisiones/GraficaDeDecisiones";
+import { Suspense } from "react";
+import GraficaDeTiempo from "@/components/ui/GraficaDeTiempo";
+import SelectorDePeriodo from "@/components/ui/SelectorDePeriodo";
 import { duracion, esperaDesde } from "@/lib/duracion";
-import { DIAS_DE_ACTIVIDAD, type DashboardDelSupervisor as Datos } from "@/lib/supervision/dashboard";
+import type { DashboardDelSupervisor as Datos } from "@/lib/supervision/dashboard";
+import { NOMBRE_DE_UNIDAD, textoDelPeriodo, type Periodo } from "@/lib/periodo";
 
 const nf = new Intl.NumberFormat("es-MX");
 
@@ -25,7 +29,7 @@ function plural(n: number, uno: string, varios: string) {
   return `${nf.format(n)} ${n === 1 ? uno : varios}`;
 }
 
-export default function DashboardDelSupervisor({ datos }: { datos: Datos }) {
+export default function DashboardDelSupervisor({ datos, periodo }: { datos: Datos; periodo: Periodo }) {
   // eslint-disable-next-line react-hooks/purity -- Server Component: la espera se calcula al armar la página.
   const ahora = Date.now();
   const dictaminadas = datos.aceptadas + datos.rechazadas;
@@ -80,15 +84,20 @@ export default function DashboardDelSupervisor({ datos }: { datos: Datos }) {
       </div>
 
       <div className="mb-4 grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-        <Panel titulo={`Tus dictámenes, últimos ${DIAS_DE_ACTIVIDAD} días`}>
-          <GraficaDeDecisiones
-            dias={datos.actividad}
-            etiquetas={{
-              aceptados: "Aceptadas",
-              rechazados: "Rechazadas",
-              vacio: `Aún no dictaminas campañas en estos ${DIAS_DE_ACTIVIDAD} días.`,
-              tabla: `Tus dictámenes por día, últimos ${DIAS_DE_ACTIVIDAD} días`,
-            }}
+        <Panel titulo={`Tus dictámenes ${NOMBRE_DE_UNIDAD[datos.actividad.unidad]} · ${textoDelPeriodo(periodo)}`}>
+          <div className="mb-3">
+            <Suspense fallback={null}>
+              <SelectorDePeriodo periodo={periodo} defecto="mes" />
+            </Suspense>
+          </div>
+          <GraficaDeTiempo
+            serie={datos.actividad}
+            series={[
+              { nombre: "Aceptadas", color: "brand" },
+              { nombre: "Rechazadas", color: "error" },
+            ]}
+            descripcion={`Tus dictámenes ${NOMBRE_DE_UNIDAD[datos.actividad.unidad]}, ${textoDelPeriodo(periodo)}`}
+            vacio="Aún no dictaminas campañas en este periodo."
           />
         </Panel>
 
