@@ -1,24 +1,25 @@
 "use client";
 
 // Sendero de rangos de la Trayectoria (2026-11-12; prototipo A «Ventana del sendero», SRS v1.3: RF-GAM-22, 78 a 83).
-// En lugar de los 20 rangos en fila, muestra una ventana del camino centrada en el rango actual: dos rangos abajo,
-// el actual, el siguiente y el avistado. Lo que queda fuera se pliega en dos tapas: «ya son tuyos» abajo y «por
-// descubrir» arriba, con un botón por rango que abre su ficha. Así la pantalla cabe sin desplazarse y siempre abre
-// donde está la persona.
+// 2026-11-22 (pedido del responsable): el camino va de arriba abajo, del rango 1 al 20, y los 20 rangos están en un
+// área con desplazamiento que abre centrada en el rango actual; «Ir a tu rango» vuelve a él. Así se recorre todo el
+// camino completado sin tapas plegables (antes: ventana de 5 rangos, de abajo arriba, con el resto plegado).
 //
 // Cada fila es un solo botón (círculo + textos) que abre la ficha del rango (FichaDeRango, el estado vive en
 // TrayectoriaDeRangos). Solo pinta lo que el servidor envió (RNF-GAM-14): un rango avistado u oculto no trae nombre.
 // Las animaciones están en app/globals.css («Sendero de rangos») y respetan el movimiento reducido.
 
-import { useId, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, type CSSProperties } from "react";
 import type { EslabonDeLaTrayectoria, HitoDelRecorrido } from "@/lib/gamificacion/mi-progreso-tipos";
 import type { EstadoDeRango } from "@/lib/gamificacion/rangos";
 import AvatarDeGamificacion from "./AvatarDeGamificacion";
 
 const nf = new Intl.NumberFormat("es-MX");
 
-/** Rangos que se ven a cada lado del actual (la ventana mide hasta 2 × VECINOS + 1). */
-const VECINOS = 2;
+/** Alto del área con desplazamiento: unas cinco filas y media, así se nota que sigue. */
+const ALTO_VISIBLE = 560;
+/** Las filas lejanas aparecen todas a la vez: el retraso de entrada se corta en este número de filas. */
+const RETRASO_MAXIMO = 6;
 /** Alto de cada fila del camino y geometría del trazo, en px. */
 const ALTO_DE_FILA = 104;
 /** Aire arriba y abajo del camino, para que el halo del rango actual no toque el borde. */
@@ -112,110 +113,6 @@ function etiquetaDe(e: EslabonDeLaTrayectoria, textos: Textos): string {
   return `Rango ${e.numero}, ${nombre}, ${estado}${e.estado === "avistado" ? `: ${textos.titulo}` : ""}. ${e.expQuePide === null ? "Es el último rango" : `Completarlo pide ${nf.format(e.expQuePide)} EXP`}. Abre su ficha.`;
 }
 
-function Chevron({ abierta, hacia }: { abierta: boolean; hacia: "arriba" | "abajo" }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-      className={`h-4 w-4 transition-transform duration-200 ease-salida motion-reduce:transition-none ${abierta ? "rotate-180" : ""}`}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.4"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d={hacia === "arriba" ? "M6 15l6-6 6 6" : "M6 9l6 6 6-6"} />
-    </svg>
-  );
-}
-
-/**
- * Tapa plegable de los rangos que quedan fuera de la ventana. Se despliega con grid-template-rows (0fr → 1fr): es
- * el único caso en que se anima una altura, porque no hay transformación que la sustituya. Cerrada queda `inert`.
- */
-function Tapa({
-  titulo,
-  resumen,
-  hacia,
-  tono,
-  children,
-}: {
-  titulo: string;
-  resumen: ReactNode;
-  hacia: "arriba" | "abajo";
-  tono: "neutro" | "logro";
-  children: ReactNode;
-}) {
-  const [abierta, setAbierta] = useState(false);
-  const id = useId();
-  const boton = (
-    <button
-      type="button"
-      onClick={() => setAbierta((a) => !a)}
-      aria-expanded={abierta}
-      aria-controls={id}
-      className={`flex min-h-12 w-full items-center justify-between gap-3 rounded-[14px] px-4 py-2.5 text-left text-[13.5px] font-bold transition-colors duration-150 ${FOCO} ${
-        tono === "logro"
-          ? "border border-brand-200 bg-brand-50 text-brand-800 hover:bg-brand-100"
-          : "border border-dashed border-system-300 bg-system-50 text-system-700 hover:border-system-400 hover:text-system-900"
-      }`}
-    >
-      <span>{titulo}</span>
-      <span className="flex items-center gap-2 font-semibold">
-        {resumen}
-        <Chevron abierta={abierta} hacia={hacia} />
-      </span>
-    </button>
-  );
-  const contenido = (
-    <div
-      id={id}
-      inert={!abierta}
-      className={`grid transition-[grid-template-rows] duration-200 ease-salida motion-reduce:transition-none ${abierta ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
-    >
-      <div className="min-h-0 overflow-hidden">
-        <div
-          className={`px-1 py-2.5 transition-[opacity,translate] duration-200 ease-salida motion-reduce:translate-y-0 motion-reduce:transition-opacity ${
-            abierta ? "translate-y-0 opacity-100" : `opacity-0 ${hacia === "arriba" ? "translate-y-1" : "-translate-y-1"}`
-          }`}
-        >
-          {children}
-        </div>
-      </div>
-    </div>
-  );
-  // La de arriba se despliega hacia abajo, hacia el camino; la de abajo, hacia arriba.
-  return hacia === "arriba" ? (
-    <div>
-      {boton}
-      {contenido}
-    </div>
-  ) : (
-    <div>
-      {contenido}
-      {boton}
-    </div>
-  );
-}
-
-/** Botón redondo de un rango fuera de la ventana. */
-function Ficha({ numero, alcanzado, etiqueta, onAbrir }: { numero: number; alcanzado: boolean; etiqueta: string; onAbrir: (n: number) => void }) {
-  return (
-    <button
-      type="button"
-      onClick={() => onAbrir(numero)}
-      aria-haspopup="dialog"
-      aria-label={etiqueta}
-      title={etiqueta}
-      className={`group inline-flex h-11 w-11 items-center justify-center rounded-pill text-[13px] font-extrabold ${FOCO} ${
-        alcanzado ? "bg-brand-700 text-white" : "border-2 border-system-300 bg-white text-system-600"
-      }`}
-    >
-      <span className="transition-transform duration-150 ease-salida group-hover:scale-110 motion-reduce:transition-none">{numero}</span>
-    </button>
-  );
-}
-
 export default function SenderoDeRangos({
   actual,
   total,
@@ -235,146 +132,124 @@ export default function SenderoDeRangos({
   pista: string | null;
   onAbrir: (numero: number) => void;
 }) {
-  const desde = Math.max(1, actual - VECINOS);
-  const hasta = Math.min(total, actual + VECINOS);
-  // De arriba abajo: el rango más alto primero, como un camino que se sube.
-  const ventana = eslabones.filter((e) => e.numero >= desde && e.numero <= hasta).sort((a, b) => b.numero - a.numero);
-  const debajo = eslabones.filter((e) => e.numero < desde).sort((a, b) => a.numero - b.numero);
-  const encima = eslabones.filter((e) => e.numero > hasta).sort((a, b) => a.numero - b.numero);
+  // De arriba abajo: del rango 1 al último, como un camino que se recorre hacia adelante.
+  const filas = [...eslabones].sort((a, b) => a.numero - b.numero);
   const hitoDe = (numero: number) => recorrido.find((h) => h.numero === numero);
 
-  const alto = ventana.length * ALTO_DE_FILA + MARGEN * 2;
-  const puntos = new Map(ventana.map((e, i) => [e.numero, { x: xDe(e.numero), y: MARGEN + ALTO_DE_FILA / 2 + i * ALTO_DE_FILA }]));
+  const alto = filas.length * ALTO_DE_FILA + MARGEN * 2;
+  const puntos = new Map(filas.map((e, i) => [e.numero, { x: xDe(e.numero), y: MARGEN + ALTO_DE_FILA / 2 + i * ALTO_DE_FILA }]));
   const punto = (n: number): Punto => puntos.get(n) ?? { x: CENTRO_X, y: 0 };
-  // Recorrido: del rango más bajo de la ventana al actual, en ese orden para que se dibuje subiendo.
-  const hecho = curvaPor(ventana.filter((e) => e.numero <= actual).map((e) => punto(e.numero)).reverse());
-  const porVenir = curvaPor(ventana.filter((e) => e.numero >= actual).map((e) => punto(e.numero)).reverse());
-  const arriba = ventana[0] ? punto(ventana[0].numero) : null;
-  const abajo = ventana.at(-1) ? punto(ventana.at(-1)!.numero) : null;
+  // Recorrido: del rango 1 al actual, en ese orden para que se dibuje bajando. Lo que falta, punteado.
+  const hecho = curvaPor(filas.filter((e) => e.numero <= actual).map((e) => punto(e.numero)));
+  const porVenir = curvaPor(filas.filter((e) => e.numero >= actual).map((e) => punto(e.numero)));
+
+  const area = useRef<HTMLDivElement>(null);
+  const irATuRango = useCallback(
+    (suave: boolean) => {
+      const caja = area.current;
+      if (!caja) return;
+      const top = Math.max(0, punto(actual).y - caja.clientHeight / 2);
+      const reducido = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      caja.scrollTo({ top, behavior: suave && !reducido ? "smooth" : "auto" });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- punto() depende solo de los eslabones y del actual
+    [actual, eslabones],
+  );
+  // Abre centrado en el rango actual.
+  useEffect(() => irATuRango(false), [irATuRango]);
 
   return (
     <section aria-labelledby="sendero-titulo" className="flex min-w-0 flex-col gap-2.5 rounded-lg border border-system-200 bg-white p-4 shadow-sm lg:sticky lg:top-6">
-      <h2 id="sendero-titulo" className="sr-only">
-        Tu tramo del sendero: rangos {desde} a {hasta}
-      </h2>
-
-      {encima.length > 0 && (
-        <Tapa
-          hacia="arriba"
-          tono="neutro"
-          titulo={encima.length === 1 ? `Rango ${encima[0].numero} · por descubrir` : `Rangos ${encima[0].numero} a ${total} · por descubrir`}
-          resumen={<span className="text-system-600">{encima.length} más arriba</span>}
+      <div className="flex items-center justify-between gap-3">
+        <h2 id="sendero-titulo" className="text-[15px] font-extrabold text-system-900">
+          Tu sendero · rangos 1 a {total}
+        </h2>
+        <button
+          type="button"
+          onClick={() => irATuRango(true)}
+          className={`inline-flex min-h-9 items-center gap-1.5 rounded-pill border border-brand-200 bg-brand-50 px-3 text-[13px] font-bold text-brand-800 transition-colors duration-150 hover:bg-brand-100 ${FOCO}`}
         >
-          <ul className="flex flex-wrap gap-2" aria-label="Rangos por descubrir">
-            {encima.map((e) => (
-              <li key={e.numero}>
-                <Ficha
-                  numero={e.numero}
-                  alcanzado={false}
-                  etiqueta={`Rango ${e.numero}${e.numero === total ? ", el último" : ""}, por descubrir. ${e.expQuePide === null ? "Es el último rango" : `Completarlo pide ${nf.format(e.expQuePide)} EXP`}. Abre su ficha.`}
-                  onAbrir={onAbrir}
-                />
-              </li>
-            ))}
-          </ul>
-          <p className="mt-2 text-[12.5px] text-system-600">
-            Más arriba todo es niebla… por ahora. Toca un número para ver lo que pide completarlo; su nombre aparece cuando sea tu siguiente rango.
-          </p>
-        </Tapa>
-      )}
+          <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+          </svg>
+          Ir a tu rango
+        </button>
+      </div>
 
-      <ol aria-label={`Rangos ${desde} a ${hasta}`} className="relative" style={{ height: alto }}>
-        <svg
-          aria-hidden="true"
-          width={ANCHO_DEL_TRAZO}
-          height={alto}
-          viewBox={`0 0 ${ANCHO_DEL_TRAZO} ${alto}`}
-          className="sendero-entra pointer-events-none absolute top-0 left-0 overflow-visible"
-        >
-          {arriba && encima.length > 0 && (
-            <path d={`M${arriba.x} 0 L${arriba.x} ${arriba.y}`} fill="none" className="stroke-system-300" strokeWidth="6" strokeLinecap="round" strokeDasharray="2 12" />
-          )}
-          <path d={porVenir} fill="none" className="stroke-system-300" strokeWidth="6" strokeLinecap="round" strokeDasharray="2 12" />
-          {abajo && debajo.length > 0 && (
-            <path d={`M${abajo.x} ${abajo.y} L${abajo.x} ${alto}`} fill="none" className="stroke-brand-600" strokeWidth="8" strokeLinecap="round" />
-          )}
-          {hecho && <path className="sendero-trazo stroke-brand-600" pathLength={1} d={hecho} fill="none" strokeWidth="8" strokeLinecap="round" />}
-        </svg>
+      {/* El área se desplaza con la rueda, el dedo o el teclado (tabIndex: se puede enfocar y mover con las flechas). */}
+      <div
+        ref={area}
+        tabIndex={0}
+        role="region"
+        aria-label={`Sendero de los ${total} rangos, del 1 arriba al ${total} abajo. Desplázate para recorrerlo.`}
+        className={`relative overflow-y-auto overscroll-contain rounded-lg [mask-image:linear-gradient(to_bottom,transparent,black_20px,black_calc(100%-20px),transparent)] ${FOCO}`}
+        style={{ maxHeight: `min(${ALTO_VISIBLE}px, 70vh)` }}
+      >
+        <ol aria-label={`Rangos 1 a ${total}`} className="relative" style={{ height: alto }}>
+          <svg
+            aria-hidden="true"
+            width={ANCHO_DEL_TRAZO}
+            height={alto}
+            viewBox={`0 0 ${ANCHO_DEL_TRAZO} ${alto}`}
+            className="sendero-entra pointer-events-none absolute top-0 left-0 overflow-visible"
+          >
+            <path d={porVenir} fill="none" className="stroke-system-300" strokeWidth="6" strokeLinecap="round" strokeDasharray="2 12" />
+            {hecho && <path className="sendero-trazo stroke-brand-600" pathLength={1} d={hecho} fill="none" strokeWidth="8" strokeLinecap="round" />}
+          </svg>
 
-        {ventana.map((e) => {
-          const { x, y } = punto(e.numero);
-          const tamano = TAMANO[e.estado];
-          const textos = textosDe(e, hitoDe(e.numero), nombre, e.estado === "avistado" ? pista : null);
-          const esActual = e.estado === "actual";
-          return (
-            <li key={e.numero} className="absolute inset-x-0" style={{ top: y - ALTO_DE_FILA / 2, height: ALTO_DE_FILA }}>
-              <button
-                type="button"
-                onClick={() => onAbrir(e.numero)}
-                aria-haspopup="dialog"
-                aria-current={esActual ? "step" : undefined}
-                aria-label={etiquetaDe(e, textos)}
-                className={`sendero-entra group relative block h-full w-full rounded-lg text-left ${FOCO}`}
-                style={{ "--i": Math.abs(e.numero - actual) } as CSSProperties}
-              >
-                <span
-                  aria-hidden="true"
-                  className="absolute -translate-x-1/2 -translate-y-1/2"
-                  style={{ left: x, top: ALTO_DE_FILA / 2, width: tamano, height: tamano }}
+          {filas.map((e) => {
+            const { x, y } = punto(e.numero);
+            const tamano = TAMANO[e.estado];
+            const textos = textosDe(e, hitoDe(e.numero), nombre, e.estado === "avistado" ? pista : null);
+            const esActual = e.estado === "actual";
+            return (
+              <li key={e.numero} className="absolute inset-x-0" style={{ top: y - ALTO_DE_FILA / 2, height: ALTO_DE_FILA }}>
+                <button
+                  type="button"
+                  onClick={() => onAbrir(e.numero)}
+                  aria-haspopup="dialog"
+                  aria-current={esActual ? "step" : undefined}
+                  aria-label={etiquetaDe(e, textos)}
+                  className={`sendero-entra group relative block h-full w-full rounded-lg text-left ${FOCO} ${e.estado === "oculto" ? "opacity-70" : ""}`}
+                  style={{ "--i": Math.min(RETRASO_MAXIMO, Math.abs(e.numero - actual)) } as CSSProperties}
                 >
-                  {esActual && <span className="sendero-halo absolute -inset-3 rounded-pill bg-brand-200 opacity-35" />}
                   <span
-                    className={`relative flex h-full w-full items-center justify-center overflow-hidden rounded-pill text-[17px] font-extrabold transition-transform duration-150 ease-salida group-hover:scale-[1.06] group-active:scale-[0.97] motion-reduce:transition-none ${CIRCULO[e.estado]}`}
+                    aria-hidden="true"
+                    className="absolute -translate-x-1/2 -translate-y-1/2"
+                    style={{ left: x, top: ALTO_DE_FILA / 2, width: tamano, height: tamano }}
                   >
-                    {esActual ? <AvatarDeGamificacion etapa={actual} tamano="md" /> : e.estado === "avistado" ? "?" : e.numero}
-                  </span>
-                  {esActual && (
-                    <span className="absolute -right-1.5 -bottom-1 flex h-[26px] min-w-[26px] items-center justify-center rounded-pill border-2 border-white bg-success-700 px-1 text-[12px] font-extrabold text-white">
-                      {e.numero}
+                    {esActual && <span className="sendero-halo absolute -inset-3 rounded-pill bg-brand-200 opacity-35" />}
+                    <span
+                      className={`relative flex h-full w-full items-center justify-center overflow-hidden rounded-pill text-[17px] font-extrabold transition-transform duration-150 ease-salida group-hover:scale-[1.06] group-active:scale-[0.97] motion-reduce:transition-none ${CIRCULO[e.estado]}`}
+                    >
+                      {esActual ? <AvatarDeGamificacion etapa={actual} tamano="md" /> : e.estado === "avistado" ? "?" : e.numero}
                     </span>
-                  )}
-                </span>
-                <span className="absolute top-1/2 right-2 -translate-y-1/2" style={{ left: COLUMNA_DE_TEXTO }}>
-                  <span className={`block text-[12px] font-bold ${ANTETITULO[e.estado]}`}>{textos.antes}</span>
-                  <span
-                    className={`block font-extrabold leading-snug text-system-900 [overflow-wrap:anywhere] ${esActual || e.estado === "siguiente" ? "text-[17px] max-sm:text-[15px]" : "text-[14.5px]"}`}
-                  >
-                    {textos.titulo}
+                    {esActual && (
+                      <span className="absolute -right-1.5 -bottom-1 flex h-[26px] min-w-[26px] items-center justify-center rounded-pill border-2 border-white bg-success-700 px-1 text-[12px] font-extrabold text-white">
+                        {e.numero}
+                      </span>
+                    )}
                   </span>
-                  {/* En teléfono la nota no cabe: la tarjeta del siguiente y la ficha ya la dicen. */}
-                  {textos.nota && <span className="block text-[12.5px] text-system-600 max-sm:hidden">{textos.nota}</span>}
-                </span>
-              </button>
-            </li>
-          );
-        })}
-      </ol>
-
-      {debajo.length > 0 && (
-        <Tapa
-          hacia="abajo"
-          tono="logro"
-          titulo={debajo.length === 1 ? "Rango 1 · ya es tuyo" : `Rangos 1 a ${debajo.at(-1)!.numero} · ya son tuyos`}
-          resumen={<span>✓ {debajo.length}</span>}
-        >
-          <ul className="flex flex-wrap gap-2" aria-label="Rangos que ya alcanzaste">
-            {debajo.map((e) => {
-              const hito = hitoDe(e.numero);
-              return (
-                <li key={e.numero}>
-                  <Ficha
-                    numero={e.numero}
-                    alcanzado
-                    etiqueta={`Rango ${e.numero}, Investigador ${e.nombreCorto ?? ""}${hito?.fecha ? `, alcanzado ${fechaDe(hito)}` : ""}. Abre su ficha.`}
-                    onAbrir={onAbrir}
-                  />
-                </li>
-              );
-            })}
-          </ul>
-          <p className="mt-2 text-[12.5px] text-system-600">Toca uno para ver lo que pidió y lo que te dio.</p>
-        </Tapa>
-      )}
+                  <span className="absolute top-1/2 right-2 -translate-y-1/2" style={{ left: COLUMNA_DE_TEXTO }}>
+                    <span className={`block text-[12px] font-bold ${ANTETITULO[e.estado]}`}>{textos.antes}</span>
+                    <span
+                      className={`block font-extrabold leading-snug text-system-900 [overflow-wrap:anywhere] ${esActual || e.estado === "siguiente" ? "text-[17px] max-sm:text-[15px]" : "text-[14.5px]"}`}
+                    >
+                      {textos.titulo}
+                    </span>
+                    {/* En teléfono la nota no cabe: la tarjeta de tu rango y la ficha ya la dicen. */}
+                    {textos.nota && <span className="block text-[12.5px] text-system-600 max-sm:hidden">{textos.nota}</span>}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+      </div>
+      <p className="text-[12.5px] text-system-600">
+        Desplázate para recorrer el camino: arriba lo que ya completaste, abajo lo que sigue. Toca un rango para abrir su ficha.
+      </p>
     </section>
   );
 }
@@ -418,7 +293,7 @@ export function EncabezadoDeTrayectoria({ actual, total, nombre }: { actual: num
 function introDe(actual: number, total: number): string {
   if (actual >= total) return `Llegaste a la cumbre. Los ${total} rangos son tuyos y nadie te los quita.`;
   if (actual === total - 1) return `Te falta un paso: del rango ${total}, el último, ya puedes ver todo.`;
-  if (actual === 1) return "Tu primer aporte aceptado te lleva al rango 2. El camino se revela conforme subes.";
-  const resto = actual + 3 <= total ? " Más arriba todo es niebla… por ahora." : "";
-  return `Vas subiendo. Del rango ${actual + 1} ya ves todo y del ${actual + 2}, una pista.${resto}`;
+  if (actual === 1) return "Tu primer aporte te lleva al rango 2. El camino se revela conforme avanzas.";
+  const resto = actual + 3 <= total ? " Más adelante todo es niebla… por ahora." : "";
+  return `Vas avanzando. Del rango ${actual + 1} ya ves todo y del ${actual + 2}, una pista.${resto}`;
 }

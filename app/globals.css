@@ -562,9 +562,9 @@ input::-ms-clear {
 /* ── Sendero de rangos (2026-11-12) ───────────────────────────────────────
  * Pestaña Trayectoria (components/gamificacion/SenderoDeRangos.tsx). Es una pantalla que se visita de vez en
  * cuando: las animaciones son de entrada y se ven una vez por visita.
- * - sendero-trazo: el tramo recorrido se dibuja desde el rango más bajo de la ventana hasta el actual
- *   (stroke-dashoffset sobre pathLength="1"). Solo opacidad y trazo: nada que recalcule el diseño.
- * - sendero-entra: cada fila aparece con --i × 50 ms de retraso; --i es la distancia al rango actual, así
+ * - sendero-trazo: el tramo recorrido se dibuja del rango 1 (arriba) al actual (2026-11-22: el camino va de
+ *   arriba abajo, en un área con desplazamiento). stroke-dashoffset sobre pathLength="1": nada que recalcule el diseño.
+ * - sendero-entra: cada fila aparece con --i × 50 ms de retraso; --i es la distancia al rango actual (hasta 6), así
  *   lo primero que aparece es «Estás aquí».
  * - sendero-latido: el halo del rango actual late dos veces y se queda quieto.
  * Con movimiento reducido no se dibuja ni se desplaza nada: solo un fundido corto. */
