@@ -10,8 +10,7 @@ import { periodoDesde } from "@/lib/periodo";
 import MetricCard from "@/components/sistema/MetricCard";
 import ProgressBar from "@/components/sistema/ProgressBar";
 import Tag from "@/components/sistema/Tag";
-import { Aviso, EnlaceBoton, Reparto, Tarjeta, TituloDeSeccion, formatearNumero } from "@/components/sistema/ui";
-import RefrescoEnVivo from "@/components/supervision/RefrescoEnVivo";
+import { Aviso, EnlaceBoton, Reparto, Tarjeta, TituloDeSeccion, Volver, formatearNumero } from "@/components/sistema/ui";
 import { obtenerPanelDeCampana } from "@/lib/campanas/panel";
 import { hasRootSession } from "@/lib/rootSession";
 import {
@@ -78,7 +77,12 @@ export default async function PanelDeCampanaSistemaPage({
 
   return (
     <div>
-      {enVivo && <RefrescoEnVivo />}
+      {/* Se actualiza con los cambios de la base (ActualizacionEnVivo del layout del panel), como las demás pantallas:
+          hasta el 2026-11-23 además se recargaba cada 3 s (RefrescoEnVivo, ya borrado). */}
+
+      {/* 2026-11-23: no tenía "Volver"; se llega desde el listado, los dashboards, la bandeja de aportes, la ficha de un
+          usuario y la actividad de un supervisor, y regresa a la que corresponda. */}
+      <Volver href="/sistema/campanas">Volver al listado de campañas</Volver>
 
       <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>

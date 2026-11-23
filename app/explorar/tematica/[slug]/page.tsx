@@ -5,6 +5,10 @@
 // (2026-11-13; hasta ese día, las temáticas de "Lo más reciente" de la landing).
 // Datos: lib/campanas/publicas.ts (resolverTematicaDeRuta, buscarCampanasParaExplorar). El slug sale del nombre
 // (lib/tematicas/ruta.ts); si no es de ninguna temática, 404. Abrir una campaña pide sesión (proxy.ts).
+// Tipo de dato (2026-11-23, a pedido del usuario: el filtro que tenía la lista de /explorar hasta el 2026-11-22,
+// ahora solo aquí, adonde llevan "Ver todas" y los mosaicos de "Explora por temática"): ?tipo=foto,video, uno o
+// varios; cada tipo marcado reduce la lista (salen las que piden todos los marcados). Salen siempre los 5 tipos, en
+// el mismo orden y también en 0, y el número dice cuántas quedan al sumarlo (obtenerTiposParaExplorar con ámbito).
 
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -25,9 +29,11 @@ import {
   buscarCampanasParaExplorar,
   obtenerEtiquetasParaExplorar,
   obtenerTematicasParaExplorar,
+  obtenerTiposParaExplorar,
   resolverTematicaDeRuta,
   type OrdenDeCampanas,
 } from "@/lib/campanas/publicas";
+import { NOMBRE_DE_TIPO, alternarTipo, nombresDeTipos, tiposDesde, type TipoDeDato } from "@/lib/campanas/sistema-opciones";
 import { rutaDeTematica } from "@/lib/tematicas/ruta";
 
 const nf = new Intl.NumberFormat("es-MX");
@@ -64,21 +70,28 @@ export default async function CampanasDeTematicaPage({ params, searchParams }: P
   const [etiquetas, tematicas] = await Promise.all([obtenerEtiquetasParaExplorar(tematica), obtenerTematicasParaExplorar()]);
   // Solo una subtemática que exista en esta temática; otro valor en la URL se ignora.
   const etiqueta = etiquetas.some((e) => e.valor === sp.etiqueta) ? sp.etiqueta : undefined;
-  const [campanas, totalDeLaTematica] = await Promise.all([
-    buscarCampanasParaExplorar({ tematica, etiqueta, orden }),
+  // Solo los tipos conocidos; otro valor en la URL se ignora.
+  const tiposElegidos: TipoDeDato[] = tiposDesde(sp.tipo);
+  const tipo = tiposElegidos.join(",") || undefined;
+  const [campanas, tipos, totalDeLaTematica] = await Promise.all([
+    buscarCampanasParaExplorar({ tematica, etiqueta, tipos: tiposElegidos, orden }),
+    obtenerTiposParaExplorar(tiposElegidos, { tematica, etiqueta }),
     Promise.resolve(tematicas.find((t) => t.valor === tematica)?.total ?? 0),
   ]);
 
   const base = rutaDeTematica(tematica);
-  function enlaceCon(cambios: { orden?: OrdenDeCampanas; etiqueta?: string | null }) {
+  function enlaceCon(cambios: { orden?: OrdenDeCampanas; etiqueta?: string | null; tipo?: string | null }) {
     const params = new URLSearchParams();
     const nuevoOrden = cambios.orden ?? orden;
     const nuevaEtiqueta = cambios.etiqueta === null ? undefined : (cambios.etiqueta ?? etiqueta);
+    const nuevoTipo = cambios.tipo === null ? undefined : (cambios.tipo ?? tipo);
     if (nuevoOrden !== ORDEN_DE_ENTRADA) params.set("orden", nuevoOrden);
     if (nuevaEtiqueta) params.set("etiqueta", nuevaEtiqueta);
+    if (nuevoTipo) params.set("tipo", nuevoTipo);
     const qs = params.toString();
     return qs ? `${base}?${qs}` : base;
   }
+  const textoDeTipos = nombresDeTipos(tipo);
   const otras = tematicas.filter((t) => t.valor !== tematica);
 
   return (
@@ -143,6 +156,37 @@ export default async function CampanasDeTematicaPage({ params, searchParams }: P
             </div>
           )}
 
+          {tipos.length > 0 && (
+            <div style={retraso(300)} className="landing-entrada mb-6">
+              <p className={ETIQUETA_DE_FILTRO}>
+                Tipo de dato <span className="font-normal">(uno o varios)</span>
+              </p>
+              <div
+                role="group"
+                aria-label="Filtrar por tipo de dato, uno o varios"
+                className="dashboard-nav flex min-w-0 gap-2 overflow-x-auto overscroll-x-contain pb-2 [-webkit-overflow-scrolling:touch] md:flex-wrap md:overflow-visible md:pb-0"
+              >
+                <Link href={enlaceCon({ tipo: null })} aria-current={!tipo ? "true" : undefined} className={claseDePastilla(!tipo)}>
+                  Todos
+                </Link>
+                {tipos.map((t) => {
+                  const elegido = (tiposElegidos as string[]).includes(t.valor);
+                  return (
+                    <Link
+                      key={t.valor}
+                      href={enlaceCon({ tipo: alternarTipo(tipo, t.valor) || null })}
+                      aria-current={elegido ? "true" : undefined}
+                      className={claseDePastilla(elegido)}
+                    >
+                      {NOMBRE_DE_TIPO[t.valor as TipoDeDato] ?? t.valor}
+                      <span className={`font-mono text-[11px] ${elegido ? "text-white/75" : "text-system-500"}`}>{t.total}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <nav
             style={retraso(320)}
             className="dashboard-nav landing-entrada mb-4 flex w-full min-w-0 flex-nowrap gap-1.5 overflow-x-auto overscroll-x-contain pb-2 [-webkit-overflow-scrolling:touch] md:flex-wrap md:overflow-visible md:pb-0"
@@ -158,11 +202,18 @@ export default async function CampanasDeTematicaPage({ params, searchParams }: P
           {campanas.length === 0 ? (
             <div className="rounded-[18px] bg-system-100 p-6 text-center">
               <p className="text-[15px] text-system-700">
-                {etiqueta
-                  ? `Ninguna campaña activa de ${tematica} tiene la subtemática #${etiqueta}.`
-                  : `Todavía no hay campañas activas de ${tematica}. ¿Tienes una idea? Crea la primera.`}
+                {tipo
+                  ? `Ninguna campaña activa de ${tematica}${etiqueta ? ` con #${etiqueta}` : ""} pide ${tiposElegidos.length > 1 ? "a la vez " : ""}${textoDeTipos.toLocaleLowerCase("es-MX")}.`
+                  : etiqueta
+                    ? `Ninguna campaña activa de ${tematica} tiene la subtemática #${etiqueta}.`
+                    : `Todavía no hay campañas activas de ${tematica}. ¿Tienes una idea? Crea la primera.`}
               </p>
               <div className="mt-4 flex flex-wrap justify-center gap-2.5">
+                {tipo ? (
+                  <ButtonLink href={enlaceCon({ tipo: null })} variant="secondary" size="sm">
+                    Quitar el filtro de tipo de dato
+                  </ButtonLink>
+                ) : null}
                 <ButtonLink href="/registro" variant="primary" size="sm">
                   Crear una campaña
                 </ButtonLink>
@@ -174,6 +225,7 @@ export default async function CampanasDeTematicaPage({ params, searchParams }: P
                 <p className="font-mono text-[12px] text-system-600">
                   {nf.format(campanas.length)} {campanas.length === 1 ? "campaña" : "campañas"}
                   {etiqueta ? ` · #${etiqueta}` : ""}
+                  {tipo ? ` · ${textoDeTipos}` : ""}
                 </p>
               }
             >

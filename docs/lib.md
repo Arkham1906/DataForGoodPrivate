@@ -267,7 +267,7 @@ Subtemáticas de una temática (Protección animal → Perros, Gatos...).
 
 | Archivo | Qué hace | Lo usan |
 | --- | --- | --- |
-| `dashboard.ts` | `obtenerDashboardDelRevisor(usuarioId, periodo)`: en las campañas donde es revisora aceptada, pendientes (sin los propios, de campañas que no terminaron) y las que más tienen, sus decisiones (`first_pass_by_user_id`: aceptados, rechazados, hoy, 7 días, mediana de respuesta en 30 días, estrellas que dio) y la actividad del periodo que se elige (`serieDeTiempo`, 2026-11-22; antes 14 días); solo lectura, `null` si falla | `/revisiones` |
+| `dashboard.ts` | `obtenerDashboardDelRevisor(usuarioId, periodo)`: en las campañas donde es revisora aceptada, pendientes (sin los propios, de campañas que no terminaron) y las que más tienen, sus decisiones (`first_pass_by_user_id`: aceptados, rechazados, hoy, 7 días, mediana de respuesta en 30 días, estrellas que dio) y la actividad del periodo que se elige (`serieDeTiempo`, 2026-11-22; antes 14 días); desde el 2026-11-23 (`6e63b7f`), cada una de las 5 campañas con pendientes trae `tarjeta` (`mapCampana` de `lib/campanas/publicas.ts`, con una consulta más) para pintarla con `TarjetaDeCampanaPublica`; solo lectura, `null` si falla | `/revisiones` |
 
 ### `sistema/`
 
@@ -283,5 +283,4 @@ Subtemáticas de una temática (Protección animal → Perros, Gatos...).
 | `proxy.ts` | Redirección por cookie y CSRF en `/api` (ver [permisos.md](permisos.md)) |
 | `instrumentation.ts` + `instrumentation-node.ts` | Al arrancar: valida `DATABASE_URL` y corre `ensureCoreSchema()` |
 | `types/index.ts` | Tipos que devuelve la API a la zona de usuario (`Campaign`, `Contribution`, `User`, estados) |
-| `components/supervision/RefrescoEnVivo.tsx` | Refresca la página cada pocos segundos (`router.refresh()`) en paneles de campañas activas |
 | `components/layout/VigilanteDeSesion.tsx` | Revisa la sesión en cada navegación del cliente |

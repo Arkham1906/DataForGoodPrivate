@@ -3,13 +3,14 @@
 // Datos: lib/aportes/bandeja.ts; filtros en filtros.tsx (?q=, ?campana=, ?etapa=, ?pagina=).
 // Solo consulta: origen y etapa de cada aporte, sin abrir el archivo ni la descripción completa.
 // Agrupada por persona (2026-10-08): la lista desplegable está en lista.tsx (cliente).
+// "Volver a la campaña" (2026-11-23) solo si se llegó desde la ficha de una campaña (components/sistema/Volver).
 
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 
 import Subtabs from "@/components/sistema/subtabs";
-import { Aviso, Encabezado, Paginacion, formatearNumero } from "@/components/sistema/ui";
+import { Aviso, Encabezado, Paginacion, Volver, formatearNumero } from "@/components/sistema/ui";
 import {
   FILTROS_DE_ETAPA,
   PESTANAS_APORTES,
@@ -72,6 +73,10 @@ export default async function BandejaDeAportesPage({ searchParams }: { searchPar
 
   return (
     <div>
+      {/* 2026-11-23: abierta desde "Ver aportes recibidos" de una campaña, regresa a ella. Desde el menú no sale. */}
+      <Volver href={campana ? `/sistema/campanas/${campana.id}` : "/sistema/campanas"} soloSiVieneDe={"^/sistema/campanas/\\d+$"}>
+        Volver a la campaña
+      </Volver>
       <Subtabs pestanas={PESTANAS_APORTES} etiquetaAria="Secciones de aportes" distribuidasEnMovil />
 
       <Encabezado

@@ -1,11 +1,9 @@
 // Piezas visuales compartidas por las pantallas de /supervisar (p. ej. BackLink).
 
-import Link from "next/link";
 import type { ReactNode } from "react";
 
-export function BackLink({ href, children }: { href: string; children: ReactNode }) {
-  return <Link href={href} className="mb-5 inline-block text-[13px] text-system-600 hover:text-brand-600">← {children}</Link>;
-}
+// "Volver" de /supervisar: el mismo del resto del panel (2026-11-23), que regresa a la pantalla de donde se llegó.
+export { default as BackLink } from "@/components/sistema/Volver";
 
 export function DisabledAction({ children, tone = "default" }: { children: ReactNode; tone?: "default" | "danger" | "primary" }) {
   const classes = {

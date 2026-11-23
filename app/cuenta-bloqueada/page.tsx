@@ -5,6 +5,7 @@
 
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import ActualizacionEnVivo from "@/components/layout/ActualizacionEnVivo";
 import CuentaBloqueada from "@/components/layout/CuentaBloqueada";
 import { apelacionesParaLaPantalla } from "@/lib/apelaciones/apelaciones";
 import { cuentaDeLaSesionAunqueBloqueada, getSessionUser, obtenerBloqueoDeLaSesion } from "@/lib/session";
@@ -24,12 +25,17 @@ export default async function CuentaBloqueadaPage() {
   }
   const cuenta = await cuentaDeLaSesionAunqueBloqueada();
   const apelaciones = cuenta ? await apelacionesParaLaPantalla(cuenta.id) : { apelables: [], apelaciones: [] };
+  // En vivo (2026-11-23): si el SuperUsuario resuelve una apelación o levanta el bloqueo, la pantalla se actualiza
+  // sola (y, sin bloqueo, la redirección de arriba la saca de aquí), al mismo tiempo que las demás pantallas.
   return (
-    <CuentaBloqueada
-      nombre={bloqueada.nombre}
-      bloqueo={bloqueada.bloqueo}
-      historial={bloqueada.historial}
-      apelaciones={apelaciones}
-    />
+    <>
+      <ActualizacionEnVivo />
+      <CuentaBloqueada
+        nombre={bloqueada.nombre}
+        bloqueo={bloqueada.bloqueo}
+        historial={bloqueada.historial}
+        apelaciones={apelaciones}
+      />
+    </>
   );
 }

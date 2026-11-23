@@ -5,16 +5,16 @@
 //   3. Actividad: aportes recibidos en el periodo (ui/GraficaDeTiempo).
 //   4. Por área (Usuarios, Campañas, Aportes, Moderación): cuatro cifras de cada una y un "Ver detalle" desplegable
 //      con sus repartos; desde cada área, su dashboard completo.
-// Todo en una sola columna (regla del panel) y con el selector de periodo de los dashboards (?periodo=, "mes").
+// Todo en una sola columna (regla del panel) y siempre con el mes en curso: el selector de periodo (con "Todo el
+// histórico") se quitó el 2026-11-23 a pedido del usuario; sigue en los dashboards de cada área.
 // Antes: tres tarjetas (usuarios, campañas activas, aportes) y el aviso de que no hay supervisores.
 // Server Component. Datos: lib/sistema/resumen.ts y los dashboards de cada área.
 
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Suspense, type ReactNode } from "react";
+import type { ReactNode } from "react";
 
 import GraficaDeTiempo from "@/components/ui/GraficaDeTiempo";
-import SelectorDePeriodo from "@/components/ui/SelectorDePeriodo";
 import Tag from "@/components/sistema/Tag";
 import {
   Encabezado,
@@ -154,13 +154,10 @@ function Detalle({ titulo, vacio, children }: { titulo: string; vacio?: string |
 
 /* ── página ─────────────────────────────────────────────────────────────── */
 
-export default async function PanelDelSistemaPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ periodo?: string; desde?: string; hasta?: string }>;
-}) {
+export default async function PanelDelSistemaPage() {
   await exigirSesionRoot();
-  const periodo = periodoDesde(await searchParams, "mes");
+  // Siempre el mes en curso (2026-11-23): sin selector, la URL no cambia el periodo.
+  const periodo = periodoDesde({}, "mes");
   const enElPeriodo = textoDelPeriodo(periodo);
 
   // Campañas primero: pone al día activas y finalizadas por fecha antes de contar lo demás.
@@ -182,11 +179,6 @@ export default async function PanelDelSistemaPage({
       <Encabezado
         titulo="Panel del sistema"
         subtitulo="Resumen de la plataforma, de lo general al detalle"
-        acciones={
-          <Suspense fallback={null}>
-            <SelectorDePeriodo periodo={periodo} defecto="mes" />
-          </Suspense>
-        }
       />
 
       {/* ── 1. De un vistazo ─────────────────────────────────────────────── */}
@@ -194,11 +186,11 @@ export default async function PanelDelSistemaPage({
         <h2 id="vistazo" className="mb-1 text-[15px] font-bold text-system-900">
           De un vistazo · {enElPeriodo}
         </h2>
-        <p className="mb-3 text-[12.5px] text-system-500">
-          {frente
-            ? `Cada cifra se compara con el periodo anterior equivalente, ${frente}.`
-            : "En todo el histórico no hay periodo anterior con qué comparar."}
-        </p>
+        {frente ? (
+          <p className="mb-3 text-[12.5px] text-system-500">
+            Cada cifra se compara con el periodo anterior equivalente, {frente}.
+          </p>
+        ) : null}
         <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
           <CifraClave
             etiqueta="Usuarios nuevos"

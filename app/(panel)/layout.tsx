@@ -4,9 +4,10 @@
 // Además, cada página llama a exigirSesionRoot() (2026-10-28): no depende solo de este layout.
 
 import type { Metadata } from "next";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import { redirect } from "next/navigation";
 import ActualizacionEnVivo from "@/components/layout/ActualizacionEnVivo";
+import RastroDelPanel from "@/components/sistema/RastroDelPanel";
 import Sidebar from "@/components/sistema/Sidebar";
 import Topbar from "@/components/sistema/Topbar";
 import { hasRootSession } from "@/lib/rootSession";
@@ -45,6 +46,10 @@ export default async function PanelLayout({ children }: { children: ReactNode })
   return (
     <div className="min-h-screen bg-system-50">
       <ActualizacionEnVivo />
+      {/* Rastro de navegación para "Volver" (2026-11-23): regresa a la pantalla de donde se llegó. */}
+      <Suspense fallback={null}>
+        <RastroDelPanel />
+      </Suspense>
       <Topbar identificador={process.env.ROOT_USER_ID ?? "raíz"} />
       <div className="dashboard-shell flex min-w-0">
         <Sidebar reportesPendientes={reportes} tematicasPendientes={tematicas} apelacionesPendientes={apelaciones} aviso={aviso} />

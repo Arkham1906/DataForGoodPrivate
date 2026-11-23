@@ -12,6 +12,7 @@ import { estaTerminada } from "@/lib/campanas/terminada";
 
 export const metadata: Metadata = { title: "Modo supervisor" };
 
+// Pestaña y filtros en la URL desde el 2026-11-23: los lee y escribe ./pestanas.tsx en el navegador.
 export default async function SupervisarPage() {
   await exigirSesionRoot();
   const { pendientes, supervisadas } = await listarCampanasParaRoot();

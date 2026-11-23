@@ -4,6 +4,7 @@
 // Excepción: la ficha /campanas/[id], que se ve sin sesión (desde /explorar), sin el armazón.
 // No basta por sí solo: cada página y cada endpoint vuelven a verificar (ver docs/permisos.md).
 
+import ActualizacionEnVivo from "@/components/layout/ActualizacionEnVivo";
 import ShellDeUsuario from "@/components/layout/ShellDeUsuario";
 import { exigirUsuario, getSessionUser, obtenerBloqueoDeLaSesion } from "@/lib/session";
 import { headers } from "next/headers";
@@ -23,7 +24,14 @@ export default async function DashboardLayout({
   // borra (2026-11-11). Una cuenta sancionada sigue yendo a /cuenta-bloqueada, también desde la ficha.
   if ((await headers()).get("x-public-campaign-detail") === "1") {
     if (await obtenerBloqueoDeLaSesion()) redirect("/cuenta-bloqueada");
-    return <>{children}</>;
+    // Sin el armazón tampoco venía la actualización en vivo (2026-11-23): la ficha pública se actualiza al mismo
+    // tiempo que /c/[token], /explorar y las demás páginas públicas.
+    return (
+      <>
+        <ActualizacionEnVivo />
+        {children}
+      </>
+    );
   }
   return <ShellDeUsuario usuario={await exigirUsuario()}>{children}</ShellDeUsuario>;
 }

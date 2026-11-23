@@ -84,7 +84,7 @@ Una server action es un endpoint público: cualquiera puede invocarla con su ID.
 | `(panel)` | Server Component `async` que llama a `exigirSesionRoot()` al empezar (todas desde el 2026-10-28; también en `generateMetadata` si lee datos), lee con funciones de `lib/<modulo>/` y pasa props a componentes cliente hermanos (`filtros.tsx`, `botones-de-rol.tsx`, `formulario.tsx`) que llaman a server actions |
 | Públicas (`/`, `/explorar`, `/datos`, `/datos/[id]`, `/c/[token]`) | Server Components `force-dynamic` con `ActualizacionEnVivo` (2026-10-31; antes `/` y `/datos` usaban `revalidate = 300`). Las consultas de `/` siguen en `try/catch` con valores por defecto |
 
-Actualización en vivo: `components/supervision/RefrescoEnVivo.tsx` hace `router.refresh()` periódico (polling) en los paneles de campañas activas.
+Actualización en vivo: todas las pantallas usan `components/layout/ActualizacionEnVivo` (long polling a `GET /api/eventos`; `router.refresh()` y `useRecargaEnVivo()` al cambiar la base; `references/dominio.md` § 11). Desde el 2026-11-23 no hay otro mecanismo: se borró `components/supervision/RefrescoEnVivo.tsx`, que además recargaba cada 3 s los paneles de campañas activas (`/sistema/campanas/[id]`, `/supervision/[id]/panel`, `/supervisar/[id]/panel`). No vuelvas a agregar recargas periódicas: pantalla nueva, dentro de un layout que ya monta `ActualizacionEnVivo` o con la suya si está fuera.
 
 ## 6. Docker y variables de entorno
 

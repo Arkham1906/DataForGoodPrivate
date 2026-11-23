@@ -59,14 +59,11 @@ export function TituloDeSeccion({ children }: { children: ReactNode }) {
   return <h2 className="mb-3 text-[15px] font-bold text-system-900">{children}</h2>;
 }
 
-/** Link de retorno, mismo estilo en toda la sección /usuarios. */
-export function Volver({ href, children }: { href: string; children: ReactNode }) {
-  return (
-    <Link href={href} className="mb-5 inline-block text-[13px] text-system-600 hover:text-brand-600">
-      ← {children}
-    </Link>
-  );
-}
+/**
+ * Link de retorno, mismo estilo en todo el panel. Desde el 2026-11-23 regresa a la pantalla de donde se llegó (con sus
+ * filtros); `href` y el texto son el destino si no hay de dónde (components/sistema/Volver).
+ */
+export { default as Volver } from "@/components/sistema/Volver";
 
 /* ── aviso ──────────────────────────────────────────────────────────────── */
 

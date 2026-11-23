@@ -255,15 +255,35 @@ export function obtenerEstadosParaExplorar() {
   return facetas("location_state");
 }
 
-/** Tipos de dato que piden las campañas visibles, con cuántas campañas pide cada uno (2026-10-28). */
-export async function obtenerTiposParaExplorar(elegidos: string[] = []): Promise<{ valor: string; total: number }[]> {
+/**
+ * Tipos de dato que piden las campañas visibles, con cuántas campañas pide cada uno (2026-10-28). Desde el
+ * 2026-11-22 /explorar ya no lo usa; desde el 2026-11-23 lo usa /explorar/tematica/[slug] con `ambito`.
+ */
+export async function obtenerTiposParaExplorar(
+  elegidos: string[] = [],
+  /** Solo las campañas de esta temática y, si viene, de esta subtemática (2026-11-23: /explorar/tematica/[slug]). */
+  ambito: { tematica?: string; etiqueta?: string } = {},
+): Promise<{ valor: string; total: number }[]> {
   try {
+    const valores: unknown[] = [elegidos];
+    const condiciones = [ESTADOS_VISIBLES, condicionDeTipos("campanas", "$1")];
+    if (ambito.tematica) {
+      valores.push(ambito.tematica);
+      condiciones.push(`campanas.tematica = $${valores.length}`);
+    }
+    if (ambito.etiqueta) {
+      valores.push(ambito.etiqueta);
+      condiciones.push(
+        `EXISTS (SELECT 1 FROM campana_etiquetas ce JOIN etiquetas e ON e.id = ce.etiqueta_id
+                 WHERE ce.campana_id = campanas.id AND e.aprobada AND e.nombre = $${valores.length})`
+      );
+    }
     const result = await pool.query(
       `SELECT t.tipo AS valor, COUNT(*)::int AS total
        FROM campanas JOIN campana_tipos t ON t.campana_id = campanas.id
-       WHERE ${ESTADOS_VISIBLES} AND ${condicionDeTipos("campanas", "$1")}
+       WHERE ${condiciones.join(" AND ")}
        GROUP BY t.tipo`,
-      [elegidos]
+      valores
     );
     // Con tipos elegidos, cada número dice cuántas quedan al sumar ese tipo. Salen siempre todos los tipos y
     // en el mismo orden, también en 0: la lista no cambia al filtrar (2026-11-03, a pedido del usuario).

@@ -2,7 +2,7 @@
 // confirmación (el contenido corresponde a la campaña y no es inadecuado).
 // Desde el 2026-10-15 (a pedido del usuario) se aceptan una vez, al inscribirse a la campaña
 // (POST /api/campanas/[id]/inscripcion), con dos casillas cortas; el texto completo se lee en una
-// ventana ("Leer los acuerdos"). Sin cuenta (/c/[token]) no hay inscripción: las casillas van en el
+// ventana por acuerdo ("Leer el acuerdo", junto a cada casilla, desde el 2026-11-23). Sin cuenta (/c/[token]) no hay inscripción: las casillas van en el
 // formulario y se aceptan en cada aporte. Sin imports de servidor: los usan components/ui/AcuerdosDeAporte
 // y los route handlers, que vuelven a exigirlos.
 

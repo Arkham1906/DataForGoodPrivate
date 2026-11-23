@@ -12,7 +12,6 @@ import TextoDeActualizacion from "@/components/campanas/TextoDeActualizacion";
 import RecoleccionDeCampana from "@/components/campanas/RecoleccionDeCampana";
 import type { Periodo } from "@/lib/periodo";
 import type { MetricasGenerales as DatosDeMetricas } from "@/lib/campanas/metricas-generales-tipos";
-import RefrescoEnVivo from "./RefrescoEnVivo";
 
 const ESTADO: Record<string, string> = {
   en_revision: "en revisión",
@@ -83,7 +82,8 @@ export default function PanelDeCampanaSupervisor({
 
   return (
     <div className="mx-auto max-w-5xl">
-      {enVivo && <RefrescoEnVivo />}
+      {/* Se actualiza con los cambios de la base (ActualizacionEnVivo del layout), como las demás pantallas: hasta el
+          2026-11-23 además se recargaba cada 3 s (RefrescoEnVivo, ya borrado). */}
 
       <Link href={volverHref} className="mb-5 inline-block text-[13px] text-system-600 hover:text-brand-600">← {volverTexto}</Link>
 

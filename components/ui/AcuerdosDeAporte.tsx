@@ -2,15 +2,16 @@
 
 // Acuerdos para aportar (2026-10-15, a pedido del usuario; reemplaza a la ventana "Antes de enviar" que salía
 // en cada aporte). Dos casillas cortas, "Acepto el acuerdo de confirmación" y "Acepto el acuerdo de uso del
-// aporte", y "Leer los acuerdos", que abre una ventana (<dialog> nativo) con el texto completo
-// (lib/aportes/consentimiento.ts).
+// aporte". Desde el 2026-11-23 (a pedido del usuario) cada una lleva justo después su propio enlace, "Leer el
+// acuerdo", que abre una ventana (<dialog> nativo) solo con ese acuerdo; antes había un solo "Leer los acuerdos"
+// debajo de las dos, con los dos textos en la misma ventana (lib/aportes/consentimiento.ts).
 //   - Con cuenta, se aceptan una sola vez al inscribirse (POST /api/campanas/[id]/inscripcion). En /campanas/[id],
 //     VentanaDeInscripcion: ventana emergente al dar "Realizar un aporte" (2026-11-10, a pedido del usuario; antes
 //     las casillas iban en la página). Si llega a /campanas/[id]/aportar sin inscribirse, InscripcionACampana arriba.
 //   - CasillasDeAcuerdos + agregarAcuerdos: sin cuenta (/c/[token]), en el formulario de cada aporte.
 // El servidor vuelve a exigirlos en los dos casos.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import Button from "@/components/ui/Button";
 import IndicadorDeCarga from "@/components/ui/IndicadorDeCarga";
 import { BASE_PATH } from "@/lib/base-path";
@@ -31,9 +32,28 @@ export const SIN_ACUERDOS: Acuerdos = { confirmaContenido: false, aceptaUso: fal
 
 export const acuerdosCompletos = (a: Acuerdos) => a.confirmaContenido && a.aceptaUso;
 
-/** Ventana de solo lectura con el texto completo de los dos acuerdos. */
-function VentanaDeAcuerdos({ abierta, onCerrar, proposito }: { abierta: boolean; onCerrar: () => void; proposito?: string | null }) {
+type CualAcuerdo = "confirmacion" | "uso";
+
+const TITULO_DEL_ACUERDO: Record<CualAcuerdo, string> = {
+  confirmacion: "Acuerdo de confirmación",
+  uso: "Acuerdo de uso del aporte",
+};
+
+/** Ventana de solo lectura con el texto completo de un acuerdo (2026-11-23: una por acuerdo). */
+function VentanaDeAcuerdo({
+  cual,
+  abierta,
+  onCerrar,
+  proposito,
+}: {
+  cual: CualAcuerdo;
+  abierta: boolean;
+  onCerrar: () => void;
+  proposito?: string | null;
+}) {
   const dialogo = useRef<HTMLDialogElement>(null);
+  // Hay dos ventanas (y puede haber casillas en más de un lugar): cada título con su propio id.
+  const idTitulo = useId();
 
   useEffect(() => {
     const el = dialogo.current;
@@ -45,7 +65,7 @@ function VentanaDeAcuerdos({ abierta, onCerrar, proposito }: { abierta: boolean;
   return (
     <dialog
       ref={dialogo}
-      aria-labelledby="acuerdos-de-aporte-titulo"
+      aria-labelledby={idTitulo}
       onClose={() => {
         if (abierta) onCerrar();
       }}
@@ -57,22 +77,28 @@ function VentanaDeAcuerdos({ abierta, onCerrar, proposito }: { abierta: boolean;
     >
       <div className="flex max-h-[88vh] flex-col">
         <div className="border-b border-system-200 px-5 py-5 md:px-8 md:py-6">
-          <h2 id="acuerdos-de-aporte-titulo" className="text-xl font-extrabold md:text-2xl text-system-900">
-            Acuerdos para aportar
+          <h2 id={idTitulo} className="text-xl font-extrabold md:text-2xl text-system-900">
+            {TITULO_DEL_ACUERDO[cual]}
           </h2>
         </div>
         <div className="flex-1 overflow-y-auto px-5 py-5 md:px-8 md:py-6 text-[15px] text-system-600">
-          <h3 className="mb-1 text-[15px] font-bold text-system-900">Acuerdo de confirmación</h3>
-          <p className="mb-4">{AVISO_DE_CONTENIDO}</p>
-          <h3 className="mb-1 text-[15px] font-bold text-system-900">Acuerdo de uso del aporte</h3>
-          <p>{AVISO_DE_USO}</p>
-          {proposito && (
-            // Propósito de la campaña (2026-10-27): para qué se usarán los datos.
-            <p className="mt-2">
-              <span className="font-semibold text-system-900">Propósito de esta campaña:</span> {proposito}.
-            </p>
+          {cual === "confirmacion" ? (
+            <>
+              <p>{AVISO_DE_CONTENIDO}</p>
+              {/* Qué pasa si no se cumple: es de este acuerdo (antes iba al final de la ventana con los dos). */}
+              <p className="mt-4 text-[13.5px] text-system-500">{CONSECUENCIA_DEL_CONTENIDO}</p>
+            </>
+          ) : (
+            <>
+              <p>{AVISO_DE_USO}</p>
+              {proposito && (
+                // Propósito de la campaña (2026-10-27): para qué se usarán los datos.
+                <p className="mt-2">
+                  <span className="font-semibold text-system-900">Propósito de esta campaña:</span> {proposito}.
+                </p>
+              )}
+            </>
           )}
-          <p className="mt-4 text-[13.5px] text-system-500">{CONSECUENCIA_DEL_CONTENIDO}</p>
         </div>
         <div className="flex justify-end border-t border-system-200 px-5 py-4 md:px-8 md:py-5">
           <Button type="button" variant="primary" onClick={onCerrar}>
@@ -84,7 +110,20 @@ function VentanaDeAcuerdos({ abierta, onCerrar, proposito }: { abierta: boolean;
   );
 }
 
-/** Las dos casillas cortas y el enlace para leer los acuerdos completos. */
+/** "Leer el acuerdo": va justo después del texto de su casilla, fuera de la <label> (un botón no puede ir dentro). */
+function EnlaceDeAcuerdo({ cual, onAbrir }: { cual: CualAcuerdo; onAbrir: (cual: CualAcuerdo) => void }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onAbrir(cual)}
+      className="font-medium text-brand-700 underline underline-offset-2 hover:text-brand-800"
+    >
+      Leer el acuerdo<span className="sr-only"> de {cual === "confirmacion" ? "confirmación" : "uso del aporte"}</span>
+    </button>
+  );
+}
+
+/** Las dos casillas cortas, cada una con su enlace para leer ese acuerdo completo. */
 export function CasillasDeAcuerdos({
   acuerdos,
   onCambio,
@@ -97,22 +136,30 @@ export function CasillasDeAcuerdos({
   /** Para qué se usarán los datos (lib/campanas/proposito.ts, textoDelProposito), si la campaña lo tiene. */
   proposito?: string | null;
 }) {
-  const [leyendo, setLeyendo] = useState(false);
+  const [leyendo, setLeyendo] = useState<CualAcuerdo | null>(null);
+  const idConfirmacion = useId();
+  const idUso = useId();
+  const claseDelRenglon = "flex items-start gap-2 text-[length:var(--ventana-campo,12.5px)] text-system-700";
 
   return (
     <div className="flex flex-col gap-2">
-      <label className="flex items-start gap-2 text-[length:var(--ventana-campo,12.5px)] text-system-700">
+      <div className={claseDelRenglon}>
         <input
+          id={idConfirmacion}
           type="checkbox"
           className="mt-0.5"
           checked={acuerdos.confirmaContenido}
           onChange={(e) => onCambio({ ...acuerdos, confirmaContenido: e.target.checked })}
           disabled={deshabilitado}
         />
-        {CASILLA_DE_CONFIRMACION}
-      </label>
-      <label className="flex items-start gap-2 text-[length:var(--ventana-campo,12.5px)] text-system-700">
+        <span>
+          <label htmlFor={idConfirmacion}>{CASILLA_DE_CONFIRMACION}</label>{" "}
+          <EnlaceDeAcuerdo cual="confirmacion" onAbrir={setLeyendo} />
+        </span>
+      </div>
+      <div className={claseDelRenglon}>
         <input
+          id={idUso}
           type="checkbox"
           className="mt-0.5"
           checked={acuerdos.aceptaUso}
@@ -120,18 +167,12 @@ export function CasillasDeAcuerdos({
           disabled={deshabilitado}
         />
         <span>
-          {CASILLA_DE_USO}
+          <label htmlFor={idUso}>{CASILLA_DE_USO}</label> <EnlaceDeAcuerdo cual="uso" onAbrir={setLeyendo} />
           {proposito && <span className="mt-0.5 block text-[length:var(--ventana-pista,11.5px)] text-system-500">Los datos se usarán para: {proposito}.</span>}
         </span>
-      </label>
-      <button
-        type="button"
-        onClick={() => setLeyendo(true)}
-        className="self-start text-[length:var(--ventana-pista,12px)] font-medium text-brand-700 underline underline-offset-2 hover:text-brand-800"
-      >
-        Leer los acuerdos
-      </button>
-      <VentanaDeAcuerdos abierta={leyendo} onCerrar={() => setLeyendo(false)} proposito={proposito} />
+      </div>
+      <VentanaDeAcuerdo cual="confirmacion" abierta={leyendo === "confirmacion"} onCerrar={() => setLeyendo(null)} />
+      <VentanaDeAcuerdo cual="uso" abierta={leyendo === "uso"} onCerrar={() => setLeyendo(null)} proposito={proposito} />
     </div>
   );
 }
@@ -246,7 +287,7 @@ export function InscripcionACampana({
 
 /**
  * Ventana emergente de inscripción (2026-11-10, a pedido del usuario; antes las casillas iban en la página de
- * /campanas/[id]). Muestra las dos casillas y "Leer los acuerdos" (CasillasDeAcuerdos); al aceptar inscribe y llama a
+ * /campanas/[id]). Muestra las dos casillas, cada una con su "Leer el acuerdo" (CasillasDeAcuerdos); al aceptar inscribe y llama a
  * onInscrito (la página lleva al formulario de aporte). Cancelar, Esc o clic en el fondo la cierran sin inscribir.
  */
 export function VentanaDeInscripcion({
@@ -282,7 +323,7 @@ export function VentanaDeInscripcion({
     <dialog
       ref={dialogo}
       aria-labelledby="inscripcion-titulo"
-      // React hace llegar aquí también el cancel/close de la ventana "Leer los acuerdos" (está dentro): solo cuentan
+      // React hace llegar aquí también el cancel/close de las ventanas "Leer el acuerdo" (están dentro): solo cuentan
       // los de esta misma ventana, o al cerrar el texto se cerraría todo.
       onCancel={(e) => {
         if (e.target !== e.currentTarget) return;
@@ -308,7 +349,7 @@ export function VentanaDeInscripcion({
             Para aportar en esta campaña, acepta los dos acuerdos. Solo se piden una vez.
           </p>
         </div>
-        {/* Solo las casillas y "Leer los acuerdos", que abre el texto completo encima (a pedido del usuario el
+        {/* Solo las casillas y su "Leer el acuerdo", que abre ese acuerdo completo encima (a pedido del usuario el
             mismo día: sin desplegar los dos acuerdos aquí). */}
         <div className="flex flex-col gap-3 p-5">
           <CasillasDeAcuerdos acuerdos={acuerdos} onCambio={setAcuerdos} deshabilitado={enviando} proposito={proposito} />

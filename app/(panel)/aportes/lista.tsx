@@ -4,9 +4,11 @@
 // participante (con cuenta, o anónimo desde un mismo dispositivo) ocupa un renglón resumen
 // (cuántos aportes, a qué campañas, en qué etapa) y al hacer clic se despliegan sus aportes.
 // En escritorio, renglones por persona y, al desplegar, una tabla con sus aportes; en móvil, tarjetas.
+// Los grupos abiertos se recuerdan en sessionStorage (2026-11-23, a pedido del usuario): al regresar de una campaña
+// o de una ficha siguen abiertos. No van en la URL porque la clave de un grupo sin cuenta lleva el id del dispositivo.
 
 import Link from "next/link";
-import { useState } from "react";
+import { useSyncExternalStore } from "react";
 
 import Tag from "@/components/sistema/Tag";
 import type { FilaDeAporte, GrupoDeAportes } from "@/lib/aportes/bandeja";
@@ -66,15 +68,55 @@ function Faltan({ g }: { g: GrupoDeAportes }) {
   );
 }
 
+const CLAVE_ABIERTOS = "dfg:panel:aportes:abiertos";
+const EVENTO_ABIERTOS = "dfg:panel:aportes:abiertos";
+/** Cuántos grupos abiertos se recuerdan como máximo (los más recientes). */
+const MAXIMO_ABIERTOS = 50;
+
+/** Respaldo en memoria si el navegador no deja usar sessionStorage: los grupos se abren igual, sin recordarse. */
+let abiertosEnMemoria = "";
+
+function leerAbiertos(): string {
+  try {
+    return sessionStorage.getItem(CLAVE_ABIERTOS) ?? "";
+  } catch {
+    return abiertosEnMemoria;
+  }
+}
+
+function guardarAbiertos(lista: string[]) {
+  abiertosEnMemoria = JSON.stringify(lista.slice(-MAXIMO_ABIERTOS));
+  try {
+    sessionStorage.setItem(CLAVE_ABIERTOS, abiertosEnMemoria);
+  } catch {
+    // Queda el respaldo en memoria.
+  }
+  window.dispatchEvent(new Event(EVENTO_ABIERTOS));
+}
+
+function suscribirAbiertos(alCambiar: () => void) {
+  window.addEventListener(EVENTO_ABIERTOS, alCambiar);
+  return () => window.removeEventListener(EVENTO_ABIERTOS, alCambiar);
+}
+
+function listaDeAbiertos(crudo: string): string[] {
+  try {
+    const lista: unknown = crudo ? JSON.parse(crudo) : [];
+    return Array.isArray(lista) ? lista.filter((c): c is string => typeof c === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
 export default function ListaDeAportes({ grupos }: { grupos: GrupoDeAportes[] }) {
-  const [abiertos, setAbiertos] = useState<Set<string>>(new Set());
-  const alternar = (clave: string) =>
-    setAbiertos((actual) => {
-      const nuevo = new Set(actual);
-      if (nuevo.has(clave)) nuevo.delete(clave);
-      else nuevo.add(clave);
-      return nuevo;
-    });
+  // En el servidor y al hidratar, todos cerrados; los recordados se abren justo después.
+  const crudo = useSyncExternalStore(suscribirAbiertos, leerAbiertos, () => "");
+  const abiertos = new Set(listaDeAbiertos(crudo));
+  const alternar = (clave: string) => {
+    const lista = listaDeAbiertos(leerAbiertos()).filter((c) => c !== clave);
+    if (!abiertos.has(clave)) lista.push(clave);
+    guardarAbiertos(lista);
+  };
 
   return (
     <>

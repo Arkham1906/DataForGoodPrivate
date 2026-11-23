@@ -3,12 +3,16 @@
 // Pestañas de /supervisar (por revisar / supervisadas) con la barra de filtros de
 // components/campanas/BarraDeFiltros.tsx, aplicada en el navegador (lib/campanas/filtro-local.ts).
 // Supervisadas, reportadas/rechazadas y finalizadas van en dos bloques: las del SuperUsuario y las de los otros supervisores.
+// Desde el 2026-11-23 la pestaña y los filtros viven en la URL (?pestana=supervisadas|reportadas|finalizadas, ?q=,
+// ?tematica=, ?etiqueta=, ?tipo=, ?orden=), escritos con history.replaceState (sin volver a pedir la página): al
+// regresar de una campaña con "Volver" o con el botón atrás se ve la misma pestaña con los mismos filtros.
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import Tag from "@/components/ui/Tag";
 import BarraDeFiltros, { type ValoresDeFiltros } from "@/components/campanas/BarraDeFiltros";
-import { FILTROS_VACIOS, avisoSinResultados, conFiltro, etiquetasPorTematica, filtrarCampanas, opcionesDeTematica, type FiltrosLocales } from "@/lib/campanas/filtro-local";
+import { avisoSinResultados, conFiltro, etiquetasPorTematica, filtrarCampanas, opcionesDeTematica, type FiltrosLocales } from "@/lib/campanas/filtro-local";
 import type { CampanaSupervisable } from "@/lib/supervision/root";
 import SelectorDeVistaCampanas from "@/components/campanas/SelectorDeVistaCampanas";
 import ProgressBar from "@/components/ui/ProgressBar";
@@ -18,6 +22,30 @@ import { NOMBRE_DE_TIPO } from "@/lib/campanas/sistema-opciones";
 import { porcentajeDeMeta } from "@/lib/campanas/meta";
 
 type TabKey = "pending" | "supervised" | "finished" | "flagged";
+
+/** Cómo se escribe cada pestaña en ?pestana= ("Por supervisar" es la de entrada y no se escribe). */
+const PESTANA_EN_LA_URL: Record<TabKey, string> = {
+  pending: "",
+  supervised: "supervisadas",
+  flagged: "reportadas",
+  finished: "finalizadas",
+};
+
+function pestanaDeLaUrl(valor: string): TabKey {
+  const encontrada = (Object.keys(PESTANA_EN_LA_URL) as TabKey[]).find((k) => PESTANA_EN_LA_URL[k] === valor && valor);
+  return encontrada ?? "pending";
+}
+
+/** Cambia parámetros de la URL actual sin navegar (vacío = se quita). */
+function escribirEnLaUrl(cambios: Record<string, string | undefined>) {
+  const parametros = new URLSearchParams(window.location.search);
+  for (const [clave, valor] of Object.entries(cambios)) {
+    if (valor) parametros.set(clave, valor);
+    else parametros.delete(clave);
+  }
+  const consulta = parametros.toString();
+  window.history.replaceState(null, "", consulta ? `?${consulta}` : window.location.pathname);
+}
 
 const tematicaDe = (campaign: CampanaSupervisable) => campaign.tag;
 
@@ -32,8 +60,22 @@ export default function PestanasDeSupervision({
   finalizadas: CampanaSupervisable[];
   conIncidencia: CampanaSupervisable[];
 }) {
-  const [activeTab, setActiveTab] = useState<TabKey>("pending");
-  const [filtros, setFiltros] = useState<FiltrosLocales>(FILTROS_VACIOS);
+  // El estado inicial sale de la URL real (useSearchParams), no de los searchParams del servidor: con el botón atrás
+  // Next restaura la página de su caché, armada con la URL de cuando se cargó, sin lo que se escribió después.
+  const consulta = useSearchParams();
+  const [activeTab, setActiveTabState] = useState<TabKey>(() => pestanaDeLaUrl(consulta.get("pestana") ?? ""));
+  const [filtros, setFiltros] = useState<FiltrosLocales>(() => ({
+    q: consulta.get("q") ?? "",
+    tematica: consulta.get("tematica") ?? "",
+    etiqueta: consulta.get("etiqueta") ?? "",
+    tipo: consulta.get("tipo") ?? "",
+    orden: consulta.get("orden") ?? "",
+  }));
+
+  function setActiveTab(pestana: TabKey) {
+    setActiveTabState(pestana);
+    escribirEnLaUrl({ pestana: PESTANA_EN_LA_URL[pestana] });
+  }
 
   const tematicas = useMemo(
     () => opcionesDeTematica([...todasPendientes, ...todasSupervisadas, ...todasFinalizadas, ...todasConIncidencia].map(tematicaDe)),
@@ -49,6 +91,11 @@ export default function PestanasDeSupervision({
   function cambiarFiltro(clave: keyof ValoresDeFiltros, valor: string) {
     setFiltros((actuales) => conFiltro(actuales, clave, valor));
   }
+
+  // Los filtros a la URL. En un efecto y no en cambiarFiltro: en móvil, "Filtrar" aplica varios filtros seguidos.
+  useEffect(() => {
+    escribirEnLaUrl({ q: filtros.q, tematica: filtros.tematica, etiqueta: filtros.etiqueta, tipo: filtros.tipo, orden: filtros.orden });
+  }, [filtros]);
 
   const etiquetasDelFiltro = useMemo(
     () => etiquetasPorTematica([...todasPendientes, ...todasSupervisadas, ...todasFinalizadas, ...todasConIncidencia], tematicaDe),
