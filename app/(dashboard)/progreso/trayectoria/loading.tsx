@@ -3,7 +3,7 @@ import Skeleton from "@/components/ui/Skeleton";
 export default function Loading() {
   return (
     <div role="status" aria-live="polite" className="space-y-5">
-      <span className="sr-only">Cargando tu trayectoria…</span>
+      <span className="sr-only">Cargando tu progreso…</span>
       <Skeleton className="h-[420px] w-full rounded-lg" />
       <div className="grid gap-5 lg:grid-cols-[2fr_1fr]">
         <Skeleton className="h-[560px] w-full rounded-lg" />

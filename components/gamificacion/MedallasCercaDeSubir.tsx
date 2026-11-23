@@ -12,13 +12,19 @@ import { imagenDeMedalla } from "@/lib/gamificacion/recursos";
 
 const nf = new Intl.NumberFormat("es-MX");
 
-export default function MedallasCercaDeSubir({ medallas }: { medallas: MedallaCercaDeSubir[] }) {
+export default function MedallasCercaDeSubir({
+  medallas,
+  titulo = "Medallas cerca de subir",
+}: {
+  medallas: MedallaCercaDeSubir[];
+  titulo?: string;
+}) {
   const pantalla = rutaDePantalla("medallas");
   return (
     <section aria-labelledby="progreso-medallas" className="flex min-w-0 flex-col gap-3 rounded-lg border border-system-200 bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-end justify-between gap-x-2.5 gap-y-1">
         <h2 id="progreso-medallas" className="text-lg font-extrabold text-system-900">
-          Medallas cerca de subir
+          {titulo}
         </h2>
         {pantalla && (
           <Link href={pantalla} className="text-[13px] font-semibold text-brand-600 hover:underline">

@@ -119,11 +119,11 @@ export default async function InicioPage() {
         // Sin datos de progreso (cuenta recién creada o un fallo al leerlos): Mi progreso no tiene otra entrada.
         <Card className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-extrabold text-system-900">Tu trayectoria</h2>
+            <h2 className="text-lg font-extrabold text-system-900">Tu progreso</h2>
             <p className="text-[13px] text-system-600">Tu rango, tus misiones y tu racha están en Mi progreso.</p>
           </div>
           <ButtonLink href={trayectoria} variant="secondary" size="sm">
-            Ver tu trayectoria
+            Ver tu progreso
           </ButtonLink>
         </Card>
       )}

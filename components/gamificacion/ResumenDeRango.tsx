@@ -69,7 +69,7 @@ export default function ResumenDeRango({
           <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2">
             {enlaces.trayectoria && (
               <ButtonLink href={enlaces.trayectoria} variant="secondary" size="sm">
-                Ver tu trayectoria
+                Ver tu progreso
               </ButtonLink>
             )}
             {enlaces.historial && (

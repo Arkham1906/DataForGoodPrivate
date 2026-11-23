@@ -180,7 +180,7 @@ export const TEXTOS = {
   /** Distintivo de rango en Mi cuenta (A6). */
   cuenta: {
     rango: (numero: number, nombre: string) => `Rango ${n(numero)} · ${nombre}`,
-    rangoAria: (numero: number, nombre: string) => `Rango ${n(numero)}, ${nombre}. Ver tu trayectoria`,
+    rangoAria: (numero: number, nombre: string) => `Rango ${n(numero)}, ${nombre}. Ver tu progreso`,
   },
   /** Lo que se pierde al eliminar la cuenta (A6). */
   baja: {
@@ -441,6 +441,52 @@ export const TEXTOS = {
     },
   },
 
+  /** Pestaña Resumen de «Mi progreso» (2026-11-23; lienzo «Resumen e Inicio compacto», aprobado el mismo día). */
+  resumen: {
+    rango: (actual: number, total: number) => `Rango ${n(actual)} de ${n(total)}`,
+    etapa: (etapa: number) => `Etapa ${n(etapa)} de tu avatar`,
+    paraCompletar: "Para completar tu rango",
+    requisitos: (cumplidos: number, total: number) => `${n(cumplidos)} de ${n(total)} requisitos`,
+    luegoPasas: (numero: number) => `Luego pasas al rango ${n(numero)}.`,
+    ultimoRango: "Llegaste al último rango: completaste la trayectoria. Es permanente.",
+    verProgreso: "Ver tu progreso",
+    cifras: {
+      exp: "EXP total",
+      racha: "Racha",
+      dias: (dias: number) => (dias === 0 ? "Sin racha" : `${n(dias)} ${dias === 1 ? "día" : "días"}`),
+      maxima: (dias: number) => `Máxima: ${n(dias)} ${dias === 1 ? "día" : "días"}`,
+      misiones: "Misiones completadas",
+      medallas: "Medallas con nivel",
+      deTotal: (valor: number, total: number) => `${n(valor)} de ${n(total)}`,
+      historial: "Historial",
+      verMisiones: "Misiones",
+      verMedallas: "Medallas",
+    },
+    misiones: {
+      titulo: "Misiones",
+      /** Subtítulo: el Resumen muestra solo las más cerca de completarse (2026-11-23). */
+      masCerca: (cuantas: number) => (cuantas === 1 ? "La más cerca de completarse" : `Las ${n(cuantas)} más cerca de completarse`),
+      cuenta: (hoy: number, totalHoy: number, semana: number, totalSemana: number) =>
+        `Hoy ${n(hoy)} de ${n(totalHoy)} · Esta semana ${n(semana)} de ${n(totalSemana)}`,
+      diaria: "Diaria",
+      semanal: "Semanal",
+      terminaEn: (tiempo: string) => `Termina en ${tiempo}`,
+      sinMisiones: "Por ahora no tienes misiones.",
+      todasCompletas: "Completaste todas tus misiones de hoy y de esta semana.",
+      avance: (progreso: number, objetivo: number) => `${n(progreso)} de ${n(objetivo)}`,
+      completada: "Completada",
+      dificil: "Difícil",
+      verTodas: "Ver todas tus misiones →",
+    },
+    medalla: "Tu medalla más cerca de subir",
+    exp: {
+      titulo: "EXP reciente",
+      vacio: "Aún no tienes movimientos de EXP. Llegan cuando se acepta un aporte o completas una misión.",
+      verHistorial: "Ver historial de EXP →",
+    },
+    error: (que: string) => `Todavía no podemos mostrar ${que}. Intenta de nuevo en unos minutos.`,
+  },
+
   /** Celebraciones de rango, medalla y racha (2026-11-16; lienzo aprobado el mismo día). Reconocen, no presionan (RF-GAM-62). */
   celebraciones: {
     paso: (actual: number, total: number) => `${n(actual)} de ${n(total)}`,
@@ -467,7 +513,7 @@ export const TEXTOS = {
       "Es al que pasas cuando completes tu nuevo rango." + (avistado ? ` Y avistaste el ${n(avistado)}.` : ""),
     ultimoRango: "Completaste la trayectoria",
     ultimoRangoDetalle: "Es el último rango. Nadie te lo quita.",
-    verTrayectoria: "Ver tu trayectoria",
+    verTrayectoria: "Ver tu progreso",
 
     medallaEyebrow: "Nuevo nivel de medalla",
     medallaPrimera: "Tu primer nivel de esta medalla",
