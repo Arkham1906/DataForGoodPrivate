@@ -10,15 +10,16 @@ import Tag from "@/components/ui/Tag";
 import BarraDeFiltros, { type ValoresDeFiltros } from "@/components/campanas/BarraDeFiltros";
 import { FILTROS_VACIOS, avisoSinResultados, conFiltro, etiquetasPorTematica, filtrarCampanas, opcionesDeTematica, type FiltrosLocales } from "@/lib/campanas/filtro-local";
 import type { CampanaSupervisable } from "@/lib/supervision/root";
+import SelectorDeVistaCampanas from "@/components/campanas/SelectorDeVistaCampanas";
+import ProgressBar from "@/components/ui/ProgressBar";
+import { BASE_PATH } from "@/lib/base-path";
+import { textoDeUbicacion } from "@/lib/campanas/ubicacion";
+import { NOMBRE_DE_TIPO } from "@/lib/campanas/sistema-opciones";
 import { porcentajeDeMeta } from "@/lib/campanas/meta";
 
 type TabKey = "pending" | "supervised" | "finished" | "flagged";
 
 const tematicaDe = (campaign: CampanaSupervisable) => campaign.tag;
-
-function porcentaje(campaign: CampanaSupervisable) {
-  return `${porcentajeDeMeta(campaign.approvedContributions, campaign.goalContributions)}%`;
-}
 
 export default function PestanasDeSupervision({
   pendientes: todasPendientes,
@@ -54,185 +55,114 @@ export default function PestanasDeSupervision({
     [todasPendientes, todasSupervisadas, todasFinalizadas, todasConIncidencia],
   );
 
-  const renderPendingList = () => (
-    <div className="space-y-3">
-      {pendientes.length === 0 ? (
-        <div className="rounded-lg border border-system-200 bg-white p-5 text-[13px] text-system-600">
-          {avisoSinResultados(todasPendientes.length, "No hay campañas pendientes por revisar.")}
-        </div>
-      ) : (
-        pendientes.map((campaign) => (
+  const renderCampaignList = (items: CampanaSupervisable[], total: number, vacio: string) => items.length === 0 ? (
+    <div className="rounded-lg border border-system-200 bg-white p-5 text-[13px] text-system-600">
+      {avisoSinResultados(total, vacio)}
+    </div>
+  ) : (
+    <SelectorDeVistaCampanas
+      toolbar={<span className="text-[12px] text-system-500">Vista</span>}
+      persistKey="dfg:root:supervision:campanas:vista"
+      renderChildren={(vistaCuadricula) => items.map((campaign) => {
+        const etiquetaDeEstado = activeTab === "pending"
+          ? campaign.supervision === "mia" ? <Tag tone="ok">La supervisas tú</Tag> : <Tag tone="warn">Disponible</Tag>
+          : activeTab === "supervised"
+            ? <Tag tone={campaign.status === "activa" ? "ok" : "warn"}>{campaign.status === "activa" ? "Activa" : campaign.status === "pausada" ? "Pausada" : "Aceptada"}</Tag>
+            : activeTab === "flagged"
+              ? <Tag tone={campaign.latestSupervisionAction === "reportada" ? "warn" : "danger"}>{campaign.latestSupervisionAction === "reportada" ? "Reportada" : "Rechazada"}</Tag>
+              : <Tag>Finalizada</Tag>;
+        const datosPorDecidir = activeTab === "finished" && campaign.datosAbiertos?.estado === "pendiente";
+        const ubicacion = textoDeUbicacion({
+          todoElPais: campaign.todoElPais,
+          municipio: campaign.locationCity,
+          estado: campaign.locationState,
+        }, "Sin ubicación");
+
+        return (
           <Link
             key={campaign.id}
             href={`/supervisar/${campaign.id}`}
-            className="block rounded-lg border border-system-200 bg-white p-5 shadow-sm transition-shadow hover:border-brand-600 hover:shadow-md"
+            className={vistaCuadricula
+              ? "block rounded-lg border border-system-200 bg-white p-5 shadow-sm transition-shadow hover:border-brand-600 hover:shadow-md"
+              : "grid min-w-0 grid-cols-1 items-center gap-x-5 gap-y-3 rounded-lg border border-system-200 bg-white p-4 shadow-sm transition-shadow hover:border-brand-600 hover:shadow-md md:grid-cols-[minmax(0,1.3fr)_minmax(160px,1.2fr)_minmax(96px,0.7fr)_minmax(140px,1fr)] md:gap-x-4 xl:grid-cols-[minmax(190px,1.3fr)_minmax(200px,1.2fr)_minmax(110px,0.7fr)_minmax(160px,1fr)] xl:gap-x-5"}
           >
-            <div className="mb-1.5 flex flex-wrap items-start justify-between gap-3">
-              <h2 className="text-[15px] font-extrabold text-system-900">{campaign.name}</h2>
-              {campaign.supervision === "mia" ? <Tag tone="ok">La supervisas tú</Tag> : <Tag tone="warn">Disponible</Tag>}
-            </div>
-            <p className="text-[12.5px] text-system-500">
-              {campaign.creatorName || "Usuario"} · {campaign.tag || "Sin temática"} · meta {campaign.goalContributions} aportes
-            </p>
-          </Link>
-        ))
-      )}
-    </div>
-  );
-
-  // Supervisadas en dos bloques (2026-10-16): las que supervisa el SuperUsuario y las de los supervisores.
-  const renderSupervisedList = () => (
-    <div className="space-y-4">
-      {renderBloqueDeSupervisadas(
-        "Supervisadas por ti",
-        todasSupervisadas.filter((c) => c.supervision === "mia"),
-        supervisadas.filter((c) => c.supervision === "mia"),
-        "Todavía no supervisas ninguna campaña aceptada.",
-      )}
-      {renderBloqueDeSupervisadas(
-        "Supervisadas por otros supervisores",
-        todasSupervisadas.filter((c) => c.supervision !== "mia"),
-        supervisadas.filter((c) => c.supervision !== "mia"),
-        "Ningún supervisor tiene campañas aceptadas todavía.",
-      )}
-    </div>
-  );
-
-  const renderBloqueDeSupervisadas = (
-    titulo: string,
-    todas: CampanaSupervisable[],
-    filtradas: CampanaSupervisable[],
-    vacio: string,
-  ) => (
-    <div className="overflow-hidden rounded-lg border border-system-200 bg-white shadow-sm">
-      <div className="flex items-center justify-between border-b border-system-200 bg-system-100 px-4 py-3">
-        <h2 className="text-[13px] font-semibold text-system-900">{titulo}</h2>
-        <Tag tone="ok">{todas.length}</Tag>
-      </div>
-
-      {filtradas.length === 0 ? (
-        <div className="p-5 text-[13px] text-system-600">{avisoSinResultados(todas.length, vacio)}</div>
-      ) : (
-        <div className="divide-y divide-system-200">
-          {filtradas.map((campaign) => (
-            <div key={campaign.id} className="p-4">
-              <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h3 className="text-[15px] font-extrabold text-system-900">{campaign.name}</h3>
-                  <p className="text-[12.5px] text-system-500">
-                    {campaign.tag || "Sin temática"}
-                    {campaign.supervision !== "mia" && ` · supervisa ${campaign.supervisadaPor ?? "nadie"}`}
+            {vistaCuadricula ? (
+              <>
+                <div className="mb-1.5 flex flex-wrap items-start justify-between gap-3">
+                  <h2 className="text-[15px] font-extrabold text-system-900">{campaign.name}</h2>
+                  <div className="flex flex-wrap gap-1.5">{etiquetaDeEstado}{datosPorDecidir && <Tag tone="warn">Datos por decidir</Tag>}</div>
+                </div>
+                {campaign.hasBanner && (
+                  <div data-campana-banner className="mt-3 aspect-[4/3] overflow-hidden rounded-lg bg-system-100">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`${BASE_PATH}/api/campanas/${campaign.id}/banner?v=${encodeURIComponent(campaign.bannerVersion ?? "")}`}
+                      alt=""
+                      loading="lazy"
+                      className="h-full w-full object-contain"
+                      style={{ objectPosition: `${campaign.bannerPositionX ?? 50}% ${campaign.bannerPositionY ?? 50}%`, transform: `scale(${campaign.bannerScale ?? 1})` }}
+                    />
+                  </div>
+                )}
+                <p className="mt-2 text-xs text-system-600">Supervisa: {campaign.supervisadaPor || "Sin asignar"}</p><p className="text-[12.5px] text-system-500">
+                  {(campaign.creatorName || "Usuario")} · {(campaign.tag || "Sin temática")} · meta {Number(campaign.goalContributions ?? 0)} aportes
+                </p>
+                {activeTab === "supervised" && <div className="mt-3"><ProgressBar pct={porcentajeDeMeta(Number(campaign.approvedContributions ?? 0), Number(campaign.goalContributions ?? 0))} tone="ok" /><p className="mt-2 text-[11px] text-system-600">{campaign.approvedContributions ?? 0} / {campaign.goalContributions ?? 0} aportes aprobados · {campaign.participants ?? 0} participantes</p></div>}
+              </>
+            ) : (
+              <>
+                <div className="flex min-w-0 items-center justify-start gap-3 md:pr-8 xl:pr-14">
+                  {campaign.hasBanner ? (
+                    <div className="hidden h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-system-100 md:flex">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={`${BASE_PATH}/api/campanas/${campaign.id}/banner?v=${encodeURIComponent(campaign.bannerVersion ?? "")}`}
+                        alt=""
+                        loading="lazy"
+                        className="h-full w-full object-cover"
+                        style={{ objectPosition: `${campaign.bannerPositionX ?? 50}% ${campaign.bannerPositionY ?? 50}%`, transform: `scale(${campaign.bannerScale ?? 1})` }}
+                      />
+                    </div>
+                  ) : (
+                    <div className="hidden h-12 w-12 shrink-0 md:block" aria-hidden="true" />
+                  )}
+                  <div className="min-w-0">
+                    <h2 className="min-w-0 break-words text-[15px] font-extrabold text-system-900">{campaign.name}</h2>
+                    {activeTab !== "pending" && <div className="mt-1 flex flex-wrap gap-1.5">{etiquetaDeEstado}{datosPorDecidir && <Tag tone="warn">Datos por decidir</Tag>}</div>}
+                    {(campaign.tag) && (
+                      <div className="mt-2">
+                        <Tag tone="ok" className="max-w-full truncate whitespace-nowrap">{campaign.tag}</Tag>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="min-w-0 space-y-1 text-[11px] text-system-600"><p>Supervisa: {campaign.supervisadaPor || "Sin asignar"}</p>
+                  <p className="truncate" title={campaign.creatorName || "Usuario"}>
+                    <span className="font-semibold text-system-700">Creador:</span> {campaign.creatorName || "Usuario"}
+                  </p>
+                  <p className="truncate" title={ubicacion}>
+                    <span className="font-semibold text-system-700">Ubicación:</span> {ubicacion}
                   </p>
                 </div>
-                <Tag tone={campaign.status === "activa" ? "ok" : campaign.status === "pausada" ? "default" : "warn"}>
-                  {campaign.status === "activa" ? "Activa" : campaign.status === "pausada" ? "Pausada" : "Aceptada"}
-                </Tag>
-              </div>
-
-              <div className="flex items-center justify-between gap-4 text-[12px] text-system-600">
-                <span>Progreso</span>
-                <span className="font-mono">{campaign.approvedContributions} / {campaign.goalContributions}</span>
-              </div>
-
-              <div className="mt-2 h-2 overflow-hidden rounded-pill bg-system-100">
-                <div className="h-full rounded-pill bg-success-700" style={{ width: porcentaje(campaign) }} />
-              </div>
-
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[12px] text-system-600">
-                <span>{campaign.participants} participantes</span>
-                <Link href={`/supervisar/${campaign.id}`} className="font-bold text-brand-600">Ver detalle</Link>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-
-  // Reportadas/rechazadas y finalizadas también en dos bloques (2026-10-16), con renglones iguales:
-  // nombre, creador, temática, quién supervisa (solo en las de otros), etiqueta y "Ver detalle".
-  const renderBloqueSencillo = (
-    titulo: string,
-    todas: CampanaSupervisable[],
-    filtradas: CampanaSupervisable[],
-    vacio: string,
-    etiqueta: (campaign: CampanaSupervisable) => React.ReactNode,
-    tonoDelContador: "danger" | "default",
-  ) => (
-    <div className="overflow-hidden rounded-lg border border-system-200 bg-white shadow-sm">
-      <div className="flex items-center justify-between border-b border-system-200 bg-system-100 px-4 py-3">
-        <h2 className="text-[13px] font-semibold text-system-900">{titulo}</h2>
-        <Tag tone={tonoDelContador}>{todas.length}</Tag>
-      </div>
-
-      {filtradas.length === 0 ? (
-        <div className="p-5 text-[13px] text-system-600">{avisoSinResultados(todas.length, vacio)}</div>
-      ) : (
-        <div className="divide-y divide-system-200">
-          {filtradas.map((campaign) => (
-            <div key={campaign.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
-              <div>
-                <h3 className="text-[15px] font-extrabold text-system-900">{campaign.name}</h3>
-                <p className="text-[12.5px] text-system-500">
-                  {campaign.creatorName || "Usuario"} · {campaign.tag || "Sin temática"}
-                  {campaign.supervision !== "mia" && ` · supervisa ${campaign.supervisadaPor ?? "nadie"}`}
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                {campaign.datosAbiertos?.estado === "pendiente" && <Tag tone="warn">Datos por decidir</Tag>}
-                {etiqueta(campaign)}
-                <Link href={`/supervisar/${campaign.id}`} className="font-bold text-brand-600">Ver detalle</Link>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-
-  const etiquetaDeIncidencia = (campaign: CampanaSupervisable) =>
-    campaign.latestSupervisionAction === "reportada" ? <Tag tone="warn">Reportada</Tag> : <Tag tone="danger">Rechazada</Tag>;
-
-  const renderFlaggedList = () => (
-    <div className="space-y-4">
-      {renderBloqueSencillo(
-        "Supervisadas por ti",
-        todasConIncidencia.filter((c) => c.supervision === "mia"),
-        conIncidencia.filter((c) => c.supervision === "mia"),
-        "No hay campañas reportadas o rechazadas que supervises tú.",
-        etiquetaDeIncidencia,
-        "danger",
-      )}
-      {renderBloqueSencillo(
-        "Supervisadas por otros supervisores",
-        todasConIncidencia.filter((c) => c.supervision !== "mia"),
-        conIncidencia.filter((c) => c.supervision !== "mia"),
-        "No hay campañas reportadas o rechazadas de otros supervisores.",
-        etiquetaDeIncidencia,
-        "danger",
-      )}
-    </div>
-  );
-
-  const renderFinishedList = () => (
-    <div className="space-y-4">
-      {renderBloqueSencillo(
-        "Supervisadas por ti",
-        todasFinalizadas.filter((c) => c.supervision === "mia"),
-        finalizadas.filter((c) => c.supervision === "mia"),
-        "Todavía no hay campañas finalizadas que hayas supervisado tú.",
-        () => <Tag>Finalizada</Tag>,
-        "default",
-      )}
-      {renderBloqueSencillo(
-        "Supervisadas por otros supervisores",
-        todasFinalizadas.filter((c) => c.supervision !== "mia"),
-        finalizadas.filter((c) => c.supervision !== "mia"),
-        "Todavía no hay campañas finalizadas de otros supervisores.",
-        () => <Tag>Finalizada</Tag>,
-        "default",
-      )}
-    </div>
+                <div className="min-w-0 text-[11px] text-system-600">
+                  <p className="font-semibold text-system-700">Meta total:</p>
+                  <p className="font-mono">{Number(campaign.goalContributions ?? 0).toLocaleString("es-MX")} aportes</p>
+                  {activeTab === "supervised" && <p className="mt-1">{campaign.approvedContributions ?? 0} aprobados · {campaign.participants ?? 0} participantes</p>}
+                </div>
+                <div className="min-w-0">
+                  <p className="mb-1 text-[11px] font-semibold text-system-700">Tipo de dato:</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(campaign.dataTypes ?? []).map((type) => (
+                      <Tag key={type}>{NOMBRE_DE_TIPO[type as keyof typeof NOMBRE_DE_TIPO]}</Tag>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </Link>
+        );
+      })}
+    />
   );
 
   // Datos abiertos que nadie más decidirá (2026-11-09, a pedido del usuario): las que supervisa el SuperUsuario o
@@ -248,14 +178,29 @@ export default function PestanasDeSupervision({
     { key: "finished", label: "Campañas finalizadas", count: todasFinalizadas.length },
   ];
 
-  return (
-    <div className="mx-auto max-w-4xl">
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-600">Modo supervisor · SuperUsuario</p>
-          <h1 className="mt-2 text-2xl font-extrabold text-system-900">
-            {activeTab === "pending" ? "Campañas por supervisar" : activeTab === "supervised" ? "Campañas supervisadas" : activeTab === "finished" ? "Campañas finalizadas" : "Campañas reportadas / rechazadas"}
-          </h1>
+  const todas = activeTab === "pending" ? todasPendientes : activeTab === "supervised" ? todasSupervisadas : activeTab === "finished" ? todasFinalizadas : todasConIncidencia;
+  const filtradas = activeTab === "pending" ? pendientes : activeTab === "supervised" ? supervisadas : activeTab === "finished" ? finalizadas : conIncidencia;
+  return (<div className="mx-auto max-w-4xl lg:mx-0 lg:max-w-none"><div className="mb-6"><div className="w-full min-w-0"><h1 className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-600">Supervisión · SuperUsuario</h1><div className="mt-3">      <div
+        role="group"
+        aria-label="Categorías de supervisión"
+        className="dashboard-nav mb-5 w-full min-w-0 max-w-full touch-pan-x flex flex-nowrap gap-2 overflow-x-auto overscroll-x-contain pb-2 [-webkit-overflow-scrolling:touch] md:flex-wrap md:overflow-visible md:pb-0"
+      >
+        {tabs.map(({ key, label, count }) => (
+          <button
+            key={key}
+            type="button"
+            aria-pressed={activeTab === key}
+            onClick={() => setActiveTab(key)}
+            className={`inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap rounded-pill border px-3.5 py-1.5 text-[13px] font-semibold transition-colors max-md:px-2.5 max-md:py-1 max-md:text-[12px] ${
+              activeTab === key ? "border-brand-600 bg-brand-600 text-white" : "border-system-300 bg-white text-system-600 hover:border-brand-600"
+            }`}
+          >
+            {label}&nbsp; <span className="font-mono text-[11px]">{count}</span>
+          </button>
+        ))}
+      </div>
+
+</div>
           <p className="mt-1 text-[13px] text-system-600">
             {activeTab === "pending" ? `${pendientes.length} esperando revisión` : activeTab === "supervised" ? `${supervisadas.length} bajo supervisión` : activeTab === "finished" ? `${finalizadas.length} finalizadas` : `${conIncidencia.length} con incidencia`}
           </p>
@@ -282,27 +227,8 @@ export default function PestanasDeSupervision({
         </div>
       )}
 
-      <div
-        role="group"
-        aria-label="Categorías de supervisión"
-        className="dashboard-nav mb-5 w-full min-w-0 max-w-full touch-pan-x flex flex-nowrap gap-2 overflow-x-auto overscroll-x-contain pb-2 [-webkit-overflow-scrolling:touch] md:flex-wrap md:overflow-visible md:pb-0"
-      >
-        {tabs.map(({ key, label, count }) => (
-          <button
-            key={key}
-            type="button"
-            aria-pressed={activeTab === key}
-            onClick={() => setActiveTab(key)}
-            className={`inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap rounded-pill border px-3.5 py-1.5 text-[13px] font-semibold transition-colors max-md:px-2.5 max-md:py-1 max-md:text-[12px] ${
-              activeTab === key ? "border-brand-600 bg-brand-600 text-white" : "border-system-300 bg-white text-system-600 hover:border-brand-600"
-            }`}
-          >
-            {label}&nbsp; <span className="font-mono text-[11px]">{count}</span>
-          </button>
-        ))}
-      </div>
-
       <BarraDeFiltros
+        ordenRedondeado
         valores={filtros}
         tematicas={tematicas}
         etiquetasPorTematica={etiquetasDelFiltro}
@@ -310,7 +236,7 @@ export default function PestanasDeSupervision({
         colapsableEnMovil
       />
 
-      {activeTab === "pending" ? renderPendingList() : activeTab === "supervised" ? renderSupervisedList() : activeTab === "finished" ? renderFinishedList() : renderFlaggedList()}
+      {activeTab === "pending" ? renderCampaignList(filtradas, todas.length, "No hay campa\u00f1as pendientes.") : <div className="space-y-6">{[true, false].map((mias) => <section key={String(mias)}><h2 className="mb-3 text-sm font-bold text-system-900">{mias ? "Supervisadas por ti" : "Supervisadas por otros supervisores"}</h2>{renderCampaignList(filtradas.filter((c) => (c.supervision === "mia") === mias), todas.filter((c) => (c.supervision === "mia") === mias).length, "No hay campa\u00f1as en este apartado.")}</section>)}</div>}
     </div>
   );
 }

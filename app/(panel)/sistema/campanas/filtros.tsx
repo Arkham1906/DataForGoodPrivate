@@ -50,6 +50,7 @@ export default function FiltrosDeCampanas({
 
   return (
     <BarraDeFiltros
+      ordenRedondeado
       valores={{ q, tematica, etiqueta, tipo, vigencia, orden }}
       tematicas={tematicas}
       etiquetasPorTematica={etiquetasPorTematica}

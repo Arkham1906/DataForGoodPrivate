@@ -6,6 +6,7 @@
 import { ListadoDeAportes, SelectorDeVistaAportes, useVistaDeAportes } from "@/components/aportes/ListadoDeAportes";
 import { useEffect, useState, type ReactNode } from "react";
 import Button from "@/components/ui/Button";
+import SelectorDeOrden from "@/components/ui/SelectorDeOrden";
 import ButtonLink from "@/components/ui/ButtonLink";
 import { EsqueletoDeFiltros, EsqueletoDeFilas, EsqueletoDeTarjetas } from "@/components/ui/Esqueletos";
 import { BASE_PATH } from "@/lib/base-path";
@@ -48,7 +49,7 @@ function CamposDeFiltros({
     <label className="min-w-0 flex-1"><span className="sr-only">Temática</span><select aria-label="Temática" value={tematica} onChange={(event) => onTematica(event.target.value)} className={clase}><option value="">Temática: todas</option>{tematicas.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>
     <label className="min-w-0 flex-1"><span className="sr-only">Estado</span><select aria-label="Estado" value={estado} onChange={(event) => onEstado(event.target.value)} className={clase}><option value="">Estado: todos</option>{ESTADOS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
     <label className="min-w-0 flex-1"><span className="sr-only">Fecha</span><input aria-label="Fecha" type="date" value={fecha} onChange={(event) => onFecha(event.target.value)} className={clase} /></label>
-    <label className="min-w-0 flex-1"><span className="sr-only">Ordenar por</span><select aria-label="Ordenar por" value={orden} onChange={(event) => onOrden(event.target.value)} className={clase}>{ORDENES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+    <SelectorDeOrden valor={orden} onCambiar={onOrden} opciones={ORDENES} />
   </>;
 }
 

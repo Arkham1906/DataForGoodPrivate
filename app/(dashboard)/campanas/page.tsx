@@ -402,6 +402,7 @@ export default function CampanasPage() {
 
       {!cargando && !error && (
         <BarraDeFiltros
+          ordenRedondeado
           valores={{ vista, q: busqueda.q, orden: busqueda.orden, tematica: temaActivo, etiqueta: etiquetaActiva, tipo: tipoActivo }}
           vistas={vistas}
           tematicas={temasConCampanas.map(([tema]) => tema)}

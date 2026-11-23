@@ -15,11 +15,14 @@ import { ZONA_DE_CAMPANAS } from "@/lib/fecha-de-tepic";
 import type { Periodo, SerieDeTiempo } from "@/lib/periodo";
 import { serieDeTiempo } from "@/lib/series-de-tiempo";
 import { ESTADOS_TERMINADOS } from "@/lib/campanas/terminada";
+import { mapCampana, type CampanaPublica } from "@/lib/campanas/publicas";
+import { columnaDeTipos } from "@/lib/campanas/tipos-de-campana";
 
 /** Campañas con pendientes que se listan (las que más tienen). */
 const CAMPANAS_CON_PENDIENTES = 5;
 
 export type CampanaConPendientes = {
+  tarjeta: CampanaPublica;
   id: string;
   nombre: string;
   pendientes: number;
@@ -108,6 +111,13 @@ export async function obtenerDashboardDelRevisor(
     ]);
 
     const pendientes = pendientesR.rows;
+    const primeras = pendientes.slice(0, CAMPANAS_CON_PENDIENTES);
+    const tarjetasR = primeras.length ? await pool.query(
+      `SELECT c.*, ${columnaDeTipos("c")}, est.approved_contributions, est.participants
+       FROM campanas c JOIN campana_estadisticas est ON est.campana_id = c.id
+       WHERE c.id = ANY($1::bigint[])`, [primeras.map((c) => c.id)],
+    ) : { rows: [] };
+    const tarjetas = new Map(tarjetasR.rows.map((fila) => [String(fila.id), mapCampana(fila)]));
     const decisiones = decisionesR.rows[0];
     const porEstrellas = [0, 0, 0, 0, 0];
     for (const fila of estrellasR.rows) porEstrellas[Number(fila.calificacion) - 1] = Number(fila.total);
@@ -117,7 +127,8 @@ export async function obtenerDashboardDelRevisor(
       campanas: Number(campanasR.rows[0]?.total ?? 0),
       porRevisar: pendientes.reduce((suma, p) => suma + Number(p.pendientes), 0),
       pendienteMasAntiguo: antiguos.length ? new Date(Math.min(...antiguos)).toISOString() : null,
-      conPendientes: pendientes.slice(0, CAMPANAS_CON_PENDIENTES).map((p) => ({
+      conPendientes: primeras.filter((p) => tarjetas.has(String(p.id))).map((p) => ({
+        tarjeta: tarjetas.get(String(p.id))!,
         id: String(p.id),
         nombre: String(p.name),
         pendientes: Number(p.pendientes),

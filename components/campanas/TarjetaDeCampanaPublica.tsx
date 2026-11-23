@@ -24,6 +24,7 @@ export default function TarjetaDeCampanaPublica({
   nivel = "h2",
   compacta = false,
   lista = false,
+  href,
 }: {
   campana: CampanaPublica;
   /** Posición en la lista: las primeras entran al cargar y las demás con el scroll (entradaDeTarjeta). */
@@ -34,13 +35,14 @@ export default function TarjetaDeCampanaPublica({
   compacta?: boolean;
   /** Presentación horizontal, equivalente a la lista de /campanas para el usuario común. */
   lista?: boolean;
+  href?: string;
 }) {
   const Titulo = nivel;
   const pct = porcentajeDeMeta(c.approvedContributions, c.goalContributions);
   const lugar = textoDeUbicacion({ todoElPais: c.todoElPais, municipio: c.locationCity, estado: c.locationState });
   if (lista) {
     return (
-      <Link href={`/campanas/${c.id}`} {...entradaDeTarjeta(indice)}>
+      <Link href={href ?? `/campanas/${c.id}`} {...entradaDeTarjeta(indice)}>
         <article className="landing-tarjeta grid min-w-0 grid-cols-1 gap-x-5 gap-y-4 rounded-[18px] border border-system-200 bg-white p-3 hover:border-brand-600 max-md:gap-y-2.5 max-md:p-2.5 md:grid-cols-[88px_minmax(0,1fr)] xl:grid-cols-[100px_minmax(165px,1.25fr)_minmax(145px,1.15fr)_minmax(135px,1fr)_auto] xl:items-center xl:gap-x-8 xl:p-4">
           <div data-campana-banner className="flex h-16 w-[100px] items-center justify-center overflow-hidden rounded-md bg-system-100 xl:justify-self-start">
             {c.hasBanner && (
@@ -70,7 +72,7 @@ export default function TarjetaDeCampanaPublica({
   }
   if (compacta) {
     return (
-      <Link href={`/campanas/${c.id}`} {...entradaDeTarjeta(indice)}>
+      <Link href={href ?? `/campanas/${c.id}`} {...entradaDeTarjeta(indice)}>
         <article className="landing-tarjeta flex h-full min-w-0 flex-col overflow-hidden rounded-[18px] border border-system-200 bg-white hover:border-brand-600">
       <div data-campana-banner className="mx-3 mt-3 aspect-[16/10] overflow-hidden rounded-lg border border-system-300 bg-system-100">
             {c.hasBanner && (
@@ -111,7 +113,7 @@ export default function TarjetaDeCampanaPublica({
   }
 
   return (
-    <Link href={`/campanas/${c.id}`} {...entradaDeTarjeta(indice)}>
+    <Link href={href ?? `/campanas/${c.id}`} {...entradaDeTarjeta(indice)}>
       {/* Textos recortados (2026-10-22): un nombre largo o una palabra sin espacios estiraba la tarjeta o se
           salía de ella y empujaba "Activa" afuera. El texto completo queda en el title. */}
       <article className="landing-tarjeta flex h-full min-w-0 flex-col rounded-[18px] border border-system-200 bg-white hover:border-brand-600">

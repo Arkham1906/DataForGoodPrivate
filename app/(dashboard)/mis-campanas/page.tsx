@@ -1,4 +1,5 @@
 "use client";
+import SelectorDeOrden from "@/components/ui/SelectorDeOrden";
 
 // Pantalla /mis-campanas: campañas que creaste, con filtros por estado.
 // Componente cliente. Datos: GET /api/campanas?mine=true.
@@ -433,19 +434,11 @@ export default function MisCampanasPage() {
         </div>
         {campaigns.length > 0 && (
           <div className="w-full shrink-0 sm:w-[220px] md:w-[220px]">
-            <label className="sr-only" htmlFor="orden-de-avance">
-              Ordenar campañas
-            </label>
-            <select
-              id="orden-de-avance"
-              value={ordenDeAvance}
-              onChange={(e) => setOrdenDeAvance(e.target.value as "" | "mayor" | "menor")}
-              className="min-h-[38px] w-full rounded border border-system-300 bg-white px-3 text-sm text-system-900 outline-none transition-colors focus:border-brand-600"
-            >
-              <option value="">Más recientes</option>
-              <option value="mayor">Mayor avance</option>
-              <option value="menor">Menor avance</option>
-            </select>
+            <SelectorDeOrden valor={ordenDeAvance} onCambiar={(valor) => setOrdenDeAvance(valor as "" | "mayor" | "menor")} opciones={[
+              { value: "", label: "Más recientes" },
+              { value: "mayor", label: "Mayor avance" },
+              { value: "menor", label: "Menor avance" },
+            ]} />
           </div>
         )}
       </div>

@@ -8,7 +8,7 @@
 // - Campañas con pendientes: las que más tienen, con la espera más larga y "Revisar" a su bandeja.
 // Se actualiza solo: ActualizacionEnVivo refresca la página del servidor cuando cambia algo.
 
-import Link from "next/link";
+import CampanasPendientesDelRevisor from "@/components/revisiones/CampanasPendientesDelRevisor";
 import MetricCard from "@/components/ui/MetricCard";
 import { Suspense } from "react";
 import GraficaDeTiempo from "@/components/ui/GraficaDeTiempo";
@@ -123,25 +123,7 @@ export default function DashboardDelRevisor({ datos, periodo }: { datos: Datos; 
         {datos.conPendientes.length === 0 ? (
           <p className="text-[13px] text-system-600">No tienes aportes pendientes en tus campañas en curso.</p>
         ) : (
-          <ul className="divide-y divide-system-200">
-            {datos.conPendientes.map((c) => (
-              <li key={c.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 py-2.5 first:pt-0 last:pb-0">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[14px] font-semibold text-system-900">{c.nombre}</p>
-                  <p className="text-[12px] text-system-500">
-                    {nf.format(c.pendientes)} {c.pendientes === 1 ? "pendiente" : "pendientes"} · el más antiguo desde hace{" "}
-                    {esperaDesde(c.masAntiguo, ahora)}
-                  </p>
-                </div>
-                <Link
-                  href={`/revisiones/campanas/${c.id}`}
-                  className="shrink-0 rounded-pill border border-system-300 px-3.5 py-1.5 text-[13px] font-semibold text-brand-700 transition-colors hover:border-brand-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
-                >
-                  Revisar<span className="sr-only"> los aportes de {c.nombre}</span> →
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <CampanasPendientesDelRevisor campanas={datos.conPendientes} ahora={ahora} />
         )}
       </Panel>
     </section>

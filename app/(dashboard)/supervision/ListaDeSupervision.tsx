@@ -324,6 +324,7 @@ export default function ListaDeSupervision() {
       </div>
 
       <BarraDeFiltros
+        ordenRedondeado
         valores={filtros}
         tematicas={themeOptions}
         etiquetasPorTematica={etiquetasDelFiltro}

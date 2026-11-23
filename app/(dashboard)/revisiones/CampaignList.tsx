@@ -133,6 +133,7 @@ export default function CampaignList({ completed = false }: { completed?: boolea
       </nav>
 
       <BarraDeFiltros
+        ordenRedondeado
         valores={filtros}
         tematicas={tematicas}
         onCambiar={cambiarFiltro}

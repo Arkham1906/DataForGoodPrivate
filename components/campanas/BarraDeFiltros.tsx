@@ -10,6 +10,7 @@
 
 import { useEffect, useId, useState } from "react";
 
+import SelectorDeOrden from "@/components/ui/SelectorDeOrden";
 import SelectorDeTipos from "@/components/campanas/SelectorDeTipos";
 import { ORDENES_DE_CAMPANA, VIGENCIAS } from "@/lib/campanas/sistema-opciones";
 
@@ -38,6 +39,7 @@ export default function BarraDeFiltros({
   conTipo = true,
   etiquetasPorTematica,
   vistas,
+  ordenRedondeado = false,
 }: {
   valores: ValoresDeFiltros;
   tematicas: string[];
@@ -54,6 +56,7 @@ export default function BarraDeFiltros({
   conTipo?: boolean;
   /** Select "Mostrar" con estas listas (p. ej. Todas / Favoritas / Cerca de ti); sin él no sale. */
   vistas?: { valor: string; etiqueta: string }[];
+  ordenRedondeado?: boolean;
 }) {
   const [texto, setTexto] = useState(valores.q);
   const [panelAbierto, setPanelAbierto] = useState(false);
@@ -199,7 +202,9 @@ export default function BarraDeFiltros({
           </div>
         )}
 
-        <div className="min-w-0 flex-1">
+        {ordenRedondeado ? (
+          <SelectorDeOrden valor={filtros.orden} onCambiar={(valor) => cambiar("orden", valor)} opciones={[{ value: "", label: "Más recientes" }, ...ORDENES_DE_CAMPANA.map((orden) => ({ value: orden.valor, label: orden.etiqueta }))]} />
+        ) : <div className="min-w-0 flex-1">
           <label className="sr-only" htmlFor={`${idOrden}-${sufijo}`}>
             Ordenar por
           </label>
@@ -216,7 +221,7 @@ export default function BarraDeFiltros({
               </option>
             ))}
           </select>
-        </div>
+        </div>}
       </>
     );
   }
