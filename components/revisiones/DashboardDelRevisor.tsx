@@ -119,13 +119,18 @@ export default function DashboardDelRevisor({ datos, periodo }: { datos: Datos; 
         </Panel>
       </div>
 
-      <Panel titulo="Campañas con aportes por revisar">
-        {datos.conPendientes.length === 0 ? (
-          <p className="text-[13px] text-system-600">No tienes aportes pendientes en tus campañas en curso.</p>
-        ) : (
-          <CampanasPendientesDelRevisor campanas={datos.conPendientes} ahora={ahora} />
-        )}
-      </Panel>
+      <div>
+        <h2 id="campanas-con-aportes-por-revisar" className="mb-3 text-xl font-extrabold text-system-900">
+          Campañas con aportes por revisar
+        </h2>
+        <section aria-labelledby="campanas-con-aportes-por-revisar" className="rounded-lg border border-system-200 bg-white p-4">
+          {datos.conPendientes.length === 0 ? (
+            <p className="text-[13px] text-system-600">No tienes aportes pendientes en tus campañas en curso.</p>
+          ) : (
+            <CampanasPendientesDelRevisor campanas={datos.conPendientes} ahora={ahora} />
+          )}
+        </section>
+      </div>
     </section>
   );
 }
