@@ -16,6 +16,7 @@ import VigilanteDeSesion from "@/components/layout/VigilanteDeSesion";
 import ActualizacionEnVivo from "@/components/layout/ActualizacionEnVivo";
 import DetectorDeUbicacion from "@/components/layout/DetectorDeUbicacion";
 import Celebraciones from "@/components/gamificacion/celebraciones/Celebraciones";
+import BurbujaDelPotenciador from "@/components/gamificacion/BurbujaDelPotenciador";
 
 export default async function ShellDeUsuario({ usuario, children }: { usuario: SessionUser; children: ReactNode }) {
   const [aviso, potenciadores] = await Promise.all([avisoDelMenuParaUsuario(usuario), obtenerPotenciadores(usuario.id)]);
@@ -33,6 +34,8 @@ export default async function ShellDeUsuario({ usuario, children }: { usuario: S
             {children}
           </div>
         </main>
+        {/* En teléfono el potenciador va en una burbuja que se puede mover (2026-11-23). */}
+        <BurbujaDelPotenciador potenciadores={potenciadores} />
       </div>
     </div>
   );
