@@ -378,6 +378,29 @@ export default async function LandingPage() {
           </section>
         )}
 
+        {aportesRecientes.length > 0 && (
+          <section aria-labelledby="aportes-recientes" className={`${ANCHO} pb-14 md:pb-24`}>
+            <EncabezadoDeSeccion
+              id="aportes-recientes"
+              etiqueta="Desde el campo"
+              titulo="Lo último que aportó la comunidad"
+              texto="Aportes ya aprobados, sin datos de quién los envió."
+            />
+            {/* 8 aportes en dos filas de 4 en escritorio (2026-11-22, a pedido del usuario), con el aporte completo arriba. */}
+            <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {aportesRecientes.map((post) => (
+                <TarjetaDeAporteDeLaComunidad key={post.id} aporte={post} className="landing-revelar landing-tarjeta" />
+              ))}
+            </ul>
+            {/* Todos los aportes de la comunidad, en vivo (2026-11-22, a pedido del usuario). */}
+            <div className="landing-revelar mt-8 flex justify-center">
+              <ButtonLink href="/comunidad" variant="secondary" size="sm">
+                Ver más →
+              </ButtonLink>
+            </div>
+          </section>
+        )}
+
         {tablaDeLideres && (
           <section aria-labelledby="tabla-de-lideres" className="bg-system-100">
             <div className={`${ANCHO} py-14 md:py-20`}>
@@ -421,29 +444,6 @@ export default async function LandingPage() {
             ))}
           </ol>
         </section>
-
-        {aportesRecientes.length > 0 && (
-          <section aria-labelledby="aportes-recientes" className={`${ANCHO} pb-14 md:pb-24`}>
-            <EncabezadoDeSeccion
-              id="aportes-recientes"
-              etiqueta="Desde el campo"
-              titulo="Lo último que aportó la comunidad"
-              texto="Aportes ya aprobados, sin datos de quién los envió."
-            />
-            {/* 8 aportes en dos filas de 4 en escritorio (2026-11-22, a pedido del usuario), con el aporte completo arriba. */}
-            <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {aportesRecientes.map((post) => (
-                <TarjetaDeAporteDeLaComunidad key={post.id} aporte={post} className="landing-revelar landing-tarjeta" />
-              ))}
-            </ul>
-            {/* Todos los aportes de la comunidad, en vivo (2026-11-22, a pedido del usuario). */}
-            <div className="landing-revelar mt-8 flex justify-center">
-              <ButtonLink href="/comunidad" variant="secondary" size="sm">
-                Ver más →
-              </ButtonLink>
-            </div>
-          </section>
-        )}
 
         <section aria-labelledby="sobre-dataforgood" className="border-t border-system-200">
           <div className={`${ANCHO} grid grid-cols-1 gap-10 py-14 md:grid-cols-2 md:py-20`}>

@@ -25,8 +25,8 @@ export const FORMATOS: Record<TipoDeArchivo, { extensiones: string[]; mimes: str
   },
   // "Archivos" en pantalla (2026-10-26): además de PDF y Word, PowerPoint y Excel. El valor sigue siendo "documento".
   documento: {
-    extensiones: [".pdf", ".docx", ".pptx", ".xlsx", ".xls"],
-    mimes: ["application/pdf", MIME_DOCX, MIME_PPTX, MIME_XLSX, MIME_XLS],
+    extensiones: [".pdf", ".docx", ".pptx", ".xlsx", ".xls", ".txt"],
+    mimes: ["application/pdf", MIME_DOCX, MIME_PPTX, MIME_XLSX, MIME_XLS, "text/plain"],
     tamanoMaximo: 20 * MB,
   },
   texto: { extensiones: [".txt"], mimes: ["text/plain"], tamanoMaximo: 1 * MB },
@@ -40,12 +40,13 @@ const ORDEN: TipoDeArchivo[] = ["foto", "video", "audio", "documento", "texto"];
  * = todos. Se guarda en campana_tipos.formatos de la fila "documento" (["pdf", "word"]); al leer una campaña
  * llega como formatos_de_documento (lib/campanas/tipos-de-campana.ts).
  */
-export type FormatoDeDocumento = "pdf" | "word" | "powerpoint" | "excel";
+export type FormatoDeDocumento = "pdf" | "word" | "powerpoint" | "excel" | "txt";
 export const FORMATOS_DE_DOCUMENTO: { valor: FormatoDeDocumento; nombre: string; extensiones: string[]; mimes: string[] }[] = [
   { valor: "pdf", nombre: "PDF", extensiones: [".pdf"], mimes: ["application/pdf"] },
   { valor: "word", nombre: "Word", extensiones: [".docx"], mimes: [MIME_DOCX] },
   { valor: "powerpoint", nombre: "PowerPoint", extensiones: [".pptx"], mimes: [MIME_PPTX] },
   { valor: "excel", nombre: "Excel", extensiones: [".xlsx", ".xls"], mimes: [MIME_XLSX, MIME_XLS] },
+  { valor: "txt", nombre: "TXT", extensiones: [".txt"], mimes: ["text/plain"] },
 ];
 
 /** Los formatos válidos, sin repetir y en orden fijo; [] = todos (también si se marcaron los cuatro). */
@@ -113,8 +114,19 @@ function extensionDe(nombre: string): string {
   return punto >= 0 ? nombre.slice(punto).toLowerCase() : "";
 }
 
-/** El tipo que dice el nombre del archivo (o, sin extensión conocida, file.type). Solo para avisar. */
+// Solo los archivos generados en el servidor desde el campo de texto son aportes de tipo
+// "texto". Un TXT subido por la persona es "documento", incluso en campañas mixtas.
+const textosEscritos = new WeakSet<object>();
+
+export function archivoDeTextoEscrito(texto: string): File {
+  const archivo = new File([texto], "texto.txt", { type: "text/plain" });
+  textosEscritos.add(archivo);
+  return archivo;
+}
+
+/** El tipo que dice el nombre del archivo (o, sin extensión conocida, file.type). */
 export function tipoPorNombre(file: { name: string; type: string }): TipoDeArchivo | null {
+  if (textosEscritos.has(file)) return "texto";
   const extension = extensionDe(file.name);
   const porExtension = ORDEN.find((t) => FORMATOS[t].extensiones.includes(extension));
   if (porExtension) return porExtension;

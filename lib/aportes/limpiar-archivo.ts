@@ -73,6 +73,10 @@ export async function limpiarArchivo(archivo: File, tipos: TipoDeArchivo[]): Pro
 
   const contenido = Buffer.from(await archivo.arrayBuffer());
   if (declarado === "texto") return limpiarTexto(contenido);
+  if (declarado === "documento" && /\.txt$/i.test(archivo.name)) {
+    const limpio = limpiarTexto(contenido);
+    return limpio.ok ? { ok: true, archivo: { ...limpio.archivo, tipo: "documento" } } : limpio;
+  }
 
   const formato = formatoPorFirma(contenido);
   // El contenido debe ser del mismo tipo que dice la extensión: así también vale el tope de

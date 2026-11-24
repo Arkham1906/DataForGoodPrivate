@@ -12,6 +12,7 @@ import {
   LARGO_MAXIMO_TITULO_DEL_TEXTO,
   TAMANO_MAXIMO as TAMANO_MAXIMO_DE_ARCHIVO,
   archivoEsOpcional,
+  archivoDeTextoEscrito,
   documentoPermitido,
   textoDeExtensiones,
   tipoPorNombre,
@@ -58,7 +59,12 @@ export function archivoDelTexto(
   archivo: FormDataEntryValue | null,
   entrada: { texto: string; titulo: string; tipos: TipoDeArchivo[] },
 ): { ok: true; archivo: FormDataEntryValue | null } | { ok: false; error: string } {
-  if (archivo instanceof File && archivo.size > 0) return { ok: true, archivo };
+  if (archivo instanceof File && archivo.size > 0) {
+    if (entrada.tipos.every((tipo) => tipo === "texto")) {
+      return { ok: false, error: "Para aportar texto, escríbelo en el formulario. No se permite subir archivos TXT." };
+    }
+    return { ok: true, archivo };
+  }
   if (!archivoEsOpcional(entrada.tipos)) return { ok: true, archivo };
   const texto = entrada.texto.replace(/\r\n?/g, "\n").replace(/^\s*\n|\s+$/g, "");
   if (!texto.trim()) return { ok: false, error: "Escribe el texto de tu aporte." };
@@ -68,7 +74,7 @@ export function archivoDelTexto(
   if (entrada.titulo.length > LARGO_MAXIMO_TITULO_DEL_TEXTO) {
     return { ok: false, error: `El título del texto no puede superar ${LARGO_MAXIMO_TITULO_DEL_TEXTO} caracteres.` };
   }
-  return { ok: true, archivo: new File([texto], "texto.txt", { type: "text/plain" }) };
+  return { ok: true, archivo: archivoDeTextoEscrito(texto) };
 }
 
 /**

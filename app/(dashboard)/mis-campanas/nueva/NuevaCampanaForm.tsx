@@ -1969,7 +1969,7 @@ function CampanaFormulario({
                   </div>
                   <p className="mt-2 text-[11.5px] text-system-600" aria-live="polite">
                     {formatosDeDocumento.length === 0 || formatosDeDocumento.length === FORMATOS_DE_DOCUMENTO.length
-                      ? "Se aceptan todos: PDF, Word, PowerPoint y Excel."
+                      ? "Se aceptan todos: PDF, Word, PowerPoint, Excel y TXT."
                       : `Solo se acepta: ${FORMATOS_DE_DOCUMENTO.filter((f) => formatosDeDocumento.includes(f.valor))
                           .flatMap((f) => f.extensiones)
                           .join(", ")}.`}

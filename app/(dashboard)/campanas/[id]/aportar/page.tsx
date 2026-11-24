@@ -164,7 +164,8 @@ export default function AportarPage() {
   const todoLleno = avisoDeTodoLleno(todosLosTipos, limitePorTipo, enviadosPorTipo);
   // La API ya convierte las campañas viejas (lista plana) en un checklist sin título. Solo se
   // muestran los del tipo de lo que se manda (2026-10-28).
-  const soloTexto = modoTexto && archivoEsOpcional(tipos);
+  const tiposDeSubida = tipos.filter((tipo) => tipo !== "texto");
+  const soloTexto = archivoEsOpcional(tipos) && (modoTexto || tiposDeSubida.length === 0);
   const archivoActivo = soloTexto ? null : file;
   const descripcionActiva = soloTexto ? tituloTexto : description;
   const { visibles, faltaArchivo } = seccionesParaElAporte(campaign.checklistSecciones ?? [], soloTexto ? ["texto"] : tipos.filter((tipo) => tipo !== "texto"), archivoActivo);
@@ -318,7 +319,7 @@ export default function AportarPage() {
               titulo="Prepara tu aporte"
               listo={archivoListo}
             >
-              {archivoEsOpcional(tipos) && (
+              {archivoEsOpcional(tipos) && tiposDeSubida.length > 0 && (
                 <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="Cómo quieres aportar">
                   <Button type="button" disabled={submitting} aria-pressed={!soloTexto} variant={!soloTexto ? "primary" : "secondary"} onClick={() => { setModoTexto(false); setSubmitError(null); }}>
                     <span className="inline-flex items-center gap-2"><IconoSubir className="size-4" />Subir archivo</span>
@@ -331,7 +332,7 @@ export default function AportarPage() {
               {soloTexto ? <p className="text-sm text-system-600">Escribe el título y el contenido de tu aporte en el siguiente paso.</p> : <SelectorDeArchivo
                 amplio
                 mostrarAyudaSoloTexto={false}
-                tipos={tipos}
+                tipos={tiposDeSubida}
                 formatosDeDocumento={campaign.formatosDeDocumento ?? []}
                 archivo={file}
                 error={fileError}

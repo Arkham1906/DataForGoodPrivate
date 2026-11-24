@@ -109,7 +109,8 @@ export default function AporteAnonimo({
   }, [enEspera]);
 
   // Solo los checklists del tipo de lo que se manda (2026-10-28).
-  const soloTexto = modoTexto && archivoEsOpcional(tipos);
+  const tiposDeSubida = tipos.filter((tipo) => tipo !== "texto");
+  const soloTexto = archivoEsOpcional(tipos) && (modoTexto || tiposDeSubida.length === 0);
   const archivoActivo = soloTexto ? null : archivo;
   const descripcionActiva = soloTexto ? tituloTexto : descripcion;
   const archivoListo = soloTexto || (Boolean(archivoActivo) && !errorArchivo);
@@ -224,7 +225,7 @@ export default function AporteAnonimo({
               titulo="Prepara tu aporte"
               listo={archivoListo}
             >
-              {archivoEsOpcional(tipos) && (
+              {archivoEsOpcional(tipos) && tiposDeSubida.length > 0 && (
                 <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="Cómo quieres aportar">
                   <Button type="button" disabled={enviando} aria-pressed={!soloTexto} variant={!soloTexto ? "primary" : "secondary"} onClick={() => { setModoTexto(false); setError(null); }}>
                     <span className="inline-flex items-center gap-2"><IconoSubir className="size-4" />Subir archivo</span>
@@ -238,7 +239,7 @@ export default function AporteAnonimo({
                 amplio
                 mostrarAyudaSoloTexto={false}
                 reinicio={vuelta}
-                tipos={tipos}
+                tipos={tiposDeSubida}
                 formatosDeDocumento={formatosDeDocumento}
                 archivo={archivo}
                 error={errorArchivo}
