@@ -189,7 +189,10 @@ export default function CampaignList({ completed = false }: { completed?: boolea
         </div>
       ) : error ? <p className="rounded border border-error-700 bg-error-50 p-3 text-sm text-error-700">{error}</p> : visibleCampaigns.length === 0 ? (
         <div className="rounded-lg border border-dashed border-system-300 p-6 text-sm text-system-600">
-          {avisoSinResultados(tabCampaigns.length, `No tienes campañas ${completed ? "finalizadas" : "en curso"} asignadas.`)}
+          {avisoSinResultados(tabCampaigns.length, `No tienes campañas ${completed ? "finalizadas" : "en curso"} asignadas.`, {
+            tipo: filtros.tipo,
+            sinFiltroDeTipo: filtrarCampanas(tabCampaigns, { ...filtros, tipo: "" }, tematicaDe).length,
+          })}
         </div>
       ) : (
         <div className={vistaCuadricula ? "grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3" : "flex flex-col gap-3"}>

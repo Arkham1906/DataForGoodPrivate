@@ -4,6 +4,7 @@
 // lib/supervision/acciones-root.ts (SuperUsuario). Notifican al creador y escriben en audit_log.
 
 import { revalidatePath } from "next/cache";
+import type { PoolClient } from "pg";
 
 import { pool } from "@/lib/db";
 import { registrarAuditoria, type ActorDeAuditoria } from "@/lib/auditoria";
@@ -16,6 +17,7 @@ import {
   type SancionAplicada,
   type SancionPedida,
 } from "@/lib/moderacion/sancionar";
+import { crearTicketDeSancion, registrarTicketCreado, requiereTicket } from "@/lib/tickets/crear";
 import {
   MAXIMO_EXPLICACION_DE_RECHAZO,
   MOTIVOS_DE_RECHAZO_DE_CAMPANA,
@@ -280,6 +282,44 @@ export async function registrarDecisionDeCampana(
 }
 
 /**
+ * El reporte que deja el rechazo con sanción, ya resuelto con ella: así se ve en reportes (resueltos) y en sanciones
+ * de las dos zonas de moderación. Si ese supervisor ya la había reportado, se reutiliza su reporte. Lo usan el
+ * rechazo de abajo y la aprobación de un ticket de sanción pedido al rechazar (lib/tickets/resolver.ts, 2026-11-24).
+ */
+export async function guardarReporteDeRechazo(
+  client: PoolClient,
+  r: {
+    campanaId: number;
+    creadorId: number;
+    supervisorId: number | null;
+    porRoot: boolean;
+    lista: string | null;
+    explicacion: string | null;
+    motivo: string;
+    sancionId: number;
+  },
+): Promise<void> {
+  await client.query(
+    `INSERT INTO reportes (tipo, campana_id, reportado_id, reportado_por, por_superusuario, origen,
+                           motivo, descripcion, estado, nota_de_resolucion, sancion_id, resuelto_en)
+     VALUES ('campana', $1, $2, $3, $4, 'rechazo', $5, $6, 'sancionado', $7, $8, NOW())
+     ON CONFLICT (campana_id, reportado_por) WHERE tipo = 'campana'
+     DO UPDATE SET estado = 'sancionado', origen = 'rechazo', nota_de_resolucion = EXCLUDED.nota_de_resolucion,
+                   sancion_id = EXCLUDED.sancion_id, resuelto_en = NOW()`,
+    [
+      r.campanaId,
+      r.creadorId,
+      r.supervisorId,
+      r.porRoot,
+      r.lista && r.lista !== OTRO_MOTIVO ? r.lista : null,
+      r.explicacion,
+      `Campaña rechazada con sanción. ${r.motivo}`,
+      r.sancionId,
+    ],
+  );
+}
+
+/**
  * Rechazo, con sanción opcional al creador, en una sola transacción: estado, historial de dictámenes,
  * la sanción (lib/moderacion/sancionar.ts) y su reporte ya resuelto. Si algo falla, no queda nada a medias.
  */
@@ -327,6 +367,8 @@ async function rechazar(
   const supervisorId = autor.tipo === "usuario" ? autor.usuarioId : null;
   const porRoot = autor.tipo === "root";
   let sancion: SancionAplicada | null = null;
+  // Ticket de la sanción (2026-11-24): la que pide un supervisor y suspende o banea espera al SuperUsuario.
+  let ticketId: number | null = null;
   const client = await pool.connect();
 
   try {
@@ -356,7 +398,20 @@ async function rechazar(
       );
     }
 
-    if (pedida) {
+    if (pedida && autor.tipo === "usuario" && (await requiereTicket(client, Number(campana.creator_id), pedida))) {
+      const t = await crearTicketDeSancion(client, {
+        supervisorId: autor.usuarioId,
+        usuarioId: Number(campana.creator_id),
+        pedida,
+        detalle: detalleDeSancion,
+        rechazo: { campanaId: campana.id, lista, explicacion, motivo },
+      });
+      if (!t.ok) {
+        await client.query("ROLLBACK");
+        return { ok: false, status: 409, error: t.error };
+      }
+      ticketId = t.ticketId;
+    } else if (pedida) {
       let firma = "SuperUsuario";
       if (autor.tipo === "usuario") {
         const { rows } = await client.query<{ nombre: string }>(
@@ -377,26 +432,16 @@ async function rechazar(
       }
       sancion = r.sancion;
 
-      // El reporte queda resuelto con la sanción: así se ve en reportes (resueltos) y en sanciones de
-      // las dos zonas de moderación. Si ese supervisor ya la había reportado, se reutiliza su reporte.
-      await client.query(
-        `INSERT INTO reportes (tipo, campana_id, reportado_id, reportado_por, por_superusuario, origen,
-                               motivo, descripcion, estado, nota_de_resolucion, sancion_id, resuelto_en)
-         VALUES ('campana', $1, $2, $3, $4, 'rechazo', $5, $6, 'sancionado', $7, $8, NOW())
-         ON CONFLICT (campana_id, reportado_por) WHERE tipo = 'campana'
-         DO UPDATE SET estado = 'sancionado', origen = 'rechazo', nota_de_resolucion = EXCLUDED.nota_de_resolucion,
-                       sancion_id = EXCLUDED.sancion_id, resuelto_en = NOW()`,
-        [
-          campana.id,
-          campana.creator_id,
-          supervisorId,
-          porRoot,
-          lista && lista !== OTRO_MOTIVO ? lista : null,
-          explicacion,
-          `Campaña rechazada con sanción. ${motivo}`,
-          sancion.sancionId,
-        ],
-      );
+      await guardarReporteDeRechazo(client, {
+        campanaId: campana.id,
+        creadorId: Number(campana.creator_id),
+        supervisorId,
+        porRoot,
+        lista,
+        explicacion,
+        motivo,
+        sancionId: sancion.sancionId,
+      });
     }
 
     await client.query("COMMIT");
@@ -419,8 +464,21 @@ async function rechazar(
       estadoAnterior: "en_revision",
       estadoNuevo: "rechazada",
       ...(sancion ? { sancion: { tipo: sancion.tipo, sancionId: sancion.sancionId } } : {}),
+      ...(ticketId ? { ticket: ticketId } : {}),
     },
   });
+
+  if (ticketId && autor.tipo === "usuario") {
+    await registrarTicketCreado(autor.usuarioId, ticketId, {
+      tipo: "sancion",
+      usuario: Number(campana.creator_id),
+      sancion: pedida?.tipo,
+      ...(pedida?.dias ? { dias: pedida.dias } : {}),
+      origen: "rechazo",
+      campana: campana.id,
+    });
+    revalidatePath("/tickets");
+  }
 
   await notificar({
     usuarioId: campana.creator_id,
@@ -449,6 +507,10 @@ async function rechazar(
   return {
     ok: true,
     nextStatus: "rechazada",
-    mensaje: sancion ? "Campaña rechazada y creador sancionado" : "Campaña rechazada",
+    mensaje: sancion
+      ? "Campaña rechazada y creador sancionado"
+      : ticketId
+        ? "Campaña rechazada. La sanción al creador se envió al SuperUsuario: se aplica solo si la aprueba"
+        : "Campaña rechazada",
   };
 }

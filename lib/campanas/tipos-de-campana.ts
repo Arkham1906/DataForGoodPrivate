@@ -28,6 +28,9 @@ export function columnasCalculadas(c = "campanas"): string {
           (SELECT d.estado FROM campana_datos_abiertos d WHERE d.campana_id = ${c}.id) AS datos_abiertos_estado,
           (SELECT d.motivo FROM campana_datos_abiertos d WHERE d.campana_id = ${c}.id) AS datos_abiertos_motivo,
           (SELECT d.decidido_en FROM campana_datos_abiertos d WHERE d.campana_id = ${c}.id) AS datos_abiertos_en,
+          -- Lo que pidió un supervisor y espera al SuperUsuario (ticket de datos abiertos, 2026-11-24).
+          (SELECT tk.datos->>'decision' FROM tickets tk
+            WHERE tk.campana_id = ${c}.id AND tk.tipo = 'datos_abiertos' AND tk.estado = 'pendiente' LIMIT 1) AS datos_abiertos_ticket,
           (SELECT jsonb_object_agg(ct.tipo, ct.limite)
              FROM campana_tipos ct WHERE ct.campana_id = ${c}.id AND ct.limite IS NOT NULL) AS limite_por_tipo,
           (SELECT jsonb_object_agg(ct.tipo, ct.cuota_por_persona)

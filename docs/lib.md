@@ -68,8 +68,8 @@
 | `consentimiento.ts` 🟢 | Textos de los acuerdos para aportar (confirmación y uso del aporte), textos cortos de las casillas, nombres de los campos (`aceptaUso`, `confirmaContenido`) y `errorDeConsentimiento()` (FormData o JSON) | `components/ui/AcuerdosDeAporte`, `lib/campanas/inscripciones.ts`, `POST /api/c/[token]/aportes` |
 | `comun.ts` | `guardarArchivoDelAporte()` (valida por contenido, limpia y sube a MinIO; sin archivo si la campaña acepta texto), `cuerpoDemasiadoGrande()` (413 antes de leer el formulario), `insertarAporteConCuota()` (cuenta e inserta con candado: cuota por persona, límite del 10% de aportes anónimos y límite total por tipo, sin carreras), `tiposConLugarParaElAporte()` (aviso del límite por tipo antes de subir); `guardarArchivoDelAporte` también exige los formatos de "Archivo" de la campaña por el formato real, `recalcularContadores()` (contadores de la campaña desde `aportes` en `campana_estadisticas`, con la campaña bloqueada) y reexporta `archivo.ts` | `POST /api/aportes`, `aportes-anonimos.ts` |
 | `tabla-archivos.ts` | Archivo del aporte en la tabla `archivos` (2026-10-30): `columnasDeArchivo(alias)` (fragmento SQL que devuelve `file_path`, `file_original_name`, `file_mime_type`, `file_size_bytes` y `archivo_borrado_en` con los nombres de antes) y `registrarArchivo(client, guardado)` | Endpoints de aportes, `aportes-anonimos.ts`, pantallas de revisión y supervisión |
-| `comunidad.ts` (2026-11-22) | Aportes de la comunidad (aprobados de campañas activas, pausadas o finalizadas, sin archivos borrados): `aportesDeLaComunidad(limite, desde)`, `aportesDeLaPortada()` (los 8 de la landing), `contarAportesDeLaComunidad()` y `esAporteDeLaComunidad(id)` (si su archivo se puede ver sin sesión). `APORTES_EN_LA_PORTADA`, `APORTES_POR_TANDA`, `MAXIMO_A_LA_VEZ` | `app/page.tsx`, `/comunidad`, `GET /api/aportes/[id]/archivo` |
-| `limpiar-archivo.ts` | `limpiarArchivo(file, tipos)`: el tipo lo decide la firma del contenido y debe coincidir con la extensión. Fotos con `imagen.ts`; PDF sin Info ni XMP (`pdf-lib`; rechaza cifrados); .docx, .pptx y .xlsx sin propiedades ni autores (`jszip`; rechaza macros); .xls se comprueba y va tal cual (2026-10-26); .txt a UTF-8; video y audio tal cual | `comun.ts` |
+| `comunidad.ts` (2026-11-22) | Aportes de la comunidad (aprobados de campañas activas, pausadas o finalizadas, sin archivos borrados): `aportesDeLaComunidad(limite)` (`/comunidad` pide 50 desde el 2026-11-23), `aportesDeLaPortada()` (los 8 de la landing) y `esAporteDeLaComunidad(id)` (si su archivo se puede ver sin sesión). `APORTES_EN_LA_PORTADA`. `APORTES_POR_TANDA`, `MAXIMO_A_LA_VEZ`, `contarAportesDeLaComunidad()` y el parámetro `desde` se borraron el 2026-11-24 (sin uso desde `fa42cc4`) | `app/page.tsx`, `/comunidad`, `GET /api/aportes/[id]/archivo` |
+| `limpiar-archivo.ts` | `limpiarArchivo(file, tipos)`: el tipo lo decide la firma del contenido y debe coincidir con la extensión. Fotos con `imagen.ts`; PDF sin Info ni XMP (`pdf-lib`; rechaza cifrados); .docx, .pptx y .xlsx sin propiedades ni autores (`jszip`; rechaza macros); .xls se comprueba y va tal cual (2026-10-26); .txt a UTF-8 (desde el 2026-11-23 un .txt subido queda como `documento`; solo el que arma `archivoDeTextoEscrito()` es `texto`); video y audio tal cual | `comun.ts` |
 | `imagen.ts` | `limpiarImagen()`: comprueba la firma JPG/PNG y vuelve a codificar con `sharp`, quitando EXIF (GPS), ICC y XMP | `limpiar-archivo.ts` |
 | `anonimato.ts` | Cookie `anonimo_id` y `hashDeDispositivo()` | Aporte anónimo, `/c/[token]`, sanciones |
 | `reporte.ts` | "Reportar aporte" (`reportarASupervision`, 2026-11-07): el revisor o el creador reportan a quien envió el aporte, uno por aporte; guarda motivo y descripción en `reportes` (`origen = 'supervision'`), rechaza el aporte, lo agrega a la bandeja del supervisor asignado a la campaña y solo a él le avisa (a todos si la campaña no tiene supervisor activo ni la supervisa el SuperUsuario, `lib/reportes/alcance.ts`). No banea | `POST /api/aportes/[id]/reportar` |
@@ -108,8 +108,8 @@
 | `visibilidad.ts` | Qué campañas lee cada quien en `GET /api/campanas` y `GET /api/campanas/[id]` (`condicionDeVisibilidad`): públicas activa, pausada y finalizada; además el creador las suyas, el supervisor las en revisión y las que supervisa, el revisor aceptado la suya y la sesión raíz todas (2026-10-20) | `app/api/campanas/route.ts`, `app/api/campanas/[id]/route.ts` |
 | `rechazo.ts` 🟢 | Por qué se rechazó una campaña (`RechazoDeCampana`, `rechazoDesdeFila`): motivo, fecha, si fue el SuperUsuario y la sanción del último rechazo, para el creador (2026-10-22) | `GET /api/campanas?mine=true`, `/mis-campanas`, formulario de campaña |
 | `revisores.ts` | `quitarRevisor(campanaId, usuarioId)`: quita a un revisor o cancela su invitación en una transacción (rol "revisor", notificación de invitación; "tiene revisor" se calcula de `campana_revisores`) (2026-10-22) | `DELETE /api/campanas/[id]/revisores` |
-| `sistema-opciones.ts` 🟢 | Constantes y tipos de esas pantallas (pestañas, etiquetas, órdenes) | `/sistema/campanas/filtros.tsx`, `components/campanas/BarraDeFiltros.tsx` |
-| `filtro-local.ts` 🟢 | Filtra y ordena en el navegador listas ya cargadas, con los mismos criterios que `buscarCampanas()`; aviso de lista vacía (`avisoSinResultados`) | `/supervision`, `/supervisar`, `/revisiones` |
+| `sistema-opciones.ts` 🟢 | Constantes y tipos de esas pantallas (pestañas, etiquetas, órdenes); `mensajeSinTiposDeDato(tipo, cosas)`, el aviso de lista vacía por el filtro de tipo de dato (2026-11-24) | `/sistema/campanas/filtros.tsx`, `components/campanas/BarraDeFiltros.tsx` |
+| `filtro-local.ts` 🟢 | Filtra y ordena en el navegador listas ya cargadas, con los mismos criterios que `buscarCampanas()`; aviso de lista vacía (`avisoSinResultados`; con `porTipo`, el de tipo de dato si sin ese filtro sí habría campañas, 2026-11-24) | `/supervision`, `/supervisar`, `/revisiones` |
 
 ### `supervision/`
 
@@ -128,7 +128,7 @@
 
 | Archivo | Qué hace | Lo usa |
 | --- | --- | --- |
-| `aviso-del-menu.ts` | `avisoDelMenuParaUsuario(usuario)`: recuadro azul del menú lateral. Desde el 2026-11-13 (a pedido del usuario) es una lista de atajos con todo lo pendiente, un renglón con enlace por pendiente: supervisor (dictaminar, reportes, datos abiertos, reanudar ajustadas), revisor (invitaciones, aportes por revisar), creador (aportes por revisar, rechazadas por corregir, pausadas por la supervisión que debe ajustar, borradores), cuota pendiente (hasta 2), perfil (temáticas, ubicación) y al final una sugerencia (campaña que cierra en 7 días y necesita aportes). Varios del mismo tipo, un renglón con su número; sin nada, la frase de siempre (`FRASE_DEL_MENU`). Del 2026-11-10 al 2026-11-13 era un solo aviso y dejaba fuera lo que llega por notificación | `layout/ShellDeUsuario` → `layout/SidebarNav` |
+| `aviso-del-menu.ts` | `avisoDelMenuParaUsuario(usuario)` → `{ aviso, pendientes }`: recuadro azul del menú lateral y número junto a "Pendientes". Desde el 2026-11-24 sale de `lib/pendientes/del-usuario.ts` (los 3 más urgentes y "Ver todos (N)" a `/pendientes`, con `avisoConPendientes`); sin pendientes, la sugerencia o la frase. Del 2026-11-13 al 2026-11-24 listaba todo, juntando varias campañas en un renglón | `components/layout/ShellDeUsuario` |
 | `inicio.ts` | `obtenerResumenDeInicio(usuario)`: datos de `/inicio` (cifras, campañas para ti, aportes recientes y notificaciones sin leer) | `/inicio` |
 | `tabla-roles.ts` | Roles en la tabla `usuario_roles` (2026-10-30): `columnaDeRoles(alias)` (devuelve `role` como antes), `condicionDeRol(alias, rol)`, `agregarRol`, `quitarRol` | Sesión, API de usuarios, panel, revisores |
 | `directorio.ts` | Búsqueda de usuarios (desde el 2026-11-22 también por organización: `organizacion`, `SIN_ORGANIZACION` y `organizacionesDelDirectorio()` para las opciones del filtro), ficha, estado de la cuenta, lista de sanciones (`listarSanciones`; acepta el supervisor para limitar la bandeja a campañas que supervisa) | `/usuarios/**`, `/supervision/sanciones`, `/supervisar/sanciones` |
@@ -269,12 +269,30 @@ Subtemáticas de una temática (Protección animal → Perros, Gatos...).
 | --- | --- | --- |
 | `dashboard.ts` | `obtenerDashboardDelRevisor(usuarioId, periodo)`: en las campañas donde es revisora aceptada, pendientes (sin los propios, de campañas que no terminaron) y las que más tienen, sus decisiones (`first_pass_by_user_id`: aceptados, rechazados, hoy, 7 días, mediana de respuesta en 30 días, estrellas que dio) y la actividad del periodo que se elige (`serieDeTiempo`, 2026-11-22; antes 14 días); desde el 2026-11-23 (`6e63b7f`), cada una de las 5 campañas con pendientes trae `tarjeta` (`mapCampana` de `lib/campanas/publicas.ts`, con una consulta más) para pintarla con `TarjetaDeCampanaPublica`; solo lectura, `null` si falla | `/revisiones` |
 
+### `pendientes/` (2026-11-24)
+
+| Archivo | Qué hace | Lo usan |
+| --- | --- | --- |
+| `tipos.ts` 🟢 | `Pendiente` (sección, texto, enlace, urgencia, detalle, desde), `SECCIONES_DEL_USUARIO` y `SECCIONES_DEL_PANEL`, umbrales (`DIAS_PARA_PRONTO` 3, `DIAS_PARA_URGENTE` 7 de espera; `DIAS_DE_CIERRE_PRONTO` 7, `DIAS_DE_CIERRE_URGENTE` 2 antes del cierre), `urgenciaPorEspera`, `urgenciaPorCierre`, `haceCuanto`, `cuandoCierra`, `ordenarPendientes` y `avisoConPendientes` (el recuadro del menú: `PENDIENTES_EN_EL_MENU` = 3 y "Ver todos") | `del-usuario.ts`, `del-panel.ts`, `components/pendientes/ListaDePendientes`, `components/layout/AvisoDelMenu` |
+| `del-usuario.ts` | `pendientesDelUsuario(usuario)` → `{ pendientes, sugerencia }`: supervisión, revisión, tus campañas (también las activas que cierran en 7 días sin meta), aportar (cuota), apelaciones respondidas en 7 días y perfil; cada uno por separado | `/pendientes`, `lib/usuarios/aviso-del-menu.ts` |
+| `del-panel.ts` | `pendientesDelPanel()` (cada uno con `tipo` y, si abarca varios, `cantidad`; también la fuente de "Requiere atención" de `/sistema`): campañas por supervisar, datos abiertos, sin supervisores, reportes, cada apelación, campañas con aportes que esperan más de 7 días y cada temática o subtemática propuesta | `/sistema/pendientes`, `lib/sistema/aviso-del-menu.ts` |
+
+### `tickets/` (2026-11-24)
+
+| Archivo | Qué hace | Lo usan |
+| --- | --- | --- |
+| `reglas.ts` 🟢 | Qué va como ticket (`sancionVaComoTicket`), tipos (`PedidoDeSancion`, `PedidoDeDatos`), textos (`describirSancionPedida`, `describirPedidoDeDatos`) y la respuesta al rechazar | formularios de sanción, rechazo y datos abiertos, `/tickets` |
+| `crear.ts` | `requiereTicket`, `crearTicketDeSancion` (en la transacción de quien llama; liga los reportes), `crearTicketDeDatos`, `sqlSinTicketDeDatos`, `registrarTicketCreado` | `lib/moderacion/acciones.ts`, `lib/supervision/decision.ts`, `lib/supervision/datos-abiertos.ts` |
+| `resolver.ts` | `resolverTicket(id, aprobar, respuesta)`: aplica lo aprobado o rechaza; avisa al supervisor | `acciones.ts` |
+| `acciones.ts` | Server action `resolverTicketDelPanel` (sesión raíz) | `/tickets` |
+| `consultas.ts` | `listarTickets`, `ticketsDelSupervisor`, `contarTicketsPendientes` | `/tickets`, `/supervision/sanciones`, menú del panel, `lib/pendientes/del-panel.ts` |
+
 ### `sistema/`
 
 | Archivo | Qué hace | Lo usa |
 | --- | --- | --- |
 | `metricas.ts` | Cifras generales del sistema | `/sistema` |
-| `aviso-del-menu.ts` | `avisoDelMenuParaRoot({ reportes, tematicas })` (2026-11-10): pendientes del SuperUsuario para el recuadro azul del menú (campañas por supervisar, datos abiertos que solo él decide, temáticas, reportes), un renglón con enlace por cada uno; sin pendientes, la frase de siempre | Layout de `(panel)` → `sistema/Sidebar` |
+| `aviso-del-menu.ts` | `avisoDelMenuParaRoot()` → `{ aviso, pendientes }` (2026-11-10; desde el 2026-11-24 sale de `lib/pendientes/del-panel.ts`): recuadro azul del menú del panel (los 3 más urgentes y "Ver todos (N)" a `/sistema/pendientes`) y número junto a "Pendientes" | `app/(panel)/layout.tsx` |
 
 ## Fuera de `lib/`
 

@@ -152,6 +152,18 @@ export function IconoRevisar(props: IconoProps) {
   );
 }
 
+/** Pendientes (2026-11-24): lista con casillas, una marcada. */
+export function IconoPendientes(props: IconoProps) {
+  return (
+    <Base {...props}>
+      <rect x="3.5" y="4" width="4" height="4" rx="1" />
+      <path d="M4.5 6l1 1 1.5-1.8" />
+      <rect x="3.5" y="13.5" width="4" height="4" rx="1" />
+      <path d="M10.5 6h10M10.5 15.5h10" />
+    </Base>
+  );
+}
+
 /** Mi progreso (2026-11-02): escalones con una flecha hacia arriba. */
 export function IconoProgreso(props: IconoProps) {
   return (

@@ -77,6 +77,7 @@ export default async function PantallaDeReportes({
     campana: g.campana,
     aporteId: g.aporteId,
     reportado: g.reportado,
+    enTicket: g.enTicket ?? false,
     reportes: g.reportes.map((r) => ({
       id: r.id,
       quien: r.quien,

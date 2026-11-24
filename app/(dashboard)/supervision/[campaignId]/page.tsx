@@ -283,6 +283,7 @@ export default function CampaignDetailPage() {
 
       {showRejectForm && (isMySupervision || isAvailable) && campaign.status === "en_revision" && (
         <FormularioDeRechazo
+          conTicket
           ocupado={actionLoading !== null}
           similares={similares?.campanas ?? []}
           onCancelar={() => setShowRejectForm(false)}
@@ -321,6 +322,7 @@ export default function CampaignDetailPage() {
           meta={Number(campaign.goalContributions ?? 0)}
           participantes={Number(campaign.participants ?? 0)}
           puedeDecidir={isMySupervision && !isCreator}
+          conTicket
           onDecidir={handleDatosAbiertos}
         />
       )}

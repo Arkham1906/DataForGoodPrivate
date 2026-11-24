@@ -38,6 +38,8 @@ export type GrupoParaLista = {
   aporteId: string | null;
   reportado: { id: string; nombre: string } | null;
   reportes: ReporteParaLista[];
+  /** Esperan un ticket de sanción del SuperUsuario (2026-11-24): sin acciones aquí. */
+  enTicket?: boolean;
 };
 
 const SIN_MOTIVO = "Otro (descrito)";
@@ -95,6 +97,14 @@ function PieDelGrupo({ g, zona }: { g: GrupoParaLista; zona: ZonaDeModeracion })
   if (pendientes) {
     if (g.clave.startsWith("reporte-")) {
       return <p className="text-[12px] text-system-500">El aporte ya se borró: estos reportes no se pueden resolver juntos.</p>;
+    }
+    if (g.enTicket) {
+      return (
+        <p className="rounded border border-warning-300 bg-warning-50 px-3 py-2 text-[12.5px] text-warning-800">
+          <span className="font-semibold">En revisión por el SuperUsuario:</span> un supervisor pidió una sanción por estos
+          reportes. Se resuelven cuando la apruebe o la rechace.
+        </p>
+      );
     }
     return (
       <div className="flex flex-wrap items-start justify-end gap-2.5">

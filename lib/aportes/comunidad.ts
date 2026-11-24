@@ -1,6 +1,6 @@
 // Aportes de la comunidad: los aportes completos (con su archivo) que se ven sin sesión. Los usan
-// "Lo último que aportó la comunidad" de la landing (los 8 más nuevos, 2026-11-22) y la pantalla /comunidad, con
-// todos y "Ver más" (2026-11-22, a pedido del usuario).
+// "Lo último que aportó la comunidad" de la landing (los 8 más nuevos, 2026-11-22) y la pantalla /comunidad
+// (2026-11-22, a pedido del usuario; desde el 2026-11-23, fa42cc4, los 50 más nuevos, sin "Ver más").
 // Decisión del usuario (2026-11-22): entran los aportes APROBADOS de campañas visibles públicamente (activa,
 // pausada o finalizada), aunque la campaña aún no publique sus datos abiertos. Nunca un pendiente ni un
 // rechazado, nunca un archivo que el creador borró, y nunca quién lo envió.
@@ -15,10 +15,6 @@ import type { DataType } from "@/types";
 
 /** Cuántos salen en la landing (dos filas de 4). */
 export const APORTES_EN_LA_PORTADA = 8;
-/** Cuántos más trae cada "Ver más" de /comunidad (múltiplo de 4: filas completas). */
-export const APORTES_POR_TANDA = 24;
-/** Tope de lo que se pinta de una vez en /comunidad (?mostrar=). */
-export const MAXIMO_A_LA_VEZ = 240;
 
 /** La condición de "aporte de la comunidad" sobre `aportes a JOIN campanas c`. */
 const CONDICION = `a.status = 'aceptado'
@@ -39,7 +35,7 @@ export interface AporteDeLaComunidad {
 }
 
 /** Los aportes de la comunidad, del más nuevo al más viejo. */
-export async function aportesDeLaComunidad(limite: number, desde = 0): Promise<AporteDeLaComunidad[]> {
+export async function aportesDeLaComunidad(limite: number): Promise<AporteDeLaComunidad[]> {
   // Sale como ISO en UTC con "Z" para no depender de la zona del proceso (UTC en Docker, la de la máquina en `next dev`).
   const { rows } = await pool.query(
     `SELECT a.id, COALESCE(NULLIF(c.tag, ''), c.tematica) AS tag, a.description, a.file_type, ${columnasDeArchivo("a")},
@@ -48,8 +44,8 @@ export async function aportesDeLaComunidad(limite: number, desde = 0): Promise<A
        JOIN campanas c ON c.id = a.campaign_id
       WHERE ${CONDICION}
       ORDER BY a.submitted_at DESC, a.id DESC
-      LIMIT $1 OFFSET $2`,
-    [limite, desde],
+      LIMIT $1`,
+    [limite],
   );
   return rows.map((row) => ({
     id: String(row.id),
@@ -65,13 +61,6 @@ export async function aportesDeLaComunidad(limite: number, desde = 0): Promise<A
 /** Los de la landing: los 8 más nuevos. */
 export function aportesDeLaPortada(): Promise<AporteDeLaComunidad[]> {
   return aportesDeLaComunidad(APORTES_EN_LA_PORTADA);
-}
-
-export async function contarAportesDeLaComunidad(): Promise<number> {
-  const { rows } = await pool.query<{ total: string }>(
-    `SELECT COUNT(*) AS total FROM aportes a JOIN campanas c ON c.id = a.campaign_id WHERE ${CONDICION}`,
-  );
-  return Number(rows[0]?.total ?? 0);
 }
 
 /** true si el aporte se muestra a la comunidad: su archivo se puede ver sin sesión. */

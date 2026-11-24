@@ -36,6 +36,9 @@ export const NOTIFICACIONES_ESENCIALES: ReadonlySet<TipoDeNotificacion> = new Se
   "sancion_restaurada",
   "apelacion_aceptada",
   "apelacion_rechazada",
+  // La respuesta a un ticket de supervisión (2026-11-24): es parte del trabajo del supervisor.
+  "ticket_aprobado",
+  "ticket_rechazado",
   "campana_baneo",
   "campana_desbaneo",
   "invitacion_revisor",

@@ -164,6 +164,7 @@ export function destinoDelRastro(crudo: string, rutaActual: string): { url: stri
 /** Cómo se llama cada pantalla del panel en "Volver …" ("al directorio", "a la campaña"...). */
 const NOMBRES: [RegExp, string][] = [
   [/^\/sistema$/, "al inicio del panel"],
+  [/^\/sistema\/pendientes$/, "a pendientes"],
   [/^\/sistema\/campanas$/, "al listado de campañas"],
   [/^\/sistema\/campanas\/dashboard$/, "al dashboard de campañas"],
   [/^\/sistema\/campanas\/\d+$/, "a la campaña"],
@@ -173,6 +174,7 @@ const NOMBRES: [RegExp, string][] = [
   [/^\/aportes$/, "a la bandeja de aportes"],
   [/^\/aportes\/dashboard$/, "al dashboard de aportes"],
   [/^\/apelaciones$/, "a apelaciones"],
+  [/^\/tickets$/, "a tickets"],
   [/^\/usuarios$/, "al directorio"],
   [/^\/usuarios\/dashboard$/, "al dashboard de usuarios"],
   [/^\/usuarios\/sanciones$/, "a sanciones"],

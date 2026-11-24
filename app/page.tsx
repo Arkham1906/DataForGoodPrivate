@@ -392,7 +392,7 @@ export default async function LandingPage() {
                 <TarjetaDeAporteDeLaComunidad key={post.id} aporte={post} className="landing-revelar landing-tarjeta" />
               ))}
             </ul>
-            {/* Todos los aportes de la comunidad, en vivo (2026-11-22, a pedido del usuario). */}
+            {/* Los 50 aportes más recientes de la comunidad, en vivo (/comunidad; 50 fijos desde el 2026-11-23, fa42cc4). */}
             <div className="landing-revelar mt-8 flex justify-center">
               <ButtonLink href="/comunidad" variant="secondary" size="sm">
                 Ver más →

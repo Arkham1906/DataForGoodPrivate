@@ -318,6 +318,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         return NextResponse.json({ error: "Solo un supervisor puede decidir sobre los datos abiertos" }, { status: 403 });
       }
 
+      // Desde el 2026-11-24 no se aplica: queda como ticket para el SuperUsuario (`ticket: true`).
       const resultado = await decidirDatosAbiertos(id, accion as DecisionDeDatosAbiertos, body.motivo, {
         tipo: "usuario",
         usuarioId: Number(user.id),
@@ -327,7 +328,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       }
 
       const updated = await pool.query(`SELECT *, ${columnasCalculadas()} FROM campanas WHERE id = $1 LIMIT 1`, [id]);
-      return NextResponse.json({ message: resultado.mensaje, data: mapCampaign(updated.rows[0]) });
+      return NextResponse.json({ message: resultado.mensaje, ticket: resultado.ticket ?? false, data: mapCampaign(updated.rows[0]) });
     }
 
     const existing = await pool.query(

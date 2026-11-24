@@ -23,7 +23,7 @@ import {
   obtenerTiposDelCatalogo,
   type OpenDataOrder,
 } from "@/lib/open-data";
-import { alternarTipo, tiposDesde } from "@/lib/campanas/sistema-opciones";
+import { alternarTipo, mensajeSinTiposDeDato, tiposDesde } from "@/lib/campanas/sistema-opciones";
 import type { DataType } from "@/types";
 
 export const metadata: Metadata = {
@@ -69,6 +69,11 @@ export default async function CatalogoDeDatosPage({
   ]);
 
   const activos = [q, tematica, locationState, tipo].filter(Boolean).length;
+  // Sin resultados con un tipo de dato elegido: si sin ese filtro sí hay, el aviso dice que es por el tipo (2026-11-24).
+  const porElTipo =
+    conjuntos.length === 0 && tiposElegidos.length > 0
+      ? (await buscarConjuntosAbiertos({ q, tematica, locationState, tipos: [], orden })).conjuntos.length > 0
+      : false;
 
   function enlaceCon(cambios: Record<string, string | undefined>) {
     const params = new URLSearchParams();
@@ -216,7 +221,9 @@ export default async function CatalogoDeDatosPage({
               <p className="rounded-[18px] bg-system-100 p-4 text-sm text-system-600">
                 {total === 0
                   ? "Todavía no hay conjuntos de datos publicados: aparecerán aquí en cuanto una campaña se finalice."
-                  : "Ningún conjunto coincide con estos filtros. Prueba quitando alguno o buscando por otro término."}
+                  : porElTipo
+                    ? `${mensajeSinTiposDeDato(tipo, "conjuntos de datos")} Prueba con otro tipo o quita ese filtro.`
+                    : "Ningún conjunto coincide con estos filtros. Prueba quitando alguno o buscando por otro término."}
               </p>
             ) : (
               <ul className="flex flex-col gap-4">

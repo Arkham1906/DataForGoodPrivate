@@ -74,8 +74,8 @@ export interface Campaign {
   limiteAnonimos?: number | null;
   /** Lo que acepta si el creador no escribe número: el 10% de la meta. */
   anonimosPorDefecto?: number;
-  /** Formatos de "Archivo" que acepta (2026-10-28): "pdf" | "word" | "powerpoint" | "excel"; [] = todos. */
-  formatosDeDocumento?: ("pdf" | "word" | "powerpoint" | "excel")[];
+  /** Formatos de "Archivo" que acepta (2026-10-28; "txt" desde el 2026-11-23): "pdf" | "word" | "powerpoint" | "excel" | "txt"; [] = todos. */
+  formatosDeDocumento?: ("pdf" | "word" | "powerpoint" | "excel" | "txt")[];
   collectionMode?: CollectionMode;
   /** Solo lectura de campañas viejas: hoy se usa checklistSecciones. */
   checklistOpciones?: string[];

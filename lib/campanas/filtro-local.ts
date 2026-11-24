@@ -3,7 +3,7 @@
 // para /sistema/campanas. Sin imports de servidor: lo usan componentes cliente.
 
 import { TEMAS_DE_INTERES } from "@/lib/intereses";
-import { tiposDesde } from "@/lib/campanas/sistema-opciones";
+import { mensajeSinTiposDeDato, tiposDesde } from "@/lib/campanas/sistema-opciones";
 
 export type FiltrosLocales = { q: string; tematica: string; etiqueta?: string; tipo: string; orden: string };
 
@@ -100,10 +100,17 @@ export function etiquetasPorTematica<T extends CampanaFiltrable>(
 
 /**
  * Aviso de lista vacía: si la pestaña no tiene campañas, el texto propio de esa pestaña;
- * si las tiene pero los filtros las ocultan todas, que ninguna coincide.
+ * si las tiene pero los filtros las ocultan todas, que ninguna coincide. Con `porTipo` (2026-11-24): si
+ * sin el filtro de tipo de dato sí habría alguna, dice que no hay campañas con esos tipos (mensajeSinTiposDeDato).
  */
-export function avisoSinResultados(totalSinFiltrar: number, sinCampanas: string): string {
-  return totalSinFiltrar === 0 ? sinCampanas : "Ninguna campaña coincide con estos filtros.";
+export function avisoSinResultados(
+  totalSinFiltrar: number,
+  sinCampanas: string,
+  porTipo?: { tipo: string; sinFiltroDeTipo: number },
+): string {
+  if (totalSinFiltrar === 0) return sinCampanas;
+  if (porTipo && porTipo.sinFiltroDeTipo > 0) return mensajeSinTiposDeDato(porTipo.tipo) || "Ninguna campaña coincide con estos filtros.";
+  return "Ninguna campaña coincide con estos filtros.";
 }
 
 /** Temáticas para el filtro: las compartidas y, al final, cualquier otra que traigan las campañas. */

@@ -33,6 +33,8 @@ const TABLAS_CON_AVISO = [
   "sanciones",
   // Apelaciones (2026-11-22): la bandeja del SuperUsuario y /mis-apelaciones.
   "apelaciones",
+  // Tickets de supervisión (2026-11-24): la bandeja del SuperUsuario y lo que ve el supervisor.
+  "tickets",
   "reportes",
   "dispositivos_bloqueados",
   "lista_negra_correos",

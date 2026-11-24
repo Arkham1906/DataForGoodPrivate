@@ -31,6 +31,8 @@ import { AVISOS_PARA_BANEO } from "@/lib/usuarios/escala-de-avisos";
 import { BASE_PATH } from "@/lib/base-path";
 import FiltrosEnLaUrl from "@/components/sistema/FiltrosEnLaUrl";
 import { busquedaDeLaUrl, coincideConLaBusqueda, cuantosDeCuantos, opcionDeLaUrl } from "@/lib/filtros-en-la-url";
+import { ticketsDelSupervisor } from "@/lib/tickets/consultas";
+import TicketsDelSupervisor from "@/components/moderacion/TicketsDelSupervisor";
 
 const TIPOS_DE_SANCION = ["STRIKE", "SUSPENSION", "BANEO", "BANEO_EN_CAMPANA"] as const;
 const NOMBRE_DE_TIPO_DE_SANCION: Record<(typeof TIPOS_DE_SANCION)[number], string> = {
@@ -46,6 +48,7 @@ export default async function PantallaDeSanciones({
   buscar = "",
   soloLectura = false,
   filtros = {},
+  ticketEnviado = false,
 }: {
   zona: ZonaDeModeracion;
   moderador: Moderador;
@@ -55,6 +58,8 @@ export default async function PantallaDeSanciones({
   soloLectura?: boolean;
   /** Filtros de la lista (2026-11-22): ?q= (persona, motivo, campaña o quién), ?tipo= y ?vigencia=. */
   filtros?: { q?: string; tipo?: string; vigencia?: string };
+  /** Llegó de enviar una sanción como ticket (?ticket=enviado, 2026-11-24). */
+  ticketEnviado?: boolean;
 }) {
   const cuentaPropia = moderador.tipo === "usuario" ? String(moderador.usuarioId) : null;
   const rutas = rutasDeModeracion(zona);
@@ -62,10 +67,12 @@ export default async function PantallaDeSanciones({
   const encontrados = texto && !soloLectura
     ? (await buscarUsuarios({ q: texto })).filas.filter((u) => u.id !== cuentaPropia)
     : null;
-  const [sanciones, bloqueos, listaNegra] = await Promise.all([
+  const [sanciones, bloqueos, listaNegra, tickets] = await Promise.all([
     listarSanciones(zona === "supervision" && moderador.tipo === "usuario" ? moderador.usuarioId : undefined),
     listarBloqueosGlobales(),
     listarListaNegra(),
+    // "Tus tickets" del supervisor (2026-11-24).
+    zona === "supervision" && moderador.tipo === "usuario" ? ticketsDelSupervisor(moderador.usuarioId) : Promise.resolve([]),
   ]);
   const vigentes = sanciones.filter((s) => s.vigente).length;
 
@@ -96,6 +103,12 @@ export default async function PantallaDeSanciones({
           Usuarios sancionados por reportes o rechazos de tus campañas, y los reportes que resolviste.
         </p>
       )}
+      {ticketEnviado && (
+        <Aviso tono="info" className="mb-6 max-w-xl">
+          Enviaste la sanción al SuperUsuario como ticket. Se aplica solo si la aprueba; te avisaremos de su respuesta.
+        </Aviso>
+      )}
+      {zona === "supervision" && !soloLectura && <TicketsDelSupervisor tickets={tickets} />}
 
       {soloLectura ? (
         <Aviso tono="info" className="mb-6 max-w-xl">

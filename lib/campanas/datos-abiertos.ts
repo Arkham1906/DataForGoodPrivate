@@ -13,6 +13,8 @@ export type DatosAbiertosDeCampana = {
   motivo: string | null;
   /** ISO: cuándo se decidió; null si sigue pendiente. */
   en: string | null;
+  /** Pendiente con un ticket de un supervisor esperando al SuperUsuario (2026-11-24): lo que pidió. */
+  ticket?: "publicar_datos" | "no_publicar_datos" | null;
 };
 
 /** Largo máximo del motivo de no publicar. */
@@ -33,6 +35,10 @@ export function datosAbiertosDesdeFila(row: Record<string, unknown>): DatosAbier
     estado: estado === "publicada" || estado === "no_publicada" ? estado : "pendiente",
     motivo: row.datos_abiertos_motivo ? String(row.datos_abiertos_motivo) : null,
     en: en && !Number.isNaN(en.getTime()) ? en.toISOString() : null,
+    ticket:
+      row.datos_abiertos_ticket === "publicar_datos" || row.datos_abiertos_ticket === "no_publicar_datos"
+        ? row.datos_abiertos_ticket
+        : null,
   };
 }
 

@@ -4,6 +4,8 @@
 // vista. Lo usan /supervision/[campaignId] (PATCH /api/campanas/[id]) y /supervisar/[campaignId]
 // (decidirDatosAbiertosComoSuperUsuario): cada pantalla pasa `onDecidir`, que devuelve el error o null.
 // Publicar se confirma; no publicar pide motivo. Reglas en lib/supervision/datos-abiertos.ts.
+// Desde el 2026-11-24 lo que decide un supervisor (`conTicket`) va como ticket al SuperUsuario: la ventana lo dice y,
+// mientras espera (`datos.ticket`), en lugar de los botones sale lo que pidió.
 
 import { useId, useState } from "react";
 import { Textarea } from "@/components/ui/Input";
@@ -19,6 +21,7 @@ export default function DecisionDeDatosAbiertos({
   meta,
   participantes,
   puedeDecidir,
+  conTicket = false,
   onDecidir,
 }: {
   datos: DatosAbiertosDeCampana;
@@ -26,6 +29,8 @@ export default function DecisionDeDatosAbiertos({
   meta: number;
   participantes: number;
   puedeDecidir: boolean;
+  /** Quien decide es un supervisor: su decisión va como ticket al SuperUsuario (2026-11-24). */
+  conTicket?: boolean;
   onDecidir: (decision: DecisionPedida, motivo: string) => Promise<string | null>;
 }) {
   const idMotivo = useId();
@@ -64,10 +69,16 @@ export default function DecisionDeDatosAbiertos({
         ({porcentajeDeMeta(aprobados, meta)}% de la meta) · Participantes: <span className="font-mono font-semibold text-system-900">{participantes}</span>
       </p>
 
-      {datos.estado === "pendiente" && !puedeDecidir && (
+      {datos.estado === "pendiente" && datos.ticket && (
+        <p className="mt-3 rounded border border-warning-300 bg-warning-50 p-2.5 text-[12.5px] text-warning-800">
+          <span className="font-semibold">Esperando al SuperUsuario:</span> el supervisor pidió{" "}
+          {datos.ticket === "publicar_datos" ? "publicar los datos" : "no publicar los datos"}. Se aplica solo si lo aprueba.
+        </p>
+      )}
+      {datos.estado === "pendiente" && !datos.ticket && !puedeDecidir && (
         <p className="mt-3 text-[12.5px] text-system-600">Pendiente: la decisión es de quien supervisa la campaña.</p>
       )}
-      {datos.estado === "pendiente" && puedeDecidir && (
+      {datos.estado === "pendiente" && !datos.ticket && puedeDecidir && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <button
             type="button"
@@ -97,7 +108,7 @@ export default function DecisionDeDatosAbiertos({
       <VentanaDeConfirmacion
         abierto={ventana !== null}
         titulo={ventana === "publicar_datos" ? "¿Seguro que quieres publicar sus datos abiertos?" : "¿Seguro que no quieres publicar sus datos?"}
-        textoConfirmar={ventana === "publicar_datos" ? "Publicar datos" : "No publicar"}
+        textoConfirmar={conTicket ? "Enviar al SuperUsuario" : ventana === "publicar_datos" ? "Publicar datos" : "No publicar"}
         textoOcupado="Guardando…"
         ocupado={ocupado}
         peligro={ventana === "no_publicar_datos"}
@@ -105,10 +116,18 @@ export default function DecisionDeDatosAbiertos({
         onConfirmar={() => void confirmar()}
       >
         {ventana === "publicar_datos" ? (
-          <p>Sus {aprobados} aportes aprobados quedarán disponibles para cualquiera en Datos abiertos. Esta decisión no se puede cambiar.</p>
+          <p>
+            {conTicket
+              ? `Se enviará al SuperUsuario como ticket: si lo aprueba, sus ${aprobados} aportes aprobados quedarán disponibles para cualquiera en Datos abiertos.`
+              : `Sus ${aprobados} aportes aprobados quedarán disponibles para cualquiera en Datos abiertos. Esta decisión no se puede cambiar.`}
+          </p>
         ) : (
           <>
-            <p className="mb-3">Quien organiza la campaña recibirá este motivo. Esta decisión no se puede cambiar.</p>
+            <p className="mb-3">
+              {conTicket
+                ? "Se enviará al SuperUsuario como ticket; si lo aprueba, quien organiza la campaña recibirá este motivo."
+                : "Quien organiza la campaña recibirá este motivo. Esta decisión no se puede cambiar."}
+            </p>
             <label htmlFor={idMotivo} className="mb-2 block text-[15px] font-semibold text-system-900">
               Motivo <span className="text-error-700">*</span>
             </label>

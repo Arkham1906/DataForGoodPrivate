@@ -524,7 +524,7 @@ function CampanaFormulario({
   }, []);
   const [dataTypes, setDataTypes] = useState<DataType[]>(editingCampaign?.dataTypes ?? []);
   // Formatos de "Archivo" que acepta la campaña (2026-10-28, a pedido del usuario): se eligen al marcar
-  // "Archivo"; ninguno marcado = todos (PDF, Word, PowerPoint y Excel).
+  // "Archivo"; ninguno marcado = todos (PDF, Word, PowerPoint, Excel y TXT).
   const [formatosDeDocumento, setFormatosDeDocumento] = useState<FormatoDeDocumento[]>(editingCampaign?.formatosDeDocumento ?? []);
   function alternarFormato(formato: FormatoDeDocumento) {
     setFormatosDeDocumento((actuales) =>

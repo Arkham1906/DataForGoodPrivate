@@ -1148,6 +1148,46 @@ export async function ensureApelacionesTable(): Promise<void> {
 }
 
 /**
+ * Tickets de supervisión (2026-11-24, a pedido del usuario): las acciones importantes de un supervisor no se aplican
+ * solas; van como ticket al SuperUsuario, que las aprueba o rechaza (decisión final). Mientras esperan no pasa nada.
+ * - `sancion`: suspensión o baneo directos, o un aviso que por la escala suspende o banea (también el que se pide al
+ *   rechazar una campaña). `datos` guarda lo pedido ({ tipo, dias, detalle, reportes?, rechazo? }). Una pendiente
+ *   por persona.
+ * - `datos_abiertos`: publicar o no los datos de una campaña finalizada ({ decision, motivo }). Una pendiente por
+ *   campaña.
+ * Los reportes que se confirmarían con la sanción llevan `reportes.ticket_id` mientras esperan. Lógica en
+ * lib/tickets/. Va después de reportes, sanciones, usuarios y campanas: los referencia.
+ */
+export async function ensureTicketsTable(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS tickets (
+      id SERIAL PRIMARY KEY,
+      tipo VARCHAR(20) NOT NULL CHECK (tipo IN ('sancion', 'datos_abiertos')),
+      estado VARCHAR(10) NOT NULL DEFAULT 'pendiente' CHECK (estado IN ('pendiente', 'aprobado', 'rechazado')),
+      -- Quien lo pidió (SET NULL: si da de baja su cuenta, el ticket se conserva).
+      supervisor_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+      -- La persona a sancionar (solo tipo sancion).
+      usuario_id INTEGER REFERENCES usuarios(id) ON DELETE CASCADE,
+      campana_id INTEGER REFERENCES campanas(id) ON DELETE CASCADE,
+      datos JSONB NOT NULL,
+      respuesta TEXT,
+      -- Lo que se aplicó al aprobar ({ sancionId } en una sanción).
+      resultado JSONB,
+      creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      resuelto_en TIMESTAMPTZ
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS tickets_una_sancion_pendiente ON tickets (usuario_id) WHERE tipo = 'sancion' AND estado = 'pendiente';
+    CREATE UNIQUE INDEX IF NOT EXISTS tickets_unos_datos_pendientes ON tickets (campana_id) WHERE tipo = 'datos_abiertos' AND estado = 'pendiente';
+    CREATE INDEX IF NOT EXISTS tickets_supervisor_id_idx ON tickets (supervisor_id);
+    CREATE INDEX IF NOT EXISTS tickets_usuario_id_idx ON tickets (usuario_id);
+    CREATE INDEX IF NOT EXISTS tickets_campana_id_idx ON tickets (campana_id);
+    CREATE INDEX IF NOT EXISTS tickets_estado_idx ON tickets (estado, creado_en);
+    ALTER TABLE reportes ADD COLUMN IF NOT EXISTS ticket_id INTEGER REFERENCES tickets(id) ON DELETE SET NULL;
+    CREATE INDEX IF NOT EXISTS reportes_ticket_id_idx ON reportes (ticket_id);
+  `);
+}
+
+/**
  * Reportes (2026-10-12): de una campaña (contra quien la creó; cualquiera con sesión menos el creador)
  * o de un aporte (contra quien lo envió; lo reportan el creador o un revisor aceptado). `reportado_id`
  * es la cuenta reportada, copiada al reportar. Llegan a la bandeja del SuperUsuario (/reportes), que los
@@ -2461,6 +2501,7 @@ export async function ensureCoreSchema(): Promise<void> {
   await ensureSancionesTable();
   await ensureReportesTable(); // después de sanciones y aportes: los referencia
   await ensureApelacionesTable(); // después de sanciones, campana_baneados y campanas: las referencia
+  await ensureTicketsTable(); // después de reportes, usuarios y campanas: los referencia (2026-11-24)
   await ensureListaNegraTable();
   await ensureAuditLogTable();
   await ensureTematicasTable(); // después de usuarios: creada_por la referencia

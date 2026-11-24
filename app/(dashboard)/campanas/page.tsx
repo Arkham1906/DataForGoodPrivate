@@ -41,7 +41,7 @@ import AvisoSinTematicas from "@/components/campanas/AvisoSinTematicas";
 import type { Campaign } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
 import { FILTROS_VACIOS, filtrarCampanas, type FiltrosLocales } from "@/lib/campanas/filtro-local";
-import { nombresDeTipos } from "@/lib/campanas/sistema-opciones";
+import { mensajeSinTiposDeDato } from "@/lib/campanas/sistema-opciones";
 import { claveDeTematica } from "@/lib/tematicas/analizar";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 import BotonCrearCampana from "@/components/campanas/BotonCrearCampana";
@@ -237,6 +237,8 @@ export default function CampanasPage() {
 
   const buscando = tipoActivo !== "" || busqueda.q.trim() !== "" || busqueda.orden !== "";
   const filtered = filtrarCampanas(porEtiqueta, { ...busqueda, tipo: tipoActivo }, (c) => c.tag);
+  // Las que quedarían sin el filtro de tipo: si hay y con él no, el aviso dice que es por el tipo (2026-11-24).
+  const sinFiltroDeTipo = filtered.length === 0 && tipoActivo ? filtrarCampanas(porEtiqueta, { ...busqueda, tipo: "" }, (c) => c.tag) : [];
 
   // Subtemáticas (aprobadas) de cada temática de la lista, para el select de la barra.
   const etiquetasPorTema: Record<string, string[]> = {};
@@ -365,7 +367,9 @@ export default function CampanasPage() {
               <p className="text-sm text-system-600">
                 {filtroParaTi.vista === TU_LOCALIDAD && !lugarDelFiltro
                   ? "Aún no indicas en qué estado vives: agrégalo en Mi cuenta o usa tu ubicación."
-                  : "Ninguna campaña recomendada para ti coincide con este filtro."}
+                  : filtroParaTi.tipos.length > 0 && filtroParaTi.sinFiltroDeTipo > 0
+                    ? mensajeSinTiposDeDato(filtroParaTi.tipo)
+                    : "Ninguna campaña recomendada para ti coincide con este filtro."}
               </p>
             ) : (
               <p className="text-sm text-system-600">Por ahora no hay campañas activas de tus temáticas de interés ni de tu zona.</p>
@@ -432,8 +436,8 @@ export default function CampanasPage() {
       ) : filtered.length === 0 ? (
         <p className="text-sm text-system-600">
           {buscando && porEtiqueta.length > 0
-            ? tipoActivo && !busqueda.q.trim()
-              ? `Ninguna campaña de esta lista pide ${nombresDeTipos(tipoActivo).toLowerCase()}.`
+            ? sinFiltroDeTipo.length > 0 && tipoActivo
+              ? mensajeSinTiposDeDato(tipoActivo)
               : "Ninguna campaña coincide con la búsqueda."
             : temaActivo
               ? "No hay campañas de esta temática en esta lista."

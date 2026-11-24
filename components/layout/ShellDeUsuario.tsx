@@ -16,7 +16,8 @@ import DetectorDeUbicacion from "@/components/layout/DetectorDeUbicacion";
 import Celebraciones from "@/components/gamificacion/celebraciones/Celebraciones";
 
 export default async function ShellDeUsuario({ usuario, children }: { usuario: SessionUser; children: ReactNode }) {
-  const aviso = await avisoDelMenuParaUsuario(usuario);
+  // Recuadro del menú y número junto a "Pendientes" (2026-11-24): la misma fuente que /pendientes.
+  const { aviso, pendientes } = await avisoDelMenuParaUsuario(usuario);
   return (
     <div className="min-h-screen bg-system-50">
       <VigilanteDeSesion />
@@ -25,7 +26,7 @@ export default async function ShellDeUsuario({ usuario, children }: { usuario: S
       <Celebraciones />
       <TopBar usuario={usuario} />
       <div className="dashboard-shell flex min-w-0">
-        <SidebarNav usuario={usuario} aviso={aviso} />
+        <SidebarNav usuario={usuario} aviso={aviso} pendientes={pendientes} />
         <main id="contenido" className="min-w-0 flex-1">
           <div className="dashboard-content mx-auto w-full min-w-0 max-w-7xl px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
             {children}

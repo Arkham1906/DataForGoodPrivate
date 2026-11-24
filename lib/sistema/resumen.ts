@@ -1,8 +1,9 @@
 // Resumen de la pantalla de inicio del SuperUsuario, /sistema (2026-11-22, a pedido del usuario: "un dashboard con
 // resumen, que tenga niveles de información"). Lo que no dan los dashboards de cada área:
 // - las cifras clave del periodo comparadas con el periodo anterior equivalente (periodoAnterior);
-// - lo que requiere atención ahora, con su enlace (mismos criterios que el recuadro del menú lateral,
-//   lib/sistema/aviso-del-menu.ts, más los aportes que esperan revisión hace más de una semana);
+// - lo que requiere atención ahora, con su enlace: desde el 2026-11-24 (a pedido del usuario) sale de la misma fuente
+//   que /sistema/pendientes y el menú, pendientesDelPanel() de lib/pendientes/del-panel.ts, agrupada por tipo
+//   ("3 campañas esperan supervisión"); antes tenía sus propias consultas con los mismos criterios;
 // - las cifras de moderación del periodo (reportes y sanciones).
 // El resto del inicio sale de obtenerDashboardDeUsuarios, obtenerDashboardDeAportes y obtenerDashboardDeCampanas.
 // Nunca lanza: si una consulta falla, esa parte queda en ceros y se registra el error.
@@ -10,13 +11,8 @@
 import { pool } from "@/lib/db";
 import type { Periodo } from "@/lib/periodo";
 import { condicionDePeriodo, limitesDelPeriodo } from "@/lib/series-de-tiempo";
-import { contarReportesPendientes } from "@/lib/reportes/reportes";
-import { contarTematicasPendientes } from "@/lib/tematicas/catalogo";
-import { contarEtiquetasPendientes } from "@/lib/etiquetas/catalogo";
-import { contarApelacionesPendientes } from "@/lib/apelaciones/apelaciones";
-
-/** Días que un aporte puede esperar revisión antes de salir en "Requiere atención". */
-export const DIAS_DE_ESPERA_DE_UN_APORTE = 7;
+import { pendientesDelPanel } from "@/lib/pendientes/del-panel";
+import { DIAS_DE_ESPERA_DE_UN_APORTE, type Pendiente } from "@/lib/pendientes/tipos";
 
 export type Rango = { desde: string; hasta: string };
 
@@ -157,31 +153,19 @@ export async function obtenerResumenDelSistema(periodo: Periodo): Promise<Resume
   const rango: Rango | null = limites.desde ? { desde: limites.desde, hasta: limites.hasta } : null;
   const anterior = rango ? periodoAnterior(periodo, rango) : null;
 
-  const [actual, previo, estado, reportesPendientes, tematicas, etiquetas, sancionesPorTipo, reportesPorTipo, apelaciones] =
+  const [actual, previo, supervisores, delPanel, sancionesPorTipo, reportesPorTipo] =
     await Promise.all([
       seguro(cifrasDelRango(rango?.desde ?? PRINCIPIO, limites.hasta), CERO, "las cifras del periodo"),
       anterior ? seguro(cifrasDelRango(anterior.desde, anterior.hasta), CERO, "las cifras del periodo anterior") : null,
       seguro(
         pool
-          .query<{ por_supervisar: number; datos: number; supervisores: number; esperando: number }>(
-            `SELECT
-               (SELECT COUNT(*)::int FROM campanas
-                 WHERE status = 'en_revision' AND (supervisado_por_root OR supervisor_id IS NULL)) AS por_supervisar,
-               (SELECT COUNT(*)::int FROM campana_datos_abiertos d JOIN campanas c ON c.id = d.campana_id
-                 WHERE d.estado = 'pendiente' AND (c.supervisado_por_root OR c.supervisor_id IS NULL)) AS datos,
-               (SELECT COUNT(DISTINCT usuario_id)::int FROM usuario_roles WHERE rol = 'supervisor') AS supervisores,
-               (SELECT COUNT(*)::int FROM aportes
-                 WHERE status IN ('pendiente', 'espera_final')
-                   AND submitted_at < NOW() - make_interval(days => $1)) AS esperando`,
-            [DIAS_DE_ESPERA_DE_UN_APORTE],
-          )
-          .then((r) => r.rows[0]),
-        { por_supervisar: 0, datos: 0, supervisores: 0, esperando: 0 },
-        "los pendientes",
+          .query<{ n: number }>(`SELECT COUNT(DISTINCT usuario_id)::int AS n FROM usuario_roles WHERE rol = 'supervisor'`)
+          .then((r) => r.rows[0]?.n ?? 0),
+        0,
+        "los supervisores",
       ),
-      seguro(contarReportesPendientes(), { reportes: 0, casos: 0 }, "los reportes pendientes"),
-      seguro(contarTematicasPendientes(), 0, "las temáticas pendientes"),
-      seguro(contarEtiquetasPendientes(), 0, "las subtemáticas pendientes"),
+      // null si falla: entonces no se dice "Todo al día" ni que falten supervisores.
+      seguro<Pendiente[] | null>(pendientesDelPanel(), null, "los pendientes"),
       seguro(
         pool
           .query<{ etiqueta: string; valor: number }>(
@@ -213,81 +197,76 @@ export async function obtenerResumenDelSistema(periodo: Periodo): Promise<Resume
         [],
         "los reportes por tipo",
       ),
-      // Nunca lanza: si falla, 0.
-      contarApelacionesPendientes(),
     ]);
 
+  // Los pendientes de lib/pendientes/del-panel.ts, agrupados por tipo en el orden de siempre (2026-11-24).
+  const items = delPanel ?? [];
+  const deTipo = (tipo: string) => items.filter((p) => p.tipo === tipo);
+  const cuantos = (lista: Pendiente[]) => lista.reduce((suma, p) => suma + (p.cantidad ?? 1), 0);
   const pendientes: PendienteDelPanel[] = [];
-  if (estado.por_supervisar > 0) {
-    pendientes.push({
-      clave: "supervisar",
-      cantidad: estado.por_supervisar,
-      texto: `${plural(estado.por_supervisar, "campaña espera", "campañas esperan")} supervisión`,
-      detalle: "Sin supervisor o a tu cargo: no reciben aportes hasta que alguien las acepte.",
-      href: "/supervisar",
-      tono: "urgente",
-    });
-  }
-  if (reportesPendientes.reportes > 0) {
-    pendientes.push({
-      clave: "reportes",
-      cantidad: reportesPendientes.reportes,
-      texto: `${plural(reportesPendientes.reportes, "reporte pendiente", "reportes pendientes")} en ${plural(reportesPendientes.casos, "caso", "casos")}`,
-      detalle: "Personas o aportes reportados que esperan una decisión.",
-      href: "/supervisar/reportes",
-      tono: "urgente",
-    });
-  }
-  if (apelaciones > 0) {
-    pendientes.push({
-      clave: "apelaciones",
-      cantidad: apelaciones,
-      texto: `${plural(apelaciones, "apelación espera", "apelaciones esperan")} tu respuesta`,
-      detalle: "Personas que apelaron una sanción o un baneo en una campaña. Solo tú las resuelves.",
-      href: "/apelaciones",
-      tono: "urgente",
-    });
-  }
-  if (estado.datos > 0) {
-    pendientes.push({
-      clave: "datos",
-      cantidad: estado.datos,
-      texto: `${plural(estado.datos, "decisión", "decisiones")} de datos abiertos`,
-      detalle: "Campañas terminadas: decide si sus datos se publican en el catálogo abierto.",
-      href: "/supervisar",
-      tono: "aviso",
-    });
-  }
-  if (estado.esperando > 0) {
-    pendientes.push({
-      clave: "aportes",
-      cantidad: estado.esperando,
-      texto: `${plural(estado.esperando, "aporte espera", "aportes esperan")} revisión hace más de ${DIAS_DE_ESPERA_DE_UN_APORTE} días`,
-      detalle: "Los revisa quien creó la campaña o su revisor; quizá convenga recordárselo.",
-      href: "/aportes?etapa=pendientes",
-      tono: "aviso",
-    });
-  }
-  if (tematicas > 0) {
-    pendientes.push({
-      clave: "tematicas",
-      cantidad: tematicas,
-      texto: `${plural(tematicas, "temática propuesta", "temáticas propuestas")} por revisar`,
-      detalle: "Aprobarlas las ofrece a todos; rechazarlas las borra.",
-      href: "/sistema/tematicas",
-      tono: "aviso",
-    });
-  }
-  if (etiquetas > 0) {
-    pendientes.push({
-      clave: "subtematicas",
-      cantidad: etiquetas,
-      texto: `${plural(etiquetas, "subtemática propuesta", "subtemáticas propuestas")} por revisar`,
-      detalle: "Etiquetas que propusieron los creadores en sus campañas.",
-      href: "/sistema/tematicas",
-      tono: "aviso",
-    });
-  }
+  const agregar = (tipo: string, armar: (n: number, lista: Pendiente[]) => Omit<PendienteDelPanel, "cantidad">) => {
+    const lista = deTipo(tipo);
+    const n = cuantos(lista);
+    if (n > 0) pendientes.push({ ...armar(n, lista), cantidad: n });
+  };
+  agregar("tickets", (n) => ({
+    clave: "tickets",
+    texto: `${plural(n, "ticket de supervisor espera", "tickets de supervisores esperan")} tu decisión`,
+    detalle: "Sanciones o decisiones de datos abiertos que pidió la supervisión: no se aplican hasta que las apruebes.",
+    href: "/tickets",
+    tono: "urgente",
+  }));
+  agregar("supervisar", (n) => ({
+    clave: "supervisar",
+    texto: `${plural(n, "campaña espera", "campañas esperan")} supervisión`,
+    detalle: "Sin supervisor o a tu cargo: no reciben aportes hasta que alguien las acepte.",
+    href: "/supervisar",
+    tono: "urgente",
+  }));
+  agregar("reportes", (n, lista) => ({
+    clave: "reportes",
+    texto: `${plural(n, "reporte pendiente", "reportes pendientes")} en ${plural(lista[0]?.casos ?? n, "caso", "casos")}`,
+    detalle: "Personas o aportes reportados que esperan una decisión.",
+    href: "/supervisar/reportes",
+    tono: "urgente",
+  }));
+  agregar("apelaciones", (n) => ({
+    clave: "apelaciones",
+    texto: `${plural(n, "apelación espera", "apelaciones esperan")} tu respuesta`,
+    detalle: "Personas que apelaron una sanción o un baneo en una campaña. Solo tú las resuelves.",
+    href: "/apelaciones",
+    tono: "urgente",
+  }));
+  agregar("datos", (n) => ({
+    clave: "datos",
+    texto: `${plural(n, "decisión", "decisiones")} de datos abiertos`,
+    detalle: "Campañas terminadas: decide si sus datos se publican en el catálogo abierto.",
+    href: "/supervisar",
+    tono: "aviso",
+  }));
+  agregar("aportes", (n) => ({
+    clave: "aportes",
+    texto: `${plural(n, "aporte espera", "aportes esperan")} revisión hace más de ${DIAS_DE_ESPERA_DE_UN_APORTE} días`,
+    detalle: "Los revisa quien creó la campaña o su revisor; quizá convenga recordárselo.",
+    href: "/aportes?etapa=pendientes",
+    tono: "aviso",
+  }));
+  agregar("tematicas", (n) => ({
+    clave: "tematicas",
+    texto: `${plural(n, "temática propuesta", "temáticas propuestas")} por revisar`,
+    detalle: "Aprobarlas las ofrece a todos; rechazarlas las borra.",
+    href: "/sistema/tematicas",
+    tono: "aviso",
+  }));
+  agregar("subtematicas", (n) => ({
+    clave: "subtematicas",
+    texto: `${plural(n, "subtemática propuesta", "subtemáticas propuestas")} por revisar`,
+    detalle: "Etiquetas que propusieron los creadores en sus campañas.",
+    href: "/sistema/tematicas",
+    tono: "aviso",
+  }));
+  // "Ningún supervisor" lo pinta la página aparte (con sus dos botones): sale de la misma fuente.
+  const haySupervisores = delPanel === null || deTipo("sin_supervisores").length === 0;
 
   const comparada = (clave: keyof FilaDePeriodo): Comparada => ({ actual: actual[clave], anterior: previo ? previo[clave] : null });
 
@@ -302,12 +281,12 @@ export async function obtenerResumenDelSistema(periodo: Periodo): Promise<Resume
     },
     campanasNuevas: comparada("campanas"),
     pendientes,
-    haySupervisores: estado.supervisores > 0,
+    haySupervisores,
     moderacion: {
       reportesRecibidos: comparada("reportes"),
-      reportesPendientes: reportesPendientes.reportes,
+      reportesPendientes: cuantos(deTipo("reportes")),
       sancionesAplicadas: comparada("sanciones"),
-      supervisores: estado.supervisores,
+      supervisores,
       sancionesPorTipo,
       reportesPorTipo,
     },

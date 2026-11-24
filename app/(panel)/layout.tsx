@@ -15,6 +15,7 @@ import { contarReportesPendientes } from "@/lib/reportes/reportes";
 import { contarTematicasPendientes } from "@/lib/tematicas/catalogo";
 import { contarEtiquetasPendientes } from "@/lib/etiquetas/catalogo";
 import { contarApelacionesPendientes } from "@/lib/apelaciones/apelaciones";
+import { contarTicketsPendientes } from "@/lib/tickets/consultas";
 import { tituloDeSeccion } from "@/lib/titulo";
 import { avisoDelMenuParaRoot } from "@/lib/sistema/aviso-del-menu";
 
@@ -32,16 +33,17 @@ export default async function PanelLayout({ children }: { children: ReactNode })
     redirect("/root");
   }
   // "Temáticas" cuenta también las etiquetas que propusieron los creadores (2026-10-27): se revisan en la misma pantalla.
-  const [{ reportes }, tematicasPendientes, etiquetasPendientes, apelaciones] = await Promise.all([
+  // Recuadro azul del menú y número junto a "Pendientes" (2026-11-24): lib/pendientes/del-panel.ts, la misma fuente
+  // que /sistema/pendientes.
+  const [{ reportes }, tematicasPendientes, etiquetasPendientes, apelaciones, tickets, { aviso, pendientes }] = await Promise.all([
     contarReportesPendientes(),
     contarTematicasPendientes(),
     contarEtiquetasPendientes(),
     contarApelacionesPendientes(),
+    contarTicketsPendientes(),
+    avisoDelMenuParaRoot(),
   ]);
   const tematicas = tematicasPendientes + etiquetasPendientes;
-  // Recuadro azul del menú: los pendientes del panel (2026-11-10).
-  // Temáticas y subtemáticas en renglones separados (2026-11-13); el número del menú las sigue sumando.
-  const aviso = await avisoDelMenuParaRoot({ reportes, tematicas: tematicasPendientes, subtematicas: etiquetasPendientes, apelaciones });
 
   return (
     <div className="min-h-screen bg-system-50">
@@ -52,7 +54,7 @@ export default async function PanelLayout({ children }: { children: ReactNode })
       </Suspense>
       <Topbar identificador={process.env.ROOT_USER_ID ?? "raíz"} />
       <div className="dashboard-shell flex min-w-0">
-        <Sidebar reportesPendientes={reportes} tematicasPendientes={tematicas} apelacionesPendientes={apelaciones} aviso={aviso} />
+        <Sidebar reportesPendientes={reportes} tematicasPendientes={tematicas} apelacionesPendientes={apelaciones} pendientes={pendientes} ticketsPendientes={tickets} aviso={aviso} />
         <main id="contenido" className="min-w-0 flex-1">
           <div className="mx-auto w-full min-w-0 max-w-7xl px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
             {children}

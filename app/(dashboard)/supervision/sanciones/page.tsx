@@ -10,8 +10,17 @@ import { exigirModerador } from "@/lib/moderacion/moderador";
 export const metadata: Metadata = { title: "Sanciones" };
 export const dynamic = "force-dynamic";
 
-export default async function SancionesPage({ searchParams }: { searchParams: Promise<{ buscar?: string; q?: string; tipo?: string; vigencia?: string }> }) {
+export default async function SancionesPage({ searchParams }: { searchParams: Promise<{ buscar?: string; q?: string; tipo?: string; vigencia?: string; ticket?: string }> }) {
   const moderador = await exigirModerador("supervision");
-  const { buscar, q, tipo, vigencia } = await searchParams;
-  return <PantallaDeSanciones zona="supervision" moderador={moderador} buscar={typeof buscar === "string" ? buscar : ""} filtros={{ q, tipo, vigencia }} />;
+  const { buscar, q, tipo, vigencia, ticket } = await searchParams;
+  // ?ticket=enviado (2026-11-24): llegó de enviar una sanción al SuperUsuario; arriba sale "Tus tickets".
+  return (
+    <PantallaDeSanciones
+      zona="supervision"
+      moderador={moderador}
+      buscar={typeof buscar === "string" ? buscar : ""}
+      filtros={{ q, tipo, vigencia }}
+      ticketEnviado={ticket === "enviado"}
+    />
+  );
 }

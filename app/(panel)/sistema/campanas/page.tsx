@@ -23,7 +23,7 @@ import {
   listarTematicas,
   type EstadoDeCampana,
 } from "@/lib/campanas/sistema";
-import { tiposDesde } from "@/lib/campanas/sistema-opciones";
+import { mensajeSinTiposDeDato, tiposDesde } from "@/lib/campanas/sistema-opciones";
 import FiltrosDeCampanas from "./filtros";
 import { exigirSesionRoot } from "@/lib/supervision/root";
 
@@ -65,6 +65,12 @@ export default async function ListadoDeCampanasPage({ searchParams }: { searchPa
     listarTematicas(),
     listarEtiquetasPorTematica(),
   ]);
+
+  // Sin resultados con un tipo de dato elegido: si sin ese filtro sí hay, el aviso dice que es por el tipo (2026-11-24).
+  const porElTipo =
+    total === 0 && tiposDesde(sp.tipo).length > 0
+      ? (await buscarCampanas({ q: sp.q, estado, tematica: sp.tematica, etiqueta: sp.etiqueta, vigencia: sp.vigencia, orden: sp.orden, pagina: 1 })).total > 0
+      : false;
 
   const paginas = Math.max(1, Math.ceil(total / POR_PAGINA));
   const desde = (pagina - 1) * POR_PAGINA + 1;
@@ -139,7 +145,9 @@ export default async function ListadoDeCampanasPage({ searchParams }: { searchPa
 
       {filas.length === 0 ? (
         <p className="py-7 text-[13px] text-system-600">
-          Ninguna campaña coincide con estos filtros. Prueba quitando alguno o buscando por otro término.
+          {porElTipo
+            ? `${mensajeSinTiposDeDato(sp.tipo)} Prueba con otro tipo o quita ese filtro.`
+            : "Ninguna campaña coincide con estos filtros. Prueba quitando alguno o buscando por otro término."}
         </p>
       ) : (
         <>

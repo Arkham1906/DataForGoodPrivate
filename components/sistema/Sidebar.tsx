@@ -18,6 +18,8 @@ import {
   IconoEscudo,
   IconoEtiqueta,
   IconoInicio,
+  IconoPendientes,
+  IconoRevisar,
   IconoUsuarios,
 } from "./icons";
 
@@ -35,6 +37,8 @@ type Entrada = {
 
 const MENU: Entrada[] = [
   { href: "/sistema", etiqueta: "Inicio", Icono: IconoInicio, seccion: ["/sistema"], exacto: true },
+  // Pendientes del panel (2026-11-24): lleva el número de pendientes (lib/pendientes/del-panel.ts).
+  { href: "/sistema/pendientes", etiqueta: "Pendientes", Icono: IconoPendientes, seccion: ["/sistema/pendientes"] },
   {
     href: "/usuarios?movil=menu",
     etiqueta: "Usuarios",
@@ -51,6 +55,8 @@ const MENU: Entrada[] = [
   { href: "/aportes", etiqueta: "Aportes", Icono: IconoAportes, seccion: ["/aportes"] },
   // Apelaciones de sanciones y baneos en campañas (2026-11-22): lleva el número de pendientes.
   { href: "/apelaciones", etiqueta: "Apelaciones", Icono: IconoBalanza, seccion: ["/apelaciones"] },
+  // Tickets de supervisores (2026-11-24): lo que pidieron los supervisores y espera su decisión final, con el número.
+  { href: "/tickets", etiqueta: "Tickets", Icono: IconoRevisar, seccion: ["/tickets"] },
   // Lleva el número de temáticas nuevas por revisar (2026-10-19).
   { href: "/sistema/tematicas", etiqueta: "Temáticas", Icono: IconoEtiqueta, seccion: ["/sistema/tematicas"] },
   // Catálogo de especialidades del perfil (2026-10-26).
@@ -75,18 +81,26 @@ export default function Sidebar({
   reportesPendientes = 0,
   tematicasPendientes = 0,
   apelacionesPendientes = 0,
+  pendientes: totalDePendientes = 0,
+  ticketsPendientes = 0,
   aviso,
 }: {
   reportesPendientes?: number;
   tematicasPendientes?: number;
   /** contarApelacionesPendientes() de lib/apelaciones/apelaciones.ts (2026-11-22). */
   apelacionesPendientes?: number;
+  /** Todos los pendientes del panel (2026-11-24), junto a "Pendientes". */
+  pendientes?: number;
+  /** Tickets de supervisores por resolver (2026-11-24, contarTicketsPendientes). */
+  ticketsPendientes?: number;
   /** Recuadro azul del pie (2026-11-10): lo arma el layout con avisoDelMenuParaRoot(). */
   aviso: AvisoDelMenuTipo;
 }) {
   const pendientes: Record<string, { numero: number; texto: string }> = {
+    "/sistema/pendientes": { numero: totalDePendientes, texto: "pendientes" },
     "/supervisar": { numero: reportesPendientes, texto: "reportes pendientes" },
     "/apelaciones": { numero: apelacionesPendientes, texto: "apelaciones por resolver" },
+    "/tickets": { numero: ticketsPendientes, texto: "tickets por resolver" },
     // Temáticas y etiquetas (subtemáticas, 2026-10-27) por revisar: se revisan en la misma pantalla.
     "/sistema/tematicas": { numero: tematicasPendientes, texto: "temáticas o subtemáticas por revisar" },
   };

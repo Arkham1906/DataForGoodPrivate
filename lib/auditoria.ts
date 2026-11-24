@@ -64,6 +64,10 @@ export type AccionAuditada =
   | "apelacion.enviar"
   | "apelacion.aceptar"
   | "apelacion.rechazar"
+  // Tickets de supervisión (2026-11-24, lib/tickets): el supervisor pide; el SuperUsuario aprueba o rechaza.
+  | "ticket.crear"
+  | "ticket.aprobar"
+  | "ticket.rechazar"
   | "usuario.contrasena_cambiar"
   // "¿Olvidaste tu contraseña?" (lib/usuarios/recuperacion.ts).
   | "usuario.contrasena_recuperar"

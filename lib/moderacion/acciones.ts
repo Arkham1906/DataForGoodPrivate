@@ -6,6 +6,8 @@
 // rol de supervisor (/supervision). Antes eran del panel del SuperUsuario (/usuarios/sanciones, /reportes).
 // Cada una recibe la zona y comprueba la sesión que le toca (lib/moderacion/moderador.ts); un supervisor
 // no se modera a sí mismo. Registran en audit_log a nombre de quien modera y avisan a la persona.
+// Desde el 2026-11-24 (a pedido del usuario), la suspensión, el baneo o el aviso que suspende o banea que pide un
+// supervisor van como ticket al SuperUsuario (lib/tickets): no se aplican hasta que él los aprueba.
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -28,6 +30,7 @@ import { sqlReporteVisibleParaSupervisor } from "@/lib/reportes/alcance";
 import { restaurarBloqueoGlobal } from "@/lib/aportes/sanciones-anonimas";
 import { actorDeModerador, cuentaDelModerador, firmaDeModerador, moderadorDe } from "@/lib/moderacion/moderador";
 import { rutasDeModeracion, type ZonaDeModeracion } from "@/lib/moderacion/rutas";
+import { crearTicketDeSancion, registrarTicketCreado, requiereTicket } from "@/lib/tickets/crear";
 
 export type ResultadoDeAccion = { ok: true } | { ok: false; error: string };
 
@@ -87,11 +90,51 @@ export async function aplicarSancion(
 
   let reportesResueltos: number[] = [];
   let sancion: SancionAplicada;
+  let ticketId: number | null = null;
   const client = await pool.connect();
 
   try {
     await client.query("BEGIN");
 
+    // Supervisor con una sanción importante (2026-11-24): va como ticket al SuperUsuario y no se aplica todavía.
+    if (moderador.tipo === "usuario" && (await requiereTicket(client, numericId, pedida))) {
+      const t = await crearTicketDeSancion(client, {
+        supervisorId: moderador.usuarioId,
+        usuarioId: numericId,
+        pedida,
+        detalle,
+        ...(clave && datos.reportes ? { reportes: { clave, texto: datos.reportes } } : {}),
+      });
+      if (!t.ok) {
+        await client.query("ROLLBACK");
+        client.release();
+        return { ok: false, error: t.error };
+      }
+      ticketId = t.ticketId;
+      await client.query("COMMIT");
+    }
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    client.release();
+    console.error("Error creando el ticket de sanción", error);
+    return { ok: false, error: "No se pudo enviar la sanción al SuperUsuario." };
+  }
+  if (ticketId !== null) {
+    client.release();
+    await registrarTicketCreado(cuentaDelModerador(moderador) ?? 0, ticketId, {
+      tipo: "sancion",
+      usuario: numericId,
+      sancion: pedida.tipo,
+      ...(pedida.dias ? { dias: pedida.dias } : {}),
+      zona,
+      ...(datos.reportes ? { reportes: datos.reportes } : {}),
+    });
+    revalidarModeracion();
+    revalidatePath("/tickets");
+    redirect(`${rutasDeModeracion(zona).sanciones}?ticket=enviado`);
+  }
+
+  try {
     const r = await sancionarEnTransaccion(client, {
       usuarioId: numericId,
       pedida,
@@ -110,7 +153,7 @@ export async function aplicarSancion(
       const resueltos = await client.query<{ id: number }>(
         `UPDATE reportes
          SET estado = 'sancionado', sancion_id = $3, nota_de_resolucion = $4, resuelto_en = NOW()
-         WHERE ${sqlDeClave(clave)} AND reportado_id = $2 AND estado = 'pendiente'
+         WHERE ${sqlDeClave(clave)} AND reportado_id = $2 AND estado = 'pendiente' AND ticket_id IS NULL
            AND EXISTS (
              SELECT 1 FROM campanas c
              WHERE c.id = reportes.campana_id AND ${sqlReporteVisibleParaSupervisor("reportes", "c", "$5")}
@@ -120,7 +163,7 @@ export async function aplicarSancion(
       );
       if (resueltos.rowCount === 0) {
         await client.query("ROLLBACK");
-        return { ok: false, error: "Esos reportes ya se resolvieron." };
+        return { ok: false, error: "Esos reportes ya se resolvieron o esperan un ticket del SuperUsuario." };
       }
       reportesResueltos = resueltos.rows.map((row) => row.id);
     }
@@ -229,7 +272,7 @@ export async function descartarReportes(zona: ZonaDeModeracion, claveTexto: stri
     const { rows } = await pool.query<{ id: number }>(
       `UPDATE reportes
        SET estado = 'descartado', nota_de_resolucion = $2, resuelto_en = NOW()
-       WHERE ${sqlDeClave(clave)} AND estado = 'pendiente'
+       WHERE ${sqlDeClave(clave)} AND estado = 'pendiente' AND ticket_id IS NULL
          AND ($3::int IS NULL OR reportado_id IS DISTINCT FROM $3)
          AND EXISTS (
            SELECT 1 FROM campanas c
@@ -238,7 +281,7 @@ export async function descartarReportes(zona: ZonaDeModeracion, claveTexto: stri
        RETURNING id`,
       [clave.id, texto || null, cuentaDelModerador(moderador), cuentaDelModerador(moderador)],
     );
-    if (rows.length === 0) return { ok: false, error: "Ya no hay reportes pendientes aquí." };
+    if (rows.length === 0) return { ok: false, error: "Ya no hay reportes pendientes aquí (o esperan un ticket del SuperUsuario)." };
 
     await registrarAuditoria({
       actor: actorDeModerador(moderador),

@@ -189,9 +189,10 @@ export default function ListaDeSupervision() {
     [flaggedCampaigns, filtros]
   );
 
-  const renderCampaignList = (items: CampaignApiItem[], total: number, vacio: string) => items.length === 0 ? (
+  // `todas`: las de la pestaña sin filtrar; sin el filtro de tipo se cuentan para el aviso de tipo de dato (2026-11-24).
+  const renderCampaignList = (items: CampaignApiItem[], todas: CampaignApiItem[], vacio: string) => items.length === 0 ? (
     <div className="rounded-lg border border-system-200 bg-white p-5 text-[13px] text-system-600">
-      {avisoSinResultados(total, vacio)}
+      {avisoSinResultados(todas.length, vacio, { tipo: filtros.tipo, sinFiltroDeTipo: filtrarCampanas(todas, { ...filtros, tipo: "" }, tematicaDe).length })}
     </div>
   ) : (
     <SelectorDeVistaCampanas
@@ -333,12 +334,12 @@ export default function ListaDeSupervision() {
       />
 
       {activeTab === "pending"
-        ? renderCampaignList(filteredPendingCampaigns, pendingCampaigns.length, "No hay campañas pendientes por revisar.")
+        ? renderCampaignList(filteredPendingCampaigns, pendingCampaigns, "No hay campañas pendientes por revisar.")
         : activeTab === "supervised"
-          ? renderCampaignList(filteredSupervisedCampaigns, supervisedCampaigns.length, "Todavía no tienes campañas aceptadas bajo supervisión.")
+          ? renderCampaignList(filteredSupervisedCampaigns, supervisedCampaigns, "Todavía no tienes campañas aceptadas bajo supervisión.")
           : activeTab === "finished"
-            ? renderCampaignList(filteredFinishedCampaigns, finishedCampaigns.length, "Todavía no tienes campañas finalizadas.")
-            : renderCampaignList(filteredFlaggedCampaigns, flaggedCampaigns.length, "No tienes campañas reportadas o rechazadas.")}
+            ? renderCampaignList(filteredFinishedCampaigns, finishedCampaigns, "Todavía no tienes campañas finalizadas.")
+            : renderCampaignList(filteredFlaggedCampaigns, flaggedCampaigns, "No tienes campañas reportadas o rechazadas.")}
     </div>
   );
 }

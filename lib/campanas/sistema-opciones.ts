@@ -112,6 +112,19 @@ export function nombresDeTipos(v?: string | null): string {
   return nombres.length > 1 ? `${nombres.slice(0, -1).join(", ")} y ${nombres[nombres.length - 1]}` : (nombres[0] ?? "");
 }
 
+/**
+ * Lista vacía por el filtro de tipo de dato (2026-11-24, a pedido del usuario; el mismo texto en todas las
+ * pantallas que filtran campañas por tipo). `cosas` es lo que se lista ("campañas", "conjuntos de datos").
+ * Quien lo usa lo muestra solo si sin el filtro de tipo sí habría resultados: si no, la causa es otra.
+ */
+export function mensajeSinTiposDeDato(tipo: string | null | undefined, cosas = "campañas"): string {
+  const tipos = tiposDesde(tipo);
+  if (tipos.length === 0) return "";
+  return tipos.length === 1
+    ? `No hay ${cosas} con ese tipo de dato (${nombresDeTipos(tipo)}).`
+    : `No hay ${cosas} con esos tipos de datos a la vez (${nombresDeTipos(tipo)}).`;
+}
+
 export type FilaDeCampana = {
   id: string;
   nombre: string;

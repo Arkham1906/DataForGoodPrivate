@@ -826,7 +826,9 @@ paths:
           llegó, mismas condiciones de cierre). Si la pausó la supervisión, el creador no la reanuda
           ni la programa (403).
         - **Datos abiertos (supervisor de una campaña terminada):** `{ "action": "publicar_datos" }` (400 sin aportes
-          aprobados) o `{ "action": "no_publicar_datos", "motivo": "..." }`; 409 si ya se decidió.
+          aprobados) o `{ "action": "no_publicar_datos", "motivo": "..." }`; 409 si ya se decidió o si ya hay un
+          ticket esperando. Desde el 2026-11-24 no se aplica: queda como ticket para el SuperUsuario y responde
+          `ticket: true` (la campaña trae `datosAbiertos.ticket` con lo pedido).
         - **Supervisor:** `{ "action": "tomar" }` para tomarla, o `{ "action": "aceptada" }` (400 si su fecha de cierre ya pasó) /
           `{ "action": "rechazada", "motivoDeLista": "...", "motivo": "...", "sancion": { "tipo": "...", "dias": 2 } }`
           para decidir. Al rechazar: `motivoDeLista` (uno de los motivos de reportar campaña u "Otro") y/o `motivo`
@@ -1459,7 +1461,9 @@ paths:
         2026-10-27 ya no hay límite por tipo). El archivo debe ser de un tipo que acepta
         la campaña (`dataTypes`) y su contenido debe coincidir con la extensión (se revisa la
         firma): foto .jpg/.jpeg/.png (10 MB), video .mp4/.mov/.webm (50 MB), audio
-        .mp3/.m4a/.wav/.ogg (20 MB), archivo .pdf/.docx/.pptx/.xlsx/.xls (20 MB) y texto .txt (1 MB). Fotos y
+        .mp3/.m4a/.wav/.ogg (20 MB), archivo .pdf/.docx/.pptx/.xlsx/.xls/.txt (20 MB). El texto se escribe en el campo `texto`:
+        desde el 2026-11-23 un .txt subido cuenta como archivo (documento), y en una campaña que solo
+        pide texto subir un archivo da 400. Fotos y
         documentos se guardan sin metadatos (EXIF con GPS, autor...); video y audio, tal cual. Si
         la campaña acepta texto, `file` es opcional. 413 si el cuerpo pasa de 51 MB. La persona debe
         estar inscrita a la campaña (aceptó los acuerdos con POST /api/campanas/{id}/inscripcion);
@@ -2386,7 +2390,7 @@ components:
         formatosDeDocumento:
           type: array
           description: "Formatos de Archivo (documento) que acepta (2026-10-28). Vacío = todos. Solo cuenta si dataTypes incluye documento."
-          items: { type: string, enum: [pdf, word, powerpoint, excel] }
+          items: { type: string, enum: [pdf, word, powerpoint, excel, txt] }
         metaPorTipo:
           type: boolean
           description: "Cómo se mide la meta (2026-10-28). true: un límite por cada tipo (obligatorio fuera de borrador) y la meta es su suma (se ignora goalContributions). false: meta general (goalContributions), sin límites por tipo. Sin el campo: límites opcionales."

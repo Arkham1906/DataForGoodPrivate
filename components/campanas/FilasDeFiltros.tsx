@@ -79,6 +79,8 @@ export function useFiltrosDeLista({
     etiquetasDelTema,
     tiposDeLaLista,
     coinciden,
+    /** Cuántas quedarían sin el filtro de tipo de dato (para el aviso de lista vacía, 2026-11-24). */
+    sinFiltroDeTipo: porEtiqueta.length,
     total: campanas.length,
     totalEnMiLocalidad: enMiLocalidad.length,
     activo: vista !== TODAS || tema !== "" || tipo !== "",

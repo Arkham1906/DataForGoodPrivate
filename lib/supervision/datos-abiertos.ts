@@ -2,6 +2,8 @@
 // quien la supervisa (PATCH /api/campanas/[id] { action: "publicar_datos" | "no_publicar_datos", motivo })
 // o el SuperUsuario sobre cualquiera (lib/supervision/acciones-root.ts), según los aportes que juntó.
 // La decisión no se cambia; solo se vuelve a tomar si la campaña se reactiva y termina otra vez.
+// Desde el 2026-11-24 (a pedido del usuario) lo que decide un supervisor va como ticket al SuperUsuario
+// (lib/tickets): la campaña sigue pendiente hasta que él lo aprueba, y entonces se aplica aquí (`desdeTicket`).
 // Tabla campana_datos_abiertos; lectura y texto en lib/campanas/datos-abiertos.ts.
 
 import { pool } from "@/lib/db";
@@ -10,13 +12,15 @@ import { MAXIMO_MOTIVO_DE_DATOS_ABIERTOS } from "@/lib/campanas/datos-abiertos";
 import { ESTADOS_TERMINADOS, estaTerminada } from "@/lib/campanas/terminada";
 import { notificar } from "@/lib/notificaciones/notificaciones";
 import type { AutorDeDecision } from "@/lib/supervision/decision";
+import { crearTicketDeDatos } from "@/lib/tickets/crear";
 
 export type DecisionDeDatosAbiertos = "publicar_datos" | "no_publicar_datos";
 
 export const DECISIONES_DE_DATOS_ABIERTOS = new Set<string>(["publicar_datos", "no_publicar_datos"]);
 
 export type ResultadoDeDatosAbiertos =
-  | { ok: true; mensaje: string }
+  /** `ticket`: no se aplicó, se envió al SuperUsuario (2026-11-24). */
+  | { ok: true; mensaje: string; ticket?: boolean }
   | { ok: false; status: 400 | 403 | 404 | 409; error: string };
 
 /**
@@ -100,6 +104,8 @@ export async function decidirDatosAbiertos(
   decision: DecisionDeDatosAbiertos,
   motivoEntrada: unknown,
   autor: AutorDeDecision,
+  /** desdeTicket: lo aprobó el SuperUsuario (lib/tickets/resolver.ts): se aplica aunque ya no supervise la campaña. */
+  opciones: { desdeTicket?: boolean } = {},
 ): Promise<ResultadoDeDatosAbiertos> {
   const existente = await pool.query<{
     status: string;
@@ -121,7 +127,7 @@ export async function decidirDatosAbiertos(
     if (Number(campana.creator_id) === autor.usuarioId) {
       return { ok: false, status: 403, error: "No puedes supervisar una campaña que creaste" };
     }
-    if (campana.supervisor_id == null || Number(campana.supervisor_id) !== autor.usuarioId) {
+    if (!opciones.desdeTicket && (campana.supervisor_id == null || Number(campana.supervisor_id) !== autor.usuarioId)) {
       return { ok: false, status: 403, error: "Solo quien supervisa esta campaña puede decidir sobre sus datos abiertos" };
     }
   }
@@ -137,6 +143,28 @@ export async function decidirDatosAbiertos(
   if (!publica && !motivo) return { ok: false, status: 400, error: "Escribe por qué no se publican los datos" };
   if (motivo.length > MAXIMO_MOTIVO_DE_DATOS_ABIERTOS) {
     return { ok: false, status: 400, error: `El motivo admite hasta ${MAXIMO_MOTIVO_DE_DATOS_ABIERTOS} caracteres` };
+  }
+
+  // Un supervisor (2026-11-24): va como ticket; la campaña sigue pendiente hasta que el SuperUsuario lo aprueba.
+  if (autor.tipo === "usuario" && !opciones.desdeTicket) {
+    const yaDecidida = await pool.query(
+      `SELECT 1 FROM campana_datos_abiertos WHERE campana_id = $1 AND estado <> 'pendiente'`,
+      [campanaId],
+    );
+    if ((yaDecidida.rowCount ?? 0) > 0) {
+      return { ok: false, status: 409, error: "Ya se decidió sobre los datos abiertos de esta campaña" };
+    }
+    const ticket = await crearTicketDeDatos({
+      supervisorId: autor.usuarioId,
+      campanaId: Number(campanaId),
+      pedido: { decision, motivo: motivo || null },
+    });
+    if (!ticket) return { ok: false, status: 409, error: "Ya enviaste una decisión sobre estos datos: espera al SuperUsuario" };
+    return {
+      ok: true,
+      ticket: true,
+      mensaje: "Tu decisión se envió al SuperUsuario. Se aplica solo si la aprueba; te avisaremos.",
+    };
   }
 
   // Solo si sigue pendiente: dos personas a la vez no pueden decidir distinto.

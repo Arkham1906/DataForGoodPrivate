@@ -34,12 +34,15 @@ export type SimilarParaRechazo = Pick<CampanaSimilar, "id" | "name" | "status">;
 export default function FormularioDeRechazo({
   ocupado,
   similares = [],
+  conTicket = false,
   onCancelar,
   onConfirmar,
 }: {
   ocupado: boolean;
   /** Las campañas similares que ve la supervisión (lib/supervision/similares.ts), de la más parecida a la menos. */
   similares?: SimilarParaRechazo[];
+  /** Quien rechaza es un supervisor (2026-11-24): la sanción que suspende o banea va como ticket al SuperUsuario. */
+  conTicket?: boolean;
   onCancelar: () => void;
   onConfirmar: (rechazo: RechazoPedido) => void;
 }) {
@@ -164,6 +167,9 @@ export default function FormularioDeRechazo({
           <span className="block text-[13px] font-semibold text-system-900">Sancionar al creador</span>
           <span className="block text-[12px] text-system-600">
             La sanción queda en Reportes y Sanciones de la supervisión, con este motivo.
+            {conTicket
+              ? " Si suspende o banea (también un aviso que por la escala lo hace), va como ticket al SuperUsuario: el rechazo se aplica ya y la sanción solo si la aprueba."
+              : ""}
           </span>
         </span>
       </label>

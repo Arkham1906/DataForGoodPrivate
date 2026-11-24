@@ -23,7 +23,8 @@ export const FORMATOS: Record<TipoDeArchivo, { extensiones: string[]; mimes: str
     mimes: ["audio/mpeg", "audio/mp4", "audio/x-m4a", "audio/wav", "audio/x-wav", "audio/wave", "audio/ogg"],
     tamanoMaximo: 20 * MB,
   },
-  // "Archivos" en pantalla (2026-10-26): además de PDF y Word, PowerPoint y Excel. El valor sigue siendo "documento".
+  // "Archivos" en pantalla (2026-10-26): además de PDF y Word, PowerPoint y Excel; desde el 2026-11-23
+  // (fa42cc4), también un .txt subido. El valor sigue siendo "documento".
   documento: {
     extensiones: [".pdf", ".docx", ".pptx", ".xlsx", ".xls", ".txt"],
     mimes: ["application/pdf", MIME_DOCX, MIME_PPTX, MIME_XLSX, MIME_XLS, "text/plain"],
@@ -49,7 +50,7 @@ export const FORMATOS_DE_DOCUMENTO: { valor: FormatoDeDocumento; nombre: string;
   { valor: "txt", nombre: "TXT", extensiones: [".txt"], mimes: ["text/plain"] },
 ];
 
-/** Los formatos válidos, sin repetir y en orden fijo; [] = todos (también si se marcaron los cuatro). */
+/** Los formatos válidos, sin repetir y en orden fijo; [] = todos (también si se marcaron los cinco). */
 export function normalizarFormatosDeDocumento(input: unknown): FormatoDeDocumento[] {
   const lista = Array.isArray(input) ? input.map(String) : [];
   const elegidos = FORMATOS_DE_DOCUMENTO.filter((f) => lista.includes(f.valor)).map((f) => f.valor);
@@ -75,7 +76,7 @@ export function documentoPermitido(extension: string, formatos?: readonly Format
   return extensionesDe("documento", formatos).includes(extension.toLowerCase());
 }
 
-/** "PDF y Word", "PDF, Word, PowerPoint y Excel": para mostrar qué archivos acepta la campaña. */
+/** "PDF y Word", "PDF, Word, PowerPoint, Excel y TXT": para mostrar qué archivos acepta la campaña. */
 export function nombresDeFormatos(formatos?: readonly FormatoDeDocumento[]): string {
   const nombres = formatosPermitidos(formatos).map((f) => f.nombre);
   return nombres.length <= 1 ? (nombres[0] ?? "") : `${nombres.slice(0, -1).join(", ")} y ${nombres.at(-1)}`;

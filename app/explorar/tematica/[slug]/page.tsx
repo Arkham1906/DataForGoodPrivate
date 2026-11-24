@@ -33,7 +33,7 @@ import {
   resolverTematicaDeRuta,
   type OrdenDeCampanas,
 } from "@/lib/campanas/publicas";
-import { NOMBRE_DE_TIPO, alternarTipo, nombresDeTipos, tiposDesde, type TipoDeDato } from "@/lib/campanas/sistema-opciones";
+import { NOMBRE_DE_TIPO, alternarTipo, mensajeSinTiposDeDato, nombresDeTipos, tiposDesde, type TipoDeDato } from "@/lib/campanas/sistema-opciones";
 import { rutaDeTematica } from "@/lib/tematicas/ruta";
 
 const nf = new Intl.NumberFormat("es-MX");
@@ -203,7 +203,7 @@ export default async function CampanasDeTematicaPage({ params, searchParams }: P
             <div className="rounded-[18px] bg-system-100 p-6 text-center">
               <p className="text-[15px] text-system-700">
                 {tipo
-                  ? `Ninguna campaña activa de ${tematica}${etiqueta ? ` con #${etiqueta}` : ""} pide ${tiposElegidos.length > 1 ? "a la vez " : ""}${textoDeTipos.toLocaleLowerCase("es-MX")}.`
+                  ? mensajeSinTiposDeDato(tipo, `campañas activas de ${tematica}${etiqueta ? ` con #${etiqueta}` : ""}`)
                   : etiqueta
                     ? `Ninguna campaña activa de ${tematica} tiene la subtemática #${etiqueta}.`
                     : `Todavía no hay campañas activas de ${tematica}. ¿Tienes una idea? Crea la primera.`}

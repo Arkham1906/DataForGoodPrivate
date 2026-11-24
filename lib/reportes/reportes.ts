@@ -128,6 +128,8 @@ export type GrupoDeReportes = {
   /** La cuenta reportada; null si ya no existe. */
   reportado: { id: string; nombre: string } | null;
   reportes: ReporteParaBandeja[];
+  /** Pendientes que esperan un ticket de sanción del SuperUsuario (2026-11-24): no se resuelven aquí. */
+  enTicket?: boolean;
 };
 
 export type FiltroDeReportes = "pendientes" | "resueltos";
@@ -176,6 +178,7 @@ export async function listarReportes(
       nota_de_resolucion: string | null;
       sancion_tipo: string | null;
       origen: string;
+      ticket_id: number | null;
     }>(
       `SELECT r.id, r.tipo, c.id AS campana_id, c.name AS campana, r.aporte_id,
               r.reportado_id, NULLIF(TRIM(ru.nombre || ' ' || ru.apellidos), '') AS reportado,
@@ -183,7 +186,7 @@ export async function listarReportes(
                    ELSE NULLIF(TRIM(q.nombre || ' ' || q.apellidos), '') END AS quien,
               r.origen,
               r.motivo, r.descripcion, r.created_at, r.estado, r.resuelto_en, r.nota_de_resolucion,
-              s.tipo AS sancion_tipo
+              s.tipo AS sancion_tipo, r.ticket_id
        FROM reportes r
        JOIN campanas c ON c.id = r.campana_id
        LEFT JOIN usuarios ru ON ru.id = r.reportado_id
@@ -225,6 +228,7 @@ export async function listarReportes(
         nota: f.nota_de_resolucion,
         sancion: f.sancion_tipo ? { tipo: f.sancion_tipo } : null,
       });
+      if (f.estado === "pendiente" && f.ticket_id) grupo.enTicket = true;
       grupos.set(clave, grupo);
     }
     return [...grupos.values()];
@@ -238,13 +242,15 @@ export async function listarReportes(
 export async function contarReportesPendientes(
   sinContraCuenta: number | null = null,
   supervisorId: number | null = null,
-): Promise<{ reportes: number; casos: number }> {
+): Promise<{ reportes: number; casos: number; masViejo?: Date | null }> {
   try {
-    const { rows } = await pool.query<{ reportes: number; casos: number }>(
+    // masViejo (2026-11-24): cuándo llegó el pendiente más antiguo, para la pantalla de pendientes.
+    const { rows } = await pool.query<{ reportes: number; casos: number; masViejo: Date | null }>(
       `SELECT COUNT(*)::int AS reportes,
-              COUNT(DISTINCT CASE WHEN r.tipo = 'campana' THEN 'c' || r.campana_id ELSE 'a' || COALESCE(r.aporte_id, -r.id) END)::int AS casos
+              COUNT(DISTINCT CASE WHEN r.tipo = 'campana' THEN 'c' || r.campana_id ELSE 'a' || COALESCE(r.aporte_id, -r.id) END)::int AS casos,
+              MIN(r.created_at) AS "masViejo"
        FROM reportes r JOIN campanas c ON c.id = r.campana_id
-       WHERE r.estado = 'pendiente'
+       WHERE r.estado = 'pendiente' AND r.ticket_id IS NULL -- los de un ticket esperan al SuperUsuario (2026-11-24)
          AND ($1::int IS NULL OR r.reportado_id IS DISTINCT FROM $1)
          AND ${sqlReporteVisibleParaSupervisor("r", "c", "$2")}`,
       [sinContraCuenta, supervisorId],

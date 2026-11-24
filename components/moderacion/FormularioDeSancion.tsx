@@ -16,6 +16,7 @@ import Button from "@/components/sistema/Button";
 import { Field, Textarea } from "@/components/sistema/Input";
 import { useConfirmacion } from "@/components/sistema/useConfirmacion";
 import { consecuenciaDelAviso, describirConsecuencia } from "@/lib/usuarios/escala-de-avisos";
+import { sancionVaComoTicket } from "@/lib/tickets/reglas";
 import OpcionesDeSancion, { SANCION_POR_DEFECTO, textoDeAplicar } from "@/components/moderacion/OpcionesDeSancion";
 import { aplicarSancion } from "@/lib/moderacion/acciones";
 import { rutasDeModeracion, type ZonaDeModeracion } from "@/lib/moderacion/rutas";
@@ -46,6 +47,9 @@ export default function FormularioDeSancion({
   const { pedirConfirmacion, ventana, ocupado: pendiente } = useConfirmacion();
 
   const corto = detalle.trim().length < MINIMO;
+  // Un supervisor (zona "supervision", 2026-11-24): la suspensión, el baneo o el aviso que suspende o banea van como
+  // ticket al SuperUsuario (lib/tickets/reglas.ts) y no se aplican hasta que él los apruebe.
+  const conTicket = zona === "supervision" && sancionVaComoTicket(sancion.tipo, avisos);
 
   function enviar() {
     const efecto =
@@ -55,8 +59,19 @@ export default function FormularioDeSancion({
           ? `No podrá entrar a su cuenta durante ${sancion.dias} ${sancion.dias === 1 ? "día" : "días"}; después vuelve a entrar sola.`
           : "La cuenta queda baneada de inmediato y su correo pasa a la lista negra: no podrá registrarse otra vez.";
     pedirConfirmacion({
-      pregunta: `¿Seguro que quieres ${textoDeAplicar(sancion).toLowerCase()} a ${usuario}?`,
-      detalle: (
+      pregunta: conTicket
+        ? `¿Enviar al SuperUsuario: ${textoDeAplicar(sancion).toLowerCase()} a ${usuario}?`
+        : `¿Seguro que quieres ${textoDeAplicar(sancion).toLowerCase()} a ${usuario}?`,
+      detalle: conTicket ? (
+        <>
+          <p>
+            Va como ticket: no se aplica hasta que el SuperUsuario lo apruebe. Mientras, {usuario} conserva su acceso
+            {reportes ? " y los reportes de este caso quedan «en revisión por el SuperUsuario»" : ""}.
+          </p>
+          <p>Si lo aprueba: {efecto.charAt(0).toLowerCase() + efecto.slice(1)}</p>
+          <p>Te avisaremos de su respuesta.</p>
+        </>
+      ) : (
         <>
           <p>{efecto}</p>
           <p>{usuario} recibe un aviso con el motivo que escribiste.{reportes ? " Los reportes de este caso quedan resueltos." : ""}</p>
@@ -67,8 +82,8 @@ export default function FormularioDeSancion({
           )}
         </>
       ),
-      textoConfirmar: `Sí, ${textoDeAplicar(sancion).toLowerCase()}`,
-      textoOcupado: "Aplicando…",
+      textoConfirmar: conTicket ? "Sí, enviar al SuperUsuario" : `Sí, ${textoDeAplicar(sancion).toLowerCase()}`,
+      textoOcupado: conTicket ? "Enviando…" : "Aplicando…",
       peligro: true,
       accion: () => aplicarSancion(zona, usuarioId, { tipo: sancion.tipo, dias: sancion.dias, detalle, reportes }),
     });
@@ -78,6 +93,11 @@ export default function FormularioDeSancion({
     <div>
       <Field label="Tipo de sanción" required>
         <OpcionesDeSancion valor={sancion} onCambiar={setSancion} avisos={avisos} baneada={baneada} />
+        {conTicket ? (
+          <p className="mt-2 rounded border border-warning-300 bg-warning-50 px-3 py-2 text-[12.5px] text-warning-800">
+            Esta sanción va como ticket al SuperUsuario: se aplica solo si la aprueba.
+          </p>
+        ) : null}
       </Field>
 
       <Field
@@ -104,7 +124,7 @@ export default function FormularioDeSancion({
           Cancelar
         </Button>
         <Button type="button" variant="danger" size="sm" disabled={pendiente || corto} onClick={enviar}>
-          {textoDeAplicar(sancion)}
+          {conTicket ? "Enviar al SuperUsuario" : textoDeAplicar(sancion)}
         </Button>
       </div>
       {ventana}

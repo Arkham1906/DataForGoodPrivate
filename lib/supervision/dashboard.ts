@@ -12,6 +12,7 @@
 // Si una consulta falla devuelve null y la pantalla muestra la lista sin el dashboard.
 
 import { pool } from "@/lib/db";
+import { sqlSinTicketDeDatos } from "@/lib/tickets/crear";
 import { ZONA_DE_CAMPANAS } from "@/lib/fecha-de-tepic";
 import { contarReportesPendientes } from "@/lib/reportes/reportes";
 import { MOTIVOS_DE_RECHAZO_DE_CAMPANA, MOTIVO_CAMPANA_SIMILAR, OTRO_MOTIVO } from "@/lib/reportes/motivos";
@@ -120,7 +121,7 @@ export async function obtenerDashboardDelSupervisor(usuarioId: number, periodo: 
         `SELECT c.id, c.name, 'datos' AS tipo, c.end_date::timestamptz AS desde
            FROM campanas c
            JOIN campana_datos_abiertos d ON d.campana_id = c.id AND d.estado = 'pendiente'
-          WHERE c.supervisor_id = $1 AND c.status = 'finalizada'
+          WHERE c.supervisor_id = $1 AND c.status = 'finalizada' AND ${sqlSinTicketDeDatos("c")}
          UNION ALL
          SELECT c.id, c.name, 'reanudar' AS tipo, c.ajustes_en AS desde
            FROM campanas c
