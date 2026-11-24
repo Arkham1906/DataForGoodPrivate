@@ -145,7 +145,7 @@ export default function DetalleDeMisCampanasPage() {
   const sinAportes = sinAportesTodavia(campana.status);
 
   return (
-    <div className="mx-auto max-w-4xl">
+    <div className="mx-auto w-full min-w-0 max-w-5xl lg:mx-0 lg:max-w-none">
       <Link href="/mis-campanas" className="mb-4 inline-block text-[13px] text-system-600 hover:text-system-900">
         ← Volver a Mis campañas
       </Link>

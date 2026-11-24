@@ -29,11 +29,11 @@ export default function ArchivoDeAporteDeLaComunidad({ aporte }: { aporte: Aport
   }
 
   return (
-    <BotonPantallaCompletaDeAporte aporteId={aporte.id} tipo={aporte.tipo} alt={alt} descripcion={aporte.description}>
+    <BotonPantallaCompletaDeAporte aporteId={aporte.id} tipo={aporte.tipo} mimeType={aporte.mimeType ?? undefined} alt={alt} descripcion={aporte.description}>
       {aporte.tipo === "documento" ? (
         <MiniaturaDeAporte aporteId={aporte.id} tipo="documento" mimeType={aporte.mimeType ?? undefined} alt={alt} className={`${ALTO} w-full`} />
       ) : (
-        <ArchivoDelAporte aporteId={aporte.id} tipo={aporte.tipo} alt={alt} alto={ALTO} />
+        <ArchivoDelAporte aporteId={aporte.id} tipo={aporte.tipo} mimeType={aporte.mimeType ?? undefined} alt={alt} alto={ALTO} />
       )}
     </BotonPantallaCompletaDeAporte>
   );

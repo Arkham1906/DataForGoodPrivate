@@ -75,7 +75,7 @@ export default function BandejaAportesPage() {
   const visibles = inbox.filter((item) => EN_FILTRO[filtro](item.status));
 
   return (
-    <div className="mx-auto max-w-4xl">
+    <div className="mx-auto w-full min-w-0 max-w-5xl lg:mx-0 lg:max-w-none">
       <Link href="/mis-campanas" className="mb-4 inline-block text-[13px] text-system-600 hover:text-system-900">
         ← Volver a mis campañas
       </Link>

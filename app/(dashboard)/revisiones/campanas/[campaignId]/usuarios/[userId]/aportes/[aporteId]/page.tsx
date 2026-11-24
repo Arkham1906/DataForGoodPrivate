@@ -75,6 +75,7 @@ export default async function ReviewerContributionDetailPage({ params }: { param
             <BotonPantallaCompletaDeAporte
               aporteId={aporteId}
               tipo={contribution.file_type}
+              mimeType={contribution.file_mime_type ? String(contribution.file_mime_type) : undefined}
               sinArchivo={!contribution.file_path}
               alt={`Archivo aportado por ${contribution.participant_name}`}
               descripcion={contribution.description}
@@ -82,6 +83,7 @@ export default async function ReviewerContributionDetailPage({ params }: { param
               <ArchivoDelAporte
                 aporteId={aporteId}
                 tipo={String(contribution.file_type)}
+                mimeType={contribution.file_mime_type ? String(contribution.file_mime_type) : undefined}
                 sinArchivo={!contribution.file_path}
                 alt={`Archivo aportado por ${contribution.participant_name}`}
               />

@@ -53,6 +53,7 @@ function escaparHtml(valor: string) {
 export default function BotonPantallaCompletaDeAporte({
   aporteId,
   tipo,
+  mimeType,
   alt,
   descripcion,
   sinArchivo = false,
@@ -60,6 +61,7 @@ export default function BotonPantallaCompletaDeAporte({
 }: {
   aporteId: string | number;
   tipo: DataType;
+  mimeType?: string;
   alt: string;
   descripcion: string;
   sinArchivo?: boolean;
@@ -75,6 +77,7 @@ export default function BotonPantallaCompletaDeAporte({
   const [htmlDocumento, setHtmlDocumento] = useState<string | null>(null);
   const [errorDocumento, setErrorDocumento] = useState<string | null>(null);
   const src = `${BASE_PATH}/api/aportes/${aporteId}/archivo`;
+  const esTextoPlano = tipo === "texto" || mimeType === "text/plain";
 
   async function cargarDocumento() {
     const solicitud = ++solicitudRef.current;
@@ -140,7 +143,7 @@ export default function BotonPantallaCompletaDeAporte({
     origenRef.current = { boton: event.currentTarget, x: window.scrollX, y: window.scrollY };
     dialogRef.current?.showModal();
     setAbierto(true);
-    if (tipo === "documento") void cargarDocumento();
+    if (tipo === "documento" && !esTextoPlano) void cargarDocumento();
   }
 
   function cerrar() {
@@ -162,7 +165,7 @@ export default function BotonPantallaCompletaDeAporte({
       ) : (
         <div className="relative">
           {children}
-          {tipo === "documento" ? (
+          {tipo === "documento" || esTextoPlano ? (
             <Button
               type="button"
               variant="secondary"
@@ -173,20 +176,7 @@ export default function BotonPantallaCompletaDeAporte({
             >
               Abrir
             </Button>
-          ) : tipo === "video" ? null : (
-            <button
-              type="button"
-              onClick={abrir}
-              className="absolute right-2 top-2 inline-flex size-10 items-center justify-center rounded-pill bg-system-900/80 text-white shadow-sm hover:bg-system-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-              aria-haspopup="dialog"
-              aria-label="Abrir el aporte a pantalla completa"
-              title="Abrir a pantalla completa"
-            >
-              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M8 3H5a2 2 0 0 0-2 2v3m13-5h3a2 2 0 0 1 2 2v3M3 16v3a2 2 0 0 0 2 2h3m8 0h3a2 2 0 0 0 2-2v-3" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
-          )}
+          ) : null}
         </div>
       )}
 
@@ -237,7 +227,7 @@ export default function BotonPantallaCompletaDeAporte({
               <p className="mb-5 text-lg font-bold">Audio</p>
               <audio src={src} controls preload="metadata" className="w-full" aria-label={alt} />
             </div>
-          ) : tipo === "texto" ? (
+          ) : esTextoPlano ? (
             proteccion ? (
               // Protegida (2026-11-12): en un iframe el texto se podría seleccionar y copiar.
               <div className="h-full w-full max-w-4xl">

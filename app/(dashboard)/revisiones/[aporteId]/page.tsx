@@ -229,6 +229,7 @@ export default function RevisionAportePage() {
               <BotonPantallaCompletaDeAporte
                 aporteId={item.id}
                 tipo={item.fileType}
+                mimeType={item.fileMimeType}
                 sinArchivo={item.sinArchivo}
                 alt={`Archivo del aporte de ${item.participantName}`}
                 descripcion={item.description}
@@ -236,6 +237,7 @@ export default function RevisionAportePage() {
                 <ArchivoDelAporte
                   aporteId={item.id}
                   tipo={item.fileType}
+                  mimeType={item.fileMimeType}
                   sinArchivo={item.sinArchivo}
                   alt={`Archivo del aporte de ${item.participantName}`}
                 />

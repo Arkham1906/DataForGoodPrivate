@@ -6,7 +6,6 @@
 // Desde el 2026-11-11 el texto (.txt) se muestra a la vista con ui/TextoDelAporte (componente cliente).
 
 import { BASE_PATH } from "@/lib/base-path";
-import TextoDelAporte from "@/components/ui/TextoDelAporte";
 
 const CAJA = "flex w-full flex-col items-center justify-center gap-2 rounded-lg border border-system-300 bg-system-100 p-4 text-center text-[12.5px] text-system-600";
 const MIME_PDF = "application/pdf";
@@ -14,6 +13,7 @@ const MIME_DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingm
 const MIME_PPTX = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
 const MIME_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 const MIME_XLS = "application/vnd.ms-excel";
+const MIME_TXT = "text/plain";
 
 function etiquetaDeTipo(tipo: string) {
   switch (tipo) {
@@ -31,15 +31,17 @@ function etiquetaDeTipo(tipo: string) {
 }
 
 function IconoDeDocumento({ mimeType, etiquetaPorDefecto = "DOC", className = "h-full w-full" }: { mimeType?: string; etiquetaPorDefecto?: string; className?: string }) {
-  const configuracion = mimeType === MIME_XLSX || mimeType === MIME_XLS
-    ? { etiqueta: "XLS", color: "text-success-700", fondo: "bg-success-50", borde: "border-success-200" }
-    : mimeType === MIME_DOCX
-      ? { etiqueta: "DOC", color: "text-brand-700", fondo: "bg-brand-50", borde: "border-brand-200" }
-      : mimeType === MIME_PPTX
-        ? { etiqueta: "PPT", color: "text-warning-800", fondo: "bg-warning-50", borde: "border-warning-200" }
-        : mimeType === MIME_PDF
-          ? { etiqueta: "PDF", color: "text-error-700", fondo: "bg-error-50", borde: "border-error-200" }
-          : { etiqueta: etiquetaPorDefecto, color: "text-system-700", fondo: "bg-system-100", borde: "border-system-300" };
+  const configuracion = mimeType === MIME_TXT
+    ? { etiqueta: "TXT", color: "text-system-700", fondo: "bg-system-100", borde: "border-system-300" }
+    : mimeType === MIME_XLSX || mimeType === MIME_XLS
+      ? { etiqueta: "XLS", color: "text-success-700", fondo: "bg-success-50", borde: "border-success-200" }
+      : mimeType === MIME_DOCX
+        ? { etiqueta: "DOC", color: "text-brand-700", fondo: "bg-brand-50", borde: "border-brand-200" }
+        : mimeType === MIME_PPTX
+          ? { etiqueta: "PPT", color: "text-warning-800", fondo: "bg-warning-50", borde: "border-warning-200" }
+          : mimeType === MIME_PDF
+            ? { etiqueta: "PDF", color: "text-error-700", fondo: "bg-error-50", borde: "border-error-200" }
+            : { etiqueta: etiquetaPorDefecto, color: "text-system-700", fondo: "bg-system-100", borde: "border-system-300" };
 
   return (
     <div className={`${className} flex flex-col items-center justify-center gap-1 rounded-lg border ${configuracion.borde} ${configuracion.fondo} ${configuracion.color}`}>
@@ -117,6 +119,7 @@ export default function ArchivoDelAporte({
   tipo,
   sinArchivo = false,
   alt,
+  mimeType,
   alto = "aspect-video",
 }: {
   aporteId: string | number;
@@ -124,6 +127,8 @@ export default function ArchivoDelAporte({
   tipo: string;
   sinArchivo?: boolean;
   alt: string;
+  /** MIME almacenado: distingue los .txt subidos como "Archivo" de los documentos de Office. */
+  mimeType?: string;
   /** Clase de alto de la vista (p. ej. "h-44" o "aspect-video"). */
   alto?: string;
 }) {
@@ -131,6 +136,9 @@ export default function ArchivoDelAporte({
 
   if (sinArchivo) {
     return <div className={`${CAJA} ${alto} border-dashed`}>Aporte de solo texto: la información está en la descripción.</div>;
+  }
+  if (tipo === "texto" || mimeType === MIME_TXT) {
+    return <IconoDeDocumento mimeType={MIME_TXT} etiquetaPorDefecto="TXT" className={`${alto} w-full`} />;
   }
   if (tipo === "foto") {
     // eslint-disable-next-line @next/next/no-img-element -- archivo servido por la API con sesión; next/image no aporta aquí
@@ -151,8 +159,6 @@ export default function ArchivoDelAporte({
       </div>
     );
   }
-  // Texto (.txt): a la vista, con enlace para abrirlo (2026-11-11; antes solo el enlace).
-  if (tipo === "texto") return <TextoDelAporte src={src} alto={alto} />;
   // Archivo (PDF, Word, PowerPoint o Excel): se descarga.
   return (
     <div className={`${CAJA} ${alto}`}>
