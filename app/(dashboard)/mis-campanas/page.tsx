@@ -483,7 +483,7 @@ export default function MisCampanasPage() {
                 <Link
                   href={`/mis-campanas/${campaign.id}`}
                   aria-label={`Ver la información de ${campaign.name}`}
-                  className="absolute inset-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+                  className="absolute inset-0 z-10 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
                 />
                 <div
                   className={vistaCuadricula

@@ -2,8 +2,8 @@
 
 // Fila "Preferencias" de la tarjeta de seguridad en /cuenta. "Ver" abre una ventana
 // (<dialog> nativo, como ui/SelectorDeTemas) con las cuatro opciones de comunicación y
-// notificaciones (lib/usuarios/preferencias-opciones.ts). Cada interruptor se guarda al tocarlo
-// con PATCH /api/usuarios/[id]/preferencias; si falla, vuelve a como estaba (2026-10-14).
+// notificaciones (lib/usuarios/preferencias-opciones.ts). Los cambios quedan en borrador hasta
+// pulsar "Guardar cambios"; la ubicación conserva su flujo independiente.
 // Arriba de todo (desde el 2026-10-20, a pedido del usuario; antes iba al final), el interruptor
 // general "Notificaciones" (2026-10-19; antes ahí estaba "Privacidad", sin función): apagado, no
 // llega ninguna notificación salvo las de la cuenta, y las cuatro de abajo se ven atenuadas.
@@ -17,8 +17,8 @@ import UbicacionEnPreferencias from "./UbicacionEnPreferencias";
 import {
   OPCIONES_DE_PREFERENCIAS,
   PREFERENCIA_GENERAL,
-  type ClaveDePreferencia,
   type Preferencias,
+  TODAS_LAS_PREFERENCIAS,
 } from "@/lib/usuarios/preferencias-opciones";
 import { claseDeVentana } from "@/components/ui/ventana-emergente";
 
@@ -33,32 +33,50 @@ export default function PreferenciasDeComunicacion({
 }) {
   const dialogo = useRef<HTMLDialogElement>(null);
   const [valores, setValores] = useState<Preferencias>(iniciales);
-  const [guardando, setGuardando] = useState<ClaveDePreferencia | null>(null);
-  const [error, setError] = useState<{ clave: ClaveDePreferencia; texto: string } | null>(null);
+  const [guardadas, setGuardadas] = useState<Preferencias>(iniciales);
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const generalActiva = valores.notificaciones;
+  const hayCambios = TODAS_LAS_PREFERENCIAS.some(({ clave }) => valores[clave] !== guardadas[clave]);
 
   function cerrar() {
+    if (guardando) return;
+    setValores(guardadas);
+    setError(null);
     dialogo.current?.close();
   }
 
-  async function alternar(clave: ClaveDePreferencia) {
-    const nuevo = !valores[clave];
-    setValores((v) => ({ ...v, [clave]: nuevo }));
-    setGuardando(clave);
+  function alternar(clave: keyof Preferencias) {
+    setValores((actuales) => ({ ...actuales, [clave]: !actuales[clave] }));
+    setError(null);
+
+  }
+
+  async function guardar() {
+    if (!hayCambios || guardando) return;
+    const cambios = Object.fromEntries(
+      TODAS_LAS_PREFERENCIAS
+        .filter(({ clave }) => valores[clave] !== guardadas[clave])
+        .map(({ clave }) => [clave, valores[clave]]),
+    );
+    setGuardando(true);
     setError(null);
     try {
       const response = await fetch(`${BASE_PATH}/api/usuarios/${usuarioId}/preferencias`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ [clave]: nuevo }),
+        body: JSON.stringify(cambios),
       });
-      if (!response.ok) throw new Error();
-    } catch {
-      setValores((v) => ({ ...v, [clave]: !nuevo }));
-      setError({ clave, texto: "No se pudo guardar. Intenta de nuevo." });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error ?? "No se pudieron guardar las preferencias.");
+      }
+      setGuardadas(valores);
+    } catch (causa) {
+      setError(causa instanceof Error ? causa.message : "No se pudieron guardar las preferencias.");
     } finally {
-      setGuardando(null);
+      setGuardando(false);
     }
   }
 
@@ -89,7 +107,7 @@ export default function PreferenciasDeComunicacion({
               Comunicación, notificaciones y ubicación
             </h2>
             <p className="mt-1 text-[15px] text-system-600">
-              Los avisos llegan a la campana, a Notificaciones y, si los activaste, al teléfono. Todo se guarda al tocarlo.
+              Los avisos llegan a la campana, a Notificaciones y, si los activaste, al teléfono. Las preferencias de notificación se guardan con el botón; la ubicación se actualiza al cambiarla.
             </p>
           </div>
 
@@ -110,18 +128,13 @@ export default function PreferenciasDeComunicacion({
                   aria-checked={generalActiva}
                   aria-labelledby="pref-notificaciones"
                   aria-describedby="pref-notificaciones-detalle"
-                  disabled={guardando === "notificaciones"}
-                  onClick={() => void alternar("notificaciones")}
+                  disabled={guardando}
+                  onClick={() => alternar("notificaciones")}
                   className={`relative h-6 w-11 shrink-0 rounded-pill transition-colors disabled:opacity-60 ${generalActiva ? "bg-brand-600" : "bg-system-300"}`}
                 >
                   <span className={`absolute top-1 h-4 w-4 rounded-full bg-white transition-all ${generalActiva ? "left-6" : "left-1"}`} />
                 </button>
               </div>
-              {error?.clave === "notificaciones" && (
-                <p role="alert" className="mt-1 text-[13.5px] text-error-700">
-                  {error.texto}
-                </p>
-              )}
             </div>
 
             <div className={`mt-3 grid gap-3 sm:grid-cols-2 transition-opacity ${generalActiva ? "" : "opacity-50"}`}>
@@ -140,8 +153,8 @@ export default function PreferenciasDeComunicacion({
                         aria-checked={activa}
                         aria-labelledby={etiqueta}
                         aria-describedby={`${etiqueta}-detalle`}
-                        disabled={guardando === opcion.clave || !generalActiva}
-                        onClick={() => void alternar(opcion.clave)}
+                        disabled={guardando || !generalActiva}
+                        onClick={() => alternar(opcion.clave)}
                         className={`relative h-5 w-9 shrink-0 rounded-full transition-colors disabled:opacity-60 ${activa ? "bg-success-700" : "bg-system-300"}`}
                       >
                         <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${activa ? "left-[18px]" : "left-0.5"}`} />
@@ -150,11 +163,6 @@ export default function PreferenciasDeComunicacion({
                     <p id={`${etiqueta}-detalle`} className="mt-2 text-[14px] text-system-600">
                       {activa ? opcion.encendida : opcion.apagada}
                     </p>
-                    {error?.clave === opcion.clave && (
-                      <p role="alert" className="mt-1 text-[13.5px] text-error-700">
-                        {error.texto}
-                      </p>
-                    )}
                   </div>
                 );
               })}
@@ -164,9 +172,23 @@ export default function PreferenciasDeComunicacion({
           </div>
 
           <div className="flex justify-end border-t border-system-200 px-5 py-4 md:px-8 md:py-5">
-            <Button type="button" variant="primary" onClick={cerrar}>
-              Cerrar
-            </Button>
+            <div className="flex flex-wrap items-center justify-end gap-3">
+              {error && <p role="alert" className="text-[12.5px] text-error-700">{error}</p>}
+              {hayCambios ? (
+                <>
+                  <Button type="button" variant="secondary" onClick={cerrar} disabled={guardando}>
+                    Descartar cambios
+                  </Button>
+                  <Button type="button" variant="primary" onClick={() => void guardar()} disabled={guardando}>
+                    {guardando ? "Guardando..." : "Guardar cambios"}
+                  </Button>
+                </>
+              ) : (
+                <Button type="button" variant="primary" onClick={cerrar}>
+                  Cerrar
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </dialog>
