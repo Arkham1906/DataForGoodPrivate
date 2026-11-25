@@ -36,9 +36,11 @@ export default function BarraDeFiltros({
   conVigencia = false,
   colapsableEnMovil = false,
   conTematica = true,
+  textoSinTematica = "Temática: todas",
   conTipo = true,
   etiquetasPorTematica,
   vistas,
+  categoria,
   ordenRedondeado = false,
 }: {
   valores: ValoresDeFiltros;
@@ -52,10 +54,16 @@ export default function BarraDeFiltros({
   colapsableEnMovil?: boolean;
   /** false: sin el select de temática (/campanas, donde la temática se elige con botones). */
   conTematica?: boolean;
+  textoSinTematica?: string;
   /** false: sin el select de tipo de dato. */
   conTipo?: boolean;
   /** Select "Mostrar" con estas listas (p. ej. Todas / Favoritas / Cerca de ti); sin él no sale. */
   vistas?: { valor: string; etiqueta: string }[];
+  categoria?: {
+    valor: string;
+    grupos: { etiqueta: string; opciones: { valor: string; etiqueta: string }[] }[];
+    onCambiar: (valor: string) => void;
+  };
   ordenRedondeado?: boolean;
 }) {
   const [texto, setTexto] = useState(valores.q);
@@ -104,6 +112,31 @@ export default function BarraDeFiltros({
     );
   }
 
+  function selectorDeCategoria() {
+    if (!categoria) return null;
+    return (
+      <label className="min-w-0 flex-1">
+        <span className="sr-only">Mostrar campañas por categoría</span>
+        <select
+          className={CLASE_SELECT}
+          value={categoria.valor}
+          onChange={(e) => {
+            setPanelAbierto(false);
+            categoria.onCambiar(e.target.value);
+          }}
+        >
+          {categoria.grupos.map((grupo) => (
+            <optgroup key={grupo.etiqueta} label={grupo.etiqueta}>
+              {grupo.opciones.map((opcion) => (
+                <option key={opcion.valor} value={opcion.valor}>{opcion.etiqueta}</option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+      </label>
+    );
+  }
+
   function controles(sufijo: string, borrador: boolean) {
     const filtros = borrador ? { ...valores, ...filtrosBorrador } : valores;
     const cambiar = (clave: keyof ValoresDeFiltros, valor: string) => {
@@ -148,7 +181,7 @@ export default function BarraDeFiltros({
               value={filtros.tematica}
               onChange={(e) => cambiar("tematica", e.target.value)}
             >
-              <option value="">Temática: todas</option>
+              <option value="">{textoSinTematica}</option>
               {tematicas.map((tema) => (
                 <option key={tema} value={tema}>
                   {tema}
@@ -203,7 +236,14 @@ export default function BarraDeFiltros({
         )}
 
         {ordenRedondeado ? (
-          <SelectorDeOrden valor={filtros.orden} onCambiar={(valor) => cambiar("orden", valor)} opciones={[{ value: "", label: "Más recientes" }, ...ORDENES_DE_CAMPANA.map((orden) => ({ value: orden.valor, label: orden.etiqueta }))]} />
+          <SelectorDeOrden
+            valor={filtros.orden}
+            onCambiar={(valor) => cambiar("orden", valor)}
+            opciones={[
+              { value: "", label: "Más recientes" },
+              ...ORDENES_DE_CAMPANA.map((orden) => ({ value: orden.valor, label: orden.etiqueta })),
+            ]}
+          />
         ) : <div className="min-w-0 flex-1">
           <label className="sr-only" htmlFor={`${idOrden}-${sufijo}`}>
             Ordenar por
@@ -254,6 +294,7 @@ export default function BarraDeFiltros({
     <>
       {colapsableEnMovil && (
         <div className="relative mb-5 md:hidden">
+          {categoria && <div className="mb-2.5 flex">{selectorDeCategoria()}</div>}
           <div className="flex items-center gap-2.5">
             {campoBusqueda("mobile")}
             <button
@@ -293,6 +334,7 @@ export default function BarraDeFiltros({
 
       <div className={colapsableEnMovil ? "mb-5 hidden flex-wrap items-center gap-2.5 md:flex" : "mb-5 flex flex-wrap items-center gap-2.5"}>
         {campoBusqueda("desktop")}
+        {selectorDeCategoria()}
         {controles("desktop", false)}
       </div>
     </>

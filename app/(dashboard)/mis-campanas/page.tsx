@@ -1,5 +1,4 @@
 "use client";
-import SelectorDeOrden from "@/components/ui/SelectorDeOrden";
 
 // Pantalla /mis-campanas: campañas que creaste, con filtros por estado.
 // Componente cliente. Datos: GET /api/campanas?mine=true.
@@ -35,6 +34,8 @@ import { ETIQUETA_DE_CAMPANA } from "@/lib/campanas/sistema-opciones";
 import { textoDeDatosAbiertos } from "@/lib/campanas/datos-abiertos";
 import { MAX_CAMPANAS_EN_REVISION } from "@/lib/campanas/cola-de-revision";
 import BotonCrearCampana from "@/components/campanas/BotonCrearCampana";
+import BarraDeFiltros, { type ValoresDeFiltros } from "@/components/campanas/BarraDeFiltros";
+import { avisoSinResultados, conFiltro, etiquetasPorTematica, FILTROS_VACIOS, filtrarCampanas } from "@/lib/campanas/filtro-local";
 
 const fechaDeRechazo = new Intl.DateTimeFormat("es-MX", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: ZONA_DE_CAMPANAS });
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
@@ -84,7 +85,7 @@ const labels: Record<CampaignStatus, string> = {
 type Filtro = "todas" | "proximas" | CampaignStatus;
 
 const FILTROS: { valor: Filtro; etiqueta: string; fijo?: boolean }[] = [
-  { valor: "todas", etiqueta: "Todas", fijo: true },
+  { valor: "todas", etiqueta: "Mostrar: todas", fijo: true },
   { valor: "proximas", etiqueta: "Próximas a finalizar", fijo: true },
   { valor: "en_revision", etiqueta: "En revisión", fijo: true },
   { valor: "aceptada", etiqueta: "Aceptadas", fijo: true },
@@ -96,6 +97,10 @@ const FILTROS: { valor: Filtro; etiqueta: string; fijo?: boolean }[] = [
 ];
 
 type CampanaDeMisCampanas = Campaign & { canDelete: boolean };
+
+function tematicaDe(campana: Campaign): string {
+  return campana.tematica || campana.tag;
+}
 
 /** El nombre escrito para confirmar el borrado coincide con el de la campaña (sin mayúsculas ni espacios de más). */
 function mismoNombre(escrito: string, nombre: string): boolean {
@@ -208,9 +213,7 @@ export default function MisCampanasPage() {
   // Nombre que escribe para confirmar que borra una campaña con aportes.
   const [nombreParaEliminar, setNombreParaEliminar] = useState("");
   const [cargando, setCargando] = useState(true);
-  const [filtro, setFiltro] = useState<Filtro>("todas");
-  // Orden por avance de la meta (2026-11-04): "" = más recientes.
-  const [ordenDeAvance, setOrdenDeAvance] = useState<"" | "mayor" | "menor">("");
+  const [filtros, setFiltros] = useState<ValoresDeFiltros>({ ...FILTROS_VACIOS, vista: "todas" });
 
   // Vuelve a leer cuando algo cambia en la base (actualización en vivo).
   const recarga = useRecargaEnVivo();
@@ -229,26 +232,20 @@ export default function MisCampanasPage() {
       .finally(() => setCargando(false));
   }, [recarga]);
 
-  const count = (status: CampaignStatus) => campaigns.filter((campaign) => campaign.status === status).length;
-  const proximasAFinalizar = campaigns.filter(estaProximaAFinalizar);
-  // Los estados fijos siempre se ven; el resto solo si hay alguna campaña en él.
-  const filtros = FILTROS.filter((f) => f.fijo || (f.valor !== "todas" && f.valor !== "proximas" && count(f.valor) > 0));
+  const estadosPresentes = new Set<string>(campaigns.map((c) => c.status));
+  const vistas = FILTROS.filter((f) => f.fijo || f.valor === filtros.vista || estadosPresentes.has(f.valor));
+  const tematicas = [...new Set(campaigns.map(tematicaDe).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
   const porEstado =
-    filtro === "todas"
+    filtros.vista === "todas"
       ? campaigns
-      : filtro === "proximas"
-        ? proximasAFinalizar
-        : campaigns.filter((campaign) => campaign.status === filtro);
-  // En revisión y rechazada no tienen barra: van al final. El desempate es la más nueva.
-  const avanceDe = (c: CampanaDeMisCampanas) => (c.goalContributions > 0 ? c.approvedContributions / c.goalContributions : 0);
-  const visibles = ordenDeAvance
-    ? [...porEstado].sort(
-        (a, b) =>
-          Number(sinAportesTodavia(a.status)) - Number(sinAportesTodavia(b.status)) ||
-          (ordenDeAvance === "mayor" ? avanceDe(b) - avanceDe(a) : avanceDe(a) - avanceDe(b)) ||
-          Number(b.id) - Number(a.id),
-      )
-    : porEstado;
+      : filtros.vista === "proximas"
+        ? campaigns.filter(estaProximaAFinalizar)
+        : campaigns.filter((c) => c.status === filtros.vista);
+  const visibles = filtrarCampanas(porEstado, filtros, tematicaDe);
+  if (filtros.orden === "avance" || filtros.orden === "menor_avance") {
+    // Las campañas sin barra de avance van al final, manteniendo el orden de cada grupo.
+    visibles.sort((a, b) => Number(sinAportesTodavia(a.status)) - Number(sinAportesTodavia(b.status)));
+  }
 
   // Solo el creador ve esta pantalla (viene de mine=true): no hace falta
   // revisar rol ni dueño aparte, ya está filtrado por sesión.
@@ -408,40 +405,21 @@ export default function MisCampanasPage() {
         </div>
       </div>
 
-      <div className="mb-5 mt-4 flex min-w-0 flex-col gap-2 md:flex-row md:items-start md:gap-3">
-        <div
-          className="dashboard-nav flex w-full min-w-0 flex-1 flex-nowrap gap-2 overflow-x-auto overscroll-x-contain pb-2 [-webkit-overflow-scrolling:touch] max-md:gap-1.5 md:flex-wrap md:overflow-visible md:pb-0"
-          role="group"
-          aria-label="Filtrar por estado"
-        >
-          {filtros.map((f) => {
-            const activo = filtro === f.valor;
-            const total = f.valor === "todas" ? campaigns.length : f.valor === "proximas" ? proximasAFinalizar.length : count(f.valor);
-            return (
-              <button
-                key={f.valor}
-                type="button"
-                aria-pressed={activo}
-                onClick={() => setFiltro(f.valor)}
-                className={`shrink-0 whitespace-nowrap rounded-pill border px-3.5 py-1.5 text-[13px] font-semibold transition-colors max-md:px-2.5 max-md:py-1 max-md:text-[12px] ${
-                  activo ? "border-brand-600 bg-brand-600 text-white" : "border-system-300 bg-white text-system-600 hover:border-brand-600"
-                }`}
-              >
-                {f.etiqueta} <span className="font-mono text-[11.5px] opacity-80">{total}</span>
-              </button>
-            );
-          })}
+      {campaigns.length > 0 && (
+        <div className="mt-4">
+          <BarraDeFiltros
+            valores={filtros}
+            conTipo={false}
+            vistas={vistas}
+            tematicas={tematicas}
+            textoSinTematica="Cualquier temática"
+            etiquetasPorTematica={etiquetasPorTematica(campaigns, tematicaDe)}
+            onCambiar={(clave, valor) => setFiltros((actual) => conFiltro(actual, clave, valor))}
+            ordenRedondeado
+            colapsableEnMovil
+          />
         </div>
-        {campaigns.length > 0 && (
-          <div className="w-full shrink-0 sm:w-[220px] md:w-[220px]">
-            <SelectorDeOrden valor={ordenDeAvance} onCambiar={(valor) => setOrdenDeAvance(valor as "" | "mayor" | "menor")} opciones={[
-              { value: "", label: "Más recientes" },
-              { value: "mayor", label: "Mayor avance" },
-              { value: "menor", label: "Menor avance" },
-            ]} />
-          </div>
-        )}
-      </div>
+      )}
 
       <div className="mb-3 flex justify-end">
         {botonCambiarVista("")}
@@ -458,7 +436,10 @@ export default function MisCampanasPage() {
         <p className="rounded-lg bg-system-100 p-4 text-sm text-system-600">Todavía no has creado campañas.</p>
       ) : visibles.length === 0 ? (
         <p className="rounded-lg bg-system-100 p-4 text-sm text-system-600">
-          {filtro === "proximas" ? "No tienes campañas próximas a finalizar." : "No tienes campañas en este estado."}
+          {avisoSinResultados(
+            porEstado.length,
+            filtros.vista === "proximas" ? "No tienes campañas próximas a finalizar." : "No tienes campañas en este estado.",
+          )}
         </p>
       ) : (
         <div className={vistaCuadricula ? "grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-3" : "flex flex-col gap-2.5 sm:gap-3"}>

@@ -17,7 +17,8 @@ import { BASE_PATH } from "@/lib/base-path";
 import { porcentajeDeMeta } from "@/lib/campanas/meta";
 import { NOMBRE_DE_TIPO, type TipoDeDato } from "@/lib/campanas/sistema-opciones";
 import { textoDeUbicacion } from "@/lib/campanas/ubicacion";
-import { FILTROS_VACIOS, avisoSinResultados, conFiltro, etiquetasPorTematica, filtrarCampanas, opcionesDeTematica, type FiltrosLocales } from "@/lib/campanas/filtro-local";
+import { FILTROS_VACIOS, avisoSinResultados, conFiltro, etiquetasPorTematica, filtrarCampanas, opcionesDeTematica } from "@/lib/campanas/filtro-local";
+import { hoyEnTepic } from "@/lib/fecha-de-tepic";
 import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import PestanasDeModeracion from "@/components/moderacion/PestanasDeModeracion";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
@@ -42,6 +43,8 @@ type CampaignApiItem = {
   status: string;
   latestSupervisionAction?: "aceptada" | "rechazada" | "reportada" | "reasignada" | null;
   approvedContributions?: number;
+  currentContributions?: number;
+  endDate?: string | null;
   goalContributions?: number;
   participants?: number;
   dataTypes?: TipoDeDato[];
@@ -54,13 +57,73 @@ const tematicaDe = (campaign: CampaignApiItem) => String(campaign.tag ?? campaig
 
 type TabKey = "pending" | "supervised" | "finished" | "flagged";
 
+const gruposDeSupervision: { categoria: TabKey; etiqueta: string; opciones: { valor: string; etiqueta: string }[] }[] = [
+  {
+    categoria: "pending", etiqueta: "Por supervisar",
+    opciones: [
+      { valor: "pending", etiqueta: "Mostrar: por supervisar" },
+      { valor: "disponible", etiqueta: "Disponibles para tomar" },
+      { valor: "asignada", etiqueta: "Asignadas a mí" },
+    ],
+  },
+  {
+    categoria: "supervised", etiqueta: "Supervisadas",
+    opciones: [
+      { valor: "supervised", etiqueta: "Todas las supervisadas" },
+      { valor: "activa", etiqueta: "Activas" },
+      { valor: "aceptada", etiqueta: "Aceptadas" },
+    ],
+  },
+  {
+    categoria: "flagged", etiqueta: "Con incidencia",
+    opciones: [
+      { valor: "flagged", etiqueta: "Todas con incidencia" },
+      { valor: "reportada", etiqueta: "Reportadas" },
+      { valor: "rechazada", etiqueta: "Rechazadas" },
+    ],
+  },
+  {
+    categoria: "finished", etiqueta: "Finalizadas",
+    opciones: [
+      { valor: "finished", etiqueta: "Todas las finalizadas" },
+      { valor: "pendiente", etiqueta: "Datos abiertos por decidir" },
+      { valor: "publicada", etiqueta: "Datos publicados" },
+      { valor: "no_publicada", etiqueta: "Datos no publicados" },
+    ],
+  },
+];
+
+function categoriaDe(vista: string): TabKey {
+  return gruposDeSupervision.find((grupo) => grupo.opciones.some((opcion) => opcion.valor === vista))?.categoria ?? "pending";
+}
+
+function coincideConVista(c: CampaignApiItem, categoria: TabKey, vista: string) {
+  if (vista === categoria) return true;
+  switch (categoria) {
+    case "pending": return vista === (c.supervisorId ? "asignada" : "disponible");
+    case "supervised": return vista === c.status;
+    case "flagged": return vista === "reportada" ? c.latestSupervisionAction === "reportada" : c.status === "rechazada";
+    case "finished": return vista === (c.datosAbiertos?.estado ?? "pendiente");
+  }
+}
+
+function coincideConVigencia(fin: string | null | undefined, vigencia: string | undefined, hoy: number) {
+  if (!vigencia) return true;
+  if (!fin) return false;
+  const dias = (Date.parse(fin) - hoy) / 86_400_000;
+  if (vigencia === "7d") return dias >= 0 && dias < 7;
+  if (vigencia === "30d") return dias >= 0 && dias < 30;
+  return dias > 30;
+}
+
 export default function ListaDeSupervision() {
   const [pendingCampaigns, setPendingCampaigns] = useState<CampaignApiItem[]>([]);
   const [supervisedCampaigns, setSupervisedCampaigns] = useState<CampaignApiItem[]>([]);
   const [finishedCampaigns, setFinishedCampaigns] = useState<CampaignApiItem[]>([]);
   const [flaggedCampaigns, setFlaggedCampaigns] = useState<CampaignApiItem[]>([]);
-  const [activeTab, setActiveTab] = useState<TabKey>("pending");
-  const [filtros, setFiltros] = useState<FiltrosLocales>(FILTROS_VACIOS);
+  const [filtros, setFiltros] = useState<ValoresDeFiltros>({ ...FILTROS_VACIOS, vigencia: "" });
+  const [vista, setVista] = useState("pending");
+  const activeTab = categoriaDe(vista);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -120,41 +183,6 @@ export default function ListaDeSupervision() {
     void load();
   }, [recarga]);
 
-  const pendingCount = useMemo(() => pendingCampaigns.length, [pendingCampaigns]);
-  const supervisedCount = useMemo(() => supervisedCampaigns.length, [supervisedCampaigns]);
-  const finishedCount = useMemo(() => finishedCampaigns.length, [finishedCampaigns]);
-  const flaggedCount = useMemo(() => flaggedCampaigns.length, [flaggedCampaigns]);
-
-  function renderCategoryTabs(selectedTab: TabKey, onSelect: (tab: TabKey) => void) {
-    const tabs: { key: TabKey; label: string; count: number }[] = [
-      { key: "pending", label: "Por supervisar", count: pendingCount },
-      { key: "supervised", label: "Campañas supervisadas", count: supervisedCount },
-      { key: "flagged", label: "Campañas reportadas / rechazadas", count: flaggedCount },
-      { key: "finished", label: "Campañas finalizadas", count: finishedCount },
-    ];
-
-    return (
-      <div
-        role="group"
-        aria-label="Categorías de supervisión"
-        tabIndex={0}
-        className="dashboard-nav w-full min-w-0 max-w-full touch-pan-x flex flex-nowrap gap-2 overflow-x-auto overscroll-x-contain pb-2 [-webkit-overflow-scrolling:touch] md:flex-wrap md:overflow-visible md:pb-0"
-      >
-        {tabs.map(({ key, label, count }) => (
-          <button
-            key={key}
-            type="button"
-            aria-pressed={selectedTab === key}
-            onClick={() => onSelect(key)}
-            className={`shrink-0 whitespace-nowrap rounded-pill border px-3.5 py-1.5 text-[13px] font-semibold transition-colors max-md:px-2.5 max-md:py-1 max-md:text-[12px] ${selectedTab === key ? "border-brand-600 bg-brand-600 text-white" : "border-system-300 bg-white text-system-600 hover:border-brand-600"}`}
-          >
-            {label}&nbsp; <span className="font-mono text-[11px]">{count}</span>
-          </button>
-        ))}
-      </div>
-    );
-  }
-
   const themeOptions = useMemo(
     () => opcionesDeTematica([...pendingCampaigns, ...supervisedCampaigns, ...finishedCampaigns, ...flaggedCampaigns].map(tematicaDe)),
     [pendingCampaigns, supervisedCampaigns, finishedCampaigns, flaggedCampaigns]
@@ -164,41 +192,41 @@ export default function ListaDeSupervision() {
     setFiltros((actuales) => conFiltro(actuales, clave, valor));
   }
 
+  function cambiarCategoria(valor: string) {
+    setVista(valor);
+    const categoria = categoriaDe(valor);
+    if (categoria === "flagged" || categoria === "finished") {
+      setFiltros((actuales) => ({ ...actuales, vigencia: "" }));
+    }
+  }
+
   const etiquetasDelFiltro = useMemo(
     () => etiquetasPorTematica([...pendingCampaigns, ...supervisedCampaigns, ...finishedCampaigns, ...flaggedCampaigns], tematicaDe),
     [pendingCampaigns, supervisedCampaigns, finishedCampaigns, flaggedCampaigns]
   );
 
-  const filteredPendingCampaigns = useMemo(
-    () => filtrarCampanas(pendingCampaigns, filtros, tematicaDe),
-    [pendingCampaigns, filtros]
+  const categorias = {
+    pending: { campanas: pendingCampaigns, resumen: "esperando revisión", vacio: "No hay campañas pendientes por revisar." },
+    supervised: { campanas: supervisedCampaigns, resumen: "bajo supervisión", vacio: "Todavía no tienes campañas aceptadas bajo supervisión." },
+    flagged: { campanas: flaggedCampaigns, resumen: "con incidencia", vacio: "No tienes campañas reportadas o rechazadas." },
+    finished: { campanas: finishedCampaigns, resumen: "finalizadas", vacio: "Todavía no tienes campañas finalizadas." },
+  };
+  const { campanas, resumen, vacio } = categorias[activeTab];
+  const hoy = filtros.vigencia ? Date.parse(hoyEnTepic()) : 0;
+  const seleccion = campanas.filter((c) =>
+    coincideConVista(c, activeTab, vista) && coincideConVigencia(c.endDate, filtros.vigencia, hoy)
   );
+  const visibles = filtrarCampanas(seleccion, filtros, tematicaDe);
 
-  const filteredSupervisedCampaigns = useMemo(
-    () => filtrarCampanas(supervisedCampaigns, filtros, tematicaDe),
-    [supervisedCampaigns, filtros]
-  );
-
-  const filteredFinishedCampaigns = useMemo(
-    () => filtrarCampanas(finishedCampaigns, filtros, tematicaDe),
-    [finishedCampaigns, filtros]
-  );
-
-  const filteredFlaggedCampaigns = useMemo(
-    () => filtrarCampanas(flaggedCampaigns, filtros, tematicaDe),
-    [flaggedCampaigns, filtros]
-  );
-
-  // `todas`: las de la pestaña sin filtrar; sin el filtro de tipo se cuentan para el aviso de tipo de dato (2026-11-24).
-  const renderCampaignList = (items: CampaignApiItem[], todas: CampaignApiItem[], vacio: string) => items.length === 0 ? (
+  const renderCampaignList = () => visibles.length === 0 ? (
     <div className="rounded-lg border border-system-200 bg-white p-5 text-[13px] text-system-600">
-      {avisoSinResultados(todas.length, vacio, { tipo: filtros.tipo, sinFiltroDeTipo: filtrarCampanas(todas, { ...filtros, tipo: "" }, tematicaDe).length })}
+      {avisoSinResultados(campanas.length, vacio)}
     </div>
   ) : (
     <SelectorDeVistaCampanas
       toolbar={<span className="text-[12px] text-system-500">Vista</span>}
       persistKey="dfg:supervision:campanas:vista"
-      renderChildren={(vistaCuadricula) => items.map((campaign) => {
+      renderChildren={(vistaCuadricula) => visibles.map((campaign) => {
         const etiquetaDeEstado = activeTab === "pending"
           ? campaign.supervisorId ? <Tag tone="ok">La supervisas tú</Tag> : <Tag tone="warn">Disponible</Tag>
           : activeTab === "supervised"
@@ -313,18 +341,14 @@ export default function ListaDeSupervision() {
   return (
     <div className="mx-auto max-w-4xl lg:mx-0 lg:max-w-none">
       <PestanasDeModeracion zona="supervision" />
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div className="w-full min-w-0">
-          {/* h1 con aspecto de etiqueta: el título de la pantalla (WCAG 1.3.1); antes era un <p>. */}
-          <h1 className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-600">Supervisión</h1>
-          <div className="mt-3 w-full min-w-0">{renderCategoryTabs(activeTab, setActiveTab)}</div>
-          <p className="mt-1 text-[13px] text-system-600">
-            {activeTab === "pending" ? `${filteredPendingCampaigns.length} esperando revisión` : activeTab === "supervised" ? `${filteredSupervisedCampaigns.length} bajo supervisión` : activeTab === "finished" ? `${filteredFinishedCampaigns.length} finalizadas` : `${filteredFlaggedCampaigns.length} con incidencia`}
-          </p>
-        </div>
-      </div>
+      <h1 className="mb-3 font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-600">Supervisión</h1>
+      <p className="sr-only" role="status">{visibles.length} {resumen}</p>
 
       <BarraDeFiltros
+        categoria={{ valor: vista, grupos: gruposDeSupervision, onCambiar: cambiarCategoria }}
+        conTipo={false}
+        conVigencia={activeTab === "pending" || activeTab === "supervised"}
+        textoSinTematica="Cualquier temática"
         ordenRedondeado
         valores={filtros}
         tematicas={themeOptions}
@@ -333,13 +357,7 @@ export default function ListaDeSupervision() {
         colapsableEnMovil
       />
 
-      {activeTab === "pending"
-        ? renderCampaignList(filteredPendingCampaigns, pendingCampaigns, "No hay campañas pendientes por revisar.")
-        : activeTab === "supervised"
-          ? renderCampaignList(filteredSupervisedCampaigns, supervisedCampaigns, "Todavía no tienes campañas aceptadas bajo supervisión.")
-          : activeTab === "finished"
-            ? renderCampaignList(filteredFinishedCampaigns, finishedCampaigns, "Todavía no tienes campañas finalizadas.")
-            : renderCampaignList(filteredFlaggedCampaigns, flaggedCampaigns, "No tienes campañas reportadas o rechazadas.")}
+      {renderCampaignList()}
     </div>
   );
 }

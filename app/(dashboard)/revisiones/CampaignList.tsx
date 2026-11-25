@@ -1,6 +1,6 @@
 "use client";
 
-// Lista de campañas del revisor (botones "en curso" y "finalizadas"): la pestaña "Campañas"
+// Lista de campañas del revisor con filtro de estado en la pestaña "Campañas"
 // (/revisiones/campanas y /revisiones/finalizadas; 2026-11-13, a pedido del usuario: el dashboard tiene
 // su propia pestaña en /revisiones). Arriba, las pestañas Dashboard / Campañas (PestanasDelRevisor).
 // Datos: GET /api/revisiones (campañas con campana_revisores.estado = 'aceptado').
@@ -8,8 +8,9 @@
 // aplicados en el navegador con lib/campanas/filtro-local.ts.
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import PestanasDelRevisor, { RUTA_DE_CAMPANAS_DEL_REVISOR } from "@/components/revisiones/PestanasDelRevisor";
+import PestanasDelRevisor from "@/components/revisiones/PestanasDelRevisor";
 import Button from "@/components/ui/Button";
 import Tag from "@/components/ui/Tag";
 import ProgressBar from "@/components/ui/ProgressBar";
@@ -46,6 +47,10 @@ type ReviewCampaign = {
 };
 
 const tematicaDe = (campaign: ReviewCampaign) => campaign.tag;
+const ESTADOS_DEL_REVISOR = [
+  { valor: "curso", etiqueta: "Estado: en curso" },
+  { valor: "finalizadas", etiqueta: "Estado: finalizadas" },
+];
 
 const CLAVE_VISTA_REVISIONES = "dfg:revisiones:campanas:vista";
 const EVENTO_VISTA_REVISIONES = "dfg:revisiones:campanas:vista-cambio";
@@ -78,7 +83,9 @@ function guardarVistaCuadricula(vistaCuadricula: boolean): void {
   window.dispatchEvent(new Event(EVENTO_VISTA_REVISIONES));
 }
 
-export default function CampaignList({ completed = false }: { completed?: boolean }) {
+export default function CampaignList({ completed: finalizadasPorDefecto = false }: { completed?: boolean }) {
+  const estado = useSearchParams().get("estado");
+  const completed = estado === "finalizadas" || (estado !== "curso" && finalizadasPorDefecto);
   const [campaigns, setCampaigns] = useState<ReviewCampaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -102,12 +109,10 @@ export default function CampaignList({ completed = false }: { completed?: boolea
       }
     }
     void load();
-  }, [completed, recarga]);
+  }, [recarga]);
 
   const activeTab = completed ? "finalizadas" : "curso";
   const title = completed ? "Campañas finalizadas" : "Campañas en curso";
-  const currentCount = campaigns.filter((campaign) => !estaTerminada(campaign.status)).length;
-  const completedCount = campaigns.filter((campaign) => estaTerminada(campaign.status)).length;
   const tabCampaigns = useMemo(
     () => campaigns.filter((campaign) => completed ? estaTerminada(campaign.status) : !estaTerminada(campaign.status)),
     [campaigns, completed]
@@ -116,6 +121,15 @@ export default function CampaignList({ completed = false }: { completed?: boolea
   const tematicas = useMemo(() => opcionesDeTematica(campaigns.map(tematicaDe)), [campaigns]);
 
   function cambiarFiltro(clave: keyof ValoresDeFiltros, valor: string) {
+    if (clave === "vista") {
+      if (valor !== activeTab) {
+        const url = new URL(window.location.href);
+        if (valor === (finalizadasPorDefecto ? "finalizadas" : "curso")) url.searchParams.delete("estado");
+        else url.searchParams.set("estado", valor);
+        window.history.pushState(null, "", url);
+      }
+      return;
+    }
     setFiltros((actuales) => ({ ...actuales, [clave]: valor }));
   }
 
@@ -127,14 +141,10 @@ export default function CampaignList({ completed = false }: { completed?: boolea
         <p className="mt-1 text-[13px] text-system-600">Administra las campañas que tienes asignadas para revisar.</p>
       </div>
 
-      <nav className="mb-6 flex flex-wrap gap-2" aria-label="Estado de campañas">
-        <Link href={RUTA_DE_CAMPANAS_DEL_REVISOR} className={`rounded-pill border px-3.5 py-1.5 text-[13px] font-semibold transition-colors max-md:px-2.5 max-md:py-1 max-md:text-[12px] ${activeTab === "curso" ? "border-brand-600 bg-brand-600 text-white" : "border-system-300 bg-white text-system-600 hover:border-brand-600"}`}>En curso {currentCount}</Link>
-        <Link href="/revisiones/finalizadas" className={`rounded-pill border px-3.5 py-1.5 text-[13px] font-semibold transition-colors max-md:px-2.5 max-md:py-1 max-md:text-[12px] ${activeTab === "finalizadas" ? "border-brand-600 bg-brand-600 text-white" : "border-system-300 bg-white text-system-600 hover:border-brand-600"}`}>Finalizadas {completedCount}</Link>
-      </nav>
-
       <BarraDeFiltros
         ordenRedondeado
-        valores={filtros}
+        valores={{ ...filtros, vista: activeTab }}
+        vistas={ESTADOS_DEL_REVISOR}
         tematicas={tematicas}
         onCambiar={cambiarFiltro}
         colapsableEnMovil

@@ -23,24 +23,17 @@ const ESTADOS = [
 const ORDENES = [
   { value: "recientes", label: "Más recientes" }, { value: "antiguos", label: "Más antiguos" },
 ];
-function fechaDelDia(valor: string): { inicio: number; fin: number } | null {
-  if (!valor) return null;
-  return {
-    inicio: new Date(`${valor}T00:00:00`).getTime(),
-    fin: new Date(`${valor}T23:59:59.999`).getTime(),
-  };
-}
 
 type CamposDeFiltrosProps = {
-  tipo: string; campanaId: string; tematica: string; estado: string; fecha: string; orden: string;
+  tipo: string; campanaId: string; tematica: string; estado: string; orden: string;
   campanas: [string, string][]; tematicas: string[];
   onTipo: (value: string) => void; onCampana: (value: string) => void; onTematica: (value: string) => void;
-  onEstado: (value: string) => void; onFecha: (value: string) => void; onOrden: (value: string) => void;
+  onEstado: (value: string) => void; onOrden: (value: string) => void;
 };
 
 function CamposDeFiltros({
-  tipo, campanaId, tematica, estado, fecha, orden, campanas, tematicas,
-  onTipo, onCampana, onTematica, onEstado, onFecha, onOrden,
+  tipo, campanaId, tematica, estado, orden, campanas, tematicas,
+  onTipo, onCampana, onTematica, onEstado, onOrden,
 }: CamposDeFiltrosProps) {
   const clase = "min-h-[38px] w-full rounded border border-system-300 bg-white px-3 text-sm text-system-900 outline-none transition-colors focus:border-brand-600";
   return <>
@@ -48,7 +41,6 @@ function CamposDeFiltros({
     <label className="min-w-0 flex-1"><span className="sr-only">Campaña participada</span><select aria-label="Campaña participada" value={campanaId} onChange={(event) => onCampana(event.target.value)} className={clase}><option value="">Campaña: todas</option>{campanas.map(([id, nombre]) => <option key={id} value={id}>{nombre}</option>)}</select></label>
     <label className="min-w-0 flex-1"><span className="sr-only">Temática</span><select aria-label="Temática" value={tematica} onChange={(event) => onTematica(event.target.value)} className={clase}><option value="">Temática: todas</option>{tematicas.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>
     <label className="min-w-0 flex-1"><span className="sr-only">Estado</span><select aria-label="Estado" value={estado} onChange={(event) => onEstado(event.target.value)} className={clase}><option value="">Estado: todos</option>{ESTADOS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-    <label className="min-w-0 flex-1"><span className="sr-only">Fecha</span><input aria-label="Fecha" type="date" value={fecha} onChange={(event) => onFecha(event.target.value)} className={clase} /></label>
     <SelectorDeOrden valor={orden} onCambiar={onOrden} opciones={ORDENES} />
   </>;
 }
@@ -61,7 +53,6 @@ export default function ListaDeMisAportes({ resumen }: { resumen?: ReactNode }) 
   const [campanaId, setCampanaId] = useState("");
   const [tematica, setTematica] = useState("");
   const [estado, setEstado] = useState("");
-  const [fecha, setFecha] = useState("");
   const [orden, setOrden] = useState("recientes");
   const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
   const vistaCuadricula = useVistaDeAportes();
@@ -88,23 +79,21 @@ export default function ListaDeMisAportes({ resumen }: { resumen?: ReactNode }) 
   const tematicas = Array.from(new Set(items.map((item) => item.campaignTematica).filter((tema): tema is string => Boolean(tema)))).sort((a, b) => a.localeCompare(b, "es"));
   const campanas = Array.from(new Map(items.map((item) => [item.campaignId, item.campaignName])).entries()).sort((a, b) => a[1].localeCompare(b[1], "es"));
   const filtrados = items.filter((item) => {
-    const enviadoEn = new Date(item.submittedAt).getTime();
-    const dia = fechaDelDia(fecha);
     const estadoCoincide = !estado || item.status === estado || (estado === "pendiente" && item.status === "espera_final");
-    return (!tipo || item.fileType === tipo) && (!campanaId || item.campaignId === campanaId) && (!tematica || item.campaignTematica === tematica) && estadoCoincide && (!dia || (enviadoEn >= dia.inicio && enviadoEn <= dia.fin));
+    return (!tipo || item.fileType === tipo) && (!campanaId || item.campaignId === campanaId) && (!tematica || item.campaignTematica === tematica) && estadoCoincide;
   }).sort((a, b) => orden === "antiguos" ? new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime() : new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
-  const hayFiltros = Boolean(tipo || campanaId || tematica || estado || fecha || orden !== "recientes");
+  const hayFiltros = Boolean(tipo || campanaId || tematica || estado || orden !== "recientes");
 
   function limpiarFiltros() {
-    setTipo(""); setCampanaId(""); setTematica(""); setEstado(""); setFecha(""); setOrden("recientes");
+    setTipo(""); setCampanaId(""); setTematica(""); setEstado(""); setOrden("recientes");
   }
 
-  const propsDeFiltros = { tipo, campanaId, tematica, estado, fecha, orden, campanas, tematicas, onTipo: setTipo, onCampana: setCampanaId, onTematica: setTematica, onEstado: setEstado, onFecha: setFecha, onOrden: setOrden };
+  const propsDeFiltros = { tipo, campanaId, tematica, estado, orden, campanas, tematicas, onTipo: setTipo, onCampana: setCampanaId, onTematica: setTematica, onEstado: setEstado, onOrden: setOrden };
 
 
   return <div>
     <div className="mb-6 flex items-start justify-between gap-4 max-md:mb-4 max-md:gap-3">
-      <div><h1 className="text-2xl font-extrabold text-system-900 max-md:text-xl">Mis aportes</h1><p className="mt-1 text-[13px] text-system-600">Todos tus aportes en un solo listado, con filtros por tipo, fecha y temática.</p></div>
+      <div><h1 className="text-2xl font-extrabold text-system-900 max-md:text-xl">Mis aportes</h1><p className="mt-1 text-[13px] text-system-600">Todos tus aportes en un solo listado, con filtros por tipo de dato, campaña, temática y estado.</p></div>
       <ButtonLink href="/campanas" variant="primary" size="sm" className="whitespace-nowrap max-md:px-2.5 max-md:py-1.5 max-md:text-[11.5px]">Explorar campañas</ButtonLink>
     </div>
 
