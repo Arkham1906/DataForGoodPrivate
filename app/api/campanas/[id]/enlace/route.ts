@@ -6,8 +6,8 @@
 import { NextResponse } from "next/server";
 import { registrarAuditoria } from "@/lib/auditoria";
 import {
-  cambiarLimiteAnonimos,
   cambiarPermiteAnonimos,
+  cambiarPorcentajeAnonimos,
   estaVigente,
   obtenerCampanaDelCreador,
   obtenerCampanaParaCompartir,
@@ -15,7 +15,7 @@ import {
   regenerarEnlace,
   urlPublica,
 } from "@/lib/campanas/enlaces";
-import { anonimosPorDefecto, problemaDelLimiteElegido } from "@/lib/campanas/tope-anonimos";
+import { limiteDeAportesAnonimos, problemaDelPorcentajeElegido } from "@/lib/campanas/tope-anonimos";
 import { getSessionUser } from "@/lib/session";
 
 // GET: el enlace actual (vigente o caducado) para compartirlo, o null si la campaña nunca tuvo.
@@ -48,9 +48,11 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
         nombre: campana.nombre,
         status: campana.status,
         permiteAnonimos: campana.permiteAnonimos,
-        // Tope de aportes sin cuenta (2026-11-13): el que eligió el creador (null = el 10% de la meta) y lo que vale sin número (el 10%).
-        limiteAnonimos: campana.limiteAnonimos,
-        anonimosPorDefecto: anonimosPorDefecto(campana.meta),
+        // Tope de aportes sin cuenta (2026-11-24): el porcentaje que eligió el creador (null = el 10%), la meta de la
+        // que sale y los aportes que da con ella.
+        meta: campana.meta,
+        porcentajeAnonimos: campana.porcentajeAnonimos,
+        topeAnonimos: limiteDeAportesAnonimos(campana.meta, campana.porcentajeAnonimos),
       },
       viewer: { esCreador },
     });
@@ -95,9 +97,9 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
   }
 }
 
-// PATCH { permiteAnonimos?: boolean, limiteAnonimos?: number | null }: el creador permite o corta los aportes
-// sin cuenta desde el enlace (apagarlo no toca los anónimos ya recibidos) y, desde el 2026-11-13, elige cuántos
-// acepta: un entero desde 1, sin tope, o null para usar el 10% de la meta (lib/campanas/tope-anonimos.ts). Bajarlo por debajo
+// PATCH { permiteAnonimos?: boolean, porcentajeAnonimos?: number | null }: el creador permite o corta los aportes
+// sin cuenta desde el enlace (apagarlo no toca los anónimos ya recibidos) y, desde el 2026-11-24, elige qué porcentaje
+// de la meta acepta: un entero de 1 a 100, o null para usar el 10% (lib/campanas/tope-anonimos.ts). Bajarlo por debajo
 // de los que ya llegaron no borra ninguno: solo deja de recibir más.
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
@@ -107,9 +109,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
     const body = await request.json().catch(() => ({}));
     const cambiaPermiso = body.permiteAnonimos !== undefined;
-    const cambiaLimite = body.limiteAnonimos !== undefined;
+    const cambiaLimite = body.porcentajeAnonimos !== undefined;
     if (!cambiaPermiso && !cambiaLimite) {
-      return NextResponse.json({ error: "Manda permiteAnonimos o limiteAnonimos" }, { status: 400 });
+      return NextResponse.json({ error: "Manda permiteAnonimos o porcentajeAnonimos" }, { status: 400 });
     }
     if (cambiaPermiso && typeof body.permiteAnonimos !== "boolean") {
       return NextResponse.json({ error: "permiteAnonimos debe ser true o false" }, { status: 400 });
@@ -120,27 +122,28 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       return NextResponse.json({ error: "Solo quien creó la campaña puede cambiar esto" }, { status: 403 });
     }
     if (cambiaLimite) {
-      const problema = problemaDelLimiteElegido(body.limiteAnonimos);
+      const problema = problemaDelPorcentajeElegido(body.porcentajeAnonimos);
       if (problema) return NextResponse.json({ error: problema }, { status: 400 });
     }
 
     if (cambiaPermiso) await cambiarPermiteAnonimos(campana.id, body.permiteAnonimos);
-    if (cambiaLimite) await cambiarLimiteAnonimos(campana.id, body.limiteAnonimos);
+    if (cambiaLimite) await cambiarPorcentajeAnonimos(campana.id, body.porcentajeAnonimos);
     await registrarAuditoria({
       actor: { tipo: "usuario", id: Number(user.id) },
       accion: cambiaLimite ? "campana.anonimos_limite" : "campana.anonimos_cambiar",
       objetivo: { tipo: "campana", id: campana.id },
       detalle: {
         ...(cambiaPermiso ? { permiteAnonimos: body.permiteAnonimos } : {}),
-        ...(cambiaLimite ? { limiteAnonimos: body.limiteAnonimos, antes: campana.limiteAnonimos } : {}),
+        ...(cambiaLimite ? { porcentajeAnonimos: body.porcentajeAnonimos, antes: campana.porcentajeAnonimos } : {}),
       },
     });
 
+    const porcentaje: number | null = cambiaLimite ? body.porcentajeAnonimos : campana.porcentajeAnonimos;
     return NextResponse.json({
       data: {
         permiteAnonimos: cambiaPermiso ? body.permiteAnonimos : campana.permiteAnonimos,
-        limiteAnonimos: cambiaLimite ? body.limiteAnonimos : campana.limiteAnonimos,
-        anonimosPorDefecto: anonimosPorDefecto(campana.meta),
+        porcentajeAnonimos: porcentaje,
+        topeAnonimos: limiteDeAportesAnonimos(campana.meta, porcentaje),
       },
     });
   } catch (error) {

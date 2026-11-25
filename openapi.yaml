@@ -1338,8 +1338,9 @@ paths:
                       nombre: { type: string }
                       status: { type: string }
                       permiteAnonimos: { type: boolean, description: "Si /c/{token} acepta aportes sin cuenta" }
-                      limiteAnonimos: { type: integer, nullable: true, description: "Cuántos aportes sin cuenta eligió aceptar el creador (2026-11-13); null = el 10% de la meta" }
-                      anonimosPorDefecto: { type: integer, description: "Los que acepta si el creador no elige: el 10% de la meta, hacia abajo" }
+                      meta: { type: integer, description: "Meta de la campaña, de la que sale el tope de aportes sin cuenta" }
+                      porcentajeAnonimos: { type: integer, nullable: true, minimum: 1, maximum: 100, description: "Porcentaje de la meta que acepta como aportes sin cuenta, elegido por el creador (2026-11-24); null = el 10%" }
+                      topeAnonimos: { type: integer, description: "Aportes sin cuenta que da ese porcentaje con la meta actual, hacia abajo" }
                   viewer:
                     type: object
                     properties:
@@ -1373,11 +1374,12 @@ paths:
           description: La campaña no está activa
     patch:
       tags: [Campañas]
-      summary: Permitir o cortar los aportes sin cuenta y elegir cuántos acepta
+      summary: Permitir o cortar los aportes sin cuenta y elegir qué porcentaje de la meta acepta
       description: |
-        Solo el creador. Manda `permiteAnonimos`, `limiteAnonimos` o los dos. Apagar los aportes sin cuenta no toca
-        los ya recibidos. `limiteAnonimos` (2026-11-13): un entero desde 1, sin tope, o null para usar el 10% de la meta
-        (hacia abajo). Elegir menos de los que ya llegaron no borra ninguno.
+        Solo el creador. Manda `permiteAnonimos`, `porcentajeAnonimos` o los dos. Apagar los aportes sin cuenta no toca
+        los ya recibidos. `porcentajeAnonimos` (2026-11-24; antes `limiteAnonimos`, un número de aportes): un entero de
+        1 a 100, o null para usar el 10%. El número de aportes es ese porcentaje de la meta, hacia abajo, y sigue a la meta.
+        Elegir menos de los que ya llegaron no borra ninguno.
         Bitácora `campana.anonimos_cambiar` o `campana.anonimos_limite`.
       requestBody:
         required: true
@@ -1387,7 +1389,7 @@ paths:
               type: object
               properties:
                 permiteAnonimos: { type: boolean }
-                limiteAnonimos: { type: integer, nullable: true, minimum: 1 }
+                porcentajeAnonimos: { type: integer, nullable: true, minimum: 1, maximum: 100 }
       responses:
         "200":
           description: Valores guardados
@@ -1400,8 +1402,8 @@ paths:
                     type: object
                     properties:
                       permiteAnonimos: { type: boolean }
-                      limiteAnonimos: { type: integer, nullable: true }
-                      anonimosPorDefecto: { type: integer }
+                      porcentajeAnonimos: { type: integer, nullable: true }
+                      topeAnonimos: { type: integer }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }

@@ -1,5 +1,5 @@
 // Pendientes de una persona con cuenta (2026-11-24, a pedido del usuario): una sola fuente para la pantalla
-// /pendientes, el recuadro azul del menú lateral (lib/usuarios/aviso-del-menu.ts) y el número junto a "Pendientes".
+// /pendientes, el recuadro azul del menú lateral (lib/usuarios/aviso-del-menu.ts) y el número del botón "Pendientes" de la barra superior.
 // Cada pendiente va por separado (una campaña por renglón, con su nombre y enlace directo), con cuánto lleva
 // esperando o cuándo vence y su urgencia (lib/pendientes/tipos.ts). Secciones, de lo que bloquea a otros a lo demás:
 //   - Supervisión (rol supervisor): campañas por dictaminar, reportes por resolver, datos abiertos por decidir y

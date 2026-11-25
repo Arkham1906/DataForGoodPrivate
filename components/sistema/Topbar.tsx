@@ -1,8 +1,10 @@
 "use client";
 
-// Barra superior del panel del SuperUsuario. Desde el 2026-11-22, con "Cerrar sesión" (BotonCerrarSesionRoot).
+// Barra superior del panel del SuperUsuario. Desde el 2026-11-22, con "Cerrar sesión" (BotonCerrarSesionRoot), y desde el
+// 2026-11-24 con "Pendientes" (BotonDePendientes → /sistema/pendientes; antes en el menú lateral).
 
 import Link from "next/link";
+import BotonDePendientes from "@/components/layout/BotonDePendientes";
 import Logo from "@/components/layout/Logo";
 import { IconoCampana } from "./icons";
 import BotonCerrarSesionRoot from "./BotonCerrarSesionRoot";
@@ -10,9 +12,11 @@ import BotonCerrarSesionRoot from "./BotonCerrarSesionRoot";
 type TopbarProps = {
   /** Valor configurado en ROOT_USER_ID. La sesión raíz no es una persona con nombre propio. */
   identificador: string;
+  /** Pendientes del panel (lib/pendientes/del-panel.ts), número del botón "Pendientes". */
+  pendientes?: number;
 };
 
-export default function Topbar({ identificador }: TopbarProps) {
+export default function Topbar({ identificador, pendientes = 0 }: TopbarProps) {
   const iniciales = identificador.slice(0, 2).toUpperCase();
 
   return (
@@ -22,6 +26,7 @@ export default function Topbar({ identificador }: TopbarProps) {
       </Link>
 
       <div className="flex min-w-0 shrink-0 flex-wrap items-center justify-end gap-2">
+        <BotonDePendientes href="/sistema/pendientes" cantidad={pendientes} />
         <span className="inline-flex text-system-600" aria-hidden="true">
           <IconoCampana className="h-4 w-4" />
         </span>

@@ -1,5 +1,5 @@
 // Pendientes del SuperUsuario (2026-11-24, a pedido del usuario): una sola fuente para la pantalla /sistema/pendientes,
-// el recuadro azul del menú lateral del panel (lib/sistema/aviso-del-menu.ts) y el número junto a "Pendientes".
+// el recuadro azul del menú lateral del panel (lib/sistema/aviso-del-menu.ts) y el número del botón "Pendientes" de la barra superior.
 // Cada pendiente por separado, con su espera y su urgencia (lib/pendientes/tipos.ts):
 //   - Supervisión: campañas en revisión sin supervisor o a su cargo (las de /supervisar), decisiones de datos abiertos
 //     de esas campañas y, si no hay ningún supervisor, asignar uno.

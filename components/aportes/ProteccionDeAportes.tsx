@@ -12,7 +12,9 @@
 //     al imprimir no sale el contenido (globals.css, .zona-de-aportes-protegida).
 //   - Si la ventana pierde el foco (p. ej. al abrir Recortes) o se cambia de pestaña, el contenido se oculta
 //     hasta volver. Hacer clic en una vista previa (iframe) no cuenta como salir.
-//   - Marca de agua con el nombre de quien revisa y la fecha: una foto con el teléfono dice de quién salió.
+//   - Marca de agua con el nombre de quien revisa y la fecha: una foto con el teléfono dice de quién salió. Desde el
+//     2026-11-24 (a pedido del usuario) solo al entrar a UN aporte (RUTAS_DE_UN_APORTE), no en las listas para
+//     revisar; el visor a pantalla completa la lleva siempre.
 //   - Video sin "Descargar" ni imagen en imagen en su menú.
 // La usan los layouts de /mis-campanas/[id]/aportes y de /revisiones (campaña y aporte); el visor a
 // pantalla completa (ui/BotonPantallaCompletaDeAporte) lee el contexto para poner la marca también ahí.
@@ -28,6 +30,19 @@ const ContextoDeProteccion = createContext<Proteccion | null>(null);
 export function useProteccionDeAportes(): Proteccion | null {
   return useContext(ContextoDeProteccion);
 }
+
+/**
+ * Pantallas de un aporte, las únicas con marca de agua en la página (2026-11-24, a pedido del usuario). Rutas sin el
+ * basePath, como las da usePathname():
+ * - /mis-campanas/[id]/aportes/[aporteId]: detalle del creador.
+ * - /revisiones/[aporteId]: el revisor decide un aporte.
+ * - /revisiones/campanas/[campaignId]/usuarios/[userId|anonimo]/aportes/[aporteId]: un aporte que aceptó.
+ */
+const RUTAS_DE_UN_APORTE = [
+  /^\/mis-campanas\/\d+\/aportes\/\d+\/?$/,
+  /^\/revisiones\/\d+\/?$/,
+  /^\/revisiones\/campanas\/\d+\/usuarios\/(?:\d+|anonimo)\/aportes\/\d+\/?$/,
+];
 
 const AVISO_COPIAR = "Por protección de los aportes no se puede copiar ni pegar en esta pantalla.";
 const AVISO_CAPTURA = "Por protección de los aportes no se permiten capturas de pantalla.";
@@ -61,6 +76,7 @@ export default function ZonaDeAportesProtegida({
 }) {
   const ruta = usePathname();
   const activa = !sinProteccionEn.some((parte) => ruta.includes(parte));
+  const enUnAporte = RUTAS_DE_UN_APORTE.some((patron) => patron.test(ruta));
   const [fueraDeLaVentana, setFueraDeLaVentana] = useState(false);
   const [tapado, setTapado] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
@@ -182,7 +198,7 @@ export default function ZonaDeAportesProtegida({
       {/* data-oculto oculta también las ventanas (<dialog>) abiertas dentro, como la pantalla completa. */}
       <div className="zona-de-aportes-protegida" data-oculto={oculto ? "" : undefined}>
         {children}
-        <MarcaDeAgua marca={marca} />
+        {enUnAporte && <MarcaDeAgua marca={marca} />}
       </div>
       {oculto && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-system-950 p-6 text-center text-white">
@@ -208,13 +224,15 @@ export default function ZonaDeAportesProtegida({
 /**
  * Marca de agua en toda la pantalla, sin bloquear clics. La usa también el visor a pantalla completa,
  * que se abre por encima de todo (top layer) y taparía la de la página.
+ * Sobre la página va en el azul principal del sistema (brand-600) al 26% desde el 2026-11-24, a pedido del usuario:
+ * antes era casi negro al 7% y sobre fondo blanco casi no se veía (ese día se probó al 16% y pidió más).
  */
 export function MarcaDeAgua({ marca, clara = false }: { marca: string; /** Pantalla completa: gris que se ve sobre el fondo oscuro y sobre la foto. */ clara?: boolean }) {
   return (
     <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[60] select-none overflow-hidden">
       <div className="absolute -inset-1/2 flex rotate-[-24deg] flex-wrap content-start gap-x-24 gap-y-20 p-8">
         {Array.from({ length: 120 }, (_, i) => (
-          <span key={i} className={`whitespace-nowrap text-[13px] font-semibold ${clara ? "text-system-400/[0.3]" : "text-system-900/[0.07]"}`}>
+          <span key={i} className={`whitespace-nowrap text-[13px] font-semibold ${clara ? "text-system-400/[0.3]" : "text-brand-600/[0.26]"}`}>
             {marca}
           </span>
         ))}

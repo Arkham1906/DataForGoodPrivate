@@ -35,10 +35,10 @@ type Datos = {
   status: string;
   esCreador: boolean;
   permiteAnonimos: boolean;
-  /** Tope de aportes sin cuenta que eligió el creador (2026-11-13); null = el 10% de la meta. */
-  limiteAnonimos: number | null;
-  /** Lo que acepta si el creador no escribe número: el 10% de la meta. */
-  anonimosPorDefecto: number;
+  /** Meta de la campaña, de la que sale el tope de aportes sin cuenta. */
+  meta: number;
+  /** Porcentaje de la meta que acepta sin cuenta, elegido por el creador (2026-11-24); null = el 10%. */
+  porcentajeAnonimos: number | null;
 };
 
 const numero = new Intl.NumberFormat("es-MX");
@@ -61,8 +61,8 @@ async function pedirEnlace(campanaId: string): Promise<Datos> {
     status: payload.campana?.status ?? "",
     esCreador: Boolean(payload.viewer?.esCreador),
     permiteAnonimos: payload.campana?.permiteAnonimos === true,
-    limiteAnonimos: payload.campana?.limiteAnonimos ?? null,
-    anonimosPorDefecto: Number(payload.campana?.anonimosPorDefecto ?? 0),
+    meta: Number(payload.campana?.meta ?? 0),
+    porcentajeAnonimos: payload.campana?.porcentajeAnonimos ?? null,
   };
 }
 
@@ -229,9 +229,11 @@ export default function CompartirCampana({
                         campanaId={campanaId}
                         inicial={datos.permiteAnonimos}
                         onCambio={(permitir) => setDatos((actual) => (actual ? { ...actual, permiteAnonimos: permitir } : actual))}
-                        limiteInicial={datos.limiteAnonimos}
-                        porDefecto={datos.anonimosPorDefecto}
-                        onLimite={(limite) => setDatos((actual) => (actual ? { ...actual, limiteAnonimos: limite } : actual))}
+                        meta={datos.meta}
+                        porcentajeInicial={datos.porcentajeAnonimos}
+                        onPorcentaje={(porcentaje) =>
+                          setDatos((actual) => (actual ? { ...actual, porcentajeAnonimos: porcentaje } : actual))
+                        }
                       />
                       <BotonRegenerar campanaId={campanaId} modo={caducado ? "vencido" : "regenerar"} onListo={cargar} />
                     </>

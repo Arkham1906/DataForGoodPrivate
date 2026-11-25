@@ -2,7 +2,7 @@
 // separado con su enlace, cuánto lleva esperando o cuándo vence y su urgencia, agrupado por sección (Supervisión,
 // Revisión de aportes, Tus campañas, Aportar, Tus apelaciones, Tu perfil) y, aparte, una campaña que le puede interesar.
 // Server Component. Acceso: sesión de usuario (exigirUsuario). Datos: pendientesDelUsuario() de
-// lib/pendientes/del-usuario.ts, la misma fuente del recuadro azul del menú y del número junto a "Pendientes".
+// lib/pendientes/del-usuario.ts, la misma fuente del recuadro azul del menú y del número del botón "Pendientes" de la barra superior.
 // Solo lectura; cada renglón lleva a la pantalla donde se resuelve. Se actualiza en vivo (ActualizacionEnVivo del
 // marco hace router.refresh cuando algo cambia en la base).
 

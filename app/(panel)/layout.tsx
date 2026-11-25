@@ -33,7 +33,7 @@ export default async function PanelLayout({ children }: { children: ReactNode })
     redirect("/root");
   }
   // "Temáticas" cuenta también las etiquetas que propusieron los creadores (2026-10-27): se revisan en la misma pantalla.
-  // Recuadro azul del menú y número junto a "Pendientes" (2026-11-24): lib/pendientes/del-panel.ts, la misma fuente
+  // Recuadro azul del menú y número del botón "Pendientes" de la barra superior (2026-11-24): lib/pendientes/del-panel.ts, la misma fuente
   // que /sistema/pendientes.
   const [{ reportes }, tematicasPendientes, etiquetasPendientes, apelaciones, tickets, { aviso, pendientes }] = await Promise.all([
     contarReportesPendientes(),
@@ -52,9 +52,9 @@ export default async function PanelLayout({ children }: { children: ReactNode })
       <Suspense fallback={null}>
         <RastroDelPanel />
       </Suspense>
-      <Topbar identificador={process.env.ROOT_USER_ID ?? "raíz"} />
+      <Topbar identificador={process.env.ROOT_USER_ID ?? "raíz"} pendientes={pendientes} />
       <div className="dashboard-shell flex min-w-0">
-        <Sidebar reportesPendientes={reportes} tematicasPendientes={tematicas} apelacionesPendientes={apelaciones} pendientes={pendientes} ticketsPendientes={tickets} aviso={aviso} />
+        <Sidebar reportesPendientes={reportes} tematicasPendientes={tematicas} apelacionesPendientes={apelaciones} ticketsPendientes={tickets} aviso={aviso} />
         <main id="contenido" className="min-w-0 flex-1">
           <div className="mx-auto w-full min-w-0 max-w-7xl px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
             {children}

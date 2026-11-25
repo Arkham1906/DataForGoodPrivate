@@ -265,9 +265,9 @@ export default function DetalleDeMisCampanasPage() {
                 onCambio={(permiteAnonimos) =>
                   setCampana((actual) => (actual ? { ...actual, permiteAnonimos } : actual))
                 }
-                limiteInicial={campana.limiteAnonimos ?? null}
-                porDefecto={campana.anonimosPorDefecto ?? 0}
-                onLimite={(limiteAnonimos) => setCampana((actual) => (actual ? { ...actual, limiteAnonimos } : actual))}
+                meta={campana.goalContributions}
+                porcentajeInicial={campana.porcentajeAnonimos ?? null}
+                onPorcentaje={(porcentajeAnonimos) => setCampana((actual) => (actual ? { ...actual, porcentajeAnonimos } : actual))}
               />
             )}
             {campana.status === "rechazada" && (

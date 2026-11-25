@@ -339,9 +339,22 @@ export async function ensureCampanasTable(): Promise<void> {
     -- Desde el 2026-11-13 (a pedido del usuario) las campañas nuevas empiezan sin aportes sin cuenta: el creador los
     -- enciende en Compartir o en /mis-campanas/[id], tras ver el aviso de riesgos. Las que ya existían conservan su valor.
     ALTER TABLE campanas ALTER COLUMN permite_anonimos SET DEFAULT false;
-    -- Cuántos aportes sin cuenta acepta (2026-11-13, lo elige el creador en Compartir o en /mis-campanas/[id]):
-    -- un entero desde 1, sin tope (lib/campanas/tope-anonimos.ts). NULL = el 10% de la meta, como antes.
-    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS limite_anonimos INTEGER CHECK (limite_anonimos IS NULL OR limite_anonimos >= 1);
+    -- Qué porcentaje de la meta acepta como aportes sin cuenta (2026-11-24, lo elige el creador en Compartir o en
+    -- /mis-campanas/[id]): un entero de 1 a 100 (lib/campanas/tope-anonimos.ts). NULL = el 10%.
+    ALTER TABLE campanas ADD COLUMN IF NOT EXISTS porcentaje_anonimos SMALLINT
+      CHECK (porcentaje_anonimos IS NULL OR porcentaje_anonimos BETWEEN 1 AND 100);
+    -- Del 2026-11-13 al 2026-11-24 el creador escribía un número de aportes (limite_anonimos). Una sola vez: cada
+    -- número pasa a su porcentaje de la meta (redondeado, de 1 a 100; con meta 0 se queda en el 10%) y la columna se borra.
+    DO $$
+    BEGIN
+      IF EXISTS (SELECT 1 FROM information_schema.columns
+                  WHERE table_name = 'campanas' AND column_name = 'limite_anonimos') THEN
+        UPDATE campanas
+           SET porcentaje_anonimos = LEAST(100, GREATEST(1, ROUND(limite_anonimos * 100.0 / goal_contributions)))::smallint
+         WHERE limite_anonimos IS NOT NULL AND goal_contributions > 0;
+        ALTER TABLE campanas DROP COLUMN limite_anonimos;
+      END IF;
+    END $$;
     -- Quién la pausó y por qué (2026-10-15, lib/campanas/pausa.ts): 'creador' (sin motivo) o
     -- 'supervision' (supervisor o SuperUsuario, motivo obligatorio; solo la supervisión la reanuda).
     -- Se escriben al pasar a pausada; con otro estado no se leen.

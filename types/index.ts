@@ -70,10 +70,10 @@ export interface Campaign {
   dataTypes: DataType[];
   /** Si `/c/[token]` permite aportes sin cuenta (2026-10-01). */
   permiteAnonimos?: boolean;
-  /** Tope de aportes sin cuenta que eligió el creador (2026-11-13); null = el 10% de la meta. */
-  limiteAnonimos?: number | null;
-  /** Lo que acepta si el creador no escribe número: el 10% de la meta. */
-  anonimosPorDefecto?: number;
+  /** Porcentaje de la meta que acepta como aportes sin cuenta, elegido por el creador (2026-11-24); null = el 10%. */
+  porcentajeAnonimos?: number | null;
+  /** Cuántos aportes sin cuenta salen de ese porcentaje con la meta actual (hacia abajo). */
+  topeAnonimos?: number;
   /** Formatos de "Archivo" que acepta (2026-10-28; "txt" desde el 2026-11-23): "pdf" | "word" | "powerpoint" | "excel" | "txt"; [] = todos. */
   formatosDeDocumento?: ("pdf" | "word" | "powerpoint" | "excel" | "txt")[];
   collectionMode?: CollectionMode;

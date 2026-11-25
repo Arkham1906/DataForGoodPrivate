@@ -53,8 +53,8 @@ const VENTANA_MS = 60 * 60 * 1000;
 // sin cuenta del mismo dispositivo, en cualquier campaña.
 export const ESPERA_ENTRE_APORTES_SEGUNDOS = 60;
 
-// Tope de aportes sin cuenta por campaña: la regla (el número que elige el creador desde el 2026-11-13 o, sin él, el
-// 10% de la meta) vive en ./tope-anonimos.ts. Aquí, su mensaje.
+// Tope de aportes sin cuenta por campaña: la regla (el porcentaje de la meta que elige el creador desde el 2026-11-24 o,
+// sin él, el 10%) vive en ./tope-anonimos.ts. Aquí, su mensaje.
 // Sin la invitación a la cuenta: /c/[token] y la ficha la ponen debajo, con sus botones. Sin "(10% de la meta)"
 // desde el 2026-11-13: el tope puede ser menor, lo elige el creador.
 const AVISO_TOPE_ANONIMO_LLENO = "Esta campaña alcanzó su límite de aportes anónimos.";
@@ -87,7 +87,7 @@ async function contarAportesAnonimos(
 export async function avisoDeTopeAnonimoLleno(
   campanaId: number,
   meta: number,
-  /** El que eligió el creador (campanas.limite_anonimos, 2026-11-13); null = el 10% de la meta. */
+  /** El porcentaje que eligió el creador (campanas.porcentaje_anonimos, 2026-11-24); null = el 10%. */
   elegido: number | null,
 ): Promise<string | null> {
   return (await contarAportesAnonimos(campanaId)) >= limiteDeAportesAnonimos(meta, elegido) ? AVISO_TOPE_ANONIMO_LLENO : null;
@@ -243,7 +243,7 @@ export async function enviarAporteAnonimo(entrada: {
     return { ok: false, status: 403, error: "Esta campaña solo recibe aportes con cuenta." };
   }
   // Aviso rápido antes de subir nada; la comprobación que cuenta va dentro de la transacción.
-  if ((await contarAportesAnonimos(campana.id)) >= limiteDeAportesAnonimos(campana.meta, campana.limiteAnonimos)) {
+  if ((await contarAportesAnonimos(campana.id)) >= limiteDeAportesAnonimos(campana.meta, campana.porcentajeAnonimos)) {
     return { ok: false, status: 400, error: MENSAJE_LIMITE_ANONIMOS };
   }
 

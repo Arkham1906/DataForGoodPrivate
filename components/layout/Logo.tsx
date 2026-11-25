@@ -124,6 +124,8 @@ export default function Logo({
   return (
     <span
       className={`group/logo inline-flex items-center gap-2 ${className}`}
+      // El logo ya dice "DataForGood": sin etiqueta al pasar el cursor (ui/EtiquetasEmergentes, 2026-11-24).
+      data-sin-etiqueta-emergente=""
       // Solo rebota si el logo es un enlace (en la 404 y otras pantallas no lo es).
       onClick={(evento) => {
         if (evento.currentTarget.closest("a")) setRebote(true);

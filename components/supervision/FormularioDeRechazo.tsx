@@ -7,6 +7,8 @@
 // reportes y sanciones de la supervisión. Las reglas se vuelven a validar en lib/supervision/decision.ts.
 // Con "Ya existe una campaña similar" (2026-11-11, a pedido del usuario) se marcan a cuáles de las campañas
 // similares se parece (al menos una, si hay): el creador las ve nombradas en el mensaje del rechazo.
+// Con `conTicket` (supervisor, 2026-11-24) el botón dice "Rechazar y enviar sanción", porque la sanción que suspende
+// o banea espera al SuperUsuario; el SuperUsuario, que la aplica directo, sigue con "Rechazar y sancionar".
 
 import { useId, useState, type FormEvent } from "react";
 
@@ -194,7 +196,13 @@ export default function FormularioDeRechazo({
           disabled={ocupado || !completo}
           className="rounded-pill bg-error-700 px-3.5 py-2 text-[12.5px] font-bold text-white disabled:opacity-60"
         >
-          {ocupado ? "Rechazando…" : sancionar ? "Rechazar y sancionar" : "Confirmar rechazo"}
+          {ocupado
+            ? "Rechazando…"
+            : sancionar
+              ? conTicket
+                ? "Rechazar y enviar sanción"
+                : "Rechazar y sancionar"
+              : "Confirmar rechazo"}
         </button>
       </div>
     </form>

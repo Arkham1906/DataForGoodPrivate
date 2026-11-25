@@ -156,10 +156,14 @@ export function IconoRevisar(props: IconoProps) {
 export function IconoPendientes(props: IconoProps) {
   return (
     <Base {...props}>
-      <rect x="3.5" y="4" width="4" height="4" rx="1" />
-      <path d="M4.5 6l1 1 1.5-1.8" />
-      <rect x="3.5" y="13.5" width="4" height="4" rx="1" />
-      <path d="M10.5 6h10M10.5 15.5h10" />
+      {/* Portapapeles con renglones y un reloj: cosas por hacer que esperan (2026-11-24, a pedido del usuario; la
+          palomita sola la usa IconoRevisar). El lado derecho del portapapeles se abre para dejar lugar al reloj. */}
+      <path d="M9 4H6a1 1 0 0 0-1 1v15a1 1 0 0 0 1 1h5.5" />
+      <path d="M15 4h3a1 1 0 0 1 1 1v4.5" />
+      <rect x="9" y="2.5" width="6" height="3" rx="1" />
+      <path d="M8.5 10h6M8.5 13.5h3.5" />
+      <circle cx="17" cy="17" r="4.25" />
+      <path d="M17 15v2.2l1.4 1" />
     </Base>
   );
 }

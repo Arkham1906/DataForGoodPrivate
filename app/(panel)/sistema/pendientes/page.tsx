@@ -2,7 +2,7 @@
 // cada pendiente por separado con su enlace, su espera y su urgencia, por sección (Supervisión, Moderación, Aportes sin
 // revisar, Temáticas y subtemáticas).
 // Server Component. Acceso: sesión raíz (exigirSesionRoot, además del layout). Datos: pendientesDelPanel() de
-// lib/pendientes/del-panel.ts, la misma fuente del recuadro azul del menú y del número junto a "Pendientes".
+// lib/pendientes/del-panel.ts, la misma fuente del recuadro azul del menú y del número del botón "Pendientes" de la barra superior.
 // Solo lectura; se actualiza en vivo (ActualizacionEnVivo del layout).
 
 import type { Metadata } from "next";

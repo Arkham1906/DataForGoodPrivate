@@ -7,6 +7,7 @@ import localFont from "next/font/local";
 import { connection } from "next/server";
 import "./globals.css";
 import { BASE_PATH } from "@/lib/base-path";
+import EtiquetasEmergentes from "@/components/ui/EtiquetasEmergentes";
 
 // Fuentes en el repo (app/fuentes, 2026-10-28): con next/font/google el build fallaba sin
 // acceso a Google Fonts. Variables, subconjunto latino (cubre el español), licencia OFL al lado.
@@ -63,6 +64,8 @@ export default async function RootLayout({
           Saltar al contenido
         </a>
         {children}
+        {/* Etiqueta al pasar el cursor en todo control que solo lleva un ícono (2026-11-24). */}
+        <EtiquetasEmergentes />
       </body>
     </html>
   );

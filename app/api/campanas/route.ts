@@ -26,7 +26,7 @@ import { XP_POR_APORTE, errorDeEstadoPedido, errorDeRolDeCreador } from "@/lib/c
 import { pausaDesdeFila } from "@/lib/campanas/pausa";
 import { datosAbiertosDesdeFila } from "@/lib/campanas/datos-abiertos";
 import { avisoDeTopeAnonimoLleno } from "@/lib/campanas/aportes-anonimos";
-import { anonimosPorDefecto } from "@/lib/campanas/tope-anonimos";
+import { limiteDeAportesAnonimos } from "@/lib/campanas/tope-anonimos";
 import { rechazoDesdeFila } from "@/lib/campanas/rechazo";
 import { ESTADOS_PUBLICOS, condicionDeVisibilidad } from "@/lib/campanas/visibilidad";
 import { agregarEtiquetas, guardarEtiquetasDeCampana } from "@/lib/etiquetas/catalogo";
@@ -115,9 +115,13 @@ function mapCampaign(row: Record<string, unknown>) {
     status: String(row.status ?? "borrador"),
     dataTypes,
     permiteAnonimos: row.permite_anonimos === true,
-    // Tope de aportes sin cuenta (2026-11-13): el que eligió el creador (null = el 10% de la meta) y lo que vale sin número (el 10%).
-    limiteAnonimos: row.limite_anonimos == null ? null : Number(row.limite_anonimos),
-    anonimosPorDefecto: anonimosPorDefecto(Number(row.goal_contributions ?? 0)),
+    // Tope de aportes sin cuenta (2026-11-24): el porcentaje de la meta que eligió el creador (null = el 10%) y los
+    // aportes que salen de él con la meta actual.
+    porcentajeAnonimos: row.porcentaje_anonimos == null ? null : Number(row.porcentaje_anonimos),
+    topeAnonimos: limiteDeAportesAnonimos(
+      Number(row.goal_contributions ?? 0),
+      row.porcentaje_anonimos == null ? null : Number(row.porcentaje_anonimos),
+    ),
     // Formatos de "Archivo" que acepta (2026-10-28); [] = todos.
     formatosDeDocumento: normalizarFormatosDeDocumento(row.formatos_de_documento),
     collectionMode: String(row.collection_mode ?? "checklist"),
@@ -241,7 +245,7 @@ export async function GET(request: Request) {
       // lleno no se ofrece: la ficha muestra el aviso.
       const sinCuentaPosible = !user && campaign.status === "activa" && campaign.permiteAnonimos;
       const topeAnonimoLleno = sinCuentaPosible
-        ? await avisoDeTopeAnonimoLleno(Number(campaign.id), Number(campaign.goalContributions), campaign.limiteAnonimos ?? null)
+        ? await avisoDeTopeAnonimoLleno(Number(campaign.id), Number(campaign.goalContributions), campaign.porcentajeAnonimos ?? null)
         : null;
       const aporteSinCuenta = sinCuentaPosible && !topeAnonimoLleno;
       return NextResponse.json({

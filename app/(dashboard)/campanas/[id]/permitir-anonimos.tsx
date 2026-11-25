@@ -3,9 +3,10 @@
 // Interruptor "Permitir aportes sin cuenta" de Compartir (/campanas/[id]) y de /mis-campanas/[id].
 // Solo lo ve el creador. Llama a PATCH /api/campanas/[id]/enlace { permiteAnonimos }. Apagarlo
 // no toca los aportes anónimos ya recibidos: solo hace que /c/[token] pida iniciar sesión.
-// Con el interruptor encendido, "¿Cuántos aportes sin cuenta aceptas?" (2026-11-13, a pedido del usuario): el
-// creador escribe un número entero desde 1, sin tope, y lo guarda con PATCH { limiteAnonimos }. Vacío guarda null:
-// se aceptan `porDefecto`, el 10% de la meta (lib/campanas/tope-anonimos.ts).
+// Con el interruptor encendido, "¿Qué porcentaje de la meta aceptas sin cuenta?" (2026-11-24, a pedido del usuario;
+// del 2026-11-13 a esa fecha era un número de aportes): el creador escribe un entero de 1 a 100 y lo guarda con
+// PATCH { porcentajeAnonimos }. Vacío guarda null: vale el 10%. Mientras escribe se ve cuántos aportes da con la meta
+// actual (lib/campanas/tope-anonimos.ts, la misma cuenta que el servidor).
 // Desde el 2026-11-13 (a pedido del usuario) las campañas nuevas empiezan con el interruptor apagado y, al
 // encenderlo, una ventana avisa de los riesgos (contenido basura, inapropiado, falso o con datos de terceros);
 // solo se enciende si el creador confirma. Apagarlo no pide confirmación.
@@ -13,6 +14,13 @@
 import { useRef, useState } from "react";
 import VentanaDeConfirmacion from "@/components/ui/VentanaDeConfirmacion";
 import { BASE_PATH } from "@/lib/base-path";
+import {
+  PORCENTAJE_ANONIMOS_MAXIMO,
+  PORCENTAJE_ANONIMOS_MINIMO,
+  PORCENTAJE_ANONIMOS_POR_DEFECTO,
+  limiteDeAportesAnonimos,
+  problemaDelPorcentajeElegido,
+} from "@/lib/campanas/tope-anonimos";
 
 const nf = new Intl.NumberFormat("es-MX");
 
@@ -24,27 +32,27 @@ export default function PermitirAnonimos({
   campanaId,
   inicial,
   onCambio,
-  limiteInicial,
-  porDefecto,
-  onLimite,
+  meta,
+  porcentajeInicial,
+  onPorcentaje,
   compacto = false,
 }: {
   campanaId: string;
   inicial: boolean;
   onCambio: (permitir: boolean) => void;
-  /** El número que eligió el creador; null = el 10% de la meta. */
-  limiteInicial: number | null;
-  /** Lo que se acepta sin número: el 10% de la meta, hacia abajo. */
-  porDefecto: number;
-  onLimite?: (limite: number | null) => void;
+  /** Meta de la campaña: de ella sale el número de aportes. */
+  meta: number;
+  /** El porcentaje que eligió el creador; null = el 10%. */
+  porcentajeInicial: number | null;
+  onPorcentaje?: (porcentaje: number | null) => void;
   compacto?: boolean;
 }) {
   const [permitir, setPermitir] = useState(inicial);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // El número guardado (null = el 10%) y lo que hay escrito en el campo (vacío = el 10%).
-  const [limite, setLimite] = useState<number | null>(limiteInicial);
-  const [escrito, setEscrito] = useState(limiteInicial === null ? "" : String(limiteInicial));
+  // El porcentaje guardado (null = el 10%) y lo que hay escrito en el campo (vacío = el 10%).
+  const [porcentaje, setPorcentaje] = useState<number | null>(porcentajeInicial);
+  const [escrito, setEscrito] = useState(porcentajeInicial === null ? "" : String(porcentajeInicial));
   const [aviso, setAviso] = useState<string | null>(null);
   // Ventana de riesgos abierta (al intentar encender el interruptor).
   const [confirmando, setConfirmando] = useState(false);
@@ -53,12 +61,14 @@ export default function PermitirAnonimos({
 
   const vacio = escrito.trim() === "";
   const numero = Number(escrito);
-  const valido = vacio || (Number.isInteger(numero) && numero >= 1);
+  const valido = vacio || problemaDelPorcentajeElegido(numero) === null;
   const pedido = vacio ? null : numero;
-  const sinCambios = valido && pedido === limite;
-  const vigente = limite ?? porDefecto;
+  const sinCambios = valido && pedido === porcentaje;
+  // Lo que acepta ahora (lo guardado) y lo que aceptaría con lo escrito.
+  const vigente = limiteDeAportesAnonimos(meta, porcentaje);
+  const conLoEscrito = valido ? limiteDeAportesAnonimos(meta, pedido) : null;
 
-  async function guardar(cuerpo: { permiteAnonimos?: boolean; limiteAnonimos?: number | null }) {
+  async function guardar(cuerpo: { permiteAnonimos?: boolean; porcentajeAnonimos?: number | null }) {
     setGuardando(true);
     setError(null);
     setAviso(null);
@@ -100,18 +110,20 @@ export default function PermitirAnonimos({
     if (activado) setTimeout(() => campoDeCantidad.current?.focus(), 50);
   }
 
-  async function guardarLimite() {
-    if (!valido) {
-      setError("Escribe un número entero mayor que 0, o déjalo vacío para usar el 10% de la meta.");
+  async function guardarPorcentaje() {
+    const problema = vacio ? null : problemaDelPorcentajeElegido(numero);
+    if (problema) {
+      setError(problema);
       return;
     }
-    if (await guardar({ limiteAnonimos: pedido })) {
-      setLimite(pedido);
-      onLimite?.(pedido);
+    if (await guardar({ porcentajeAnonimos: pedido })) {
+      setPorcentaje(pedido);
+      onPorcentaje?.(pedido);
+      const tope = limiteDeAportesAnonimos(meta, pedido);
       setAviso(
         pedido === null
-          ? `Listo: se usa el 10% de la meta, ${aportes(porDefecto)} sin cuenta.`
-          : `Listo: la campaña acepta hasta ${aportes(pedido)} sin cuenta.`,
+          ? `Listo: se usa el ${PORCENTAJE_ANONIMOS_POR_DEFECTO}% de la meta, ${aportes(tope)} sin cuenta.`
+          : `Listo: la campaña acepta el ${pedido}% de la meta, ${aportes(tope)} sin cuenta.`,
       );
     }
   }
@@ -151,27 +163,30 @@ export default function PermitirAnonimos({
           className="mt-3 border-t border-system-200 pt-3"
           onSubmit={(e) => {
             e.preventDefault();
-            void guardarLimite();
+            void guardarPorcentaje();
           }}
         >
           <label htmlFor={`limite-anonimos-${campanaId}`} className={`block font-medium text-system-900 ${compacto ? "text-[11.5px]" : "text-[13px]"}`}>
-            ¿Cuántos aportes sin cuenta aceptas?
+            ¿Qué porcentaje de la meta aceptas sin cuenta?
           </label>
           <p id={`limite-anonimos-ayuda-${campanaId}`} className={`mb-2 text-system-500 ${texto}`}>
-            Escribe un número entero. Si lo dejas vacío, se usa el 10% de la meta ({aportes(porDefecto)}). Ahora acepta{" "}
-            {aportes(vigente)}
-            {limite === null ? " (el 10%)" : ""}. Los que ya llegaron no se borran aunque elijas menos.
+            Escribe un porcentaje del {PORCENTAJE_ANONIMOS_MINIMO} al {PORCENTAJE_ANONIMOS_MAXIMO}; se calcula sobre la meta
+            de la campaña ({aportes(meta)}) y sigue a la meta si cambia. Si lo dejas vacío, se usa el{" "}
+            {PORCENTAJE_ANONIMOS_POR_DEFECTO}%. Ahora acepta el {porcentaje ?? PORCENTAJE_ANONIMOS_POR_DEFECTO}%:{" "}
+            {aportes(vigente)}. Los que ya llegaron no se borran aunque elijas menos.
           </p>
-          <div className="flex items-center gap-2">
-            <input
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="relative inline-flex items-center">
+              <input
               ref={campoDeCantidad}
               id={`limite-anonimos-${campanaId}`}
               type="number"
               inputMode="numeric"
-              min={1}
+              min={PORCENTAJE_ANONIMOS_MINIMO}
+              max={PORCENTAJE_ANONIMOS_MAXIMO}
               step={1}
               value={escrito}
-              placeholder={String(porDefecto)}
+              placeholder={String(PORCENTAJE_ANONIMOS_POR_DEFECTO)}
               disabled={guardando}
               onChange={(e) => {
                 setEscrito(e.target.value);
@@ -180,8 +195,12 @@ export default function PermitirAnonimos({
               }}
               aria-describedby={`limite-anonimos-ayuda-${campanaId}`}
               aria-invalid={!valido ? true : undefined}
-              className="w-28 rounded border border-system-300 bg-white px-3 py-2 text-[14px] text-system-900 outline-none focus:border-brand-600 aria-invalid:border-error-700 aria-invalid:bg-error-50"
-            />
+              className="w-28 rounded border border-system-300 bg-white py-2 pl-3 pr-8 text-[14px] text-system-900 outline-none focus:border-brand-600 aria-invalid:border-error-700 aria-invalid:bg-error-50"
+              />
+              <span aria-hidden="true" className="pointer-events-none absolute right-3 text-[14px] text-system-500">
+                %
+              </span>
+            </span>
             <button
               type="submit"
               disabled={guardando || !valido || sinCambios}
@@ -189,7 +208,17 @@ export default function PermitirAnonimos({
             >
               {guardando ? "Guardando…" : "Guardar"}
             </button>
+            {!sinCambios && conLoEscrito !== null && (
+              <span className={`text-system-600 ${texto}`} aria-live="polite">
+                = {aportes(conLoEscrito)} sin cuenta
+              </span>
+            )}
           </div>
+          {conLoEscrito === 0 && (
+            <p className={`mt-1.5 font-medium text-warning-800 ${texto}`}>
+              Con esta meta, ese porcentaje da 0 aportes: nadie podrá aportar sin cuenta hasta que subas el porcentaje o la meta.
+            </p>
+          )}
         </form>
       )}
 

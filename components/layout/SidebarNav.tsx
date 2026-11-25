@@ -5,8 +5,8 @@
 // (Reportes y Sanciones están dentro, 2026-10-13). La opción activa la marca una pastilla que
 // se desliza entre opciones (components/ui/useIndicadorDeMenu.tsx). Cada opción lleva su ícono, como el
 // menú del SuperUsuario (2026-10-27; mismos íconos de components/sistema/icons.tsx).
-// "Pendientes" (2026-11-24, a pedido del usuario) va después de Inicio con su número (lo cuenta ShellDeUsuario con
-// lib/pendientes/del-usuario.ts): en móvil el recuadro azul no se ve y así se llega a /pendientes desde la tira.
+// "Pendientes" estuvo aquí unas horas el 2026-11-24; ese mismo día, a pedido del usuario, pasó a la barra superior
+// (components/layout/BotonDePendientes, en TopBar), donde también se ve en el teléfono.
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -17,7 +17,6 @@ import {
   IconoCampanas,
   IconoEscudo,
   IconoInicio,
-  IconoPendientes,
   IconoRevisar,
 } from "@/components/sistema/icons";
 import { claseDeOpcionMarcada, useIndicadorDeMenu } from "@/components/ui/useIndicadorDeMenu";
@@ -39,8 +38,6 @@ const CLASE_DE_TITULO = "px-2 text-[10px] font-semibold uppercase tracking-wider
 const NAV_ITEMS: Opcion[] = [
   // Inicio (2026-10-24): la primera pantalla al iniciar sesión.
   { href: "/inicio", label: "Inicio", Icono: IconoInicio },
-  // Pendientes (2026-11-24): lleva el número de pendientes.
-  { href: "/pendientes", label: "Pendientes", Icono: IconoPendientes },
   // «Mi progreso» salió del menú el 2026-11-12 (decisión del responsable): se entra desde el resumen de rango de
   // Inicio («Ver tu trayectoria»), y en /progreso/* el menú marca Inicio.
   // "Explorar campañas" desde el 2026-10-27 (antes "Explorar"), a pedido del usuario.
@@ -54,12 +51,9 @@ const NAV_ITEMS: Opcion[] = [
 export default function SidebarNav({
   usuario,
   aviso,
-  pendientes = 0,
 }: {
   usuario: SessionUser;
   aviso: AvisoDelMenuTipo;
-  /** Cuántos pendientes hay (2026-11-24): va como número junto a "Pendientes". */
-  pendientes?: number;
 }) {
   const pathname = usePathname();
   const roles = Array.isArray(usuario.role) ? usuario.role : [];
@@ -107,12 +101,6 @@ export default function SidebarNav({
               >
                 <item.Icono className="h-4 w-4 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transition-none" />
                 {item.label}
-                {item.href === "/pendientes" && pendientes > 0 ? (
-                  <span className="ml-auto rounded-pill bg-error-700 px-2 py-0.5 font-mono text-[10.5px] font-bold text-white">
-                    {pendientes > 99 ? "99+" : pendientes}
-                    <span className="sr-only"> pendientes</span>
-                  </span>
-                ) : null}
               </Link>
             </Fragment>
           );

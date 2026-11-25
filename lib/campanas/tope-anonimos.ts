@@ -3,30 +3,42 @@
 //
 // Reglas (decisiones del usuario):
 // - 2026-11-10: el 10% de la meta, redondeado hacia abajo. No limita los aportes con cuenta.
-// - 2026-11-13: el creador escribe cuántos acepta (campanas.limite_anonimos), un número entero desde 1, sin
-//   tope superior (ese mismo día se probó "de 1 al 10%" y el usuario lo cambió). Si no escribe nada (NULL),
-//   vale el 10% de la meta, que sigue a la meta si esta cambia.
+// - 2026-11-13: el creador escribía cuántos aceptaba (un número entero desde 1, sin tope); vacío = el 10%.
+// - 2026-11-24: el creador elige un PORCENTAJE de la meta (campanas.porcentaje_anonimos), un entero de 1 a 100;
+//   sin elegir (NULL) vale el 10%. El número de aportes se calcula de la meta, hacia abajo, y sigue a la meta si
+//   esta cambia. Los números que ya había se pasaron a su porcentaje al arrancar (lib/db-schema.ts).
 // Esta es la única copia de la regla.
 
-const PORCENTAJE_POR_DEFECTO = 0.1;
-/** Lo más que cabe en la columna INTEGER; nadie lo escribe a mano, pero así no truena el UPDATE. */
-const MAXIMO_TECNICO = 2_147_483_647;
+/** El porcentaje que vale si el creador no elige otro. */
+export const PORCENTAJE_ANONIMOS_POR_DEFECTO = 10;
+export const PORCENTAJE_ANONIMOS_MINIMO = 1;
+export const PORCENTAJE_ANONIMOS_MAXIMO = 100;
 
-/** Lo que vale sin número del creador: el 10% de la meta, hacia abajo (meta 50 → 5; meta 9 → 0). */
-export function anonimosPorDefecto(meta: number): number {
-  return Math.max(0, Math.floor(meta * PORCENTAJE_POR_DEFECTO));
+/** El porcentaje que se aplica: el que eligió el creador o, sin él, el 10%. */
+export function porcentajeDeAnonimos(elegido: number | null | undefined): number {
+  return elegido == null ? PORCENTAJE_ANONIMOS_POR_DEFECTO : elegido;
 }
 
-/** El tope que se aplica: el número que eligió el creador o, sin él, el 10% de la meta. */
+/**
+ * Cuántos aportes sin cuenta acepta la campaña: el porcentaje de la meta, hacia abajo
+ * (meta 50 al 10% → 5; meta 9 al 10% → 0; meta 9 al 20% → 1).
+ */
 export function limiteDeAportesAnonimos(meta: number, elegido: number | null | undefined): number {
-  return elegido == null ? anonimosPorDefecto(meta) : Math.max(0, elegido);
+  const porcentaje = porcentajeDeAnonimos(elegido);
+  // Entero por entero para no arrastrar errores de punto flotante (p. ej. 0.07 * 100).
+  return Math.max(0, Math.floor((Math.max(0, meta) * porcentaje) / 100));
 }
 
-/** Por qué no sirve el número que mandó el creador, o null si sirve. `null` (volver al 10%) siempre sirve. */
-export function problemaDelLimiteElegido(elegido: unknown): string | null {
+/** Por qué no sirve el porcentaje que mandó el creador, o null si sirve. `null` (volver al 10%) siempre sirve. */
+export function problemaDelPorcentajeElegido(elegido: unknown): string | null {
   if (elegido === null) return null;
-  if (typeof elegido !== "number" || !Number.isInteger(elegido) || elegido < 1 || elegido > MAXIMO_TECNICO) {
-    return "Escribe un número entero mayor que 0, o déjalo vacío para usar el 10% de la meta.";
+  if (
+    typeof elegido !== "number" ||
+    !Number.isInteger(elegido) ||
+    elegido < PORCENTAJE_ANONIMOS_MINIMO ||
+    elegido > PORCENTAJE_ANONIMOS_MAXIMO
+  ) {
+    return `Escribe un porcentaje entero del ${PORCENTAJE_ANONIMOS_MINIMO} al ${PORCENTAJE_ANONIMOS_MAXIMO}, o déjalo vacío para usar el ${PORCENTAJE_ANONIMOS_POR_DEFECTO}%.`;
   }
   return null;
 }

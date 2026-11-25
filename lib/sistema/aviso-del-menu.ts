@@ -1,4 +1,4 @@
-// Pendientes del SuperUsuario para el recuadro azul del menú lateral del panel y el número junto a "Pendientes".
+// Pendientes del SuperUsuario para el recuadro azul del menú lateral del panel y el número del botón "Pendientes" de la barra superior.
 // Desde el 2026-11-24 (a pedido del usuario) salen de lib/pendientes/del-panel.ts, la misma fuente de la pantalla
 // /sistema/pendientes: el recuadro muestra los 3 más urgentes y "Ver todos (N)" (avisoConPendientes).
 // Historia: del 2026-11-10 al 2026-11-24 era un renglón por tipo de pendiente ("3 campañas por supervisar"); antes,

@@ -1,4 +1,4 @@
-// Lo que dice el recuadro azul del menú lateral de la zona de usuario y el número junto a "Pendientes".
+// Lo que dice el recuadro azul del menú lateral de la zona de usuario y el número del botón "Pendientes" de la barra superior.
 // Desde el 2026-11-24 (a pedido del usuario) los pendientes salen de lib/pendientes/del-usuario.ts, la misma fuente
 // de la pantalla /pendientes: el recuadro muestra los 3 más urgentes y "Ver todos (N)" (avisoConPendientes). Sin
 // pendientes, la sugerencia de una campaña que cierra pronto o la frase de siempre.
