@@ -40,7 +40,7 @@ export default function AccesoRaizPage() {
         </span>
         <h1 className="text-xl font-extrabold text-system-900">Acceso raíz</h1>
         <p className="mt-1 text-[13px] text-system-600">
-          Panel administrativo del sistema
+          Entrada del SuperUsuario al panel que administra la plataforma: usuarios, campañas, aportes y supervisión.
         </p>
       </div>
 

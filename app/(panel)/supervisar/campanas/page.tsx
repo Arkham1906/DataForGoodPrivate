@@ -44,7 +44,7 @@ export default async function SupervisedCampaignsPage({
     <div className="mx-auto max-w-5xl">
       <BackLink href="/supervisar">Volver a supervisar</BackLink>
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div><p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-600">Modo supervisor · SuperUsuario</p><h1 className="mt-2 text-2xl font-extrabold text-system-900">Campañas supervisadas</h1><p className="mt-1 text-[13px] text-system-600">{cuantosDeCuantos(campaigns.length, todas.length)} registradas · {mias.length} tuyas · {deOtros.length} de otros supervisores</p></div>
+        <div><p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-600">Modo supervisor · SuperUsuario</p><h1 className="mt-2 text-2xl font-extrabold text-system-900">Campañas supervisadas</h1><p className="mt-1 text-[13px] text-system-600">Las campañas aceptadas que siguen en curso, tuyas y de los otros supervisores. Abre una para ver su avance, sus participantes y sus aportes.</p><p className="mt-1 text-[13px] text-system-500">{cuantosDeCuantos(campaigns.length, todas.length)} registradas · {mias.length} tuyas · {deOtros.length} de otros supervisores</p></div>
       </div>
       <FiltrosEnLaUrl
         busqueda={{ etiqueta: "Buscar campañas", placeholder: "Buscar por campaña, creador, temática o supervisor" }}

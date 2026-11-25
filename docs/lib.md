@@ -115,6 +115,7 @@
 
 | Archivo | Qué hace | Lo usa |
 | --- | --- | --- |
+| `descripcion-de-pestanas.ts` 🟢 (2026-11-25) | `DESCRIPCION_DE_PESTANA`: qué muestra cada pestaña de la lista de campañas de supervisión (Por supervisar, Supervisadas, Reportadas / rechazadas, Finalizadas) | `/supervision/campanas` (`ListaDeSupervision`), `/supervisar` (`pestanas.tsx`) |
 | `datos-abiertos.ts` (2026-11-04) | Publicar o no los datos de una campaña terminada: `decidirDatosAbiertos` y `marcarDatosPorDecidir` (tarea de cada minuto) | `PATCH /api/campanas/[id]`, `lib/supervision/acciones-root.ts`, `instrumentation-node.ts` |
 | `parecido.ts` 🟢 (2026-11-07) | `compararCampanas()` y `esSimilar()`: en qué se parecen dos campañas (temática, subtemática, nombre, descripción, tipos de dato) | `similares.ts`, `supervision/CampanasSimilares` |
 | `dashboard.ts` (2026-11-13) | `obtenerDashboardDelSupervisor(usuarioId, periodo)`: campañas en revisión libres o suyas (sin las propias) con su espera (`campanas.en_revision_desde`), sus dictámenes (`campana_supervisores`: aceptadas, rechazadas, hoy, 7 días, por día, semana, mes o año del periodo que se elige (`serieDeTiempo`, 2026-11-22), mediana del envío al dictamen en 30 días con `campana_supervisores.en_revision_desde`, motivos de rechazo agrupados por el motivo de la lista), las que supervisa por estado y lo pendiente (datos abiertos por decidir, pausadas por la supervisión que el creador ya ajustó, reportes con `contarReportesPendientes`); solo lectura, `null` si falla | `/supervision` |

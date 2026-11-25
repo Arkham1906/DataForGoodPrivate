@@ -69,6 +69,9 @@ export default async function ActividadDeSupervisorPage({
         <div>
           <h1 className="text-xl font-extrabold text-system-900">Actividad de {s.nombre}</h1>
           <p className="mt-1 text-[13px] text-system-600">
+            Las campañas a su cargo y el historial de sus decisiones. Desde aquí puedes revertir una decisión suya.
+          </p>
+          <p className="mt-1 text-[13px] text-system-500">
             <span className="font-mono">{s.correo}</span> ·{" "}
             {s.conRol ? `Supervisor desde ${formatearFechaSup(s.desde)}` : "Ya no tiene el rol de Supervisor"}
           </p>

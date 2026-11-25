@@ -56,7 +56,12 @@ export default async function FichaDeUsuarioPage({
       <Volver href="/usuarios">Volver al directorio</Volver>
 
       <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <Identidad nombre={u.nombre} detalle={u.correo} riesgo={baneado} />
+        <Identidad
+          nombre={u.nombre}
+          detalle={u.correo}
+          descripcion="Ficha de la cuenta: sus datos, su historial de sanciones y los baneos que tiene en campañas."
+          riesgo={baneado}
+        />
         <div className="flex flex-wrap items-center gap-2">
           {/* Sancionar ya no está aquí (2026-10-13): se hace en modo supervisor (/supervisar/sanciones/[id]); en el
               panel, /usuarios/sanciones solo se consulta. */}

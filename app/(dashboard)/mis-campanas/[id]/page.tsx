@@ -160,6 +160,9 @@ export default function DetalleDeMisCampanasPage() {
           </div>
           <h1 className="break-words text-2xl font-extrabold text-system-900">{campana.name}</h1>
           <RutaDeTematica tematica={campana.tematica || campana.tag} etiquetas={campana.etiquetas} className="mt-2" />
+          <p className="mt-2 text-[13px] text-system-600">
+            Tu campaña: su estado, su avance y sus detalles. Desde aquí la editas o abres su panel y sus aportes.
+          </p>
         </div>
       </div>
 

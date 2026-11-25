@@ -29,7 +29,12 @@ export default async function SupervisionPage({
     <div className="mx-auto max-w-4xl lg:mx-0 lg:max-w-none">
       <PestanasDeModeracion zona="supervision" />
       {/* h1 con aspecto de etiqueta, como en la pestaña Campañas (WCAG 1.3.1). */}
-      <h1 className="mb-4 font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-600">Supervisión</h1>
+      <h1 className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-600">Supervisión</h1>
+      {/* Qué se ve (2026-11-25, a pedido del usuario: todo título lleva su descripción). */}
+      <p className="mb-4 mt-1 text-[13px] text-system-600">
+        Tu resumen como supervisor: lo que espera tu dictamen, tus decisiones recientes y cómo van las campañas que
+        supervisas.
+      </p>
       {datos ? (
         <DashboardDelSupervisor datos={datos} periodo={periodo} />
       ) : (

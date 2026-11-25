@@ -106,6 +106,7 @@ export default async function ListadoDeCampanasPage({ searchParams }: { searchPa
 
       <Encabezado
         titulo="Campañas"
+        descripcion="Todas las campañas de la plataforma, en cualquier estado. Filtra, ordena y abre una para ver su ficha."
         subtitulo={subtitulo}
         acciones={<EnlaceBoton href={`${BASE}/dashboard`}>Ver dashboard</EnlaceBoton>}
       />

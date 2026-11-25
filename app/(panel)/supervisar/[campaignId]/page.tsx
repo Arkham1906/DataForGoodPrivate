@@ -102,6 +102,11 @@ export default async function SupervisarCampanaPage({
             <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-600">Detalle de campaña</p>
             <h1 className="mt-2 text-2xl font-extrabold text-system-900">{campaign.name}</h1>
             <p className="mt-1 text-[13px] text-system-600">
+              {campaign.status === "en_revision"
+                ? "Revisa lo que pide esta campaña y decide si se acepta o se rechaza."
+                : "Los datos de la campaña, su estado y lo que puedes hacer con ella como supervisor."}
+            </p>
+            <p className="mt-1 text-[13px] text-system-500">
               {campaign.tag || "Sin temática"} · creada por {campaign.creatorName || "Usuario"} · meta {campaign.goalContributions} aportes
             </p>
           </div>

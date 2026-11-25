@@ -105,6 +105,7 @@ function RegistroForm() {
     <div className="rounded-lg border border-system-200 bg-white p-8">
       <div className="mb-2 text-center">
         <h1 className="text-xl font-extrabold text-system-900">Crea tu cuenta</h1>
+        <p className="mt-1 text-[13px] text-system-600">Con tu cuenta puedes aportar a campañas y crear las tuyas.</p>
         <p className="mt-2 font-mono text-[10.5px] uppercase tracking-wider text-brand-600">
           Paso 1 de 4 · Tus datos
         </p>

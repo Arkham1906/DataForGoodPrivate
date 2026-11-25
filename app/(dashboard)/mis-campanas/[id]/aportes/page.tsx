@@ -81,7 +81,10 @@ export default function BandejaAportesPage() {
       </Link>
 
       <h1 className="text-xl font-extrabold text-system-900">Aportes recibidos</h1>
-      <p className="mb-4 text-[13px] text-system-600">{campaign.name}</p>
+      <p className="mt-1 text-[13px] text-system-600">
+        Los aportes que llegaron a tu campaña. Filtra por estado y abre uno para aceptarlo o rechazarlo.
+      </p>
+      <p className="mb-4 mt-1 text-[13px] text-system-500">{campaign.name}</p>
 
       <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="Filtrar por estado">
         {filtros.map((f) => (

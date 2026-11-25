@@ -60,6 +60,9 @@ export default async function EliminarCuentaPage() {
         <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-error-700">Cuenta</p>
         <h1 className="mt-2 text-2xl font-extrabold text-system-900">Eliminar tu cuenta</h1>
         <p className="mt-1 text-[13px] text-system-600">
+          Antes de confirmar, revisa qué se borra, qué se conserva y cuánto tiempo tienes para arrepentirte.
+        </p>
+        <p className="mt-1 text-[13px] text-system-500">
           {`${usuario.nombre ?? ""} ${usuario.apellidos ?? ""}`.trim()} · {usuario.email} ·{" "}
           {plural(aportes.total, "aporte", "aportes")} en {plural(aportes.campanas, "campaña", "campañas")}
         </p>

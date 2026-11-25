@@ -96,13 +96,15 @@ export default async function PantallaDeSanciones({
 
       <Encabezado
         titulo="Sanciones"
+        descripcion={
+          zona === "supervision" && !soloLectura
+            ? "Usuarios sancionados por reportes o rechazos de tus campañas, y los reportes que resolviste."
+            : soloLectura
+              ? "Avisos, suspensiones y baneos de las cuentas, y los baneos en campañas. Aquí solo se consultan: para sancionar o restaurar, entra al modo supervisor."
+              : "Avisos, suspensiones y baneos de las cuentas, los baneos en campañas, la lista negra de correos y los dispositivos bloqueados. Desde aquí sancionas o restauras el acceso."
+        }
         subtitulo={`${sanciones.length} ${sanciones.length === 1 ? "sanción" : "sanciones"} · ${vigentes} ${vigentes === 1 ? "vigente" : "vigentes"}`}
       />
-      {zona === "supervision" && !soloLectura && (
-        <p className="mb-5 text-[13px] text-system-600">
-          Usuarios sancionados por reportes o rechazos de tus campañas, y los reportes que resolviste.
-        </p>
-      )}
       {ticketEnviado && (
         <Aviso tono="info" className="mb-6 max-w-xl">
           Enviaste la sanción al SuperUsuario como ticket. Se aplica solo si la aprueba; te avisaremos de su respuesta.

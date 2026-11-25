@@ -54,6 +54,7 @@ export default async function DashboardDeUsuariosPage({
 
       <Encabezado
         titulo="Usuarios registrados"
+        descripcion="Altas de cuentas en el periodo elegido y cómo se reparten por rol, estado, ubicación y aportes."
         subtitulo={formatearCorte(d.cortadoEn)}
         subtituloMono
         acciones={

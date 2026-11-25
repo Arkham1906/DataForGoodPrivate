@@ -72,6 +72,9 @@ export default async function ConjuntoAbiertoPage({
             ? ` · cerró el ${new Date(conjunto.closedAt).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" })}`
             : ""}
         </p>
+        <p style={retraso(160)} className="landing-entrada mt-2 text-[13.5px] text-system-600">
+          Los aportes aprobados de esta campaña, listos para descargar y usar con la licencia que se indica abajo.
+        </p>
 
         {conjunto.proposito && (
           // Para qué se recolectaron los datos (2026-10-27).

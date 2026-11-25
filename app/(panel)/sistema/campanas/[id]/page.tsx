@@ -87,6 +87,9 @@ export default async function PanelDeCampanaSistemaPage({
       <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-extrabold text-system-900">{c.nombre}</h1>
+          <p className="mt-1 text-[13px] text-system-600">
+            Ficha de la campaña: su avance hacia la meta, sus aportes aprobados por tipo de dato y quién la supervisa.
+          </p>
           <p className="mt-1 font-mono text-[13px] text-system-600">
             {c.fechaInicio ? formatearFechaCampana(c.fechaInicio) : "sin inicio"} –{" "}
             {c.fechaFin ? formatearFechaCampana(c.fechaFin) : "sin cierre"} · {et.texto.toLowerCase()}

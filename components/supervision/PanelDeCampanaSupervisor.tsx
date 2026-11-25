@@ -91,6 +91,9 @@ export default function PanelDeCampanaSupervisor({
         <div>
           <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-600">Panel de campaña</p>
           <h1 className="mt-2 text-2xl font-extrabold text-system-900">{panel.nombre}</h1>
+          <p className="mt-1 text-[13px] text-system-600">
+            Cómo avanza la campaña: los aportes que recibe en el tiempo, su ritmo hacia la meta y cómo se reparten sus aportes.
+          </p>
           <p className="mt-1 font-mono text-[12px] text-system-600">
             {formatearFecha(panel.fechaInicio, false)} – {formatearFecha(panel.fechaFin)} · {ESTADO[panel.status] ?? panel.status}
           </p>

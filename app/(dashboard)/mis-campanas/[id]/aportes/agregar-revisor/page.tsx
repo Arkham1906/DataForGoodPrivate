@@ -183,7 +183,10 @@ export default function AgregarRevisorPage() {
 
       <div className="mb-4">
         <h1 className="text-xl font-extrabold text-system-900">Agregar revisor</h1>
-        <p className="mt-1 text-[13px] text-system-600">{campaign.name}</p>
+        <p className="mt-1 text-[13px] text-system-600">
+          Busca a una persona e invítala a revisar los aportes de esta campaña contigo.
+        </p>
+        <p className="mt-1 text-[13px] text-system-500">{campaign.name}</p>
       </div>
 
       {/* Texto aclarado el 2026-10-31 (a pedido del usuario): quien crea la campaña es su revisor principal. */}

@@ -50,6 +50,7 @@ export default async function DashboardDeAportesPage({
 
       <Encabezado
         titulo="Aportes recolectados"
+        descripcion="Cuántos aportes llegan a la plataforma, cómo se revisan y de qué campañas, tipos y temáticas vienen en el periodo elegido."
         subtitulo={`${formatearNumero(d.total)} en total · ${formatearNumero(d.enRango)} en el periodo · ${formatearCorte(d.cortadoEn).toLowerCase()}`}
         subtituloMono
         acciones={

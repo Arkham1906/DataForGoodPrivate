@@ -247,6 +247,11 @@ export default function RevisionAportePage() {
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-extrabold text-system-900">Aporte {item.id}</h1>
+          <p className="mt-1 text-[13px] text-system-600">
+            {item.status === "aceptado" || item.status === "rechazado"
+              ? "Lo que envió esta persona y cómo se decidió. Si incumple las reglas, puedes reportarlo."
+              : "Revisa lo que envió esta persona y decide si se acepta o se rechaza."}
+          </p>
         </div>
         <div className="flex flex-wrap justify-end gap-1.5">
           {item.inapropiado && <Tag tone="danger">Contenido inapropiado</Tag>}

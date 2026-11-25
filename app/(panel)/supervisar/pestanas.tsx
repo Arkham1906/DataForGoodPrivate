@@ -20,6 +20,7 @@ import { BASE_PATH } from "@/lib/base-path";
 import { textoDeUbicacion } from "@/lib/campanas/ubicacion";
 import { NOMBRE_DE_TIPO } from "@/lib/campanas/sistema-opciones";
 import { porcentajeDeMeta } from "@/lib/campanas/meta";
+import { DESCRIPCION_DE_PESTANA } from "@/lib/supervision/descripcion-de-pestanas";
 
 type TabKey = "pending" | "supervised" | "finished" | "flagged";
 
@@ -249,7 +250,9 @@ export default function PestanasDeSupervision({
       </div>
 
 </div>
-          <p className="mt-1 text-[13px] text-system-600">
+          {/* Qué muestra la pestaña (2026-11-25, a pedido del usuario) y debajo cuántas hay. */}
+          <p className="mt-1 text-[13px] text-system-600">{DESCRIPCION_DE_PESTANA[activeTab]}</p>
+          <p className="mt-1 text-[13px] text-system-500">
             {activeTab === "pending" ? `${pendientes.length} esperando revisión` : activeTab === "supervised" ? `${supervisadas.length} bajo supervisión` : activeTab === "finished" ? `${finalizadas.length} finalizadas` : `${conIncidencia.length} con incidencia`}
           </p>
         </div>

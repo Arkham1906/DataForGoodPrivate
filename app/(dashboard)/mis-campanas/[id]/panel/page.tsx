@@ -131,6 +131,9 @@ export default function PanelCampanaPage() {
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-extrabold text-system-900">{campaign.name}</h1>
+          <p className="mt-1 text-[13px] text-system-600">
+            El panel de tu campaña: los aportes que recibe en el tiempo, su ritmo hacia la meta y cómo se reparten.
+          </p>
           <p className="mt-1 font-mono text-[13px] text-system-600">
             {campaign.startDate && parseDateOnly(campaign.startDate)?.toLocaleDateString("es-MX", {
               day: "numeric",

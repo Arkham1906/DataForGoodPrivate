@@ -81,6 +81,7 @@ export default async function BandejaDeAportesPage({ searchParams }: { searchPar
 
       <Encabezado
         titulo="Aportes recibidos"
+        descripcion="Los aportes de toda la plataforma agrupados por persona, con su campaña y su etapa de revisión. Solo ves el registro, no el archivo."
         subtitulo={campana ? campana.nombre : "Todas las campañas"}
       />
 

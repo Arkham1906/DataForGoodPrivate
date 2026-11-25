@@ -42,6 +42,7 @@ export default async function SupervisoresPage({
 
       <Encabezado
         titulo="Supervisores"
+        descripcion="Las personas con el rol de Supervisor y lo que han hecho: campañas que dictaminaron, reportes y sanciones."
         subtitulo={`${resumen.conRolActivo} con el rol activo · ${resumen.accionesEjecutadas} acciones en los últimos 30 días`}
         acciones={
           <Suspense fallback={null}>

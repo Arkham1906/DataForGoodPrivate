@@ -23,6 +23,7 @@ import PantallaEsqueleto from "@/components/ui/Esqueletos";
 import PestanasDeModeracion from "@/components/moderacion/PestanasDeModeracion";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
 import { estaTerminada } from "@/lib/campanas/terminada";
+import { DESCRIPCION_DE_PESTANA } from "@/lib/supervision/descripcion-de-pestanas";
 
 type CampaignApiItem = {
   id: string;
@@ -341,7 +342,9 @@ export default function ListaDeSupervision() {
   return (
     <div className="mx-auto max-w-4xl lg:mx-0 lg:max-w-none">
       <PestanasDeModeracion zona="supervision" />
-      <h1 className="mb-3 font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-600">Supervisión</h1>
+      <h1 className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-600">Supervisión</h1>
+      {/* Qué muestra la categoría elegida (2026-11-25, a pedido del usuario). */}
+      <p className="mb-3 mt-1 text-[13px] text-system-600">{DESCRIPCION_DE_PESTANA[activeTab]}</p>
       <p className="sr-only" role="status">{visibles.length} {resumen}</p>
 
       <BarraDeFiltros

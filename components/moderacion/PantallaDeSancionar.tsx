@@ -54,7 +54,16 @@ export default async function PantallaDeSancionar({
 
       <header className="mb-6">
         {/* El correo solo lo ve el SuperUsuario; un supervisor ve el rol. */}
-        <Identidad nombre={u.nombre} detalle={moderador.tipo === "root" ? u.correo : u.rol} riesgo={u.estado !== "ACTIVA"} />
+        <Identidad
+          nombre={u.nombre}
+          detalle={moderador.tipo === "root" ? u.correo : u.rol}
+          descripcion={
+            moderador.tipo === "root"
+              ? "Elige la sanción para esta cuenta: un aviso, una suspensión o un baneo."
+              : "Elige la sanción para esta cuenta: un aviso, una suspensión o un baneo. Las suspensiones y los baneos van al SuperUsuario como ticket y se aplican solo si los aprueba."
+          }
+          riesgo={u.estado !== "ACTIVA"}
+        />
         <p className="mt-2 text-[12.5px] text-system-600">
           Lleva {u.strikes} de {AVISOS_PARA_BANEO} avisos.
         </p>

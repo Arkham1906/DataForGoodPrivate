@@ -46,7 +46,8 @@ export default async function CampaignUsersPage({
       <div className="mb-6">
         <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-600">Participantes</p>
         <h1 className="mt-2 text-2xl font-extrabold text-system-900">Usuarios · {campaign.name}</h1>
-        <p className="mt-1 text-[13px] text-system-600">{cuantosDeCuantos(participantes.length, result.rows.length)} participantes con al menos un aporte</p>
+        <p className="mt-1 text-[13px] text-system-600">Las personas que enviaron aportes a esta campaña. Abre una para ver sus aportes y en qué etapa están.</p>
+        <p className="mt-1 text-[13px] text-system-500">{cuantosDeCuantos(participantes.length, result.rows.length)} participantes con al menos un aporte</p>
       </div>
 
       {result.rows.length > 0 && (

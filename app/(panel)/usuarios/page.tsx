@@ -61,6 +61,7 @@ export default async function DirectorioPage({
       <div className={sp.movil === "menu" ? "hidden md:block" : undefined}>
         <Encabezado
           titulo="Usuarios"
+          descripcion="El directorio de cuentas de la plataforma. Busca o filtra por rol, estado u organización y abre una para ver su ficha."
           subtitulo={`${formatearNumero(total)} registrados`}
           acciones={<EnlaceBoton href="/usuarios/dashboard">Ver dashboard</EnlaceBoton>}
         />

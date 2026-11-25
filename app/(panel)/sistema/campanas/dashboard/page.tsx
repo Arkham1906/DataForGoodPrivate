@@ -45,6 +45,7 @@ export default async function DashboardDeCampanasPage() {
 
       <Encabezado
         titulo="Campañas"
+        descripcion="Cómo van las campañas de la plataforma: cuántas hay en cada estado, su participación y su avance hacia la meta."
         subtitulo={`${formatearNumero(d.registradas)} registradas · ${formatearNumero(d.activas)} activas · corte al ${corte.format(d.cortadoEn)}`}
         subtituloMono
         acciones={<EnlaceBoton href="/sistema/campanas">Ver lista</EnlaceBoton>}

@@ -103,7 +103,10 @@ export default function RevisoresDeCampanaPage() {
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-xl font-extrabold text-system-900">Revisores de aportes</h1>
-          <p className="break-words text-[13px] text-system-600">{nombreDeCampana}</p>
+          <p className="mt-1 text-[13px] text-system-600">
+            Las personas que invitaste a revisar los aportes, si ya aceptaron y cuántos aportes decidió cada una.
+          </p>
+          <p className="mt-1 break-words text-[13px] text-system-500">{nombreDeCampana}</p>
         </div>
         <ButtonLink href={`/mis-campanas/${params.id}/aportes/agregar-revisor`} variant="primary" size="sm">
           Agregar revisor

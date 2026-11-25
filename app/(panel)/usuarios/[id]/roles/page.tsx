@@ -70,6 +70,10 @@ export default async function RolesPage({
       <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-extrabold text-system-900">Roles de {u.nombre}</h1>
+          <p className="mt-1 text-[13px] text-system-600">
+            Los roles y permisos de esta cuenta. Asigna o quita el de Supervisor, o los permisos de crear campañas y de
+            aportar.
+          </p>
           <p className="mt-1 font-mono text-[13px] text-system-600">{detalle}{retirados}</p>
         </div>
         <EnlaceBoton href={`/usuarios/${u.id}`}>Ver ficha completa</EnlaceBoton>

@@ -126,7 +126,10 @@ export default function CampanaEspecialPage() {
       <div className="mb-5 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-extrabold text-system-900">Campaña especial</h1>
-          <p className="mt-1 text-[13px] text-system-600">{campaign.name}</p>
+          <p className="mt-1 text-[13px] text-system-600">
+            Marca un periodo especial para tu campaña, con su multiplicador, su bono y una insignia opcional.
+          </p>
+          <p className="mt-1 text-[13px] text-system-500">{campaign.name}</p>
         </div>
         {especial ? <Tag tone="ok">Especial ×{especial.multiplicador}</Tag> : <Tag tone="warn">Sin publicar</Tag>}
       </div>

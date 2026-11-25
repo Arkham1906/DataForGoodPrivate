@@ -48,7 +48,8 @@ export default async function CampaignUsersPage({ params }: { params: Promise<{ 
       <div className="mb-6">
         <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-600">Participantes</p>
         <h1 className="mt-2 text-2xl font-extrabold text-system-900">Usuarios · {campaign.name}</h1>
-        <p className="mt-1 text-[13px] text-system-600">{result.rowCount} participantes con al menos un aporte</p>
+        <p className="mt-1 text-[13px] text-system-600">Las personas que enviaron aportes a esta campaña. Abre una para ver sus aportes y en qué etapa están.</p>
+        <p className="mt-1 text-[13px] text-system-500">{result.rowCount} participantes con al menos un aporte</p>
       </div>
 
       {result.rowCount === 0 ? (

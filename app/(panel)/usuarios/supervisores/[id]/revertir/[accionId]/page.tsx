@@ -78,6 +78,9 @@ export default async function RevertirAccionPage({ params }: { params: Params })
       <header className="mb-6">
         <h1 className="text-xl font-extrabold text-system-900">{d.titulo}</h1>
         <p className="mt-1 text-[13px] text-system-600">
+          Lo que decidió este supervisor y qué cambia si reviertes su decisión.
+        </p>
+        <p className="mt-1 text-[13px] text-system-500">
           Decisión de {supervisor.nombre} · {formatearFechaHoraSup(accion.ejecutadaEn)}
         </p>
       </header>

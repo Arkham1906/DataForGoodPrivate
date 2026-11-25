@@ -45,7 +45,8 @@ export default async function UserContributionsPage({ params }: { params: Promis
       <div className="mb-5">
         <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-600">Aportes de participante</p>
         <h1 className="mt-2 text-2xl font-extrabold text-system-900">{participant.participant_name}</h1>
-        <p className="mt-1 text-[13px] text-system-600">{campaignResult.rows[0].name} · {participant.participant_email || "Sin correo"}</p>
+        <p className="mt-1 text-[13px] text-system-600">Los aportes que esta persona envió a la campaña, con su fecha, su tipo y su estado.</p>
+        <p className="mt-1 text-[13px] text-system-500">{campaignResult.rows[0].name} ·{participant.participant_email || "Sin correo"}</p>
       </div>
       <div className="mb-5 rounded-lg border border-system-200 bg-system-100 p-4 text-[13px] text-system-600">Vista de solo lectura. El archivo de cada aporte no puede verse ni descargarse desde supervisión.</div>
       <div className="space-y-3">

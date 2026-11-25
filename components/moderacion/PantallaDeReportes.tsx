@@ -102,6 +102,7 @@ export default async function PantallaDeReportes({
 
       <Encabezado
         titulo="Reportes"
+        descripcion="Lo que reportaron las personas sobre campañas y aportes, agrupado por caso. Elige una sanción para la persona reportada o descarta el reporte."
         subtitulo={
           pendientes.reportes === 0
             ? "Sin reportes pendientes"

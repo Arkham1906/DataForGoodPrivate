@@ -272,6 +272,9 @@ export default function AportarPage() {
         <div className="min-w-0 flex-1">
           <p className="text-[11.5px] font-bold uppercase tracking-[0.08em] text-brand-600">Nuevo aporte</p>
           <h1 className="mt-0.5 line-clamp-2 break-words text-xl font-extrabold text-system-900" title={campaign.name}>{campaign.name}</h1>
+          <p className="mt-1 text-[13px] text-system-600">
+            Prepara tu aporte siguiendo los pasos y envíalo. Quien organiza la campaña o un revisor lo aceptará o lo rechazará.
+          </p>
           <div className="mt-2.5 max-w-md">
             <div className="mb-1 flex items-baseline justify-between gap-3 text-[12px] text-system-600">
               <span>

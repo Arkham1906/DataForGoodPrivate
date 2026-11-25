@@ -56,7 +56,8 @@ export default async function ReviewerContributionDetailPage({ params }: { param
         <div>
           <p className="font-mono text-[11px] font-semibold uppercase tracking-[.12em] text-brand-600">Detalle del aporte</p>
           <h1 className="mt-2 text-2xl font-extrabold text-system-900">Aporte #{contribution.id}</h1>
-          <p className="mt-1 text-[13px] text-system-600">{contribution.participant_name} · {contribution.campaign_name}</p>
+          <p className="mt-1 text-[13px] text-system-600">Un aporte que aceptaste: su contenido, sus características y tu calificación.</p>
+          <p className="mt-1 text-[13px] text-system-500">{contribution.participant_name} · {contribution.campaign_name}</p>
         </div>
         <Tag tone="ok">Aceptado por ti</Tag>
       </div>

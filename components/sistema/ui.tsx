@@ -25,13 +25,19 @@ export function EnlaceBoton({ href, children }: { href: string; children: ReactN
 
 /* ── encabezado ─────────────────────────────────────────────────────────── */
 
+/**
+ * Encabezado de una pantalla del panel. `descripcion` (2026-11-25, a pedido del usuario: todo título lleva debajo
+ * qué se está viendo) es la frase que explica la pantalla; `subtitulo` queda para los datos (totales, corte, campaña).
+ */
 export function Encabezado({
   titulo,
+  descripcion,
   subtitulo,
   subtituloMono = false,
   acciones,
 }: {
   titulo: string;
+  descripcion?: ReactNode;
   subtitulo?: string;
   subtituloMono?: boolean;
   acciones?: ReactNode;
@@ -40,8 +46,9 @@ export function Encabezado({
     <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
       <div>
         <h1 className="text-xl font-extrabold text-system-900">{titulo}</h1>
+        {descripcion ? <p className="mt-1 text-[13px] text-system-600">{descripcion}</p> : null}
         {subtitulo ? (
-          <p className={`mt-1 text-[13px] text-system-600 ${subtituloMono ? "font-mono" : ""}`}>
+          <p className={`mt-1 text-[13px] ${descripcion ? "text-system-500" : "text-system-600"} ${subtituloMono ? "font-mono" : ""}`}>
             {subtitulo}
           </p>
         ) : null}
@@ -193,10 +200,13 @@ export function iniciales(nombre: string): string {
 export function Identidad({
   nombre,
   detalle,
+  descripcion,
   riesgo = false,
 }: {
   nombre: string;
   detalle: string;
+  /** Qué se ve en la pantalla (2026-11-25, a pedido del usuario), debajo del correo o del rol. */
+  descripcion?: ReactNode;
   /** Avatar en rojo: la cuenta está baneada. */
   riesgo?: boolean;
 }) {
@@ -213,6 +223,7 @@ export function Identidad({
       <div>
         <h1 className="text-base font-extrabold text-system-900">{nombre}</h1>
         <p className="mt-0.5 font-mono text-[13px] text-system-600">{detalle}</p>
+        {descripcion ? <p className="mt-1 text-[13px] text-system-600">{descripcion}</p> : null}
       </div>
     </div>
   );
