@@ -1,4 +1,5 @@
-// Franja con la ilustración de campo (2026-11-06): en la portada de la landing lleva la campaña destacada; en
+// Franja con la ilustración de campo (2026-11-06): en la portada de la landing lleva las 5 campañas con más
+// participación (desde el 2026-11-25, `66d691c`; antes una sola destacada); en
 // /explorar, /datos y /progreso/leaderboard, el buscador o las categorías encima. `redondeada` es para usarla dentro de
 // una columna (/progreso/leaderboard, dentro del marco de la app); sin ella va a todo el ancho.
 

@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 
 import MetricCard from "@/components/sistema/MetricCard";
 import ProgressBar from "@/components/sistema/ProgressBar";
+import { ListaDeRenglones, Renglon } from "@/components/sistema/Renglones";
 import Subtabs from "@/components/sistema/subtabs";
 import Tag from "@/components/sistema/Tag";
 import {
@@ -171,47 +172,33 @@ export default async function DashboardDeCampanasPage() {
             })}
           </div>
 
-          <div className="hidden overflow-x-auto rounded-lg border border-system-200 bg-white p-5 shadow-sm md:block">
-          <table className="w-full min-w-[720px] text-left text-[13.5px]">
-            <thead className="border-b border-system-200 font-mono text-[10px] uppercase tracking-[0.1em] text-system-500">
-              <tr>
-                <th className="pb-3 font-medium">Campaña</th>
-                <th className="pb-3 font-medium">Temática</th>
-                <th className="pb-3 text-right font-medium">Participantes</th>
-                <th className="pb-3 text-right font-medium">Aportes</th>
-                <th className="pb-3 pl-4 font-medium">Avance</th>
-                <th className="pb-3 text-right font-medium">Detalle</th>
-              </tr>
-            </thead>
-            <tbody>
-              {d.masParticipacion.map((c) => {
-                const pct = porcentajeDeMeta(c.aprobados, c.meta);
-                return (
-                  <tr key={c.id} className="border-b border-system-200 last:border-0">
-                    <td className="py-4 pr-3">
-                      <p className="font-bold text-system-900">{c.nombre}</p>
-                      <p className="text-[12px] text-system-500">{c.tiposDeDato.map((t) => NOMBRE_DE_TIPO[t]).join(" · ") || "—"}</p>
-                    </td>
-                    <td className="text-[12.5px] text-system-600">{c.tematica || "Sin temática"}</td>
-                    <td className="text-right font-mono tabular-nums">{formatearNumero(c.participantes)}</td>
-                    <td className="text-right font-mono tabular-nums">{formatearNumero(c.aportes)}</td>
-                    <td className="w-44 pl-4">
+          {/* Escritorio: renglones como la vista de lista de Mis aportes (2026-11-25); toda la tarjeta abre la campaña. */}
+          <ListaDeRenglones etiqueta="Campañas con más participación" soloEscritorio>
+            {d.masParticipacion.map((c) => {
+              const pct = porcentajeDeMeta(c.aprobados, c.meta);
+              return (
+                <Renglon
+                  key={c.id}
+                  href={`/sistema/campanas/${c.id}`}
+                  titulo={c.nombre}
+                  rotulo={c.tiposDeDato.map((t) => NOMBRE_DE_TIPO[t]).join(" · ") || null}
+                  detalles={[
+                    c.tematica || "Sin temática",
+                    `${formatearNumero(c.participantes)} ${c.participantes === 1 ? "participante" : "participantes"}`,
+                    `${formatearNumero(c.aportes)} ${c.aportes === 1 ? "aporte" : "aportes"}`,
+                  ]}
+                  lateral={
+                    <div className="w-40">
                       <ProgressBar pct={pct} tone="ok" />
                       <span className="font-mono text-[11px] text-system-500">
-                        {formatearNumero(c.aprobados)}/{formatearNumero(c.meta)}
+                        {formatearNumero(c.aprobados)}/{formatearNumero(c.meta)} aprobados
                       </span>
-                    </td>
-                    <td className="text-right">
-                      <EnlaceBoton href={`/sistema/campanas/${c.id}`}>
-                        Ver<span className="sr-only"> el panel de {c.nombre}</span>
-                      </EnlaceBoton>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          </div>
+                    </div>
+                  }
+                />
+              );
+            })}
+          </ListaDeRenglones>
         </>
       )}
     </div>

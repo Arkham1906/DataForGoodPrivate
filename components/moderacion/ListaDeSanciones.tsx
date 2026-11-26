@@ -4,12 +4,14 @@
 // /supervision/sanciones; en el panel, /usuarios/sanciones solo consulta). Igual que la bandeja /aportes
 // (app/(panel)/aportes/lista.tsx, 2026-10-13): cada usuario ocupa un renglón resumen (cuántas, de qué tipo,
 // cuántas vigentes, la más reciente), aunque tenga una sola, y al hacer clic se despliegan sus sanciones.
-// En escritorio, renglones con rejilla y, al desplegar, una tabla con sus propios encabezados; en móvil, tarjetas.
+// En escritorio, renglones como la vista de lista de Mis aportes (components/sistema/Renglones, 2026-11-25): uno por
+// usuario y, al desplegar, uno por sanción; en móvil, tarjetas.
 
 import Link from "next/link";
 import { useState } from "react";
 
 import Tag from "@/components/sistema/Tag";
+import { ListaDeRenglones, Renglon, RenglonDesplegable } from "@/components/sistema/Renglones";
 import type { RegistroDeSancion } from "@/lib/usuarios/directorio";
 import { rutasDeModeracion, type ZonaDeModeracion } from "@/lib/moderacion/rutas";
 import BotonRestaurar from "./BotonRestaurar";
@@ -43,16 +45,20 @@ function EtiquetaDeSancion({ s }: { s: SancionParaLista }) {
   );
 }
 
-/** La campaña y el aporte que la originaron, o "Toda la cuenta" (con los reportes que la originaron). */
-function DondeSeAplico({ s, zona }: { s: SancionParaLista; zona: ZonaDeModeracion }) {
+/**
+ * La campaña y el aporte que la originaron, o "Toda la cuenta" (con los reportes que la originaron).
+ * `enLinea` (renglones de escritorio, 2026-11-25): todo en una línea, separado por " · ", en vez de un renglón por dato.
+ */
+function DondeSeAplico({ s, zona, enLinea = false }: { s: SancionParaLista; zona: ZonaDeModeracion; enLinea?: boolean }) {
   const rutas = rutasDeModeracion(zona);
+  const otroDato = enLinea ? "" : "block ";
   if (s.tipo !== "BANEO_EN_CAMPANA") {
     return (
       <>
         <span className="text-system-500">Toda la cuenta</span>
         {s.porReportes && (
-          <span className="block text-[11px] text-system-500">
-            Por {s.porReportes.reportes} {s.porReportes.reportes === 1 ? "reporte" : "reportes"}
+          <span className={`${otroDato}text-[11px] text-system-500`}>
+            {enLinea ? " · " : ""}Por {s.porReportes.reportes} {s.porReportes.reportes === 1 ? "reporte" : "reportes"}
             {s.porReportes.tipo === "aporte" ? ` del aporte ${s.porReportes.aporteId ? `#${s.porReportes.aporteId}` : "borrado"} en` : " de"}{" "}
             {s.porReportes.campana ? (
               <Link href={rutas.campana(s.porReportes.campana.id)} className="hover:text-brand-600">
@@ -75,7 +81,11 @@ function DondeSeAplico({ s, zona }: { s: SancionParaLista; zona: ZonaDeModeracio
       ) : (
         "Campaña eliminada"
       )}
-      {s.aporteId && <span className="block font-mono text-[11px] text-system-500">Por el aporte #{s.aporteId}</span>}
+      {s.aporteId && (
+        <span className={`${otroDato}font-mono text-[11px] text-system-500`}>
+          {enLinea ? " · " : ""}Por el aporte #{s.aporteId}
+        </span>
+      )}
     </>
   );
 }
@@ -213,118 +223,62 @@ export default function ListaDeSanciones({
         })}
       </div>
 
-      {/* Escritorio: un renglón por usuario (sin columnas vacías); al desplegar, la tabla de sus
-          sanciones con sus propios encabezados. La rejilla es la misma en todos los renglones, así
-          que nada brinca al abrir uno (como /aportes). */}
-      <div className="hidden divide-y divide-system-200 rounded-lg border border-system-200 bg-white shadow-sm md:block">
+      {/* Escritorio (2026-11-25): renglones como la vista de lista de Mis aportes. Cada usuario es un renglón que
+          se despliega y, dentro, un renglón por sanción (antes una rejilla y una tabla con encabezados). */}
+      <ListaDeRenglones etiqueta="Sanciones agrupadas por usuario" soloEscritorio>
         {grupos.map((g) => {
           const abierto = abiertos.has(g.usuarioId);
           const vigentes = g.sanciones.filter((s) => s.vigente).length;
-          const idPanel = `sanciones-${g.usuarioId}`;
-          const conRestaurar = g.sanciones.some((s) => puedeRestaurar(s, ctx));
           return (
-            <section key={g.usuarioId} aria-label={`Sanciones de ${g.usuario}`}>
-              <div
-                className={`grid grid-cols-[minmax(0,1.3fr)_minmax(0,1.6fr)_minmax(0,0.8fr)_96px] items-start gap-4 px-5 py-4 ${
-                  abierto ? "bg-system-50" : ""
-                }`}
-              >
-                <button
-                  type="button"
-                  onClick={() => alternar(g.usuarioId)}
-                  aria-expanded={abierto}
-                  aria-controls={idPanel}
-                  className="flex min-w-0 items-start gap-2 text-left text-[13.5px] font-bold text-system-900 hover:text-brand-600"
-                >
-                  <Chevron abierto={abierto} />
-                  <span className="min-w-0 break-words">
-                    {g.usuario}
-                    <span className="block text-[11.5px] font-semibold text-brand-600">{cuantas(g.sanciones.length)}</span>
-                    <span className="block font-mono text-[11px] font-normal text-system-500">Última: {g.sanciones[0].fechaTexto}</span>
-                  </span>
-                </button>
-                <div className="min-w-0">
-                  <span className="block font-mono text-[10px] uppercase tracking-[0.1em] text-system-500">Tipos</span>
-                  <span className="mt-1 flex flex-wrap gap-1.5"><Tipos sanciones={g.sanciones} /></span>
-                </div>
-                <div className="min-w-0">
-                  <span className="block font-mono text-[10px] uppercase tracking-[0.1em] text-system-500">Estado</span>
-                  <span className="mt-1 block"><Vigentes n={vigentes} /></span>
-                </div>
-                <div className="text-right">
+            <RenglonDesplegable
+              key={g.usuarioId}
+              abierto={abierto}
+              alAlternar={() => alternar(g.usuarioId)}
+              idPanel={`sanciones-${g.usuarioId}`}
+              titulo={g.usuario}
+              rotulo={cuantas(g.sanciones.length)}
+              detalles={[`Última: ${g.sanciones[0].fechaTexto}`]}
+              lateral={
+                <>
+                  <Tipos sanciones={g.sanciones} />
+                  <Vigentes n={vigentes} />
                   <EnlaceDelGrupo g={g} {...ctx} />
-                </div>
-              </div>
-
-              {abierto && (
-                <div id={idPanel} className="overflow-x-auto border-t border-system-200 bg-system-50 px-5 pb-4 pt-3">
-                  <table className="w-full min-w-[760px] table-fixed text-left text-[12.5px]">
-                    {/* En porcentaje y sumando 100 %; la columna de Restaurar solo si alguna sanción se puede restaurar. */}
-                    <colgroup>
-                      {conRestaurar ? (
-                        <>
-                          <col className="w-[13%]" />
-                          <col className="w-[13%]" />
-                          <col className="w-[22%]" />
-                          <col className="w-[16%]" />
-                          <col className="w-[11%]" />
-                          <col className="w-[13%]" />
-                          <col className="w-[12%]" />
-                        </>
-                      ) : (
-                        <>
-                          <col className="w-[14%]" />
-                          <col className="w-[14%]" />
-                          <col className="w-[26%]" />
-                          <col className="w-[18%]" />
-                          <col className="w-[13%]" />
-                          <col className="w-[15%]" />
-                        </>
-                      )}
-                    </colgroup>
-                    <thead className="border-b border-system-200 font-mono text-[10px] uppercase tracking-[0.1em] text-system-500">
-                      <tr>
-                        <th className="pb-2 pr-3 font-medium">Fecha</th>
-                        <th className="pb-2 pr-3 font-medium">Tipo</th>
-                        <th className="pb-2 pr-3 font-medium">Motivo</th>
-                        <th className="pb-2 pr-3 font-medium">Campaña</th>
-                        <th className="pb-2 pr-3 font-medium">Aplicó</th>
-                        <th className="pb-2 pr-3 font-medium">Estado</th>
-                        {conRestaurar && <th className="pb-2"><span className="sr-only">Acciones</span></th>}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {g.sanciones.map((s) => (
-                        <RenglonDeSancion key={s.id} s={s} {...ctx} conRestaurar={conRestaurar} />
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
+                </>
+              }
+            >
+              <ListaDeRenglones etiqueta={`Sanciones de ${g.usuario}`}>
+                {g.sanciones.map((s) => (
+                  <RenglonDeSancion key={s.id} s={s} {...ctx} />
+                ))}
+              </ListaDeRenglones>
+            </RenglonDesplegable>
           );
         })}
-      </div>
+      </ListaDeRenglones>
     </>
   );
 }
 
-/** Una sanción en la tabla de un usuario desplegado. */
-function RenglonDeSancion({ s, conRestaurar, ...ctx }: { s: SancionParaLista; conRestaurar: boolean } & Contexto) {
+/** Una sanción dentro de un usuario desplegado: el motivo, de dónde, quién la aplicó y su estado; el tipo a la derecha. */
+function RenglonDeSancion({ s, ...ctx }: { s: SancionParaLista } & Contexto) {
   return (
-    <tr className="border-b border-system-200 align-top last:border-0">
-      <td className="py-3 pr-3 font-mono text-[11px] text-system-500">{s.fechaTexto}</td>
-      <td className="py-3 pr-3"><EtiquetaDeSancion s={s} /></td>
-      <td className="break-words py-3 pr-3 text-system-600">{s.motivo}</td>
-      <td className="break-words py-3 pr-3 text-system-600"><DondeSeAplico s={s} zona={ctx.zona} /></td>
-      <td className="break-words py-3 pr-3 text-system-600">{s.quien}</td>
-      <td className={`py-3 pr-3 ${claseEstado(s.vigente)}`}>{s.estado}</td>
-      {conRestaurar && (
-        <td className="py-3 text-right">
-          {puedeRestaurar(s, ctx) && s.sancionId && <BotonRestaurar zona={ctx.zona} sancionId={s.sancionId} usuario={s.usuario} tipo={s.tipo} />}
-        </td>
-      )}
-    </tr>
+    <Renglon
+      titulo={s.motivo}
+      detalles={[
+        s.fechaTexto,
+        <DondeSeAplico key="donde" s={s} zona={ctx.zona} enLinea />,
+        `Aplicó: ${s.quien}`,
+        <span key="estado" className={s.vigente ? "font-semibold text-system-900" : undefined}>{s.estado}</span>,
+      ]}
+      lateral={
+        <>
+          <EtiquetaDeSancion s={s} />
+          {puedeRestaurar(s, ctx) && s.sancionId && (
+            <BotonRestaurar zona={ctx.zona} sancionId={s.sancionId} usuario={s.usuario} tipo={s.tipo} />
+          )}
+        </>
+      }
+    />
   );
 }
 

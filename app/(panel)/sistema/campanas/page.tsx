@@ -6,6 +6,7 @@ import { Suspense } from "react";
 
 import Subtabs from "@/components/sistema/subtabs";
 import Tag from "@/components/sistema/Tag";
+import { ListaDeRenglones, Renglon } from "@/components/sistema/Renglones";
 import { Encabezado, EnlaceBoton, Paginacion, formatearNumero } from "@/components/sistema/ui";
 import {
   ETIQUETA_DE_CAMPANA,
@@ -188,60 +189,35 @@ export default async function ListadoDeCampanasPage({ searchParams }: { searchPa
             })}
           </div>
 
-          <div className="hidden overflow-x-auto rounded-lg border border-system-200 bg-white p-5 shadow-sm md:block">
-            <table className="w-full min-w-[820px] text-left text-[13.5px]">
-              <thead className="border-b border-system-200 font-mono text-[10px] uppercase tracking-[0.1em] text-system-500">
-                <tr>
-                  <th className="pb-3 font-medium">Campaña</th>
-                  <th className="pb-3 font-medium">Tipo de dato</th>
-                  <th className="pb-3 font-medium">Estado</th>
-                  <th className="pb-3 text-right font-medium">Participan</th>
-                  <th className="pb-3 text-right font-medium">Aprobados</th>
-                  <th className="pb-3 pl-4 font-medium">Vence</th>
-                  <th className="pb-3 text-right font-medium">Detalle</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filas.map((c) => {
-                  const et = ETIQUETA_DE_CAMPANA[c.estado];
-                  const dias = diasRestantes(c.venceEn);
-                  return (
-                    <tr key={c.id} className="border-b border-system-200 last:border-0">
-                      <td className="py-4 pr-3">
-                        <p className="font-bold text-system-900">{c.nombre}</p>
-                        <p className="text-[12px] text-system-500">
-                          {c.tematica || "Sin temática"} · {c.creador || "Sin creador"}
-                        </p>
-                      </td>
-                      <td className="text-[12.5px] text-system-600">
-                        {c.tiposDeDato.length > 0 ? c.tiposDeDato.map((t) => NOMBRE_DE_TIPO[t]).join(" · ") : "—"}
-                      </td>
-                      <td>
-                        <Tag tone={et.tono}>{et.texto}</Tag>
-                      </td>
-                      <td className="text-right font-mono tabular-nums">{formatearNumero(c.participantes)}</td>
-                      <td className="text-right font-mono tabular-nums">
-                        {formatearNumero(c.aprobados)}
-                        <span className="text-system-500">/{formatearNumero(c.meta)}</span>
-                      </td>
-                      <td className="pl-4 font-mono text-[12px] text-system-600">
-                        {c.venceEn ? (
-                          <span title={dias !== null ? `Faltan ${dias} días` : undefined}>{formatearFechaCampana(c.venceEn, false)}</span>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                      <td className="text-right">
-                        <EnlaceBoton href={`${BASE}/${c.id}`}>
-                          Ver<span className="sr-only"> el panel de {c.nombre}</span>
-                        </EnlaceBoton>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          {/* Escritorio: renglones como la vista de lista de Mis aportes (2026-11-25); toda la tarjeta abre la campaña. */}
+          <ListaDeRenglones etiqueta="Campañas" soloEscritorio>
+            {filas.map((c) => {
+              const et = ETIQUETA_DE_CAMPANA[c.estado];
+              const dias = diasRestantes(c.venceEn);
+              return (
+                <Renglon
+                  key={c.id}
+                  href={`${BASE}/${c.id}`}
+                  titulo={c.nombre}
+                  rotulo={c.tiposDeDato.length > 0 ? c.tiposDeDato.map((t) => NOMBRE_DE_TIPO[t]).join(" · ") : null}
+                  detalles={[
+                    c.tematica || "Sin temática",
+                    c.creador || "Sin creador",
+                    `${formatearNumero(c.participantes)} ${c.participantes === 1 ? "participante" : "participantes"}`,
+                    `${formatearNumero(c.aprobados)}/${formatearNumero(c.meta)} aprobados`,
+                    c.venceEn ? (
+                      <span title={dias !== null ? `Faltan ${dias} días` : undefined}>
+                        Vence {formatearFechaCampana(c.venceEn, false)}
+                      </span>
+                    ) : (
+                      "Sin fecha de cierre"
+                    ),
+                  ]}
+                  lateral={<Tag tone={et.tono}>{et.texto}</Tag>}
+                />
+              );
+            })}
+          </ListaDeRenglones>
 
           <Paginacion desde={desde} hasta={hasta} total={total} pagina={pagina} paginas={paginas} href={enlaceDePagina} />
         </>

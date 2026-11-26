@@ -6,12 +6,15 @@
 // cuántos reportes, por qué motivos) aunque tenga uno solo, y al hacer clic se despliegan sus reportes.
 // Con reportes pendientes, al pie va "Elegir sanción para <persona>" (.../sanciones/[usuarioId]?reportes=<clave>)
 // y "Descartar". Los reportes de campaña abren la ficha de supervisión con el caso ligado para que su
-// supervisor pueda sancionar al creador o pausar/finalizar la campaña desde la misma ficha. En escritorio, renglones con rejilla y, al desplegar, una tabla; en móvil, tarjetas.
+// supervisor pueda sancionar al creador o pausar/finalizar la campaña desde la misma ficha. En escritorio, renglones
+// como la vista de lista de Mis aportes (components/sistema/Renglones, 2026-11-25): uno por caso y, al desplegar, uno
+// por reporte; en móvil, tarjetas.
 
 import Link from "next/link";
 import { useState } from "react";
 
 import Tag from "@/components/sistema/Tag";
+import { ListaDeRenglones, Renglon, RenglonDesplegable } from "@/components/sistema/Renglones";
 import { ETIQUETA_DE_ESTADO_DE_REPORTE, type EstadoDeReporte, type TipoDeReporte } from "@/lib/reportes/motivos";
 import { rutasDeModeracion, type ZonaDeModeracion } from "@/lib/moderacion/rutas";
 import BotonDescartar from "./BotonDescartar";
@@ -223,48 +226,28 @@ export default function ListaDeReportes({ grupos, zona }: { grupos: GrupoParaLis
         })}
       </div>
 
-      {/* Escritorio: un renglón por caso (sin columnas vacías); al desplegar, la tabla de sus
-          reportes con sus propios encabezados. Misma rejilla en todos los renglones: nada brinca. */}
-      <div className="hidden divide-y divide-system-200 rounded-lg border border-system-200 bg-white shadow-sm md:block">
+      {/* Escritorio (2026-11-25): renglones como la vista de lista de Mis aportes. Cada caso es un renglón que se
+          despliega y, dentro, un renglón por reporte y el pie con las acciones (antes una rejilla y una tabla). */}
+      <ListaDeRenglones etiqueta="Reportes agrupados por caso" soloEscritorio>
         {grupos.map((g) => {
           const abierto = abiertos.has(g.clave);
-          const idPanel = `reportes-${g.clave}`;
           return (
-            <section key={g.clave} aria-label={`Reportes de ${titulo(g)}`}>
-              <div
-                className={`grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1.5fr)_104px] items-start gap-4 px-5 py-4 ${
-                  abierto ? "bg-system-50" : ""
-                }`}
-              >
-                <button
-                  type="button"
-                  onClick={() => alternar(g.clave)}
-                  aria-expanded={abierto}
-                  aria-controls={idPanel}
-                  className="flex min-w-0 items-start gap-2 text-left text-[13.5px] font-bold text-system-900 hover:text-brand-600"
-                >
-                  <Chevron abierto={abierto} />
-                  <span className="min-w-0 break-words">
-                    <span className="block font-mono text-[10px] font-normal uppercase tracking-[0.1em] text-system-500">
-                      {g.tipo === "campana" ? "Campaña" : "Aporte"}
-                    </span>
-                    {titulo(g)}
-                    {g.tipo === "aporte" && (
-                      <span className="block text-[11.5px] font-normal text-system-600">en {g.campana.nombre}</span>
-                    )}
-                    <span className="block text-[11.5px] font-semibold text-brand-600">{cuantos(g.reportes.length)}</span>
-                    <span className="block font-mono text-[11px] font-normal text-system-500">Último: {g.reportes[0].fechaTexto}</span>
-                  </span>
-                </button>
-                <div className="min-w-0 break-words text-[12.5px]">
-                  <span className="block font-mono text-[10px] uppercase tracking-[0.1em] text-system-500">{rolDelReportado(g)}</span>
-                  <span className="mt-1 block"><Reportado g={g} zona={zona} /></span>
-                </div>
-                <div className="min-w-0">
-                  <span className="block font-mono text-[10px] uppercase tracking-[0.1em] text-system-500">Motivos</span>
-                  <span className="mt-1 block"><Motivos g={g} /></span>
-                </div>
-                <div className="text-right">
+            <RenglonDesplegable
+              key={g.clave}
+              abierto={abierto}
+              alAlternar={() => alternar(g.clave)}
+              idPanel={`reportes-${g.clave}`}
+              titulo={titulo(g)}
+              rotulo={g.tipo === "campana" ? "Campaña" : null /* "Aporte #55" ya lo dice */}
+              detalles={[
+                g.tipo === "aporte" ? `En ${g.campana.nombre}` : null,
+                `${rolDelReportado(g)}: ${g.reportado?.nombre ?? "Cuenta eliminada"}`,
+                cuantos(g.reportes.length),
+                `Último: ${g.reportes[0].fechaTexto}`,
+              ]}
+              lateral={
+                <>
+                  <Motivos g={g} />
                   <Link
                     href={
                       g.tipo === "campana"
@@ -274,53 +257,34 @@ export default function ListaDeReportes({ grupos, zona }: { grupos: GrupoParaLis
                           )
                         : rutas.campana(g.campana.id)
                     }
-                    className="whitespace-nowrap text-[12.5px] font-semibold text-brand-600 hover:underline"
+                    className="whitespace-nowrap text-[12px] font-semibold text-brand-600 hover:underline"
                   >
                     {g.tipo === "campana" ? "Abrir campaña" : "Ver campaña"}<span className="sr-only"> {g.campana.nombre}</span>
                   </Link>
-                </div>
+                </>
+              }
+            >
+              {/* El nombre lleva a su pantalla de sanción (cuántos avisos lleva): dentro del botón no cabe un enlace. */}
+              <p className="mb-2 text-[12px] text-system-600">
+                {rolDelReportado(g)}: <Reportado g={g} zona={zona} />
+              </p>
+              <ListaDeRenglones etiqueta={`Reportes de ${titulo(g)}`}>
+                {g.reportes.map((r) => (
+                  <Renglon
+                    key={r.id}
+                    titulo={r.motivo ?? SIN_MOTIVO}
+                    detalles={[`Reportó: ${r.quien}`, r.fechaTexto, r.descripcion]}
+                    lateral={<EstadoDelReporte r={r} />}
+                  />
+                ))}
+              </ListaDeRenglones>
+              <div className="mt-3 border-t border-system-200 pt-3">
+                <PieDelGrupo g={g} zona={zona} />
               </div>
-
-              {abierto && (
-                <div id={idPanel} className="overflow-x-auto border-t border-system-200 bg-system-50 px-5 pb-4 pt-3">
-                  <table className="w-full min-w-[720px] table-fixed text-left text-[12.5px]">
-                    <colgroup>
-                      <col className="w-[14%]" />
-                      <col className="w-[17%]" />
-                      <col className="w-[22%]" />
-                      <col className="w-[31%]" />
-                      <col className="w-[16%]" />
-                    </colgroup>
-                    <thead className="border-b border-system-200 font-mono text-[10px] uppercase tracking-[0.1em] text-system-500">
-                      <tr>
-                        <th className="pb-2 pr-3 font-medium">Fecha</th>
-                        <th className="pb-2 pr-3 font-medium">Reportó</th>
-                        <th className="pb-2 pr-3 font-medium">Motivo</th>
-                        <th className="pb-2 pr-3 font-medium">Descripción</th>
-                        <th className="pb-2 font-medium">Estado</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {g.reportes.map((r) => (
-                        <tr key={r.id} className="border-b border-system-200 align-top last:border-0">
-                          <td className="py-3 pr-3 font-mono text-[11px] text-system-500">{r.fechaTexto}</td>
-                          <td className="break-words py-3 pr-3 text-system-900">{r.quien}</td>
-                          <td className="break-words py-3 pr-3 text-system-600">{r.motivo ?? SIN_MOTIVO}</td>
-                          <td className="break-words py-3 pr-3 text-system-600">{r.descripcion ?? "—"}</td>
-                          <td className="py-3"><EstadoDelReporte r={r} /></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  <div className="mt-3 border-t border-system-200 pt-3">
-                    <PieDelGrupo g={g} zona={zona} />
-                  </div>
-                </div>
-              )}
-            </section>
+            </RenglonDesplegable>
           );
         })}
-      </div>
+      </ListaDeRenglones>
     </>
   );
 }

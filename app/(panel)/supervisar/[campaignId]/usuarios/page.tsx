@@ -2,8 +2,8 @@
 // Server Component con SQL directo; la campaña se valida con obtenerCampanaSupervisadaPorRoot() (sesión raíz).
 // Búsqueda por nombre o correo (?q=, 2026-11-22).
 
-import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ListaDeRenglones, Renglon } from "@/components/sistema/Renglones";
 import { BackLink } from "../../_ui";
 import { pool } from "@/lib/db";
 import { obtenerCampanaSupervisadaPorRoot } from "@/lib/supervision/root";
@@ -59,23 +59,22 @@ export default async function CampaignUsersPage({
       ) : participantes.length === 0 ? (
         <div className="rounded-lg border border-system-200 bg-white p-5 text-[13px] text-system-600">Ningún participante coincide con «{(await searchParams).q}».</div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-system-200 bg-white p-5 shadow-sm">
-          <table className="w-full min-w-[650px] text-left text-[13px]">
-            <thead className="border-b border-system-200 font-mono text-[10px] uppercase tracking-[0.1em] text-system-500">
-              <tr><th className="pb-3 font-medium">Usuario</th><th className="pb-3 font-medium">Aportes</th><th className="pb-3 font-medium">Último aporte</th><th className="pb-3"><span className="sr-only">Acciones</span></th></tr>
-            </thead>
-            <tbody>
-              {participantes.map((participant) => (
-                <tr key={participant.id} className="border-b border-system-200 last:border-0">
-                  <td className="py-4"><p className="font-bold text-system-900">{participant.name}</p><p className="font-mono text-[11px] text-system-500">{participant.email || "Sin correo"}</p></td>
-                  <td className="font-mono">{participant.contributions}</td>
-                  <td className="font-mono text-[12px] text-system-500">{new Date(participant.last_submitted).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" })}</td>
-                  <td className="text-right"><Link href={`/supervisar/${campaignId}/usuarios/${participant.id}/aportes`} className="rounded-pill border border-system-300 px-3 py-1.5 text-[12px] font-bold text-system-600 hover:border-brand-600">Ver aportes</Link></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        // Renglones como la vista de lista de Mis aportes (2026-11-25; antes una tabla): toda la tarjeta abre sus
+        // aportes. Sin tarjetas propias para el teléfono, así que se ven igual en todos los anchos.
+        <ListaDeRenglones etiqueta="Participantes">
+          {participantes.map((participant) => (
+            <Renglon
+              key={participant.id}
+              href={`/supervisar/${campaignId}/usuarios/${participant.id}/aportes`}
+              titulo={participant.name}
+              detalles={[
+                participant.email || "Sin correo",
+                `${participant.contributions} ${participant.contributions === 1 ? "aporte" : "aportes"}`,
+                `Último aporte: ${new Date(participant.last_submitted).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" })}`,
+              ]}
+            />
+          ))}
+        </ListaDeRenglones>
       )}
       <div className="mt-5 rounded-lg border border-system-200 bg-system-100 p-4 text-[13px] text-system-600">Vista exclusiva del SuperUsuario como supervisor de esta campaña. Los archivos de los aportes no están disponibles en esta sección.</div>
     </div>

@@ -1,10 +1,11 @@
 // Pantalla /supervisar/campanas: todas las campañas aceptadas (por el SuperUsuario o por cualquier supervisor;
-// 2026-10-15), en dos tablas (2026-10-16): las que supervisa el SuperUsuario y las de los otros supervisores,
-// con quién las supervisa. Filtros (2026-11-22): ?q= (campaña, creador, temática o supervisor) y ?estado=.
-// Server Component. Datos: listarCampanasParaRoot().
+// 2026-10-15), en dos listas (2026-10-16; renglones desde el 2026-11-25): las que supervisa el SuperUsuario y las de
+// los otros supervisores, con quién las supervisa. Filtros (2026-11-22): ?q= (campaña, creador, temática o supervisor)
+// y ?estado=. Server Component. Datos: listarCampanasParaRoot().
 
 import Link from "next/link";
 import Tag from "@/components/ui/Tag";
+import { ListaDeRenglones, Renglon } from "@/components/sistema/Renglones";
 import { listarCampanasParaRoot, type CampanaSupervisable } from "@/lib/supervision/root";
 import { porcentajeDeMeta } from "@/lib/campanas/meta";
 import { BackLink } from "../_ui";
@@ -58,7 +59,13 @@ export default async function SupervisedCampaignsPage({
   );
 }
 
-/** Una tabla de campañas supervisadas; `conSupervisor` agrega la columna "Supervisa" (en las tuyas sobra). */
+const CLASE_ENLACE = "rounded-pill border border-system-300 bg-white px-3 py-1.5 text-[12px] font-bold text-system-600 hover:border-brand-600";
+
+/**
+ * Una lista de campañas supervisadas; `conSupervisor` agrega quién la supervisa (en las tuyas sobra). Desde el
+ * 2026-11-25 son renglones como la vista de lista de Mis aportes (antes una tabla); sin tarjetas propias para el
+ * teléfono, así que se ven igual en todos los anchos.
+ */
 function TablaDeSupervisadas({
   titulo,
   campaigns,
@@ -71,44 +78,57 @@ function TablaDeSupervisadas({
   conSupervisor?: boolean;
 }) {
   return (
-    <section className="rounded-lg border border-system-200 bg-white p-5 shadow-sm">
+    <section>
       <div className="mb-3 flex items-center justify-between gap-3">
         <h2 className="text-[15px] font-extrabold text-system-900">{titulo}</h2>
         <Tag tone="ok">{campaigns.length}</Tag>
       </div>
       {campaigns.length === 0 ? (
-        <p className="text-[13px] text-system-600">{vacio}</p>
+        <p className="rounded-lg border border-dashed border-system-300 p-5 text-[13px] text-system-600">{vacio}</p>
       ) : (
-        <div className="overflow-x-auto">
-          {/* Anchos fijos: sin "Supervisa", "Campaña" toma su espacio y las demás columnas quedan alineadas entre las dos tablas. */}
-          <table className="w-full min-w-[820px] table-fixed text-left text-[13px]">
-            <colgroup>
-              <col className={conSupervisor ? "w-[30%]" : "w-[46%]"} />
-              {conSupervisor && <col className="w-[16%]" />}
-              <col className="w-[12%]" />
-              <col className="w-[18%]" />
-              <col className="w-[10%]" />
-              <col className="w-[14%]" />
-            </colgroup>
-            <thead className="border-b border-system-200 font-mono text-[10px] uppercase tracking-[0.1em] text-system-500"><tr><th className="pb-3 font-medium">Campaña</th>{conSupervisor && <th className="pb-3 font-medium">Supervisa</th>}<th className="pb-3 font-medium">Estado</th><th className="pb-3 font-medium">Progreso</th><th className="pb-3 font-medium">Participantes</th><th className="pb-3"><span className="sr-only">Acciones</span></th></tr></thead>
-            <tbody>
-              {campaigns.map((campaign) => {
-                const percent = `${porcentajeDeMeta(campaign.approvedContributions, campaign.goalContributions)}%`;
-
-                return (
-                  <tr key={campaign.id} className="border-b border-system-200 last:border-0">
-                    <td className="py-4"><p className="font-bold text-system-900">{campaign.name}</p><p className="text-[12px] text-system-500">{campaign.tag || "Sin temática"}</p></td>
-                    {conSupervisor && <td className="text-system-600">{campaign.supervisadaPor ?? "Nadie"}</td>}
-                    <td><Tag tone={campaign.status === "activa" ? "ok" : campaign.status === "pausada" ? "default" : "warn"}>{campaign.status === "activa" ? "Activa" : campaign.status === "pausada" ? "Pausada" : "Aceptada"}</Tag></td>
-                    <td className="pr-4"><div className="h-2 overflow-hidden rounded-pill bg-system-100"><div className="h-full rounded-pill bg-success-700" style={{ width: percent }} /></div><p className="mt-1 font-mono text-[11px] text-system-500">{campaign.currentContributions} / {campaign.goalContributions}</p></td>
-                    <td className="font-mono text-system-600">{campaign.participants}</td>
-                    <td><div className="flex justify-end gap-2">{campaign.status === "aceptada" ? <Link href={`/supervisar/${campaign.id}`} className="rounded-pill border border-system-300 px-3 py-1.5 text-[12px] font-bold text-system-600 hover:border-brand-600">Ver detalle</Link> : <><Link href={`/supervisar/${campaign.id}/usuarios`} className="rounded-pill border border-system-300 px-3 py-1.5 text-[12px] font-bold text-system-600 hover:border-brand-600">Usuarios</Link><Link href={`/supervisar/${campaign.id}/panel`} className="rounded-pill border border-system-300 px-3 py-1.5 text-[12px] font-bold text-system-600 hover:border-brand-600">Panel</Link></>}</div></td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <ListaDeRenglones etiqueta={titulo}>
+          {campaigns.map((campaign) => {
+            const pct = porcentajeDeMeta(campaign.approvedContributions, campaign.goalContributions);
+            return (
+              <Renglon
+                key={campaign.id}
+                titulo={campaign.name}
+                detalles={[
+                  campaign.tag || "Sin temática",
+                  conSupervisor ? `Supervisa: ${campaign.supervisadaPor ?? "Nadie"}` : null,
+                  `${campaign.currentContributions} / ${campaign.goalContributions} aportes`,
+                  `${campaign.participants} ${campaign.participants === 1 ? "participante" : "participantes"}`,
+                ]}
+                debajo={
+                  <div className="h-1.5 max-w-xs overflow-hidden rounded-pill bg-system-100">
+                    <div className="h-full rounded-pill bg-success-700" style={{ width: `${pct}%` }} />
+                  </div>
+                }
+                lateral={
+                  <>
+                    <Tag tone={campaign.status === "activa" ? "ok" : campaign.status === "pausada" ? "default" : "warn"}>
+                      {campaign.status === "activa" ? "Activa" : campaign.status === "pausada" ? "Pausada" : "Aceptada"}
+                    </Tag>
+                    {campaign.status === "aceptada" ? (
+                      <Link href={`/supervisar/${campaign.id}`} className={CLASE_ENLACE}>
+                        Ver detalle<span className="sr-only"> de {campaign.name}</span>
+                      </Link>
+                    ) : (
+                      <>
+                        <Link href={`/supervisar/${campaign.id}/usuarios`} className={CLASE_ENLACE}>
+                          Usuarios<span className="sr-only"> de {campaign.name}</span>
+                        </Link>
+                        <Link href={`/supervisar/${campaign.id}/panel`} className={CLASE_ENLACE}>
+                          Panel<span className="sr-only"> de {campaign.name}</span>
+                        </Link>
+                      </>
+                    )}
+                  </>
+                }
+              />
+            );
+          })}
+        </ListaDeRenglones>
       )}
     </section>
   );

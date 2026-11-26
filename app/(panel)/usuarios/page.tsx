@@ -9,6 +9,7 @@ import { Suspense } from "react";
 import Subtabs from "@/components/sistema/subtabs";
 import { Encabezado, EnlaceBoton, Paginacion, formatearNumero } from "@/components/sistema/ui";
 import Tag from "@/components/sistema/Tag";
+import { ListaDeRenglones, Renglon } from "@/components/sistema/Renglones";
 import { PESTANAS_USUARIOS } from "@/lib/usuarios/dashboard";
 import { ETIQUETA_DE_ESTADO, POR_PAGINA, buscarUsuarios, organizacionesDelDirectorio } from "@/lib/usuarios/directorio";
 import Filtros from "./filtros";
@@ -125,55 +126,33 @@ export default async function DirectorioPage({
               })}
             </div>
 
-            <div className="hidden overflow-x-auto rounded-lg border border-system-200 bg-white p-5 shadow-sm md:block">
-              <table className="w-full min-w-[720px] text-left text-[13.5px]">
-                <thead className="border-b border-system-200 font-mono text-[10px] uppercase tracking-[0.1em] text-system-500">
-                  <tr>
-                    <th className="pb-3 font-medium">Usuario</th>
-                    <th className="pb-3 font-medium">Rol</th>
-                    <th className="pb-3 font-medium">Estado</th>
-                    <th className="pb-3 text-right font-medium">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filas.map((u) => {
-                    const estado = ETIQUETA_DE_ESTADO[u.estado];
-                    return (
-                      <tr key={u.id} className="border-b border-system-200 last:border-0">
-                        <td className="py-4">
-                          <p className="font-bold text-system-900">{u.nombre}</p>
-                          <p className="font-mono text-[11px] text-system-500">{u.correo}</p>
-                          <p className="text-[12px] text-system-600">{u.organizacion ?? "Sin organización"}</p>
-                        </td>
-                        <td>
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            {u.roles.map((rol) => (
-                              <Tag key={rol}>{rol}</Tag>
-                            ))}
-                            {u.rolesRetirados.map((rol) => (
-                              <Tag key={rol} tone="warn">{rol}</Tag>
-                            ))}
-                            {u.rolDetalle ? (
-                              <span className="text-[12.5px] text-system-500">{u.rolDetalle}</span>
-                            ) : null}
-                          </div>
-                        </td>
-                        <td>
-                          <Tag tone={estado.tono}>
-                            {u.estado === "CON_STRIKES" ? `${u.strikes} ${u.strikes === 1 ? "aviso" : "avisos"}` : estado.texto}
-                          </Tag>
-                        </td>
-                        <td className="text-right">
-                          <EnlaceBoton href={`/usuarios/${u.id}`}>
-                            Abrir<span className="sr-only"> la ficha de {u.nombre}</span>
-                          </EnlaceBoton>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            {/* Escritorio: renglones como la vista de lista de Mis aportes (2026-11-25); toda la tarjeta abre la ficha. */}
+            <ListaDeRenglones etiqueta="Usuarios" soloEscritorio>
+              {filas.map((u) => {
+                const estado = ETIQUETA_DE_ESTADO[u.estado];
+                return (
+                  <Renglon
+                    key={u.id}
+                    href={`/usuarios/${u.id}`}
+                    titulo={u.nombre}
+                    detalles={[u.correo, u.organizacion ?? "Sin organización", u.rolDetalle]}
+                    lateral={
+                      <>
+                        {u.roles.map((rol) => (
+                          <Tag key={rol}>{rol}</Tag>
+                        ))}
+                        {u.rolesRetirados.map((rol) => (
+                          <Tag key={rol} tone="warn">{rol}</Tag>
+                        ))}
+                        <Tag tone={estado.tono}>
+                          {u.estado === "CON_STRIKES" ? `${u.strikes} ${u.strikes === 1 ? "aviso" : "avisos"}` : estado.texto}
+                        </Tag>
+                      </>
+                    }
+                  />
+                );
+              })}
+            </ListaDeRenglones>
 
             <Paginacion
               desde={desde}

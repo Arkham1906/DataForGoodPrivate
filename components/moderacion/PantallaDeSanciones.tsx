@@ -16,6 +16,7 @@ import Link from "next/link";
 import Button from "@/components/sistema/Button";
 import { Input } from "@/components/sistema/Input";
 import Tag from "@/components/sistema/Tag";
+import { ListaDeRenglones, Renglon } from "@/components/sistema/Renglones";
 import { Aviso, Encabezado } from "@/components/sistema/ui";
 import type { Moderador } from "@/lib/moderacion/moderador";
 import { rutasDeModeracion, type ZonaDeModeracion } from "@/lib/moderacion/rutas";
@@ -277,40 +278,22 @@ export default async function PantallaDeSanciones({
             ))}
           </div>
 
-          <div className="hidden overflow-x-auto rounded-lg border border-system-200 bg-white p-5 shadow-sm md:block">
-            <table className="w-full min-w-[640px] text-left text-[13.5px]">
-              <thead className="border-b border-system-200 font-mono text-[10px] uppercase tracking-[0.1em] text-system-500">
-                <tr>
-                  <th className="pb-3 font-medium">Dispositivo</th>
-                  <th className="pb-3 font-medium">Motivo</th>
-                  <th className="pb-3 font-medium">Vence</th>
-                  {!soloLectura && <th className="pb-3 text-right font-medium">Acción</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {bloqueos.map((b) => (
-                  <tr key={b.id} className="border-b border-system-200 last:border-0">
-                    <td className="py-4">
-                      <p className="font-bold text-system-900">Anónimo #{b.id}</p>
-                      <p className="font-mono text-[11px] text-system-500">
-                        desde {formatearFecha(b.desde)}
-                        {b.campana ? ` · ${b.campana}` : ""}
-                      </p>
-                    </td>
-                    <td className="text-system-600">{b.motivo}</td>
-                    <td className="font-mono text-[12px] text-system-600">
-                      {b.hasta ? formatearFecha(b.hasta) : "Sin fecha"}
-                    </td>
-                    {!soloLectura && (
-                      <td className="text-right">
-                        <BotonQuitarBloqueo zona={zona} bloqueoId={b.id} />
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {/* Escritorio: renglones como la vista de lista de Mis aportes (2026-11-25; antes una tabla). */}
+          <ListaDeRenglones etiqueta="Dispositivos anónimos bloqueados" soloEscritorio>
+            {bloqueos.map((b) => (
+              <Renglon
+                key={b.id}
+                titulo={`Anónimo #${b.id}`}
+                detalles={[
+                  b.motivo,
+                  `Desde ${formatearFecha(b.desde)}`,
+                  b.campana,
+                  b.hasta ? `Vence ${formatearFecha(b.hasta)}` : "Sin fecha de vencimiento",
+                ]}
+                lateral={soloLectura ? null : <BotonQuitarBloqueo zona={zona} bloqueoId={b.id} />}
+              />
+            ))}
+          </ListaDeRenglones>
         </>
       )}
     </div>

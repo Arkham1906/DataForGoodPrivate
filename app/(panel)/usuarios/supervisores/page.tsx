@@ -7,6 +7,8 @@ import { Suspense } from "react";
 import Subtabs from "@/components/sistema/subtabs";
 import { Encabezado, EnlaceBoton, formatearNumero } from "@/components/sistema/ui";
 import MetricCard from "@/components/sistema/MetricCard";
+import { ListaDeRenglones, Renglon } from "@/components/sistema/Renglones";
+import Tag from "@/components/sistema/Tag";
 import { PESTANAS_USUARIOS } from "@/lib/usuarios/dashboard";
 import {
   formatearFechaHoraSup,
@@ -116,43 +118,25 @@ export default async function SupervisoresPage({
             ))}
           </div>
 
-          <div className="hidden overflow-x-auto rounded-lg border border-system-200 bg-white p-5 shadow-sm md:block">
-            <table className="w-full min-w-[720px] text-left text-[13.5px]">
-              <thead className="border-b border-system-200 font-mono text-[10px] uppercase tracking-[0.1em] text-system-500">
-                <tr>
-                  <th className="pb-3 font-medium">Supervisor</th>
-                  <th className="pb-3 font-medium">Campañas</th>
-                  <th className="pb-3 font-medium">Dictámenes</th>
-                  <th className="pb-3 font-medium">Acciones</th>
-                  <th className="pb-3 font-medium">Última actividad</th>
-                  <th className="pb-3 text-right font-medium">Actividad</th>
-                </tr>
-              </thead>
-              <tbody>
-                {supervisores.map((s) => (
-                  <tr key={s.id} className="border-b border-system-200 last:border-0">
-                    <td className="py-4">
-                      <p className="font-bold text-system-900">{s.nombre}</p>
-                      <p className="font-mono text-[11px] text-system-500">
-                        {s.conRol ? `Supervisor desde ${formatearFechaSup(s.desde)}` : "Ya no tiene el rol"}
-                      </p>
-                    </td>
-                    <td className="font-mono tabular-nums">{s.campanasACargo}</td>
-                    <td className="font-mono tabular-nums">{formatearNumero(s.dictamenes)}</td>
-                    <td className="font-mono tabular-nums">{s.accionesEnRango}</td>
-                    <td className="font-mono text-[11px] text-system-500">
-                      {formatearFechaHoraSup(s.ultimaActividad)}
-                    </td>
-                    <td className="text-right">
-                      <EnlaceBoton href={`/usuarios/supervisores/${s.id}`}>
-                        Ver<span className="sr-only"> la actividad de {s.nombre}</span>
-                      </EnlaceBoton>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {/* Escritorio: renglones como la vista de lista de Mis aportes (2026-11-25); toda la tarjeta abre su actividad. */}
+          <ListaDeRenglones etiqueta="Supervisores" soloEscritorio>
+            {supervisores.map((s) => (
+              <Renglon
+                key={s.id}
+                href={`/usuarios/supervisores/${s.id}`}
+                titulo={s.nombre}
+                detalles={[
+                  // Sin fecha de alta (rol dado fuera del panel), solo "Supervisor": "desde sin registrar" no se lee bien.
+                  s.conRol ? (s.desde ? `Supervisor desde ${formatearFechaSup(s.desde)}` : "Supervisor") : null,
+                  `${formatearNumero(s.campanasACargo)} ${s.campanasACargo === 1 ? "campaña" : "campañas"} a su cargo`,
+                  `${formatearNumero(s.dictamenes)} ${s.dictamenes === 1 ? "dictamen" : "dictámenes"}`,
+                  `${formatearNumero(s.accionesEnRango)} ${s.accionesEnRango === 1 ? "acción" : "acciones"} en 30 días`,
+                  `Última actividad: ${formatearFechaHoraSup(s.ultimaActividad)}`,
+                ]}
+                lateral={s.conRol ? null : <Tag tone="warn">Ya no tiene el rol</Tag>}
+              />
+            ))}
+          </ListaDeRenglones>
         </>
       )}
     </div>

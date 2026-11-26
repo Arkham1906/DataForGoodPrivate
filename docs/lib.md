@@ -76,7 +76,7 @@
 | `decision.ts` | Sin `pg`: `tieneDecision()` y `ESTADOS_SIN_DECISION`, la regla de que una decisión no se cambia | API de aportes, `sanciones-anonimas.ts`, pantallas |
 | `motivos-de-rechazo.ts` | Sin `pg`: listas de motivos para rechazar y para reportar | Pantallas del creador y del revisor |
 | `sanciones-anonimas.ts` | Sanciones a personas sin cuenta: marcar inapropiado, bloqueo por campaña, bloqueo global automático (3 inapropiados en 30 días → 30 días), borrar archivo, listar y quitar bloqueos | API de aportes y de baneos, `/usuarios/sanciones` |
-| `bandeja.ts` | Bandeja del SuperUsuario: `buscarAportesPorParticipante` (agrupa por persona: con cuenta o mismo dispositivo anónimo; filtros y paginación por persona en SQL), `contarPorEtapa`, `listarCampanasConAportes`, `campanaTieneRevisor`, `PESTANAS_APORTES` y etiquetas de etapa. Exige sesión raíz; no lee archivos, correos ni la descripción completa | `/aportes`, `/aportes/dashboard` |
+| `bandeja.ts` | Bandeja del SuperUsuario: `buscarAportesPorParticipante` (agrupa por persona: con cuenta o mismo dispositivo anónimo; filtros y paginación por persona en SQL), `contarPorEtapa` (sin uso desde el 2026-11-25, `babbff0`), `listarCampanasConAportes`, `campanaTieneRevisor`, `PESTANAS_APORTES` y etiquetas de etapa. Exige sesión raíz; no lee archivos, correos ni la descripción completa | `/aportes`, `/aportes/dashboard` |
 | `dashboard.ts` | `obtenerDashboardDeAportes(rango)`: totales, cola de pendientes, tasa de aprobación, recolección por día/semana/mes (hora de Tepic), reparto por tipo y temática, motivos de rechazo (textos idénticos agrupados) y campañas que más aportan. Exige sesión raíz | `/aportes/dashboard` |
 
 ### `campanas/`

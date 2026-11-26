@@ -15,6 +15,7 @@ import {
 } from "@/components/sistema/ui";
 import MetricCard from "@/components/sistema/MetricCard";
 import Tag from "@/components/sistema/Tag";
+import { ListaDeRenglones, Renglon } from "@/components/sistema/Renglones";
 import {
   ETIQUETA_DE_ACCION,
   ETIQUETA_DE_ESTADO_DE_CAMPANA,
@@ -149,58 +150,44 @@ export default async function ActividadDeSupervisorPage({
       ) : acciones.length === 0 ? (
         <p className="text-[13px] text-system-600">Ninguna decisión coincide con los filtros.</p>
       ) : (
-      <div className="overflow-x-auto rounded-lg border border-system-200 bg-white p-5 shadow-sm">
-        <table className="w-full min-w-[720px] text-left text-[13.5px]">
-          <thead className="border-b border-system-200 font-mono text-[10px] uppercase tracking-[0.1em] text-system-500">
-            <tr>
-              <th className="pb-3 font-medium">Acción</th>
-              <th className="pb-3 font-medium">Sobre</th>
-              <th className="pb-3 font-medium">Motivo registrado</th>
-              <th className="pb-3 font-medium">Cuándo</th>
-              <th className="pb-3 text-right font-medium">Revertir</th>
-            </tr>
-          </thead>
-          <tbody>
-            {acciones.map((a) => {
-              const et = ETIQUETA_DE_ACCION[a.tipo];
-              return (
-                <tr key={a.id} className="border-b border-system-200 last:border-0">
-                  <td className="py-4">
-                    <Tag tone={et.tono}>{et.texto}</Tag>
-                  </td>
-                  <td className="text-system-600">
-                    {a.campanaId ? (
-                      <Link href={`/sistema/campanas/${a.campanaId}`} className="hover:text-brand-600">
-                        {a.sobre}
-                      </Link>
-                    ) : (
-                      a.sobre
-                    )}
-                  </td>
-                  <td className="text-system-600">{a.motivo}</td>
-                  <td className="font-mono text-[11px] text-system-500">
-                    {formatearFechaHoraSup(a.ejecutadaEn)}
-                  </td>
-                  <td className="text-right">
-                    {a.revertidaEn ? (
-                      <span className="text-[12.5px] text-system-600">
-                        Revertida el {formatearFechaSup(a.revertidaEn)}
-                      </span>
-                    ) : a.reversible ? (
-                      <EnlaceBoton href={`/usuarios/supervisores/${s.id}/revertir/${a.id}`}>
-                        Revertir<span className="sr-only"> la acción sobre {a.sobre}</span>
-                      </EnlaceBoton>
-                    ) : (
-                      // Reglas en puedeRevertirse (lib/usuarios/supervisores.ts).
-                      <span className="text-[12.5px] text-system-500">{a.noReversiblePorque}</span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      // Renglones como la vista de lista de Mis aportes (2026-11-25). Sin tarjetas propias para el teléfono: se ven así
+      // en todos los anchos.
+      <ListaDeRenglones etiqueta="Historial de decisiones">
+        {acciones.map((a) => {
+          const et = ETIQUETA_DE_ACCION[a.tipo];
+          return (
+            <Renglon
+              key={a.id}
+              titulo={
+                a.campanaId ? (
+                  <Link href={`/sistema/campanas/${a.campanaId}`} className="hover:text-brand-600">
+                    {a.sobre}
+                  </Link>
+                ) : (
+                  a.sobre
+                )
+              }
+              detalles={[
+                a.motivo && a.motivo !== "—" ? a.motivo : null,
+                formatearFechaHoraSup(a.ejecutadaEn),
+                a.revertidaEn ? `Revertida el ${formatearFechaSup(a.revertidaEn)}` : null,
+                // Reglas en puedeRevertirse (lib/usuarios/supervisores.ts).
+                !a.revertidaEn && !a.reversible ? a.noReversiblePorque : null,
+              ]}
+              lateral={
+                <>
+                  <Tag tone={et.tono}>{et.texto}</Tag>
+                  {!a.revertidaEn && a.reversible && (
+                    <EnlaceBoton href={`/usuarios/supervisores/${s.id}/revertir/${a.id}`}>
+                      Revertir<span className="sr-only"> la acción sobre {a.sobre}</span>
+                    </EnlaceBoton>
+                  )}
+                </>
+              }
+            />
+          );
+        })}
+      </ListaDeRenglones>
       )}
 
       <p className="sr-only">{cuantosDeCuantos(acciones.length, s.acciones.length)} decisiones registradas.</p>
