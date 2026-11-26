@@ -38,6 +38,7 @@ export default function BarraDeFiltros({
   conTematica = true,
   textoSinTematica = "Temática: todas",
   conTipo = true,
+  contarTipos,
   etiquetasPorTematica,
   vistas,
   categoria,
@@ -57,6 +58,8 @@ export default function BarraDeFiltros({
   textoSinTematica?: string;
   /** false: sin el select de tipo de dato. */
   conTipo?: boolean;
+  /** Cuántas campañas quedarían con cada tipo para estos filtros (en móvil, los del borrador); sin él no hay número. */
+  contarTipos?: (filtros: ValoresDeFiltros) => Record<string, number>;
   /** Select "Mostrar" con estas listas (p. ej. Todas / Favoritas / Cerca de ti); sin él no sale. */
   vistas?: { valor: string; etiqueta: string }[];
   categoria?: {
@@ -212,7 +215,7 @@ export default function BarraDeFiltros({
           </div>
         )}
 
-        {conTipo && <SelectorDeTipos valor={filtros.tipo} onCambiar={(valor) => cambiar("tipo", valor)} clase={CLASE_SELECT} />}
+        {conTipo && <SelectorDeTipos valor={filtros.tipo} onCambiar={(valor) => cambiar("tipo", valor)} clase={CLASE_SELECT} conteos={contarTipos?.(filtros)} />}
 
         {conVigencia && (
           <div className="min-w-0 flex-1">

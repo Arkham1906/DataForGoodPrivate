@@ -3,7 +3,7 @@
 // para /sistema/campanas. Sin imports de servidor: lo usan componentes cliente.
 
 import { TEMAS_DE_INTERES } from "@/lib/intereses";
-import { mensajeSinTiposDeDato, tiposDesde } from "@/lib/campanas/sistema-opciones";
+import { NOMBRE_DE_TIPO, mensajeSinTiposDeDato, tiposDesde } from "@/lib/campanas/sistema-opciones";
 
 export type FiltrosLocales = { q: string; tematica: string; etiqueta?: string; tipo: string; orden: string };
 
@@ -79,6 +79,21 @@ export function filtrarCampanas<T extends CampanaFiltrable>(
   const comparar = COMPARADORES[filtros.orden];
   if (!comparar) return resultado;
   return [...resultado].sort((a, b) => comparar(a, b) || Number(b.id) - Number(a.id));
+}
+
+/**
+ * Cuántas campañas de `lista` quedarían al marcar cada tipo de dato además de los ya `elegidos` (2026-11-25, a pedido
+ * del usuario: el número junto a cada casilla de SelectorDeTipos, como en /explorar/tematica/[slug]). Para un tipo ya
+ * marcado, las que salen ahora. `lista` va con los demás filtros aplicados y sin el de tipo. Siempre los 5 tipos.
+ */
+export function conteoDeTipos<T extends CampanaFiltrable>(lista: T[], elegidos: string): Record<string, number> {
+  const marcados: string[] = tiposDesde(elegidos);
+  return Object.fromEntries(
+    Object.keys(NOMBRE_DE_TIPO).map((tipo) => {
+      const pedidos = marcados.includes(tipo) ? marcados : [...marcados, tipo];
+      return [tipo, lista.filter((c) => pedidos.every((p) => (c.dataTypes ?? []).includes(p))).length];
+    }),
+  );
 }
 
 /** Etiquetas de cada temática en una lista de campañas, en orden alfabético (para el filtro de etiqueta). */

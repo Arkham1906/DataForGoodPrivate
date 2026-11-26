@@ -4,6 +4,8 @@
 // demás selects de BarraDeFiltros y abre una lista de casillas. Cada tipo marcado reduce la lista: salen
 // las campañas que los piden todos. El valor son los tipos separados por comas ("foto,video"; ver tiposDesde() en
 // lib/campanas/sistema-opciones.ts). Se cierra con Escape o al hacer clic afuera.
+// `conteos` (2026-11-25, a pedido del usuario): junto a cada tipo, cuántas campañas quedarían al marcarlo
+// (conteoDeTipos de lib/campanas/filtro-local.ts); sin él no sale número.
 
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 
@@ -15,9 +17,12 @@ export default function SelectorDeTipos({
   valor,
   onCambiar,
   clase,
+  conteos,
 }: {
   valor: string;
   onCambiar: (valor: string) => void;
+  /** Cuántas campañas quedarían al marcar cada tipo; sin él no sale número. */
+  conteos?: Record<string, number>;
   /** Clase de los selects de la barra, para que el botón se vea igual. */
   clase: string;
 }) {
@@ -80,6 +85,12 @@ export default function SelectorDeTipos({
               className="size-4 accent-brand-600"
             />
             {NOMBRE_DE_TIPO[tipo]}
+            {conteos && (
+              <span className="ml-auto font-mono text-[11px] text-system-500">
+                {conteos[tipo] ?? 0}
+                <span className="sr-only"> {conteos[tipo] === 1 ? "campaña" : "campañas"}</span>
+              </span>
+            )}
           </label>
         ))}
         {elegidos.length > 0 && (

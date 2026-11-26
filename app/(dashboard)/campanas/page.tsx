@@ -34,7 +34,7 @@ import Button from "@/components/ui/Button";
 import AvisoSinTematicas from "@/components/campanas/AvisoSinTematicas";
 import type { Campaign } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
-import { FILTROS_VACIOS, conFiltro, filtrarCampanas, type FiltrosLocales } from "@/lib/campanas/filtro-local";
+import { FILTROS_VACIOS, conFiltro, conteoDeTipos, filtrarCampanas, type FiltrosLocales } from "@/lib/campanas/filtro-local";
 import { mensajeSinTiposDeDato } from "@/lib/campanas/sistema-opciones";
 import { claveDeTematica } from "@/lib/tematicas/analizar";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
@@ -84,6 +84,24 @@ function guardarVistaDeCampanas(vistaCuadricula: boolean): void {
 /** Línea entre las partes de la pantalla: favoritas, para ti y todas las campañas (2026-11-10). */
 function Separador() {
   return <hr className="mb-8 mt-3 border-system-200 max-md:mb-6 max-md:mt-2" />;
+}
+
+/**
+ * Qué lista quedó vacía, para el aviso de tipo de dato (2026-11-25, a pedido del usuario: antes decía "No hay
+ * campañas con ese tipo de dato" aunque sí las hubiera fuera de la temática, las favoritas o la localidad elegidas).
+ * P. ej. "campañas favoritas de Tecnología en #Robótica cerca de ti que coincidan con «robot»".
+ */
+function describirLista(
+  base: string,
+  d: { favoritas?: boolean; tematica?: string; etiqueta?: string; lugar?: string; q?: string },
+): string {
+  let texto = d.favoritas ? `${base} favoritas` : base;
+  if (d.tematica) texto += ` de ${d.tematica}`;
+  if (d.tematica && d.etiqueta) texto += ` en #${d.etiqueta}`;
+  if (d.lugar) texto += ` ${d.lugar}`;
+  const q = d.q?.trim();
+  if (q) texto += ` que coincidan con «${q}»`;
+  return texto;
 }
 
 /** "Estado de México" y "estado de mexico" cuentan como el mismo estado. */
@@ -209,6 +227,8 @@ export default function CampanasPage() {
         : [];
   const enMiEstado = deMiLocalidad(campaigns);
   const lugarDelFiltro = zona ? `${zona.municipio}, ${zona.estado}` : miEstado;
+  // Cómo se nombra la localidad en el aviso de tipo de dato.
+  const lugarDelAviso = zona ? "cerca de ti" : miEstado ? `en ${miEstado}` : "";
   const favoritas = campaigns.filter((c) => c.isSaved);
 
   const vistas = [
@@ -245,6 +265,13 @@ export default function CampanasPage() {
   const filtered = filtrarCampanas(porEtiqueta, { ...busqueda, tipo: tipoActivo }, (c) => c.tag);
   // Las que quedarían sin el filtro de tipo: si hay y con él no, el aviso dice que es por el tipo (2026-11-24).
   const sinFiltroDeTipo = filtered.length === 0 && tipoActivo ? filtrarCampanas(porEtiqueta, { ...busqueda, tipo: "" }, (c) => c.tag) : [];
+  // Número junto a cada tipo (2026-11-25): con la vista, temática, subtemática y búsqueda de `v` (en móvil, las del
+  // borrador de la barra), cuántas quedarían al marcarlo.
+  const contarTiposDeTodas = (v: ValoresDeFiltros) => {
+    const deLaVista = v.vista === FAVORITAS ? favoritas : v.vista === TU_LOCALIDAD ? enMiEstado : campaigns;
+    const sinTipo = filtrarCampanas(deLaVista, { ...FILTROS_VACIOS, q: v.q, tematica: v.tematica, etiqueta: v.etiqueta ?? "" }, (c) => c.tag);
+    return conteoDeTipos(sinTipo, v.tipo);
+  };
 
   const porId = new Map(campaigns.map((c) => [String(c.id), c]));
   const recomendacionPorId = new Map(paraTi.map((p) => [p.id, p]));
@@ -260,6 +287,11 @@ export default function CampanasPage() {
   const paraTiVisibles = coincidencias.map((c) => recomendacionPorId.get(c.id)!);
   const sinResultadosPorTipo = coincidencias.length === 0 && filtrosParaTi.tipo &&
     filtrarCampanas(deLaVistaParaTi, { ...filtrosParaTi, tipo: "" }, (c) => c.tag).length > 0;
+  const contarTiposParaTi = (v: ValoresDeFiltros) => {
+    const deLaVista = lugarDelFiltro && v.vista === TU_LOCALIDAD ? recomendadasLocales : recomendadas;
+    const sinTipo = filtrarCampanas(deLaVista, { ...FILTROS_VACIOS, q: v.q, tematica: v.tematica, etiqueta: v.etiqueta ?? "" }, (c) => c.tag);
+    return conteoDeTipos(sinTipo, v.tipo);
+  };
   const temasParaTi = [...new Set(recomendadas.map((c) => c.tag).filter(esDeMisIntereses))].sort((a, b) => a.localeCompare(b, "es"));
   const vistasParaTi = [
     { valor: TODAS, etiqueta: "Mostrar: todas" },
@@ -352,6 +384,7 @@ export default function CampanasPage() {
                 textoSinTematica="Cualquier temática"
                 etiquetasPorTematica={etiquetasAprobadasPorTema(recomendadas)}
                 onCambiar={(clave, valor) => setFiltrosParaTi((actual) => conFiltro(actual, clave, valor))}
+                contarTipos={contarTiposParaTi}
                 ordenRedondeado
                 colapsableEnMovil
               />
@@ -365,7 +398,15 @@ export default function CampanasPage() {
             ) : recomendadas.length > 0 ? (
               <p className="text-sm text-system-600">
                 {sinResultadosPorTipo
-                  ? mensajeSinTiposDeDato(filtrosParaTi.tipo)
+                  ? mensajeSinTiposDeDato(
+                      filtrosParaTi.tipo,
+                      describirLista("campañas para ti", {
+                        tematica: filtrosParaTi.tematica,
+                        etiqueta: filtrosParaTi.etiqueta,
+                        lugar: filtrosParaTi.vista === TU_LOCALIDAD ? lugarDelAviso : "",
+                        q: filtrosParaTi.q,
+                      }),
+                    )
                   : "Ninguna campaña recomendada para ti coincide con estos filtros."}
               </p>
             ) : (
@@ -409,6 +450,7 @@ export default function CampanasPage() {
           tematicas={temasConCampanas.map(([tema]) => tema)}
           etiquetasPorTematica={etiquetasAprobadasPorTema(campaigns)}
           onCambiar={cambiarBusqueda}
+          contarTipos={contarTiposDeTodas}
           colapsableEnMovil
         />
       )}
@@ -434,7 +476,16 @@ export default function CampanasPage() {
         <p className="text-sm text-system-600">
           {buscando && porEtiqueta.length > 0
             ? sinFiltroDeTipo.length > 0 && tipoActivo
-              ? mensajeSinTiposDeDato(tipoActivo)
+              ? mensajeSinTiposDeDato(
+                  tipoActivo,
+                  describirLista("campañas", {
+                    favoritas: vista === FAVORITAS,
+                    tematica: temaActivo,
+                    etiqueta: etiquetaActiva,
+                    lugar: vista === TU_LOCALIDAD ? lugarDelAviso : "",
+                    q: busqueda.q,
+                  }),
+                )
               : "Ninguna campaña coincide con la búsqueda."
             : temaActivo
               ? "No hay campañas de esta temática en esta lista."

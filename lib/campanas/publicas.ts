@@ -232,18 +232,28 @@ export function obtenerTematicasParaExplorar() {
   return facetas("tematica");
 }
 
-/** Etiquetas aprobadas de las campañas visibles de una temática, con cuántas campañas tiene cada una. */
-export async function obtenerEtiquetasParaExplorar(tematica: string): Promise<{ valor: string; total: number }[]> {
+/**
+ * Etiquetas aprobadas de las campañas visibles de una temática. `total`: cuántas campañas tiene cada una con los
+ * tipos de dato elegidos (todos a la vez); `totalSinTipo`: cuántas sin ese filtro (2026-11-25: antes el número no
+ * veía el tipo y una subtemática con 3 podía dar 0 al elegirla). Salen siempre todas, también en 0, y en el mismo
+ * orden (el de `totalSinTipo`), como los tipos de obtenerTiposParaExplorar.
+ */
+export async function obtenerEtiquetasParaExplorar(
+  tematica: string,
+  tipos: string[] = [],
+): Promise<{ valor: string; total: number; totalSinTipo: number }[]> {
   try {
     const result = await pool.query(
-      `SELECT e.nombre AS valor, COUNT(*)::int AS total
+      `SELECT e.nombre AS valor,
+              (COUNT(*) FILTER (WHERE ${condicionDeTipos("c", "$2")}))::int AS total,
+              COUNT(*)::int AS "totalSinTipo"
        FROM campanas c
        JOIN campana_etiquetas ce ON ce.campana_id = c.id
        JOIN etiquetas e ON e.id = ce.etiqueta_id AND e.aprobada
        WHERE c.${ESTADOS_VISIBLES} AND c.tematica = $1
        GROUP BY e.nombre
-       ORDER BY total DESC, valor ASC`,
-      [tematica]
+       ORDER BY "totalSinTipo" DESC, valor ASC`,
+      [tematica, tipos]
     );
     return result.rows;
   } catch {

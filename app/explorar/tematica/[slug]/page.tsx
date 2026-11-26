@@ -9,6 +9,8 @@
 // ahora solo aquí, adonde llevan "Ver todas" y los mosaicos de "Explora por temática"): ?tipo=foto,video, uno o
 // varios; cada tipo marcado reduce la lista (salen las que piden todos los marcados). Salen siempre los 5 tipos, en
 // el mismo orden y también en 0, y el número dice cuántas quedan al sumarlo (obtenerTiposParaExplorar con ámbito).
+// Desde el 2026-11-25 el número de cada subtemática también cuenta los tipos elegidos, la fila de tipos no sale en
+// una temática sin campañas y el aviso culpa al tipo solo si sin él habría campañas.
 
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -67,12 +69,13 @@ export default async function CampanasDeTematicaPage({ params, searchParams }: P
   if (!tematica) notFound();
 
   const orden = ORDENES.find((o) => o.valor === sp.orden)?.valor ?? ORDEN_DE_ENTRADA;
-  const [etiquetas, tematicas] = await Promise.all([obtenerEtiquetasParaExplorar(tematica), obtenerTematicasParaExplorar()]);
-  // Solo una subtemática que exista en esta temática; otro valor en la URL se ignora.
-  const etiqueta = etiquetas.some((e) => e.valor === sp.etiqueta) ? sp.etiqueta : undefined;
   // Solo los tipos conocidos; otro valor en la URL se ignora.
   const tiposElegidos: TipoDeDato[] = tiposDesde(sp.tipo);
   const tipo = tiposElegidos.join(",") || undefined;
+  // El número de cada subtemática ya cuenta los tipos elegidos (2026-11-25).
+  const [etiquetas, tematicas] = await Promise.all([obtenerEtiquetasParaExplorar(tematica, tiposElegidos), obtenerTematicasParaExplorar()]);
+  // Solo una subtemática que exista en esta temática; otro valor en la URL se ignora.
+  const etiqueta = etiquetas.some((e) => e.valor === sp.etiqueta) ? sp.etiqueta : undefined;
   const [campanas, tipos, totalDeLaTematica] = await Promise.all([
     buscarCampanasParaExplorar({ tematica, etiqueta, tipos: tiposElegidos, orden }),
     obtenerTiposParaExplorar(tiposElegidos, { tematica, etiqueta }),
@@ -92,6 +95,10 @@ export default async function CampanasDeTematicaPage({ params, searchParams }: P
     return qs ? `${base}?${qs}` : base;
   }
   const textoDeTipos = nombresDeTipos(tipo);
+  // Lista vacía por culpa del tipo solo si sin él sí habría campañas (regla del 2026-11-24; desde el 2026-11-25 también
+  // aquí: antes una temática sin campañas, con ?tipo=, decía que faltaba ese tipo).
+  const sinElTipo = etiqueta ? (etiquetas.find((e) => e.valor === etiqueta)?.totalSinTipo ?? 0) : totalDeLaTematica;
+  const vaciaPorElTipo = Boolean(tipo) && sinElTipo > 0;
   const otras = tematicas.filter((t) => t.valor !== tematica);
 
   return (
@@ -156,7 +163,8 @@ export default async function CampanasDeTematicaPage({ params, searchParams }: P
             </div>
           )}
 
-          {tipos.length > 0 && (
+          {/* Sin campañas activas en la temática no sale: serían cinco tipos en 0 (2026-11-25). */}
+          {tipos.length > 0 && totalDeLaTematica > 0 && (
             <div style={retraso(300)} className="landing-entrada mb-6">
               <p className={ETIQUETA_DE_FILTRO}>
                 Tipo de dato <span className="font-normal">(uno o varios)</span>
@@ -202,14 +210,14 @@ export default async function CampanasDeTematicaPage({ params, searchParams }: P
           {campanas.length === 0 ? (
             <div className="rounded-[18px] bg-system-100 p-6 text-center">
               <p className="text-[15px] text-system-700">
-                {tipo
-                  ? mensajeSinTiposDeDato(tipo, `campañas activas de ${tematica}${etiqueta ? ` con #${etiqueta}` : ""}`)
+                {vaciaPorElTipo
+                  ? mensajeSinTiposDeDato(tipo, `campañas activas de ${tematica}${etiqueta ? ` en #${etiqueta}` : ""}`)
                   : etiqueta
                     ? `Ninguna campaña activa de ${tematica} tiene la subtemática #${etiqueta}.`
                     : `Todavía no hay campañas activas de ${tematica}. ¿Tienes una idea? Crea la primera.`}
               </p>
               <div className="mt-4 flex flex-wrap justify-center gap-2.5">
-                {tipo ? (
+                {vaciaPorElTipo ? (
                   <ButtonLink href={enlaceCon({ tipo: null })} variant="secondary" size="sm">
                     Quitar el filtro de tipo de dato
                   </ButtonLink>
