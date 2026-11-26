@@ -2,6 +2,8 @@
 
 Cada fila dice **qué archivo implementa la ruta**, **de dónde obtiene sus datos** y **quién puede entrar**. Las rutas no llevan el prefijo `/dataforgood` que se agrega en producción (ver `BASE_PATH` en [README.md](README.md) § 6).
 
+En `/campanas` y `/revisiones/campanas`, los tipos de dato seleccionados se combinan con OR: se muestran campañas que aceptan cualquiera de los tipos seleccionados; las demás pantallas conservan su coincidencia AND.
+
 Abreviaturas de la columna "Tipo":
 
 - **S:** Server Component. Lee los datos en el servidor, con funciones de `lib/` o SQL directo.

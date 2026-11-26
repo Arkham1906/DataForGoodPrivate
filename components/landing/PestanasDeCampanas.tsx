@@ -77,14 +77,15 @@ function TarjetaDeCampana({ campana }: { campana: CampanaDePortada }) {
 }
 
 export default function PestanasDeCampanas({ pestanas }: { pestanas: PestanaDeCampanas[] }) {
-  const [activa, setActiva] = useState(pestanas[0]?.clave);
-  const pestana = pestanas.find((p) => p.clave === activa) ?? pestanas[0];
+  const pestanasVisibles = pestanas.filter((p) => p.clave !== "participacion");
+  const [activa, setActiva] = useState(pestanasVisibles[0]?.clave);
+  const pestana = pestanasVisibles.find((p) => p.clave === activa) ?? pestanasVisibles[0];
   if (!pestana) return null;
 
   return (
     <>
       <div role="group" aria-label="Ordenar campañas" className="mb-5 flex gap-1.5 overflow-x-auto">
-        {pestanas.map((p) => (
+        {pestanasVisibles.map((p) => (
           <button
             key={p.clave}
             type="button"

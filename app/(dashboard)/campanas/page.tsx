@@ -34,7 +34,7 @@ import Button from "@/components/ui/Button";
 import AvisoSinTematicas from "@/components/campanas/AvisoSinTematicas";
 import type { Campaign } from "@/types";
 import { BASE_PATH } from "@/lib/base-path";
-import { FILTROS_VACIOS, conFiltro, conteoDeTipos, filtrarCampanas, type FiltrosLocales } from "@/lib/campanas/filtro-local";
+import { FILTROS_VACIOS, conFiltro, filtrarCampanas, type FiltrosLocales } from "@/lib/campanas/filtro-local";
 import { mensajeSinTiposDeDato } from "@/lib/campanas/sistema-opciones";
 import { claveDeTematica } from "@/lib/tematicas/analizar";
 import { useRecargaEnVivo } from "@/lib/en-vivo-cliente";
@@ -262,17 +262,9 @@ export default function CampanasPage() {
     temaActivo && etiquetaActiva ? porTema.filter((c) => (c.etiquetas ?? []).some((e) => e.nombre === etiquetaActiva)) : porTema;
 
   const buscando = tipoActivo !== "" || busqueda.q.trim() !== "" || busqueda.orden !== "";
-  const filtered = filtrarCampanas(porEtiqueta, { ...busqueda, tipo: tipoActivo }, (c) => c.tag);
+  const filtered = filtrarCampanas(porEtiqueta, { ...busqueda, tipo: tipoActivo }, (c) => c.tag, "alguno");
   // Las que quedarían sin el filtro de tipo: si hay y con él no, el aviso dice que es por el tipo (2026-11-24).
   const sinFiltroDeTipo = filtered.length === 0 && tipoActivo ? filtrarCampanas(porEtiqueta, { ...busqueda, tipo: "" }, (c) => c.tag) : [];
-  // Número junto a cada tipo (2026-11-25): con la vista, temática, subtemática y búsqueda de `v` (en móvil, las del
-  // borrador de la barra), cuántas quedarían al marcarlo.
-  const contarTiposDeTodas = (v: ValoresDeFiltros) => {
-    const deLaVista = v.vista === FAVORITAS ? favoritas : v.vista === TU_LOCALIDAD ? enMiEstado : campaigns;
-    const sinTipo = filtrarCampanas(deLaVista, { ...FILTROS_VACIOS, q: v.q, tematica: v.tematica, etiqueta: v.etiqueta ?? "" }, (c) => c.tag);
-    return conteoDeTipos(sinTipo, v.tipo);
-  };
-
   const porId = new Map(campaigns.map((c) => [String(c.id), c]));
   const recomendacionPorId = new Map(paraTi.map((p) => [p.id, p]));
   const idsDeMiLocalidad = new Set(enMiEstado.map((c) => String(c.id)));
@@ -283,15 +275,10 @@ export default function CampanasPage() {
   const recomendadasLocales = recomendadas.filter((c) => idsDeMiLocalidad.has(c.id));
   const filtrosParaTi = lugarDelFiltro ? seleccionParaTi : { ...seleccionParaTi, vista: TODAS };
   const deLaVistaParaTi = filtrosParaTi.vista === TU_LOCALIDAD ? recomendadasLocales : recomendadas;
-  const coincidencias = filtrarCampanas(deLaVistaParaTi, filtrosParaTi, (c) => c.tag);
+  const coincidencias = filtrarCampanas(deLaVistaParaTi, filtrosParaTi, (c) => c.tag, "alguno");
   const paraTiVisibles = coincidencias.map((c) => recomendacionPorId.get(c.id)!);
   const sinResultadosPorTipo = coincidencias.length === 0 && filtrosParaTi.tipo &&
     filtrarCampanas(deLaVistaParaTi, { ...filtrosParaTi, tipo: "" }, (c) => c.tag).length > 0;
-  const contarTiposParaTi = (v: ValoresDeFiltros) => {
-    const deLaVista = lugarDelFiltro && v.vista === TU_LOCALIDAD ? recomendadasLocales : recomendadas;
-    const sinTipo = filtrarCampanas(deLaVista, { ...FILTROS_VACIOS, q: v.q, tematica: v.tematica, etiqueta: v.etiqueta ?? "" }, (c) => c.tag);
-    return conteoDeTipos(sinTipo, v.tipo);
-  };
   const temasParaTi = [...new Set(recomendadas.map((c) => c.tag).filter(esDeMisIntereses))].sort((a, b) => a.localeCompare(b, "es"));
   const vistasParaTi = [
     { valor: TODAS, etiqueta: "Mostrar: todas" },
@@ -384,7 +371,6 @@ export default function CampanasPage() {
                 textoSinTematica="Cualquier temática"
                 etiquetasPorTematica={etiquetasAprobadasPorTema(recomendadas)}
                 onCambiar={(clave, valor) => setFiltrosParaTi((actual) => conFiltro(actual, clave, valor))}
-                contarTipos={contarTiposParaTi}
                 ordenRedondeado
                 colapsableEnMovil
               />
@@ -406,6 +392,7 @@ export default function CampanasPage() {
                         lugar: filtrosParaTi.vista === TU_LOCALIDAD ? lugarDelAviso : "",
                         q: filtrosParaTi.q,
                       }),
+                      "alguno",
                     )
                   : "Ninguna campaña recomendada para ti coincide con estos filtros."}
               </p>
@@ -450,7 +437,6 @@ export default function CampanasPage() {
           tematicas={temasConCampanas.map(([tema]) => tema)}
           etiquetasPorTematica={etiquetasAprobadasPorTema(campaigns)}
           onCambiar={cambiarBusqueda}
-          contarTipos={contarTiposDeTodas}
           colapsableEnMovil
         />
       )}
@@ -485,6 +471,7 @@ export default function CampanasPage() {
                     lugar: vista === TU_LOCALIDAD ? lugarDelAviso : "",
                     q: busqueda.q,
                   }),
+                  "alguno",
                 )
               : "Ninguna campaña coincide con la búsqueda."
             : temaActivo

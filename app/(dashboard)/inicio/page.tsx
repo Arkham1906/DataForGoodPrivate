@@ -164,14 +164,16 @@ export default async function InicioPage() {
             <h2 id="inicio-aportes" className="text-lg font-extrabold text-system-900">
               Tus últimos aportes
             </h2>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-              <SelectorDeVistaAportes />
+            <div className="flex flex-wrap items-start gap-x-4 gap-y-2">
               <ButtonLink href="/campanas" size="sm">
                 Aportar a una campaña
               </ButtonLink>
-              <Link href="/mis-aportes" className="text-[13px] font-semibold text-brand-600 hover:underline">
-                Ver todos →
-              </Link>
+              <div className="flex flex-col items-end gap-2">
+                <Link href="/mis-aportes" className="text-[13px] font-semibold text-brand-600 hover:underline">
+                  Ver todos →
+                </Link>
+                <SelectorDeVistaAportes />
+              </div>
             </div>
           </div>
           {resumen.recientes.length === 0 ? (

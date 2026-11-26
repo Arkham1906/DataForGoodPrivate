@@ -117,12 +117,18 @@ export function nombresDeTipos(v?: string | null): string {
  * pantallas que filtran campañas por tipo). `cosas` es lo que se lista ("campañas", "conjuntos de datos").
  * Quien lo usa lo muestra solo si sin el filtro de tipo sí habría resultados: si no, la causa es otra.
  */
-export function mensajeSinTiposDeDato(tipo: string | null | undefined, cosas = "campañas"): string {
+export function mensajeSinTiposDeDato(
+  tipo: string | null | undefined,
+  cosas = "campañas",
+  modo: "todos" | "alguno" = "todos",
+): string {
   const tipos = tiposDesde(tipo);
   if (tipos.length === 0) return "";
   return tipos.length === 1
     ? `No hay ${cosas} con ese tipo de dato (${nombresDeTipos(tipo)}).`
-    : `No hay ${cosas} con esos tipos de datos a la vez (${nombresDeTipos(tipo)}).`;
+    : modo === "alguno"
+      ? `No hay ${cosas} con alguno de estos tipos de dato (${nombresDeTipos(tipo)}).`
+      : `No hay ${cosas} con esos tipos de datos a la vez (${nombresDeTipos(tipo)}).`;
 }
 
 export type FilaDeCampana = {

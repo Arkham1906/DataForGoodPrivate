@@ -1,9 +1,9 @@
 "use client";
 
-// Filtro de tipo de dato con varias opciones a la vez (2026-11-03, a pedido del usuario): se ve como los
-// demás selects de BarraDeFiltros y abre una lista de casillas. Cada tipo marcado reduce la lista: salen
-// las campañas que los piden todos. El valor son los tipos separados por comas ("foto,video"; ver tiposDesde() en
-// lib/campanas/sistema-opciones.ts). Se cierra con Escape o al hacer clic afuera.
+// Filtro de tipo de dato con varias opciones a la vez: se ve como los demás selects de BarraDeFiltros
+// y abre una lista de casillas. La pantalla que lo usa decide si combina los tipos con AND o con OR.
+// El valor son los tipos separados por comas ("foto,video"; ver tiposDesde() en lib/campanas/sistema-opciones.ts).
+// Se cierra con Escape o al hacer clic afuera.
 // `conteos` (2026-11-25, a pedido del usuario): junto a cada tipo, cuántas campañas quedarían al marcarlo
 // (conteoDeTipos de lib/campanas/filtro-local.ts); sin él no sale número.
 

@@ -1,6 +1,6 @@
-// Filtro y orden de listas de campañas ya cargadas en el navegador (/supervision y
-// /supervisar), con los mismos criterios que buscarCampanas() de ./sistema.ts aplica en SQL
-// para /sistema/campanas. Sin imports de servidor: lo usan componentes cliente.
+// Filtro y orden de listas de campañas ya cargadas en el navegador, con los mismos criterios que
+// buscarCampanas() de ./sistema.ts aplica en SQL. El modo de tipos puede requerir todos o alguno.
+// Sin imports de servidor: lo usan componentes cliente.
 
 import { TEMAS_DE_INTERES } from "@/lib/intereses";
 import { NOMBRE_DE_TIPO, mensajeSinTiposDeDato, tiposDesde } from "@/lib/campanas/sistema-opciones";
@@ -28,6 +28,15 @@ type CampanaFiltrable = {
   endDate?: string | null;
 };
 
+type ModoDeCoincidenciaDeTipos = "todos" | "alguno";
+
+function coincideConTipos(campana: CampanaFiltrable, tipos: readonly string[], modo: ModoDeCoincidenciaDeTipos): boolean {
+  if (tipos.length === 0) return true;
+  return modo === "alguno"
+    ? tipos.some((tipo) => (campana.dataTypes ?? []).includes(tipo))
+    : tipos.every((tipo) => (campana.dataTypes ?? []).includes(tipo));
+}
+
 // La meta cuenta solo los aprobados (./meta.ts).
 function avance(c: CampanaFiltrable) {
   const meta = Number(c.goalContributions ?? 0);
@@ -50,22 +59,22 @@ const COMPARADORES: Record<string, (a: CampanaFiltrable, b: CampanaFiltrable) =>
 
 /**
  * Aplica búsqueda (nombre, temática, creador o id exacto), temática, tipo de dato y orden.
- * Sin orden elegido ("Más recientes") respeta el orden en que llegó la lista, que las APIs
- * ya entregan de la más nueva a la más vieja.
+ * `modoDeTipos` es AND por defecto; `alguno` usa OR. Sin orden elegido ("Más recientes") respeta
+ * el orden en que llegó la lista, que las APIs ya entregan de la más nueva a la más vieja.
  */
 export function filtrarCampanas<T extends CampanaFiltrable>(
   lista: T[],
   filtros: FiltrosLocales,
   tematicaDe: (campana: T) => string,
+  modoDeTipos: ModoDeCoincidenciaDeTipos = "todos",
 ): T[] {
   const q = filtros.q.trim().toLowerCase();
-  // Varios tipos a la vez (2026-11-03): la campaña debe pedirlos todos.
   const tipos = tiposDesde(filtros.tipo);
   const resultado = lista.filter((c) => {
     const tema = tematicaDe(c);
     if (filtros.tematica && tema !== filtros.tematica) return false;
     if (filtros.tematica && filtros.etiqueta && !(c.etiquetas ?? []).some((e) => e.nombre === filtros.etiqueta)) return false;
-    if (!tipos.every((t) => (c.dataTypes ?? []).includes(t))) return false;
+    if (!coincideConTipos(c, tipos, modoDeTipos)) return false;
     if (!q) return true;
     return (
       c.name.toLowerCase().includes(q) ||
@@ -82,16 +91,20 @@ export function filtrarCampanas<T extends CampanaFiltrable>(
 }
 
 /**
- * Cuántas campañas de `lista` quedarían al marcar cada tipo de dato además de los ya `elegidos` (2026-11-25, a pedido
- * del usuario: el número junto a cada casilla de SelectorDeTipos, como en /explorar/tematica/[slug]). Para un tipo ya
- * marcado, las que salen ahora. `lista` va con los demás filtros aplicados y sin el de tipo. Siempre los 5 tipos.
+ * Cuántas campañas de `lista` quedarían al marcar cada tipo de dato además de los ya `elegidos` (2026-11-25):
+ * el número junto a cada casilla de SelectorDeTipos. Para un tipo ya marcado, cuenta las que salen ahora. `lista` va
+ * con los demás filtros aplicados y sin el de tipo. Siempre los 5 tipos. El modo predeterminado requiere todos.
  */
-export function conteoDeTipos<T extends CampanaFiltrable>(lista: T[], elegidos: string): Record<string, number> {
+export function conteoDeTipos<T extends CampanaFiltrable>(
+  lista: T[],
+  elegidos: string,
+  modoDeTipos: ModoDeCoincidenciaDeTipos = "todos",
+): Record<string, number> {
   const marcados: string[] = tiposDesde(elegidos);
   return Object.fromEntries(
     Object.keys(NOMBRE_DE_TIPO).map((tipo) => {
       const pedidos = marcados.includes(tipo) ? marcados : [...marcados, tipo];
-      return [tipo, lista.filter((c) => pedidos.every((p) => (c.dataTypes ?? []).includes(p))).length];
+      return [tipo, lista.filter((c) => coincideConTipos(c, pedidos, modoDeTipos)).length];
     }),
   );
 }
@@ -121,10 +134,12 @@ export function etiquetasPorTematica<T extends CampanaFiltrable>(
 export function avisoSinResultados(
   totalSinFiltrar: number,
   sinCampanas: string,
-  porTipo?: { tipo: string; sinFiltroDeTipo: number },
+  porTipo?: { tipo: string; sinFiltroDeTipo: number; modo?: ModoDeCoincidenciaDeTipos },
 ): string {
   if (totalSinFiltrar === 0) return sinCampanas;
-  if (porTipo && porTipo.sinFiltroDeTipo > 0) return mensajeSinTiposDeDato(porTipo.tipo) || "Ninguna campaña coincide con estos filtros.";
+  if (porTipo && porTipo.sinFiltroDeTipo > 0) {
+    return mensajeSinTiposDeDato(porTipo.tipo, "campañas", porTipo.modo) || "Ninguna campaña coincide con estos filtros.";
+  }
   return "Ninguna campaña coincide con estos filtros.";
 }
 

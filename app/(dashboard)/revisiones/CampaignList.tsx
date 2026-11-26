@@ -117,7 +117,7 @@ export default function CampaignList({ completed: finalizadasPorDefecto = false 
     () => campaigns.filter((campaign) => completed ? estaTerminada(campaign.status) : !estaTerminada(campaign.status)),
     [campaigns, completed]
   );
-  const visibleCampaigns = useMemo(() => filtrarCampanas(tabCampaigns, filtros, tematicaDe), [tabCampaigns, filtros]);
+  const visibleCampaigns = useMemo(() => filtrarCampanas(tabCampaigns, filtros, tematicaDe, "alguno"), [tabCampaigns, filtros]);
   const tematicas = useMemo(() => opcionesDeTematica(campaigns.map(tematicaDe)), [campaigns]);
 
   function cambiarFiltro(clave: keyof ValoresDeFiltros, valor: string) {
@@ -202,6 +202,7 @@ export default function CampaignList({ completed: finalizadasPorDefecto = false 
           {avisoSinResultados(tabCampaigns.length, `No tienes campañas ${completed ? "finalizadas" : "en curso"} asignadas.`, {
             tipo: filtros.tipo,
             sinFiltroDeTipo: filtrarCampanas(tabCampaigns, { ...filtros, tipo: "" }, tematicaDe).length,
+            modo: "alguno",
           })}
         </div>
       ) : (
