@@ -36,38 +36,46 @@ export type Inventario = { protectores: number; potenciadorActivo: boolean; pote
 const otro = (objeto: ObjetoDeMision): ObjetoDeMision => (objeto === "protector" ? "potenciador" : "protector");
 
 /**
- * Vence el potenciador activo y activa los que esperan, en orden. Con `presente`, los guardados pasan a la cola desde
- * ahora (la persona abrió la app). Debe correr dentro de una transacción con la fila de usuario_progreso bloqueada.
+ * Vence el potenciador activo y, solo con la persona en la app (`presente`), activa el siguiente: los guardados pasan
+ * a la cola y el primero de la cola empieza en ese momento, con su duración completa. Sin la persona, el activo sigue
+ * corriendo hasta vencer, pero nada más se activa: lo que espera, espera a que vuelva (decisión del responsable).
+ * Debe correr dentro de una transacción con la fila de usuario_progreso bloqueada.
  */
 export async function mantenerPotenciadores(client: Consulta, usuarioId: number | string, presente: boolean): Promise<void> {
-  if (presente) {
-    await client.query(
-      `UPDATE potenciadores SET estado = 'espera', obtenido_en = NOW() WHERE usuario_id = $1 AND estado = 'guardado'`,
-      [usuarioId],
-    );
-  }
-  for (let vueltas = 0; vueltas <= MAXIMO_DE_POTENCIADORES; vueltas++) {
-    await client.query(`UPDATE potenciadores SET estado = 'expirado' WHERE usuario_id = $1 AND estado = 'activo' AND vence_en <= NOW()`, [
-      usuarioId,
-    ]);
-    // El siguiente de la cola empieza cuando terminó el último que estuvo activo, o cuando se obtuvo si fue después.
-    const { rows } = await client.query<{ id: number }>(
-      `UPDATE potenciadores p
-          SET estado = 'activo',
-              activado_en = GREATEST(p.obtenido_en, COALESCE(u.fin, p.obtenido_en)),
-              vence_en = GREATEST(p.obtenido_en, COALESCE(u.fin, p.obtenido_en)) + make_interval(mins => p.duracion_minutos)
-        FROM (SELECT MAX(vence_en) AS fin FROM potenciadores WHERE usuario_id = $1 AND activado_en IS NOT NULL) u
-        WHERE p.id = (
-            SELECT id FROM potenciadores
-              WHERE usuario_id = $1 AND estado = 'espera'
-              ORDER BY obtenido_en, id
-              LIMIT 1)
-          AND NOT EXISTS (SELECT 1 FROM potenciadores WHERE usuario_id = $1 AND estado = 'activo')
-        RETURNING p.id`,
-      [usuarioId],
-    );
-    if (rows.length === 0) return;
-  }
+  await client.query(`UPDATE potenciadores SET estado = 'expirado' WHERE usuario_id = $1 AND estado = 'activo' AND vence_en <= NOW()`, [
+    usuarioId,
+  ]);
+  if (!presente) return;
+  await client.query(`UPDATE potenciadores SET estado = 'espera', obtenido_en = NOW() WHERE usuario_id = $1 AND estado = 'guardado'`, [
+    usuarioId,
+  ]);
+  await client.query(
+    `UPDATE potenciadores p
+        SET estado = 'activo', activado_en = NOW(), vence_en = NOW() + make_interval(mins => p.duracion_minutos)
+      WHERE p.id = (
+          SELECT id FROM potenciadores
+            WHERE usuario_id = $1 AND estado = 'espera'
+            ORDER BY obtenido_en, id
+            LIMIT 1)
+        AND NOT EXISTS (SELECT 1 FROM potenciadores WHERE usuario_id = $1 AND estado = 'activo')`,
+    [usuarioId],
+  );
+}
+
+/** ¿Hay algo que mantener con la persona presente? Lectura sin bloqueo, para no abrir una transacción en cada página. */
+async function hayQueMantener(usuarioId: number | string): Promise<boolean> {
+  const { rows } = await pool.query<{ hay: boolean }>(
+    `SELECT EXISTS (
+        SELECT 1 FROM potenciadores
+          WHERE usuario_id = $1
+            AND (estado = 'guardado'
+              OR (estado = 'activo' AND vence_en <= NOW())
+              OR (estado = 'espera' AND NOT EXISTS (
+                    SELECT 1 FROM potenciadores a WHERE a.usuario_id = $1 AND a.estado = 'activo' AND a.vence_en > NOW())))
+      ) AS hay`,
+    [usuarioId],
+  );
+  return rows[0]?.hay === true;
 }
 
 /** El activo (con los segundos del reloj de la base, RNF-GAM-12) y cuántos esperan. Lo usan el progreso y el menú. */
@@ -93,6 +101,13 @@ export async function leerPotenciadores(client: Consulta, usuarioId: number | st
  * los lee. null si no tiene progreso o algo falla: el menú simplemente no los muestra.
  */
 export async function obtenerPotenciadores(usuarioId: number | string): Promise<ResumenDePotenciadores | null> {
+  try {
+    // Casi siempre no hay nada que cambiar: se lee directo, sin transacción.
+    if (!(await hayQueMantener(usuarioId))) return await leerPotenciadores(pool, usuarioId);
+  } catch (error) {
+    console.error(`Error leyendo los potenciadores del usuario ${usuarioId}`, error);
+    return null;
+  }
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -151,7 +166,7 @@ async function guardarObjeto(
       ON CONFLICT (clave_idempotencia) DO NOTHING`,
     [usuarioId, presente ? "espera" : "guardado", `mision:${instanciaId}`],
   );
-  if (presente) await mantenerPotenciadores(client, usuarioId, false);
+  if (presente) await mantenerPotenciadores(client, usuarioId, true);
 }
 
 type Pendiente = { id: string; mision: string; objeto: ObjetoDeMision };

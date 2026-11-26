@@ -12,6 +12,7 @@ import { estaBaneadoDeCampana } from "@/lib/campanas/baneos";
 import { respuestasValidas, seccionesDelTipo, seccionesDesdeFila } from "@/lib/campanas/checklist";
 import { idDeEnlaceVigente } from "@/lib/campanas/enlaces";
 import { actualizarRacha } from "@/lib/gamificacion/racha";
+import { obtenerPotenciadores } from "@/lib/gamificacion/inventario";
 import { actualizarMisiones } from "@/lib/gamificacion/misiones";
 import {
   LARGO_MAXIMO_DESCRIPCION,
@@ -256,6 +257,9 @@ export async function POST(request: Request) {
     const caracteristicas = respuestasValidas(rawCaracteristicas, seccionesDelTipo(seccionesDesdeFila(campaign), tipo));
 
     // Cuenta e inserta con candado: dos envíos simultáneos no pasan la cuota.
+    // Quien envía está en la app: si su potenciador terminó y otro esperaba, empieza ya, para que este aporte lo
+    // aproveche (la cola solo avanza con la persona presente, lib/gamificacion/inventario.ts).
+    await obtenerPotenciadores(user.id);
     const insertado = await insertarAporteConCuota({
       campaignId,
       persona: `usuario:${user.id}`,

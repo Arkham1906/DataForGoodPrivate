@@ -1,4 +1,4 @@
-// Recompensa de un aporte aceptado (2026-11-09; SRS v1.3: RF-GAM-01 a 08, 37 a 39, 57, 59, 60, 67). Al aceptarse un
+++// Recompensa de un aporte aceptado (2026-11-09; SRS v1.3: RF-GAM-01 a 08, 37 a 39, 57, 59, 60, 67). Al aceptarse un
 // aporte con cuenta: EXP con la fórmula de RF-GAM-03 (lib/gamificacion/exp-reglas.ts) y los parámetros vigentes,
 // un movimiento en exp_movimientos con todo lo usado en el cálculo, los contadores de usuario_progreso y
 // usuario_contadores, el bono de cuota si se completó y, al final, la evaluación de rango y medallas (evaluacion.ts).
@@ -173,8 +173,7 @@ async function otorgar(client: Consultor, aporteId: number | string): Promise<Nu
     return evaluarProgreso(client, usuarioId);
   }
 
-  // La cola de potenciadores al día (sin la persona presente: los guardados siguen guardados), para que el encadenado de
-  // los que esperaban esté calculado antes de buscar el vigente (2026-11-19, lib/gamificacion/inventario.ts).
+  // Vence el activo si ya terminó; sin la persona presente no se activa nada más (lib/gamificacion/inventario.ts).
   await mantenerPotenciadores(client, usuarioId, false);
   // El potenciador vigente a la hora de envío, aunque ya haya expirado (RF-GAM-36).
   const potenciadorR = await client.query<{ id: number; bonificacion: number }>(
