@@ -2024,6 +2024,19 @@ export async function ensureMisionesTables(): Promise<void> {
     -- otro objeto o perdida porque no cabía. NULL mientras está pendiente.
     ALTER TABLE mision_instancias ADD COLUMN IF NOT EXISTS recompensa_resultado VARCHAR(10)
       CHECK (recompensa_resultado IN ('entregada', 'cambiada', 'perdida'));
+    -- Cuándo se celebró el objeto entregado («¡Ganaste un protector!»). Al crear la columna, los ya entregados quedan
+    -- como celebrados: solo se celebran los que lleguen después.
+    DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                      WHERE table_name = 'mision_instancias' AND column_name = 'objeto_celebrado_en') THEN
+        ALTER TABLE mision_instancias ADD COLUMN objeto_celebrado_en TIMESTAMPTZ;
+        UPDATE mision_instancias SET objeto_celebrado_en = COALESCE(recompensa_entregada_en, NOW())
+          WHERE recompensa_resultado IS NOT NULL;
+      END IF;
+    END $$;
+    CREATE INDEX IF NOT EXISTS mision_instancias_objeto_sin_celebrar_idx ON mision_instancias (usuario_id)
+      WHERE recompensa_resultado = 'entregada' AND objeto_celebrado_en IS NULL;
     -- Total histórico de misiones completadas (requisito de rango) y recompensas por entregar.
     CREATE INDEX IF NOT EXISTS mision_instancias_completadas_idx ON mision_instancias (usuario_id) WHERE completada_en IS NOT NULL;
     CREATE INDEX IF NOT EXISTS mision_instancias_sin_recompensa_idx ON mision_instancias (usuario_id)

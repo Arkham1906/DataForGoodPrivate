@@ -14,10 +14,14 @@ export async function GET() {
   return NextResponse.json(await obtenerCelebracionesPendientes(user.id));
 }
 
+const idsDeTexto = (valor: unknown): string[] =>
+  Array.isArray(valor) ? valor.filter((v): v is string => typeof v === "string" && /^\d{1,18}$/.test(v)).slice(0, 200) : [];
+
 const ids = (valor: unknown): number[] =>
   Array.isArray(valor) ? valor.filter((v): v is number => Number.isInteger(v) && v > 0).slice(0, 200) : [];
 
-// POST { rangos: [ids de rango_ascensos], medallas: [ids de medalla_ascensos] }: las marca vistas.
+// POST { rangos: [ids de rango_ascensos], medallas: [ids de medalla_ascensos], objetos: [ids de mision_instancias] }: las
+// marca vistas.
 // POST { objeto: { instancia, accion: "cambiar" | "rechazar" } }: la respuesta a «ya tienes el máximo» (2026-11-19).
 export async function POST(request: Request) {
   try {
@@ -33,7 +37,7 @@ export async function POST(request: Request) {
       if (!resultado) return NextResponse.json({ error: "Ya no hay nada que decidir" }, { status: 409 });
       return NextResponse.json({ resultado });
     }
-    await marcarCelebracionesVistas(user.id, { rangos: ids(cuerpo.rangos), medallas: ids(cuerpo.medallas) });
+    await marcarCelebracionesVistas(user.id, { rangos: ids(cuerpo.rangos), medallas: ids(cuerpo.medallas), objetos: idsDeTexto(cuerpo.objetos) });
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("Error marcando celebraciones vistas", error);

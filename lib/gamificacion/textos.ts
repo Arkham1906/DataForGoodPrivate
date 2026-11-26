@@ -434,6 +434,20 @@ export const TEXTOS = {
     /** Fila de protectores en la racha de Inicio y en el calendario. */
     protectores: (cuantos: number, maximo: number) => `Protectores: ${n(cuantos)} de ${n(maximo)}`,
     /** Tarjeta de la misión completada, según qué pasó con su objeto. */
+    /** Celebración del objeto que entró al inventario. */
+    ganado: {
+      eyebrow: "Recompensa de tu misión difícil",
+      eyebrowAlVolver: "Mientras no estabas",
+      titulo: (objeto: "protector" | "potenciador") => (objeto === "protector" ? "¡Ganaste un protector!" : "¡Ganaste un potenciador!"),
+      enEspera: (cuantos: number, maximo: number) => `En espera: ${n(cuantos)} de ${n(maximo)}`,
+      activo: "Ya está activo.",
+      activoAlVolver: "Lo ganaste cuando aceptaron tu aporte y se activó al volver.",
+      dondeVerlo: "Lo verás en el menú lateral (en tu teléfono, en la burbuja) mientras dure.",
+      espera: (reloj: string | null) =>
+        reloj ? `Empieza solo cuando termine el que tienes activo (quedan ${reloj}).` : "Empieza solo cuando termine el que tienes activo.",
+      usado: "Ya se usó: estuvo activo mientras no estabas.",
+      protectorSolo: "Se usa solo, sin que hagas nada, el día que no envíes aportes.",
+    },
     tarjeta: {
       pendiente: (texto: string) => `${texto} · por decidir: tu inventario está lleno`,
       cambiada: (texto: string) => `Recibiste ${texto} a cambio`,

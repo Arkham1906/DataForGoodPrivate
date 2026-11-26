@@ -72,9 +72,31 @@ export type ObjetoPorDecidir = {
   potenciadoresEnEspera: number;
 };
 
+/** Dónde quedó un potenciador ganado al momento de celebrarlo. */
+export type PotenciadorGanado =
+  | { estado: "activo"; segundosRestantes: number; duracionMinutos: number; bonificacion: number; alVolver: boolean }
+  | { estado: "espera"; segundosDelActivo: number | null }
+  | { estado: "usado" };
+
+/** Objeto que entró al inventario y falta celebrar («¡Ganaste un protector!»). */
+export type ObjetoGanado = {
+  /** mision_instancias.id. */
+  instanciaId: string;
+  /** Nombre de la misión que lo dio. */
+  mision: string;
+  objeto: ObjetoDeMision;
+  /** Protectores que tiene ahora (con el nuevo). */
+  protectores: number;
+  /** Solo en un potenciador. */
+  potenciador: PotenciadorGanado | null;
+  potenciadoresEnEspera: number;
+};
+
 export type CelebracionesPendientes = {
   rango: CelebracionDeRango | null;
   medallas: CelebracionDeMedalla[];
+  /** Objetos entregados por celebrar; van después de rango y medallas. */
+  ganados: ObjetoGanado[];
   objetos: ObjetoPorDecidir[];
 };
 
@@ -108,4 +130,4 @@ export type CambioDeRacha = {
 export const EVENTO_CELEBRAR_RACHA = "dataforgood:celebrar-racha";
 
 /** Lo que se envía a POST /api/progreso/celebraciones para marcar vistas. */
-export type CelebracionesVistas = { rangos: number[]; medallas: number[] };
+export type CelebracionesVistas = { rangos: number[]; medallas: number[]; objetos: string[] };

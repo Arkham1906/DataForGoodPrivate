@@ -8,13 +8,15 @@
 
 import { pool } from "@/lib/db";
 import { imagenDeMedalla } from "./recursos";
-import { entregarObjetosDeMisiones } from "./inventario";
+import { entregarObjetosDeMisiones, leerPotenciadores } from "./inventario";
 import {
   MEDIDAS_CON_FUEGO,
   type CelebracionDeMedalla,
   type CelebracionDeRango,
   type CelebracionesPendientes,
   type CelebracionesVistas,
+  type ObjetoGanado,
+  type PotenciadorGanado,
   type RecompensaDeRango,
 } from "./celebraciones-tipos";
 
@@ -114,17 +116,74 @@ async function medallasPendientes(usuarioId: number | string): Promise<Celebraci
 }
 
 /**
+ * Objetos entregados sin celebrar, del más viejo al más nuevo, con dónde quedaron ahora: cuántos protectores hay y en
+ * qué estado está el potenciador de esa misión (clave_idempotencia 'mision:<instancia>', inventario.ts).
+ */
+async function objetosGanados(usuarioId: number | string): Promise<ObjetoGanado[]> {
+  const { rows } = await pool.query<{
+    id: string;
+    mision: string;
+    objeto: string;
+    estado: string | null;
+    segundos: number | null;
+    duracion_minutos: number | null;
+    bonificacion: number | null;
+    al_volver: boolean | null;
+  }>(
+    `SELECT i.id::text AS id, m.nombre AS mision, i.recompensa->>'tipo' AS objeto,
+            p.estado, p.duracion_minutos, p.bonificacion::float8 AS bonificacion,
+            CASE WHEN p.estado = 'activo' THEN GREATEST(0, EXTRACT(EPOCH FROM (p.vence_en - NOW())))::int END AS segundos,
+            -- Ganado sin la persona en la app (aceptaron el aporte después): se activó al volver.
+            (p.activado_en IS NOT NULL AND p.activado_en > p.obtenido_en + INTERVAL '1 minute') AS al_volver
+       FROM mision_instancias i
+       JOIN misiones m ON m.id = i.mision_id
+       LEFT JOIN potenciadores p ON p.clave_idempotencia = 'mision:' || i.id
+      WHERE i.usuario_id = $1 AND i.recompensa_resultado = 'entregada' AND i.objeto_celebrado_en IS NULL
+        AND i.recompensa->>'tipo' IN ('protector', 'potenciador')
+      ORDER BY i.recompensa_entregada_en, i.id
+      LIMIT 10`,
+    [usuarioId],
+  );
+  if (rows.length === 0) return [];
+  const [protectoresR, cola] = await Promise.all([
+    pool.query<{ protectores: number }>(`SELECT protectores FROM usuario_progreso WHERE usuario_id = $1`, [usuarioId]),
+    leerPotenciadores(pool, usuarioId),
+  ]);
+  const protectores = protectoresR.rows[0]?.protectores ?? 0;
+  return rows.map((f) => {
+    const objeto = f.objeto as ObjetoGanado["objeto"];
+    let potenciador: PotenciadorGanado | null = null;
+    if (objeto === "potenciador") {
+      if (f.estado === "activo" && (f.segundos ?? 0) > 0) {
+        potenciador = {
+          estado: "activo",
+          segundosRestantes: f.segundos ?? 0,
+          duracionMinutos: f.duracion_minutos ?? 15,
+          bonificacion: f.bonificacion ?? 0.5,
+          alVolver: f.al_volver === true,
+        };
+      } else if (f.estado === "espera" || f.estado === "guardado") {
+        potenciador = { estado: "espera", segundosDelActivo: cola.activo?.segundosRestantes ?? null };
+      } else {
+        potenciador = { estado: "usado" };
+      }
+    }
+    return { instanciaId: f.id, mision: f.mision, objeto, protectores, potenciador, potenciadoresEnEspera: cola.enEspera };
+  });
+}
+
+/**
  * Nunca lanza: si falla, no hay celebración (lo pendiente sigue pendiente y sale en la siguiente carga). La persona está
  * en la app: se activan sus potenciadores guardados y se entregan los objetos que ya caben; los que no, se preguntan.
  */
 export async function obtenerCelebracionesPendientes(usuarioId: number | string): Promise<CelebracionesPendientes> {
   try {
     const objetos = await entregarObjetosDeMisiones(usuarioId, { presente: true });
-    const [rango, medallas] = await Promise.all([rangoPendiente(usuarioId), medallasPendientes(usuarioId)]);
-    return { rango, medallas, objetos };
+    const [rango, medallas, ganados] = await Promise.all([rangoPendiente(usuarioId), medallasPendientes(usuarioId), objetosGanados(usuarioId)]);
+    return { rango, medallas, ganados, objetos };
   } catch (error) {
     console.error(`Error leyendo las celebraciones pendientes del usuario ${usuarioId}`, error);
-    return { rango: null, medallas: [], objetos: [] };
+    return { rango: null, medallas: [], ganados: [], objetos: [] };
   }
 }
 
@@ -142,6 +201,13 @@ export async function marcarCelebracionesVistas(usuarioId: number | string, vist
       `UPDATE medalla_ascensos SET celebracion_vista_en = NOW()
         WHERE usuario_id = $1 AND id = ANY($2::int[]) AND celebracion_vista_en IS NULL`,
       [usuarioId, vistas.medallas],
+    );
+  }
+  if (vistas.objetos.length > 0) {
+    await pool.query(
+      `UPDATE mision_instancias SET objeto_celebrado_en = NOW()
+        WHERE usuario_id = $1 AND id = ANY($2::bigint[]) AND objeto_celebrado_en IS NULL`,
+      [usuarioId, vistas.objetos],
     );
   }
 }
