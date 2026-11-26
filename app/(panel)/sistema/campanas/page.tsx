@@ -2,7 +2,6 @@
 // Server Component. Datos: lib/campanas/sistema.ts (exige sesión raíz). Filtros en filtros.tsx.
 
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Suspense } from "react";
 
 import Subtabs from "@/components/sistema/subtabs";
@@ -21,7 +20,6 @@ import {
   formatearFechaCampana,
   listarEtiquetasPorTematica,
   listarTematicas,
-  type EstadoDeCampana,
 } from "@/lib/campanas/sistema";
 import { mensajeSinTiposDeDato, tiposDesde } from "@/lib/campanas/sistema-opciones";
 import FiltrosDeCampanas from "./filtros";
@@ -76,25 +74,18 @@ export default async function ListadoDeCampanasPage({ searchParams }: { searchPa
   const desde = (pagina - 1) * POR_PAGINA + 1;
   const hasta = Math.min(pagina * POR_PAGINA, total);
 
-  /** Enlace con los filtros actuales, cambiando solo lo indicado. */
-  function enlace(cambios: { estado?: EstadoDeCampana | null; pagina?: number }) {
+  function enlaceDePagina(numero: number) {
     const params = new URLSearchParams();
     for (const [k, v] of Object.entries(sp)) {
       if (v && k !== "pagina" && k !== "estado") params.set(k, v);
     }
-    const e = cambios.estado === undefined ? estado : cambios.estado;
-    if (e) params.set("estado", e);
-    if (cambios.pagina && cambios.pagina > 1) params.set("pagina", String(cambios.pagina));
+    if (estado) params.set("estado", estado);
+    if (numero > 1) params.set("pagina", String(numero));
     const qs = params.toString();
     return qs ? `${BASE}?${qs}` : BASE;
   }
 
   const subtitulo = `${formatearNumero(conteos.todas)} registradas`;
-
-  const claseChip = (activo: boolean) =>
-    `inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap rounded-pill border px-3.5 py-1.5 text-[13px] font-semibold transition-colors max-md:px-2.5 max-md:py-1 max-md:text-[12px] ${
-      activo ? "border-brand-600 bg-brand-600 text-white" : "border-system-300 bg-white text-system-600 hover:border-brand-600"
-    }`;
 
   return (
     <div>
@@ -111,28 +102,9 @@ export default async function ListadoDeCampanasPage({ searchParams }: { searchPa
         acciones={<EnlaceBoton href={`${BASE}/dashboard`}>Ver dashboard</EnlaceBoton>}
       />
 
-      <nav
-        className="dashboard-nav mb-3 w-full min-w-0 max-w-full touch-pan-x flex flex-nowrap gap-2 overflow-x-auto overscroll-x-contain pb-2 [-webkit-overflow-scrolling:touch] md:flex-wrap md:overflow-visible md:pb-0"
-        aria-label="Filtrar por estado"
-      >
-        <Link href={enlace({ estado: null })} scroll={false} className={claseChip(!estado)} aria-current={!estado ? "true" : undefined}>
-          Todas&nbsp; <span className="font-mono text-[11px]">{formatearNumero(conteos.todas)}</span>
-        </Link>
-        {ESTADOS_DEL_LISTADO.map((e) => (
-          <Link
-            key={e}
-            href={enlace({ estado: e })}
-            scroll={false}
-            className={claseChip(estado === e)}
-            aria-current={estado === e ? "true" : undefined}
-          >
-            {ETIQUETA_DE_CAMPANA[e].texto}&nbsp; <span className="font-mono text-[11px]">{formatearNumero(conteos[e])}</span>
-          </Link>
-        ))}
-      </nav>
-
       <Suspense fallback={null}>
         <FiltrosDeCampanas
+          estado={estado ?? ""}
           q={sp.q ?? ""}
           tematica={sp.tematica ?? ""}
           etiqueta={sp.etiqueta ?? ""}
@@ -271,7 +243,7 @@ export default async function ListadoDeCampanasPage({ searchParams }: { searchPa
             </table>
           </div>
 
-          <Paginacion desde={desde} hasta={hasta} total={total} pagina={pagina} paginas={paginas} href={(p) => enlace({ pagina: p })} />
+          <Paginacion desde={desde} hasta={hasta} total={total} pagina={pagina} paginas={paginas} href={enlaceDePagina} />
         </>
       )}
     </div>

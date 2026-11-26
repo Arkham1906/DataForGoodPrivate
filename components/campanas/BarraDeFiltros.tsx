@@ -11,6 +11,7 @@
 import { useEffect, useId, useState } from "react";
 
 import SelectorDeOrden from "@/components/ui/SelectorDeOrden";
+import PanelDeFiltrosMovil from "@/components/ui/PanelDeFiltrosMovil";
 import SelectorDeTipos from "@/components/campanas/SelectorDeTipos";
 import { ORDENES_DE_CAMPANA, VIGENCIAS } from "@/lib/campanas/sistema-opciones";
 
@@ -33,6 +34,7 @@ export default function BarraDeFiltros({
   valores,
   tematicas,
   onCambiar,
+  onAplicarPanel,
   conVigencia = false,
   colapsableEnMovil = false,
   conTematica = true,
@@ -49,6 +51,8 @@ export default function BarraDeFiltros({
   /** Etiquetas de cada temática que hay en la lista: con una temática elegida, aparece el filtro de etiqueta. */
   etiquetasPorTematica?: Record<string, string[]>;
   onCambiar: (clave: keyof ValoresDeFiltros, valor: string) => void;
+  /** Permite enviar juntos los filtros del panel cuando se aplican en el servidor. */
+  onAplicarPanel?: (valores: ValoresDeFiltros) => void;
   /** Muestra el filtro "Vigencia" (solo /sistema/campanas). */
   conVigencia?: boolean;
   /** En móvil mantiene la búsqueda visible y coloca los controles en un panel emergente. */
@@ -82,7 +86,6 @@ export default function BarraDeFiltros({
 
   const idQ = useId();
   const idVista = useId();
-  const idPanel = useId();
   const idTema = useId();
   const idEtiqueta = useId();
   const idVig = useId();
@@ -284,6 +287,11 @@ export default function BarraDeFiltros({
   }
 
   function aplicarPanel() {
+    if (onAplicarPanel) {
+      onAplicarPanel({ ...filtrosBorrador, q: texto });
+      setPanelAbierto(false);
+      return;
+    }
     if (vistas) onCambiar("vista", filtrosBorrador.vista);
     if (conTematica) onCambiar("tematica", filtrosBorrador.tematica);
     if (conTematica && etiquetasPorTematica) onCambiar("etiqueta", filtrosBorrador.etiqueta);
@@ -300,38 +308,10 @@ export default function BarraDeFiltros({
           {categoria && <div className="mb-2.5 flex">{selectorDeCategoria()}</div>}
           <div className="flex items-center gap-2.5">
             {campoBusqueda("mobile")}
-            <button
-              type="button"
-              aria-label={panelAbierto ? "Cerrar filtros" : "Abrir filtros"}
-              aria-expanded={panelAbierto}
-              aria-controls={idPanel}
-              onClick={alternarPanel}
-              className={`grid size-[42px] shrink-0 place-items-center rounded border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 ${
-                panelAbierto ? "border-brand-600 bg-brand-50 text-brand-600" : "border-system-300 bg-white text-system-600 hover:border-brand-600 hover:text-brand-600"
-              }`}
-            >
-              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="size-5">
-                <path d="M4 7h9m4 0h3M4 17h3m4 0h9M13 5v4M7 15v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-              </svg>
-            </button>
+            <PanelDeFiltrosMovil titulo="Filtros de campañas" abierto={panelAbierto} alternar={alternarPanel} aplicar={aplicarPanel}>
+              {controles("mobile", true)}
+            </PanelDeFiltrosMovil>
           </div>
-
-          <section
-            id={idPanel}
-            aria-label="Filtros de campañas"
-            hidden={!panelAbierto}
-            className="absolute inset-x-0 top-full z-30 mt-2 rounded-lg border border-system-200 bg-white p-4 shadow-lg"
-          >
-            <h2 className="mb-3 text-sm font-bold text-system-900">Filtros de campañas</h2>
-            <div className="flex flex-col gap-2.5">{controles("mobile", true)}</div>
-            <button
-              type="button"
-              onClick={aplicarPanel}
-              className="mt-4 w-full rounded border border-brand-600 bg-brand-600 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-brand-600/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
-            >
-              Filtrar
-            </button>
-          </section>
         </div>
       )}
 

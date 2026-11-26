@@ -9,10 +9,10 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import Tag from "@/components/ui/Tag";
 import BarraDeFiltros, { type ValoresDeFiltros } from "@/components/campanas/BarraDeFiltros";
-import { avisoSinResultados, conFiltro, etiquetasPorTematica, filtrarCampanas, opcionesDeTematica, type FiltrosLocales } from "@/lib/campanas/filtro-local";
+import { avisoSinResultados, etiquetasPorTematica, filtrarCampanas, opcionesDeTematica } from "@/lib/campanas/filtro-local";
 import type { CampanaSupervisable } from "@/lib/supervision/root";
 import SelectorDeVistaCampanas from "@/components/campanas/SelectorDeVistaCampanas";
 import ProgressBar from "@/components/ui/ProgressBar";
@@ -31,6 +31,13 @@ const PESTANA_EN_LA_URL: Record<TabKey, string> = {
   flagged: "reportadas",
   finished: "finalizadas",
 };
+
+const VISTAS = [
+  { valor: PESTANA_EN_LA_URL.pending, etiqueta: "Mostrar: por supervisar" },
+  { valor: PESTANA_EN_LA_URL.supervised, etiqueta: "Supervisadas" },
+  { valor: PESTANA_EN_LA_URL.flagged, etiqueta: "Reportadas o rechazadas" },
+  { valor: PESTANA_EN_LA_URL.finished, etiqueta: "Finalizadas" },
+];
 
 function pestanaDeLaUrl(valor: string): TabKey {
   const encontrada = (Object.keys(PESTANA_EN_LA_URL) as TabKey[]).find((k) => PESTANA_EN_LA_URL[k] === valor && valor);
@@ -64,39 +71,27 @@ export default function PestanasDeSupervision({
   // El estado inicial sale de la URL real (useSearchParams), no de los searchParams del servidor: con el botón atrás
   // Next restaura la página de su caché, armada con la URL de cuando se cargó, sin lo que se escribió después.
   const consulta = useSearchParams();
-  const [activeTab, setActiveTabState] = useState<TabKey>(() => pestanaDeLaUrl(consulta.get("pestana") ?? ""));
-  const [filtros, setFiltros] = useState<FiltrosLocales>(() => ({
+  const activeTab = pestanaDeLaUrl(consulta.get("pestana") ?? "");
+  const filtros = useMemo(() => ({
     q: consulta.get("q") ?? "",
     tematica: consulta.get("tematica") ?? "",
     etiqueta: consulta.get("etiqueta") ?? "",
     tipo: consulta.get("tipo") ?? "",
     orden: consulta.get("orden") ?? "",
-  }));
-
-  function setActiveTab(pestana: TabKey) {
-    setActiveTabState(pestana);
-    escribirEnLaUrl({ pestana: PESTANA_EN_LA_URL[pestana] });
-  }
+  }), [consulta]);
 
   const tematicas = useMemo(
     () => opcionesDeTematica([...todasPendientes, ...todasSupervisadas, ...todasFinalizadas, ...todasConIncidencia].map(tematicaDe)),
     [todasPendientes, todasSupervisadas, todasFinalizadas, todasConIncidencia],
   );
 
-  // Las listas filtradas; los contadores de las pestañas usan las completas.
-  const pendientes = useMemo(() => filtrarCampanas(todasPendientes, filtros, tematicaDe), [todasPendientes, filtros]);
-  const supervisadas = useMemo(() => filtrarCampanas(todasSupervisadas, filtros, tematicaDe), [todasSupervisadas, filtros]);
-  const finalizadas = useMemo(() => filtrarCampanas(todasFinalizadas, filtros, tematicaDe), [todasFinalizadas, filtros]);
-  const conIncidencia = useMemo(() => filtrarCampanas(todasConIncidencia, filtros, tematicaDe), [todasConIncidencia, filtros]);
+  const todas = activeTab === "pending" ? todasPendientes : activeTab === "supervised" ? todasSupervisadas : activeTab === "finished" ? todasFinalizadas : todasConIncidencia;
+  const filtradas = useMemo(() => filtrarCampanas(todas, filtros, tematicaDe), [todas, filtros]);
 
   function cambiarFiltro(clave: keyof ValoresDeFiltros, valor: string) {
-    setFiltros((actuales) => conFiltro(actuales, clave, valor));
+    escribirEnLaUrl(clave === "tematica" ? { tematica: valor, etiqueta: "" } : { [clave === "vista" ? "pestana" : clave]: valor });
   }
 
-  // Los filtros a la URL. En un efecto y no en cambiarFiltro: en móvil, "Filtrar" aplica varios filtros seguidos.
-  useEffect(() => {
-    escribirEnLaUrl({ q: filtros.q, tematica: filtros.tematica, etiqueta: filtros.etiqueta, tipo: filtros.tipo, orden: filtros.orden });
-  }, [filtros]);
 
   const etiquetasDelFiltro = useMemo(
     () => etiquetasPorTematica([...todasPendientes, ...todasSupervisadas, ...todasFinalizadas, ...todasConIncidencia], tematicaDe),
@@ -220,42 +215,14 @@ export default function PestanasDeSupervision({
     (c) => c.datosAbiertos?.estado === "pendiente" && c.supervision !== "otro",
   ).length;
 
-  const tabs: { key: TabKey; label: string; count: number }[] = [
-    { key: "pending", label: "Por supervisar", count: todasPendientes.length },
-    { key: "supervised", label: "Campañas supervisadas", count: todasSupervisadas.length },
-    { key: "flagged", label: "Campañas reportadas / rechazadas", count: todasConIncidencia.length },
-    { key: "finished", label: "Campañas finalizadas", count: todasFinalizadas.length },
-  ];
-
-  const todas = activeTab === "pending" ? todasPendientes : activeTab === "supervised" ? todasSupervisadas : activeTab === "finished" ? todasFinalizadas : todasConIncidencia;
-  const filtradas = activeTab === "pending" ? pendientes : activeTab === "supervised" ? supervisadas : activeTab === "finished" ? finalizadas : conIncidencia;
-  return (<div className="mx-auto max-w-4xl lg:mx-0 lg:max-w-none"><div className="mb-6"><div className="w-full min-w-0"><h1 className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-600">Supervisión · SuperUsuario</h1><div className="mt-3">      <div
-        role="group"
-        aria-label="Categorías de supervisión"
-        className="dashboard-nav mb-5 w-full min-w-0 max-w-full touch-pan-x flex flex-nowrap gap-2 overflow-x-auto overscroll-x-contain pb-2 [-webkit-overflow-scrolling:touch] md:flex-wrap md:overflow-visible md:pb-0"
-      >
-        {tabs.map(({ key, label, count }) => (
-          <button
-            key={key}
-            type="button"
-            aria-pressed={activeTab === key}
-            onClick={() => setActiveTab(key)}
-            className={`inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap rounded-pill border px-3.5 py-1.5 text-[13px] font-semibold transition-colors max-md:px-2.5 max-md:py-1 max-md:text-[12px] ${
-              activeTab === key ? "border-brand-600 bg-brand-600 text-white" : "border-system-300 bg-white text-system-600 hover:border-brand-600"
-            }`}
-          >
-            {label}&nbsp; <span className="font-mono text-[11px]">{count}</span>
-          </button>
-        ))}
-      </div>
-
-</div>
-          {/* Qué muestra la pestaña (2026-11-25, a pedido del usuario) y debajo cuántas hay. */}
-          <p className="mt-1 text-[13px] text-system-600">{DESCRIPCION_DE_PESTANA[activeTab]}</p>
-          <p className="mt-1 text-[13px] text-system-500">
-            {activeTab === "pending" ? `${pendientes.length} esperando revisión` : activeTab === "supervised" ? `${supervisadas.length} bajo supervisión` : activeTab === "finished" ? `${finalizadas.length} finalizadas` : `${conIncidencia.length} con incidencia`}
-          </p>
-        </div>
+  return (
+    <div className="mx-auto max-w-4xl lg:mx-0 lg:max-w-none">
+      <div className="mb-6">
+        <h1 className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-600">Supervisión · SuperUsuario</h1>
+        <p className="mt-1 text-[13px] text-system-600">{DESCRIPCION_DE_PESTANA[activeTab]}</p>
+        <p className="mt-1 text-[13px] text-system-500">
+          {filtradas.length} {activeTab === "pending" ? "esperando revisión" : activeTab === "supervised" ? "bajo supervisión" : activeTab === "finished" ? "finalizadas" : "con incidencia"}
+        </p>
       </div>
 
       {datosPorDecidirTuyos > 0 && (
@@ -270,7 +237,7 @@ export default function PestanasDeSupervision({
           </p>
           <button
             type="button"
-            onClick={() => setActiveTab("finished")}
+            onClick={() => cambiarFiltro("vista", PESTANA_EN_LA_URL.finished)}
             className="shrink-0 rounded-pill border border-system-300 bg-white px-3.5 py-1.5 text-[13px] font-semibold text-system-900 hover:border-brand-600"
           >
             Ver campañas finalizadas
@@ -280,10 +247,13 @@ export default function PestanasDeSupervision({
 
       <BarraDeFiltros
         ordenRedondeado
-        valores={filtros}
+        valores={{ ...filtros, vista: PESTANA_EN_LA_URL[activeTab] }}
+        vistas={VISTAS}
+        textoSinTematica="Cualquier temática"
         tematicas={tematicas}
         etiquetasPorTematica={etiquetasDelFiltro}
         onCambiar={cambiarFiltro}
+        onAplicarPanel={({ vista, q, tematica, etiqueta, tipo, orden }) => escribirEnLaUrl({ pestana: vista, q, tematica, etiqueta, tipo, orden })}
         colapsableEnMovil
       />
 

@@ -110,7 +110,7 @@ export default async function PantallaDeReportes({
         }
       />
 
-      <nav
+      {zona === "supervision" && <nav
         className="dashboard-nav mb-4 w-full min-w-0 max-w-full touch-pan-x flex flex-nowrap gap-2 overflow-x-auto overscroll-x-contain pb-2 [-webkit-overflow-scrolling:touch] md:flex-wrap md:overflow-visible md:pb-0"
         aria-label="Filtrar reportes"
       >
@@ -120,12 +120,19 @@ export default async function PantallaDeReportes({
         <Link href={hrefResueltos} scroll={false} className={claseChip(filtro === "resueltos")} aria-current={filtro === "resueltos" ? "true" : undefined}>
           Resueltos
         </Link>
-      </nav>
+      </nav>}
 
-      {grupos.length > 0 && (
+      {(zona === "supervisar" || grupos.length > 0) && (
         <FiltrosEnLaUrl
+          tituloPanelMovil={zona === "supervisar" ? "Filtros de reportes" : undefined}
           busqueda={{ etiqueta: "Buscar reportes", placeholder: "Buscar por campaña, persona o motivo" }}
           listas={[
+            ...(zona === "supervisar" ? [{
+              clave: "estado",
+              etiqueta: "Estado del reporte",
+              todas: "Estado: pendientes",
+              opciones: [{ valor: "resueltos", etiqueta: "Resueltos" }],
+            }] : []),
             {
               clave: "tipo",
               etiqueta: "Filtrar por qué se reportó",
