@@ -8,6 +8,7 @@
 
 import type { ReactNode } from "react";
 import { TEXTOS } from "@/lib/gamificacion/textos";
+import Ayuda from "./Ayuda";
 import { GlifoDeObjeto, ImagenDeObjeto } from "./ObjetoDeInventario";
 import {
   MAXIMO_DE_PROTECTORES,
@@ -33,9 +34,12 @@ const TEXTO_DEL_DIA: Record<EstadoDeDiaDeRacha, string> = {
 export default function RachaSemanal({ racha, accion }: { racha: ResumenDeRacha; accion?: ReactNode }) {
   return (
     <>
-      <h2 className="text-lg font-extrabold text-system-900">Días de racha</h2>
+      <h2 className="flex items-center gap-1 text-lg font-extrabold text-system-900">
+        {TEXTOS.racha.titulo}
+        <Ayuda concepto="racha" />
+      </h2>
       <p className="font-mono text-2xl font-extrabold leading-none text-system-900">
-        {racha.actual > 0 ? `${racha.actual} ${racha.actual === 1 ? "día" : "días"}` : "Sin racha"}
+        {racha.actual > 0 ? TEXTOS.racha.dias(racha.actual) : TEXTOS.racha.sinRacha}
       </p>
       <ol aria-label="Últimos 7 días" className="grid grid-cols-7 gap-1.5">
         {racha.dias.map((d) => (
@@ -53,7 +57,10 @@ export default function RachaSemanal({ racha, accion }: { racha: ResumenDeRacha;
           </li>
         ))}
       </ol>
-      <p className="text-[12.5px] text-brand-800">Máxima: {racha.maxima}.</p>
+      <p className="flex items-center gap-1 text-[12.5px] text-brand-800">
+        {TEXTOS.racha.maxima(racha.maxima)}
+        <Ayuda concepto="rachaMaxima" />
+      </p>
       {PROTECTORES_ACTIVOS && (
         <p className="flex items-center gap-2.5 border-t border-brand-100 pt-2.5">
           <span aria-hidden="true" className="flex gap-1">
@@ -70,6 +77,7 @@ export default function RachaSemanal({ racha, accion }: { racha: ResumenDeRacha;
             )}
           </span>
           <span className="text-[13px] font-semibold text-system-800">{TEXTOS.inventario.protectores(racha.protectores, MAXIMO_DE_PROTECTORES)}</span>
+          <Ayuda concepto="protector" />
         </p>
       )}
       {accion}

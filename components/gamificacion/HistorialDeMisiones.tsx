@@ -64,7 +64,7 @@ export default function HistorialDeMisiones({ historial }: { historial: MisionCo
             <thead>
               <tr className="text-[12.5px] text-system-700">
                 <th scope="col" className="py-1.5 pr-3 font-bold">Misión</th>
-                <th scope="col" className="py-1.5 pr-3 font-bold">Periodo</th>
+                <th scope="col" className="py-1.5 pr-3 font-bold">Fechas</th>
                 <th scope="col" className="py-1.5 pr-3 font-bold">Completada</th>
                 {conRecompensas && <th scope="col" className="py-1.5 text-right font-bold">Recompensa entregada</th>}
               </tr>

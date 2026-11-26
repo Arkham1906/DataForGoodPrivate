@@ -10,6 +10,7 @@
 // Pendiente (no se inventa): el avance de misiones de cada día (RF-GAM-85) no tiene de dónde leerse: las misiones no
 // guardan qué aporte las hizo avanzar.
 
+import { TEXTOS } from "@/lib/gamificacion/textos";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Button from "@/components/ui/Button";
 import Skeleton from "@/components/ui/Skeleton";
@@ -55,11 +56,11 @@ function fechaLarga(dia: string): string {
 }
 
 function textoDelDia(d: DiaDelCalendario): string {
-  if (d.estado === "confirmado") return "Enviaste al menos un aporte: el día cuenta para tu racha, sea cual sea el resultado de su revisión.";
-  if (d.estado === "protegido") return "Se usó un protector: la racha siguió, aunque este día no suma.";
-  if (d.estado === "suspendido") return "Tu racha estuvo suspendida este día.";
-  if (d.hoy) return "Envía un aporte hoy para que el día cuente.";
-  return "Este día no sumó a tu racha.";
+  if (d.estado === "confirmado") return TEXTOS.racha.dia.confirmado;
+  if (d.estado === "protegido") return TEXTOS.racha.dia.protegido;
+  if (d.estado === "suspendido") return TEXTOS.racha.dia.suspendido;
+  if (d.hoy) return TEXTOS.racha.dia.hoy;
+  return TEXTOS.racha.dia.sinActividad;
 }
 
 function Icono({ trazo }: { trazo: string }) {

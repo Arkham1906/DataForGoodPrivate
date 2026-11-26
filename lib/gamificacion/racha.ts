@@ -223,6 +223,20 @@ export async function actualizarRacha(usuarioId: number | string): Promise<Cambi
   // La racha máxima es requisito de rango (SRS v1.4: RF-GAM-19) y, con las recuperaciones, mide medallas (RF-GAM-47).
   if (cambio) await evaluarProgresoDe(usuarioId);
 
+  // Si los protectores no alcanzaron para todos los días sin aportes, la racha se rompió de todos modos: un solo aviso
+  // que lo dice, en lugar de varios «tu racha sigue» seguidos de «se interrumpió» (RF-GAM-28, 61).
+  const noAlcanzaron = diasPerdidos > 0 && protegidos.length > 0;
+  if (noAlcanzaron) {
+    await notificar({
+      usuarioId: Number(usuarioId),
+      tipo: "racha_interrumpida",
+      titulo: TEXTOS.avisos.protectoresNoAlcanzaronTitulo,
+      mensaje: TEXTOS.avisos.protectoresNoAlcanzaron(protegidos.length, diasPerdidos),
+      enlace: rutaDePantalla("resumen") ?? "/progreso",
+    });
+    return celebracion;
+  }
+
   // Aviso de RF-GAM-61 por cada protector gastado: la racha que sostuvo (los días protegidos no suman) y cuántos
   // quedaban después de ese día.
   for (const [i, dia] of protegidos.entries()) {
@@ -241,8 +255,8 @@ export async function actualizarRacha(usuarioId: number | string): Promise<Cambi
     await notificar({
       usuarioId: Number(usuarioId),
       tipo: "racha_interrumpida",
-      titulo: "Tu racha se interrumpió",
-      mensaje: `Tu racha de ${diasPerdidos} ${diasPerdidos === 1 ? "día" : "días"} terminó. Tu rango y tus medallas no cambian.`,
+      titulo: TEXTOS.avisos.rachaTerminadaTitulo,
+      mensaje: TEXTOS.avisos.rachaTerminada(diasPerdidos),
       // El calendario de la racha está en el Resumen de Mi progreso.
       enlace: rutaDePantalla("resumen") ?? "/progreso",
     });
@@ -290,16 +304,16 @@ export async function avisarRachas(momento?: { hoy: string; hora: number }): Pro
           ? {
               usuarioId: usuario_id,
               tipo: "racha_en_riesgo",
-              titulo: "Tu racha sigue viva",
-              mensaje: `Llevas ${racha_actual} días seguidos aportando. Un aporte hoy la mantiene.`,
+              titulo: TEXTOS.avisos.rachaEnRiesgoTitulo,
+              mensaje: TEXTOS.avisos.rachaEnRiesgo(racha_actual),
               enlace: "/campanas",
               metadata: { racha: racha_actual },
             }
           : {
               usuarioId: usuario_id,
               tipo: "racha_por_empezar",
-              titulo: "Empieza una racha",
-              mensaje: "Un aporte hoy es tu primer día de racha. Cada día seguido suma.",
+              titulo: TEXTOS.avisos.rachaPorEmpezarTitulo,
+              mensaje: TEXTOS.avisos.rachaPorEmpezar,
               enlace: "/campanas",
             },
       );

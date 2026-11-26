@@ -5,6 +5,7 @@
 // escritorio (en teléfono va la burbuja, BurbujaDelPotenciador). Sin enlace: es el único lugar donde se ve.
 // Al llegar a 0 se desvanece mientras el servidor activa el siguiente o lo quita.
 
+import Ayuda from "./Ayuda";
 import type { ResumenDePotenciadores } from "@/lib/gamificacion/progreso-tipos";
 import { TEXTOS } from "@/lib/gamificacion/textos";
 import AnilloDelPotenciador from "./AnilloDelPotenciador";
@@ -26,8 +27,9 @@ export default function PotenciadorDelMenu({ potenciadores }: { potenciadores: R
       <div className="flex items-center gap-2.5">
         <AnilloDelPotenciador segundos={segundos} duracionMinutos={activo.duracionMinutos} lado={52} />
         <div>
-          <h2 id="potenciador-del-menu" className="text-[12.5px] font-bold text-brand-800">
+          <h2 id="potenciador-del-menu" className="flex items-center gap-0.5 text-[12.5px] font-bold text-brand-800">
             {T.titulo}
+            <Ayuda concepto="potenciador" />
           </h2>
           <p role="timer" aria-label={T.quedan(segundos)} className="font-mono text-[22px] font-extrabold leading-tight text-system-900">
             {T.reloj(segundos)}

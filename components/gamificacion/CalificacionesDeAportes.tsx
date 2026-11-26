@@ -4,9 +4,12 @@
 // Sin estado: Server Component.
 
 import EstrellasDeCalificacion from "@/components/aportes/EstrellasDeCalificacion";
+import { TEXTOS } from "@/lib/gamificacion/textos";
+import Ayuda from "./Ayuda";
 import type { ResumenDeCalificaciones } from "@/lib/gamificacion/mi-progreso-tipos";
 
 const nf = new Intl.NumberFormat("es-MX");
+const T = TEXTOS.calificaciones;
 
 function colorDeBarra(estrellas: number): string {
   if (estrellas === 5) return "bg-warning-500";
@@ -14,21 +17,19 @@ function colorDeBarra(estrellas: number): string {
   return "bg-brand-300";
 }
 
-function textoDeResumen({ calificados, altos, maximos }: ResumenDeCalificaciones): string {
-  if (calificados === 0) return "Todavía no tienes aportes calificados. Cada uno recibirá de 1 a 5 estrellas al aceptarse.";
-  return `${nf.format(calificados)} ${calificados === 1 ? "aporte aceptado" : "aportes aceptados"}: ${nf.format(altos)} de 4★ o más y ${nf.format(maximos)} de 5★.`;
-}
-
 export default function CalificacionesDeAportes({ calificaciones }: { calificaciones: ResumenDeCalificaciones }) {
   const { sinCalificacion } = calificaciones;
   return (
     <section aria-labelledby="progreso-calificaciones" className="flex min-w-0 flex-col gap-3 rounded-lg border border-system-200 bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-end justify-between gap-x-2.5 gap-y-1">
-        <h2 id="progreso-calificaciones" className="text-lg font-extrabold text-system-900">
-          Cómo calificaron tus aportes
+        <h2 id="progreso-calificaciones" className="flex items-center gap-1 text-lg font-extrabold text-system-900">
+          {T.titulo}
+          <Ayuda concepto="estrellas" />
         </h2>
       </div>
-      <p className="text-[13px] text-system-600">{textoDeResumen(calificaciones)}</p>
+      <p className="text-[13px] text-system-600">
+        {calificaciones.calificados === 0 ? T.vacio : T.resumen(calificaciones.calificados, calificaciones.altos, calificaciones.maximos)}
+      </p>
       <ul aria-label="Aportes aceptados por calificación" className="flex flex-col gap-2">
         {calificaciones.filas.map((f) => (
           <li key={f.estrellas} className="grid grid-cols-[82px_minmax(0,108px)_1fr_28px] items-center gap-2.5 text-[13px] max-md:grid-cols-[82px_1fr_28px]">
@@ -48,10 +49,7 @@ export default function CalificacionesDeAportes({ calificaciones }: { calificaci
           Además, {nf.format(sinCalificacion)} {sinCalificacion === 1 ? "aporte aceptado" : "aportes aceptados"} sin calificación.
         </p>
       )}
-      <p className="border-t border-system-100 pt-2.5 text-[12.5px] text-system-600">
-        Para tus rangos cuentan los de 4★ o más (Sobresalientes o superiores) y los de 5★ (Excepcionales). Un aporte de 5★
-        cuenta en los dos. La calificación la asigna quien revisa la campaña al aceptar y no cambia después.
-      </p>
+      <p className="border-t border-system-100 pt-2.5 text-[12.5px] text-system-600">{T.pie}</p>
     </section>
   );
 }

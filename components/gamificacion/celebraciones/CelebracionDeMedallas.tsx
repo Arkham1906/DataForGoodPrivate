@@ -152,7 +152,7 @@ export default function CelebracionDeMedallas({
     <div className="cel-ventana relative overflow-hidden">
       {medallas.length === 1 ? <Una m={medallas[0]} /> : <Varias medallas={medallas} />}
       <div className="px-6 pb-6">
-        <p className="text-[12.5px] text-system-600">{T.medallaNota}</p>
+        
         <div className="mt-3.5 flex flex-col-reverse gap-2.5 sm:flex-row sm:justify-end">
           {siguiente ? (
             <>

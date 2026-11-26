@@ -4,6 +4,7 @@
 import ButtonLink from "@/components/ui/ButtonLink";
 import type { ResumenDeProgreso } from "@/lib/gamificacion/progreso-tipos";
 import { TEXTOS } from "@/lib/gamificacion/textos";
+import Ayuda from "./Ayuda";
 import AvatarDeGamificacion from "./AvatarDeGamificacion";
 import BarraDeRequisitos from "./BarraDeRequisitos";
 
@@ -13,11 +14,14 @@ export default function RangoCompacto({
   progreso,
   enlace,
   idDelTitulo = "rango-compacto",
+  conAyuda = false,
 }: {
   progreso: ResumenDeProgreso;
   /** Pestaña Progreso; sin enlace no hay botón. */
   enlace: string | null;
   idDelTitulo?: string;
+  /** Ícono «Qué es un rango»; en Mi progreso ya va junto al título, así que solo lo lleva Inicio. */
+  conAyuda?: boolean;
 }) {
   const { siguiente } = progreso;
   return (
@@ -28,8 +32,11 @@ export default function RangoCompacto({
       <div className="flex min-w-0 flex-[1_1_220px] items-center gap-3.5">
         <AvatarDeGamificacion etapa={progreso.etapaDelAvatar} tamano="md" />
         <div className="min-w-0">
-          <p className="text-[12.5px] text-system-600">
-            {T.rango(progreso.rangoActual, progreso.totalDeRangos)} · {T.etapa(progreso.etapaDelAvatar)}
+          <p className="flex items-center gap-1 text-[12.5px] text-system-600">
+            <span>
+              {T.rango(progreso.rangoActual, progreso.totalDeRangos)} · {T.etapa(progreso.etapaDelAvatar)}
+            </span>
+            {conAyuda && <Ayuda concepto="rango" />}
           </p>
           <h2 id={idDelTitulo} className="text-lg font-extrabold leading-tight text-system-900">
             {progreso.nombreDelRango}

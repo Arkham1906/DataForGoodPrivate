@@ -8,6 +8,7 @@
 // - Solo con un potenciador activo; al llegar a 0 se desvanece mientras el servidor activa el siguiente o lo quita.
 // Movimiento: solo transform y opacity (arrastre con translate; entrada con potenciador-entra).
 
+import Ayuda from "./Ayuda";
 import {
   useEffect,
   useRef,
@@ -205,9 +206,10 @@ export default function BurbujaDelPotenciador({
             <div className="flex items-center justify-between">
               <h2
                 id="titulo-del-potenciador"
-                className="text-[13px] font-bold text-brand-800"
+                className="flex items-center gap-0.5 text-[13px] font-bold text-brand-800"
               >
                 {T.titulo}
+                <Ayuda concepto="potenciador" />
               </h2>
               <button
                 type="button"

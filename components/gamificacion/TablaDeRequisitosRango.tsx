@@ -7,17 +7,9 @@ import { useId, useState } from "react";
 import { buttonClasses } from "@/components/ui/Button";
 import type { FilaDeRequisitosDeRango } from "@/lib/gamificacion/mi-progreso-tipos";
 import { CLAVES_DE_REQUISITO, ETIQUETAS_CORTAS } from "@/lib/gamificacion/rangos";
+import { TEXTOS } from "@/lib/gamificacion/textos";
 
 const nf = new Intl.NumberFormat("es-MX");
-
-function textoDelHorizonte(actual: number, total: number): string {
-  if (actual >= total) return "Ya descubriste todos los rangos. Aquí tienes lo que pidió completar cada uno.";
-  if (actual >= total - 1) return "Ya puedes ver todos los rangos.";
-  const primero = actual + 3;
-  if (primero > total) return `Del rango ${total} ya tienes una pista. Su nombre aparece cuando se vuelva tu siguiente rango.`;
-  const cuales = primero === total ? `El rango ${total} solo muestra` : `Del ${primero} al ${total} solo ves`;
-  return `${cuales} el número y lo que pide${primero === total ? "" : "n"}. El nombre, la insignia y las recompensas aparecen cuando se vuelve tu siguiente rango.`;
-}
 
 export default function TablaDeRequisitosDeRangos({
   tabla,
@@ -36,9 +28,9 @@ export default function TablaDeRequisitosDeRangos({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0 flex-[1_1_420px]">
           <h2 id="requisitos-titulo" className="text-lg font-extrabold text-system-900">
-            Lo que pide completar cada rango
+            {TEXTOS.camino.tablaTitulo}
           </h2>
-          <p className="mt-1 text-sm text-system-700">{textoDelHorizonte(actual, total)}</p>
+          <p className="mt-1 text-sm text-system-700">{TEXTOS.camino.horizonte(actual, total)}</p>
         </div>
         <button type="button" onClick={() => setAbierta((a) => !a)} aria-expanded={abierta} aria-controls={id} className={buttonClasses("secondary")}>
           {abierta ? "Ocultar la tabla" : "Ver la tabla"}
@@ -48,9 +40,7 @@ export default function TablaDeRequisitosDeRangos({
       <div id={id} hidden={!abierta} className="space-y-2">
         <div className="max-h-[520px] overflow-auto rounded-lg border border-system-100">
           <table className="w-full min-w-[760px] border-collapse text-[13.5px]">
-            <caption className="sr-only">
-              Lo que pide completar cada rango: al cumplirlo pasas al siguiente. La fila marcada es tu rango actual.
-            </caption>
+            <caption className="sr-only">{TEXTOS.camino.tablaCaption}</caption>
             <thead>
               <tr>
                 <th scope="col" className="sticky top-0 bg-white px-2.5 py-2.5 text-left text-[12px] font-bold text-system-700">

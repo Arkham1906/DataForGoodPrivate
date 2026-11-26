@@ -156,7 +156,7 @@ export default function FichaDeMedalla({
                       </span>
                       <span className="flex min-w-0 flex-col">
                         <strong className="text-sm text-system-900">{n.nombre}</strong>
-                        <span className="text-[12.5px] text-system-600">{T.umbral(n.umbral, T.unidad(m.mide, n.umbral))}</span>
+                        <span className="text-[12.5px] text-system-600">{T.meta(m.mide, n.umbral, T.unidad(m.mide, n.umbral))}</span>
                       </span>
                       <span
                         className={`text-right text-[12.5px] font-bold ${
@@ -180,7 +180,6 @@ export default function FichaDeMedalla({
             {m.mide && T.notas[m.mide] && (
               <p className="rounded-lg border border-system-100 bg-system-50 px-3.5 py-2.5 text-[13px] text-system-700">{T.notas[m.mide]}</p>
             )}
-            <p className="border-t border-system-100 pt-3 text-[12.5px] text-system-600">{T.permanencia}</p>
           </div>
         </div>
       )}

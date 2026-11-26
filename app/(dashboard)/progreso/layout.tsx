@@ -5,7 +5,9 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
+import Ayuda from "@/components/gamificacion/Ayuda";
 import PestanasDeProgreso from "@/components/gamificacion/PestanasDeProgreso";
+import { TEXTOS } from "@/lib/gamificacion/textos";
 
 export default function ProgresoLayout({ children }: { children: ReactNode }) {
   return (
@@ -17,10 +19,11 @@ export default function ProgresoLayout({ children }: { children: ReactNode }) {
         >
           ← Inicio
         </Link>
-        <h1 className="text-2xl font-extrabold text-system-900 max-md:text-xl max-md:leading-tight">Mi progreso</h1>
-        <p className="mt-1 text-[13px] text-system-600">
-          Tu rango, tus misiones, tus medallas y tu avatar. Lo que ganas con cada aporte aceptado es definitivo.
-        </p>
+        <h1 className="flex items-center gap-1 text-2xl font-extrabold text-system-900 max-md:text-xl max-md:leading-tight">
+          Mi progreso
+          <Ayuda concepto="rango" />
+        </h1>
+        <p className="mt-1 text-[13px] text-system-600">{TEXTOS.progreso.encabezado}</p>
       </div>
       <PestanasDeProgreso />
       {children}

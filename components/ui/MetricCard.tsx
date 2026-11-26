@@ -1,6 +1,7 @@
 // Tarjeta de métrica de la zona de usuario.
 
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 interface MetricCardProps {
   label: string;
@@ -9,12 +10,17 @@ interface MetricCardProps {
   links?: { label: string; href: string }[];
   /** Línea chica bajo el número (2026-11-13, dashboard de /revisiones), p. ej. "12 en los últimos 7 días". */
   detalle?: string;
+  /** Ícono de información junto a la etiqueta (p. ej. AyudaEmergente). */
+  ayuda?: ReactNode;
 }
 
-export default function MetricCard({ label, value, links, detalle }: MetricCardProps) {
+export default function MetricCard({ label, value, links, detalle, ayuda }: MetricCardProps) {
   return (
     <div className="rounded-lg border border-system-200 bg-white p-4">
-      <p className="mb-1 text-[12px] text-system-600">{label}</p>
+      <p className="mb-1 flex items-center gap-1 text-[12px] text-system-600">
+        {label}
+        {ayuda}
+      </p>
       <p className="text-2xl font-extrabold text-system-900">{value}</p>
       {detalle ? <p className="mt-1 text-[12px] leading-4 text-system-500">{detalle}</p> : null}
       {links && links.length > 0 && (

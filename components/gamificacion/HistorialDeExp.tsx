@@ -13,6 +13,7 @@
 // Movimiento: el detalle entra con opacidad y 4 px (200 ms, curva de salida) y la flecha gira; con movimiento reducido,
 // nada se mueve. Textos en TEXTOS.historialDeExp.
 
+import Ayuda from "./Ayuda";
 import Link from "next/link";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { BASE_PATH } from "@/lib/base-path";
@@ -95,8 +96,7 @@ function vistaDe(m: MovimientoDeExp): Vista {
     const filas: Fila[] = [];
     if (m.calculo) {
       const { base, multCalidad, factor, bonificacionPotenciador, multCampana } = m.calculo;
-      const sinRedondear = Math.round(base * multCalidad * factor * 1000) / 1000;
-      filas.push({ etiqueta: T.detalle.calculo, valor: T.calculoAporte(base, multCalidad, factor, sinRedondear, m.exp), fuerte: true });
+      filas.push({ etiqueta: T.detalle.calculo, valor: T.calculoAporte(base, nombreTipo, multCalidad, calificacion, factor, m.exp), fuerte: true });
       if (factor !== 1) filas.push({ etiqueta: T.detalle.factor, valor: T.factorAporte(bonificacionPotenciador, multCampana) });
     }
     if (m.aporte?.enviadoEn) filas.push({ etiqueta: T.detalle.enviado, valor: fechaYHora(m.aporte.enviadoEn) });
@@ -138,7 +138,7 @@ function vistaDe(m: MovimientoDeExp): Vista {
       titulo: m.bono ? T.tituloBono(m.bono.cuota) : T.tituloBonoSinDatos,
       origen: campana ?? T.campanaBorrada,
       filas,
-      nota: m.bono ? T.notaBono(m.bono.cuota) : m.motivo,
+      nota: m.bono ? T.notaBono() : m.motivo,
       marca: null,
       href: null,
       salto: null,
@@ -153,7 +153,7 @@ function vistaDe(m: MovimientoDeExp): Vista {
         { etiqueta: T.detalle.motivo, valor: T.motivoDescuento(nombreTipo, m.original ? fechaCorta(m.original.en) : null), fuerte: true },
         { etiqueta: T.detalle.devuelve, valor: T.devuelve(Math.abs(m.exp)) },
       ],
-      nota: T.notaDescuento,
+      nota: null,
       marca: null,
       href: null,
       salto: m.original ? { id: m.original.id, texto: T.verOriginal } : null,
@@ -300,8 +300,9 @@ export default function HistorialDeExp({ inicial, hayDescuentos }: { inicial: Pa
   return (
     <section aria-labelledby="historial-movs" className="flex min-w-0 flex-col gap-3 rounded-lg border border-system-200 bg-white p-5 max-md:p-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 id="historial-movs" ref={titulo} tabIndex={-1} className="text-xl font-extrabold text-system-900 outline-none max-md:px-1 max-md:text-lg">
+        <h2 id="historial-movs" ref={titulo} tabIndex={-1} className="flex items-center gap-1 text-xl font-extrabold text-system-900 outline-none max-md:px-1 max-md:text-lg">
           {T.movimientos}
+          <Ayuda concepto="movimientos" />
         </h2>
         <div role="group" aria-label={T.filtrosEtiqueta} className="flex gap-1.5 overflow-x-auto max-md:-mx-1 max-md:w-full max-md:px-1 max-md:pb-1">
           {filtros.map((f) => {
@@ -372,7 +373,6 @@ export default function HistorialDeExp({ inicial, hayDescuentos }: { inicial: Pa
         <Paginacion pagina={estado.pagina} paginas={estado.paginas} desde={desde} hasta={hasta} total={estado.total} cargando={cargando} ir={irAPagina} />
       )}
 
-      <p className="border-t border-system-100 pt-3 text-[12.5px] text-system-600 max-md:px-1">{T.pie}</p>
     </section>
   );
 }

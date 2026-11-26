@@ -6,6 +6,7 @@
 
 import type { Metadata } from "next";
 import Card from "@/components/ui/Card";
+import Ayuda from "@/components/gamificacion/Ayuda";
 import GrupoDeMisiones from "@/components/gamificacion/GrupoDeMisiones";
 import HistorialDeMisiones from "@/components/gamificacion/HistorialDeMisiones";
 import { exigirUsuario } from "@/lib/session";
@@ -16,14 +17,7 @@ import type { FichaDeRangoActual } from "@/lib/gamificacion/rangos";
 
 export const metadata: Metadata = { title: "Misiones" };
 
-const nf = new Intl.NumberFormat("es-MX");
-
-const COMO_CUENTAN = [
-  "Cada periodo trae misiones distintas, elegidas al azar entre las que puedes cumplir con las campañas activas.",
-  "Solo cuentan aportes con cuenta, según la hora en que el servidor los recibió. Si uno se acepta después, cuenta para el periodo en que lo enviaste.",
-  "Cada misión completada suma al total que piden los rangos y se cuenta una sola vez.",
-  "Un aporte aceptado no se revierte: la misión que ayudó a completar queda completada.",
-];
+const T = TEXTOS.misiones;
 
 export default async function MisionesPage() {
   const usuario = await exigirUsuario();
@@ -32,14 +26,14 @@ export default async function MisionesPage() {
   if (!datos) {
     return (
       <Card>
-        <p className="text-[13px] text-system-600">Todavía no podemos mostrar tus misiones. Intenta de nuevo en unos minutos.</p>
+        <p className="text-[13px] text-system-600">{T.error}</p>
       </Card>
     );
   }
 
   const deInicio = datos.inicio.misiones.length > 0;
-  // «Envía…», «Logra…» y las difíciles (2026-11-19, RF-GAM-43, 44).
-  const comoCuentan = [TEXTOS.misiones.periodos, ...COMO_CUENTAN, ...TEXTOS.misiones.comoCuentan, ...(deInicio ? [TEXTOS.misionesDeInicio.comoCuentan] : [])];
+  // Cuándo cambian y las difíciles van en los íconos de información de cada grupo.
+  const comoCuentan = [...T.comoCuentan, ...(deInicio ? [TEXTOS.misionesDeInicio.comoCuentan] : [])];
   // Lo que pide completar el rango actual (presentación del 2026-11-22, lib/gamificacion/rangos.ts).
   const actual = progreso?.fichas.find((f): f is FichaDeRangoActual => f.estado === "actual");
   const meta = actual?.requisitos.find((r) => r.clave === "misiones");
@@ -49,23 +43,18 @@ export default async function MisionesPage() {
       <section aria-labelledby="misiones-titulo" className="flex flex-wrap items-end justify-between gap-6 rounded-lg bg-brand-950 p-6 text-white max-md:p-4">
         <div className="min-w-0 flex-[1_1_320px]">
           <h2 id="misiones-titulo" className="text-[26px] font-extrabold leading-tight">
-            Misiones
+            {T.titulo}
           </h2>
-          <p className="mt-2 text-sm text-brand-200">
-            Objetivos diarios y semanales que premian la variedad de aportes. Cambian en cada periodo y cada una que completes
-            suma a lo que piden los rangos.
-          </p>
+          <p className="mt-2 text-sm text-brand-200">{T.intro}</p>
         </div>
         <div className="flex min-w-0 flex-[0_1_300px] flex-col gap-2 rounded-lg bg-brand-900 px-5 py-4">
           <p className="flex items-baseline gap-2.5">
-            <span className="font-mono text-[26px] font-extrabold leading-none">{nf.format(datos.total)}</span>
-            <span className="text-[13px] text-brand-200">{datos.total === 1 ? "misión completada" : "misiones completadas"} en total</span>
+            <span className="font-mono text-[26px] font-extrabold leading-none">{new Intl.NumberFormat("es-MX").format(datos.total)}</span>
+            <span className="text-[13px] text-brand-200">{T.completadas(datos.total)}</span>
           </p>
           {meta && actual && (
             <p className="text-[13px] font-semibold text-success-100">
-              {meta.cumplido
-                ? `Ya tienes las misiones para completar tu rango ${actual.numero}.`
-                : `Completar tu rango ${actual.numero} pide ${nf.format(meta.meta)}: ${meta.faltan === 1 ? "te falta 1" : `te faltan ${nf.format(meta.faltan)}`}.`}
+              {T.metaDelRango(actual.numero, meta.meta, meta.cumplido ? 0 : meta.faltan)}
             </p>
           )}
         </div>
@@ -81,15 +70,20 @@ export default async function MisionesPage() {
       )}
 
       <div className="grid gap-5 lg:grid-cols-2">
-        <GrupoDeMisiones id="misiones-diarias" titulo="Diarias" grupo={datos.diarias} />
-        <GrupoDeMisiones id="misiones-semanales" titulo="Semanales" grupo={datos.semanales} />
+        <GrupoDeMisiones id="misiones-diarias" titulo={T.diarias} grupo={datos.diarias} ayuda={<Ayuda concepto="cambioDeMisiones" />} />
+        <GrupoDeMisiones
+          id="misiones-semanales"
+          titulo={T.semanales}
+          grupo={datos.semanales}
+          ayuda={<Ayuda concepto="cambioDeMisiones" />}
+        />
       </div>
 
       <div className="grid items-start gap-5 lg:grid-cols-[2fr_1fr]">
         <HistorialDeMisiones historial={datos.historial} />
         <aside aria-labelledby="misiones-como" className="rounded-lg bg-brand-100 p-5">
           <h2 id="misiones-como" className="text-lg font-extrabold text-system-900">
-            Cómo cuentan
+            {T.comoCuentanTitulo}
           </h2>
           <ul className="mt-2.5 list-disc space-y-2 pl-4 text-[13px] text-brand-800">
             {comoCuentan.map((texto) => (

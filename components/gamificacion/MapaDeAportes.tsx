@@ -23,6 +23,7 @@
 // conserva. Lo probó scripts/estres-mapa-de-aportes.mjs.
 // Geometría: lib/gamificacion/mapa-de-aportes-geometria.ts. Textos: lib/gamificacion/textos.ts.
 
+import Ayuda from "./Ayuda";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -677,7 +678,10 @@ function Panel({
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-[13px]">
           {a.estado === "aceptado" && (
             <>
-              <dt className="text-system-600">{T.aporteCalificacion}</dt>
+              <dt className="flex items-center gap-0.5 text-system-600">
+                {T.aporteCalificacion}
+                <Ayuda concepto="estrellas" />
+              </dt>
               <dd className="flex items-center justify-end gap-2 text-right font-semibold">
                 <EstrellasDeCalificacion valor={a.calificacion} className="text-[14px]" />
                 {a.calificacion ? <span aria-hidden="true">{NOMBRES_DE_ESTRELLAS[a.calificacion]}</span> : null}
@@ -703,9 +707,11 @@ function Panel({
             </>
           )}
         </dl>
-        <p className="rounded-xl bg-system-50 px-3 py-2.5 text-[12.5px] text-system-700">
-          {a.estado === "aceptado" ? T.notaAceptado : a.estado === "pendiente" ? T.notaPendiente : T.notaRechazado}
-        </p>
+        {a.estado !== "aceptado" && (
+          <p className="rounded-xl bg-system-50 px-3 py-2.5 text-[12.5px] text-system-700">
+            {a.estado === "pendiente" ? T.notaPendiente : T.notaRechazado}
+          </p>
+        )}
         <ButtonLink href={`/mis-aportes/${a.campanaId}/${a.id}`} size="sm" className="self-start">
           {T.verDetalle}
         </ButtonLink>
@@ -813,7 +819,10 @@ function Panel({
     cuerpo = (
       <>
         <div>
-          <h4 className="mb-1 text-[12.5px] font-bold text-system-800">{T.subtematicasTitulo}</h4>
+          <h4 className="mb-1 flex items-center gap-0.5 text-[12.5px] font-bold text-system-800">
+            {T.subtematicasTitulo}
+            <Ayuda concepto="subtematicas" />
+          </h4>
           {/* Escritorio: elegir una subtemática resalta sus campañas en el mapa. */}
           <ul className="-mx-2 flex flex-col max-md:hidden">
             {subs.map((s) => (
@@ -847,7 +856,6 @@ function Panel({
             ))}
           </div>
         </div>
-        <p className="rounded-xl bg-system-50 px-3 py-2.5 text-[12px] text-system-700">{T.reglaDeSubtematica}</p>
       </>
     );
   } else if (filtro !== "todos") {

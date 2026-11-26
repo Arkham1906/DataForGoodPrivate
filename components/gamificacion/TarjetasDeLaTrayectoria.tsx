@@ -1,7 +1,8 @@
 // Tarjetas de la Trayectoria. Desde el 2026-11-22 (presentación «completar tu rango», a pedido del Dr.) la tarjeta
 // principal es la de TU rango: lo que pide completarlo con tu avance, y a qué rango pasas al completarlo.
 
-import AyudaEmergente from "@/components/ui/AyudaEmergente";
+import Ayuda from "./Ayuda";
+import { TEXTOS } from "@/lib/gamificacion/textos";
 import { buttonClasses } from "@/components/ui/Button";
 import ButtonLink from "@/components/ui/ButtonLink";
 import ProgressBar from "@/components/ui/ProgressBar";
@@ -9,7 +10,6 @@ import { fondoDeAvance } from "@/lib/gamificacion/color-de-avance";
 import Tag from "@/components/ui/Tag";
 import { rutaDePantalla } from "@/lib/gamificacion/pantallas-de-progreso";
 import {
-  TEXTO_DE_LA_RACHA,
   type FichaDeRangoActual,
   type FichaDeRangoSiguiente,
 } from "@/lib/gamificacion/rangos";
@@ -98,7 +98,7 @@ export function TarjetaDelRangoActual({
             <Marca cumplido={r.cumplido} />
             <span className="flex items-center gap-1 text-sm font-semibold text-system-900">
               {r.etiqueta}
-              {r.clave === "racha" && <AyudaEmergente etiqueta="Cómo cuenta la racha">{TEXTO_DE_LA_RACHA}</AyudaEmergente>}
+              {r.clave === "racha" && <Ayuda concepto="rachaMaxima" />}
             </span>
             <span className={`font-mono text-[13px] font-bold ${r.cumplido ? "text-success-800" : "text-system-900"}`}>{r.textoAvance}</span>
             <span className="col-start-2 col-end-4">
@@ -114,7 +114,7 @@ export function TarjetaDelRangoActual({
           Al completarlo pasas al rango {siguiente.numero} · {siguiente.nombre}
         </h3>
         <ul className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-2">
-          <Recompensa icono={ICONO.avatar} tono="ok" titulo={`Etapa ${siguiente.etapaDelAvatar} de tu avatar`} detalle="Tu avatar evoluciona y no retrocede." />
+          <Recompensa icono={ICONO.avatar} tono="ok" titulo={`Etapa ${siguiente.etapaDelAvatar} de tu avatar`} detalle={TEXTOS.camino.avatarDetalle} />
           <Recompensa icono={ICONO.insignia} tono="info" titulo={`Insignia del rango ${siguiente.numero}`} detalle="Su emblema, aparte de tu avatar." />
           <Recompensa
             icono={ICONO.revelar}
@@ -142,20 +142,19 @@ export function TrayectoriaCompleta({ total }: { total: number }) {
   return (
     <section aria-labelledby="completa-titulo" className={`flex min-w-0 flex-[2_1_520px] flex-col gap-3 p-7 max-md:p-4 ${TARJETA}`}>
       <Tag tone="ok" className="self-start">
-        Trayectoria completa
+        {TEXTOS.camino.completoEtiqueta}
       </Tag>
       <h2 id="completa-titulo" className="text-[26px] font-extrabold leading-tight max-md:text-xl">
-        Completaste la trayectoria
+        {TEXTOS.camino.completoTitulo}
       </h2>
       <p className="max-w-xl text-[15px] text-system-700 max-md:text-sm">
-        Llegaste al rango {total}, el último: ya no hay nada que completar después. Los {total} rangos son tuyos y ninguno se
-        pierde. Tus medallas siguen subiendo con cada aporte aceptado.
+        {TEXTOS.camino.completoTexto(total)}
       </p>
       <div className="mt-2 flex flex-wrap gap-2.5">
         {/* Medallas aún no existe: el botón sale solo cuando tenga ruta (pantallas-de-progreso.ts). */}
         {medallas && (
           <ButtonLink href={medallas} variant="primary">
-            Ver tus medallas
+            {TEXTOS.camino.verLogros}
           </ButtonLink>
         )}
         <ButtonLink href="/campanas" variant={medallas ? "secondary" : "primary"}>

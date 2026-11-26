@@ -12,6 +12,7 @@
 // «para llegar al rango N+1» se muestran como «para completar el rango N». Por eso en todas las fichas `requisitos` es lo
 // que pide COMPLETAR ese rango (lo del rango siguiente en el catálogo), y el último rango no tiene nada que completar.
 
+import { TEXTOS as TEXTOS_DEL_MODULO } from "@/lib/gamificacion/textos";
 import { ZONA_DE_CAMPANAS } from "@/lib/fecha-de-tepic";
 
 export type ClaveDeRequisito = "exp" | "aportes" | "excelentes" | "excepcionales" | "racha" | "misiones";
@@ -46,14 +47,6 @@ const TEXTOS: Record<ClaveDeRequisito, { etiqueta: string; plural: string; nuevo
   racha: { etiqueta: "Racha máxima", plural: "días de racha máxima", nuevo: "una racha de días seguidos" },
   misiones: { etiqueta: "Misiones completadas", plural: "misiones completadas", nuevo: "una misión completada" },
 };
-
-/**
- * Cómo cuenta la racha (SRS v1.4: RF-GAM-19, 25, 27, RN-GAM-39). Es el único requisito que no depende de la aceptación,
- * por eso lleva una ayuda junto a su etiqueta en la trayectoria y en la ficha del rango siguiente. Los rangos usan la
- * racha más larga que se haya logrado.
- */
-export const TEXTO_DE_LA_RACHA =
-  "Cuenta la racha más larga que hayas logrado: días seguidos en que enviaste al menos un aporte, aunque después lo rechacen. Si pierdes tu racha, lo que ya lograste sigue contando.";
 
 /** Etiquetas cortas de cada requisito, para el bloque de rango de /progreso. */
 export const ETIQUETAS_CORTAS: Record<ClaveDeRequisito, string> = {
@@ -164,7 +157,7 @@ function frase(clave: ClaveDeRequisito, faltan: number, meta: number): string {
 export function textoQueFalta(avances: AvanceDeRequisito[]): string {
   const pendientes = avances.filter((a) => !a.cumplido);
   if (pendientes.length === 0) {
-    return "Completaste tu rango. Pasas al siguiente en cuanto el sistema lo compruebe.";
+    return TEXTOS_DEL_MODULO.camino.completo;
   }
   // «una racha de N días» es singular aunque falten varios días.
   const plural = pendientes.length > 1 || (pendientes[0].clave !== "racha" && pendientes[0].faltan !== 1);

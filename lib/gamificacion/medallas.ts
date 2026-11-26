@@ -32,17 +32,17 @@ export type GrupoDeMedalla = (typeof GRUPOS_DE_MEDALLA)[number];
 
 /** Texto de lo que mide cada medalla (columna `medallas.mide`, tabla 4.4). */
 const QUE_MIDE: Record<string, string> = {
-  aportes_aceptados: "Mide tus aportes aceptados.",
-  aportes_excepcionales: "Mide tus aportes de 5★ (Excepcionales).",
-  racha_maxima: "Mide tu racha máxima, en días.",
-  campanas_completadas: "Mide las campañas en las que completaste tu cuota.",
-  campanas_distintas: "Mide las campañas distintas con un aporte tuyo aceptado.",
-  exp_total: "Mide tu EXP total.",
-  tipos_distintos: "Mide los tipos de dato con un aporte tuyo aceptado.",
-  rachas_recuperadas: "Mide las veces que reavivaste tu racha después de perderla.",
-  aceptados_consecutivos: "Mide tus aportes aceptados seguidos, sin un rechazo entre ellos, por hora de envío.",
-  aportes_en_potenciador: "Mide tus aportes aceptados enviados durante un solo potenciador.",
-  tematicas_distintas: "Mide las temáticas distintas con un aporte tuyo aceptado.",
+  aportes_aceptados: "Crece con cada aporte que te aceptan.",
+  aportes_excepcionales: "Crece con cada aporte que recibe 5 estrellas.",
+  racha_maxima: "Crece con tu racha más larga.",
+  campanas_completadas: "Crece cada vez que completas la meta de aportes de una campaña.",
+  campanas_distintas: "Crece con cada campaña nueva en la que te aceptan un aporte.",
+  exp_total: "Crece con toda la EXP que ganas.",
+  tipos_distintos: "Crece con cada tipo de dato distinto que te aceptan: texto, foto, documento, audio o video.",
+  rachas_recuperadas: "Crece cada vez que vuelves a empezar una racha después de perderla.",
+  aceptados_consecutivos: "Crece con tu mejor serie de aportes aceptados sin un rechazo en medio.",
+  aportes_en_potenciador: "Crece con los aportes aceptados que envías durante un mismo potenciador.",
+  tematicas_distintas: "Crece con cada temática distinta en la que te aceptan un aporte.",
 };
 
 /** `ilustracion`: archivo de la ilustración cuando no sigue «<nivel>-<nombre>» (medalla_niveles.ilustracion_path). */
@@ -66,6 +66,8 @@ export type MedallaCercaDeSubir = {
   umbral: number;
   porcentaje: number;
   queMide: string;
+  /** Medida del catálogo (campo `mide`), para decir en qué unidad falta: «Faltan 2 aportes aceptados». */
+  mide: string | null;
   imagen: { nivel: number; nombre: string; ilustracion: string | null };
   bloqueada: boolean;
 };
@@ -125,6 +127,7 @@ export function medallasMasCercanas(medallas: MedallaConAvance[], limite: number
       umbral: siguiente.umbral,
       porcentaje: Math.round((valor / siguiente.umbral) * 100),
       queMide: queMideMedalla(m.mide),
+      mide: m.mide,
       imagen: { nivel: nivelDeImagen.nivel, nombre: nivelDeImagen.nombre, ilustracion: nivelDeImagen.ilustracion ?? null },
       bloqueada: nivel === 0,
     });

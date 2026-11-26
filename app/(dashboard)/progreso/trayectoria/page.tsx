@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { TEXTOS } from "@/lib/gamificacion/textos";
 import Card from "@/components/ui/Card";
 import TrayectoriaDeRangos from "@/components/gamificacion/TrayectoriaDeRangos";
 import { exigirUsuario } from "@/lib/session";
@@ -15,7 +16,7 @@ export default async function TrayectoriaPage() {
   if (!progreso || !datos) {
     return (
       <Card>
-        <p className="text-[13px] text-system-600">Todavía no podemos mostrar tu progreso. Intenta de nuevo en unos minutos.</p>
+        <p className="text-[13px] text-system-600">{TEXTOS.progreso.error}</p>
       </Card>
     );
   }

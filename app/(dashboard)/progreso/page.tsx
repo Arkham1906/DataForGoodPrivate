@@ -18,6 +18,7 @@ import { obtenerPantallaDeMedallas } from "@/lib/gamificacion/medallas-pantalla"
 import { obtenerHistorialDeExp } from "@/lib/gamificacion/historial-exp";
 import { rutaDePantalla } from "@/lib/gamificacion/pantallas-de-progreso";
 import { TEXTOS } from "@/lib/gamificacion/textos";
+import Ayuda from "@/components/gamificacion/Ayuda";
 import RangoCompacto from "@/components/gamificacion/RangoCompacto";
 import MisionesDelResumen from "@/components/gamificacion/MisionesDelResumen";
 import RachaSemanal from "@/components/gamificacion/RachaSemanal";
@@ -67,6 +68,7 @@ export default async function ResumenPage() {
       <section aria-label="Tus cifras" className="grid grid-cols-2 gap-3 lg:grid-cols-3 lg:gap-4">
         <MetricCard
           label={T.cifras.exp}
+          ayuda={<Ayuda concepto="exp" />}
           value={historial ? nf.format(historial.total) : "—"}
           links={enlace(T.cifras.historial, rutas.historial)}
         />
@@ -77,6 +79,7 @@ export default async function ResumenPage() {
         />
         <MetricCard
           label={T.cifras.medallas}
+          ayuda={<Ayuda concepto="medallas" />}
           value={medallas && conNivel !== null ? T.cifras.deTotal(conNivel, medallas.medallas.length) : "—"}
           links={enlace(T.cifras.verMedallas, rutas.medallas)}
         />

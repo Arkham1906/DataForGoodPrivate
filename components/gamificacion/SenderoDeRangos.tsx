@@ -9,6 +9,8 @@
 // TrayectoriaDeRangos). Solo pinta lo que el servidor envió (RNF-GAM-14): un rango avistado u oculto no trae nombre.
 // Las animaciones están en app/globals.css («Sendero de rangos») y respetan el movimiento reducido.
 
+import { TEXTOS } from "@/lib/gamificacion/textos";
+import Ayuda from "./Ayuda";
 import { useCallback, useEffect, useRef, type CSSProperties } from "react";
 import type { EslabonDeLaTrayectoria, HitoDelRecorrido } from "@/lib/gamificacion/mi-progreso-tipos";
 import type { EstadoDeRango } from "@/lib/gamificacion/rangos";
@@ -86,7 +88,7 @@ function textosDe(e: EslabonDeLaTrayectoria, hito: HitoDelRecorrido | undefined,
         antes: fechaDe(hito) ? `Estás aquí · desde ${fechaDe(hito)}` : "Estás aquí",
         titulo: nombreActual,
         // Presentación «completar tu rango» (2026-11-22): el avance es de tu rango, no del siguiente.
-        nota: e.expQuePide === null ? "Completaste la trayectoria." : `Para completarlo cumples ${e.detalle}.`,
+        nota: e.expQuePide === null ? TEXTOS.camino.notaUltimo : `Para completarlo cumples ${e.detalle}.`,
       };
     case "siguiente":
       return { antes: "Tu siguiente parada", titulo: nombre, nota: "Llegas cuando completes tu rango." };
@@ -94,7 +96,7 @@ function textosDe(e: EslabonDeLaTrayectoria, hito: HitoDelRecorrido | undefined,
       return {
         antes: `Rango ${e.numero} · a la vista`,
         titulo: pista ?? "Nombre por descubrir",
-        nota: `Su nombre aparece cuando llegues al rango ${e.numero - 1}.`,
+        nota: TEXTOS.camino.notaAvistado(e.numero - 1),
       };
     case "oculto":
       return { antes: `Rango ${e.numero}`, titulo: "Por descubrir", nota: null };
@@ -247,8 +249,9 @@ export default function SenderoDeRangos({
           })}
         </ol>
       </div>
-      <p className="text-[12.5px] text-system-600">
-        Desplázate para recorrer el camino: arriba lo que ya completaste, abajo lo que sigue. Toca un rango para abrir su ficha.
+      <p className="flex items-center gap-1 text-[12.5px] text-system-600">
+        {TEXTOS.camino.guia}
+        <Ayuda concepto="nombreOculto" />
       </p>
     </section>
   );
@@ -268,7 +271,7 @@ export function EncabezadoDeTrayectoria({ actual, total, nombre }: { actual: num
         <h2 id="trayectoria-titulo" className="mt-1 text-[28px] font-extrabold leading-tight max-md:text-[22px]">
           {nombre}
         </h2>
-        <p className="mt-1.5 max-w-xl text-[14.5px] text-brand-200 max-md:text-[13.5px]">{introDe(actual, total)}</p>
+        <p className="mt-1.5 max-w-xl text-[14.5px] text-brand-200 max-md:text-[13.5px]">{TEXTOS.camino.intro(actual, total)}</p>
       </div>
       <div className="flex min-w-[220px] flex-[0_1_300px] flex-col gap-2 max-md:min-w-0 max-md:flex-[1_1_100%]">
         <p className="flex justify-between text-[12.5px] text-brand-200">
@@ -288,12 +291,4 @@ export function EncabezadoDeTrayectoria({ actual, total, nombre }: { actual: num
       </div>
     </section>
   );
-}
-
-function introDe(actual: number, total: number): string {
-  if (actual >= total) return `Llegaste a la cumbre. Los ${total} rangos son tuyos y nadie te los quita.`;
-  if (actual === total - 1) return `Te falta un paso: del rango ${total}, el último, ya puedes ver todo.`;
-  if (actual === 1) return "Tu primer aporte te lleva al rango 2. El camino se revela conforme avanzas.";
-  const resto = actual + 3 <= total ? " Más adelante todo es niebla… por ahora." : "";
-  return `Vas avanzando. Del rango ${actual + 1} ya ves todo y del ${actual + 2}, una pista.${resto}`;
 }

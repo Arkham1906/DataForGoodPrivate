@@ -7,6 +7,7 @@
 // el avance hacia el siguiente nivel. Movimiento: la tarjeta sube 2 px al pasar el puntero (solo con puntero fino) y se
 // encoge un poco al pulsarla; con movimiento reducido, nada se mueve.
 
+import Ayuda from "./Ayuda";
 import { useState } from "react";
 import ProgressBar from "@/components/ui/ProgressBar";
 import { fondoDeAvance } from "@/lib/gamificacion/color-de-avance";
@@ -20,9 +21,11 @@ const T = TEXTOS.medallas;
 function Tarjeta({ m, abrir }: { m: MedallaEnPantalla; abrir: () => void }) {
   const estado = estadoDeMedalla(m);
   const proximo = m.niveles[m.nivel] ?? null;
-  const siguiente = proximo ? T.para(proximo.nombre) : T.completa;
-  const avance = proximo ? T.avance(m.valor, proximo.umbral) : m.valor.toLocaleString("es-MX");
   const pct = proximo ? Math.round((m.valor / proximo.umbral) * 100) : 100;
+  const siguiente = proximo ? T.paraConAnimo(proximo.nombre, proximo.umbral - m.valor, pct) : T.completa;
+  const avance = proximo ? T.avance(m.valor, proximo.umbral) : m.valor.toLocaleString("es-MX");
+  // Lo que pide el siguiente nivel, como una acción; con todo conseguido, qué mide.
+  const meta = proximo ? T.meta(m.mide, proximo.umbral, T.unidad(m.mide, proximo.umbral)) : m.queMide;
   return (
     <button
       type="button"
@@ -51,7 +54,7 @@ function Tarjeta({ m, abrir }: { m: MedallaEnPantalla; abrir: () => void }) {
           />
         ))}
       </span>
-      {m.queMide && <span className="text-[12.5px] leading-snug text-system-600 max-md:hidden">{m.queMide}</span>}
+      {meta && <span className="text-[13px] font-semibold leading-snug text-system-800 max-md:text-xs max-md:font-medium max-md:text-system-700">{meta}</span>}
       <span className="mt-auto flex w-full flex-col gap-1.5 max-md:mt-0">
         <span className="flex justify-between gap-2 text-[12.5px] max-md:text-xs">
           <span className="text-system-700">{siguiente}</span>
@@ -112,8 +115,9 @@ function Encabezado({
     <section aria-labelledby="medallas-titulo" className="flex flex-col gap-5 rounded-lg bg-brand-950 p-6 text-white max-md:gap-4 max-md:p-4">
       <div className="flex flex-wrap items-end justify-between gap-6 max-md:gap-4">
         <div className="min-w-0 flex-[1_1_360px]">
-          <h2 id="medallas-titulo" className="text-[26px] leading-tight font-extrabold max-md:text-[22px]">
+          <h2 id="medallas-titulo" className="flex items-center gap-1 text-[26px] leading-tight font-extrabold max-md:text-[22px]">
             {T.titulo}
+            <Ayuda concepto="medallas" tono="claro" />
           </h2>
           <p className="mt-2 max-w-xl text-sm text-brand-200">{conNivel === 0 ? `${T.intro} ${T.introNueva}` : T.intro}</p>
         </div>
@@ -160,7 +164,7 @@ function CercaDeSubir({ cerca, abrir }: { cerca: MedallaCercaDeSubir[]; abrir: (
               />
               <span className="flex min-w-0 flex-1 flex-col gap-1">
                 <strong className="text-[14.5px] max-md:text-sm">{k.nombre}</strong>
-                <span className="text-[12.5px] text-brand-100 max-md:text-xs">{T.faltanPara(k.umbral - k.valor, k.nivelSiguiente)}</span>
+                <span className="text-[12.5px] text-brand-100 max-md:text-xs">{T.faltanPara(k.umbral - k.valor, k.nivelSiguiente, T.unidad(k.mide, k.umbral - k.valor))}</span>
                 <span className="block h-1.5 overflow-hidden rounded-pill bg-brand-800">
                   <span
                     className="block h-full rounded-pill"

@@ -9,7 +9,7 @@ import { exigirUsuario } from "@/lib/session";
 import { obtenerPantallaDeMedallas } from "@/lib/gamificacion/medallas-pantalla";
 import { TEXTOS } from "@/lib/gamificacion/textos";
 
-export const metadata: Metadata = { title: "Medallas" };
+export const metadata: Metadata = { title: "Logros" };
 
 export default async function MedallasPage() {
   const usuario = await exigirUsuario();

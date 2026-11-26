@@ -3,6 +3,7 @@
 // alguna medalla sube de nivel, y lo registra. Es idempotente: repetirla con el mismo estado no cambia nada, así que
 // se puede llamar de más sin riesgo (RF-GAM-08). Rangos y niveles alcanzados no se retiran (RF-GAM-21, 47).
 
+import { TEXTOS } from "@/lib/gamificacion/textos";
 import type { PoolClient } from "pg";
 import { pool } from "@/lib/db";
 import { notificar, type NuevaNotificacion } from "@/lib/notificaciones/notificaciones";
@@ -165,8 +166,8 @@ async function evaluarRango(client: Consultor, usuarioId: number | string): Prom
   // Reconoce el esfuerzo, sin presionar (RF-GAM-62).
   const mensaje =
     alcanzados.length === 1
-      ? `Alcanzaste el rango ${final.numero}, ${final.nombre}. Es tuyo para siempre.`
-      : `Subiste ${alcanzados.length} rangos de una vez y llegaste al ${final.numero}, ${final.nombre}. Son tuyos para siempre.`;
+      ? TEXTOS.avisos.rango(final.numero, final.nombre)
+      : TEXTOS.avisos.rangos(alcanzados.length, final.numero, final.nombre);
   return [
     {
       usuarioId,
@@ -224,12 +225,15 @@ async function evaluarMedallas(client: Consultor, usuarioId: number | string): P
           [usuarioId, m.id, nivel],
         );
       }
-      const nombreDelNivel = suyos.find((n) => n.nivel === alcanzado)?.nombre ?? `Nivel ${alcanzado}`;
+      const nivelAlcanzado = suyos.find((n) => n.nivel === alcanzado);
+      const nombreDelNivel = nivelAlcanzado?.nombre ?? `Nivel ${alcanzado}`;
+      const umbral = nivelAlcanzado ? Number(nivelAlcanzado.umbral) : null;
+      const hecho = umbral !== null ? TEXTOS.medallas.hecho(umbral, TEXTOS.medallas.unidad(m.mide, umbral)) : "";
       avisos.push({
         usuarioId,
         tipo: "medalla_nivel",
-        titulo: `Medalla ${m.nombre}`,
-        mensaje: `Llegaste a ${nombreDelNivel}. Este nivel es tuyo para siempre.`,
+        titulo: TEXTOS.avisos.logroTitulo(m.nombre),
+        mensaje: TEXTOS.avisos.medalla(nombreDelNivel, hecho),
         // Sin pantalla de Medallas, el aviso lleva a Inicio, donde están las medallas cerca de subir.
         enlace: rutaDePantalla("medallas") ?? "/inicio",
         metadata: { medalla: m.clave, nivel: alcanzado },

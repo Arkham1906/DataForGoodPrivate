@@ -34,6 +34,7 @@ import BotonCrearCampana from "@/components/campanas/BotonCrearCampana";
 import AvisoSinTematicas from "@/components/campanas/AvisoSinTematicas"; 
 import { rutaDePantalla } from "@/lib/gamificacion/pantallas-de-progreso";
 import RangoCompacto from "@/components/gamificacion/RangoCompacto";
+import { TEXTOS } from "@/lib/gamificacion/textos";
 
 export const metadata: Metadata = { title: "Inicio" };
 
@@ -86,12 +87,12 @@ export default async function InicioPage() {
       </div>
 
       {progreso ? (
-        <RangoCompacto progreso={progreso} enlace={miProgreso} idDelTitulo="inicio-rango"/>
+        <RangoCompacto progreso={progreso} enlace={miProgreso} idDelTitulo="inicio-rango" conAyuda />
       ) : (
         <Card className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-extrabold text-system-900">Tu progreso</h2>
-            <p className="text-[13px] text-system-600">Tu rango, tus misiones y racha estan en Mi progreso</p>
+            <p className="text-[13px] text-system-600">{TEXTOS.inicio.sinProgreso}</p>
           </div>
           <ButtonLink href={miProgreso} variant="secondary" size="sm">
             Ver tu progreso

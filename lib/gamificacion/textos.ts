@@ -1,12 +1,17 @@
-// Diccionario de textos de gamificación (2026-11-13, a pedido del responsable): un solo lugar para cambiar lo que la
-// persona lee, sin buscar en cada componente. Sin imports de servidor: lo usan componentes cliente y de servidor.
+// Diccionario de textos de gamificación: un solo lugar para cambiar lo que la persona lee, sin buscar en cada
+// componente. Sin imports de servidor: lo usan componentes cliente y de servidor.
 //
 // Cómo se usa:
-// - Una sección por pantalla o componente (mapaDeAportes, …). La fase 5 de modificaciones-sistema-previas-srs-v1.4
-//   traslada aquí el resto de los textos de gamificación y los reescribe en tono amigable.
+// - Una sección por pantalla o componente (mapaDeAportes, …). `ayudas` reúne las explicaciones de los íconos de
+//   información: una por concepto, la misma en todas las pantallas.
 // - Texto fijo: una cadena. Texto con datos: una función que recibe los datos y devuelve la cadena; así el plural y el
 //   orden de las palabras se cambian aquí también.
 // - Las reglas no viven aquí: un texto puede decir «3 de 5», pero los números los calcula el código.
+//
+// Cómo se escribe (guía de tono, RNF-GAM-15): frases cortas, primero lo que la persona gana o tiene que hacer, sin
+// palabras internas (factor, periodo, base, cuota, trayectoria). Tres ideas viven solo en su ayuda y no se repiten en
+// otros textos: que la racha no espera a que acepten el aporte (ayudas.racha), que un rango no se pierde
+// (ayudas.rango) y que un nivel de medalla no se pierde (ayudas.medallas).
 
 const nf = new Intl.NumberFormat("es-MX");
 const n = (valor: number) => nf.format(valor);
@@ -14,6 +19,8 @@ const n = (valor: number) => nf.format(valor);
 const nfDecimal = new Intl.NumberFormat("es-MX", { minimumFractionDigits: 1, maximumFractionDigits: 2 });
 const d = (valor: number) => nfDecimal.format(valor);
 const plural = (cuenta: number, uno: string, varios: string) => (cuenta === 1 ? uno : varios);
+/** +0.5 → «50 %». */
+const pct = (bonificacion: number) => `${n(Math.round(bonificacion * 100))} %`;
 
 /** Medallas: unidad de cada medida (campo `mide` del catálogo), en singular y plural. */
 const UNIDADES_DE_MEDALLA: Record<string, readonly [string, string]> = {
@@ -30,7 +37,174 @@ const UNIDADES_DE_MEDALLA: Record<string, readonly [string, string]> = {
   tematicas_distintas: ["temática distinta", "temáticas distintas"],
 };
 
+/**
+ * Logros: la siguiente meta de cada medida, dicha como una acción («Logra 15 aportes aceptados»), al estilo de los logros
+ * de Duolingo. La clave es el campo `mide` del catálogo; una medida sin entrada usa la unidad («15 aportes aceptados»).
+ */
+const META_DE_LOGRO: Record<string, (meta: number) => string> = {
+  aportes_aceptados: (m) => `Logra ${n(m)} ${plural(m, "aporte aceptado", "aportes aceptados")}`,
+  aportes_excepcionales: (m) => `Consigue ${n(m)} ${plural(m, "aporte", "aportes")} de 5★`,
+  racha_maxima: (m) => `Llega a una racha de ${n(m)} ${plural(m, "día", "días")}`,
+  campanas_completadas: (m) => `Completa la meta de aportes de ${n(m)} ${plural(m, "campaña", "campañas")}`,
+  campanas_distintas: (m) => `Logra un aporte aceptado en ${n(m)} ${plural(m, "campaña", "campañas distintas")}`,
+  exp_total: (m) => `Gana ${n(m)} EXP`,
+  tipos_distintos: (m) => `Logra aportes aceptados de ${n(m)} tipos de dato distintos`,
+  aceptados_consecutivos: (m) => `Logra ${n(m)} aportes aceptados seguidos, sin un rechazo`,
+  rachas_recuperadas: (m) => `Reaviva tu racha ${n(m)} ${plural(m, "vez", "veces")}`,
+  aportes_en_potenciador: (m) => `Logra ${n(m)} aportes aceptados enviados con un mismo potenciador`,
+  tematicas_distintas: (m) => `Logra un aporte aceptado en ${n(m)} ${plural(m, "temática", "temáticas distintas")}`,
+};
+
 export const TEXTOS = {
+  /** Íconos de información (AyudaEmergente): la etiqueta la lee el lector de pantalla; el texto aparece al abrirlo. */
+  ayudas: {
+    exp: {
+      etiqueta: "Qué es la EXP",
+      texto: "Son tus puntos de experiencia. Los ganas cuando aceptan tus aportes y cuando completas misiones. Con ellos subes de rango.",
+    },
+    rango: {
+      etiqueta: "Qué es un rango",
+      texto: "Es tu nivel en la plataforma. Hay 20. Subes cuando cumples todo lo que pide tu rango. Un rango que alcanzas no se pierde.",
+    },
+    racha: {
+      etiqueta: "Qué es la racha",
+      texto:
+        "Son los días seguidos en que envías al menos un aporte. El día cuenta desde que envías el aporte: no tienes que esperar a que lo acepten. Si un día no envías nada, vuelve a cero, salvo que tengas un protector.",
+    },
+    rachaMaxima: {
+      etiqueta: "Qué es la racha máxima",
+      texto: "Es tu racha más larga. Es la que piden los rangos y el logro Llama Constante.",
+    },
+    protector: {
+      etiqueta: "Qué es un protector",
+      texto: "Cuida tu racha un día que no envíes aportes. Se usa solo. Puedes tener hasta 3 y los ganas en algunas misiones semanales difíciles.",
+    },
+    potenciador: {
+      etiqueta: "Qué es un potenciador",
+      texto:
+        "Durante 15 minutos, los aportes que envíes ganan 50 % más EXP cuando los acepten. Se activa solo cuando estás en la plataforma. Los ganas en algunas misiones semanales difíciles.",
+    },
+    estrellas: {
+      etiqueta: "Qué significan las estrellas",
+      texto: "Quien revisa tu aporte le pone de 1 a 5 estrellas al aceptarlo. Más estrellas, más EXP. Una vez puestas, no cambian.",
+    },
+    dificil: {
+      etiqueta: "Qué es una misión difícil",
+      texto: "Algunas semanas sale una misión más difícil. En lugar de EXP te da un protector o un potenciador; la tarjeta te dice cuál.",
+    },
+    medallas: {
+      etiqueta: "Cómo funcionan los logros",
+      texto:
+        "Suben de nivel con lo que haces en la plataforma, por ejemplo, con tus aportes aceptados. No dan EXP ni te suben de rango. Un nivel que consigues es tuyo para siempre.",
+    },
+    nombreOculto: {
+      etiqueta: "Por qué no veo su nombre",
+      texto: "Ves el nombre y lo que da un rango cuando es el siguiente. Del que sigue después ves una pista.",
+    },
+    cambioDeMisiones: {
+      etiqueta: "Cuándo cambian las misiones",
+      texto: "Las diarias cambian cada día a medianoche. Las semanales, cada lunes a medianoche.",
+    },
+    movimientos: {
+      etiqueta: "Cómo se guardan tus movimientos",
+      texto: "Aquí nada se borra. Si se descuenta EXP, aparece como un movimiento nuevo.",
+    },
+    subtematicas: {
+      etiqueta: "Dónde aparece cada campaña",
+      texto: "Si una campaña tiene varias subtemáticas, aparece en la que más se repite entre tus campañas. Las demás se ven al elegirla.",
+    },
+    lideresPorRango: {
+      etiqueta: "Cómo se ordena por rango",
+      texto: "Ordena por rango. Si dos personas tienen el mismo rango, va primero quien tiene más EXP.",
+    },
+  },
+
+  /** Encabezado de «Mi progreso». */
+  progreso: {
+    encabezado: "Lo que has logrado al aportar.",
+    error: "Todavía no podemos mostrar tu progreso. Intenta de nuevo en unos minutos.",
+  },
+
+  /** Bloque de progreso de Inicio cuando no hay datos. */
+  inicio: {
+    sinProgreso: "Tu rango, tus misiones y tu racha están en Mi progreso.",
+  },
+
+  /** Racha: tarjeta de los últimos 7 días y calendario. */
+  racha: {
+    titulo: "Días de racha",
+    sinRacha: "Sin racha",
+    dias: (dias: number) => `${n(dias)} ${plural(dias, "día", "días")}`,
+    maxima: (dias: number) => `Máxima: ${n(dias)} ${plural(dias, "día", "días")}.`,
+    dia: {
+      confirmado: "Enviaste al menos un aporte. Este día cuenta para tu racha.",
+      protegido: "Un protector cuidó tu racha. Este día no suma, pero tu racha no se rompió.",
+      suspendido: "Tu racha estuvo pausada este día por una suspensión.",
+      hoy: "Envía un aporte hoy para que el día cuente.",
+      sinActividad: "Este día no enviaste aportes.",
+    },
+  },
+
+  /** Avisos (notificaciones) del módulo. */
+  avisos: {
+    rango: (numero: number, nombre: string) => `Alcanzaste el rango ${n(numero)}, ${nombre}.`,
+    rangos: (cuantos: number, numero: number, nombre: string) =>
+      `Subiste ${n(cuantos)} rangos de una vez y llegaste al ${n(numero)}, ${nombre}.`,
+    logroTitulo: (nombre: string) => `Logro: ${nombre}`,
+    /** «Subiste a Brote: llegaste a 15 aportes aceptados.» */
+    medalla: (nivel: string, hecho: string) => `Subiste a ${nivel}${hecho ? `: ${hecho}` : ""}.`,
+    rachaTerminadaTitulo: "Tu racha se interrumpió",
+    rachaTerminada: (dias: number) => `Tu racha de ${n(dias)} ${plural(dias, "día", "días")} terminó. Envía un aporte hoy para empezar otra.`,
+    /** Los protectores cubrieron unos días, pero no todos los que faltaban: un solo aviso en lugar de varios «sigue». */
+    protectoresNoAlcanzaronTitulo: "Tus protectores no alcanzaron",
+    protectoresNoAlcanzaron: (usados: number, dias: number) =>
+      `Usaste ${n(usados)} ${plural(usados, "protector", "protectores")}, pero no alcanzaron para todos los días sin aportes y tu racha de ${n(dias)} ${plural(dias, "día", "días")} terminó. Envía un aporte hoy para empezar otra.`,
+    rachaEnRiesgoTitulo: "Tu racha sigue viva",
+    rachaEnRiesgo: (dias: number) => `Llevas ${n(dias)} días seguidos aportando. Un aporte hoy la mantiene.`,
+    rachaPorEmpezarTitulo: "Empieza una racha",
+    rachaPorEmpezar: "Un aporte hoy es tu primer día de racha. Cada día seguido suma.",
+  },
+
+  /** Camino de rangos (pestaña Progreso), su tabla de requisitos y la ficha de cada rango. */
+  camino: {
+    guia: "Arriba está lo que ya lograste y abajo lo que sigue. Toca un rango para ver qué pide.",
+    intro: (actual: number, total: number) => {
+      if (actual >= total) return `Llegaste a la cumbre: recorriste los ${n(total)} rangos.`;
+      if (actual === total - 1) return `Te falta un paso. Del rango ${n(total)}, el último, ya puedes ver todo.`;
+      if (actual === 1) return "Envía tu primer aporte para subir al rango 2. Cada rango que subes te muestra más del camino.";
+      return `Vas avanzando. Del rango ${n(actual + 1)} ya ves todo y del ${n(actual + 2)}, una pista.`;
+    },
+    notaUltimo: "Llegaste al último rango.",
+    notaAvistado: (numero: number) => `Verás su nombre cuando llegues al rango ${n(numero)}.`,
+    tablaTitulo: "Lo que pide cada rango",
+    tablaCaption: "Lo que pide cada rango. La fila marcada es el tuyo.",
+    horizonte: (actual: number, total: number) => {
+      if (actual >= total) return "Ya conoces todos los rangos. Aquí ves lo que pidió cada uno.";
+      if (actual >= total - 1) return "Ya puedes ver todos los rangos.";
+      const primero = actual + 3;
+      if (primero > total) return `Del rango ${n(total)} ya tienes una pista. Verás su nombre cuando sea tu siguiente rango.`;
+      return primero === total
+        ? `Del rango ${n(total)} ves lo que pide; lo demás se descubre al acercarte.`
+        : `De los rangos ${n(primero)} a ${n(total)} ves lo que piden; lo demás se descubre al acercarte.`;
+    },
+    fichaUltimo: "Es el último rango.",
+    completo: "Cumpliste todo. En un momento subes al siguiente rango.",
+    avatarDetalle: "Tu avatar cambia con tu nuevo rango.",
+    completoEtiqueta: "Camino completo",
+    completoTitulo: "Llegaste al último rango",
+    completoTexto: (total: number) => `Llegaste al rango ${n(total)}, el último. Tus logros siguen subiendo con cada aporte aceptado.`,
+    verLogros: "Ver tus logros",
+  },
+
+  /** «Cómo calificaron tus aportes», en Mis aportes. */
+  calificaciones: {
+    titulo: "Cómo calificaron tus aportes",
+    vacio: "Todavía no tienes aportes con estrellas. Cada aporte aceptado recibe de 1 a 5.",
+    resumen: (calificados: number, altos: number, maximos: number) =>
+      `${n(calificados)} ${plural(calificados, "aporte aceptado", "aportes aceptados")}: ${n(altos)} de 4★ o más y ${n(maximos)} de 5★.`,
+    pie: "Para subir de rango cuentan los de 4★ o más y los de 5★. Un aporte de 5★ cuenta en los dos.",
+  },
+
   mapaDeAportes: {
     titulo: "Tu mapa de aportes",
     resumen: (campanas: number, tematicas: number, aceptados: number, enRevision: number) =>
@@ -41,7 +215,7 @@ export const TEXTOS = {
     vacioTexto: "Cada campaña en la que aportes aparecerá aquí, con un punto por cada aporte.",
     vacioIntereses: "Tus intereses",
     vacioCta: "Explorar campañas",
-    vacioPie: "Tu primer aporte aceptado te lleva al rango 2.",
+    vacioPie: "Envía tu primer aporte para subir al rango 2.",
     centro: "Tú",
 
     filtrosEtiqueta: "Mostrar en el mapa",
@@ -87,8 +261,8 @@ export const TEXTOS = {
       `${n(todos)} ${plural(todos, "aporte aprobado", "aportes aprobados")} entre todas las personas que participan. ${n(tuyos)} ${plural(tuyos, "es tuyo", "son tuyos")}.`,
     barraAria: (meta: number, todos: number, tuyos: number) => `Meta ${n(meta)}, aprobados ${n(todos)}, tuyos ${n(tuyos)}`,
     barraNota: "Verde oscuro: tu parte. Verde claro: el resto de la comunidad.",
-    cuotaCompleta: (bono: number) => `Completaste tu cuota: bono de ${n(bono)} EXP.`,
-    cuotaAvance: (tuyos: number, cuota: number) => `Tu cuota: ${n(Math.min(tuyos, cuota))} de ${n(cuota)}.`,
+    cuotaCompleta: (bono: number) => `Completaste la meta de aportes de esta campaña: ganaste ${n(bono)} EXP extra.`,
+    cuotaAvance: (tuyos: number, cuota: number) => `Tu meta de aportes: ${n(Math.min(tuyos, cuota))} de ${n(cuota)}.`,
     campanaListaTitulo: (cuantos: number) => `Tus ${n(cuantos)} ${plural(cuantos, "aporte", "aportes")}`,
     campanaListaFiltrada: (filtro: string, cuantos: number) => `Tus aportes ${filtro} aquí: ${n(cuantos)}`,
     campanaSinCoincidencias: "Ninguno de tus aportes en esta campaña coincide con el filtro.",
@@ -104,15 +278,13 @@ export const TEXTOS = {
     aporteEnviado: "Enviado",
     aporteCampana: "Campaña",
     aporteCalculo: "Cálculo",
-    calculoPendiente: "Se calcula cuando quien revisa lo acepte.",
+    calculoPendiente: "Sabrás cuánta EXP te da cuando lo acepten.",
     calculo: (base: number, calidad: string, factor: string | null, exp: number, motivoFactor: string) =>
-      `${n(base)} base × ${calidad} por calificación${factor ? ` × ${factor} ${motivoFactor}` : ""} = ${n(exp)} EXP`,
+      `${n(base)} EXP del tipo × ${calidad} por estrellas${factor ? ` × ${factor} de extra ${motivoFactor}` : ""} = ${n(exp)} EXP`,
     motivoDelFactor: (potenciador: boolean, especial: boolean) =>
       potenciador && especial ? "(potenciador y campaña especial)" : potenciador ? "(potenciador)" : especial ? "(campaña especial)" : "",
-    notaAceptado: "La calificación la asigna quien revisa la campaña al aceptar el aporte. Es definitiva: no cambia después.",
-    notaPendiente:
-      "Mientras está en revisión puedes eliminarlo desde el detalle. Al aceptarse, la decisión y la calificación son definitivas.",
-    notaRechazado: "Un aporte rechazado no recibe calificación ni EXP.",
+    notaPendiente: "Todavía lo están revisando. Mientras tanto, puedes eliminarlo desde el detalle.",
+    notaRechazado: "Este aporte no fue aceptado, así que no recibe estrellas ni EXP.",
     verDetalle: "Ver el detalle del aporte",
 
     filtroTipo: "Filtro",
@@ -135,7 +307,7 @@ export const TEXTOS = {
     migaGeneral: "Todas tus temáticas",
     migaVolver: "Todas las temáticas",
     migasEtiqueta: "Dónde estás en el mapa",
-    escapeAyuda: "Escape regresa un nivel.",
+    escapeAyuda: "Con la tecla Escape vuelves un paso atrás.",
     subtematicaOtras: "Otras",
     subtematicaSin: "Sin subtemática",
     subtematicaAria: (nombre: string) => `Subtemática ${nombre}`,
@@ -144,8 +316,6 @@ export const TEXTOS = {
       `${n(aceptados)} ${plural(aceptados, "aporte aceptado", "aportes aceptados")}` +
       (enRevision > 0 ? ` y ${n(enRevision)} en revisión.` : "."),
     subtematicasTitulo: "Subtemáticas",
-    reglaDeSubtematica:
-      "Si una campaña tiene varias subtemáticas, aparece en la que más se repite entre tus campañas de esta temática. Las demás se ven al elegirla.",
     subtematicaTipo: (tematica: string) => `Subtemática de ${tematica}`,
     subtematicaResumen: (campanas: number) => `${n(campanas)} ${plural(campanas, "campaña tuya", "campañas tuyas")}.`,
     otrasAgrupa: (nombres: string[]) => `Agrupa: ${nombres.join(", ")}.`,
@@ -186,7 +356,7 @@ export const TEXTOS = {
   baja: {
     sePierde: (rango: number, nombre: string, exp: number, medallas: number) =>
       `Al borrarse la cuenta se pierden tu rango ${n(rango)} (${nombre}), tus ${n(exp)} EXP` +
-      (medallas > 0 ? `, tus ${n(medallas)} ${plural(medallas, "medalla", "medallas")}` : "") +
+      (medallas > 0 ? `, tus ${n(medallas)} ${plural(medallas, "logro", "logros")}` : "") +
       " y todo tu progreso; no se pueden recuperar.",
     filaEtiqueta: "Rango y experiencia",
     filaValor: (rango: number, exp: number) => `Rango ${n(rango)} y ${n(exp)} EXP se pierden`,
@@ -194,7 +364,7 @@ export const TEXTOS = {
   /** Pestaña Historial de EXP de Mi progreso (2026-11-14; lienzo aprobado el mismo día). */
   historialDeExp: {
     titulo: "Historial de EXP",
-    intro: "Cada EXP que ganaste, de dónde vino y cómo se calculó. Solo tú ves esta información.",
+    intro: "Toda la EXP que has ganado y de dónde vino. Solo tú la ves.",
     total: "EXP acumulada",
     /** Lo que pide completar el rango actual (presentación del 2026-11-22). */
     siguiente: (rango: number, meta: number, faltan: number) =>
@@ -205,7 +375,7 @@ export const TEXTOS = {
     desglose: {
       aportes: "Aportes aceptados",
       misiones: "Misiones",
-      bonos: "Bonos de cuota",
+      bonos: "Bonos por meta de campaña",
       descuentos: "Descuentos por reporte",
       ajustes: "Ajustes",
     },
@@ -219,7 +389,7 @@ export const TEXTOS = {
     tipos: {
       aporte: "Aporte aceptado",
       mision: "Misión",
-      bono: "Bono de cuota",
+      bono: "Bono por meta de campaña",
       descuento: "Descuento por reporte",
       ajuste: "Ajuste de EXP",
     },
@@ -234,8 +404,8 @@ export const TEXTOS = {
     tituloAporte: (tipo: string | null, estrellas: number, nombre: string) =>
       `${tipo ? `${tipo} · ` : ""}${n(estrellas)}★ ${nombre}`,
     tituloAporteSinDatos: "Aporte aceptado",
-    tituloBono: (cuota: number) => `Completaste la cuota de ${n(cuota)} ${plural(cuota, "aporte", "aportes")}`,
-    tituloBonoSinDatos: "Completaste la cuota de una campaña",
+    tituloBono: (cuota: number) => `Completaste la meta de ${n(cuota)} ${plural(cuota, "aporte", "aportes")}`,
+    tituloBonoSinDatos: "Completaste la meta de aportes de una campaña",
     tituloDescuento: "Se descontó un aporte reportado",
     tituloAjuste: "Ajuste de EXP",
     campanaBorrada: "Campaña que ya no existe",
@@ -246,36 +416,37 @@ export const TEXTOS = {
 
     detalle: {
       calculo: "Cálculo",
-      factor: "Factor",
+      factor: "Extra",
       enviado: "Enviado",
       recompensa: "Recompensa",
-      periodo: "Periodo",
+      periodo: "Válida",
       limites: "Límites",
       motivo: "Motivo",
-      devuelve: "Devuelve",
+      devuelve: "Se descuentan",
     },
-    /** «20 base × 1.75 por calificación = 35 EXP»; con factor y redondeo, «… × 1.5 de factor = 67.5 → 68 EXP». */
-    calculoAporte: (base: number, multCalidad: number, factor: number, sinRedondear: number, exp: number) =>
-      `${n(base)} base × ${d(multCalidad)} por calificación` +
-      (factor !== 1 ? ` × ${d(factor)} de factor` : "") +
-      (sinRedondear !== exp ? ` = ${n(sinRedondear)} → ${n(exp)} EXP` : ` = ${n(exp)} EXP`),
+    /** «20 EXP por ser foto × 1.75 por 4 estrellas × 1.5 de extra = 53 EXP» (sin el paso del redondeo). */
+    calculoAporte: (base: number, tipo: string | null, multCalidad: number, estrellas: number | null, factor: number, exp: number) =>
+      `${n(base)} EXP ${tipo ? `por ser ${tipo.toLowerCase()}` : "del tipo"} × ${d(multCalidad)} por ${estrellas ? `${n(estrellas)} ${plural(estrellas, "estrella", "estrellas")}` : "estrellas"}` +
+      (factor !== 1 ? ` × ${d(factor)} de extra` : "") +
+      ` = ${n(exp)} EXP`,
     factorAporte: (potenciador: number, multCampana: number) =>
-      "1" +
-      (potenciador > 0 ? ` + ${d(potenciador)} del potenciador que tenías activo al enviar` : "") +
-      (multCampana !== 1 ? ` + ${d(multCampana - 1)} del multiplicador de la campaña` : ""),
+      [
+        potenciador > 0 ? `${pct(potenciador)} más, porque enviaste con un potenciador activo` : null,
+        multCampana !== 1 ? `${d(multCampana - 1)} del multiplicador de la campaña` : null,
+      ]
+        .filter(Boolean)
+        .join(" y "),
     calculoBono: (porcentaje: number, referencia: number, sinLimites: number, exp: number) =>
-      `${n(porcentaje)} % de ${n(referencia)} EXP de referencia = ` +
-      (sinLimites === exp ? `${n(exp)} EXP` : `${n(sinLimites)} → ${n(exp)} EXP`),
-    limitesBono: (minimo: number, maximo: number) => `Mínimo ${n(minimo)}, máximo ${n(maximo)}`,
-    notaBono: (cuota: number) =>
-      `La referencia es base × calificación de esos ${n(cuota)} ${plural(cuota, "aporte", "aportes")}, sin potenciador. Se da una sola vez por campaña.`,
-    recompensaMision: (exp: number) => `${n(exp)} EXP fijos de la misión`,
-    notaMision: "Las misiones suman a tu EXP, pero no cuentan como aportes ni como calificación.",
+      `${n(porcentaje)} % de los ${n(referencia)} EXP que te dieron esos aportes = ` +
+      (sinLimites === exp ? `${n(exp)} EXP` : `${n(sinLimites)}, ajustado a ${n(exp)} EXP`),
+    limitesBono: (minimo: number, maximo: number) => `Entre ${n(minimo)} y ${n(maximo)} EXP`,
+    notaBono: () => "Se cuenta sin el extra de los potenciadores y se da una sola vez por campaña.",
+    recompensaMision: (exp: number) => `${n(exp)} EXP de la misión`,
+    notaMision: "Suma a tu EXP, pero no cuenta como aporte.",
     motivoDescuento: (tipo: string | null, aceptadoEl: string | null) =>
       `Un reporte rechazó ${tipo ? `tu aporte de ${tipo.toLowerCase()}` : "un aporte tuyo"}` +
       (aceptadoEl ? ` que se aceptó el ${aceptadoEl}.` : "."),
     devuelve: (exp: number) => `Los ${n(exp)} EXP que sumó ese aporte`,
-    notaDescuento: "Tu rango, tus medallas y las misiones que ya completaste no cambian.",
     marcaDescontado: (fecha: string) => `Descontado el ${fecha}`,
     notaDescontado: (fecha: string) => `Un reporte descontó esta EXP el ${fecha}. Este movimiento se conserva tal como fue.`,
     verAporte: "Ver el aporte",
@@ -293,68 +464,84 @@ export const TEXTOS = {
     vacioFiltro: "Todavía no tienes movimientos de este tipo.",
     errorPagina: "No se pudieron cargar los movimientos.",
     reintentar: "Intentar de nuevo",
-    pie: "Los movimientos no se borran ni se modifican. Un descuento se registra como un movimiento nuevo y el original se conserva.",
 
     vacioTitulo: "Aquí verás cada EXP que ganes",
     vacioTexto:
-      "Tu primer aporte aceptado te da EXP y te lleva al rango 2. Las misiones y los bonos de cuota también aparecerán aquí.",
+      "Tu primer aporte aceptado te da EXP. Las misiones y los bonos por meta de campaña también aparecerán aquí.",
     vacioCta: "Explorar campañas",
     error: "Todavía no podemos mostrar tu historial de EXP. Intenta de nuevo en unos minutos.",
     cargandoPagina: "Cargando tu historial de EXP…",
 
     comoTitulo: "Cómo se calcula",
-    comoFormula: "EXP = base del tipo × calificación × factor",
-    comoRedondeo: ", redondeado al entero más cercano.",
-    comoBase: (base: number) => `${n(base)} base`,
-    comoTiposEtiqueta: "EXP base por tipo de aporte",
-    comoCalificacionesEtiqueta: "Multiplicador por calificación",
+    comoFormula: "Tu EXP = EXP del tipo de aporte × extra por estrellas × extra del potenciador",
+    comoRedondeo: ", sin decimales.",
+    comoBase: (base: number) => `${n(base)} EXP`,
+    comoTiposEtiqueta: "EXP por tipo de aporte",
+    comoCalificacionesEtiqueta: "Extra por estrellas",
     comoMultiplicador: (multiplicador: number) => `×${d(multiplicador)}`,
-    comoPotenciador: (bonificacion: number) => `Un potenciador activo cuando envías suma +${d(bonificacion)} al factor.`,
+    comoPotenciador: (bonificacion: number) => `Si envías con un potenciador activo, ganas ${pct(bonificacion)} más.`,
     comoBono: (porcentaje: number, cuotaMinima: number, minimo: number, maximo: number) =>
-      `Al completar la cuota de una campaña (de ${n(cuotaMinima)} aportes o más) recibes un bono del ${n(porcentaje)} % de la EXP de esos aportes, sin potenciador (mínimo ${n(minimo)}, máximo ${n(maximo)}).`,
-    comoMisiones: "Las misiones dan una cantidad fija de EXP.",
-    comoDescuento: "Si un reporte rechaza un aporte aceptado, se descuenta su EXP. Tu rango y tus medallas no cambian.",
-    comoPie: "Valores vigentes de la plataforma. Si cambian, lo ya ganado no se recalcula.",
+      `Si completas la meta de aportes de una campaña, recibes ${n(porcentaje)} % de la EXP de esos aportes, entre ${n(minimo)} y ${n(maximo)} EXP. Solo en campañas con meta de ${n(cuotaMinima)} aportes o más.`,
+    comoMisiones: "Cada misión da una cantidad fija de EXP.",
+    comoDescuento: "Si un reporte rechaza un aporte que ya estaba aceptado, se descuenta la EXP que te dio.",
+    comoPie: "Si estos valores cambian, la EXP que ya ganaste se queda igual.",
   },
-  /** Pestaña Medallas de Mi progreso (2026-11-15; lienzo aprobado el mismo día). */
+  /**
+   * Pestaña «Logros» de Mi progreso (en el código y en la base siguen siendo medallas). Cada logro dice su siguiente
+   * meta como una acción y anima cuando falta poco.
+   */
   medallas: {
-    titulo: "Medallas",
-    intro: "Evolucionan cuando crece lo que miden. No dan EXP ni cuentan para tu rango, y un nivel alcanzado es tuyo para siempre.",
-    introNueva: "Tu primer aporte aceptado empieza a llenar varias a la vez.",
-    conNivel: "medallas con nivel",
-    niveles: "niveles desbloqueados",
+    titulo: "Logros",
+    intro: "Cada logro sube de nivel con lo que vas haciendo en la plataforma.",
+    introNueva: "Tu primer aporte aceptado ya avanza varios a la vez.",
+    conNivel: "logros conseguidos",
+    niveles: "niveles conseguidos",
     deTotal: (total: number) => ` de ${n(total)}`,
     cerca: "Más cerca de subir",
-    faltanPara: (faltan: number, nivel: string) => `Faltan ${n(faltan)} para ${nivel}`,
-    grupos: { hitos: "Medallas de hitos", adicionales: "Medallas adicionales" } as Record<string, string>,
-    resumenDeGrupo: (con: number, total: number) => `${n(con)} de ${n(total)} con nivel`,
+    /** «Faltan 2 aportes aceptados para Brote»; sin unidad conocida, «Faltan 2 para Brote». */
+    faltanPara: (faltan: number, nivel: string, unidad = "") =>
+      `${plural(faltan, "Falta", "Faltan")} ${n(faltan)}${unidad ? ` ${unidad}` : ""} para ${/^nivel \d+$/i.test(nivel.trim()) ? nivel.trim().toLowerCase() : nivel}`,
+    grupos: { hitos: "Logros principales", adicionales: "Más logros" } as Record<string, string>,
+    resumenDeGrupo: (con: number, total: number) => `${n(con)} de ${n(total)} conseguidos`,
 
-    sinNivel: "Sin desbloquear",
+    sinNivel: "Por conseguir",
     /** «Arbusto · nivel 3 de 5»; si el nivel no tiene nombre propio («Nivel 3»), solo «Nivel 3 de 5». */
     nivelDe: (nombre: string, nivel: number, total: number) =>
       /^nivel \d+$/i.test(nombre.trim()) ? `Nivel ${n(nivel)} de ${n(total)}` : `${nombre} · nivel ${n(nivel)} de ${n(total)}`,
     nivelMaximo: (nombre: string) => `Nivel máximo · ${nombre}`,
     para: (nivel: string) => `Para ${nivel}`,
-    completa: "Completaste todos sus niveles",
+    /** Etiqueta del siguiente nivel en la tarjeta: anima cuando falta poco. */
+    paraConAnimo: (nivel: string, faltan: number, porcentaje: number) =>
+      faltan === 1 ? `¡Solo falta 1 para ${nivel}!` : porcentaje >= 75 ? `¡Ya casi llegas a ${nivel}!` : `Para ${nivel}`,
+    /** La siguiente meta como acción: «Logra 15 aportes aceptados». */
+    meta: (mide: string | null, valor: number, unidad: string): string => {
+      const f = mide ? META_DE_LOGRO[mide] : undefined;
+      return f ? f(valor) : `${n(valor)} ${unidad}`.trim();
+    },
+    /** Lo que se logró al subir de nivel, para el aviso: «llegaste a 15 aportes aceptados». */
+    hecho: (valor: number, unidad: string) => (unidad ? `llegaste a ${n(valor)} ${unidad}` : ""),
+    completa: "Conseguiste todos sus niveles",
     avance: (valor: number, meta: number) => `${n(valor)} de ${n(meta)}`,
     tarjetaAria: (nombre: string, estado: string, siguiente: string, avance: string) =>
       `${nombre}, ${estado}. ${siguiente}: ${avance}. Abre su ficha.`,
 
     fichaPosicion: (posicion: number, total: number) => `${n(posicion)} de ${n(total)}`,
-    anterior: (nombre: string) => `Ver la medalla anterior: ${nombre}`,
-    siguiente: (nombre: string) => `Ver la medalla siguiente: ${nombre}`,
+    anterior: (nombre: string) => `Ver el logro anterior: ${nombre}`,
+    siguiente: (nombre: string) => `Ver el logro siguiente: ${nombre}`,
     cerrar: "Cerrar",
     valorHoy: (unidad: string, faltan: number | null, nivel: string | null) =>
-      `${unidad}.` + (faltan !== null && nivel ? ` Faltan ${n(faltan)} para ${nivel}.` : " Ya tienes todos sus niveles."),
+      `${unidad}.` +
+      (faltan !== null && nivel
+        ? ` ${faltan === 1 ? "¡Te falta solo 1" : `Te faltan ${n(faltan)}`} para ${nivel}${faltan === 1 ? "!" : "."}`
+        : " Conseguiste todos sus niveles."),
     nivelesTitulo: "Niveles",
     umbral: (valor: number, unidad: string) => `${n(valor)} ${unidad}`,
-    alcanzadoEl: (fecha: string) => `Alcanzado el ${fecha}`,
-    alcanzado: "Alcanzado",
-    porAlcanzar: "Por alcanzar",
-    permanencia: "No perderas nunca un nivel de medalla una vez obtenido",
+    alcanzadoEl: (fecha: string) => `Conseguido el ${fecha}`,
+    alcanzado: "Conseguido",
+    porAlcanzar: "Por conseguir",
     notas: {
       aceptados_consecutivos:
-        "Cuenta tu mejor secuencia de aportes aceptados seguidos, ordenados por hora de envío. Si un rechazo llega tarde la cifra puede bajar, pero el nivel que ya alcanzaste se queda.",
+        "Cuenta tu mejor serie de aportes aceptados sin un rechazo en medio. La cifra puede bajar si rechazan uno después.",
     } as Record<string, string>,
     /** Unidad de lo que mide cada medalla, en singular o plural (campo `mide` del catálogo); "" si no la conoce. */
     unidad: (mide: string | null, cantidad: number): string => {
@@ -362,17 +549,16 @@ export const TEXTOS = {
       return u ? plural(cantidad, u[0], u[1]) : "";
     },
 
-    error: "Todavía no podemos mostrar tus medallas. Intenta de nuevo en unos minutos.",
-    cargando: "Cargando tus medallas…",
+    error: "Todavía no podemos mostrar tus logros. Intenta de nuevo en unos minutos.",
+    cargando: "Cargando tus logros…",
   },
   /** Misiones de inicio en /progreso/misiones (2026-11-18; SRS v1.4: RF-GAM-103). */
   misionesDeInicio: {
     titulo: "Tu primera semana",
-    plazo: "Terminan en",
+    plazo: "Desaparecen en",
     filtro: "Primera semana",
     nombreDelPeriodo: "Primera semana",
-    comoCuentan:
-      "Durante tus primeros 7 días tienes también las misiones de tu primera semana. Salen una sola vez y, al terminar la semana, las que no completaste desaparecen.",
+    comoCuentan: "Tus primeros 7 días tienes misiones extra. Las que no completes desaparecen al terminar la semana.",
   },
 
   /**
@@ -380,11 +566,22 @@ export const TEXTOS = {
    * de las difíciles y la recompensa.
    */
   misiones: {
-    /** Cuándo empiezan y terminan los periodos: de calendario en hora de Tepic, como la racha. */
-    periodos: "Las misiones diarias cambian a las 00:00 y las semanales cada lunes a las 00:00, hora de Tepic, igual que tu racha.",
+    titulo: "Misiones",
+    intro: "Retos que cambian cada día y cada semana. Cada uno que completas te da EXP y te acerca al siguiente rango.",
+    completadas: (total: number) => `${plural(total, "misión completada", "misiones completadas")} en total`,
+    metaDelRango: (rango: number, meta: number, faltan: number) =>
+      faltan <= 0
+        ? `Ya tienes las misiones para completar tu rango ${n(rango)}.`
+        : `Completar tu rango ${n(rango)} pide ${n(meta)}: ${faltan === 1 ? "te falta 1" : `te faltan ${n(faltan)}`}.`,
+    error: "Todavía no podemos mostrar tus misiones. Intenta de nuevo en unos minutos.",
+    diarias: "Diarias",
+    semanales: "Semanales",
+    /** Fechas en que vale el grupo de misiones. */
+    vigencia: (fechas: string) => `Válidas: ${fechas}`,
+    comoCuentanTitulo: "Cómo cuentan",
     cuenta: {
-      envio: "Cuenta al enviar, aunque no lo acepten",
-      aceptacion: "Cuenta cuando lo aceptan, en el periodo en que lo enviaste",
+      envio: "Cuenta al enviar",
+      aceptacion: "Cuenta cuando lo aceptan",
     },
     dificil: "Difícil",
     /** «+20 EXP» o «1 protector». */
@@ -393,9 +590,8 @@ export const TEXTOS = {
     /** Notificación al completarla: «recibiste 20 EXP», «ganaste 1 protector». */
     ganaste: (texto: string) => (texto.endsWith("EXP") ? `recibiste ${texto}` : `ganaste ${texto}`),
     comoCuentan: [
-      "Las misiones «Envía…» cuentan al enviar el aporte, aunque después no lo acepten.",
-      "Las misiones «Logra…» cuentan cuando aceptan el aporte, en el periodo en que lo enviaste.",
-      "Cada semana puede salir una misión difícil. Da un protector o un potenciador en lugar de EXP; la tarjeta dice cuál.",
+      "«Cuenta al enviar»: avanza en cuanto envías el aporte.",
+      "«Cuenta cuando lo aceptan»: avanza cuando lo aceptan, aunque sea días después, y cuenta para el día en que lo enviaste.",
     ] as readonly string[],
   },
 
@@ -418,11 +614,11 @@ export const TEXTOS = {
     noCabeAmbos: (objeto: "protector" | "potenciador") =>
       `Tienes el máximo de protectores y de potenciadores, así que este ${objeto} no cabe y se pierde. Cuando uses alguno, podrás guardar los que ganes después.`,
     explica: {
-      protector: "Cubre un día sin aportes para que tu racha no se rompa. Puedes guardar hasta 3.",
-      potenciador: "Suma +0.5 a la EXP de los aportes que envíes durante 15 minutos. Empieza solo, o espera su turno si ya tienes uno activo.",
+      protector: "Cuida tu racha un día que no envíes aportes. Puedes tener hasta 3.",
+      potenciador: "Durante 15 minutos, tus aportes ganan 50 % más EXP. Si ya tienes uno activo, este espera su turno.",
     },
     nota: (objeto: "protector" | "potenciador") =>
-      `Con «No, gracias» el ${objeto} se pierde. Si cierras la ventana, te lo preguntamos en tu siguiente visita.`,
+      `Si eliges «No, gracias», pierdes el ${objeto}. Si cierras esta ventana, te volvemos a preguntar la próxima vez.`,
     cambiar: (alternativa: "protector" | "potenciador") => `Cambiar por un ${alternativa}`,
     noGracias: "No, gracias",
     entendido: "Entendido",
@@ -444,10 +640,10 @@ export const TEXTOS = {
       enEspera: (cuantos: number, maximo: number) => `En espera: ${n(cuantos)} de ${n(maximo)}`,
       activo: "Ya está activo.",
       activoAlVolver: "Lo ganaste cuando aceptaron tu aporte y se activó al volver.",
-      dondeVerlo: "Lo verás en el menú lateral (en tu teléfono, en la burbuja) mientras dure.",
+      dondeVerlo: "Mientras dure, lo ves en el menú de la izquierda o, en el teléfono, en la burbuja.",
       espera: (reloj: string | null) =>
         reloj ? `Empieza solo cuando termine el que tienes activo (quedan ${reloj}).` : "Empieza solo cuando termine el que tienes activo.",
-      usado: "Ya se usó: estuvo activo mientras no estabas.",
+      usado: "Se activó y terminó mientras no estabas.",
       protectorSolo: "Se usa solo, sin que hagas nada, el día que no envíes aportes.",
     },
     tarjeta: {
@@ -460,7 +656,7 @@ export const TEXTOS = {
   /** Potenciador en el menú lateral y en la burbuja de teléfono*/
   potenciadorFlotante: {
     titulo: "Potenciador activo",
-    suma: (bonificacion: number) => `+${d(bonificacion)} a lo que envíes ahora.`,
+    suma: (bonificacion: number) => `${pct(bonificacion)} más EXP en lo que envías ahora.`,
     enEspera: (cuantos: number) => (cuantos === 1 ? "1 más en espera." : `${n(cuantos)} más en espera.`),
     reloj: (segundos: number) => `${Math.floor(segundos / 60)}:${String(segundos % 60).padStart(2, "0")}`,
     quedan: (segundos: number) => {
@@ -480,8 +676,8 @@ export const TEXTOS = {
     etapa: (etapa: number) => `Etapa ${n(etapa)} de tu avatar`,
     paraCompletar: "Para completar tu rango",
     requisitos: (cumplidos: number, total: number) => `${n(cumplidos)} de ${n(total)} requisitos`,
-    luegoPasas: (numero: number) => `Luego pasas al rango ${n(numero)}.`,
-    ultimoRango: "Llegaste al último rango: completaste la trayectoria. Es permanente.",
+    luegoPasas: (numero: number) => `Al cumplirlos, subes al rango ${n(numero)}.`,
+    ultimoRango: "Llegaste al último rango.",
     verProgreso: "Ver tu progreso",
     cifras: {
       exp: "EXP total",
@@ -489,11 +685,11 @@ export const TEXTOS = {
       dias: (dias: number) => (dias === 0 ? "Sin racha" : `${n(dias)} ${dias === 1 ? "día" : "días"}`),
       maxima: (dias: number) => `Máxima: ${n(dias)} ${dias === 1 ? "día" : "días"}`,
       misiones: "Misiones completadas",
-      medallas: "Medallas con nivel",
+      medallas: "Logros conseguidos",
       deTotal: (valor: number, total: number) => `${n(valor)} de ${n(total)}`,
       historial: "Historial",
       verMisiones: "Misiones",
-      verMedallas: "Medallas",
+      verMedallas: "Logros",
     },
     misiones: {
       titulo: "Misiones",
@@ -513,7 +709,7 @@ export const TEXTOS = {
     },
     exp: {
       titulo: "EXP reciente",
-      vacio: "Aún no tienes movimientos de EXP. Llegan cuando se acepta un aporte o completas una misión.",
+      vacio: "Todavía no ganas EXP. La ganas cuando aceptan un aporte tuyo o completas una misión.",
       verHistorial: "Ver historial de EXP →",
     },
     error: (que: string) => `Todavía no podemos mostrar ${que}. Intenta de nuevo en unos minutos.`,
@@ -526,41 +722,40 @@ export const TEXTOS = {
     continuar: "Continuar",
     listo: "Listo",
     /** Botón que pasa al siguiente paso de la cola. */
-    siguiente: { racha: "Siguiente: tu racha", rango: "Siguiente: tu nuevo rango", objeto: "Siguiente: tu recompensa", medallas: (cuantas: number, primera: string) => (cuantas === 1 ? `Siguiente: ${primera}` : `Siguiente: ${n(cuantas)} medallas`) },
+    siguiente: { racha: "Siguiente: tu racha", rango: "Siguiente: tu nuevo rango", objeto: "Siguiente: tu recompensa", medallas: (cuantas: number, primera: string) => (cuantas === 1 ? `Siguiente: ${primera}` : `Siguiente: ${n(cuantas)} logros`) },
 
     rangoEyebrow: (numero: number, total: number) => `Nuevo rango · ${n(numero)} de ${n(total)}`,
     rangosEyebrow: (cuantos: number, numero: number, total: number) => `Subiste ${n(cuantos)} rangos · ${n(numero)} de ${n(total)}`,
-    rangoTexto: "Es tuyo para siempre: no se pierde por inactividad ni por perder la racha.",
-    rangosTexto: (numero: number) => `Llegaste al rango ${n(numero)}. Todos son tuyos para siempre.`,
+    rangoTexto: "Ya puedes ver lo que pide el siguiente.",
+    rangosTexto: (numero: number) => `Llegaste al rango ${n(numero)}.`,
     intermedio: (numero: number, nombre: string) => `También pasaste por el rango ${n(numero)} · ${nombre}`,
     intermedioDetalle: "Se alcanzaron juntos.",
     etapa: (etapa: number) => `Etapa ${n(etapa)} de tu avatar`,
-    etapaDetalle: "Tu avatar evolucionó y no retrocede.",
+    etapaDetalle: "Tu avatar cambió con tu nuevo rango.",
     insignia: (rango: number) => `Insignia del rango ${n(rango)}`,
-    insigniaDetalle: "Ya está en tu trayectoria.",
-    coleccionable: (nombre: string) => `Coleccionable: ${nombre}`,
-    coleccionableDetalle: "Ya está en tu inventario.",
+    insigniaDetalle: "Ya aparece en tu camino de rangos.",
+    coleccionable: (nombre: string) => `Objeto para tu avatar: ${nombre}`,
+    coleccionableDetalle: "Ya lo tienes en tu inventario.",
     revelado: (numero: number, nombre: string) => `Se reveló el rango ${n(numero)} · ${nombre}`,
     reveladoDetalle: (avistado: number | null) =>
-      "Es al que pasas cuando completes tu nuevo rango." + (avistado ? ` Y avistaste el ${n(avistado)}.` : ""),
-    ultimoRango: "Completaste la trayectoria",
-    ultimoRangoDetalle: "Es el último rango. Nadie te lo quita.",
+      "Es el rango que sigue." + (avistado ? ` Y ya puedes ver una pista del ${n(avistado)}.` : ""),
+    ultimoRango: "Llegaste al último rango",
+    ultimoRangoDetalle: "Recorriste todo el camino.",
     verTrayectoria: "Ver tu progreso",
 
-    medallaEyebrow: "Nuevo nivel de medalla",
-    medallaPrimera: "Tu primer nivel de esta medalla",
-    medallaSalto: (cuantos: number) => `Subiste ${n(cuantos)} niveles de una vez`,
-    medallaFuego: "Tu racha alimentó una medalla",
-    medallasEyebrow: "Nuevos niveles de medalla",
-    medallasTitulo: (cuantas: number) => `Subiste en ${n(cuantas)} medallas`,
+    medallaEyebrow: "¡Subiste de nivel en un logro!",
+    medallaPrimera: "¡Nuevo logro!",
+    medallaSalto: (cuantos: number) => `¡Subiste ${n(cuantos)} niveles de una vez!`,
+    medallaFuego: "¡Tu racha hizo crecer un logro!",
+    medallasEyebrow: "¡Nuevos logros!",
+    medallasTitulo: (cuantas: number) => `Subiste en ${n(cuantas)} logros`,
     pasastePor: (nombres: readonly string[]) => `Pasaste por ${nombres.join(", ")}.`,
-    medallaNota: "Las medallas no dan EXP ni cuentan para tu rango. Un nivel alcanzado no se pierde.",
-    verMedallas: "Ver tus medallas",
+    verMedallas: "Ver tus logros",
 
     racha: {
       alarga: { titulo: (dias: number) => `¡Racha de ${n(dias)} días!`, texto: "Tu primer aporte de hoy la mantuvo encendida." },
       empieza: { titulo: () => "Encendiste tu racha", texto: "Cada día con al menos un aporte la hace crecer." },
-      reaviva: { titulo: () => "Reavivaste tu racha", texto: "Volvió a encenderse. Tu rango y tus medallas siguieron intactos." },
+      reaviva: { titulo: () => "Reavivaste tu racha", texto: "Volvió a empezar. Cada día seguido la hace crecer." },
     },
     numeroDeRacha: (dias: number) => `${n(dias)} ${plural(dias, "día", "días")} de racha.`,
     semana: "Últimos 7 días",

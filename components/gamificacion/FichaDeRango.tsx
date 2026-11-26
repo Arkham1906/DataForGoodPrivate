@@ -1,12 +1,12 @@
 "use client";
 import { useEffect, useRef, type ReactNode } from "react";
-import AyudaEmergente from "@/components/ui/AyudaEmergente";
+import Ayuda from "./Ayuda";
+import { TEXTOS } from "@/lib/gamificacion/textos";
 import ButtonLink from "@/components/ui/ButtonLink";
 import ProgressBar from "@/components/ui/ProgressBar";
 import { fondoDeAvance } from "@/lib/gamificacion/color-de-avance";
 import Tag from "@/components/ui/Tag";
 import {
-  TEXTO_DE_LA_RACHA,
   type AvanceDeRequisito,
   type FichaDeRango as DatosDeFicha,
   type RequisitoDeRango,
@@ -85,7 +85,7 @@ function ListaDeAvance({ requisitos }: { requisitos: AvanceDeRequisito[] }) {
             <Marca cumplido={r.cumplido} />
             <span className="flex flex-1 items-center gap-1 text-system-900">
               {r.etiqueta}
-              {r.clave === "racha" && <AyudaEmergente etiqueta="Cómo cuenta la racha">{TEXTO_DE_LA_RACHA}</AyudaEmergente>}
+              {r.clave === "racha" && <Ayuda concepto="rachaMaxima" />}
             </span>
             <span className={`font-mono text-[13px] font-semibold ${r.cumplido ? "text-success-800" : "text-system-900"}`}>
               {r.textoAvance}
@@ -118,14 +118,9 @@ function LoQuePedira({ requisitos, numero, total }: { requisitos: RequisitoDeRan
   return (
     <Seccion id="ficha-rango-pedira" titulo="Para completarlo pedirá">
       {requisitos.length === 0 || numero >= total ? (
-        <p className="text-base text-system-600">Es el último rango: al llegar a él completas la trayectoria.</p>
+        <p className="text-base text-system-600">{TEXTOS.camino.fichaUltimo}</p>
       ) : (
-        <>
-          <ListaDeMetas requisitos={requisitos} cumplidos={false} />
-          <p className="text-[14px] text-system-500">
-            Estos requisitos pueden ajustarse más adelante. Un cambio nunca te quita un rango que ya tengas.
-          </p>
-        </>
+        <ListaDeMetas requisitos={requisitos} cumplidos={false} />
       )}
     </Seccion>
   );
@@ -140,7 +135,7 @@ function Cuerpo({ ficha, total }: { ficha: DatosDeFicha; total: number }) {
       <>
         <div id="ficha-rango-intro" className="space-y-1">
           {ultimo ? (
-            <p className="text-base font-bold text-system-900">Es el último rango: completaste la trayectoria.</p>
+            <p className="text-base font-bold text-system-900">{TEXTOS.camino.notaUltimo}</p>
           ) : (
             <>
               <p className="text-base font-bold text-system-900">{ficha.textoQueFalta}</p>
@@ -162,7 +157,7 @@ function Cuerpo({ ficha, total }: { ficha: DatosDeFicha; total: number }) {
         {!ultimo && (
           <Seccion id="ficha-rango-recibiras" titulo={`Al completarlo pasas al rango ${ficha.numero + 1}`}>
             <ul className="space-y-2">
-              <Recompensa titulo="La siguiente etapa de tu avatar" detalle="Tu avatar evoluciona y no retrocede." />
+              <Recompensa titulo="La siguiente etapa de tu avatar" detalle={TEXTOS.camino.avatarDetalle} />
               <Recompensa titulo={`Insignia del rango ${ficha.numero + 1}`} detalle="Su emblema, aparte de tu avatar." />
               {ficha.numero + 2 <= total && (
                 <Recompensa
@@ -202,7 +197,7 @@ function Cuerpo({ ficha, total }: { ficha: DatosDeFicha; total: number }) {
         </Seccion>
         <Seccion id="ficha-rango-recibiste" titulo="Lo que recibiste al llegar">
           <ul className="space-y-2">
-            <Recompensa titulo={`Etapa ${ficha.etapaDelAvatar} de tu avatar`} detalle="Tu avatar ya pasó por ella y no retrocede." />
+            <Recompensa titulo={`Etapa ${ficha.etapaDelAvatar} de tu avatar`} detalle="Tu avatar pasó por esta etapa al llegar." />
             <Recompensa titulo={`Insignia del rango ${ficha.numero}`} detalle="Su emblema, aparte de tu avatar." />
           </ul>
         </Seccion>
@@ -220,7 +215,7 @@ function Cuerpo({ ficha, total }: { ficha: DatosDeFicha; total: number }) {
         <Descripcion texto={ficha.descripcion} />
         <Seccion id="ficha-rango-recibiras" titulo="Al llegar recibes">
           <ul className="space-y-2">
-            <Recompensa titulo={`Etapa ${ficha.etapaDelAvatar} de tu avatar`} detalle="Tu avatar evoluciona y no retrocede." />
+            <Recompensa titulo={`Etapa ${ficha.etapaDelAvatar} de tu avatar`} detalle={TEXTOS.camino.avatarDetalle} />
             <Recompensa titulo={`Insignia del rango ${ficha.numero}`} detalle="Su emblema, aparte de tu avatar." />
             <Recompensa
               titulo={ultimo ? `Los ${total} rangos completos` : `El rango ${ficha.numero + 1} completo`}
@@ -243,7 +238,7 @@ function Cuerpo({ ficha, total }: { ficha: DatosDeFicha; total: number }) {
             De este rango solo puedes ver lo que pedirá completarlo. Su nombre, su insignia y sus recompensas aparecen cuando
             llegues al rango {ficha.numero - 1}.
           </p>
-          {ficha.numero >= total && <p className="text-[15px] text-system-700">Es el último rango de la trayectoria.</p>}
+          {ficha.numero >= total && <p className="text-[15px] text-system-700">{TEXTOS.camino.fichaUltimo}</p>}
         </div>
         <LoQuePedira requisitos={ficha.requisitos} numero={ficha.numero} total={total} />
       </>

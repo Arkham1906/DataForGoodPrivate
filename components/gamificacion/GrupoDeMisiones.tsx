@@ -6,11 +6,13 @@
 // va con su ícono (EXP, protector o potenciador), las difíciles llevan la etiqueta «Difícil» con ícono, y una línea dice
 // cuándo cuenta la misión. 2026-11-20: protector y potenciador con su glifo aprobado (escudo naranja, frasco azul).
 
+import type { ReactNode } from "react";
 import ProgressBar from "@/components/ui/ProgressBar";
 import Tag from "@/components/ui/Tag";
 import type { GrupoDeMisiones as DatosDelGrupo, MisionVigente } from "@/lib/gamificacion/misiones";
 import type { MedidaDeMision } from "@/lib/gamificacion/misiones-reglas";
 import { TEXTOS } from "@/lib/gamificacion/textos";
+import Ayuda from "./Ayuda";
 import IconoDeMision from "./IconoDeMision";
 import { GlifoDeObjeto } from "./ObjetoDeInventario";
 import { colorDeAvance, fondoDeAvance } from "@/lib/gamificacion/color-de-avance";
@@ -102,6 +104,7 @@ function Mision({ mision }: { mision: MisionVigente }) {
                 {T.dificil}
               </span>
             )}
+            {mision.dificil && !completada && <Ayuda concepto="dificil" />}
           </span>
           <span className={`whitespace-nowrap text-[13px] font-bold ${completada ? "text-success-800" : "text-system-900"}`}>
             {completada ? "Completada" : `${progreso} de ${objetivo}`}
@@ -156,21 +159,25 @@ export default function GrupoDeMisiones({
   titulo,
   grupo,
   etiquetaDelPlazo = "Se renuevan en",
+  ayuda,
 }: {
   id: string;
   titulo: string;
   grupo: DatosDelGrupo;
   /** Las de inicio no se renuevan: terminan con la semana de bienvenida (2026-11-18). */
   etiquetaDelPlazo?: string;
+  /** Íconos de información junto al título. */
+  ayuda?: ReactNode;
 }) {
   return (
     <section aria-labelledby={id} className="flex min-w-0 flex-col gap-1.5 rounded-lg border border-system-200 bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 id={id} className="text-xl font-extrabold text-system-900">
+          <h2 id={id} className="flex items-center gap-1 text-xl font-extrabold text-system-900">
             {titulo}
+            {ayuda}
           </h2>
-          {grupo.periodo && <p className="mt-0.5 text-[13px] text-system-700">Periodo: {grupo.periodo}</p>}
+          {grupo.periodo && <p className="mt-0.5 text-[13px] text-system-700">{T.vigencia(grupo.periodo)}</p>}
         </div>
         {grupo.seRenuevanEn && (
           <Tag tone="info">
@@ -179,7 +186,7 @@ export default function GrupoDeMisiones({
         )}
       </div>
       {grupo.misiones.length === 0 ? (
-        <p className="py-3 text-[13px] text-system-600">Por ahora no hay misiones en este periodo.</p>
+        <p className="py-3 text-[13px] text-system-600">Por ahora no tienes misiones aquí.</p>
       ) : (
         <ul>
           {grupo.misiones.map((m) => (

@@ -9,6 +9,7 @@
 // Acciones: ninguna (solo consulta). La landing enlaza aquí con "Ver tabla completa".
 // Diseño del 2026-11-06: el de la landing. La franja va redondeada porque se ve dentro del marco de la app.
 
+import Ayuda from "@/components/gamificacion/Ayuda";
 import type { Metadata } from "next";
 import { BASE_PATH } from "@/lib/base-path";
 import { retraso } from "@/lib/animaciones";
@@ -84,9 +85,14 @@ export default async function LideresPage({ searchParams }: { searchParams: Prom
             <h2 className="text-xl font-semibold text-system-900">Clasificación global</h2>
             <p className="mt-1 text-[13px] text-system-600">
                 Quienes más aportan a la comunidad.{" "}
-                {categoria === "rango"
-                    ? "Cada rango se gana con aportes aceptados."
-                    : "Solo cuentan los aportes aprobados, desde siempre."}
+                {categoria === "rango" ? (
+                    <>
+                        Cada rango se gana con aportes aceptados.
+                        <Ayuda concepto="lideresPorRango" />
+                    </>
+                ) : (
+                    "Solo cuentan los aportes aprobados, desde siempre."
+                )}
                 {total > 0 && ` ${nf.format(total)} ${total === 1 ? "persona" : "personas"} en esta tabla.`}
             </p>
             </div>
