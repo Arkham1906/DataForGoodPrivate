@@ -9,9 +9,9 @@
 //   volvería a unir los movimientos con la persona) y se marca anonimizado_en. Quedan cantidad, tipo, campaña, fecha
 //   y el cálculo. El motivo no se puede cambiar; nombra la campaña, no a la persona.
 // - Todo lo demás del perfil se borra: progreso y contadores, rango (ascensos), medallas, inventario y avatar, racha,
-//   misiones, potenciadores, bonos de cuota, subtemáticas de interés, posiciones semanales en la tabla de líderes y
-//   preferencias. Las llaves de exp_movimientos hacia misiones y potenciadores se ponen en NULL solas (ON DELETE SET
-//   NULL, que el trigger permite).
+//   misiones, potenciadores, bonos de cuota, subtemáticas de interés, posiciones semanales en la tabla de líderes,
+//   preferencias y el historial de enfoques; usuarios.enfoque vuelve a NULL. Las llaves de exp_movimientos hacia
+//   misiones y potenciadores se ponen en NULL solas (ON DELETE SET NULL, que el trigger permite).
 // La fila de usuarios no se borra (ver baja.ts): sin estas filas, la cuenta vacía ya no tiene progreso que mostrar.
 
 import type { PoolClient } from "pg";
@@ -32,6 +32,7 @@ const TABLAS_DEL_PERFIL = [
   "campana_cuota_bonos",
   "usuario_etiquetas",
   "lideres_posiciones_semanales",
+  "enfoque_cambios",
   "usuario_preferencias",
   "usuario_progreso",
 ] as const;
@@ -45,5 +46,6 @@ export async function borrarPerfilDeGamificacion(client: Consultor, usuarioId: n
   for (const tabla of TABLAS_DEL_PERFIL) {
     await client.query(`DELETE FROM ${tabla} WHERE usuario_id = $1`, [usuarioId]);
   }
+  await client.query(`UPDATE usuarios SET enfoque = NULL WHERE id = $1`, [usuarioId]);
   return { movimientosAnonimizados: anonimizados.rowCount ?? 0 };
 }

@@ -6,9 +6,11 @@ import { ETIQUETAS_BASE } from "@/lib/etiquetas/base";
 import { ensureAvisosDeCambios } from "@/lib/en-vivo-postgres";
 import { ESTRELLAS_MAXIMAS } from "@/lib/aportes/calificacion";
 import {
+  ENFOQUES_DEL_CATALOGO,
   MEDALLAS_DEL_CATALOGO,
   MISIONES_DEL_CATALOGO,
   RANGOS_DEL_CATALOGO,
+  erroresDeEnfoques,
   erroresDeMedallas,
   erroresDeMisiones,
   erroresDeRangos,
@@ -2461,9 +2463,71 @@ export async function ensureCampanaDatosAbiertosTable(): Promise<void> {
   `);
 }
 
+/**
+ * Enfoque de cada persona (RF-GAM-115, 116, 121).
+ *   - enfoques: el catálogo, copiado de lib/datos/enfoques.json (sincronizarEnfoques).
+ *   - usuarios.enfoque: el enfoque actual; NULL mientras no elige uno (la ventana que no se puede omitir lo pide).
+ *   - enfoque_cambios: cada elección, la del registro incluida. La última fija la espera para volver a cambiar, y el
+ *     historial dice qué enfoque tenía la persona al enviar cada aporte (los logros de enfoque solo avanzan en el suyo).
+ * No es la especialidad del perfil (usuarios.specialty): esa dice a qué se dedica la persona; el enfoque, cómo aporta.
+ */
+export async function ensureEnfoquesTables(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS enfoques (
+      clave VARCHAR(30) PRIMARY KEY,
+      nombre VARCHAR(60) NOT NULL,
+      subtitulo VARCHAR(160) NOT NULL,
+      descripcion TEXT NOT NULL,
+      orden SMALLINT NOT NULL,
+      activo BOOLEAN NOT NULL DEFAULT true
+    );
+    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS enfoque VARCHAR(30) REFERENCES enfoques(clave) ON DELETE SET NULL;
+    CREATE TABLE IF NOT EXISTS enfoque_cambios (
+      id BIGSERIAL PRIMARY KEY,
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+      enfoque VARCHAR(30) NOT NULL REFERENCES enfoques(clave),
+      anterior VARCHAR(30) REFERENCES enfoques(clave),
+      elegido_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS enfoque_cambios_usuario_idx ON enfoque_cambios (usuario_id, elegido_en DESC);
+  `);
+  await sincronizarEnfoques();
+}
+
+/**
+ * Copia lib/datos/enfoques.json a `enfoques`. El JSON manda en nombre, subtítulo, descripción, orden y activo. Un
+ * enfoque que sale del JSON se desactiva, no se borra: alguien puede tenerlo y su historial lo nombra. Con errores en
+ * el archivo se avisa en el log y la tabla se queda como estaba.
+ */
+async function sincronizarEnfoques(): Promise<void> {
+  const errores = erroresDeEnfoques(ENFOQUES_DEL_CATALOGO);
+  if (errores.length > 0) {
+    console.error(`lib/datos/enfoques.json no se aplicó:\n${errores.join("\n")}`);
+    return;
+  }
+  const enfoques = ENFOQUES_DEL_CATALOGO.enfoques;
+  await pool.query(
+    `INSERT INTO enfoques (clave, nombre, subtitulo, descripcion, orden, activo)
+     SELECT * FROM unnest($1::text[], $2::text[], $3::text[], $4::text[], $5::smallint[], $6::boolean[])
+     ON CONFLICT (clave) DO UPDATE SET
+       nombre = EXCLUDED.nombre, subtitulo = EXCLUDED.subtitulo, descripcion = EXCLUDED.descripcion,
+       orden = EXCLUDED.orden, activo = EXCLUDED.activo`,
+    [
+      enfoques.map((e) => e.clave),
+      enfoques.map((e) => e.nombre),
+      enfoques.map((e) => e.subtitulo),
+      enfoques.map((e) => e.descripcion),
+      enfoques.map((_, i) => i + 1),
+      enfoques.map((e) => e.activo),
+    ],
+  );
+  await pool.query(`UPDATE enfoques SET activo = false WHERE activo AND clave <> ALL($1::text[])`, [enfoques.map((e) => e.clave)]);
+}
+
 /** Todo el esquema de la gamificación, en el orden de sus llaves foráneas. Lo llama ensureCoreSchema(). */
 export async function ensureGamificacion(): Promise<void> {
   await ensureGamificacionColumnas(); // antes que todo: usa usuarios, aportes y medallas ya creadas
+  await ensureEnfoquesTables();
   await ensureParametrosGamificacionTable();
   await ensureRangosTable(); // antes de usuario_progreso, rango_ascensos y objetos: los referencian
   await ensureUsuarioProgresoTable();

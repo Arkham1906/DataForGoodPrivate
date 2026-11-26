@@ -1,0 +1,26 @@
+{
+  "esperaParaCambiarDias": 7,
+  "enfoques": [
+    {
+      "clave": "tracker",
+      "nombre": "DataTracker",
+      "subtitulo": "Registras lo que pasa a tu alrededor.",
+      "descripcion": "Para quien aporta fotos, videos y audios de lo que ve y escucha.",
+      "activo": true
+    },
+    {
+      "clave": "collector",
+      "nombre": "DataCollector",
+      "subtitulo": "Reúnes y describes datos con cuidado.",
+      "descripcion": "Para quien aporta textos y documentos bien descritos.",
+      "activo": true
+    },
+    {
+      "clave": "explorer",
+      "nombre": "DataExplorer",
+      "subtitulo": "Buscas causas nuevas a las que aportar.",
+      "descripcion": "Para quien llega primero a campañas y temáticas nuevas.",
+      "activo": true
+    }
+  ]
+}

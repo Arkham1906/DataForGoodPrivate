@@ -876,6 +876,33 @@ ALTER SEQUENCE public.dispositivos_bloqueados_id_seq OWNED BY public.dispositivo
 
 
 --
+-- Name: enfoque_cambios; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.enfoque_cambios (
+    id bigint NOT NULL,
+    usuario_id integer NOT NULL,
+    enfoque character varying(30) NOT NULL,
+    anterior character varying(30),
+    elegido_en timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: enfoques; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.enfoques (
+    clave character varying(30) NOT NULL,
+    nombre character varying(60) NOT NULL,
+    subtitulo character varying(160) NOT NULL,
+    descripcion text NOT NULL,
+    orden smallint NOT NULL,
+    activo boolean DEFAULT true NOT NULL
+);
+
+
+--
 -- Name: especialidades; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -891,6 +918,18 @@ CREATE TABLE public.especialidades (
 
 
 --
+-- Name: enfoque_cambios_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.enfoque_cambios_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
 -- Name: especialidades_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -901,6 +940,13 @@ CREATE SEQUENCE public.especialidades_id_seq
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
+
+
+--
+-- Name: enfoque_cambios_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.enfoque_cambios_id_seq OWNED BY public.enfoque_cambios.id;
 
 
 --
@@ -2009,7 +2055,8 @@ CREATE TABLE public.usuarios (
     primer_inicio_sesion_en timestamp with time zone,
     intereses_actualizados_en timestamp with time zone,
     CONSTRAINT usuarios_avatar_check CHECK (((avatar)::text = ANY ((ARRAY['masculino'::character varying, 'femenino'::character varying, 'otro'::character varying, 'foto'::character varying])::text[]))),
-    CONSTRAINT usuarios_baja_destino_aportes_check CHECK (((baja_destino_aportes)::text = ANY ((ARRAY['eliminar'::character varying, 'anonimizar'::character varying, 'autoria'::character varying])::text[])))
+    CONSTRAINT usuarios_baja_destino_aportes_check CHECK (((baja_destino_aportes)::text = ANY ((ARRAY['eliminar'::character varying, 'anonimizar'::character varying, 'autoria'::character varying])::text[]))),
+    enfoque character varying(30)
 );
 
 
@@ -2166,6 +2213,13 @@ ALTER TABLE ONLY public.checklist_opciones ALTER COLUMN id SET DEFAULT nextval('
 --
 
 ALTER TABLE ONLY public.dispositivos_bloqueados ALTER COLUMN id SET DEFAULT nextval('public.dispositivos_bloqueados_id_seq'::regclass);
+
+
+--
+-- Name: enfoque_cambios id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.enfoque_cambios ALTER COLUMN id SET DEFAULT nextval('public.enfoque_cambios_id_seq'::regclass);
 
 
 --
@@ -2558,6 +2612,22 @@ ALTER TABLE ONLY public.codigos_usuario
 
 ALTER TABLE ONLY public.dispositivos_bloqueados
     ADD CONSTRAINT dispositivos_bloqueados_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: enfoque_cambios enfoque_cambios_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.enfoque_cambios
+    ADD CONSTRAINT enfoque_cambios_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: enfoques enfoques_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.enfoques
+    ADD CONSTRAINT enfoques_pkey PRIMARY KEY (clave);
 
 
 --
@@ -3348,6 +3418,13 @@ CREATE INDEX dispositivos_bloqueados_bloqueado_por_idx ON public.dispositivos_bl
 --
 
 CREATE INDEX dispositivos_bloqueados_campana_id_idx ON public.dispositivos_bloqueados USING btree (campana_id);
+
+
+--
+-- Name: enfoque_cambios_usuario_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX enfoque_cambios_usuario_idx ON public.enfoque_cambios USING btree (usuario_id, elegido_en DESC);
 
 
 --
@@ -4396,6 +4473,30 @@ ALTER TABLE ONLY public.dispositivos_bloqueados
 
 
 --
+-- Name: enfoque_cambios enfoque_cambios_anterior_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.enfoque_cambios
+    ADD CONSTRAINT enfoque_cambios_anterior_fkey FOREIGN KEY (anterior) REFERENCES public.enfoques(clave);
+
+
+--
+-- Name: enfoque_cambios enfoque_cambios_enfoque_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.enfoque_cambios
+    ADD CONSTRAINT enfoque_cambios_enfoque_fkey FOREIGN KEY (enfoque) REFERENCES public.enfoques(clave);
+
+
+--
+-- Name: enfoque_cambios enfoque_cambios_usuario_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.enfoque_cambios
+    ADD CONSTRAINT enfoque_cambios_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.usuarios(id) ON DELETE CASCADE;
+
+
+--
 -- Name: especialidades especialidades_creada_por_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -4865,6 +4966,14 @@ ALTER TABLE ONLY public.usuario_roles
 
 ALTER TABLE ONLY public.usuario_zona_detectada
     ADD CONSTRAINT usuario_zona_detectada_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.usuarios(id) ON DELETE CASCADE;
+
+
+--
+-- Name: usuarios usuarios_enfoque_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.usuarios
+    ADD CONSTRAINT usuarios_enfoque_fkey FOREIGN KEY (enfoque) REFERENCES public.enfoques(clave) ON DELETE SET NULL;
 
 
 --

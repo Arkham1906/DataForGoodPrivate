@@ -1,8 +1,9 @@
-// Catálogos en JSON (2026-11-04): lib/datos/rangos.json, lib/datos/misiones.json y, desde el 2026-11-09,
-// lib/datos/medallas.json son la fuente de los rangos, las misiones y las medallas. Para cambiarlos basta editar el
+// Catálogos en JSON (2026-11-04): lib/datos/rangos.json, lib/datos/misiones.json, lib/datos/medallas.json y
+// lib/datos/enfoques.json son la fuente de los rangos, las misiones, las medallas y los enfoques. Para cambiarlos basta editar el
 // JSON y volver a construir la app: al arrancar, ensureGamificacion() los valida y los copia a sus tablas. Con un
 // error, se registra en el log y las tablas se quedan como estaban. Aquí solo se valida; no hay imports de servidor.
 
+import datosDeEnfoques from "@/lib/datos/enfoques.json";
 import datosDeMedallas from "@/lib/datos/medallas.json";
 import datosDeMisiones from "@/lib/datos/misiones.json";
 import datosDeRangos from "@/lib/datos/rangos.json";
@@ -57,6 +58,19 @@ export type MedallaDelCatalogo = {
   descripcion: string;
   niveles: { nombre: string; umbral: number; ilustracion?: string }[];
 };
+
+/** Un enfoque (RF-GAM-121). Su orden en pantalla es el del JSON. */
+export type EnfoqueDelCatalogo = {
+  /** Identifica el enfoque para siempre: usuarios.enfoque y su historial cuelgan de ella. No se cambia. */
+  clave: string;
+  nombre: string;
+  subtitulo: string;
+  descripcion: string;
+  /** Uno inactivo no se puede elegir; quien ya lo tiene lo conserva hasta elegir otro. */
+  activo: boolean;
+};
+
+export type EnfoquesDelCatalogo = { esperaParaCambiarDias: number; enfoques: EnfoqueDelCatalogo[] };
 
 const esEntero = (v: unknown, minimo: number): v is number => Number.isInteger(v) && (v as number) >= minimo;
 const esTexto = (v: unknown): v is string => typeof v === "string" && v.trim().length > 0;
@@ -178,6 +192,28 @@ export function erroresDeMedallas(medallas: MedallaDelCatalogo[]): string[] {
   return errores;
 }
 
+export function erroresDeEnfoques(datos: EnfoquesDelCatalogo): string[] {
+  const errores: string[] = [];
+  if (!esEntero(datos?.esperaParaCambiarDias, 0)) errores.push("esperaParaCambiarDias debe ser un entero de 0 en adelante.");
+  const enfoques = datos?.enfoques;
+  if (!Array.isArray(enfoques) || enfoques.length === 0) return [...errores, "La lista de enfoques está vacía."];
+  const claves = new Set<string>();
+  for (const e of enfoques) {
+    const quien = `Enfoque ${e.clave ?? "sin clave"}`;
+    // enfoques.clave es VARCHAR(30).
+    if (!esTexto(e.clave) || !/^[a-z0-9_]{1,30}$/.test(e.clave)) errores.push(`${quien}: la clave usa minúsculas, números y _ (hasta 30).`);
+    if (claves.has(e.clave)) errores.push(`${quien}: clave repetida.`);
+    claves.add(e.clave);
+    if (!esTexto(e.nombre)) errores.push(`${quien}: falta el nombre.`);
+    if (!esTexto(e.subtitulo)) errores.push(`${quien}: falta el subtítulo.`);
+    if (!esTexto(e.descripcion)) errores.push(`${quien}: falta la descripción.`);
+    if (typeof e.activo !== "boolean") errores.push(`${quien}: activo debe ser true o false.`);
+  }
+  if (!enfoques.some((e) => e.activo === true)) errores.push("Debe quedar al menos un enfoque activo.");
+  return errores;
+}
+
+export const ENFOQUES_DEL_CATALOGO = datosDeEnfoques as EnfoquesDelCatalogo;
 export const MEDALLAS_DEL_CATALOGO = datosDeMedallas.medallas as MedallaDelCatalogo[];
 export const RANGOS_DEL_CATALOGO = datosDeRangos.rangos as RangoDelCatalogo[];
 export const MISIONES_DEL_CATALOGO = datosDeMisiones.misiones as MisionDelCatalogo[];
