@@ -12,7 +12,8 @@ import Link from "next/link";
 import { useSyncExternalStore } from "react";
 
 import Tag from "@/components/sistema/Tag";
-import { ListaDeRenglones, Renglon, RenglonDesplegable } from "@/components/sistema/Renglones";
+import { MiniaturaDeAporte } from "@/components/ui/ArchivoDelAporte";
+import { ListaDeRenglones, RenglonDesplegable } from "@/components/sistema/Renglones";
 import type { FilaDeAporte, GrupoDeAportes } from "@/lib/aportes/bandeja";
 
 // enviadoEn ya viene en hora de Tepic: se formatea en UTC para no moverla.
@@ -185,7 +186,7 @@ export default function ListaDeAportes({ grupos }: { grupos: GrupoDeAportes[] })
             >
               <ListaDeRenglones etiqueta={`Aportes de ${g.participante}`}>
                 {g.aportes.map((a) => (
-                  <RenglonDeAporte key={a.id} a={a} />
+                  <li key={a.id}><TarjetaDeAporte a={a} /></li>
                 ))}
               </ListaDeRenglones>
               {g.total > g.aportes.length && (
@@ -199,49 +200,42 @@ export default function ListaDeAportes({ grupos }: { grupos: GrupoDeAportes[] })
   );
 }
 
-/** Un aporte dentro de una persona desplegada: como un renglón de Mis aportes (campaña, tipo, resumen, fecha y etapa). */
-function RenglonDeAporte({ a }: { a: FilaDeAporte }) {
-  return (
-    <Renglon
-      titulo={
-        <Link href={`/sistema/campanas/${a.campanaId}`} className="hover:text-brand-600">
-          {a.campana}
-        </Link>
-      }
-      rotulo={a.tipo}
-      detalles={[a.resumen ?? SIN_REGISTRO, formatearEnvio(a.enviadoEn)]}
-      lateral={<Tag tone={a.etapa.tono}>{a.etapa.texto}</Tag>}
-    />
-  );
-}
-
-/** Tarjeta de móvil de un aporte, dentro de una persona desplegada. */
+/** Mismo formato compacto de Mis aportes, con los metadatos disponibles para el superusuario.
+ * Reutiliza las miniaturas de la vista de lista del usuario. */
 function TarjetaDeAporte({ a }: { a: FilaDeAporte }) {
+
   return (
-    <article className="rounded-lg border border-system-200 bg-white p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <p className="min-w-0 font-mono text-[11px] text-system-500">{formatearEnvio(a.enviadoEn)}</p>
-        <Tag tone={a.etapa.tono}>{a.etapa.texto}</Tag>
+    <Link
+      href={`/sistema/campanas/${a.campanaId}`}
+      aria-label={`Ver campaña ${a.campana}, aporte ${a.id}`}
+      className="flex items-center gap-3 rounded-lg border border-system-200 bg-white p-2.5 shadow-sm transition-colors hover:border-brand-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 max-md:gap-2"
+    >
+      {a.archivoBorrado ? (
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-dashed border-system-300 bg-system-100 text-center text-[9px] text-system-500">Archivo eliminado</span>
+      ) : (
+        <MiniaturaDeAporte
+          aporteId={a.id}
+          tipo={a.tipoArchivo}
+          mimeType={a.mimeArchivo}
+          sinArchivo={a.sinArchivo}
+          alt={`Vista previa de ${a.tipo.toLowerCase()} en ${a.campana}`}
+          className="h-12 w-12 shrink-0"
+        />
+      )}
+      <div className="min-w-0 flex-1 text-left">
+        <div className="flex min-w-0 items-center gap-2 text-[12px]">
+          <span className="truncate font-bold text-system-900">{a.campana}</span>
+          <span aria-hidden="true" className="shrink-0 text-system-400">•</span>
+          <span className="shrink-0 text-[11px] font-medium uppercase tracking-[0.08em] text-system-500">{a.tipo}</span>
+        </div>
+        <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-system-600">
+          <span className="min-w-0 truncate" title={a.resumen ?? SIN_REGISTRO}>{a.resumen || (a.anonimo ? SIN_REGISTRO : "Sin descripción")}</span>
+          <span aria-hidden="true" className="h-1 w-1 shrink-0 rounded-full bg-system-300" />
+          <span className="shrink-0">{formatearEnvio(a.enviadoEn)}</span>
+        </div>
+        <span className="mt-1 inline-flex md:hidden"><Tag tone={a.etapa.tono}>{a.etapa.texto}</Tag></span>
       </div>
-
-      <p className="mt-3 break-words border-t border-system-200 pt-3 text-[12.5px] text-system-600">
-        {a.resumen ?? SIN_REGISTRO}
-      </p>
-
-      <dl className="mt-3 grid grid-cols-2 gap-3">
-        <div className="min-w-0">
-          <dt className="text-[11px] text-system-600">Campaña</dt>
-          <dd className="mt-0.5 break-words text-[12.5px] text-system-900">
-            <Link href={`/sistema/campanas/${a.campanaId}`} className="hover:text-brand-600">
-              {a.campana}
-            </Link>
-          </dd>
-        </div>
-        <div>
-          <dt className="text-[11px] text-system-600">Tipo</dt>
-          <dd className="mt-0.5 text-[12.5px] text-system-900">{a.tipo}</dd>
-        </div>
-      </dl>
-    </article>
+      <span className="hidden shrink-0 md:inline-flex"><Tag tone={a.etapa.tono}>{a.etapa.texto}</Tag></span>
+    </Link>
   );
 }

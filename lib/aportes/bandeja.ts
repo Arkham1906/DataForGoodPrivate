@@ -1,5 +1,5 @@
 // Bandeja de aportes del SuperUsuario (/aportes, SCR-WEB-14) y pestañas de la sección Aportes.
-// Exige sesión raíz. Solo el registro de lo que llega: nunca el archivo, el correo ni la descripción completa.
+// Exige sesión raíz. Registro y metadatos para miniaturas; sin rutas privadas, correo ni descripción completa.
 
 import type { Pestana } from "@/components/sistema/subtabs";
 import { pool } from "@/lib/db";
@@ -48,6 +48,10 @@ export type FilaDeAporte = {
   /** Primeros caracteres de la descripción; null en aportes sin cuenta. */
   resumen: string | null;
   tipo: string;
+  tipoArchivo: string;
+  mimeArchivo?: string;
+  sinArchivo: boolean;
+  archivoBorrado: boolean;
   etapa: { texto: string; tono: "default" | "ok" | "warn" | "danger" };
 };
 
@@ -101,6 +105,9 @@ function filaDeAporte(r: {
   resumen: string;
   largo: number;
   file_type: string;
+  file_mime_type: string | null;
+  sin_archivo: boolean;
+  archivo_borrado: boolean;
   status: string;
 }): FilaDeAporte {
   const tipo = esTipo(r.file_type);
@@ -114,6 +121,10 @@ function filaDeAporte(r: {
     campana: r.campana,
     resumen: r.anonimo ? null : `${r.resumen.trim()}${r.largo > LARGO_DEL_RESUMEN ? "…" : ""}`,
     tipo: tipo ? NOMBRE_DE_TIPO[tipo] : r.file_type,
+    tipoArchivo: r.file_type,
+    mimeArchivo: r.file_mime_type ?? undefined,
+    sinArchivo: r.sin_archivo,
+    archivoBorrado: r.archivo_borrado,
     etapa,
   };
 }
@@ -197,6 +208,9 @@ export async function buscarAportesPorParticipante(
       resumen: string;
       largo: number;
       file_type: string;
+      file_mime_type: string | null;
+      sin_archivo: boolean;
+      archivo_borrado: boolean;
       status: string;
     }>(
       `SELECT * FROM (
@@ -207,8 +221,11 @@ export async function buscarAportesPorParticipante(
                 to_char(a.submitted_at AT TIME ZONE 'America/Mazatlan', 'YYYY-MM-DD"T"HH24:MI') AS enviado_en,
                 a.submitted_at, a.campaign_id, c.name AS campana,
                 LEFT(a.description, ${LARGO_DEL_RESUMEN}) AS resumen, char_length(a.description) AS largo,
-                a.file_type, a.status
+                a.file_type, a.status, ar.mime AS file_mime_type,
+                (ar.ruta IS NULL OR ar.ruta = '') AS sin_archivo,
+                (ar.borrado_en IS NOT NULL) AS archivo_borrado
          FROM aportes a JOIN campanas c ON c.id = a.campaign_id
+         LEFT JOIN archivos ar ON ar.id = a.archivo_id
          ${donde([...condiciones, `${CLAVE_DE_GRUPO} = ANY($${valores.length}::text[])`])}
        ) t
        WHERE n <= ${APORTES_POR_GRUPO}

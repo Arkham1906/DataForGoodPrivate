@@ -1,7 +1,7 @@
 // Pantalla /aportes (SCR-WEB-14): bandeja de aportes de toda la plataforma vista por el SuperUsuario.
 // Acceso: sesión raíz (layout de (panel) + exigirSesionRoot()). Server Component.
 // Datos: lib/aportes/bandeja.ts. Filtros en la URL (?q=, ?campana=, ?etapa=, ?pagina=).
-// Solo consulta: origen y etapa de cada aporte, sin abrir el archivo ni la descripción completa.
+// Solo consulta: origen, etapa y miniaturas de cada aporte, sin la descripción completa.
 // Agrupada por persona (2026-10-08): la lista desplegable está en lista.tsx (cliente).
 // "Volver a la campaña" (2026-11-23) solo si se llegó desde la ficha de una campaña (components/sistema/Volver).
 
@@ -69,7 +69,7 @@ export default async function BandejaDeAportesPage({ searchParams }: { searchPar
 
       <Encabezado
         titulo="Aportes recibidos"
-        descripcion="Los aportes de toda la plataforma agrupados por persona, con su campaña y su etapa de revisión. Solo ves el registro, no el archivo."
+        descripcion="Los aportes de toda la plataforma agrupados por persona, con su campaña y su etapa de revisión. Con vistas previas de fotos y videos."
         subtitulo={campana ? campana.nombre : "Todas las campañas"}
       />
 
@@ -110,8 +110,7 @@ export default async function BandejaDeAportesPage({ searchParams }: { searchPar
       )}
 
       <Aviso className="mt-5">
-        El SuperUsuario ve el registro de lo que llega, no el contenido enviado. La foto y la descripción completa solo las
-        ven el creador de la campaña y su revisor de aportes.
+        El SuperUsuario ve el registro y las miniaturas de fotos y videos. Los documentos se identifican por su formato.
       </Aviso>
     </div>
   );

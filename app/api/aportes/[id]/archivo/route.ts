@@ -9,6 +9,7 @@ import { NextResponse } from "next/server";
 import { MIME_PPTX, MIME_XLS, MIME_XLSX } from "@/lib/aportes/archivo";
 import { pool } from "@/lib/db";
 import { columnasDeArchivo } from "@/lib/aportes/tabla-archivos";
+import { hasRootSession } from "@/lib/rootSession";
 import { getSessionUser } from "@/lib/session";
 import { abrirArchivo, tamanoDeArchivo } from "@/lib/minio";
 import { extensionForMime } from "@/lib/open-data";
@@ -61,9 +62,10 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   try {
     const { id } = await context.params;
     const user = await getSessionUser();
+    const root = await hasRootSession();
     // Sin sesión, solo un aporte de la comunidad (2026-11-22).
     const deLaComunidad = await esAporteDeLaComunidad(id);
-    if (!user && !deLaComunidad) return NextResponse.json({ error: "Debes iniciar sesion" }, { status: 401 });
+    if (!user && !root && !deLaComunidad) return NextResponse.json({ error: "Debes iniciar sesion" }, { status: 401 });
 
     const result = await pool.query(
       `SELECT a.user_id, ${columnasDeArchivo("a")}, a.campaign_id, a.status, a.first_pass_by_user_id,
@@ -80,7 +82,12 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     }
 
     const row = result.rows[0];
-    let puedeVer = deLaComunidad;
+    // Miniaturas de fotos y videos en la lista de aportes del superusuario.
+    // Documentos, audio y texto mantienen sus permisos anteriores.
+    const vistaPreviaRoot = root && [
+      "image/jpeg", "image/png", "video/mp4", "video/quicktime", "video/webm",
+    ].includes(String(row.file_mime_type ?? ""));
+    let puedeVer = deLaComunidad || vistaPreviaRoot;
     if (!puedeVer && user) {
       const isOwner = Number(row.user_id) === Number(user.id);
       const isCampaignCreator = Number(row.campaign_creator_id) === Number(user.id);

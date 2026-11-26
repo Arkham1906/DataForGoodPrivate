@@ -8,12 +8,10 @@
 // ListaDeReportes (cliente). Acciones: "Elegir sanción para <persona>" lleva a .../sanciones/[usuarioId]?reportes=<clave>
 // (aviso, suspensión o baneo, y resuelve los reportes); "Descartar" en BotonDescartar.
 
-import Link from "next/link";
-
 import { Aviso, Encabezado, formatearNumero } from "@/components/sistema/ui";
 import { contarReportesPendientes, listarReportes, type FiltroDeReportes } from "@/lib/reportes/reportes";
 import { cuentaDelModerador, type Moderador } from "@/lib/moderacion/moderador";
-import { rutasDeModeracion, type ZonaDeModeracion } from "@/lib/moderacion/rutas";
+import type { ZonaDeModeracion } from "@/lib/moderacion/rutas";
 import { formatearFechaYHora } from "@/lib/usuarios/directorio";
 import ListaDeReportes, { type GrupoParaLista } from "./ListaDeReportes";
 import PestanasDeModeracion from "./PestanasDeModeracion";
@@ -39,7 +37,6 @@ export default async function PantallaDeReportes({
   /** Filtros de la lista (2026-11-22): ?q= (campaña, persona reportada, motivo o quién reportó) y ?tipo=. */
   filtros?: { q?: string; tipo?: string };
 }) {
-  const rutas = rutasDeModeracion(zona);
   const filtro: FiltroDeReportes = estado === "resueltos" ? "resueltos" : "pendientes";
   const propia = cuentaDelModerador(moderador);
   const supervisorId = zona === "supervision" && moderador.tipo === "usuario" ? moderador.usuarioId : null;
@@ -63,14 +60,6 @@ export default async function PantallaDeReportes({
       ),
   );
 
-  // Pendientes y Resueltos conservan la búsqueda y el tipo.
-  const conservar = new URLSearchParams();
-  if (typeof filtros.q === "string" && filtros.q.trim()) conservar.set("q", filtros.q.trim().slice(0, 100));
-  if (tipo) conservar.set("tipo", tipo);
-  const extra = conservar.toString();
-  const hrefPendientes = extra ? `${rutas.reportes}?${extra}` : rutas.reportes;
-  const hrefResueltos = extra ? `${rutas.reportesResueltos}&${extra}` : rutas.reportesResueltos;
-
   const paraLista: GrupoParaLista[] = filtrados.map((g) => ({
     clave: g.clave,
     tipo: g.tipo,
@@ -91,11 +80,6 @@ export default async function PantallaDeReportes({
     })),
   }));
 
-  const claseChip = (activo: boolean) =>
-    `inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap rounded-pill border px-3.5 py-1.5 text-[13px] font-semibold transition-colors max-md:px-2.5 max-md:py-1 max-md:text-[12px] ${
-      activo ? "border-brand-600 bg-brand-600 text-white" : "border-system-300 bg-white text-system-600 hover:border-brand-600"
-    }`;
-
   return (
     <div>
       <PestanasDeModeracion zona={zona} />
@@ -110,42 +94,28 @@ export default async function PantallaDeReportes({
         }
       />
 
-      {zona === "supervision" && <nav
-        className="dashboard-nav mb-4 w-full min-w-0 max-w-full touch-pan-x flex flex-nowrap gap-2 overflow-x-auto overscroll-x-contain pb-2 [-webkit-overflow-scrolling:touch] md:flex-wrap md:overflow-visible md:pb-0"
-        aria-label="Filtrar reportes"
-      >
-        <Link href={hrefPendientes} scroll={false} className={claseChip(filtro === "pendientes")} aria-current={filtro === "pendientes" ? "true" : undefined}>
-          Pendientes&nbsp; <span className="font-mono text-[11px]">{formatearNumero(pendientes.reportes)}</span>
-        </Link>
-        <Link href={hrefResueltos} scroll={false} className={claseChip(filtro === "resueltos")} aria-current={filtro === "resueltos" ? "true" : undefined}>
-          Resueltos
-        </Link>
-      </nav>}
-
-      {(zona === "supervisar" || grupos.length > 0) && (
-        <FiltrosEnLaUrl
-          tituloPanelMovil={zona === "supervisar" ? "Filtros de reportes" : undefined}
-          busqueda={{ etiqueta: "Buscar reportes", placeholder: "Buscar por campaña, persona o motivo" }}
-          listas={[
-            ...(zona === "supervisar" ? [{
-              clave: "estado",
-              etiqueta: "Estado del reporte",
-              todas: "Estado: pendientes",
-              opciones: [{ valor: "resueltos", etiqueta: "Resueltos" }],
-            }] : []),
-            {
-              clave: "tipo",
-              etiqueta: "Filtrar por qué se reportó",
-              todas: "Campañas y aportes",
-              opciones: [
-                { valor: "campana", etiqueta: "Solo campañas" },
-                { valor: "aporte", etiqueta: "Solo aportes" },
-              ],
-            },
-          ]}
-          className="mb-4"
-        />
-      )}
+      <FiltrosEnLaUrl
+        tituloPanelMovil="Filtros de reportes"
+        busqueda={{ etiqueta: "Buscar reportes", placeholder: "Buscar por campaña, persona o motivo" }}
+        listas={[
+          {
+            clave: "estado",
+            etiqueta: "Estado del reporte",
+            todas: "Estado: pendientes",
+            opciones: [{ valor: "resueltos", etiqueta: "Resueltos" }],
+          },
+          {
+            clave: "tipo",
+            etiqueta: "Filtrar por qué se reportó",
+            todas: "Campañas y aportes",
+            opciones: [
+              { valor: "campana", etiqueta: "Solo campañas" },
+              { valor: "aporte", etiqueta: "Solo aportes" },
+            ],
+          },
+        ]}
+        className="mb-4"
+      />
 
       {grupos.length === 0 ? (
         <p className="py-7 text-[13px] text-system-600">

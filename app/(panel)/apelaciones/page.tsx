@@ -4,7 +4,6 @@
 // Server Component. Datos: listarApelacionesDelPanel() de lib/apelaciones/apelaciones.ts. Lista y botones: lista.tsx.
 
 import type { Metadata } from "next";
-import Link from "next/link";
 
 import FiltrosEnLaUrl from "@/components/sistema/FiltrosEnLaUrl";
 import { Aviso, Encabezado, formatearNumero } from "@/components/sistema/ui";
@@ -50,11 +49,6 @@ export default async function ApelacionesPage({
     sigueVigente: a.sigueVigente,
   }));
 
-  const chip = (activo: boolean) =>
-    `inline-flex items-center gap-1.5 rounded-pill border px-3.5 py-1.5 text-[13px] font-semibold transition-colors ${
-      activo ? "border-brand-600 bg-brand-600 text-white" : "border-system-300 bg-white text-system-600 hover:border-brand-600"
-    }`;
-
   return (
     <div>
       <Encabezado
@@ -72,29 +66,25 @@ export default async function ApelacionesPage({
         «No procede» la mantiene.
       </p>
 
-      <nav className="mb-4 flex flex-wrap gap-2" aria-label="Apelaciones pendientes o resueltas">
-        <Link href="/apelaciones" scroll={false} className={chip(vista === "pendientes")} aria-current={vista === "pendientes" ? "page" : undefined}>
-          Pendientes <span className="font-mono text-[11px]">{formatearNumero(pendientes)}</span>
-        </Link>
-        <Link href="/apelaciones?vista=resueltas" scroll={false} className={chip(vista === "resueltas")} aria-current={vista === "resueltas" ? "page" : undefined}>
-          Resueltas
-        </Link>
-      </nav>
-
-      {todas.length > 0 && (
-        <FiltrosEnLaUrl
-          busqueda={{ etiqueta: "Buscar apelaciones", placeholder: "Buscar por persona, motivo o campaña" }}
-          listas={[
-            {
-              clave: "clase",
-              etiqueta: "Filtrar por lo que se apeló",
-              todas: "Todo lo apelado",
-              opciones: CLASES.map((c) => ({ valor: c, etiqueta: NOMBRE_DE_DECISION[c] })),
-            },
-          ]}
-          className="mb-4"
-        />
-      )}
+      <FiltrosEnLaUrl
+        tituloPanelMovil="Filtros de apelaciones"
+        busqueda={{ etiqueta: "Buscar apelaciones", placeholder: "Buscar por persona, motivo o campaña" }}
+        listas={[
+          {
+            clave: "vista",
+            etiqueta: "Estado de la apelación",
+            todas: "Estado: pendientes",
+            opciones: [{ valor: "resueltas", etiqueta: "Resueltas" }],
+          },
+          {
+            clave: "clase",
+            etiqueta: "Filtrar por lo que se apeló",
+            todas: "Todo lo apelado",
+            opciones: CLASES.map((c) => ({ valor: c, etiqueta: NOMBRE_DE_DECISION[c] })),
+          },
+        ]}
+        className="mb-4"
+      />
 
       {todas.length === 0 ? (
         <Aviso tono="neutro">
