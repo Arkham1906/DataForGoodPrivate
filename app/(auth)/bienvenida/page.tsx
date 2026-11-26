@@ -1,10 +1,13 @@
 "use client";
 
-// Pantalla /bienvenida: perfil inicial tras verificar, en dos pasos del registro: paso 3 (estado y
-// municipio) y paso 4 (especialidad, organización desde el 2026-10-26, e intereses). Se puede omitir.
+// Pantalla /bienvenida: perfil inicial tras verificar, en tres pasos del registro: paso 3 (estado y
+// municipio), paso 4 (especialidad, organización desde el 2026-10-26, e intereses) y paso 5 (enfoque, RF-GAM-115).
+// Los pasos 3 y 4 se pueden omitir; el 5 no: sin enfoque no se termina el registro.
+// Paso 4: «Omitir» y «Omitir por ahora» guardan lo que haya, como antes, pero ya no terminan: pasan al paso 5.
 // Paso 3 (2026-11-04, a pedido del usuario): al llegar se pide la ubicación (ui/UbicacionDelPerfil); los
 // campos solo salen si no se da. "Omitir" pasa al paso 4 sin guardar ubicación (antes terminaba el registro).
-// Datos: GET /api/auth/sesion. Guarda con PATCH /api/usuarios/[id] al pasar al paso 4 y al finalizar.
+// Datos: GET /api/auth/sesion y GET /api/progreso/enfoque. Guarda con PATCH /api/usuarios/[id] al pasar al paso 4 y
+// al 5, y el enfoque con PUT /api/progreso/enfoque al finalizar.
 // Intereses: la persona escribe qué le gusta y de ahí salen sus temáticas (ui/InteresesDesdeTexto).
 // Catálogos: lib/mexico-geo.ts, lib/perfil-opciones.ts; temáticas en GET /api/tematicas; especialidades
 // en GET /api/especialidades (ui/CampoDeEspecialidad: se elige o se escribe; una nueva se ofrece a todos).
@@ -24,6 +27,11 @@ import { municipiosDe, NOMBRES_DE_ESTADOS } from "@/lib/mexico-geo";
 import { BASE_PATH } from "@/lib/base-path";
 import { conDestino, destinoSeguro } from "@/lib/redireccion";
 import type { EtiquetaNueva } from "@/lib/etiquetas/reglas";
+import Ayuda from "@/components/gamificacion/Ayuda";
+import SelectorDeEnfoque, { ExplicacionDelEnfoque } from "@/components/gamificacion/enfoque/SelectorDeEnfoque";
+import { cargarEnfoque, guardarEnfoque } from "@/components/gamificacion/enfoque/guardar-enfoque";
+import type { EstadoDelEnfoque } from "@/lib/gamificacion/enfoque-tipos";
+import { TEXTOS } from "@/lib/gamificacion/textos";
 
 type SessionUser = {
   id: number;
@@ -70,8 +78,13 @@ function BienvenidaForm() {
   const [errorDeEspecialidad, setErrorDeEspecialidad] = useState<string | null>(null);
   const [organizacion, setOrganizacion] = useState("");
   const [errorDeOrganizacion, setErrorDeOrganizacion] = useState<string | null>(null);
-  // Paso 3: ubicación. Paso 4: especialidad y temáticas.
-  const [paso, setPaso] = useState<3 | 4>(3);
+  // Paso 3: ubicación. Paso 4: especialidad y temáticas. Paso 5: enfoque.
+  const [paso, setPaso] = useState<3 | 4 | 5>(3);
+  // undefined mientras carga; null si no se pudo cargar.
+  const [enfoque, setEnfoque] = useState<EstadoDelEnfoque | null | undefined>(undefined);
+  const [enfoqueElegido, setEnfoqueElegido] = useState<string | null>(null);
+  const [errorDeEnfoque, setErrorDeEnfoque] = useState<string | null>(null);
+  const [terminando, setTerminando] = useState(false);
 
   useEffect(() => {
     async function loadUser() {
@@ -95,7 +108,16 @@ function BienvenidaForm() {
     }
 
     loadUser();
+    cargarYElegirEnfoque();
   }, [router, next]);
+
+  async function cargarYElegirEnfoque() {
+    setEnfoque(undefined);
+    const estado = await cargarEnfoque();
+    setEnfoque(estado);
+    // Si vuelve al registro y ya tenía uno, sale marcado.
+    if (estado?.actual) setEnfoqueElegido(estado.actual.clave);
+  }
 
   function cambiarEstado(nuevoEstado: string) {
     setState(nuevoEstado);
@@ -135,7 +157,7 @@ function BienvenidaForm() {
     setPaso(4);
   }
 
-  async function finish() {
+  async function guardarIntereses() {
     // Especialidad y organización escritas se revisan antes con las mismas reglas que el servidor,
     // para no perder el resto del perfil por un 400.
     const validada = specialty.trim() ? validarEspecialidad(specialty) : null;
@@ -165,6 +187,19 @@ function BienvenidaForm() {
       else setErrorDeEspecialidad(error);
       return;
     }
+    setPaso(5);
+  }
+
+  async function finish() {
+    if (!enfoqueElegido) return;
+    setTerminando(true);
+    setErrorDeEnfoque(null);
+    const resultado = await guardarEnfoque(enfoqueElegido);
+    if (!resultado.ok) {
+      setErrorDeEnfoque(resultado.error);
+      setTerminando(false);
+      return;
+    }
     router.push(destinoSeguro(next));
   }
 
@@ -178,7 +213,7 @@ function BienvenidaForm() {
         <Skeleton className="mt-2 h-3 w-36" />
         <Skeleton className="mb-4 mt-3 h-3.5 w-64 max-w-full" />
         <div className="mb-5 flex gap-1.5">
-          {[0, 1, 2, 3].map((i) => (
+          {[0, 1, 2, 3, 4].map((i) => (
             <Skeleton key={i} className="h-1 flex-1 rounded-pill" />
           ))}
         </div>
@@ -202,25 +237,93 @@ function BienvenidaForm() {
         <div>
           <h1 className="text-xl font-extrabold text-system-900 lg:text-2xl">Cuéntanos de ti</h1>
           <p className="mt-1 font-mono text-[10.5px] uppercase tracking-wider text-brand-600">
-            {paso === 3 ? "Paso 3 de 4 · Tu ubicación" : "Paso 4 de 4 · Tus intereses"}
+            {paso === 3 ? "Paso 3 de 5 · Tu ubicación" : paso === 4 ? "Paso 4 de 5 · Tus intereses" : TEXTOS.enfoque.paso}
           </p>
         </div>
-        <Button variant="ghost" size="sm" onClick={paso === 3 ? omitirUbicacion : finish}>
-          Omitir
-        </Button>
+        {paso !== 5 && (
+          <Button variant="ghost" size="sm" onClick={paso === 3 ? omitirUbicacion : guardarIntereses}>
+            Omitir
+          </Button>
+        )}
       </div>
-      <p className="mb-4 text-[13px] text-system-600">
-        {paso === 3 ? "Con esto te mostramos campañas cercanas." : "Con esto te mostramos campañas relevantes para ti."}
-      </p>
+      {paso !== 5 && (
+        <p className="mb-4 text-[13px] text-system-600">
+          {paso === 3 ? "Con esto te mostramos campañas cercanas." : "Con esto te mostramos campañas relevantes para ti."}
+        </p>
+      )}
 
-      <div className="mb-5 flex gap-1.5">
-        <div className="h-1 flex-1 rounded-pill bg-brand-600" />
-        <div className="h-1 flex-1 rounded-pill bg-brand-600" />
-        <div className="h-1 flex-1 rounded-pill bg-brand-600" />
-        <div className={`h-1 flex-1 rounded-pill ${paso === 4 ? "bg-brand-600" : "bg-system-200"}`} />
+      <div className={`flex gap-1.5 ${paso === 5 ? "mb-5 mt-4" : "mb-5"}`}>
+        {[1, 2, 3, 4, 5].map((n) => (
+          <div key={n} className={`h-1 flex-1 rounded-pill ${n <= paso ? "bg-brand-600" : "bg-system-200"}`} />
+        ))}
       </div>
 
-      {paso === 3 ? (
+      {paso === 5 ? (
+        <>
+          <fieldset className="mb-5 space-y-3">
+            <legend className="mb-1 flex items-center gap-2 text-base font-bold text-system-900 lg:text-lg">
+              {TEXTOS.enfoque.pregunta}
+              <Ayuda concepto="enfoque" />
+            </legend>
+            <ExplicacionDelEnfoque />
+            {enfoque === undefined ? (
+              <div role="status" aria-live="polite" className="grid gap-3 lg:grid-cols-3 lg:gap-4">
+                <span className="sr-only">Cargando…</span>
+                {[0, 1, 2].map((i) => (
+                  <Skeleton key={i} className="h-20 rounded-2xl lg:h-64" />
+                ))}
+              </div>
+            ) : enfoque === null ? (
+              <div role="alert" className="flex flex-wrap items-center gap-3 rounded-lg bg-error-50 p-4 text-[13.5px] text-error-700">
+                {TEXTOS.enfoque.errores.cargar}
+                <Button size="sm" onClick={cargarYElegirEnfoque}>
+                  {TEXTOS.enfoque.errores.reintentar}
+                </Button>
+              </div>
+            ) : (
+              <SelectorDeEnfoque
+                nombre="enfoque-registro"
+                opciones={enfoque.opciones}
+                valor={enfoqueElegido}
+                onCambiar={(clave) => {
+                  setEnfoqueElegido(clave);
+                  setErrorDeEnfoque(null);
+                }}
+                deshabilitado={terminando}
+              />
+            )}
+          </fieldset>
+
+          <div className="mb-5 rounded-lg bg-system-100 p-4 text-[12.5px] text-system-600">{TEXTOS.enfoque.queCambia}</div>
+          {errorDeEnfoque && (
+            <p role="alert" className="mb-4 text-[13px] text-error-700">
+              {errorDeEnfoque}
+            </p>
+          )}
+
+          <div className="flex flex-wrap justify-between gap-2.5">
+            <Button variant="ghost" onClick={() => setPaso(4)} disabled={terminando}>
+              ← Atrás
+            </Button>
+            <Button
+              variant="primary"
+              className="whitespace-nowrap"
+              onClick={finish}
+              disabled={!enfoqueElegido || terminando}
+              aria-busy={terminando || undefined}
+            >
+              {terminando ? (
+                TEXTOS.enfoque.guardando
+              ) : (
+                <>
+                  <span className="lg:hidden">{TEXTOS.enfoque.finalizarCorto}</span>
+                  <span className="hidden lg:inline">{TEXTOS.enfoque.finalizar}</span>
+                </>
+              )}
+            </Button>
+          </div>
+        </>
+      ) : paso === 3 ? (
         <>
           <UbicacionDelPerfil
             pedirAlEntrar={!user.state}
@@ -356,17 +459,16 @@ function BienvenidaForm() {
               <Button
                 variant="secondary"
                 className="w-full whitespace-nowrap px-1.5 text-[11px] lg:px-5 lg:text-sm"
-                onClick={finish}
+                onClick={guardarIntereses}
               >
                 Omitir por ahora
               </Button>
               <Button
                 variant="primary"
                 className="w-full whitespace-nowrap px-1.5 text-[11px] lg:px-5 lg:text-sm"
-                onClick={finish}
+                onClick={guardarIntereses}
               >
-                <span className="lg:hidden">Finalizar</span>
-                <span className="hidden lg:inline">Finalizar y explorar campañas</span>
+                Continuar
               </Button>
             </div>
           </div>

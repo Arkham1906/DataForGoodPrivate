@@ -116,6 +116,10 @@ export const TEXTOS = {
     lideresPorRango: {
       etiqueta: "Cómo se ordena por rango",
       texto: "Ordena por rango. Si dos personas tienen el mismo rango, va primero quien tiene más EXP.",
+    },    enfoque: {
+      etiqueta: "Qué es el enfoque",
+      texto:
+        "Tu enfoque dice cómo te gusta aportar. No es tu especialidad (a qué te dedicas o qué estudias). Cambia el estilo de tu avatar, algunos mensajes y te da un logro propio. No cambia la EXP que ganas ni las campañas en las que puedes aportar. Puedes cambiarlo una vez cada 7 días.",
     },
   },
 
@@ -351,6 +355,48 @@ export const TEXTOS = {
   cuenta: {
     rango: (numero: number, nombre: string) => `Rango ${n(numero)} · ${nombre}`,
     rangoAria: (numero: number, nombre: string) => `Rango ${n(numero)}, ${nombre}. Ver tu progreso`,
+  },
+  /** Enfoque (RF-GAM-115, 116): último paso del registro, ventana para cuentas sin enfoque y Mi cuenta. */
+  enfoque: {
+    paso: "Paso 5 de 5 · Tu enfoque",
+    pregunta: "¿Cómo te gusta aportar?",
+    elige: "Elige el que más se parezca a ti. Podrás cambiarlo después en Mi cuenta.",
+    noEsEspecialidad: "No es tu especialidad.",
+    diferencia: "Tu especialidad es a qué te dedicas o qué estudias; tu enfoque es cómo te gusta aportar en DataForGood.",
+    queCambia: "Cambia el estilo de tu avatar y te da un logro propio. No cambia la EXP que ganas ni las campañas en las que puedes aportar.",
+    finalizar: "Finalizar y explorar campañas",
+    finalizarCorto: "Finalizar",
+    guardando: "Guardando…",
+    ventana: {
+      antetitulo: "Algo nuevo en DataForGood",
+      titulo: "Elige tu enfoque",
+      guardar: "Guardar mi enfoque",
+    },
+    cuenta: {
+      antetitulo: "Gamificación",
+      titulo: "Tu enfoque",
+      cambiar: "Cambiar enfoque",
+      sinEnfoque: "Aún no eliges tu enfoque.",
+      elegir: "Elegir enfoque",
+      podrasCambiarlo: (fecha: string) => `Podrás cambiarlo de nuevo el ${fecha}.`,
+    },
+    cambio: {
+      titulo: "Cambiar tu enfoque",
+      actual: "Tu enfoque actual",
+      aviso: (nombre: string, dias: number) =>
+        `Tu avatar tomará el estilo de ${nombre}. Lo que ya ganaste se queda igual. Después podrás cambiarlo otra vez en ${n(dias)} ${plural(dias, "día", "días")}.`,
+      eligeOtro: "Elige un enfoque distinto al actual.",
+      boton: (nombre: string) => `Cambiar a ${nombre}`,
+      cancelar: "Cancelar",
+      listo: (nombre: string) => `Listo: ahora tu enfoque es ${nombre}.`,
+    },
+    errores: {
+      cargar: "No pudimos cargar los enfoques.",
+      guardar: "No pudimos guardar tu enfoque. Revisa tu conexión e inténtalo de nuevo.",
+      espera: (fecha: string) => `Cambiaste tu enfoque hace poco. Podrás cambiarlo de nuevo el ${fecha}.`,
+      noDisponible: "Ese enfoque ya no se puede elegir. Elige otro.",
+      reintentar: "Intentar de nuevo",
+    },
   },
   /** Lo que se pierde al eliminar la cuenta (A6). */
   baja: {

@@ -92,3 +92,19 @@ export async function elegirEnfoque(usuarioId: number, clave: string): Promise<R
     client.release();
   }
 }
+
+/**
+ * Opciones para la ventana de ShellDeUsuario, solo si la persona aún no tiene enfoque; null si ya lo tiene (o si falla
+ * la lectura: la ventana no debe impedir usar la app). Casi siempre es una sola consulta corta.
+ */
+export async function opcionesSiFaltaEnfoque(usuarioId: number): Promise<OpcionDeEnfoque[] | null> {
+  try {
+    const { rows } = await pool.query<{ falta: boolean }>(`SELECT enfoque IS NULL AS falta FROM usuarios WHERE id = $1`, [usuarioId]);
+    if (!rows[0]?.falta) return null;
+    const estado = await leerEstado(pool, usuarioId);
+    return estado && estado.opciones.length > 0 ? estado.opciones : null;
+  } catch (error) {
+    console.error(`Error revisando el enfoque del usuario ${usuarioId}`, error);
+    return null;
+  }
+}

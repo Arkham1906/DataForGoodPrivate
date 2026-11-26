@@ -5,6 +5,7 @@
 // código enviado al correo de la cuenta; no se pide la actual.
 // La tarjeta "Eliminar cuenta" (prop `pie`, justo antes de los botones de guardar) lleva a
 // /cuenta/eliminar (baja voluntaria, SCR-WEB-31).
+// «Tu enfoque» (SeccionDeEnfoque.tsx, RF-GAM-116): el enfoque de la gamificación y la ventana para cambiarlo.
 // El lápiz sobre el avatar (EditarAvatar.tsx, 2026-10-13; siempre visible desde el 2026-10-20): iniciales,
 // ícono predefinido o foto propia (PUT /api/usuarios/[id]/avatar); el ícono se pinta con components/ui/Avatar.
 // Experimental (2026-10-07): al llegar con "Ver perfil" de la barra superior, el avatar y el
@@ -27,6 +28,8 @@ import { datosDeAvatar } from "@/lib/usuarios/avatar-opciones";
 import { nombresDeRoles } from "@/lib/usuarios/rol-asignable";
 import Link from "next/link";
 import { obtenerRangoDeCuenta } from "@/lib/gamificacion/rango-de-cuenta";
+import { obtenerEstadoDelEnfoque } from "@/lib/gamificacion/enfoque";
+import SeccionDeEnfoque from "./SeccionDeEnfoque";
 import { rutaDePantalla } from "@/lib/gamificacion/pantallas-de-progreso";
 import { TEXTOS } from "@/lib/gamificacion/textos";
 import type { Metadata } from "next";
@@ -35,9 +38,10 @@ export const metadata: Metadata = { title: "Mi cuenta" };
 
 export default async function CuentaPage() {
   const currentUser = await exigirUsuario();
-  const [zona, rango] = await Promise.all([
+  const [zona, rango, enfoque] = await Promise.all([
     zonaDetectadaDe(Number(currentUser.id)).catch(() => null),
     obtenerRangoDeCuenta(currentUser.id),
+    obtenerEstadoDelEnfoque(currentUser.id).catch(() => null),
   ]);
   const rutaDeTrayectoria = rutaDePantalla("trayectoria") ?? "/inicio";
 
@@ -210,6 +214,8 @@ export default async function CuentaPage() {
             />
           </div>
         </section>
+        {/* A todo lo ancho, entre Seguridad e intereses: la cuadrícula de PerfilForm es de dos columnas. */}
+        {enfoque && <SeccionDeEnfoque inicial={enfoque} />}
       </PerfilForm>
     </div>
     </ViewTransition>

@@ -1,5 +1,6 @@
 // Estructura de la zona de usuario con sesión: TopBar + SidebarNav + VigilanteDeSesion +
-// ActualizacionEnVivo + DetectorDeUbicacion (zona por GPS) + Celebraciones (rango, medalla y racha, 2026-11-16) + <main id="contenido">. La usan el layout de (dashboard) y las pantallas
+// ActualizacionEnVivo + DetectorDeUbicacion (zona por GPS) + Celebraciones (rango, medalla y racha, 2026-11-16) + <main id="contenido">.
+// Si la cuenta aún no tiene enfoque, sale la ventana para elegirlo (RF-GAM-115) en lugar de las celebraciones. La usan el layout de (dashboard) y las pantallas
 // públicas que, si hay sesión, deben verse igual que el resto de la app (hoy ninguna: /leaderboard pasó a /progreso/leaderboard el 2026-11-09).
 // Server Component: no valida la sesión, recibe el usuario ya validado por quien lo llama.
 // Calcula aquí el aviso del menú lateral ("tu siguiente paso", lib/usuarios/aviso-del-menu.ts, 2026-11-10) y el
@@ -10,6 +11,7 @@ import type { ReactNode } from "react";
 import type { SessionUser } from "@/lib/session";
 import { avisoDelMenuParaUsuario } from "@/lib/usuarios/aviso-del-menu";
 import { obtenerPotenciadores } from "@/lib/gamificacion/inventario";
+import { opcionesSiFaltaEnfoque } from "@/lib/gamificacion/enfoque";
 import TopBar from "@/components/layout/TopBar";
 import SidebarNav from "@/components/layout/SidebarNav";
 import VigilanteDeSesion from "@/components/layout/VigilanteDeSesion";
@@ -17,19 +19,21 @@ import ActualizacionEnVivo from "@/components/layout/ActualizacionEnVivo";
 import DetectorDeUbicacion from "@/components/layout/DetectorDeUbicacion";
 import Celebraciones from "@/components/gamificacion/celebraciones/Celebraciones";
 import BurbujaDelPotenciador from "@/components/gamificacion/BurbujaDelPotenciador";
+import VentanaDeEnfoque from "@/components/gamificacion/enfoque/VentanaDeEnfoque";
 
 export default async function ShellDeUsuario({ usuario, children }: { usuario: SessionUser; children: ReactNode }) {
   // Recuadro del menú y número del botón "Pendientes" de la barra superior (2026-11-24): la misma fuente que /pendientes.
-  const [{ aviso, pendientes }, potenciadores] = await Promise.all([
+  const [{ aviso, pendientes }, potenciadores, opcionesDeEnfoque] = await Promise.all([
     avisoDelMenuParaUsuario(usuario),
     obtenerPotenciadores(usuario.id),
+    opcionesSiFaltaEnfoque(usuario.id),
   ]);
   return (
     <div className="min-h-screen bg-system-50">
       <VigilanteDeSesion />
       <ActualizacionEnVivo />
       <DetectorDeUbicacion />
-      <Celebraciones />
+      {opcionesDeEnfoque ? <VentanaDeEnfoque opciones={opcionesDeEnfoque} /> : <Celebraciones />}
       <TopBar usuario={usuario} pendientes={pendientes} />
       <div className="dashboard-shell flex min-w-0">
         <SidebarNav usuario={usuario} aviso={aviso} potenciadores={potenciadores} />
