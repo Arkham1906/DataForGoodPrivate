@@ -26,8 +26,6 @@ export interface CampanaDePortada {
   pct: number;
   /** "12 dic", o null si no tiene fecha de cierre. */
   cierre: string | null;
-  /** Día de creación en Tepic, "3 nov" (2026-11-09). */
-  creada: string;
 }
 
 export interface PestanaDeCampanas {
@@ -101,7 +99,7 @@ export default function PestanasDeCampanas({ pestanas }: { pestanas: PestanaDeCa
         ))}
       </div>
       <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {pestana.campanas.map((c) => (
+        {pestana.campanas.slice(0, 4).map((c) => (
           <li key={c.id}>
             <TarjetaDeCampana campana={c} />
           </li>

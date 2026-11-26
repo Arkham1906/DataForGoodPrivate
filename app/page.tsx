@@ -11,6 +11,7 @@ import PublicFooter from "@/components/layout/PublicFooter";
 import ActualizacionEnVivo from "@/components/layout/ActualizacionEnVivo";
 import ButtonLink from "@/components/ui/ButtonLink";
 import ContadorAnimado from "@/components/ui/ContadorAnimado";
+import ProgressBar from "@/components/ui/ProgressBar";
 import { BASE_PATH } from "@/lib/base-path";
 import FranjaDeCampo from "@/components/landing/FranjaDeCampo";
 import TarjetaDeConjunto from "@/components/landing/TarjetaDeConjunto";
@@ -23,7 +24,6 @@ import { pool } from "@/lib/db";
 import { activateScheduledCampaigns, calculateCampaignDaysRemaining, finalizeExpiredCampaigns } from "@/lib/campaign-date";
 import { porcentajeDeMeta } from "@/lib/campanas/meta";
 import { sqlDatosPublicados } from "@/lib/campanas/datos-abiertos";
-import { ZONA_DE_CAMPANAS } from "@/lib/fecha-de-tepic";
 import TablaDeLideres from "@/components/gamificacion/TablaDeLideres";
 import { obtenerTablasPorPeriodo, tablaTieneDatos } from "@/lib/gamificacion/clasificacion";
 import { DATA_TYPE_LABELS, buscarConjuntosAbiertos, contarConjuntosPublicados } from "@/lib/open-data";
@@ -133,25 +133,24 @@ async function obtenerCifras(): Promise<CifrasReales> {
 
 const FECHA_CORTA = new Intl.DateTimeFormat("es-MX", { day: "numeric", month: "short", timeZone: "UTC" });
 
-/** Las 4 campañas activas de cada pestaña. Los ORDER BY son constantes, no vienen del usuario. */
+/** La lista de participación también alimenta las cinco tarjetas de la franja. */
 const ORDENES_DE_LA_VITRINA = [
-  { clave: "participacion", nombre: "Más participación", sql: "est.participants DESC, est.current_contributions DESC" },
-  { clave: "recientes", nombre: "Recientes", sql: "c.start_date DESC NULLS LAST, c.id DESC" },
-  { clave: "por-cerrar", nombre: "Por cerrar", sql: "c.end_date ASC NULLS LAST, c.id" },
+  { clave: "participacion", nombre: "Más participación", sql: "est.participants DESC, est.current_contributions DESC, c.id DESC", limite: 5 },
+  { clave: "recientes", nombre: "Recientes", sql: "c.start_date DESC NULLS LAST, c.id DESC", limite: 4 },
+  { clave: "por-cerrar", nombre: "Por cerrar", sql: "c.end_date ASC NULLS LAST, c.id", limite: 4 },
 ];
 
-async function campanasDeLaVitrina(orden: string): Promise<CampanaDePortada[]> {
+async function campanasDeLaVitrina(orden: string, limite: number): Promise<CampanaDePortada[]> {
   const result = await pool.query(
     `SELECT c.id, c.name, c.tematica, c.banner_path, c.updated_at, c.banner_scale, c.banner_position_x, c.banner_position_y,
             c.goal_contributions, to_char(c.end_date, 'YYYY-MM-DD') AS cierre, est.approved_contributions,
-            to_char(c.created_at AT TIME ZONE $1, 'YYYY-MM-DD') AS creada,
             (SELECT COALESCE(array_agg(t.tipo ORDER BY t.tipo), '{}') FROM campana_tipos t WHERE t.campana_id = c.id) AS tipos
      FROM campanas c
      JOIN campana_estadisticas est ON est.campana_id = c.id
      WHERE c.status = 'activa'
      ORDER BY ${orden}
-     LIMIT 4`,
-    [ZONA_DE_CAMPANAS]
+     LIMIT $1`,
+    [limite]
   );
   return result.rows.map((row) => ({
     id: String(row.id),
@@ -163,8 +162,6 @@ async function campanasDeLaVitrina(orden: string): Promise<CampanaDePortada[]> {
     daysRemaining: calculateCampaignDaysRemaining(row.cierre),
     pct: porcentajeDeMeta(Number(row.approved_contributions ?? 0), Number(row.goal_contributions ?? 0)),
     cierre: row.cierre ? FECHA_CORTA.format(new Date(`${row.cierre}T00:00:00Z`)) : null,
-    // Fecha de creación (2026-11-09, a pedido del usuario), en el día de Tepic.
-    creada: FECHA_CORTA.format(new Date(`${row.creada}T00:00:00Z`)),
   }));
 }
 
@@ -174,7 +171,7 @@ async function obtenerVitrina(): Promise<PestanaDeCampanas[]> {
     // Una programada cuya hora de inicio ya llegó entra sin esperar a la tarea de cada minuto.
     await activateScheduledCampaigns();
     await finalizeExpiredCampaigns();
-    const listas = await Promise.all(ORDENES_DE_LA_VITRINA.map((o) => campanasDeLaVitrina(o.sql)));
+    const listas = await Promise.all(ORDENES_DE_LA_VITRINA.map((o) => campanasDeLaVitrina(o.sql, o.limite)));
     if (listas[0].length === 0) return [];
     return ORDENES_DE_LA_VITRINA.map((o, i) => ({ clave: o.clave, nombre: o.nombre, campanas: listas[i] }));
   } catch {
@@ -241,7 +238,7 @@ export default async function LandingPage() {
   // Con datos desde siempre se pinta la sección; los periodos cortos pueden venir vacíos (lo dice la tabla).
   const tablas = await obtenerTablasPorPeriodo();
   const tablaDeLideres = tablaTieneDatos(tablas.siempre) ? tablas : null;
-  const campanaDestacada = vitrina[0]?.campanas[0];
+  const campanasDestacadas = vitrina.find((p) => p.clave === "participacion")?.campanas ?? [];
 
   return (
     <div className="min-h-screen bg-white">
@@ -275,31 +272,36 @@ export default async function LandingPage() {
             </div>
           </div>
 
-          <FranjaDeCampo style={retraso(360)} className="landing-entrada mt-12 h-[260px] md:h-[300px]">
-            {campanaDestacada && (
-              <div className={`${ANCHO} relative flex h-full items-end justify-center pb-5 md:justify-end`}>
-                <Link
-                  href={`/campanas/${campanaDestacada.id}`}
-                  className="landing-tarjeta flex w-full max-w-[360px] items-center gap-3 rounded-[18px] bg-white p-3 text-left shadow-sm"
-                >
-                  <span className="block h-24 w-28 shrink-0 overflow-hidden rounded-lg bg-system-100">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={`${BASE_PATH}/api/campanas/${campanaDestacada.id}/banner?v=${encodeURIComponent(campanaDestacada.bannerVersion ?? "")}`}
-                      alt=""
-                      className="h-full w-full object-cover"
-                      style={{ objectPosition: `${campanaDestacada.bannerPositionX ?? 50}% ${campanaDestacada.bannerPositionY ?? 50}%`, transform: `scale(${campanaDestacada.bannerScale ?? 1})` }}
-                    />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block line-clamp-2 text-[14.5px] font-medium text-system-900">{campanaDestacada.name}</span>
-                    <span className="mt-1 block font-mono text-[12px] text-system-500">Creada el {campanaDestacada.creada}</span>
-                    {campanaDestacada.cierre && (
-                      <span className="mt-1 block font-mono text-[12px] text-system-500">Cierra el {campanaDestacada.cierre}</span>
-                    )}
-                  </span>
-                </Link>
-              </div>
+          <FranjaDeCampo style={retraso(360)} className="landing-entrada mt-12 min-h-[260px] md:min-h-[300px]">
+            {campanasDestacadas.length > 0 && (
+              <section aria-labelledby="campanas-mas-participacion" className={`${ANCHO} relative py-6 text-left md:py-8`}>
+                <h2 id="campanas-mas-participacion" className="text-xl font-semibold tracking-tight text-system-900 md:text-2xl">
+                  Campañas con más participación
+                </h2>
+                <ol className="-mx-2 mt-2 flex snap-x snap-proximity gap-3 overflow-x-auto p-2 lg:grid lg:grid-cols-5 lg:overflow-visible">
+                  {campanasDestacadas.map((c) => (
+                    <li key={c.id} className="w-[78%] max-w-64 shrink-0 snap-center sm:w-56 lg:w-auto lg:min-w-0">
+                      <Link href={`/campanas/${c.id}`} className="landing-tarjeta flex h-full flex-col rounded-[18px] bg-white p-3 shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600">
+                        <div className="h-24 overflow-hidden rounded-lg bg-system-100">
+                          {/* eslint-disable-next-line @next/next/no-img-element -- el banner conserva el encuadre elegido para la campaña. */}
+                          <img
+                            src={`${BASE_PATH}/api/campanas/${c.id}/banner?v=${encodeURIComponent(c.bannerVersion ?? "")}`}
+                            alt=""
+                            className="h-full w-full object-cover"
+                            style={{ objectPosition: `${c.bannerPositionX}% ${c.bannerPositionY}%`, transform: `scale(${c.bannerScale})` }}
+                          />
+                        </div>
+                        <h3 className="mt-3 line-clamp-2 break-words text-[15px] font-semibold leading-snug text-system-900">{c.name}</h3>
+                        <p className="mt-1 text-[12px] text-system-600">{c.cierre ? `Cierra el ${c.cierre}` : "Sin fecha de cierre"}</p>
+                        <div className="mt-auto pt-3">
+                          <p className="mb-1 text-[12px] text-system-600">Meta de aportes</p>
+                          <ProgressBar pct={c.pct} tone="ok" conPorcentaje />
+                        </div>
+                      </Link>
+                    </li>
+                  ))}
+                </ol>
+              </section>
             )}
           </FranjaDeCampo>
         </section>
