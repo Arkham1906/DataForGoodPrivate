@@ -19,7 +19,6 @@ export const metadata: Metadata = { title: "Misiones" };
 const nf = new Intl.NumberFormat("es-MX");
 
 const COMO_CUENTAN = [
-  "Tus periodos empiezan a la hora de tu primer inicio de sesión: los diarios duran 24 horas y los semanales 7 días.",
   "Cada periodo trae misiones distintas, elegidas al azar entre las que puedes cumplir con las campañas activas.",
   "Solo cuentan aportes con cuenta, según la hora en que el servidor los recibió. Si uno se acepta después, cuenta para el periodo en que lo enviaste.",
   "Cada misión completada suma al total que piden los rangos y se cuenta una sola vez.",
@@ -40,7 +39,7 @@ export default async function MisionesPage() {
 
   const deInicio = datos.inicio.misiones.length > 0;
   // «Envía…», «Logra…» y las difíciles (2026-11-19, RF-GAM-43, 44).
-  const comoCuentan = [...COMO_CUENTAN, ...TEXTOS.misiones.comoCuentan, ...(deInicio ? [TEXTOS.misionesDeInicio.comoCuentan] : [])];
+  const comoCuentan = [TEXTOS.misiones.periodos, ...COMO_CUENTAN, ...TEXTOS.misiones.comoCuentan, ...(deInicio ? [TEXTOS.misionesDeInicio.comoCuentan] : [])];
   // Lo que pide completar el rango actual (presentación del 2026-11-22, lib/gamificacion/rangos.ts).
   const actual = progreso?.fichas.find((f): f is FichaDeRangoActual => f.estado === "actual");
   const meta = actual?.requisitos.find((r) => r.clave === "misiones");

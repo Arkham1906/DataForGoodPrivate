@@ -4,9 +4,9 @@
 // su recompensa, si la tiene, en la misma transacción: no hay nada que reclamar y no depende de que la persona entre (RF-GAM-75). La
 // clave de idempotencia y el UNIQUE de mision_instancias evitan contarla o premiarla dos veces (RF-GAM-08, 42).
 //
-// Decisiones tomadas con la propuesta del SRS, pendientes de confirmar (DA-GAM-17): periodos de 24 horas y 7 días desde
-// el primer inicio de sesión; una cuenta existente se ancla en su siguiente inicio de sesión o actividad; la recompensa
-// se entrega al completarse. Los aportes anónimos no tienen user_id: no cuentan (RF-GAM-43).
+// Periodos de calendario en Tepic (diaria: el día; semanal: lunes a domingo), como la racha; una cuenta existente se
+// ancla en su siguiente inicio de sesión o actividad; la recompensa se entrega al completarse. Los periodos que ya
+// existían (bloques de 24 h y 7 días desde el primer inicio de sesión) terminan como estaban (periodoEn). Los aportes anónimos no tienen user_id: no cuentan (RF-GAM-43).
 //
 // Misiones de inicio (2026-11-18; SRS v1.4: RF-GAM-103, RN-GAM-41): se asignan todas, una sola vez, en el periodo
 // «inicio» (la semana de bienvenida). Al terminar la semana ya no se pueden completar, aunque se acepte después un
@@ -124,12 +124,22 @@ export async function actualizarMisiones(
     );
     const misionPorId = new Map(misiones.map((m) => [m.id, m]));
 
-    // El periodo vigente y, si se aceptó un aporte tarde, el periodo en que se envió.
+    // El periodo vigente y, si se aceptó un aporte tarde, el periodo en que se envió. Los que ya tiene la persona se
+    // respetan: así no se enciman con los de calendario.
     const puntos = [Date.now(), ...instantes.map((i) => new Date(i).getTime())];
+    const existentesR = await client.query<{ periodicidad: Periodicidad; inicio: number; fin: number }>(
+      `SELECT DISTINCT m.periodicidad, (EXTRACT(EPOCH FROM i.periodo_inicio) * 1000)::float8 AS inicio,
+              (EXTRACT(EPOCH FROM i.periodo_fin) * 1000)::float8 AS fin
+        FROM mision_instancias i JOIN misiones m ON m.id = i.mision_id
+        WHERE i.usuario_id = $1 AND i.periodo_fin > to_timestamp($2 / 1000.0)`,
+      [usuarioId, Math.min(...puntos) - 2 * DURACION_MS.semanal],
+    );
+    const existentes = (periodicidad: Periodicidad): Periodo[] =>
+      existentesR.rows.filter((f) => f.periodicidad === periodicidad).map((f) => ({ inicio: Math.round(f.inicio), fin: Math.round(f.fin) }));
     const periodos = new Map<string, { periodicidad: Periodicidad } & Periodo>();
     for (const periodicidad of ["diaria", "semanal", "inicio"] as const) {
       for (const punto of puntos) {
-        const periodo = periodoEn(ancla, punto, periodicidad);
+        const periodo = periodoEn(ancla, punto, periodicidad, existentes(periodicidad));
         if (periodo) periodos.set(`${periodicidad}:${periodo.inicio}`, { periodicidad, ...periodo });
       }
     }
@@ -139,12 +149,14 @@ export async function actualizarMisiones(
         id: string;
         mision_id: number;
         inicio: number;
+        fin: number;
         objetivo: number;
         progreso: number;
         completada: boolean;
         recompensa: unknown;
       }>(
-        `SELECT id::text AS id, mision_id, (EXTRACT(EPOCH FROM periodo_inicio) * 1000)::float8 AS inicio, objetivo, progreso,
+        `SELECT id::text AS id, mision_id, (EXTRACT(EPOCH FROM periodo_inicio) * 1000)::float8 AS inicio,
+                (EXTRACT(EPOCH FROM periodo_fin) * 1000)::float8 AS fin, objetivo, progreso,
                 (completada_en IS NOT NULL) AS completada, recompensa
           FROM mision_instancias WHERE usuario_id = $1 AND periodo_inicio >= to_timestamp($2 / 1000.0)`,
         [usuarioId, Math.min(...puntos) - 2 * DURACION_MS.semanal],
@@ -169,7 +181,12 @@ export async function actualizarMisiones(
               semilla: `${usuarioId}:${periodicidad}:${inicio}`,
               cuantas: SELECCION_DE_MISIONES[periodicidad as PeriodicidadSorteada],
               contexto,
-              anteriores: new Set(clavesDe(previas.rows, periodicidad, inicio - DURACION_MS[periodicidad])),
+              // Las del periodo anterior (el que terminó cuando empezó este), para no repetirlas.
+              anteriores: new Set(
+                previas.rows
+                  .filter((f) => Math.round(f.fin) === inicio && misionPorId.get(f.mision_id)?.periodicidad === periodicidad)
+                  .map((f) => misionPorId.get(f.mision_id)?.clave ?? ""),
+              ),
               maximoDificiles: DIFICILES_DEL_CATALOGO.maximoPorPeriodo,
             });
       for (const mision of elegidas) {

@@ -1,4 +1,4 @@
-++// Recompensa de un aporte aceptado (2026-11-09; SRS v1.3: RF-GAM-01 a 08, 37 a 39, 57, 59, 60, 67). Al aceptarse un
+// Recompensa de un aporte aceptado (2026-11-09; SRS v1.3: RF-GAM-01 a 08, 37 a 39, 57, 59, 60, 67). Al aceptarse un
 // aporte con cuenta: EXP con la fórmula de RF-GAM-03 (lib/gamificacion/exp-reglas.ts) y los parámetros vigentes,
 // un movimiento en exp_movimientos con todo lo usado en el cálculo, los contadores de usuario_progreso y
 // usuario_contadores, el bono de cuota si se completó y, al final, la evaluación de rango y medallas (evaluacion.ts).

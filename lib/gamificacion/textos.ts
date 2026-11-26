@@ -380,6 +380,8 @@ export const TEXTOS = {
    * de las difíciles y la recompensa.
    */
   misiones: {
+    /** Cuándo empiezan y terminan los periodos: de calendario en hora de Tepic, como la racha. */
+    periodos: "Las misiones diarias cambian a las 00:00 y las semanales cada lunes a las 00:00, hora de Tepic, igual que tu racha.",
     cuenta: {
       envio: "Cuenta al enviar, aunque no lo acepten",
       aceptacion: "Cuenta cuando lo aceptan, en el periodo en que lo enviaste",

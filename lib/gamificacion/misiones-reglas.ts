@@ -8,6 +8,11 @@
 // decisión del responsable del 19 nov): cuándo cuenta una misión se deduce de su condición (cuandoCuenta). Las difíciles
 // tienen recompensa «sorteo»: al asignarse la misión sale un potenciador o un protector, 50/50 según los pesos de
 // misiones.json, y como máximo una difícil por periodo.
+//
+// Periodos: las diarias van de 00:00 a 24:00 y las semanales de lunes a domingo, en hora de Tepic, como la racha
+// (decisión del responsable; cierra DA-GAM-17). Antes eran bloques de 24 horas y 7 días desde el primer inicio de sesión.
+
+import { ZONA_DE_CAMPANAS } from "@/lib/fecha-de-tepic";
 
 export type Periodicidad = "diaria" | "semanal" | "inicio";
 /** Las que se sortean en cada periodo (seleccion de misiones.json). */
@@ -64,22 +69,60 @@ export function cuandoCuenta(c: CondicionDeMision): CuandoCuenta {
   return c.soloAceptados || c.mide === "cuotas_completadas" ? "aceptacion" : "envio";
 }
 
-/** «inicio» dura la semana de bienvenida: los primeros 7 días desde el primer inicio de sesión (RF-GAM-103, 106). */
+/** Duración de cada periodicidad. Las diarias y semanales son de calendario (periodoDeCalendario); «inicio» dura la
+ * semana de bienvenida: los primeros 7 días desde el primer inicio de sesión (RF-GAM-103, 106). */
 export const DURACION_MS: Record<Periodicidad, number> = { diaria: 86_400_000, semanal: 604_800_000, inicio: 604_800_000 };
 
 export type Periodo = { inicio: number; fin: number };
 
+const UN_DIA_MS = 86_400_000;
+const PARTES_EN_TEPIC = new Intl.DateTimeFormat("en-US", {
+  timeZone: ZONA_DE_CAMPANAS,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hourCycle: "h23",
+});
+
+/** Las 00:00 del día de Tepic en que cae el instante, en milisegundos UTC, y el día de la semana (0 domingo). */
+function diaEnTepic(instante: number): { inicio: number; diaDeLaSemana: number } {
+  const p = Object.fromEntries(PARTES_EN_TEPIC.formatToParts(new Date(instante)).map((x) => [x.type, Number(x.value)]));
+  const medianoche = Date.UTC(p.year, p.month - 1, p.day);
+  // Diferencia entre la hora de Tepic y UTC en ese instante (sin milisegundos).
+  const desfase = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second) - Math.floor(instante / 1000) * 1000;
+  return { inicio: medianoche - desfase, diaDeLaSemana: new Date(medianoche).getUTCDay() };
+}
+
+/** El día (00:00 a 24:00) o la semana (lunes a domingo) de calendario de Tepic, como la racha (decisión del responsable). */
+export function periodoDeCalendario(instante: number, periodicidad: "diaria" | "semanal"): Periodo {
+  const { inicio, diaDeLaSemana } = diaEnTepic(instante);
+  if (periodicidad === "diaria") return { inicio, fin: inicio + UN_DIA_MS };
+  const lunes = inicio - ((diaDeLaSemana + 6) % 7) * UN_DIA_MS;
+  return { inicio: lunes, fin: lunes + 7 * UN_DIA_MS };
+}
+
 /**
- * Bloques consecutivos de 24 horas o 7 días desde el primer inicio de sesión (propuesta de RF-GAM-41, DA-GAM-17).
- * null si el instante es anterior al ancla: ese aporte no pertenece a ningún periodo. «inicio» tiene un solo bloque, el
- * primero: después de la semana de bienvenida también es null (RN-GAM-41).
+ * Periodo de misión al que pertenece un instante. Diarias y semanales son de calendario en Tepic (periodoDeCalendario);
+ * «inicio» es la semana de bienvenida, los primeros 7 días desde el primer inicio de sesión (RF-GAM-103, 106). null si el
+ * instante es anterior al ancla, o si es «inicio» y ya pasó la semana (RN-GAM-41).
+ * `existentes`: periodos que la persona ya tiene de esa periodicidad. Uno que contiene el instante se respeta tal cual
+ * (así las misiones en curso de antes del cambio terminan su periodo), y uno nuevo empieza donde terminó el anterior si
+ * este se metía en el día o la semana de calendario: nunca se encimen dos periodos.
  */
-export function periodoEn(ancla: number, instante: number, periodicidad: Periodicidad): Periodo | null {
+export function periodoEn(ancla: number, instante: number, periodicidad: Periodicidad, existentes: readonly Periodo[] = []): Periodo | null {
   if (instante < ancla) return null;
-  const duracion = DURACION_MS[periodicidad];
-  if (periodicidad === "inicio") return instante < ancla + duracion ? { inicio: ancla, fin: ancla + duracion } : null;
-  const inicio = ancla + Math.floor((instante - ancla) / duracion) * duracion;
-  return { inicio, fin: inicio + duracion };
+  if (periodicidad === "inicio") {
+    const duracion = DURACION_MS.inicio;
+    return instante < ancla + duracion ? { inicio: ancla, fin: ancla + duracion } : null;
+  }
+  const vigente = existentes.find((p) => p.inicio <= instante && instante < p.fin);
+  if (vigente) return { inicio: vigente.inicio, fin: vigente.fin };
+  const calendario = periodoDeCalendario(instante, periodicidad);
+  const inicio = Math.max(calendario.inicio, ...existentes.filter((p) => p.fin > calendario.inicio && p.fin <= instante).map((p) => p.fin));
+  return { inicio, fin: calendario.fin };
 }
 
 export type AporteParaMision = {

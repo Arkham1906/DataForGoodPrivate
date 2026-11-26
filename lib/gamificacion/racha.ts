@@ -231,7 +231,7 @@ export async function actualizarRacha(usuarioId: number | string): Promise<Cambi
       tipo: "protector_consumido",
       titulo: TEXTOS.inventario.protectorUsadoTitulo,
       mensaje: TEXTOS.inventario.protectorUsadoMensaje(dia, rachaSostenida, protectoresAntes - i - 1),
-      enlace: rutaDePantalla("resumen") ?? "progreso",
+      enlace: rutaDePantalla("resumen") ?? "/progreso",
       metadata: { dia },
     });
   }
@@ -243,7 +243,7 @@ export async function actualizarRacha(usuarioId: number | string): Promise<Cambi
       tipo: "racha_interrumpida",
       titulo: "Tu racha se interrumpió",
       mensaje: `Tu racha de ${diasPerdidos} ${diasPerdidos === 1 ? "día" : "días"} terminó. Tu rango y tus medallas no cambian.`,
-      // El calendario de la racha está en Inicio (2026-11-12: el Resumen de /progreso se eliminó).
+      // El calendario de la racha está en el Resumen de Mi progreso.
       enlace: rutaDePantalla("resumen") ?? "/progreso",
     });
   }
