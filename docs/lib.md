@@ -109,7 +109,7 @@
 | `rechazo.ts` 🟢 | Por qué se rechazó una campaña (`RechazoDeCampana`, `rechazoDesdeFila`): motivo, fecha, si fue el SuperUsuario y la sanción del último rechazo, para el creador (2026-10-22) | `GET /api/campanas?mine=true`, `/mis-campanas`, formulario de campaña |
 | `revisores.ts` | `quitarRevisor(campanaId, usuarioId)`: quita a un revisor o cancela su invitación en una transacción (rol "revisor", notificación de invitación; "tiene revisor" se calcula de `campana_revisores`) (2026-10-22) | `DELETE /api/campanas/[id]/revisores` |
 | `sistema-opciones.ts` 🟢 | Constantes y tipos de esas pantallas (pestañas, etiquetas, órdenes); `mensajeSinTiposDeDato(tipo, cosas)`, el aviso de lista vacía por el filtro de tipo de dato (2026-11-24) | `/sistema/campanas/filtros.tsx`, `components/campanas/BarraDeFiltros.tsx` |
-| `filtro-local.ts` 🟢 | Filtra y ordena listas ya cargadas; `filtrarCampanas()` y `conteoDeTipos()` aceptan modo `alguno` (OR), conservando `todos` (AND) por defecto | `/campanas`, `/revisiones/campanas` (OR), `/supervision`, `/supervisar` (AND) |
+| `filtro-local.ts` 🟢 | Filtra y ordena listas ya cargadas; `filtrarCampanas()` y `conteoDeTipos()` aceptan modo `alguno` (OR), conservando `todos` (AND) por defecto; `conteoDeTipos()` sin uso desde el 2026-11-26 (`b0edc8b`: ya nadie muestra números junto a los tipos) | `/campanas`, `/revisiones/campanas` (OR), `/supervision`, `/supervisar` (AND) |
 
 ### `supervision/`
 

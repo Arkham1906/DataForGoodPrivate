@@ -5,6 +5,7 @@
 import { NextResponse } from "next/server";
 import { apareceEnLaClasificacion } from "@/lib/gamificacion/clasificacion";
 import { getSessionUser } from "@/lib/session";
+import { hasRootSession } from "@/lib/rootSession";
 import { cambiarAvatar, leerFotoDePerfil } from "@/lib/usuarios/avatar";
 import { ELECCIONES_DE_AVATAR, errorDeFotoDePerfil, type EleccionDeAvatar } from "@/lib/usuarios/avatar-opciones";
 import { leerFormulario, respuestaDeFormularioInvalido } from "@/lib/formulario";
@@ -22,6 +23,8 @@ async function cuentaPropia(id: string) {
 // usuario), la de quien sale en la tabla de líderes (apareceEnLaClasificacion), también sin sesión: la
 // muestran el podio y la lista de la landing y de /progreso/leaderboard. De cualquier otra cuenta, 404,
 // igual que si no tuviera foto (no dice si existe). 404 también si eligió las iniciales o un ícono.
+// Desde el 2026-11-26 (a pedido del usuario) también la de cualquier cuenta con sesión raíz: el directorio
+// del SuperUsuario (/usuarios) la muestra.
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   const sinFoto = () => NextResponse.json({ error: "Esta cuenta no tiene foto de perfil" }, { status: 404 });
   try {
@@ -29,7 +32,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     const usuarioId = Number(id);
     const usuario = await getSessionUser();
     const propia = Boolean(usuario) && Number(usuario?.id) === usuarioId;
-    if (!propia && !(await apareceEnLaClasificacion(usuarioId))) return sinFoto();
+    if (!propia && !(await hasRootSession()) && !(await apareceEnLaClasificacion(usuarioId))) return sinFoto();
 
     const foto = await leerFotoDePerfil(usuarioId);
     if (!foto) return sinFoto();

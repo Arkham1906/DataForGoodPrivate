@@ -46,6 +46,8 @@ type Textos = {
 };
 
 type PropsDeRenglon = Textos & {
+  /** A la izquierda, antes del título: la foto o el ícono de la persona (2026-11-26), como la miniatura de Mis aportes. */
+  miniatura?: ReactNode;
   /** Etiquetas y acciones, a la derecha. */
   lateral?: ReactNode;
   /** Toda la tarjeta es este enlace (entonces nada dentro puede ser otro enlace o botón). */
@@ -92,9 +94,10 @@ function Lateral({ children }: { children: ReactNode }) {
 }
 
 /** Un renglón. Con `href`, toda la tarjeta es el enlace (como en Mis aportes); sin él, las acciones van en `lateral`. */
-export function Renglon({ href, lateral, pie, ...textos }: PropsDeRenglon) {
+export function Renglon({ href, lateral, pie, miniatura, ...textos }: PropsDeRenglon) {
   const contenido = (
     <>
+      {miniatura ? <span className="shrink-0">{miniatura}</span> : null}
       <TextosDelRenglon {...textos} />
       {lateral ? <Lateral>{lateral}</Lateral> : null}
     </>

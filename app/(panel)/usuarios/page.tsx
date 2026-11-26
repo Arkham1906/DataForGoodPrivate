@@ -10,6 +10,7 @@ import Subtabs from "@/components/sistema/subtabs";
 import { Encabezado, EnlaceBoton, Paginacion, formatearNumero } from "@/components/sistema/ui";
 import Tag from "@/components/sistema/Tag";
 import { ListaDeRenglones, Renglon } from "@/components/sistema/Renglones";
+import Avatar from "@/components/ui/Avatar";
 import { PESTANAS_USUARIOS } from "@/lib/usuarios/dashboard";
 import { ETIQUETA_DE_ESTADO, POR_PAGINA, buscarUsuarios, organizacionesDelDirectorio } from "@/lib/usuarios/directorio";
 import Filtros from "./filtros";
@@ -134,6 +135,8 @@ export default async function DirectorioPage({
                   <Renglon
                     key={u.id}
                     href={`/usuarios/${u.id}`}
+                    // Su foto o el ícono que eligió (2026-11-26, a pedido del usuario); si no eligió, sus iniciales.
+                    miniatura={<Avatar datos={u.avatar} />}
                     titulo={u.nombre}
                     detalles={[u.correo, u.organizacion ?? "Sin organización", u.rolDetalle]}
                     lateral={

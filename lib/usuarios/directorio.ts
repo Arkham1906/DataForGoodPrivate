@@ -4,6 +4,7 @@
 import { AVISOS_PARA_BANEO } from "@/lib/usuarios/escala-de-avisos";
 import { pool } from "@/lib/db";
 import { columnaDeRoles, condicionDeRol } from "@/lib/usuarios/tabla-roles";
+import { datosDeAvatar, type DatosDeAvatar } from "@/lib/usuarios/avatar-opciones";
 import {
   CODIGO_DE_ROL,
   ETIQUETA_SIN_PERMISO,
@@ -55,6 +56,11 @@ export type FilaDeUsuario = {
   organizacion: string | null;
   estado: EstadoDeCuenta;
   strikes: number;
+  /**
+   * El ícono de su perfil (2026-11-26, a pedido del usuario: el directorio del SuperUsuario lo muestra): iniciales,
+   * ícono predefinido o foto, para components/ui/Avatar. Solo lo llena buscarUsuarios(); en las demás, iniciales.
+   */
+  avatar: DatosDeAvatar;
 };
 
 export type Usuario = FilaDeUsuario & {
@@ -198,6 +204,8 @@ type FilaUsuarioDB = {
   strikes: string | number;
   suspendida: boolean;
   baneada: boolean;
+  avatar?: string | null;
+  avatar_foto?: string | null;
 };
 
 /** Subconsulta agregada: una fila por usuario con sus sanciones resumidas. */
@@ -226,9 +234,10 @@ export function estadoDesdeSanciones(strikes: number, suspendida: boolean, banea
 function filaDesdeDB(row: FilaUsuarioDB): FilaDeUsuario {
   const roles = row.role ?? [];
   const strikes = Number(row.strikes ?? 0);
+  const nombre = `${row.nombre} ${row.apellidos}`.trim();
   return {
     id: String(row.id),
-    nombre: `${row.nombre} ${row.apellidos}`.trim(),
+    nombre,
     correo: row.email,
     rol: nombreDeRolPrincipal(roles),
     roles: nombresDeRoles(roles),
@@ -236,6 +245,7 @@ function filaDesdeDB(row: FilaUsuarioDB): FilaDeUsuario {
     organizacion: row.organizacion?.trim() || null,
     estado: estadoDesdeSanciones(strikes, Boolean(row.suspendida), Boolean(row.baneada)),
     strikes,
+    avatar: datosDeAvatar({ id: row.id, nombre, avatar: row.avatar, avatar_foto: row.avatar_foto }),
   };
 }
 
@@ -316,7 +326,7 @@ export async function buscarUsuarios(opciones: {
     const posicionOffset = valoresConPaginacion.length;
 
     const result = await pool.query<FilaUsuarioDB>(
-      `SELECT u.id, u.nombre, u.apellidos, u.email, u.organizacion, ${columnaDeRoles("u")},
+      `SELECT u.id, u.nombre, u.apellidos, u.email, u.organizacion, u.avatar, u.avatar_foto, ${columnaDeRoles("u")},
               COALESCE(rs.strikes, 0) AS strikes,
               COALESCE(rs.suspendida, false) AS suspendida,
               COALESCE(rs.baneada, false) AS baneada
