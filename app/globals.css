@@ -65,6 +65,11 @@
   --color-warning-800: #854d0e;
   --color-warning-900: #713f12;
   --color-warning-950: #422006;
+  --color-fuego-50: #fff7ed;
+  --color-fuego-100: #ffedd5;
+  --color-fuego-200: #fed7aa;
+  --color-fuego-700: #c2410c;
+  --color-fuego-800: #9a3412;
   /* Success: verdes (también el botón principal) */
   --color-success-50: #e4f4ec;
   --color-success-100: #d8ede2;
@@ -77,13 +82,17 @@
   --color-success-800: #0a6244;
   --color-success-900: #004a31;
   --color-success-950: #002f1e;
+  --color-avance-1: #4f46e5;
+  --color-avance-2: #0284c7;
+  --color-avance-3: #0d9488;
+  --color-avance-claro-1: #a5b4fc;
+  --color-avance-claro-2: #7dd3fc;
+  --color-avance-claro-3: #5eead4;
   --radius-pill: var(--pill);
   --radius-lg: var(--r-lg);
   --font-sans: var(--font-jakarta), ui-sans-serif, sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, monospace;
-  /* Curvas de movimiento (2026-11-12, Sendero de rangos). Las de CSS (ease-out…) son demasiado blandas.
-   * salida: entradas, salidas y respuestas de la interfaz. movimiento: algo que se desplaza o late en pantalla.
-   * Generan las utilidades ease-salida y ease-movimiento. */
+  /* Curvas de movimiento (2026-11-12, Sendero de rangos).*/
   --ease-salida: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-movimiento: cubic-bezier(0.77, 0, 0.175, 1);
 }
@@ -561,9 +570,9 @@ input::-ms-clear {
 /* ── Sendero de rangos (2026-11-12) ───────────────────────────────────────
  * Pestaña Trayectoria (components/gamificacion/SenderoDeRangos.tsx). Es una pantalla que se visita de vez en
  * cuando: las animaciones son de entrada y se ven una vez por visita.
- * - sendero-trazo: el tramo recorrido se dibuja desde el rango más bajo de la ventana hasta el actual
- *   (stroke-dashoffset sobre pathLength="1"). Solo opacidad y trazo: nada que recalcule el diseño.
- * - sendero-entra: cada fila aparece con --i × 50 ms de retraso; --i es la distancia al rango actual, así
+ * - sendero-trazo: el tramo recorrido se dibuja del rango 1 (arriba) al actual (2026-11-22: el camino va de
+ *   arriba abajo, en un área con desplazamiento). stroke-dashoffset sobre pathLength="1": nada que recalcule el diseño.
+ * - sendero-entra: cada fila aparece con --i × 50 ms de retraso; --i es la distancia al rango actual (hasta 6), así
  *   lo primero que aparece es «Estás aquí».
  * - sendero-latido: el halo del rango actual late dos veces y se queda quieto.
  * Con movimiento reducido no se dibuja ni se desplaza nada: solo un fundido corto. */
@@ -903,6 +912,23 @@ input::-ms-clear {
   .cel-numero,
   .cel-hoy {
     animation: cel-aparecer 160ms ease both;
+  }
+}
+
+/* Potenciador del menú lateral y burbuja entra con desvanecido y escala; con movimiento reducido, solo
+   desvanecido. */
+.potenciador-entra {
+  animation: potenciador-entra 220ms var(--ease-salida) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .potenciador-entra {
+    animation: cel-aparecer 160ms ease both;
+  }
+}
+@keyframes potenciador-entra {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
   }
 }
 

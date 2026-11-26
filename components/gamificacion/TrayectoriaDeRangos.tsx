@@ -1,11 +1,11 @@
 "use client";
 import { useState } from "react";
 import type { DatosDeTrayectoria } from "@/lib/gamificacion/mi-progreso-tipos";
-import type { FichaDeRangoAvistado, FichaDeRangoSiguiente } from "@/lib/gamificacion/rangos";
+import type { FichaDeRangoActual, FichaDeRangoAvistado, FichaDeRangoSiguiente } from "@/lib/gamificacion/rangos";
 import FichaDeRango from "./FichaDeRango";
 import SenderoDeRangos, { EncabezadoDeTrayectoria } from "./SenderoDeRangos";
 import TablaDeRequisitosDeRangos from "./TablaDeRequisitosRango";
-import { TarjetaDelSiguienteRango, TrayectoriaCompleta } from "./TarjetasDeLaTrayectoria";
+import { TarjetaDelRangoActual, TrayectoriaCompleta } from "./TarjetasDeLaTrayectoria";
 
 export default function TrayectoriaDeRangos({
   actual,
@@ -20,6 +20,7 @@ export default function TrayectoriaDeRangos({
   datos: DatosDeTrayectoria;
 }) {
   const [abierta, setAbierta] = useState<number | null>(null);
+  const fichaActual = datos.fichas.find((f): f is FichaDeRangoActual => f.estado === "actual");
   const siguiente = datos.fichas.find((f): f is FichaDeRangoSiguiente => f.estado === "siguiente");
   const avistado = datos.fichas.find((f): f is FichaDeRangoAvistado => f.estado === "avistado");
 
@@ -27,7 +28,7 @@ export default function TrayectoriaDeRangos({
     <div className="space-y-5">
       <EncabezadoDeTrayectoria actual={actual} total={total} nombre={nombre} />
 
-      {/* En la tarjeta del siguiente, las clases flex no aplican dentro de la rejilla: ocupa su columna. */}
+      {/* En la tarjeta de tu rango, las clases flex no aplican dentro de la rejilla: ocupa su columna. */}
       <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(360px,2fr)]">
         {/* key: tras un ascenso (router.refresh) el sendero se vuelve a montar y su trazo se dibuja de nuevo. */}
         <SenderoDeRangos
@@ -40,7 +41,11 @@ export default function TrayectoriaDeRangos({
           pista={avistado?.pista ?? null}
           onAbrir={setAbierta}
         />
-        {siguiente ? <TarjetaDelSiguienteRango ficha={siguiente} total={total} onAbrir={setAbierta} /> : <TrayectoriaCompleta total={total} />}
+        {fichaActual && siguiente ? (
+          <TarjetaDelRangoActual ficha={fichaActual} siguiente={siguiente} total={total} onAbrir={setAbierta} />
+        ) : (
+          <TrayectoriaCompleta total={total} />
+        )}
       </div>
 
       <TablaDeRequisitosDeRangos tabla={datos.tabla} actual={actual} total={total} />

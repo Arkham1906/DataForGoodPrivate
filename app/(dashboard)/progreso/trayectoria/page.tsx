@@ -5,7 +5,7 @@ import { exigirUsuario } from "@/lib/session";
 import { obtenerDatosDeTrayectoria } from "@/lib/gamificacion/mi-progreso";
 import { obtenerResumenDeProgreso } from "@/lib/gamificacion/progreso";
 
-export const metadata: Metadata = { title: "Trayectoria" };
+export const metadata: Metadata = { title: "Progreso" };
 
 export default async function TrayectoriaPage() {
   const usuario = await exigirUsuario();
@@ -15,7 +15,7 @@ export default async function TrayectoriaPage() {
   if (!progreso || !datos) {
     return (
       <Card>
-        <p className="text-[13px] text-system-600">Todavía no podemos mostrar tu trayectoria. Intenta de nuevo en unos minutos.</p>
+        <p className="text-[13px] text-system-600">Todavía no podemos mostrar tu progreso. Intenta de nuevo en unos minutos.</p>
       </Card>
     );
   }

@@ -180,7 +180,7 @@ export const TEXTOS = {
   /** Distintivo de rango en Mi cuenta (A6). */
   cuenta: {
     rango: (numero: number, nombre: string) => `Rango ${n(numero)} · ${nombre}`,
-    rangoAria: (numero: number, nombre: string) => `Rango ${n(numero)}, ${nombre}. Ver tu trayectoria`,
+    rangoAria: (numero: number, nombre: string) => `Rango ${n(numero)}, ${nombre}. Ver tu progreso`,
   },
   /** Lo que se pierde al eliminar la cuenta (A6). */
   baja: {
@@ -196,10 +196,11 @@ export const TEXTOS = {
     titulo: "Historial de EXP",
     intro: "Cada EXP que ganaste, de dónde vino y cómo se calculó. Solo tú ves esta información.",
     total: "EXP acumulada",
+    /** Lo que pide completar el rango actual (presentación del 2026-11-22). */
     siguiente: (rango: number, meta: number, faltan: number) =>
       faltan > 0
-        ? `El rango ${n(rango)} pide ${n(meta)} EXP: ${plural(faltan, "te falta", "te faltan")} ${n(faltan)}.`
-        : `Ya tienes la EXP que pide el rango ${n(rango)}.`,
+        ? `Completar tu rango ${n(rango)} pide ${n(meta)} EXP: ${plural(faltan, "te falta", "te faltan")} ${n(faltan)}.`
+        : `Ya tienes la EXP para completar tu rango ${n(rango)}.`,
     desgloseEtiqueta: "De dónde viene tu EXP",
     desglose: {
       aportes: "Aportes aceptados",
@@ -223,7 +224,13 @@ export const TEXTOS = {
       ajuste: "Ajuste de EXP",
     },
     periodicidad: (periodicidad: string) =>
-      periodicidad === "diaria" ? "Misión diaria" : periodicidad === "semanal" ? "Misión semanal" : "Misión",
+      periodicidad === "diaria"
+        ? "Misión diaria"
+        : periodicidad === "semanal"
+          ? "Misión semanal"
+          : periodicidad === "inicio"
+            ? "Misión de tu primera semana"
+            : "Misión",
     tituloAporte: (tipo: string | null, estrellas: number, nombre: string) =>
       `${tipo ? `${tipo} · ` : ""}${n(estrellas)}★ ${nombre}`,
     tituloAporteSinDatos: "Aporte aceptado",
@@ -358,6 +365,160 @@ export const TEXTOS = {
     error: "Todavía no podemos mostrar tus medallas. Intenta de nuevo en unos minutos.",
     cargando: "Cargando tus medallas…",
   },
+  /** Misiones de inicio en /progreso/misiones (2026-11-18; SRS v1.4: RF-GAM-103). */
+  misionesDeInicio: {
+    titulo: "Tu primera semana",
+    plazo: "Terminan en",
+    filtro: "Primera semana",
+    nombreDelPeriodo: "Primera semana",
+    comoCuentan:
+      "Durante tus primeros 7 días tienes también las misiones de tu primera semana. Salen una sola vez y, al terminar la semana, las que no completaste desaparecen.",
+  },
+
+  /**
+   * Tarjetas de misión (2026-11-19; SRS v1.4: RF-GAM-43, 122; lienzo aprobado el mismo día): cuándo cuenta, la etiqueta
+   * de las difíciles y la recompensa.
+   */
+  misiones: {
+    /** Cuándo empiezan y terminan los periodos: de calendario en hora de Tepic, como la racha. */
+    periodos: "Las misiones diarias cambian a las 00:00 y las semanales cada lunes a las 00:00, hora de Tepic, igual que tu racha.",
+    cuenta: {
+      envio: "Cuenta al enviar, aunque no lo acepten",
+      aceptacion: "Cuenta cuando lo aceptan, en el periodo en que lo enviaste",
+    },
+    dificil: "Difícil",
+    /** «+20 EXP» o «1 protector». */
+    recompensa: (texto: string) => (texto.endsWith("EXP") ? `+${texto}` : texto),
+    recibiste: (texto: string) => `Recibiste ${texto.endsWith("EXP") ? `+${texto}` : texto}`,
+    /** Notificación al completarla: «recibiste 20 EXP», «ganaste 1 protector». */
+    ganaste: (texto: string) => (texto.endsWith("EXP") ? `recibiste ${texto}` : `ganaste ${texto}`),
+    comoCuentan: [
+      "Las misiones «Envía…» cuentan al enviar el aporte, aunque después no lo acepten.",
+      "Las misiones «Logra…» cuentan cuando aceptan el aporte, en el periodo en que lo enviaste.",
+      "Cada semana puede salir una misión difícil. Da un protector o un potenciador en lugar de EXP; la tarjeta dice cuál.",
+    ] as readonly string[],
+  },
+
+  /**
+   * Protectores y potenciadores ganados en misiones (2026-11-19; lienzo de misiones aprobado el mismo día): la ventana
+   * «ya tienes el máximo» y lo que dice la tarjeta de la misión según qué pasó con el objeto.
+   */
+  inventario: {
+    nombre: (objeto: "protector" | "potenciador") => `1 ${objeto}`,
+    completada: (mision: string) => `Misión completada: ${mision}`,
+    tituloLleno: (objeto: "protector" | "potenciador") => (objeto === "protector" ? "Ya tienes 3 protectores" : "Ya tienes 4 potenciadores"),
+    tituloAmbos: "Tu inventario está lleno",
+    tienes: (objeto: "protector" | "potenciador", protectores: number, activo: boolean, enEspera: number) =>
+      objeto === "protector"
+        ? `Tus protectores: ${n(protectores)} de 3`
+        : `Tus potenciadores: ${activo ? "1 activo y " : ""}${n(enEspera)} en espera`,
+    tienesAmbos: (protectores: number, potenciadores: number) => `${n(protectores)} protectores y ${n(potenciadores)} potenciadores`,
+    noCabe: (objeto: "protector" | "potenciador", alternativa: "protector" | "potenciador") =>
+      `Es lo máximo que puedes ${objeto === "protector" ? "guardar" : "tener"}, así que este ${objeto} no cabe. ¿Lo cambias por un ${alternativa}?`,
+    noCabeAmbos: (objeto: "protector" | "potenciador") =>
+      `Tienes el máximo de protectores y de potenciadores, así que este ${objeto} no cabe y se pierde. Cuando uses alguno, podrás guardar los que ganes después.`,
+    explica: {
+      protector: "Cubre un día sin aportes para que tu racha no se rompa. Puedes guardar hasta 3.",
+      potenciador: "Suma +0.5 a la EXP de los aportes que envíes durante 15 minutos. Empieza solo, o espera su turno si ya tienes uno activo.",
+    },
+    nota: (objeto: "protector" | "potenciador") =>
+      `Con «No, gracias» el ${objeto} se pierde. Si cierras la ventana, te lo preguntamos en tu siguiente visita.`,
+    cambiar: (alternativa: "protector" | "potenciador") => `Cambiar por un ${alternativa}`,
+    noGracias: "No, gracias",
+    entendido: "Entendido",
+    perdidoTitulo: (objeto: "protector" | "potenciador") => (objeto === "protector" ? "Un protector no cupo" : "Un potenciador no cupo"),
+    perdidoMensaje: (objeto: "protector" | "potenciador") =>
+      `Tenías el máximo y el ${objeto} de tu misión se perdió. Lo que ya tenías sigue igual.`,
+    /** Aviso cuando un protector cubre un día sin aportes (2026-11-20, RF-GAM-28, 61). */
+    protectorUsadoTitulo: "Un protector cuidó tu racha",
+    protectorUsadoMensaje: (dia: string, racha: number, quedan: number) =>
+      `Cubrió el ${new Date(`${dia}T12:00:00Z`).toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" })} y tu racha sigue en ${n(racha)} ${racha === 1 ? "día" : "días"}. ${quedan === 0 ? "Ya no te quedan protectores." : `Te ${quedan === 1 ? "queda 1 protector" : `quedan ${n(quedan)} protectores`}.`}`,
+    /** Fila de protectores en la racha de Inicio y en el calendario. */
+    protectores: (cuantos: number, maximo: number) => `Protectores: ${n(cuantos)} de ${n(maximo)}`,
+    /** Tarjeta de la misión completada, según qué pasó con su objeto. */
+    /** Celebración del objeto que entró al inventario. */
+    ganado: {
+      eyebrow: "Recompensa de tu misión difícil",
+      eyebrowAlVolver: "Mientras no estabas",
+      titulo: (objeto: "protector" | "potenciador") => (objeto === "protector" ? "¡Ganaste un protector!" : "¡Ganaste un potenciador!"),
+      enEspera: (cuantos: number, maximo: number) => `En espera: ${n(cuantos)} de ${n(maximo)}`,
+      activo: "Ya está activo.",
+      activoAlVolver: "Lo ganaste cuando aceptaron tu aporte y se activó al volver.",
+      dondeVerlo: "Lo verás en el menú lateral (en tu teléfono, en la burbuja) mientras dure.",
+      espera: (reloj: string | null) =>
+        reloj ? `Empieza solo cuando termine el que tienes activo (quedan ${reloj}).` : "Empieza solo cuando termine el que tienes activo.",
+      usado: "Ya se usó: estuvo activo mientras no estabas.",
+      protectorSolo: "Se usa solo, sin que hagas nada, el día que no envíes aportes.",
+    },
+    tarjeta: {
+      pendiente: (texto: string) => `${texto} · por decidir: tu inventario está lleno`,
+      cambiada: (texto: string) => `Recibiste ${texto} a cambio`,
+      perdida: (texto: string) => `${texto} · no cupo`,
+    },
+  },
+
+  /** Potenciador en el menú lateral y en la burbuja de teléfono*/
+  potenciadorFlotante: {
+    titulo: "Potenciador activo",
+    suma: (bonificacion: number) => `+${d(bonificacion)} a lo que envíes ahora.`,
+    enEspera: (cuantos: number) => (cuantos === 1 ? "1 más en espera." : `${n(cuantos)} más en espera.`),
+    reloj: (segundos: number) => `${Math.floor(segundos / 60)}:${String(segundos % 60).padStart(2, "0")}`,
+    quedan: (segundos: number) => {
+      const min = Math.floor(segundos / 60);
+      const seg = segundos % 60;
+      return `Quedan ${n(min)} ${min === 1 ? "minuto" : "minutos"} y ${n(seg)} ${seg === 1 ? "segundo" : "segundos"}`;
+    },
+    burbuja: (segundos: number) =>
+      `Potenciador activo. Quedan ${n(Math.floor(segundos / 60))} min ${n(segundos % 60)} s. Toca para ver el detalle.`,
+    mover: "Mantén presionada la burbuja y arrástrala para moverla.",
+    cerrar: "Cerrar",
+  },
+
+  /** Pestaña Resumen de «Mi progreso» (2026-11-23; lienzo «Resumen e Inicio compacto», aprobado el mismo día). */
+  resumen: {
+    rango: (actual: number, total: number) => `Rango ${n(actual)} de ${n(total)}`,
+    etapa: (etapa: number) => `Etapa ${n(etapa)} de tu avatar`,
+    paraCompletar: "Para completar tu rango",
+    requisitos: (cumplidos: number, total: number) => `${n(cumplidos)} de ${n(total)} requisitos`,
+    luegoPasas: (numero: number) => `Luego pasas al rango ${n(numero)}.`,
+    ultimoRango: "Llegaste al último rango: completaste la trayectoria. Es permanente.",
+    verProgreso: "Ver tu progreso",
+    cifras: {
+      exp: "EXP total",
+      racha: "Racha",
+      dias: (dias: number) => (dias === 0 ? "Sin racha" : `${n(dias)} ${dias === 1 ? "día" : "días"}`),
+      maxima: (dias: number) => `Máxima: ${n(dias)} ${dias === 1 ? "día" : "días"}`,
+      misiones: "Misiones completadas",
+      medallas: "Medallas con nivel",
+      deTotal: (valor: number, total: number) => `${n(valor)} de ${n(total)}`,
+      historial: "Historial",
+      verMisiones: "Misiones",
+      verMedallas: "Medallas",
+    },
+    misiones: {
+      titulo: "Misiones",
+      /** Subtítulo: el Resumen muestra solo las más cerca de completarse (2026-11-23). */
+      masCerca: (cuantas: number) => (cuantas === 1 ? "La más cerca de completarse" : `Las ${n(cuantas)} más cerca de completarse`),
+      cuenta: (hoy: number, totalHoy: number, semana: number, totalSemana: number) =>
+        `Hoy ${n(hoy)} de ${n(totalHoy)} · Esta semana ${n(semana)} de ${n(totalSemana)}`,
+      diaria: "Diaria",
+      semanal: "Semanal",
+      terminaEn: (tiempo: string) => `Termina en ${tiempo}`,
+      sinMisiones: "Por ahora no tienes misiones.",
+      todasCompletas: "Completaste todas tus misiones de hoy y de esta semana.",
+      avance: (progreso: number, objetivo: number) => `${n(progreso)} de ${n(objetivo)}`,
+      completada: "Completada",
+      dificil: "Difícil",
+      verTodas: "Ver todas tus misiones →",
+    },
+    exp: {
+      titulo: "EXP reciente",
+      vacio: "Aún no tienes movimientos de EXP. Llegan cuando se acepta un aporte o completas una misión.",
+      verHistorial: "Ver historial de EXP →",
+    },
+    error: (que: string) => `Todavía no podemos mostrar ${que}. Intenta de nuevo en unos minutos.`,
+  },
+
   /** Celebraciones de rango, medalla y racha (2026-11-16; lienzo aprobado el mismo día). Reconocen, no presionan (RF-GAM-62). */
   celebraciones: {
     paso: (actual: number, total: number) => `${n(actual)} de ${n(total)}`,
@@ -365,7 +526,7 @@ export const TEXTOS = {
     continuar: "Continuar",
     listo: "Listo",
     /** Botón que pasa al siguiente paso de la cola. */
-    siguiente: { racha: "Siguiente: tu racha", rango: "Siguiente: tu nuevo rango", medallas: (cuantas: number, primera: string) => (cuantas === 1 ? `Siguiente: ${primera}` : `Siguiente: ${n(cuantas)} medallas`) },
+    siguiente: { racha: "Siguiente: tu racha", rango: "Siguiente: tu nuevo rango", objeto: "Siguiente: tu recompensa", medallas: (cuantas: number, primera: string) => (cuantas === 1 ? `Siguiente: ${primera}` : `Siguiente: ${n(cuantas)} medallas`) },
 
     rangoEyebrow: (numero: number, total: number) => `Nuevo rango · ${n(numero)} de ${n(total)}`,
     rangosEyebrow: (cuantos: number, numero: number, total: number) => `Subiste ${n(cuantos)} rangos · ${n(numero)} de ${n(total)}`,
@@ -381,10 +542,10 @@ export const TEXTOS = {
     coleccionableDetalle: "Ya está en tu inventario.",
     revelado: (numero: number, nombre: string) => `Se reveló el rango ${n(numero)} · ${nombre}`,
     reveladoDetalle: (avistado: number | null) =>
-      "Es tu siguiente rango: ya puedes ver su avance." + (avistado ? ` Y avistaste el ${n(avistado)}.` : ""),
+      "Es al que pasas cuando completes tu nuevo rango." + (avistado ? ` Y avistaste el ${n(avistado)}.` : ""),
     ultimoRango: "Completaste la trayectoria",
     ultimoRangoDetalle: "Es el último rango. Nadie te lo quita.",
-    verTrayectoria: "Ver tu trayectoria",
+    verTrayectoria: "Ver tu progreso",
 
     medallaEyebrow: "Nuevo nivel de medalla",
     medallaPrimera: "Tu primer nivel de esta medalla",
@@ -408,5 +569,6 @@ export const TEXTOS = {
     nombresDeDias: ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"] as readonly string[],
     dia: (nombre: string, conAporte: boolean, hoy: boolean) =>
       `${hoy ? "Hoy" : nombre[0].toUpperCase() + nombre.slice(1)}, ${conAporte ? "con aporte" : "sin aporte"}`,
+    diaProtegido: (nombre: string) => `${nombre[0].toUpperCase() + nombre.slice(1)}, cubierto con protector`,
   },
 } as const;

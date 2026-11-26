@@ -97,10 +97,10 @@ async function evaluarRango(client: Consultor, usuarioId: number | string): Prom
     aportes_aceptados: number;
     aportes_excelentes: number;
     aportes_excepcionales: number;
-    racha_actual: number;
+    racha_maxima: number;
     misiones_completadas: number;
   }>(
-    `SELECT rango_actual, exp_total, aportes_aceptados, aportes_excelentes, aportes_excepcionales, racha_actual,
+    `SELECT rango_actual, exp_total, aportes_aceptados, aportes_excelentes, aportes_excepcionales, racha_maxima,
             misiones_completadas
       FROM usuario_progreso WHERE usuario_id = $1`,
     [usuarioId],
@@ -113,13 +113,14 @@ async function evaluarRango(client: Consultor, usuarioId: number | string): Prom
     [p.rango_actual],
   );
 
-  // Todos los requisitos a la vez; la racha es la actual en este momento (RF-GAM-18, 19; RN-GAM-07).
+  // Todos los requisitos a la vez (RF-GAM-18; RN-GAM-07). La racha es la máxima alcanzada (SRS v1.4: RF-GAM-19,
+  // RN-GAM-10, 2026-11-18): perder la racha no frena el siguiente ascenso.
   const cumple = (r: FilaDeRango) =>
     p.exp_total >= r.req_exp &&
     p.aportes_aceptados >= r.req_aportes &&
     p.aportes_excelentes >= r.req_excelentes &&
     p.aportes_excepcionales >= r.req_excepcionales &&
-    p.racha_actual >= r.req_racha &&
+    p.racha_maxima >= r.req_racha &&
     p.misiones_completadas >= r.req_misiones;
 
   const alcanzados: FilaDeRango[] = [];

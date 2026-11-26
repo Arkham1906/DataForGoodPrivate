@@ -9,6 +9,7 @@
 
 import { useState } from "react";
 import ProgressBar from "@/components/ui/ProgressBar";
+import { fondoDeAvance } from "@/lib/gamificacion/color-de-avance";
 import { GRUPOS_DE_MEDALLA, type MedallaCercaDeSubir, type MedallaEnPantalla } from "@/lib/gamificacion/medallas";
 import { imagenDeMedalla } from "@/lib/gamificacion/recursos";
 import { TEXTOS } from "@/lib/gamificacion/textos";
@@ -56,7 +57,7 @@ function Tarjeta({ m, abrir }: { m: MedallaEnPantalla; abrir: () => void }) {
           <span className="text-system-700">{siguiente}</span>
           <span className="font-mono font-bold text-system-900">{avance}</span>
         </span>
-        <ProgressBar pct={pct} tone="ok" />
+        <ProgressBar pct={pct} color={fondoDeAvance(pct / 100)} />
       </span>
     </button>
   );
@@ -161,7 +162,10 @@ function CercaDeSubir({ cerca, abrir }: { cerca: MedallaCercaDeSubir[]; abrir: (
                 <strong className="text-[14.5px] max-md:text-sm">{k.nombre}</strong>
                 <span className="text-[12.5px] text-brand-100 max-md:text-xs">{T.faltanPara(k.umbral - k.valor, k.nivelSiguiente)}</span>
                 <span className="block h-1.5 overflow-hidden rounded-pill bg-brand-800">
-                  <span className="block h-full rounded-pill bg-success-300" style={{ width: `${Math.min(100, k.porcentaje)}%` }} />
+                  <span
+                    className="block h-full rounded-pill"
+                    style={{ width: `${Math.min(100, k.porcentaje)}%`, background: fondoDeAvance(k.porcentaje / 100, "oscuro") }}
+                  />
                 </span>
               </span>
             </button>

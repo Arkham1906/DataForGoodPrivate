@@ -3,6 +3,8 @@
 // Server Component: todo lo que muestra viene de obtenerResumenDeProgreso() (lib/gamificacion/progreso.ts);
 // la única parte con estado es CaminoCompacto (la ficha de rango). Hecho de piezas pequeñas para que un cambio
 // al avatar, a la insignia o a la barra no toque este archivo (TarjetaDeAvatar, InsigniaDeRango, BarraDeRequisitos).
+// 2026-11-22 (presentación «completar tu rango», a pedido del Dr.): la barra es lo que pide completar TU rango; al
+// completarlo pasas al siguiente.
 
 import Link from "next/link";
 import ButtonLink from "@/components/ui/ButtonLink";
@@ -42,9 +44,7 @@ export default function ResumenDeRango({
         {siguiente ? (
           <div className="flex flex-col gap-1.5">
             <div className="flex flex-wrap justify-between gap-x-3 text-[13px]">
-              <span className="text-system-900">
-                Hacia <strong>{siguiente.nombre}</strong>
-              </span>
+              <span className="text-system-900">Para completar tu rango</span>
               <span className="font-bold text-brand-700">
                 {siguiente.cumplidos} de {siguiente.activos} requisitos
               </span>
@@ -54,9 +54,12 @@ export default function ResumenDeRango({
               etiqueta={`${siguiente.cumplidos} de ${siguiente.activos} requisitos cumplidos`}
             />
             <p className="text-[13px] text-system-600">{siguiente.textoQueFalta}</p>
+            <p className="text-[13px] text-system-600">
+              Al completarlo pasas al rango {siguiente.numero} · <strong className="text-system-900">{siguiente.nombre}</strong>
+            </p>
           </div>
         ) : (
-          <p className="text-[13px] text-system-600">Llegaste al último rango de la trayectoria. Es permanente.</p>
+          <p className="text-[13px] text-system-600">Llegaste al último rango: completaste la trayectoria. Es permanente.</p>
         )}
       </div>
 
@@ -66,7 +69,7 @@ export default function ResumenDeRango({
           <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2">
             {enlaces.trayectoria && (
               <ButtonLink href={enlaces.trayectoria} variant="secondary" size="sm">
-                Ver tu trayectoria
+                Ver tu progreso
               </ButtonLink>
             )}
             {enlaces.historial && (

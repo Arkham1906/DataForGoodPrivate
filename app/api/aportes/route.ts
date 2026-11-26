@@ -13,6 +13,7 @@ import { estaBaneadoDeCampana } from "@/lib/campanas/baneos";
 import { respuestasValidas, seccionesDelTipo, seccionesDesdeFila } from "@/lib/campanas/checklist";
 import { idDeEnlaceVigente } from "@/lib/campanas/enlaces";
 import { actualizarRacha } from "@/lib/gamificacion/racha";
+import { obtenerPotenciadores } from "@/lib/gamificacion/inventario";
 import { actualizarMisiones } from "@/lib/gamificacion/misiones";
 import {
   LARGO_MAXIMO_DESCRIPCION,
@@ -263,6 +264,9 @@ export async function POST(request: Request) {
     const caracteristicas = respuestasValidas(rawCaracteristicas, seccionesDelTipo(seccionesDesdeFila(campaign), tipo));
 
     // Cuenta e inserta con candado: dos envíos simultáneos no pasan la cuota.
+    // Quien envía está en la app: si su potenciador terminó y otro esperaba, empieza ya, para que este aporte lo
+    // aproveche (la cola solo avanza con la persona presente, lib/gamificacion/inventario.ts).
+    await obtenerPotenciadores(user.id);
     const insertado = await insertarAporteConCuota({
       campaignId,
       persona: `usuario:${user.id}`,
@@ -313,7 +317,7 @@ export async function POST(request: Request) {
 
     // La racha cambia al enviar; si crece, la pantalla la celebra (2026-11-16, claude/pantallas-v12/celebracion-propuesta.md).
     const racha = await actualizarRacha(user.id);
-    await actualizarMisiones(user.id);
+    await actualizarMisiones(user.id, [], { presente: true });
     return NextResponse.json({ message: "Aporte enviado", data: mapAporte(insertado.fila), racha }, { status: 201 });
   } catch (error) {
     console.error("Error creando aporte", error);

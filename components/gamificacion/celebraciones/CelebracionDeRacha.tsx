@@ -5,6 +5,7 @@
 
 import { TEXTOS } from "@/lib/gamificacion/textos";
 import type { CambioDeRacha } from "@/lib/gamificacion/celebraciones-tipos";
+import { GlifoDeObjeto } from "../ObjetoDeInventario";
 import { Accion, Brasas, Icono, Llama, Paso, TRAZOS, retraso } from "./piezas";
 
 const T = TEXTOS.celebraciones;
@@ -76,10 +77,16 @@ export default function CelebracionDeRacha({
                   <span aria-hidden="true" className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--fuego-600)] text-white">
                     <Icono trazo={TRAZOS.palomita} className="h-4 w-4" grosor={3} />
                   </span>
+                ) : d.protegido ? (
+                  <span aria-hidden="true" className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--fuego-100)] text-[var(--fuego-700)]">
+                    <GlifoDeObjeto objeto="protector" className="h-[18px] w-[18px]" />
+                  </span>
                 ) : (
                   <span aria-hidden="true" className="block h-8 w-8 rounded-full border-2 border-system-200" />
                 )}
-                <span className="sr-only">{T.dia(T.nombresDeDias[numero], d.conAporte, d.hoy)}</span>
+                <span className="sr-only">
+                  {d.protegido ? T.diaProtegido(T.nombresDeDias[numero]) : T.dia(T.nombresDeDias[numero], d.conAporte, d.hoy)}
+                </span>
               </li>
             );
           })}

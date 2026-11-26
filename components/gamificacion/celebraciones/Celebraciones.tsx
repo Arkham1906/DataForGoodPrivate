@@ -10,11 +10,18 @@
 //     pendientes de rango y medalla. Así salen en vivo cuando aceptan el aporte que hizo subir, o al volver.
 //   - La pantalla de aportar avisa con EVENTO_CELEBRAR_RACHA el cambio de racha que devolvió POST /api/aportes; la
 //     racha va primero y después se piden las pendientes (Llama Constante puede subir con el mismo envío).
+//     2026-11-19: la medalla o el rango del mismo envío llegan en vivo antes que la racha y esperan en la cola sin
+//     mostrarse; la racha se pone delante de ellos. Solo se respeta (queda primero) un paso que ya se vio en pantalla.
 // «Siguiente» marca vistas las del paso y pasa al otro; «Cerrar», un enlace o Esc marcan vistas todas las de la cola.
 // Espera su turno (2026-11-17): mientras otra ventana modal de la app esté abierta, o mientras haya en la página un
 // elemento con `data-pausar-celebraciones` (aportar lo pone mientras envía y mientras muestra "Aporte enviado"), la cola
 // se guarda y no se muestra; sale en cuanto se cierra o se quita. Antes la celebración que llegaba en vivo con el mismo
 // envío (rango, medalla) se abría encimada con "Aporte enviado".
+// Objetos ganados: cada objeto que entró al inventario tiene su paso después de las medallas (CelebracionDeObjetoGanado);
+// se marca visto como los demás.
+// Objetos (2026-11-19): el protector o potenciador de una misión difícil que no cabe en el inventario va al final de la
+// cola, un paso por objeto (CelebracionDeObjeto). No se marca visto: lo quita la decisión. Cerrar la cola con Esc lo deja
+// para la siguiente visita (enCola evita que vuelva a salir en esta).
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { BASE_PATH } from "@/lib/base-path";
@@ -26,31 +33,39 @@ import {
   type CelebracionDeMedalla,
   type CelebracionDeRango as DatosDeRango,
   type CelebracionesPendientes,
+  type ObjetoGanado,
+  type ObjetoPorDecidir,
 } from "@/lib/gamificacion/celebraciones-tipos";
 import CelebracionDeRacha from "./CelebracionDeRacha";
 import CelebracionDeRango from "./CelebracionDeRango";
 import CelebracionDeMedallas from "./CelebracionDeMedallas";
+import CelebracionDeObjetoGanado from "./CelebracionDeObjetoGanado";
+import CelebracionDeObjeto from "./CelebracionDeObjeto";
 
 const T = TEXTOS.celebraciones;
 
 type Paso =
   | { clave: string; tipo: "racha"; racha: CambioDeRacha }
   | { clave: string; tipo: "rango"; rango: DatosDeRango }
-  | { clave: string; tipo: "medallas"; medallas: CelebracionDeMedalla[] };
+  | { clave: string; tipo: "medallas"; medallas: CelebracionDeMedalla[] }
+  | { clave: string; tipo: "ganado"; ganado: ObjetoGanado }
+  | { clave: string; tipo: "objeto"; objeto: ObjetoPorDecidir };
 
 const RUTA = `${BASE_PATH}/api/progreso/celebraciones`;
 
 function marcarVistas(pasos: Paso[]) {
   const rangos = pasos.flatMap((p) => (p.tipo === "rango" ? p.rango.ids : []));
   const medallas = pasos.flatMap((p) => (p.tipo === "medallas" ? p.medallas.flatMap((m) => m.ids) : []));
-  if (rangos.length === 0 && medallas.length === 0) return;
+  const objetos = pasos.flatMap((p) => (p.tipo === "ganado" ? [p.ganado.instanciaId] : []));
+  if (rangos.length === 0 && medallas.length === 0 && objetos.length === 0) return;
   // keepalive: el enlace «Ver tu trayectoria» navega en seguida.
-  void fetch(RUTA, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rangos, medallas }), keepalive: true }).catch(() => {});
+  void fetch(RUTA, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rangos, medallas, objetos }), keepalive: true }).catch(() => {});
 }
 
 function textoDeSiguiente(paso: Paso | undefined): string | null {
   if (!paso) return null;
   if (paso.tipo === "racha") return T.siguiente.racha;
+  if (paso.tipo === "objeto" || paso.tipo === "ganado") return T.siguiente.objeto;
   return paso.tipo === "rango" ? T.siguiente.rango : T.siguiente.medallas(paso.medallas.length, paso.medallas[0]?.nombre ?? "");
 }
 
@@ -60,6 +75,8 @@ const CLASE_DE_VENTANA: Record<Paso["tipo"], string> = {
   racha: `${MARCO} fixed inset-0 h-dvh w-full bg-[var(--fuego-50)] text-system-900`,
   // Teléfono: hoja pegada abajo. Desde sm: ventana centrada.
   medallas: `${MARCO} mt-auto w-full max-h-[92dvh] rounded-t-3xl bg-white text-system-900 shadow-2xl backdrop:bg-system-900/55 sm:m-auto sm:w-[calc(100%-2rem)] sm:max-w-[520px] sm:rounded-2xl`,
+  ganado: `${MARCO} mt-auto w-full max-h-[92dvh] rounded-t-3xl bg-white text-system-900 shadow-2xl backdrop:bg-system-900/55 sm:m-auto sm:w-[calc(100%-2rem)] sm:max-w-[480px] sm:rounded-2xl`,
+  objeto: `${MARCO} mt-auto w-full max-h-[92dvh] rounded-t-3xl bg-white text-system-900 shadow-2xl backdrop:bg-system-900/55 sm:m-auto sm:w-[calc(100%-2rem)] sm:max-w-[480px] sm:rounded-2xl`,
 };
 
 /** ¿Hay que esperar? Una pausa pedida por la pantalla, o una ventana modal que no sea de las celebraciones (`:modal` = abierta con showModal()). */
@@ -83,14 +100,15 @@ function suscribirAVentanas(avisar: () => void) {
 }
 
 /** El <dialog> de un paso: se abre como modal antes de pintarse (sin parpadeo entre pasos) y enfoca su botón principal. */
-function Ventana({ tipo, alEscapar, children }: { tipo: Paso["tipo"]; alEscapar: () => void; children: ReactNode }) {
+function Ventana({ clave, tipo, alMostrarse, alEscapar, children }: { clave: string; tipo: Paso["tipo"]; alMostrarse: (clave: string) => void; alEscapar: () => void; children: ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null);
   useLayoutEffect(() => {
     const ventana = ref.current;
     if (!ventana) return;
     if (!ventana.open) ventana.showModal();
     ventana.querySelector<HTMLElement>("[data-foco]")?.focus();
-  }, []);
+    alMostrarse(clave);
+  }, [clave, alMostrarse]);
   return (
     <dialog
       ref={ref}
@@ -117,12 +135,18 @@ export default function Celebraciones() {
   useLayoutEffect(() => {
     colaRef.current = cola;
   }, [cola]);
+  // Clave del paso que ya llegó a verse en pantalla (no basta con ser el primero de la cola: puede estar en espera).
+  const pasoVisto = useRef<string | null>(null);
 
   const agregar = useCallback((nuevos: Paso[], alFrente = false) => {
     if (nuevos.length === 0) return;
     if (colaRef.current.length === 0) origen.current = document.activeElement as HTMLElement | null;
-    // Al frente, pero sin tapar el paso que ya se está viendo.
-    setCola((c) => (alFrente && c.length > 0 ? [c[0], ...nuevos, ...c.slice(1)] : alFrente ? [...nuevos, ...c] : [...c, ...nuevos]));
+    // Al frente, pero sin tapar el paso que ya se está viendo; uno que aún espera su turno sí queda detrás.
+    const visto = pasoVisto.current;
+    setCola((c) => {
+      if (!alFrente) return [...c, ...nuevos];
+      return c.length > 0 && c[0].clave === visto ? [c[0], ...nuevos, ...c.slice(1)] : [...nuevos, ...c];
+    });
   }, []);
 
   const cargar = useCallback(async () => {
@@ -143,6 +167,16 @@ export default function Celebraciones() {
         medallas.forEach((m) => reservar("m", m.ids));
         nuevos.push({ clave: `medallas-${medallas.flatMap((m) => m.ids).join("-")}`, tipo: "medallas", medallas });
       }
+      for (const ganado of pendientes.ganados ?? []) {
+        if (enCola.current.has(`g${ganado.instanciaId}`)) continue;
+        enCola.current.add(`g${ganado.instanciaId}`);
+        nuevos.push({ clave: `ganado-${ganado.instanciaId}`, tipo: "ganado", ganado });
+      }
+      for (const objeto of pendientes.objetos ?? []) {
+        if (enCola.current.has(`o${objeto.instanciaId}`)) continue;
+        enCola.current.add(`o${objeto.instanciaId}`);
+        nuevos.push({ clave: `objeto-${objeto.instanciaId}`, tipo: "objeto", objeto });
+      }
       agregar(nuevos);
     } catch {
       // Sin red no hay celebración: lo pendiente sale en la siguiente carga.
@@ -151,7 +185,6 @@ export default function Celebraciones() {
 
   useEffect(() => {
     // La cola cambia después de la respuesta, no durante el efecto: es la suscripción a lo pendiente del servidor.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void cargar();
     const alAviso = () => void cargar();
     const alCrecerLaRacha = (evento: Event) => {
@@ -192,6 +225,10 @@ export default function Celebraciones() {
     terminar();
   }, [terminar]);
 
+  const alMostrarse = useCallback((clave: string) => {
+    pasoVisto.current = clave;
+  }, []);
+
   const enEspera = useSyncExternalStore(suscribirAVentanas, hayQueEsperar, () => false);
 
   const actual = cola[0];
@@ -203,10 +240,12 @@ export default function Celebraciones() {
   const comunes = { paso, siguiente, alSiguiente, alCerrar };
 
   return (
-    <Ventana key={actual.clave} tipo={actual.tipo} alEscapar={alCerrar}>
+    <Ventana key={actual.clave} clave={actual.clave} tipo={actual.tipo} alMostrarse={alMostrarse} alEscapar={alCerrar}>
       {actual.tipo === "racha" && <CelebracionDeRacha racha={actual.racha} {...comunes} />}
       {actual.tipo === "rango" && <CelebracionDeRango rango={actual.rango} {...comunes} />}
       {actual.tipo === "medallas" && <CelebracionDeMedallas medallas={actual.medallas} {...comunes} />}
+      {actual.tipo === "ganado" && <CelebracionDeObjetoGanado datos={actual.ganado} {...comunes} />}
+      {actual.tipo === "objeto" && <CelebracionDeObjeto datos={actual.objeto} paso={paso} alSiguiente={alSiguiente} />}
     </Ventana>
   );
 }

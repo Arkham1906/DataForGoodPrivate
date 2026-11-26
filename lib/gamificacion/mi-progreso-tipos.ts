@@ -40,8 +40,11 @@ export type ResumenDeCalificaciones = {
 // Trayectoria (/progreso/trayectoria
 // ------------------------------------
 
-/** Una tarjeta del camino de los 20 rangos: un eslabón más la EXP que pide (dato público, RF-GAM-80). */
-export type EslabonDeLaTrayectoria = EslabonDelCamino & { expQuePide: number };
+/**
+ * Una tarjeta del camino de los 20 rangos: un eslabón más la EXP que pide completarlo (dato público, RF-GAM-80;
+ * presentación del 2026-11-22). null en el último rango.
+ */
+export type EslabonDeLaTrayectoria = EslabonDelCamino & { expQuePide: number | null };
 
 /** Un rango alcanzado (o el actual) en «Tu recorrido» (RF-GAM-83). */
 export type HitoDelRecorrido = {
@@ -53,12 +56,15 @@ export type HitoDelRecorrido = {
   lapso: string;
 };
 
-/** Una fila de «Requisitos de los 20 rangos» (RF-GAM-80). `nombre` es null en avistado y por descubrir. */
+/**
+ * Una fila de «Requisitos de los 20 rangos» (RF-GAM-80): lo que pide completar ese rango (2026-11-22); null en el
+ * último. `nombre` es null en avistado y por descubrir.
+ */
 export type FilaDeRequisitosDeRango = {
   numero: number;
   estado: EstadoDeRango;
   nombre: string | null;
-  requisitos: ValoresPorRequisito;
+  requisitos: ValoresPorRequisito | null;
 };
 
 export type DatosDeTrayectoria = {

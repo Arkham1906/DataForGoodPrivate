@@ -1,13 +1,16 @@
-// Tarjetas de la Trayectoria.
+// Tarjetas de la Trayectoria. Desde el 2026-11-22 (presentación «completar tu rango», a pedido del Dr.) la tarjeta
+// principal es la de TU rango: lo que pide completarlo con tu avance, y a qué rango pasas al completarlo.
 
 import AyudaEmergente from "@/components/ui/AyudaEmergente";
 import { buttonClasses } from "@/components/ui/Button";
 import ButtonLink from "@/components/ui/ButtonLink";
 import ProgressBar from "@/components/ui/ProgressBar";
+import { fondoDeAvance } from "@/lib/gamificacion/color-de-avance";
 import Tag from "@/components/ui/Tag";
 import { rutaDePantalla } from "@/lib/gamificacion/pantallas-de-progreso";
 import {
   TEXTO_DE_LA_RACHA,
+  type FichaDeRangoActual,
   type FichaDeRangoSiguiente,
 } from "@/lib/gamificacion/rangos";
 import InsigniaDeRango from "./InsigniaDeRango";
@@ -55,38 +58,41 @@ const ICONO = {
   revelar: "M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0 M9 12a3 3 0 1 0 6 0a3 3 0 1 0 -6 0",
 };
 
-export function TarjetaDelSiguienteRango({
+export function TarjetaDelRangoActual({
   ficha,
+  siguiente,
   total,
   onAbrir,
 }: {
-  ficha: FichaDeRangoSiguiente;
+  ficha: FichaDeRangoActual;
+  siguiente: FichaDeRangoSiguiente;
   total: number;
   onAbrir: (numero: number) => void;
 }) {
-  const ultimo = ficha.numero >= total;
+  const ultimo = siguiente.numero >= total;
   return (
-    <section aria-labelledby="siguiente-titulo" className={`flex min-w-0 flex-[2_1_520px] flex-col gap-4 p-6 max-md:p-4 ${TARJETA}`}>
+    <section aria-labelledby="tu-rango-titulo" className={`flex min-w-0 flex-[2_1_520px] flex-col gap-4 p-6 max-md:p-4 ${TARJETA}`}>
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <Tag tone="ok">Siguiente</Tag>
-          <h2 id="siguiente-titulo" className="mt-2 text-[26px] font-extrabold leading-tight max-md:text-xl">
+          <Tag tone="ok">Tu rango</Tag>
+          <h2 id="tu-rango-titulo" className="mt-2 text-[26px] font-extrabold leading-tight max-md:text-xl">
             <span className="block text-[15px] font-semibold text-system-700 max-md:text-[13px]">Rango {ficha.numero}</span>
             {ficha.nombre}
           </h2>
           {ficha.descripcion && <p className="mt-1.5 text-sm text-system-700">{ficha.descripcion}</p>}
         </div>
-        <InsigniaDeRango numero={ficha.numero} estado="siguiente" tamano="lg" />
+        <InsigniaDeRango numero={ficha.numero} estado="actual" tamano="lg" />
       </div>
 
       <div className="rounded-lg bg-system-100 px-3.5 py-3">
         <p className="text-[15px] font-bold text-system-900 max-md:text-sm">{ficha.textoQueFalta}</p>
         <p className="mt-0.5 text-[13px] text-system-700">
-          Cumples {ficha.cumplidos} de {ficha.requisitos.length}. Subes en cuanto cumplas todos a la vez.
+          Cumples {ficha.cumplidos} de {ficha.requisitos.length}. Completas tu rango cuando cumplas todos a la vez.
         </p>
       </div>
 
-      <ul aria-label={`Requisitos del rango ${ficha.numero}`}>
+      <h3 className="-mb-2 text-sm font-extrabold text-system-900">Para completar tu rango {ficha.numero}</h3>
+      <ul aria-label={`Lo que pide completar el rango ${ficha.numero}`}>
         {ficha.requisitos.map((r) => (
           <li key={r.clave} className="grid grid-cols-[20px_minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-1.5 border-t border-system-100 py-2.5">
             <Marca cumplido={r.cumplido} />
@@ -96,7 +102,7 @@ export function TarjetaDelSiguienteRango({
             </span>
             <span className={`font-mono text-[13px] font-bold ${r.cumplido ? "text-success-800" : "text-system-900"}`}>{r.textoAvance}</span>
             <span className="col-start-2 col-end-4">
-              <ProgressBar pct={r.porcentaje} tone={r.cumplido ? "ok" : "accent"} />
+              <ProgressBar pct={r.porcentaje} color={fondoDeAvance(r.cumplido ? 1 : r.porcentaje / 100)} />
             </span>
           </li>
         ))}
@@ -104,15 +110,17 @@ export function TarjetaDelSiguienteRango({
       <p className="-mt-2 text-[12.5px] text-system-600">Un aporte de 5★ también cuenta en «4★ o más».</p>
 
       <div>
-        <h3 className="mb-2 text-sm font-extrabold text-system-900">Al subir recibes</h3>
+        <h3 className="mb-2 text-sm font-extrabold text-system-900">
+          Al completarlo pasas al rango {siguiente.numero} · {siguiente.nombre}
+        </h3>
         <ul className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-2">
-          <Recompensa icono={ICONO.avatar} tono="ok" titulo={`Etapa ${ficha.etapaDelAvatar} de tu avatar`} detalle="Tu avatar evoluciona y no retrocede." />
-          <Recompensa icono={ICONO.insignia} tono="info" titulo={`Insignia del rango ${ficha.numero}`} detalle="Su emblema, aparte de tu avatar." />
+          <Recompensa icono={ICONO.avatar} tono="ok" titulo={`Etapa ${siguiente.etapaDelAvatar} de tu avatar`} detalle="Tu avatar evoluciona y no retrocede." />
+          <Recompensa icono={ICONO.insignia} tono="info" titulo={`Insignia del rango ${siguiente.numero}`} detalle="Su emblema, aparte de tu avatar." />
           <Recompensa
             icono={ICONO.revelar}
             tono="info"
-            titulo={ultimo ? `Los ${total} rangos completos` : `El rango ${ficha.numero + 1} completo`}
-            detalle={ultimo ? "No queda ninguno por descubrir." : ficha.numero + 2 <= total ? `Y la pista del ${ficha.numero + 2}.` : undefined}
+            titulo={ultimo ? `Los ${total} rangos completos` : `El rango ${siguiente.numero + 1} completo`}
+            detalle={ultimo ? "No queda ninguno por descubrir." : siguiente.numero + 2 <= total ? `Y la pista del ${siguiente.numero + 2}.` : undefined}
           />
         </ul>
       </div>
@@ -121,8 +129,8 @@ export function TarjetaDelSiguienteRango({
         <ButtonLink href="/campanas" variant="primary">
           Aportar a una campaña
         </ButtonLink>
-        <button type="button" onClick={() => onAbrir(ficha.numero)} aria-haspopup="dialog" className={buttonClasses("secondary")}>
-          Ver la ficha del rango {ficha.numero}
+        <button type="button" onClick={() => onAbrir(siguiente.numero)} aria-haspopup="dialog" className={buttonClasses("secondary")}>
+          Ver la ficha del rango {siguiente.numero}
         </button>
       </div>
     </section>
@@ -137,10 +145,11 @@ export function TrayectoriaCompleta({ total }: { total: number }) {
         Trayectoria completa
       </Tag>
       <h2 id="completa-titulo" className="text-[26px] font-extrabold leading-tight max-md:text-xl">
-        No hay un rango {total + 1}
+        Completaste la trayectoria
       </h2>
       <p className="max-w-xl text-[15px] text-system-700 max-md:text-sm">
-        Los {total} rangos son tuyos y ninguno se pierde. Tus medallas siguen subiendo con cada aporte aceptado.
+        Llegaste al rango {total}, el último: ya no hay nada que completar después. Los {total} rangos son tuyos y ninguno se
+        pierde. Tus medallas siguen subiendo con cada aporte aceptado.
       </p>
       <div className="mt-2 flex flex-wrap gap-2.5">
         {/* Medallas aún no existe: el botón sale solo cuando tenga ruta (pantallas-de-progreso.ts). */}

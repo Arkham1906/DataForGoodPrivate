@@ -30,6 +30,16 @@ export function imagenDeMedalla(
   return `${BASE}/medallas/${clave}/${ilustracion || `${nivel}-${slug(nombreDelNivel)}`}@${lado}.webp`;
 }
 
+export type LadoDeObjeto = 96 | 192 | 640;
+
+/**
+ * Protector (escudo naranja con llama) y potenciador (frasco azul), aprobados el 2026-11-20:
+ * /gamificacion/v1/objetos/protector@96.webp. El .svg de la misma carpeta es la fuente; los .webp se generan de él.
+ */
+export function imagenDeObjeto(objeto: "protector" | "potenciador", lado: LadoDeObjeto = 96): string {
+  return `${BASE}/objetos/${objeto}@${lado}.webp`;
+}
+
 /** /gamificacion/v1/misiones/d_foto@96.webp, o null si la misión aún no tiene icono. */
 export function iconoDeMision(clave: string, lado: LadoDeMision = 96): string | null {
   return MISIONES_CON_ICONO.has(clave) ? `${BASE}/misiones/${clave}@${lado}.webp` : null;

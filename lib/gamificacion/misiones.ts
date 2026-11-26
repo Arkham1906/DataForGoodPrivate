@@ -4,30 +4,52 @@
 // su recompensa, si la tiene, en la misma transacción: no hay nada que reclamar y no depende de que la persona entre (RF-GAM-75). La
 // clave de idempotencia y el UNIQUE de mision_instancias evitan contarla o premiarla dos veces (RF-GAM-08, 42).
 //
-// Decisiones tomadas con la propuesta del SRS, pendientes de confirmar (DA-GAM-17): periodos de 24 horas y 7 días desde
-// el primer inicio de sesión; una cuenta existente se ancla en su siguiente inicio de sesión o actividad; la recompensa
-// se entrega al completarse. Los aportes anónimos no tienen user_id: no cuentan (RF-GAM-43).
+// Periodos de calendario en Tepic (diaria: el día; semanal: lunes a domingo), como la racha; una cuenta existente se
+// ancla en su siguiente inicio de sesión o actividad; la recompensa se entrega al completarse. Los periodos que ya
+// existían (bloques de 24 h y 7 días desde el primer inicio de sesión) terminan como estaban (periodoEn). Los aportes anónimos no tienen user_id: no cuentan (RF-GAM-43).
+//
+// Misiones de inicio (2026-11-18; SRS v1.4: RF-GAM-103, RN-GAM-41): se asignan todas, una sola vez, en el periodo
+// «inicio» (la semana de bienvenida). Al terminar la semana ya no se pueden completar, aunque se acepte después un
+// aporte enviado dentro de ella (CA-GAM-95).
+//
+// Recompensas y dificultad (2026-11-19; SRS v1.4: RF-GAM-44, 122, tabla 4.6, decisión del 19 nov): al asignar una misión
+// se guarda en mision_instancias.recompensa lo que dará; en las difíciles es el objeto sorteado (potenciador o protector),
+// así la tarjeta lo muestra desde el inicio. La EXP se concede al completarla. Un objeto queda registrado como pendiente
+// de entregar (recompensa_entregada_en NULL) y, al terminar, entregarObjetosDeMisiones() lo mete al inventario o lo deja
+// para la ventana «ya tienes el máximo» (lib/gamificacion/inventario.ts, 2026-11-19). `presente` dice si la persona
+// provocó el cambio (enviar, guardar, inscribirse) o llegó sin ella (aceptaron su aporte): decide si un potenciador se
+// activa ya o se guarda hasta que vuelva (RF-GAM-33).
 
 import type { PoolClient } from "pg";
 import { pool } from "@/lib/db";
 import { ZONA_DE_CAMPANAS, hoyEnTepic } from "@/lib/fecha-de-tepic";
 import { notificar } from "@/lib/notificaciones/notificaciones";
-import { SELECCION_DE_MISIONES } from "./catalogos";
+import { DIFICILES_DEL_CATALOGO, SELECCION_DE_MISIONES } from "./catalogos";
 import { evaluarProgresoDe } from "./evaluacion";
+import { entregarObjetosDeMisiones } from "./inventario";
 import {
   DURACION_MS,
+  type PeriodicidadSorteada,
   avanceDeMision,
+  cuandoCuenta,
   elegirMisiones,
   periodoEn,
   recompensaDesde,
+  semillaDelObjeto,
+  sortearObjeto,
   textoDeRecompensa,
+  tipoDeRecompensa,
   type CondicionDeMision,
+  type CuandoCuenta,
+  type Dificultad,
   type ContextoDeSeleccion,
   type DatosParaMisiones,
   type MedidaDeMision,
   type Periodicidad,
   type Periodo,
+  type RecompensaDeMision,
 } from "./misiones-reglas";
+import { TEXTOS } from "./textos";
 
 const LIMITE_DEL_HISTORIAL = 50;
 
@@ -40,7 +62,18 @@ type FilaDeMision = {
   condicion: CondicionDeMision;
   recompensa: unknown;
   activa: boolean;
+  dificultad: Dificultad;
 };
+
+/**
+ * Lo que da una instancia: lo guardado al asignarla o, en las asignadas antes del 19 nov, lo del catálogo. Una difícil
+ * asignada antes del cambio no tiene su objeto guardado: se sortea con la misma semilla que al asignar, así la tarjeta
+ * y la entrega coinciden (corrección del 2026-11-20: antes no daba nada).
+ */
+function recompensaDeInstancia(deInstancia: unknown, delCatalogo: unknown, semilla: string): RecompensaDeMision {
+  const recompensa = recompensaDesde(deInstancia ?? delCatalogo);
+  return recompensa?.tipo === "sorteo" ? { tipo: sortearObjeto(semilla, DIFICILES_DEL_CATALOGO.pesosDelSorteo) } : recompensa;
+}
 
 async function contextoDeSeleccion(client: Pick<PoolClient, "query">, intereses: string[]): Promise<ContextoDeSeleccion> {
   const tiposR = await client.query<{ tipo: string }>(
@@ -64,9 +97,9 @@ async function contextoDeSeleccion(client: Pick<PoolClient, "query">, intereses:
 export async function actualizarMisiones(
   usuarioId: number | string,
   instantes: (Date | string)[] = [],
-  opciones: { permitirBajar?: boolean } = {},
+  opciones: { permitirBajar?: boolean; presente?: boolean } = {},
 ): Promise<void> {
-  const completadas: { nombre: string; recompensa: string | null }[] = [];
+  const completadas: { nombre: string; recompensa: RecompensaDeMision }[] = [];
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -87,24 +120,44 @@ export async function actualizarMisiones(
     const ancla = Math.floor(anclaR.rows[0].ancla);
     const intereses = anclaR.rows[0].intereses;
     const { rows: misiones } = await client.query<FilaDeMision>(
-      `SELECT id, clave, nombre, periodicidad, grupo, condicion, recompensa, activa FROM misiones`,
+      `SELECT id, clave, nombre, periodicidad, grupo, condicion, recompensa, activa, dificultad FROM misiones`,
     );
     const misionPorId = new Map(misiones.map((m) => [m.id, m]));
 
-    // El periodo vigente y, si se aceptó un aporte tarde, el periodo en que se envió.
+    // El periodo vigente y, si se aceptó un aporte tarde, el periodo en que se envió. Los que ya tiene la persona se
+    // respetan: así no se enciman con los de calendario.
     const puntos = [Date.now(), ...instantes.map((i) => new Date(i).getTime())];
+    const existentesR = await client.query<{ periodicidad: Periodicidad; inicio: number; fin: number }>(
+      `SELECT DISTINCT m.periodicidad, (EXTRACT(EPOCH FROM i.periodo_inicio) * 1000)::float8 AS inicio,
+              (EXTRACT(EPOCH FROM i.periodo_fin) * 1000)::float8 AS fin
+        FROM mision_instancias i JOIN misiones m ON m.id = i.mision_id
+        WHERE i.usuario_id = $1 AND i.periodo_fin > to_timestamp($2 / 1000.0)`,
+      [usuarioId, Math.min(...puntos) - 2 * DURACION_MS.semanal],
+    );
+    const existentes = (periodicidad: Periodicidad): Periodo[] =>
+      existentesR.rows.filter((f) => f.periodicidad === periodicidad).map((f) => ({ inicio: Math.round(f.inicio), fin: Math.round(f.fin) }));
     const periodos = new Map<string, { periodicidad: Periodicidad } & Periodo>();
-    for (const periodicidad of ["diaria", "semanal"] as const) {
+    for (const periodicidad of ["diaria", "semanal", "inicio"] as const) {
       for (const punto of puntos) {
-        const periodo = periodoEn(ancla, punto, periodicidad);
+        const periodo = periodoEn(ancla, punto, periodicidad, existentes(periodicidad));
         if (periodo) periodos.set(`${periodicidad}:${periodo.inicio}`, { periodicidad, ...periodo });
       }
     }
 
     const leerInstancias = () =>
-      client.query<{ id: string; mision_id: number; inicio: number; objetivo: number; progreso: number; completada: boolean }>(
-        `SELECT id::text AS id, mision_id, (EXTRACT(EPOCH FROM periodo_inicio) * 1000)::float8 AS inicio, objetivo, progreso,
-                (completada_en IS NOT NULL) AS completada
+      client.query<{
+        id: string;
+        mision_id: number;
+        inicio: number;
+        fin: number;
+        objetivo: number;
+        progreso: number;
+        completada: boolean;
+        recompensa: unknown;
+      }>(
+        `SELECT id::text AS id, mision_id, (EXTRACT(EPOCH FROM periodo_inicio) * 1000)::float8 AS inicio,
+                (EXTRACT(EPOCH FROM periodo_fin) * 1000)::float8 AS fin, objetivo, progreso,
+                (completada_en IS NOT NULL) AS completada, recompensa
           FROM mision_instancias WHERE usuario_id = $1 AND periodo_inicio >= to_timestamp($2 / 1000.0)`,
         [usuarioId, Math.min(...puntos) - 2 * DURACION_MS.semanal],
       );
@@ -118,22 +171,36 @@ export async function actualizarMisiones(
     let contexto: ContextoDeSeleccion | null = null;
     for (const { periodicidad, inicio, fin } of periodos.values()) {
       if (clavesDe(previas.rows, periodicidad, inicio).length > 0) continue;
-      contexto ??= await contextoDeSeleccion(client, intereses);
-      const elegidas = elegirMisiones(
-        misiones.filter((m) => m.activa && m.periodicidad === periodicidad),
-        {
-          semilla: `${usuarioId}:${periodicidad}:${inicio}`,
-          cuantas: SELECCION_DE_MISIONES[periodicidad],
-          contexto,
-          anteriores: new Set(clavesDe(previas.rows, periodicidad, inicio - DURACION_MS[periodicidad])),
-        },
-      );
+      const activas = misiones.filter((m) => m.activa && m.periodicidad === periodicidad);
+      // Las de inicio no se sortean: salen todas (RF-GAM-103).
+      if (periodicidad !== "inicio") contexto ??= await contextoDeSeleccion(client, intereses);
+      const elegidas =
+        periodicidad === "inicio" || !contexto
+          ? activas
+          : elegirMisiones(activas, {
+              semilla: `${usuarioId}:${periodicidad}:${inicio}`,
+              cuantas: SELECCION_DE_MISIONES[periodicidad as PeriodicidadSorteada],
+              contexto,
+              // Las del periodo anterior (el que terminó cuando empezó este), para no repetirlas.
+              anteriores: new Set(
+                previas.rows
+                  .filter((f) => Math.round(f.fin) === inicio && misionPorId.get(f.mision_id)?.periodicidad === periodicidad)
+                  .map((f) => misionPorId.get(f.mision_id)?.clave ?? ""),
+              ),
+              maximoDificiles: DIFICILES_DEL_CATALOGO.maximoPorPeriodo,
+            });
       for (const mision of elegidas) {
+        // Lo que dará se fija al asignarla: el objeto de una difícil se sortea aquí, una sola vez (misma semilla).
+        const delCatalogo = recompensaDesde(mision.recompensa);
+        const recompensa: RecompensaDeMision =
+          delCatalogo?.tipo === "sorteo"
+            ? { tipo: sortearObjeto(semillaDelObjeto(usuarioId, mision.clave, inicio), DIFICILES_DEL_CATALOGO.pesosDelSorteo) }
+            : delCatalogo;
         await client.query(
-          `INSERT INTO mision_instancias (usuario_id, mision_id, periodo_inicio, periodo_fin, objetivo)
-            VALUES ($1, $2, to_timestamp($3 / 1000.0), to_timestamp($4 / 1000.0), $5)
+          `INSERT INTO mision_instancias (usuario_id, mision_id, periodo_inicio, periodo_fin, objetivo, recompensa)
+            VALUES ($1, $2, to_timestamp($3 / 1000.0), to_timestamp($4 / 1000.0), $5, $6::jsonb)
             ON CONFLICT (usuario_id, mision_id, periodo_inicio) DO NOTHING`,
-          [usuarioId, mision.id, inicio, fin, mision.condicion.objetivo],
+          [usuarioId, mision.id, inicio, fin, mision.condicion.objetivo, recompensa ? JSON.stringify(recompensa) : null],
         );
       }
     }
@@ -193,6 +260,8 @@ export async function actualizarMisiones(
       if (!mision || instancia.completada) continue;
       const periodo = periodos.get(`${mision.periodicidad}:${Math.round(instancia.inicio)}`);
       if (!periodo) continue;
+      // Terminada la semana de bienvenida, las de inicio ya no avanzan (RF-GAM-103, CA-GAM-95).
+      if (mision.periodicidad === "inicio" && Date.now() >= periodo.fin) continue;
       const avance = Math.min(avanceDeMision(mision.condicion, datos, periodo), instancia.objetivo);
       // El avance solo sube, salvo tras un descuento por reporte (2026-11-13, A1): ahí baja en las misiones que aún no
       // se completan. Una misión completada no se toca (su recompensa ya se entregó).
@@ -202,27 +271,35 @@ export async function actualizarMisiones(
         continue;
       }
 
-      const recompensa = recompensaDesde(mision.recompensa);
+      const recompensa = recompensaDeInstancia(
+        instancia.recompensa,
+        mision.recompensa,
+        semillaDelObjeto(usuarioId, mision.clave, instancia.inicio),
+      );
+      const exp = recompensa?.tipo === "exp" ? recompensa.cantidad : 0;
+      // La EXP se entrega aquí. Un objeto queda pendiente (recompensa_entregada_en NULL) y lo entrega
+      // entregarObjetosDeMisiones al terminar. Se guarda lo que dio, también en las asignadas antes del 19 nov.
       await client.query(
         `UPDATE mision_instancias
-          SET progreso = $2, completada_en = NOW(), recompensa_entregada_en = CASE WHEN $3 THEN NOW() END
+          SET progreso = $2, completada_en = NOW(), recompensa_entregada_en = CASE WHEN $3 THEN NOW() END,
+              recompensa = COALESCE(recompensa, $4::jsonb)
           WHERE id = $1`,
-        [instancia.id, avance, recompensa !== null],
+        [instancia.id, avance, exp > 0, recompensa ? JSON.stringify(recompensa) : null],
       );
-      if (recompensa) {
+      if (exp > 0) {
         await client.query(
           `INSERT INTO exp_movimientos (usuario_id, tipo, exp, motivo, mision_instancia_id, clave_idempotencia)
             VALUES ($1, 'mision', $2, $3, $4, $5)`,
-          [usuarioId, recompensa.cantidad, `Misión: ${mision.nombre}`, instancia.id, `mision:${instancia.id}`],
+          [usuarioId, exp, `Misión: ${mision.nombre}`, instancia.id, `mision:${instancia.id}`],
         );
       }
       await client.query(
         `UPDATE usuario_progreso
           SET exp_total = exp_total + $2, misiones_completadas = misiones_completadas + 1, actualizado_en = NOW()
           WHERE usuario_id = $1`,
-        [usuarioId, recompensa?.cantidad ?? 0],
+        [usuarioId, exp],
       );
-      completadas.push({ nombre: mision.nombre, recompensa: textoDeRecompensa(recompensa) });
+      completadas.push({ nombre: mision.nombre, recompensa });
     }
     await client.query("COMMIT");
   } catch (error) {
@@ -235,29 +312,45 @@ export async function actualizarMisiones(
 
   // Las misiones completadas son requisito de rango y su EXP mide Energía de Impacto (RF-GAM-18, 47).
   if (completadas.length > 0) await evaluarProgresoDe(usuarioId);
+  // Protectores y potenciadores de las difíciles: al inventario si caben; si no, a la ventana.
+  if (completadas.some((c) => c.recompensa && c.recompensa.tipo !== "exp")) {
+    await entregarObjetosDeMisiones(usuarioId, { presente: opciones.presente ?? false });
+  }
 
   for (const { nombre, recompensa } of completadas) {
+    const texto = textoDeRecompensa(recompensa);
     await notificar({
       usuarioId: Number(usuarioId),
       tipo: "mision_completada",
       titulo: "Misión completada",
-      mensaje: recompensa ? `${nombre}: recibiste ${recompensa}.` : `${nombre}. Suma a lo que piden los rangos.`,
+      mensaje: texto ? `${nombre}: ${TEXTOS.misiones.ganaste(texto)}.` : `${nombre}. Suma a lo que piden los rangos.`,
       enlace: "/progreso/misiones",
     });
   }
 }
 
-/** Abre los periodos que tocan al leer: la renovación no necesita ningún proceso en segundo plano. */
+/**
+ * Abre los periodos que tocan al leer: la renovación no necesita ningún proceso en segundo plano. Las de inicio solo
+ * se buscan durante la semana de bienvenida (o si la cuenta aún no tiene ancla).
+ */
 export async function asegurarMisionesVigentes(usuarioId: number | string): Promise<void> {
   const { rows } = await pool.query<{ faltan: boolean }>(
     `SELECT EXISTS (
         SELECT 1 FROM (SELECT DISTINCT periodicidad FROM misiones WHERE activa) p
-        WHERE NOT EXISTS (
+        WHERE (
+          p.periodicidad <> 'inicio'
+          OR EXISTS (
+            SELECT 1 FROM usuarios u
+            WHERE u.id = $1
+              AND (u.primer_inicio_sesion_en IS NULL OR u.primer_inicio_sesion_en > NOW() - make_interval(secs => $2 / 1000.0))
+          )
+        )
+        AND NOT EXISTS (
           SELECT 1 FROM mision_instancias i JOIN misiones m ON m.id = i.mision_id
           WHERE i.usuario_id = $1 AND m.periodicidad = p.periodicidad AND i.periodo_inicio <= NOW() AND i.periodo_fin > NOW()
         )
       ) AS faltan`,
-    [usuarioId],
+    [usuarioId, DURACION_MS.inicio],
   );
   if (rows[0]?.faltan) await actualizarMisiones(usuarioId);
 }
@@ -273,7 +366,15 @@ export type MisionVigente = {
   progreso: number;
   objetivo: number;
   completada: boolean;
+  /** «20 EXP», «1 protector»; null sin recompensa. */
   recompensa: string | null;
+  /** Para el ícono de la recompensa. */
+  tipoDeRecompensa: "exp" | "potenciador" | "protector" | null;
+  dificil: boolean;
+  /** Qué pasó con el objeto de una difícil completada; null si no da objeto o no se completó. */
+  objeto: "pendiente" | "entregada" | "cambiada" | "perdida" | null;
+  /** «Envía…» cuenta al enviar; «Logra…» al aceptarse (RF-GAM-43). */
+  cuenta: CuandoCuenta;
   clave: string;
 };
 
@@ -297,6 +398,8 @@ export type MisionCompletada = {
 
 export type DatosDeMisiones = {
   total: number;
+  /** Misiones de la semana de bienvenida; sin misiones fuera de ella (RF-GAM-103). */
+  inicio: GrupoDeMisiones;
   diarias: GrupoDeMisiones;
   semanales: GrupoDeMisiones;
   historial: MisionCompletada[];
@@ -320,22 +423,30 @@ export function textoDeTiempoRestante(ms: number): string {
   return `${horas} h ${String(minutos % 60).padStart(2, "0")} min`;
 }
 
-function grupoDe(filas: FilaVigente[], periodicidad: Periodicidad): GrupoDeMisiones {
+function grupoDe(filas: FilaVigente[], periodicidad: Periodicidad, usuarioId: number | string): GrupoDeMisiones {
   const delGrupo = filas.filter((f) => f.periodicidad === periodicidad);
   const primera = delGrupo[0];
   return {
     periodo: primera ? `${FECHA_Y_HORA.format(primera.inicio)} → ${FECHA_Y_HORA.format(primera.fin)}` : null,
     seRenuevanEn: primera ? textoDeTiempoRestante(primera.fin - Date.now()) : null,
-    misiones: delGrupo.map((f) => ({
-      id: f.id,
-      nombre: f.nombre,
-      mide: f.condicion.mide,
-      progreso: f.progreso,
-      objetivo: f.objetivo,
-      completada: f.completada,
-      recompensa: textoDeRecompensa(recompensaDesde(f.recompensa)),
-      clave : f.clave,
-    })),
+    misiones: delGrupo.map((f) => {
+      const recompensa = recompensaDeInstancia(f.recompensa_instancia, f.recompensa, semillaDelObjeto(usuarioId, f.clave, f.inicio));
+      const daObjeto = recompensa?.tipo === "potenciador" || recompensa?.tipo === "protector";
+      return {
+        id: f.id,
+        nombre: f.nombre,
+        mide: f.condicion.mide,
+        progreso: f.progreso,
+        objetivo: f.objetivo,
+        completada: f.completada,
+        recompensa: textoDeRecompensa(recompensa),
+        tipoDeRecompensa: tipoDeRecompensa(recompensa),
+        dificil: f.dificultad === "dificil",
+        objeto: daObjeto && f.completada ? (f.recompensa_resultado ?? "pendiente") : null,
+        cuenta: cuandoCuenta(f.condicion),
+        clave: f.clave,
+      };
+    }),
   };
 }
 
@@ -345,6 +456,9 @@ type FilaVigente = {
   periodicidad: Periodicidad;
   condicion: CondicionDeMision;
   recompensa: unknown;
+  recompensa_instancia: unknown;
+  recompensa_resultado: "entregada" | "cambiada" | "perdida" | null;
+  dificultad: Dificultad;
   progreso: number;
   objetivo: number;
   completada: boolean;
@@ -359,7 +473,8 @@ export async function obtenerMisiones(usuarioId: number | string): Promise<Datos
     await asegurarMisionesVigentes(usuarioId);
     const [vigentesR, historialR, totalR] = await Promise.all([
       pool.query<FilaVigente>(
-        `SELECT i.id::text AS id, m.clave, m.nombre, m.periodicidad, m.condicion, m.recompensa, i.progreso, i.objetivo,
+        `SELECT i.id::text AS id, m.clave, m.nombre, m.periodicidad, m.condicion, m.recompensa,
+                i.recompensa AS recompensa_instancia, i.recompensa_resultado, m.dificultad, i.progreso, i.objetivo,
                 (i.completada_en IS NOT NULL) AS completada,
                 (EXTRACT(EPOCH FROM i.periodo_inicio) * 1000)::float8 AS inicio,
                 (EXTRACT(EPOCH FROM i.periodo_fin) * 1000)::float8 AS fin
@@ -373,12 +488,13 @@ export async function obtenerMisiones(usuarioId: number | string): Promise<Datos
         nombre: string;
         periodicidad: Periodicidad;
         recompensa: unknown;
+        recompensa_instancia: unknown;
         inicio: number;
         fin: number;
         completada: number;
         clave: string;
       }>(
-        `SELECT i.id::text AS id, m.clave, m.nombre, m.periodicidad, m.recompensa,
+        `SELECT i.id::text AS id, m.clave, m.nombre, m.periodicidad, m.recompensa, i.recompensa AS recompensa_instancia,
                 (EXTRACT(EPOCH FROM i.periodo_inicio) * 1000)::float8 AS inicio,
                 (EXTRACT(EPOCH FROM i.periodo_fin) * 1000)::float8 AS fin,
                 (EXTRACT(EPOCH FROM i.completada_en) * 1000)::float8 AS completada
@@ -393,15 +509,18 @@ export async function obtenerMisiones(usuarioId: number | string): Promise<Datos
 
     return {
       total: totalR.rows[0]?.misiones_completadas ?? 0,
-      diarias: grupoDe(vigentesR.rows, "diaria"),
-      semanales: grupoDe(vigentesR.rows, "semanal"),
+      inicio: grupoDe(vigentesR.rows, "inicio", usuarioId),
+      diarias: grupoDe(vigentesR.rows, "diaria", usuarioId),
+      semanales: grupoDe(vigentesR.rows, "semanal", usuarioId),
       historial: historialR.rows.map((h) => ({
         id: h.id,
         nombre: h.nombre,
         periodicidad: h.periodicidad,
         periodo: `${FECHA.format(h.inicio)} – ${FECHA.format(h.fin)}`,
         completadaEn: FECHA_Y_HORA.format(h.completada),
-        recompensa: textoDeRecompensa(recompensaDesde(h.recompensa)),
+        recompensa: textoDeRecompensa(
+          recompensaDeInstancia(h.recompensa_instancia, h.recompensa, semillaDelObjeto(usuarioId, h.clave, h.inicio)),
+        ),
         clave : h.clave,
       })),
     };

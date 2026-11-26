@@ -1,7 +1,7 @@
 {
   "rangos": [
     {"numero": 1, "nombre": "Investigador en Formación", "descripcion": null, "requisitos": {"exp": 0, "aportes": 0, "sobresalientes": 0, "excepcionales": 0, "racha": 0, "misiones": 0}},
-    {"numero": 2, "nombre": "Investigador Principiante", "descripcion": null, "requisitos": {"exp": 10, "aportes": 1, "sobresalientes": 0, "excepcionales": 0, "racha": 0, "misiones": 0}},
+    {"numero": 2, "nombre": "Investigador Principiante", "descripcion": null, "requisitos": {"exp": 10, "aportes": 0, "sobresalientes": 0, "excepcionales": 0, "racha": 0, "misiones": 1}},
     {"numero": 3, "nombre": "Investigador Curioso", "descripcion": null, "requisitos": {"exp": 20, "aportes": 2, "sobresalientes": 0, "excepcionales": 0, "racha": 0, "misiones": 1}},
     {"numero": 4, "nombre": "Investigador Aprendiz", "descripcion": null, "requisitos": {"exp": 55, "aportes": 5, "sobresalientes": 0, "excepcionales": 0, "racha": 1, "misiones": 2}},
     {"numero": 5, "nombre": "Investigador Inicial", "descripcion": null, "requisitos": {"exp": 90, "aportes": 8, "sobresalientes": 1, "excepcionales": 0, "racha": 1, "misiones": 3}},

@@ -16,6 +16,7 @@ import { hoyEnTepic } from "@/lib/fecha-de-tepic";
 import { asegurarMisionesVigentes } from "./misiones";
 import { evaluarProgresoDe } from "./evaluacion";
 import { recompensaDesde, textoDeRecompensa } from "./misiones-reglas";
+import { entregarObjetosDeMisiones, leerPotenciadores } from "./inventario";
 import { textoDeTiempoRestante } from "./misiones";
 import type {
   DiaDeRacha,
@@ -104,8 +105,10 @@ export async function obtenerResumenDeProgreso(usuarioId: number | string): Prom
   try {
     await asegurarMisionesVigentes(usuarioId);
     await evaluarProgresoDe(usuarioId);
+    // La persona está viendo su progreso: vence o activa potenciadores y entrega los objetos que ya caben (2026-11-19).
+    await entregarObjetosDeMisiones(usuarioId, { presente: true });
     const hoy = hoyEnTepic();
-    const [progresoR, rangosR, ascensosR, potenciadoresR, misionesR, rachaR] = await Promise.all([
+    const [progresoR, rangosR, ascensosR, potenciadores, misionesR, rachaR] = await Promise.all([
       pool.query<FilaDeProgreso>(
         `SELECT p.rango_actual, p.exp_total, p.aportes_aceptados, p.aportes_excelentes, p.aportes_excepcionales,
                 p.misiones_completadas, p.racha_actual, p.racha_maxima, p.protectores,
@@ -118,8 +121,10 @@ export async function obtenerResumenDeProgreso(usuarioId: number | string): Prom
         `SELECT r.numero, r.nombre, r.descripcion, r.etapa_avatar, r.req_exp, r.req_aportes, r.req_excelentes,
                 r.req_excepcionales, r.req_racha, r.req_misiones
          FROM rangos r
+         -- Hasta el actual + 3: del que sigue al avistado solo se usan sus requisitos, para decir lo que pide completar el
+         -- avistado (presentación del 2026-11-22). Su nombre no sale de aquí (RNF-GAM-14).
          WHERE r.numero BETWEEN (SELECT rango_actual FROM usuario_progreso WHERE usuario_id = $1)
-                            AND (SELECT rango_actual FROM usuario_progreso WHERE usuario_id = $1) + 2
+                            AND (SELECT rango_actual FROM usuario_progreso WHERE usuario_id = $1) + 3
          ORDER BY r.numero`,
         [usuarioId],
       ),
@@ -131,13 +136,7 @@ export async function obtenerResumenDeProgreso(usuarioId: number | string): Prom
         [usuarioId],
       ),
       // Los segundos salen del reloj de la base (RNF-GAM-12), no del navegador.
-      pool.query<{ estado: string; bonificacion: number; duracion_minutos: number; segundos: number | null }>(
-        `SELECT estado, bonificacion::float8 AS bonificacion, duracion_minutos,
-                CASE WHEN estado = 'activo' THEN GREATEST(0, EXTRACT(EPOCH FROM (vence_en - NOW())))::int END AS segundos
-         FROM potenciadores
-         WHERE usuario_id = $1 AND estado IN ('activo', 'espera')`,
-        [usuarioId],
-      ),
+      leerPotenciadores(pool, usuarioId),
       pool.query<{
         id: string;
         nombre: string;
@@ -150,7 +149,7 @@ export async function obtenerResumenDeProgreso(usuarioId: number | string): Prom
         renueva_en_segundos: number;
         clave: string;
       }>(
-        `SELECT mi.id::text AS id, m.clave, m.nombre, m.recompensa, mi.objetivo, mi.progreso,
+        `SELECT mi.id::text AS id, m.clave, m.nombre, COALESCE(mi.recompensa, m.recompensa) AS recompensa, mi.objetivo, mi.progreso,
           (mi.completada_en IS NOT NULL) AS completada,
           (mi.recompensa_entregada_en IS NOT NULL) AS entregada,
           GREATEST(0, EXTRACT(EPOCH FROM (mi.periodo_fin - NOW())))::int AS renueva_en_segundos
@@ -179,17 +178,24 @@ export async function obtenerResumenDeProgreso(usuarioId: number | string): Prom
     }
     const filaSiguiente = rangosR.rows.find((r) => r.numero === actual + 1);
     const filaAvistado = rangosR.rows.find((r) => r.numero === actual + 2);
+    // Lo que pide completar el avistado (presentación del 2026-11-22: ver rangos.ts).
+    const filaTrasAvistado = rangosR.rows.find((r) => r.numero === actual + 3);
 
     const progreso: ValoresPorRequisito = {
       exp: p.exp_total,
       aportes: p.aportes_aceptados,
       excelentes: p.aportes_excelentes,
       excepcionales: p.aportes_excepcionales,
-      racha: p.racha_actual,
+      // Los rangos miden la racha máxima (SRS v1.4: RF-GAM-19).
+      racha: p.racha_maxima,
       misiones: p.misiones_completadas,
     };
 
     const ascenso = (rango: number) => ascensosR.rows.find((a) => a.rango === rango)?.alcanzado_en ?? null;
+    // Lo que pide completar el rango actual es lo que el catálogo pide para llegar al siguiente (2026-11-22).
+    const avances = filaSiguiente ? avanceDeRequisitos(requisitosDe(filaSiguiente), progreso) : [];
+    const cumplidos = avances.filter((a) => a.cumplido).length;
+    const queFalta = filaSiguiente ? textoQueFalta(avances) : "";
     const fichas: FichaDeRango[] = [
       {
         estado: "actual",
@@ -197,26 +203,23 @@ export async function obtenerResumenDeProgreso(usuarioId: number | string): Prom
         nombre: filaActual.nombre,
         descripcion: filaActual.descripcion,
         etapaDelAvatar: filaActual.etapa_avatar ?? actual,
-        requisitos: requisitosDeRango(requisitosDe(filaActual)),
+        requisitos: avances,
+        cumplidos,
+        textoQueFalta: queFalta,
         textoDeAscenso: textoDeAscenso(actual, ascenso(actual), ascenso(actual - 1)),
       },
     ];
 
     let siguiente: ResumenDeProgreso["siguiente"] = null;
     if (filaSiguiente) {
-      const avances = avanceDeRequisitos(requisitosDe(filaSiguiente), progreso);
-      const cumplidos = avances.filter((a) => a.cumplido).length;
       const pasos = [...avances.filter((a) => a.cumplido), ...avances.filter((a) => !a.cumplido)].map((a) => a.cumplido);
-      const queFalta = textoQueFalta(avances);
       fichas.push({
         estado: "siguiente",
         numero: filaSiguiente.numero,
         nombre: filaSiguiente.nombre,
         descripcion: filaSiguiente.descripcion,
         etapaDelAvatar: filaSiguiente.etapa_avatar ?? filaSiguiente.numero,
-        requisitos: avances,
-        cumplidos,
-        textoQueFalta: queFalta,
+        requisitos: filaAvistado ? requisitosDeRango(requisitosDe(filaAvistado)) : [],
       });
       siguiente = {
         numero: filaSiguiente.numero,
@@ -227,17 +230,17 @@ export async function obtenerResumenDeProgreso(usuarioId: number | string): Prom
         textoQueFalta: queFalta,
       };
       if (filaAvistado) {
-        // Del avistado solo salen el número, la pista y los requisitos (RF-GAM-78 c, RNF-GAM-14).
+        // Del avistado solo salen el número, la pista y los requisitos (RF-GAM-78 c, RNF-GAM-14). La pista compara lo
+        // que pedirá completarlo con lo que pide completar el siguiente.
         fichas.push({
           estado: "avistado",
           numero: filaAvistado.numero,
-          pista: pistaDelRango(requisitosDe(filaAvistado), requisitosDe(filaSiguiente)),
-          requisitos: requisitosDeRango(requisitosDe(filaAvistado)),
+          pista: filaTrasAvistado ? pistaDelRango(requisitosDe(filaTrasAvistado), requisitosDe(filaAvistado)) : "Es el último rango.",
+          requisitos: filaTrasAvistado ? requisitosDeRango(requisitosDe(filaTrasAvistado)) : [],
         });
       }
     }
 
-    const activoFila = potenciadoresR.rows.find((f) => f.estado === "activo" && (f.segundos ?? 0) > 0);
     const faltan = misionesR.rows[0]?.renueva_en_segundos;
     const misiones: MisionDeHoy[] = misionesR.rows.map((m) => ({
       id: m.id,
@@ -257,16 +260,7 @@ export async function obtenerResumenDeProgreso(usuarioId: number | string): Prom
       etapaDelAvatar: filaActual.etapa_avatar ?? actual,
       siguiente,
       fichas,
-      potenciadores: {
-        activo: activoFila
-          ? {
-              bonificacion: activoFila.bonificacion,
-              duracionMinutos: activoFila.duracion_minutos,
-              segundosRestantes: activoFila.segundos ?? 0,
-            }
-          : null,
-        enEspera: potenciadoresR.rows.filter((f) => f.estado === "espera").length,
-      },
+      potenciadores,
       misiones: { diarias: misiones, seRenuevanA: faltan == null ? null : textoDeTiempoRestante(faltan * 1000), },
       racha: {
         actual: p.racha_actual,

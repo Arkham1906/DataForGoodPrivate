@@ -9,9 +9,14 @@ import datosDeRangos from "@/lib/datos/rangos.json";
 import { GRUPOS_DE_MEDALLA, MEDIDAS_DE_MEDALLA, type GrupoDeMedalla, type MedidaDeMedalla } from "./medallas";
 import {
   MEDIDAS_DE_MISION,
+  OBJETOS_DE_MISION,
   TIPOS_DE_APORTE,
+  cuandoCuenta,
   type CondicionDeMision,
+  type Dificultad,
+  type ObjetoDeMision,
   type Periodicidad,
+  type PeriodicidadSorteada,
   type RecompensaDeMision,
 } from "./misiones-reglas";
 
@@ -32,9 +37,15 @@ export type MisionDelCatalogo = {
   activa: boolean;
   condicion: CondicionDeMision;
   recompensa?: RecompensaDeMision;
+  /** Sin el campo: normal. Las difíciles son semanales y su recompensa es «sorteo» (RF-GAM-44, decisión del 19 nov). */
+  dificultad?: Dificultad;
 };
 
-export type SeleccionDelCatalogo = Record<Periodicidad, number>;
+/** Reglas de las misiones difíciles (misiones.json, «dificiles»). */
+export type DificilesDelCatalogo = { maximoPorPeriodo: number; pesosDelSorteo: Record<ObjetoDeMision, number> };
+
+/** Las de inicio no se sortean: salen todas (RF-GAM-103). */
+export type SeleccionDelCatalogo = Record<PeriodicidadSorteada, number>;
 
 export type MedallaDelCatalogo = {
   /** Identifica la medalla para siempre: el historial de quien la ganó cuelga de ella. No se cambia. */
@@ -66,9 +77,18 @@ export function erroresDeRangos(rangos: RangoDelCatalogo[]): string[] {
   return errores;
 }
 
-export function erroresDeMisiones(misiones: MisionDelCatalogo[], seleccion: SeleccionDelCatalogo = SELECCION_DE_MISIONES): string[] {
+export function erroresDeMisiones(
+  misiones: MisionDelCatalogo[],
+  seleccion: SeleccionDelCatalogo = SELECCION_DE_MISIONES,
+  dificiles: DificilesDelCatalogo = DIFICILES_DEL_CATALOGO,
+): string[] {
   const errores: string[] = [];
   if (!Array.isArray(misiones)) return ["«misiones» debe ser una lista."];
+  if (!esEntero(dificiles?.maximoPorPeriodo, 0)) errores.push("dificiles.maximoPorPeriodo debe ser un entero de 0 en adelante.");
+  const pesos = dificiles?.pesosDelSorteo;
+  if (!pesos || !OBJETOS_DE_MISION.every((o) => esEntero(pesos[o], 0)) || OBJETOS_DE_MISION.every((o) => pesos[o] === 0)) {
+    errores.push(`dificiles.pesosDelSorteo lleva un entero de 0 en adelante para ${OBJETOS_DE_MISION.join(" y ")}, y no todos en 0.`);
+  }
   for (const periodicidad of ["diaria", "semanal"] as const) {
     const activas = misiones.filter((m) => m.periodicidad === periodicidad && m.activa).length;
     if (!esEntero(seleccion?.[periodicidad], 1)) errores.push(`seleccion.${periodicidad} debe ser un entero mayor que 0.`);
@@ -81,7 +101,7 @@ export function erroresDeMisiones(misiones: MisionDelCatalogo[], seleccion: Sele
     if (claves.has(m.clave)) errores.push(`${quien}: clave repetida.`);
     claves.add(m.clave);
     if (!esTexto(m.nombre)) errores.push(`${quien}: falta el nombre.`);
-    if (m.periodicidad !== "diaria" && m.periodicidad !== "semanal") errores.push(`${quien}: periodicidad debe ser diaria o semanal.`);
+    if (!["diaria", "semanal", "inicio"].includes(m.periodicidad)) errores.push(`${quien}: periodicidad debe ser diaria, semanal o inicio.`);
     if (!esTexto(m.grupo)) errores.push(`${quien}: falta el grupo.`);
     if (typeof m.activa !== "boolean") errores.push(`${quien}: activa debe ser true o false.`);
     const c = m.condicion;
@@ -94,8 +114,27 @@ export function erroresDeMisiones(misiones: MisionDelCatalogo[], seleccion: Sele
       errores.push(`${quien}: minEstrellas va de 1 a 5 y requiere soloAceptados.`);
     }
     if (c?.minCaracteres !== undefined && !esEntero(c.minCaracteres, 1)) errores.push(`${quien}: minCaracteres debe ser un entero mayor que 0.`);
-    if (m.recompensa && (m.recompensa.tipo !== "exp" || !esEntero(m.recompensa.cantidad, 1))) {
-      errores.push(`${quien}: por ahora la recompensa se omite o es { "tipo": "exp", "cantidad": entero mayor que 0 }.`);
+    const r = m.recompensa;
+    const recompensaValida =
+      !r ||
+      (r.tipo === "exp" && esEntero(r.cantidad, 1)) ||
+      r.tipo === "sorteo" ||
+      (OBJETOS_DE_MISION as readonly string[]).includes(r.tipo);
+    if (!recompensaValida) {
+      errores.push(`${quien}: la recompensa se omite o es { "tipo": "exp", "cantidad": entero mayor que 0 }, { "tipo": "sorteo" }, o un objeto (${OBJETOS_DE_MISION.join(", ")}).`);
+    }
+    if (m.dificultad !== undefined && m.dificultad !== "normal" && m.dificultad !== "dificil") {
+      errores.push(`${quien}: dificultad debe ser normal o dificil.`);
+    }
+    if (m.dificultad === "dificil" && m.periodicidad !== "semanal") errores.push(`${quien}: solo las semanales pueden ser difíciles.`);
+    if ((m.dificultad === "dificil") !== (r?.tipo === "sorteo")) {
+      errores.push(`${quien}: una misión difícil tiene recompensa { "tipo": "sorteo" }, y solo ella.`);
+    }
+    // El nombre dice cuándo cuenta (RF-GAM-43, RN-GAM-40): no puede contradecir la condición.
+    if (c && MEDIDAS_DE_MISION.includes(c.mide)) {
+      const cuenta = cuandoCuenta(c);
+      if (cuenta === "envio" && /^Logra\b/.test(m.nombre)) errores.push(`${quien}: empieza con «Logra» pero cuenta al enviar.`);
+      if (cuenta === "aceptacion" && /^Env[ií]a\b/.test(m.nombre)) errores.push(`${quien}: empieza con «Envía» pero cuenta al aceptarse.`);
     }
   }
   return errores;
@@ -144,3 +183,5 @@ export const RANGOS_DEL_CATALOGO = datosDeRangos.rangos as RangoDelCatalogo[];
 export const MISIONES_DEL_CATALOGO = datosDeMisiones.misiones as MisionDelCatalogo[];
 /** Cuántas misiones salen al azar en cada periodo. */
 export const SELECCION_DE_MISIONES = datosDeMisiones.seleccion as SeleccionDelCatalogo;
+/** Cuántas difíciles caben en un periodo y cómo se sortea su objeto. */
+export const DIFICILES_DEL_CATALOGO = datosDeMisiones.dificiles as DificilesDelCatalogo;

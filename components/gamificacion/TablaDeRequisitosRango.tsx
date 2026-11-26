@@ -1,6 +1,7 @@
 "use client";
 
-// «Requisitos de los 20 rangos» de la Trayectoria.
+// «Requisitos de los 20 rangos» de la Trayectoria. Desde el 2026-11-22 cada fila dice lo que pide COMPLETAR ese rango
+// (presentación «completar tu rango», lib/gamificacion/rangos.ts); el último no tiene nada que completar.
 
 import { useId, useState } from "react";
 import { buttonClasses } from "@/components/ui/Button";
@@ -10,7 +11,7 @@ import { CLAVES_DE_REQUISITO, ETIQUETAS_CORTAS } from "@/lib/gamificacion/rangos
 const nf = new Intl.NumberFormat("es-MX");
 
 function textoDelHorizonte(actual: number, total: number): string {
-  if (actual >= total) return "Ya descubriste todos los rangos. Aquí tienes lo que pidió cada uno.";
+  if (actual >= total) return "Ya descubriste todos los rangos. Aquí tienes lo que pidió completar cada uno.";
   if (actual >= total - 1) return "Ya puedes ver todos los rangos.";
   const primero = actual + 3;
   if (primero > total) return `Del rango ${total} ya tienes una pista. Su nombre aparece cuando se vuelva tu siguiente rango.`;
@@ -35,7 +36,7 @@ export default function TablaDeRequisitosDeRangos({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0 flex-[1_1_420px]">
           <h2 id="requisitos-titulo" className="text-lg font-extrabold text-system-900">
-            Requisitos de los {total} rangos
+            Lo que pide completar cada rango
           </h2>
           <p className="mt-1 text-sm text-system-700">{textoDelHorizonte(actual, total)}</p>
         </div>
@@ -47,7 +48,9 @@ export default function TablaDeRequisitosDeRangos({
       <div id={id} hidden={!abierta} className="space-y-2">
         <div className="max-h-[520px] overflow-auto rounded-lg border border-system-100">
           <table className="w-full min-w-[760px] border-collapse text-[13.5px]">
-            <caption className="sr-only">Requisitos de cada rango. La fila marcada es tu rango actual.</caption>
+            <caption className="sr-only">
+              Lo que pide completar cada rango: al cumplirlo pasas al siguiente. La fila marcada es tu rango actual.
+            </caption>
             <thead>
               <tr>
                 <th scope="col" className="sticky top-0 bg-white px-2.5 py-2.5 text-left text-[12px] font-bold text-system-700">
@@ -75,19 +78,25 @@ export default function TablaDeRequisitosDeRangos({
                       <span className="ml-2 rounded-pill bg-brand-600 px-2 py-0.5 text-[11.5px] font-bold text-white">Tu rango</span>
                     )}
                   </th>
-                  {CLAVES_DE_REQUISITO.map((clave) => (
-                    <td key={clave} className="border-t border-system-100 px-2.5 py-2 text-right font-mono whitespace-nowrap text-system-900">
-                      {nf.format(f.requisitos[clave])}
+                  {f.requisitos ? (
+                    CLAVES_DE_REQUISITO.map((clave) => (
+                      <td key={clave} className="border-t border-system-100 px-2.5 py-2 text-right font-mono whitespace-nowrap text-system-900">
+                        {nf.format(f.requisitos?.[clave] ?? 0)}
+                      </td>
+                    ))
+                  ) : (
+                    <td colSpan={CLAVES_DE_REQUISITO.length} className="border-t border-system-100 px-2.5 py-2 text-right text-system-600">
+                      Es el último: no hay nada que completar después.
                     </td>
-                  ))}
+                  )}
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
         <p className="text-[12.5px] text-system-600">
-          «4★ o más» cuenta los aportes Sobresalientes (4★) y Excepcionales (5★); «5★», solo los Excepcionales. La racha es la
-          que tengas al momento de subir.
+          Cuando cumples todo lo que pide tu rango, pasas al siguiente. «4★ o más» cuenta los aportes Sobresalientes (4★) y Excepcionales (5★); «5★», solo los Excepcionales. La racha es la
+          más larga que hayas logrado, aunque después la pierdas.
         </p>
       </div>
     </section>

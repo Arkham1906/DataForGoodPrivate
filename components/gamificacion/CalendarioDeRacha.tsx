@@ -19,12 +19,14 @@ import { BASE_PATH } from "@/lib/base-path";
 import type { CalendarioDeRachaDelMes, DiaDelCalendario } from "@/lib/gamificacion/mi-progreso-tipos";
 import { MAXIMO_DE_PROTECTORES, PROTECTORES_ACTIVOS, type ResumenDeRacha } from "@/lib/gamificacion/progreso-tipos";
 import { claseDeVentana } from "@/components/ui/ventana-emergente";
+import { GlifoDeObjeto } from "./ObjetoDeInventario";
 
 type Estado = DiaDelCalendario["estado"];
 
 const ESTADOS: Record<Estado, { nombre: string; celda: string; tono: "default" | "ok" | "warn" | "info" }> = {
   confirmado: { nombre: "Con actividad", celda: "bg-success-700 text-white", tono: "ok" },
-  protegido: { nombre: "Con protector", celda: "bg-brand-200 text-brand-800", tono: "info" },
+  // 2026-11-20: naranja, el color del protector (lienzo de objetos aprobado).
+  protegido: { nombre: "Con protector", celda: "bg-fuego-100 text-fuego-800", tono: "info" },
   sin_actividad: { nombre: "Sin actividad", celda: "border border-system-200 bg-white text-system-600", tono: "default" },
   suspendido: { nombre: "Suspendido", celda: "bg-system-300 text-system-800", tono: "default" },
   por_venir: { nombre: "Por venir", celda: "border border-system-100 bg-system-50 text-system-500", tono: "default" },
@@ -54,7 +56,7 @@ function fechaLarga(dia: string): string {
 
 function textoDelDia(d: DiaDelCalendario): string {
   if (d.estado === "confirmado") return "Enviaste al menos un aporte: el día cuenta para tu racha, sea cual sea el resultado de su revisión.";
-  if (d.estado === "protegido") return "Se usó un protector y la racha siguió.";
+  if (d.estado === "protegido") return "Se usó un protector: la racha siguió, aunque este día no suma.";
   if (d.estado === "suspendido") return "Tu racha estuvo suspendida este día.";
   if (d.hoy) return "Envía un aporte hoy para que el día cuente.";
   return "Este día no sumó a tu racha.";
@@ -88,9 +90,7 @@ function Celda({ dia, elegido, onElegir }: { dia: DiaDelCalendario; elegido: boo
       {dia.numero}
       {(dia.hoy || dia.inicioDeRacha) && <span className="mt-0.5 text-[13px] font-semibold">{dia.hoy ? "hoy" : "inicio"}</span>}
       {dia.estado === "protegido" && !dia.hoy && (
-        <svg viewBox="0 0 24 24" aria-hidden="true" className="mt-0.5 h-3 w-3" fill="currentColor">
-          <path d="M12 2l8 3v7c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V5z" />
-        </svg>
+        <GlifoDeObjeto objeto="protector" className="mt-0.5 h-3.5 w-3.5" />
       )}
     </button>
   );

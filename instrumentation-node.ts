@@ -10,9 +10,33 @@ import { escucharCambiosDeLaBase } from "@/lib/en-vivo-postgres";
 import { marcarDatosPorDecidir } from "@/lib/supervision/datos-abiertos";
 import { avisarRachas, revisarRachas } from "@/lib/gamificacion/racha";
 import { repararRecompensasPendientes } from "@/lib/gamificacion/recompensas";
+import { pool } from "@/lib/db";
 
 const UNA_HORA_MS = 60 * 60 * 1000;
 const UN_MINUTO_MS = 60 * 1000;
+
+/** Claves de los candados de Postgres de cada tarea periódica (pg_try_advisory_lock). */
+const CANDADOS = { campanas: 7_101, bajas: 7_102, avisos: 7_103, gamificacion: 7_104 } as const;
+
+/**
+ * Corre la tarea solo si esta instancia obtiene su candado de Postgres. Con varias instancias de la app, cada minuto la
+ * corre una sola y las demás se la saltan; con una sola instancia no cambia nada. Si no hay base, no corre.
+ */
+async function conCandado(clave: number, tarea: () => Promise<unknown>): Promise<void> {
+  const client = await pool.connect().catch(() => null);
+  if (!client) return;
+  try {
+    const { rows } = await client.query<{ obtenido: boolean }>("SELECT pg_try_advisory_lock($1) AS obtenido", [clave]);
+    if (!rows[0]?.obtenido) return;
+    try {
+      await tarea();
+    } finally {
+      await client.query("SELECT pg_advisory_unlock($1)", [clave]).catch(() => {});
+    }
+  } finally {
+    client.release();
+  }
+}
 
 /**
  * Activa las campañas programadas (aceptada → activa) y finaliza las vencidas (activa → finalizada)
@@ -26,10 +50,11 @@ function programarEstadosDeCampanas(): void {
   marca.__estadosDeCampanasProgramados = true;
 
   const correr = () =>
-    activateScheduledCampaigns()
-      .then(() => finalizeExpiredCampaigns())
-      .then(() => marcarDatosPorDecidir())
-      .catch((error) => console.error("Error al actualizar el estado de las campañas por fecha", error));
+    conCandado(CANDADOS.campanas, () =>
+      activateScheduledCampaigns()
+        .then(() => finalizeExpiredCampaigns())
+        .then(() => marcarDatosPorDecidir()),
+    ).catch((error) => console.error("Error al actualizar el estado de las campañas por fecha", error));
   void correr();
   setInterval(correr, UN_MINUTO_MS).unref();
 }
@@ -47,8 +72,9 @@ function programarBajasVencidas(): void {
   marca.__bajasProgramadas = true;
 
   const bajas = () =>
-    ejecutarBajasVencidas().catch((error) => console.error("Error al ejecutar las bajas de cuenta vencidas", error));
-  const avisos = () => enviarAvisosPeriodicos();
+    conCandado(CANDADOS.bajas, ejecutarBajasVencidas).catch((error) => console.error("Error al ejecutar las bajas de cuenta vencidas", error));
+  const avisos = () =>
+    conCandado(CANDADOS.avisos, enviarAvisosPeriodicos).catch((error) => console.error("Error al enviar los avisos periódicos", error));
   void bajas().then(avisos);
   setInterval(bajas, UN_MINUTO_MS).unref();
   setInterval(avisos, UNA_HORA_MS).unref();
@@ -65,7 +91,10 @@ function programarRachas(): void {
   marca.__rachasProgramadas = true;
 
   // Primero la racha (una rota ayer queda en 0), después los avisos de las 16:00 y las recompensas pendientes.
-  const correr = () => revisarRachas().then(() => avisarRachas()).then(repararRecompensasPendientes);
+  const correr = () =>
+    conCandado(CANDADOS.gamificacion, () => revisarRachas().then(() => avisarRachas()).then(repararRecompensasPendientes)).catch((error) =>
+      console.error("Error en las tareas periódicas de gamificación", error),
+    );
   void correr();
   setInterval(correr, UN_MINUTO_MS).unref();
 }

@@ -3,8 +3,12 @@
 // Cada estado se distingue también por su forma y su texto para lectores de pantalla, no solo por el color.
 // Sin estado: sirve en servidor y cliente. El calendario completo y los eventos de la racha (RF-GAM-85, 86) van en
 // CalendarioDeRacha, que /inicio pasa como `accion`.
+// 2026-11-20 (lienzo de objetos aprobado): el día protegido lleva el escudo en naranja, y abajo la fila de protectores
+// con sus escudos (llenos los que tiene, punteados los lugares libres).
 
 import type { ReactNode } from "react";
+import { TEXTOS } from "@/lib/gamificacion/textos";
+import { GlifoDeObjeto, ImagenDeObjeto } from "./ObjetoDeInventario";
 import {
   MAXIMO_DE_PROTECTORES,
   PROTECTORES_ACTIVOS,
@@ -14,7 +18,7 @@ import {
 
 const CLASE_DEL_DIA: Record<EstadoDeDiaDeRacha, string> = {
   confirmado: "bg-brand-700",
-  protegido: "border-2 border-success-700 bg-success-100",
+  protegido: "flex items-center justify-center bg-fuego-100 text-fuego-700",
   sin_actividad: "border border-dashed border-brand-300 bg-white",
   suspendido: "bg-system-300",
 };
@@ -36,7 +40,9 @@ export default function RachaSemanal({ racha, accion }: { racha: ResumenDeRacha;
       <ol aria-label="Últimos 7 días" className="grid grid-cols-7 gap-1.5">
         {racha.dias.map((d) => (
           <li key={d.dia} className="flex flex-col items-center gap-1">
-            <span className={`h-6 w-full rounded-md ${CLASE_DEL_DIA[d.estado]}`} aria-hidden="true" />
+            <span className={`h-6 w-full rounded-md ${CLASE_DEL_DIA[d.estado]}`} aria-hidden="true">
+              {d.estado === "protegido" && <GlifoDeObjeto objeto="protector" className="h-4 w-4" />}
+            </span>
             <span className="sr-only">
               {d.nombre}
               {d.hoy ? " (hoy)" : ""}: {TEXTO_DEL_DIA[d.estado]}
@@ -47,9 +53,25 @@ export default function RachaSemanal({ racha, accion }: { racha: ResumenDeRacha;
           </li>
         ))}
       </ol>
-      <p className="text-[12.5px] text-brand-800">
-        Máxima: {racha.maxima}.{PROTECTORES_ACTIVOS && ` Protectores: ${racha.protectores} de ${MAXIMO_DE_PROTECTORES}.`}
-      </p>
+      <p className="text-[12.5px] text-brand-800">Máxima: {racha.maxima}.</p>
+      {PROTECTORES_ACTIVOS && (
+        <p className="flex items-center gap-2.5 border-t border-brand-100 pt-2.5">
+          <span aria-hidden="true" className="flex gap-1">
+            {Array.from({ length: MAXIMO_DE_PROTECTORES }, (_, i) =>
+              i < racha.protectores ? (
+                <ImagenDeObjeto key={i} objeto="protector" tamano={26} lado={96} className="h-[26px] w-[26px]" />
+              ) : (
+                <span key={i} className="flex h-[26px] w-[26px] items-center justify-center text-system-400">
+                  <svg viewBox="0 0 24 24" className="h-[22px] w-[22px]" fill="none" stroke="currentColor" strokeWidth="1.6" strokeDasharray="3 2.5" focusable="false">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                  </svg>
+                </span>
+              ),
+            )}
+          </span>
+          <span className="text-[13px] font-semibold text-system-800">{TEXTOS.inventario.protectores(racha.protectores, MAXIMO_DE_PROTECTORES)}</span>
+        </p>
+      )}
       {accion}
     </>
   );

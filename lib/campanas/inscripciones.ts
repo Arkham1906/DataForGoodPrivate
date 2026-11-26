@@ -57,7 +57,7 @@ export async function inscribir(entrada: {
       accion: "campana.inscribirse",
       objetivo: { tipo: "campana", id: entrada.campanaId },
     });
-    await actualizarMisiones(entrada.usuarioId);
+    await actualizarMisiones(entrada.usuarioId, [], { presente: true });
   }
   return { ok: true };
 }

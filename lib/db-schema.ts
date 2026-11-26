@@ -2012,7 +2012,7 @@ export async function ensurePotenciadoresTable(): Promise<void> {
     CREATE TABLE IF NOT EXISTS potenciadores (
       id SERIAL PRIMARY KEY,
       usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
-      estado VARCHAR(10) NOT NULL DEFAULT 'espera' CHECK (estado IN ('espera', 'activo', 'expirado', 'perdido')),
+      estado VARCHAR(10) NOT NULL DEFAULT 'espera' CHECK (estado IN ('espera', 'guardado', 'activo', 'expirado', 'perdido')),
       bonificacion NUMERIC(3, 2) NOT NULL DEFAULT 0.50 CHECK (bonificacion > 0),
       duracion_minutos SMALLINT NOT NULL DEFAULT 15 CHECK (duracion_minutos > 0),
       origen VARCHAR(40),
@@ -2094,12 +2094,22 @@ async function sincronizarMisiones(): Promise<void> {
   }
   for (const m of MISIONES_DEL_CATALOGO) {
     await pool.query(
-      `INSERT INTO misiones (clave, nombre, descripcion, periodicidad, grupo, condicion, recompensa, activa)
-       VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8)
+      `INSERT INTO misiones (clave, nombre, descripcion, periodicidad, grupo, condicion, recompensa, activa, dificultad)
+       VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, $9)
        ON CONFLICT (clave) DO UPDATE SET
          nombre = EXCLUDED.nombre, descripcion = EXCLUDED.descripcion, periodicidad = EXCLUDED.periodicidad, grupo = EXCLUDED.grupo,
-         condicion = EXCLUDED.condicion, recompensa = EXCLUDED.recompensa, activa = EXCLUDED.activa`,
-      [m.clave, m.nombre, m.descripcion ?? null, m.periodicidad, m.grupo, JSON.stringify(m.condicion), JSON.stringify(m.recompensa ?? {}), m.activa],
+         condicion = EXCLUDED.condicion, recompensa = EXCLUDED.recompensa, activa = EXCLUDED.activa, dificultad = EXCLUDED.dificultad`,
+      [
+        m.clave,
+        m.nombre,
+        m.descripcion ?? null,
+        m.periodicidad,
+        m.grupo,
+        JSON.stringify(m.condicion),
+        JSON.stringify(m.recompensa ?? {}),
+        m.activa,
+        m.dificultad ?? "normal",
+      ],
     );
   }
   await pool.query(`UPDATE misiones SET activa = false WHERE activa AND clave <> ALL($1::text[])`, [
@@ -2109,7 +2119,8 @@ async function sincronizarMisiones(): Promise<void> {
 
 /**
  * Misiones (RF-GAM-40 a 45, 75). El catálogo vive en lib/datos/misiones.json (lib/gamificacion/catalogos.ts).
- *   - misiones: periodicidad diaria o semanal, condición y recompensa en JSON (la forma la define el catálogo).
+ *   - misiones: periodicidad diaria, semanal o inicio (semana de bienvenida, 2026-11-18), condición y recompensa en
+ *     JSON (la forma la define el catálogo).
  *   - mision_instancias: una por persona, misión y periodo. El periodo tiene inicio y fin explícitos,
  *     calculados desde primer_inicio_sesion_en (RF-GAM-41); el UNIQUE impide contar dos veces la misma
  *     finalización (RF-GAM-42). recompensa_entregada_en separa "completada" de "recompensa concedida"
@@ -2123,7 +2134,7 @@ export async function ensureMisionesTables(): Promise<void> {
       clave VARCHAR(60) NOT NULL UNIQUE,
       nombre VARCHAR(120) NOT NULL,
       descripcion TEXT,
-      periodicidad VARCHAR(10) NOT NULL CHECK (periodicidad IN ('diaria', 'semanal')),
+      periodicidad VARCHAR(10) NOT NULL CHECK (periodicidad IN ('diaria', 'semanal', 'inicio')),
       condicion JSONB NOT NULL,
       recompensa JSONB NOT NULL DEFAULT '{}'::jsonb,
       activa BOOLEAN NOT NULL DEFAULT true,
@@ -2131,6 +2142,9 @@ export async function ensureMisionesTables(): Promise<void> {
     );
     -- Variedad de la selección aleatoria (lib/gamificacion/misiones-reglas.ts, 2026-11-04).
     ALTER TABLE misiones ADD COLUMN IF NOT EXISTS grupo VARCHAR(40);
+    -- Dificultad (2026-11-19, RF-GAM-44, 122): como máximo una difícil por periodo.
+    ALTER TABLE misiones ADD COLUMN IF NOT EXISTS dificultad VARCHAR(10) NOT NULL DEFAULT 'normal'
+      CHECK (dificultad IN ('normal', 'dificil'));
 
     CREATE TABLE IF NOT EXISTS mision_instancias (
       id BIGSERIAL PRIMARY KEY,
@@ -2146,6 +2160,26 @@ export async function ensureMisionesTables(): Promise<void> {
       UNIQUE (usuario_id, mision_id, periodo_inicio)
     );
     CREATE INDEX IF NOT EXISTS mision_instancias_mision_idx ON mision_instancias (mision_id);
+    -- Lo que da la instancia, fijado al asignarla (2026-11-19): en una difícil, el objeto que salió en el sorteo. NULL en
+    -- las asignadas antes: usan la recompensa del catálogo.
+    ALTER TABLE mision_instancias ADD COLUMN IF NOT EXISTS recompensa JSONB;
+    -- Qué pasó con el objeto de una misión difícil (2026-11-19, lib/gamificacion/inventario.ts): entregada, cambiada por el
+    -- otro objeto o perdida porque no cabía. NULL mientras está pendiente.
+    ALTER TABLE mision_instancias ADD COLUMN IF NOT EXISTS recompensa_resultado VARCHAR(10)
+      CHECK (recompensa_resultado IN ('entregada', 'cambiada', 'perdida'));
+    -- Cuándo se celebró el objeto entregado («¡Ganaste un protector!»). Al crear la columna, los ya entregados quedan
+    -- como celebrados: solo se celebran los que lleguen después.
+    DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                      WHERE table_name = 'mision_instancias' AND column_name = 'objeto_celebrado_en') THEN
+        ALTER TABLE mision_instancias ADD COLUMN objeto_celebrado_en TIMESTAMPTZ;
+        UPDATE mision_instancias SET objeto_celebrado_en = COALESCE(recompensa_entregada_en, NOW())
+          WHERE recompensa_resultado IS NOT NULL;
+      END IF;
+    END $$;
+    CREATE INDEX IF NOT EXISTS mision_instancias_objeto_sin_celebrar_idx ON mision_instancias (usuario_id)
+      WHERE recompensa_resultado = 'entregada' AND objeto_celebrado_en IS NULL;
     -- Total histórico de misiones completadas (requisito de rango) y recompensas por entregar.
     CREATE INDEX IF NOT EXISTS mision_instancias_completadas_idx ON mision_instancias (usuario_id) WHERE completada_en IS NOT NULL;
     CREATE INDEX IF NOT EXISTS mision_instancias_sin_recompensa_idx ON mision_instancias (usuario_id)
@@ -2157,6 +2191,21 @@ export async function ensureMisionesTables(): Promise<void> {
       PRIMARY KEY (instancia_id, aporte_id)
     );
     CREATE INDEX IF NOT EXISTS mision_instancia_aportes_aporte_idx ON mision_instancia_aportes (aporte_id);
+  `);
+  // Misiones de inicio (2026-11-18, RF-GAM-103): la regla de periodicidad admite «inicio». Va antes de sincronizar, para
+  // que el catálogo pueda guardarlas en el mismo arranque. Solo corre mientras la regla vieja exista.
+  await pool.query(`
+    DO $$
+    BEGIN
+      IF EXISTS (
+        SELECT 1 FROM pg_constraint
+          WHERE conrelid = 'misiones'::regclass AND contype = 'c'
+            AND pg_get_constraintdef(oid) LIKE '%periodicidad%' AND pg_get_constraintdef(oid) NOT LIKE '%inicio%'
+      ) THEN
+        ALTER TABLE misiones DROP CONSTRAINT IF EXISTS misiones_periodicidad_check;
+        ALTER TABLE misiones ADD CONSTRAINT misiones_periodicidad_check CHECK (periodicidad IN ('diaria', 'semanal', 'inicio'));
+      END IF;
+    END $$;
   `);
   await sincronizarMisiones();
 }
@@ -2460,6 +2509,8 @@ function restricciones(): ReadonlyArray<[tabla: string, nombre: string, condicio
     // racha_recuperada (2026-11-09): un aporte reavivó la racha después de perderla (medalla Fénix, lib/gamificacion/racha.ts).
     // Sin los eventos de la ventana de 72 horas desde el 2026-11-16 (ensureRachaTables los borra).
     ["racha_eventos", "racha_eventos_tipo_check", `tipo IN ('protector_consumido', 'racha_interrumpida', 'racha_recuperada')`],
+    // guardado (2026-11-19): ganado sin la persona en la app; se activa al volver (RF-GAM-33, lib/gamificacion/inventario.ts).
+    ["potenciadores", "potenciadores_estado_check", `estado IN ('espera', 'guardado', 'activo', 'expirado', 'perdido')`],
     ["usuarios", "usuarios_baja_destino_aportes_check",
       `baja_destino_aportes IN (${lista(DESTINOS_DE_APORTES.map((d) => d.valor))})`],
   ];

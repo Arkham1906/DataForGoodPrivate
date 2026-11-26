@@ -38,7 +38,7 @@ export async function POST(
         ON CONFLICT (usuario_id, campana_id) DO NOTHING`,
       [user.id, campaignId]
     );
-    await actualizarMisiones(user.id);
+    await actualizarMisiones(user.id, [], { presente: true });
 
     return NextResponse.json({ data: { isSaved: true } });
   } catch (error) {
