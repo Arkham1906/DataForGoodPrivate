@@ -1,4 +1,6 @@
 # Stack de DataForGood: postgres + minio (+ minio-init) + app.
+# Todo arranca con `docker compose up -d`. En una instalación nueva (base sin tablas),
+# restaurar-bd y restaurar-bucket cargan antes los respaldos de ./despliegue, si están.
 #
 # Todos los secretos salen del .env de la raíz (gitignored; plantilla en
 # .env.example). Los `:?` hacen que Compose se niegue a arrancar si falta
@@ -107,8 +109,6 @@ services:
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-}
-      # Tabla de líderes de la landing (lib/gamificacion): "si" para verla; oculta mientras use datos de ejemplo.
-      MOSTRAR_TABLA_DE_LIDERES: ${MOSTRAR_TABLA_DE_LIDERES:-no}
       # La contraseña va dentro de una URL: usa solo letras, números y guiones.
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       MINIO_ENDPOINT: minio
@@ -132,7 +132,103 @@ services:
         condition: service_healthy
       minio-init:
         condition: service_completed_successfully
+      # La app arranca después de restaurar: si arrancara antes, ensureCoreSchema() crearía las tablas
+      # vacías y restaurar-bd ya no cargaría el respaldo.
+      restaurar-bd:
+        condition: service_completed_successfully
+      restaurar-bucket:
+        condition: service_completed_successfully
+
+  # Instalación nueva desde respaldos (2026-11-26): con solo `docker compose up`, si la base NO tiene
+  # ninguna tabla, carga el respaldo de la base (RESPALDO_BD, hecho con pg_dump -Fc) y deja el del
+  # bucket (RESPALDO_BUCKET, .tar.gz) descomprimido para restaurar-bucket. Si la base ya tiene tablas
+  # no hace nada: nunca pisa datos. Sin los archivos, la app arranca con la base vacía, como antes.
+  # Los dos respaldos van juntos (son del mismo momento): el bucket solo se restaura si se restauró la base.
+  # Usa postgres:16-alpine porque trae pg_restore y tar (la imagen de MinIO no trae tar).
+  restaurar-bd:
+    image: postgres:16-alpine
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER:?Falta POSTGRES_USER en .env}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Falta POSTGRES_PASSWORD en .env}
+      PGDATABASE: ${POSTGRES_DB:?Falta POSTGRES_DB en .env}
+      RESPALDO_BD: ${RESPALDO_BD:-dataforgood.dump}
+      RESPALDO_BUCKET: ${RESPALDO_BUCKET:-bucket-aportes.tar.gz}
+    volumes:
+      # Carpeta con los respaldos, junto a este archivo. Solo lectura.
+      - ${RESPALDOS_DIR:-./despliegue}:/respaldos:ro
+      # Paso intermedio hacia restaurar-bucket; queda vacío al terminar.
+      - respaldo_bucket:/bucket
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        rm -rf /bucket/archivos /bucket/.listo
+        tablas=$$(psql -Atc "SELECT count(*) FROM pg_tables WHERE schemaname = 'public'")
+        if [ "$$tablas" != "0" ]; then
+          echo "La base ya tiene $$tablas tablas: no se restaura ningún respaldo."
+          exit 0
+        fi
+        if [ ! -f "/respaldos/$$RESPALDO_BD" ]; then
+          echo "Base vacía y sin /respaldos/$$RESPALDO_BD: la app la crea vacía."
+          exit 0
+        fi
+        # Primero el bucket (solo se descomprime) y después la base, en una sola transacción: si
+        # pg_restore falla no queda nada a medias y el siguiente `up` lo vuelve a intentar.
+        if [ -f "/respaldos/$$RESPALDO_BUCKET" ]; then
+          mkdir -p /bucket/archivos
+          tar -xzf "/respaldos/$$RESPALDO_BUCKET" -C /bucket/archivos
+        fi
+        echo "Restaurando la base desde $$RESPALDO_BD..."
+        pg_restore --no-owner --no-privileges --single-transaction --exit-on-error -d "$$PGDATABASE" "/respaldos/$$RESPALDO_BD"
+        echo "Base restaurada: $$(psql -Atc "SELECT count(*) FROM usuarios") usuarios, $$(psql -Atc "SELECT count(*) FROM campanas") campañas."
+        if [ -d /bucket/archivos ]; then
+          touch /bucket/.listo
+        else
+          echo "Sin /respaldos/$$RESPALDO_BUCKET: el bucket queda vacío."
+        fi
+
+  # Sube al bucket los archivos que dejó restaurar-bd, solo si se acaba de restaurar la base y el bucket
+  # está vacío (nunca pisa archivos). Después vacía el paso intermedio.
+  restaurar-bucket:
+    image: quay.io/minio/minio
+    restart: "no"
+    depends_on:
+      minio-init:
+        condition: service_completed_successfully
+      restaurar-bd:
+        condition: service_completed_successfully
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Falta MINIO_ROOT_USER en .env}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Falta MINIO_ROOT_PASSWORD en .env}
+      MINIO_BUCKET: ${MINIO_BUCKET:-aportes}
+    volumes:
+      - respaldo_bucket:/bucket
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        if [ ! -f /bucket/.listo ]; then
+          echo "No hay archivos por restaurar en el bucket."
+          exit 0
+        fi
+        until mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD" >/dev/null 2>&1; do
+          echo "Esperando a MinIO..."
+          sleep 2
+        done
+        if [ "$$(mc ls -r "local/$$MINIO_BUCKET" | wc -l)" != "0" ]; then
+          echo "El bucket $$MINIO_BUCKET ya tiene archivos: no se restaura."
+        else
+          mc mirror --quiet --preserve /bucket/archivos "local/$$MINIO_BUCKET" >/dev/null
+          echo "Bucket restaurado: $$(mc ls -r "local/$$MINIO_BUCKET" | wc -l) archivos en $$MINIO_BUCKET."
+        fi
+        rm -rf /bucket/archivos /bucket/.listo
 
 volumes:
   postgres_data:
   minio_data:
+  respaldo_bucket:

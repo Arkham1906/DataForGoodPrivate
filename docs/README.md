@@ -57,6 +57,8 @@ docker compose logs -f app
 
 La app queda en `http://localhost:3000/dataforgood` (el prefijo `/dataforgood` es el `BASE_PATH`, ver § 6).
 
+**Instalación nueva con datos (producción):** pon el respaldo de la base en `despliegue/dataforgood.dump` (`pg_dump -Fc --no-owner --no-privileges`) y el del bucket en `despliegue/bucket-aportes.tar.gz`, junto a `docker-compose.yml`, y corre solo `docker compose up -d`. Si la base no tiene ninguna tabla, los servicios `restaurar-bd` y `restaurar-bucket` cargan los dos antes de que arranque la app. Si la base ya tiene tablas, no tocan nada. Los nombres y la carpeta se cambian con `RESPALDO_BD`, `RESPALDO_BUCKET` y `RESPALDOS_DIR` en `.env`.
+
 ### Opción B: `next dev` con Postgres y MinIO en Docker
 
 Recarga en caliente al editar código.
