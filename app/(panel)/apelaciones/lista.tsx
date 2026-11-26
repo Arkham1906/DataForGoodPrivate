@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
 
 import Button from "@/components/sistema/Button";
+import { ListaDeRenglones, RenglonDesplegable } from "@/components/sistema/Renglones";
 import Tag from "@/components/sistema/Tag";
 import { useConfirmacion } from "@/components/sistema/useConfirmacion";
 import { resolverApelacionDelPanel } from "@/lib/apelaciones/acciones";
@@ -109,38 +110,57 @@ function Resolver({ a }: { a: ApelacionParaPanel }) {
   );
 }
 
+/**
+ * Renglones como la vista de lista de Mis aportes (2026-11-26, a pedido del usuario; antes una tarjeta grande por
+ * apelación): cada apelación es un renglón que se despliega con la decisión, lo que escribió la persona y la respuesta.
+ * Las pendientes empiezan abiertas para tener a la vista el formulario de respuesta.
+ */
 export default function ListaDeApelaciones({ apelaciones }: { apelaciones: ApelacionParaPanel[] }) {
-  return (
-    <ul className="flex flex-col gap-4">
-      {apelaciones.map((a) => (
-        <li key={a.id} className="rounded-lg border border-system-200 bg-white p-5 shadow-sm">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="flex flex-wrap items-center gap-2">
-                <Link href={`/usuarios/${a.persona.id}`} className="break-words text-[15px] font-bold text-system-900 hover:text-brand-600">
-                  {a.persona.nombre}
-                </Link>
-                <Tag>{NOMBRE_DE_DECISION[a.decision.clase]}</Tag>
-              </p>
-              <p className="mt-0.5 text-[12px] text-system-500">
-                Apelada el {a.fechaTexto}
-                {a.resueltaTexto ? ` · resuelta el ${a.resueltaTexto}` : ""}
-              </p>
-            </div>
-            <Tag tone={TONO[a.estado]}>{NOMBRE_DE_ESTADO[a.estado]}</Tag>
-          </div>
+  // Solo se guardan las que se abrieron o cerraron a mano: así una pendiente que llega en vivo también sale abierta.
+  const [cambiadas, setCambiadas] = useState<Set<string>>(new Set());
+  const abierta = (a: ApelacionParaPanel) => (a.estado === "pendiente") !== cambiadas.has(a.id);
+  const alternar = (id: string) =>
+    setCambiadas((actual) => {
+      const nuevo = new Set(actual);
+      if (nuevo.has(id)) nuevo.delete(id);
+      else nuevo.add(id);
+      return nuevo;
+    });
 
-          <div className="mt-4">
+  return (
+    <ListaDeRenglones etiqueta="Apelaciones">
+      {apelaciones.map((a) => (
+        <RenglonDesplegable
+          key={a.id}
+          abierto={abierta(a)}
+          alAlternar={() => alternar(a.id)}
+          idPanel={`apelacion-${a.id}`}
+          titulo={a.persona.nombre}
+          rotulo={NOMBRE_DE_DECISION[a.decision.clase]}
+          detalles={[
+            // Sin repetir el rótulo cuando la decisión no dice más ("Baneo de la cuenta • Baneo de la cuenta").
+            tituloDeDecision(a.decision) !== NOMBRE_DE_DECISION[a.decision.clase] ? tituloDeDecision(a.decision) : null,
+            `Apelada el ${a.fechaTexto}`,
+            a.resueltaTexto ? `Resuelta el ${a.resueltaTexto}` : null,
+          ]}
+          lateral={<Tag tone={TONO[a.estado]}>{NOMBRE_DE_ESTADO[a.estado]}</Tag>}
+        >
+          {/* El enlace va aquí: dentro del botón del renglón no cabe un enlace. */}
+          <Link href={`/usuarios/${a.persona.id}`} className="text-[12px] font-semibold text-brand-600 hover:underline">
+            Ver ficha de {a.persona.nombre}
+          </Link>
+
+          <div className="mt-3">
             <h3 className="text-[13px] font-semibold text-system-900">La decisión: {tituloDeDecision(a.decision)}</h3>
             <p className="mt-0.5 text-[12px] text-system-500">
               {a.decisionTexto} · {a.decision.aplicadaPor}
             </p>
-            <p className="mt-1.5 rounded-lg bg-system-100 px-3.5 py-2.5 text-[13px] leading-relaxed text-system-900">
+            <p className="mt-1.5 rounded-lg border border-system-200 bg-white px-3.5 py-2.5 text-[13px] leading-relaxed text-system-900">
               {a.decision.motivo || "No se registró un motivo."}
             </p>
           </div>
 
-          <div className="mt-4">
+          <div className="mt-3">
             <h3 className="text-[13px] font-semibold text-system-900">Lo que escribió</h3>
             <p className="mt-1.5 whitespace-pre-line rounded-lg border-l-4 border-brand-600 bg-brand-50 px-3.5 py-2.5 text-[13.5px] leading-relaxed text-system-900">
               {a.motivo}
@@ -157,13 +177,13 @@ export default function ListaDeApelaciones({ apelaciones }: { apelaciones: Apela
               <Resolver a={a} />
             </>
           ) : (
-            <div className="mt-4">
+            <div className="mt-3">
               <h3 className="text-[13px] font-semibold text-system-900">Tu respuesta</h3>
               <p className="mt-1.5 whitespace-pre-line text-[13.5px] leading-relaxed text-system-900">{a.respuesta}</p>
             </div>
           )}
-        </li>
+        </RenglonDesplegable>
       ))}
-    </ul>
+    </ListaDeRenglones>
   );
 }

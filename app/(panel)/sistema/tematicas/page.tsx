@@ -19,6 +19,7 @@
 import type { Metadata } from "next";
 
 import Tag from "@/components/sistema/Tag";
+import { ListaDeRenglones, Renglon } from "@/components/sistema/Renglones";
 import { Encabezado, formatearNumero } from "@/components/sistema/ui";
 import { exigirSesionRoot } from "@/lib/supervision/root";
 import { listarTematicasDelPanel, tematicasVisibles } from "@/lib/tematicas/catalogo";
@@ -77,49 +78,53 @@ export default async function TematicasPage({ searchParams }: { searchParams: Pr
       {tematicas.length === 0 ? (
         <p className="py-7 text-[13px] text-system-600">Ninguna temática coincide con «{q}».</p>
       ) : (
-        <ul className="divide-y divide-system-200 rounded-lg border border-system-200 bg-white shadow-sm">
+        // Renglones como la vista de lista de Mis aportes (2026-11-26, a pedido del usuario; antes una lista dividida).
+        // Las subtemáticas se despliegan en la misma tarjeta, bajo el renglón (`pie`).
+        <ListaDeRenglones etiqueta="Temáticas">
           {tematicas.map((t) => (
-            <li key={t.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5">
-              <div className="min-w-0">
-                <p className={`break-words font-bold ${t.oculta ? "text-system-500 line-through" : "text-system-900"}`}>{t.nombre}</p>
-                <p className="mt-0.5 text-[12px] text-system-500">
-                  {t.origen === "base"
-                    ? "Base"
-                    : `${t.origen === "panel" ? "Creada aquí" : t.aprobada ? "De un usuario" : "Propuesta por un usuario"} · ${fecha.format(new Date(t.creadaEl))}`} ·{" "}
-                  {formatearNumero(t.personas)} {t.personas === 1 ? "persona" : "personas"} ·{" "}
-                  {/* Solo las activas (2026-11-09, decisión del usuario); el total sigue valiendo para editar o borrar. */}
-                  {formatearNumero(t.campanasActivas)} {t.campanasActivas === 1 ? "campaña activa" : "campañas activas"}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                {t.bloqueada ? <Tag tone="warn">Bloqueada por el filtro</Tag> : null}
-                {t.aprobada ? (
-                  <>
-                    {t.oculta ? <Tag tone="warn">Oculta</Tag> : null}
-                    <BotonDeVisibilidad id={t.id} nombre={t.nombre} oculta={t.oculta} />
-                  </>
-                ) : (
-                  <>
-                    <Tag tone="on">Pendiente</Tag>
-                    <BotonesDeRevision
-                      id={t.id}
-                      nombre={t.nombre}
-                      campanas={t.campanas}
-                      reemplazos={aprobadas.filter((a) => a !== t.nombre)}
-                    />
-                  </>
-                )}
-                {t.origen !== "base" ? (
-                  <EditarOBorrar id={t.id} nombre={t.nombre} personas={t.personas} campanas={t.campanas} />
-                ) : null}
-              </div>
-              {/* Una pendiente solo muestra sus etiquetas si alguien propuso alguna (2026-10-29): se revisan junto con ella. */}
-              {t.aprobada || (etiquetas.get(t.id)?.length ?? 0) > 0 ? (
-                <EtiquetasDeTematica tematicaId={t.id} tematica={t.nombre} etiquetas={etiquetas.get(t.id) ?? []} />
-              ) : null}
-            </li>
+            <Renglon
+              key={t.id}
+              titulo={<span className={t.oculta ? "text-system-500 line-through" : undefined}>{t.nombre}</span>}
+              rotulo={t.origen === "base" ? "Base" : t.origen === "panel" ? "Creada aquí" : t.aprobada ? "De un usuario" : "Propuesta por un usuario"}
+              detalles={[
+                t.origen === "base" ? null : fecha.format(new Date(t.creadaEl)),
+                `${formatearNumero(t.personas)} ${t.personas === 1 ? "persona" : "personas"}`,
+                // Solo las activas (2026-11-09, decisión del usuario); el total sigue valiendo para editar o borrar.
+                `${formatearNumero(t.campanasActivas)} ${t.campanasActivas === 1 ? "campaña activa" : "campañas activas"}`,
+              ]}
+              lateral={
+                <>
+                  {t.bloqueada ? <Tag tone="warn">Bloqueada por el filtro</Tag> : null}
+                  {t.aprobada ? (
+                    <>
+                      {t.oculta ? <Tag tone="warn">Oculta</Tag> : null}
+                      <BotonDeVisibilidad id={t.id} nombre={t.nombre} oculta={t.oculta} />
+                    </>
+                  ) : (
+                    <>
+                      <Tag tone="on">Pendiente</Tag>
+                      <BotonesDeRevision
+                        id={t.id}
+                        nombre={t.nombre}
+                        campanas={t.campanas}
+                        reemplazos={aprobadas.filter((a) => a !== t.nombre)}
+                      />
+                    </>
+                  )}
+                  {t.origen !== "base" ? (
+                    <EditarOBorrar id={t.id} nombre={t.nombre} personas={t.personas} campanas={t.campanas} />
+                  ) : null}
+                </>
+              }
+              pie={
+                // Una pendiente solo muestra sus etiquetas si alguien propuso alguna (2026-10-29): se revisan junto con ella.
+                t.aprobada || (etiquetas.get(t.id)?.length ?? 0) > 0 ? (
+                  <EtiquetasDeTematica tematicaId={t.id} tematica={t.nombre} etiquetas={etiquetas.get(t.id) ?? []} />
+                ) : null
+              }
+            />
           ))}
-        </ul>
+        </ListaDeRenglones>
       )}
     </div>
   );

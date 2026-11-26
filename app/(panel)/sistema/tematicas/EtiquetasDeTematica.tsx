@@ -10,6 +10,7 @@ import { useState, useTransition, type FormEvent } from "react";
 
 import Button from "@/components/sistema/Button";
 import { Input } from "@/components/sistema/Input";
+import { ListaDeRenglones, Renglon } from "@/components/sistema/Renglones";
 import Tag from "@/components/sistema/Tag";
 import EditarOBorrarDelCatalogo from "@/components/sistema/catalogo/EditarOBorrarDelCatalogo";
 import { useConfirmacion } from "@/components/sistema/useConfirmacion";
@@ -66,19 +67,20 @@ export default function EtiquetasDeTematica({
         {etiquetas.length === 0 ? (
           <p className="mb-3 text-[12.5px] text-system-500">{tematica} todavía no tiene etiquetas.</p>
         ) : (
-          <ul className="mb-3 divide-y divide-system-200">
+          // Renglones como la vista de lista de Mis aportes (2026-11-26, a pedido del usuario; antes una lista dividida).
+          <ListaDeRenglones etiqueta={`Etiquetas de ${tematica}`} className="mb-3">
             {etiquetas.map((e) => (
-              <li key={e.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-                <div className="min-w-0">
-                  <p className={`break-words text-[13px] font-semibold ${e.oculta ? "text-system-500 line-through" : "text-system-900"}`}>
-                    #{e.nombre}
-                  </p>
-                  <p className="text-[11.5px] text-system-500">
-                    {e.origen === "panel" ? "Creada aquí" : "Propuesta por un usuario (en su campaña o su perfil)"} · {cuantos(e.campanas, "campaña", "campañas")} ·{" "}
-                    {cuantos(e.personas, "persona", "personas")}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
+              <Renglon
+                key={e.id}
+                titulo={<span className={e.oculta ? "text-system-500 line-through" : undefined}>#{e.nombre}</span>}
+                rotulo={e.origen === "panel" ? "Creada aquí" : "Propuesta por un usuario"}
+                detalles={[
+                  e.origen === "panel" ? null : "En su campaña o su perfil",
+                  cuantos(e.campanas, "campaña", "campañas"),
+                  cuantos(e.personas, "persona", "personas"),
+                ]}
+                lateral={
+                <>
                   {e.aprobada ? (
                     <>
                       {e.oculta ? <Tag tone="warn">Oculta</Tag> : null}
@@ -162,10 +164,11 @@ export default function EtiquetasDeTematica({
                     editar={editarEtiqueta}
                     borrar={borrarEtiquetaDelPanel}
                   />
-                </div>
-              </li>
+                </>
+                }
+              />
             ))}
-          </ul>
+          </ListaDeRenglones>
         )}
 
         <form onSubmit={crear} className="flex flex-wrap items-center gap-2">

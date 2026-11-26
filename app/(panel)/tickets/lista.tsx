@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
 
 import Button from "@/components/sistema/Button";
+import { ListaDeRenglones, RenglonDesplegable } from "@/components/sistema/Renglones";
 import Tag from "@/components/sistema/Tag";
 import { useConfirmacion } from "@/components/sistema/useConfirmacion";
 import { resolverTicketDelPanel } from "@/lib/tickets/acciones";
@@ -122,58 +123,68 @@ function Resolver({ t }: { t: TicketParaPanel }) {
   );
 }
 
+/**
+ * Renglones como la vista de lista de Mis aportes (2026-11-26, a pedido del usuario; antes una tarjeta grande por
+ * ticket): cada ticket es un renglón que se despliega con los enlaces, el motivo y la respuesta. Los pendientes
+ * empiezan abiertos para tener a la vista "Aprobar" y "Rechazar".
+ */
 export default function ListaDeTickets({ tickets }: { tickets: TicketParaPanel[] }) {
+  // Solo se guardan los que se abrieron o cerraron a mano: así uno pendiente que llega en vivo también sale abierto.
+  const [cambiados, setCambiados] = useState<Set<string>>(new Set());
+  const abierto = (t: TicketParaPanel) => (t.estado === "pendiente") !== cambiados.has(t.id);
+  const alternar = (id: string) =>
+    setCambiados((actual) => {
+      const nuevo = new Set(actual);
+      if (nuevo.has(id)) nuevo.delete(id);
+      else nuevo.add(id);
+      return nuevo;
+    });
+
   return (
-    <ul className="flex flex-col gap-4">
+    <ListaDeRenglones etiqueta="Tickets">
       {tickets.map((t) => (
-        <li key={t.id} className="rounded-lg border border-system-200 bg-white p-5 shadow-sm">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="flex flex-wrap items-center gap-2">
-                <span className="text-[15px] font-bold text-system-900">{t.pedido}</span>
-                <Tag>{t.tipo === "sancion" ? "Sanción" : "Datos abiertos"}</Tag>
-              </p>
-              <p className="mt-1 text-[13px] text-system-700">
-                {t.persona ? (
-                  <>
-                    Para{" "}
-                    <Link href={`/usuarios/${t.persona.id}`} className="font-semibold text-system-900 hover:text-brand-600">
-                      {t.persona.nombre}
-                    </Link>
-                  </>
-                ) : null}
-                {t.campana ? (
-                  <>
-                    {t.persona ? " · " : "Campaña "}
-                    <Link href={`/supervisar/${t.campana.id}`} className="font-semibold text-system-900 hover:text-brand-600">
-                      «{t.campana.nombre}»
-                    </Link>
-                  </>
-                ) : null}
-              </p>
-              <p className="mt-0.5 text-[12px] text-system-500">
-                Lo pidió{" "}
-                {t.supervisor.id ? (
-                  <Link href={`/usuarios/supervisores/${t.supervisor.id}`} className="hover:text-brand-600 hover:underline">
-                    {t.supervisor.nombre}
-                  </Link>
-                ) : (
-                  t.supervisor.nombre
-                )}
-                {t.origen ? ` ${ORIGEN[t.origen]}` : ""} · el {t.fechaTexto}
-                {t.resueltoTexto ? ` · resuelto el ${t.resueltoTexto}` : ""}
-                {t.reportes > 0 ? ` · ${t.reportes} ${t.reportes === 1 ? "reporte ligado" : "reportes ligados"}` : ""}
-              </p>
-            </div>
-            <Tag tone={TONO[t.estado]}>{NOMBRE_DE_ESTADO_DE_TICKET[t.estado]}</Tag>
-          </div>
+        <RenglonDesplegable
+          key={t.id}
+          abierto={abierto(t)}
+          alAlternar={() => alternar(t.id)}
+          idPanel={`ticket-${t.id}`}
+          titulo={t.pedido}
+          rotulo={t.tipo === "sancion" ? "Sanción" : "Datos abiertos"}
+          detalles={[
+            t.persona ? `Para ${t.persona.nombre}` : null,
+            t.campana ? `«${t.campana.nombre}»` : null,
+            `Lo pidió ${t.supervisor.nombre}${t.origen ? ` ${ORIGEN[t.origen]}` : ""}`,
+            `El ${t.fechaTexto}`,
+            t.resueltoTexto ? `Resuelto el ${t.resueltoTexto}` : null,
+            t.reportes > 0 ? `${t.reportes} ${t.reportes === 1 ? "reporte ligado" : "reportes ligados"}` : null,
+          ]}
+          lateral={<Tag tone={TONO[t.estado]}>{NOMBRE_DE_ESTADO_DE_TICKET[t.estado]}</Tag>}
+        >
+          {/* Los enlaces van aquí: dentro del botón del renglón no cabe un enlace. */}
+          <p className="flex flex-wrap gap-x-3 gap-y-1 text-[12px] text-system-600">
+            {t.persona ? (
+              <Link href={`/usuarios/${t.persona.id}`} className="font-semibold text-brand-600 hover:underline">
+                Ver ficha de {t.persona.nombre}
+              </Link>
+            ) : null}
+            {t.campana ? (
+              <Link href={`/supervisar/${t.campana.id}`} className="font-semibold text-brand-600 hover:underline">
+                Ver la campaña «{t.campana.nombre}»
+              </Link>
+            ) : null}
+            {t.supervisor.id ? (
+              <Link href={`/usuarios/supervisores/${t.supervisor.id}`} className="font-semibold text-brand-600 hover:underline">
+                Ver la actividad de {t.supervisor.nombre}
+              </Link>
+            ) : null}
+          </p>
 
           {t.motivo ? (
-            <div className="mt-4">
+            <div className="mt-3">
               <h3 className="text-[13px] font-semibold text-system-900">
                 {t.tipo === "sancion" ? "Motivo (lo leerá la persona)" : "Motivo para no publicar"}
               </h3>
-              <p className="mt-1.5 whitespace-pre-line rounded-lg bg-system-100 px-3.5 py-2.5 text-[13px] leading-relaxed text-system-900">
+              <p className="mt-1.5 whitespace-pre-line rounded-lg border border-system-200 bg-white px-3.5 py-2.5 text-[13px] leading-relaxed text-system-900">
                 {t.motivo}
               </p>
             </div>
@@ -182,13 +193,13 @@ export default function ListaDeTickets({ tickets }: { tickets: TicketParaPanel[]
           {t.estado === "pendiente" ? (
             <Resolver t={t} />
           ) : t.respuesta ? (
-            <div className="mt-4">
+            <div className="mt-3">
               <h3 className="text-[13px] font-semibold text-system-900">Tu respuesta</h3>
               <p className="mt-1.5 whitespace-pre-line text-[13.5px] leading-relaxed text-system-900">{t.respuesta}</p>
             </div>
           ) : null}
-        </li>
+        </RenglonDesplegable>
       ))}
-    </ul>
+    </ListaDeRenglones>
   );
 }

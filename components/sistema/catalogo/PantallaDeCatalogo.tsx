@@ -4,6 +4,7 @@
 // Server Component: recibe las filas ya leídas y las server actions para los componentes cliente.
 
 import { Encabezado, formatearNumero } from "@/components/sistema/ui";
+import { ListaDeRenglones, Renglon } from "@/components/sistema/Renglones";
 import type { ElementoDelPanel } from "@/lib/catalogos/catalogo-de-perfil";
 import type { ResultadoDeAccion } from "@/lib/catalogos/acciones-de-catalogo";
 import { ZONA_DE_CAMPANAS } from "@/lib/campaign-date";
@@ -65,33 +66,36 @@ export default function PantallaDeCatalogo({
       {elementos.length === 0 ? (
         <p className="py-7 text-[13px] text-system-600">{q ? `Ninguna coincide con «${q}».` : textos.ninguna}</p>
       ) : (
-        <ul className="divide-y divide-system-200 rounded-lg border border-system-200 bg-white shadow-sm">
+        // Renglones como la vista de lista de Mis aportes (2026-11-26, a pedido del usuario; antes una lista dividida).
+        <ListaDeRenglones etiqueta={titulo}>
           {elementos.map((e) => (
-            <li key={e.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5">
-              <div className="min-w-0">
-                <p className="break-words font-bold text-system-900">{e.nombre}</p>
-                <p className="mt-0.5 text-[12px] text-system-500">
-                  {e.origen === "base" ? ORIGEN.base : `${ORIGEN[e.origen]} · ${fecha.format(new Date(e.creadaEl))}`} ·{" "}
-                  {formatearNumero(e.personas)} {e.personas === 1 ? "persona" : "personas"}
-                  {conCampanas ? ` · ${formatearNumero(e.campanas)} ${e.campanas === 1 ? "campaña" : "campañas"}` : null}
-                </p>
-              </div>
-              {e.origen !== "base" ? (
-                <EditarOBorrarDelCatalogo
-                  id={e.id}
-                  nombre={e.nombre}
-                  personas={e.personas}
-                  campanas={conCampanas ? e.campanas : null}
-                  sustantivo={textos.sustantivo}
-                  sinElDato={textos.sinElDato}
-                  maximo={maximo}
-                  editar={acciones.editar}
-                  borrar={acciones.borrar}
-                />
-              ) : null}
-            </li>
+            <Renglon
+              key={e.id}
+              titulo={e.nombre}
+              rotulo={ORIGEN[e.origen]}
+              detalles={[
+                e.origen === "base" ? null : fecha.format(new Date(e.creadaEl)),
+                `${formatearNumero(e.personas)} ${e.personas === 1 ? "persona" : "personas"}`,
+                conCampanas ? `${formatearNumero(e.campanas)} ${e.campanas === 1 ? "campaña" : "campañas"}` : null,
+              ]}
+              lateral={
+                e.origen !== "base" ? (
+                  <EditarOBorrarDelCatalogo
+                    id={e.id}
+                    nombre={e.nombre}
+                    personas={e.personas}
+                    campanas={conCampanas ? e.campanas : null}
+                    sustantivo={textos.sustantivo}
+                    sinElDato={textos.sinElDato}
+                    maximo={maximo}
+                    editar={acciones.editar}
+                    borrar={acciones.borrar}
+                  />
+                ) : null
+              }
+            />
           ))}
-        </ul>
+        </ListaDeRenglones>
       )}
     </div>
   );

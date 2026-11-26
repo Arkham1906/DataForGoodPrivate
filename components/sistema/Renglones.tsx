@@ -50,6 +50,11 @@ type PropsDeRenglon = Textos & {
   lateral?: ReactNode;
   /** Toda la tarjeta es este enlace (entonces nada dentro puede ser otro enlace o botón). */
   href?: string;
+  /**
+   * Algo más dentro de la misma tarjeta, a todo el ancho y bajo el renglón (las subtemáticas de una temática,
+   * 2026-11-26). No se combina con `href`.
+   */
+  pie?: ReactNode;
 };
 
 function TextosDelRenglon({ titulo, rotulo, detalles, debajo }: Textos) {
@@ -87,7 +92,7 @@ function Lateral({ children }: { children: ReactNode }) {
 }
 
 /** Un renglón. Con `href`, toda la tarjeta es el enlace (como en Mis aportes); sin él, las acciones van en `lateral`. */
-export function Renglon({ href, lateral, ...textos }: PropsDeRenglon) {
+export function Renglon({ href, lateral, pie, ...textos }: PropsDeRenglon) {
   const contenido = (
     <>
       <TextosDelRenglon {...textos} />
@@ -100,6 +105,11 @@ export function Renglon({ href, lateral, ...textos }: PropsDeRenglon) {
         <Link href={href} className={`${CLASE_TARJETA} ${CLASE_ENLACE} ${CLASE_FILA}`}>
           {contenido}
         </Link>
+      ) : pie ? (
+        <div className={CLASE_TARJETA}>
+          <div className={CLASE_FILA}>{contenido}</div>
+          <div className="px-2.5 pb-2.5">{pie}</div>
+        </div>
       ) : (
         <div className={`${CLASE_TARJETA} ${CLASE_FILA}`}>{contenido}</div>
       )}

@@ -2,6 +2,7 @@ import { pool } from "@/lib/db";
 import { columnaDeTipos, condicionDeTipos } from "@/lib/campanas/tipos-de-campana";
 import { activateScheduledCampaigns, finalizeExpiredCampaigns, normalizeCampaignDate } from "@/lib/campaign-date";
 import { hasRootSession } from "@/lib/rootSession";
+import { camposDelBanner } from "@/lib/campanas/banner-predeterminado";
 import {
   NOMBRE_DE_TIPO,
   ORDEN_DE_ESTADOS,
@@ -41,9 +42,14 @@ async function prepararLectura(): Promise<void> {
  * participante es un usuario distinto, o un correo distinto si aportó sin
  * cuenta.
  */
+// Desde el 2026-11-26 también trae banner, ubicación y quién la supervisa: el listado usa la tarjeta de /supervisar
+// (components/sistema/TarjetaDeCampanaDelPanel).
 const CAMPANAS_CON_CONTEOS = `
   SELECT c.id, c.name, COALESCE(NULLIF(c.tematica, ''), c.tag, '') AS tematica, c.creator_name,
          ${columnaDeTipos("c")}, c.status, c.goal_contributions, c.start_date, c.end_date, c.created_at,
+         c.banner_path, c.updated_at, c.banner_scale, c.banner_position_x, c.banner_position_y,
+         c.todo_el_pais, c.location_city, c.location_state, c.supervisado_por_root, c.supervisor_id,
+         sup.supervisor_nombre,
          COALESCE(a.aportes, 0)::int AS aportes,
          COALESCE(a.aprobados, 0)::int AS aprobados,
          COALESCE(a.participantes, 0)::int AS participantes
@@ -55,7 +61,10 @@ const CAMPANAS_CON_CONTEOS = `
            COUNT(DISTINCT COALESCE(user_id::text, participant_email, anonimo_id)) AS participantes
     FROM aportes
     GROUP BY campaign_id
-  ) a ON a.campaign_id = c.id`;
+  ) a ON a.campaign_id = c.id
+  LEFT JOIN LATERAL (
+    SELECT CONCAT_WS(' ', u.nombre, u.apellidos) AS supervisor_nombre FROM usuarios u WHERE u.id = c.supervisor_id
+  ) sup ON true`;
 
 function mapearFila(row: Record<string, unknown>): FilaDeCampana {
   const tipos = Array.isArray(row.data_types) ? row.data_types.map(String).filter((t) => esTipo(t)) : [];
@@ -71,6 +80,15 @@ function mapearFila(row: Record<string, unknown>): FilaDeCampana {
     aprobados: Number(row.aprobados ?? 0),
     meta: Number(row.goal_contributions ?? 0),
     venceEn: normalizeCampaignDate(row.end_date),
+    ...camposDelBanner(row),
+    supervisadaPor: row.supervisado_por_root
+      ? "SuperUsuario"
+      : row.supervisor_id != null
+        ? String(row.supervisor_nombre ?? "").trim() || "Un supervisor"
+        : null,
+    todoElPais: Boolean(row.todo_el_pais),
+    municipio: String(row.location_city ?? ""),
+    estadoGeografico: String(row.location_state ?? ""),
   };
 }
 

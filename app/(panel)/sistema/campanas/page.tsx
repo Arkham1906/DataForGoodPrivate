@@ -6,7 +6,7 @@ import { Suspense } from "react";
 
 import Subtabs from "@/components/sistema/subtabs";
 import Tag from "@/components/sistema/Tag";
-import { ListaDeRenglones, Renglon } from "@/components/sistema/Renglones";
+import ListaDeCampanasDelPanel from "@/components/sistema/ListaDeCampanasDelPanel";
 import { Encabezado, EnlaceBoton, Paginacion, formatearNumero } from "@/components/sistema/ui";
 import {
   ETIQUETA_DE_CAMPANA,
@@ -189,35 +189,9 @@ export default async function ListadoDeCampanasPage({ searchParams }: { searchPa
             })}
           </div>
 
-          {/* Escritorio: renglones como la vista de lista de Mis aportes (2026-11-25); toda la tarjeta abre la campaña. */}
-          <ListaDeRenglones etiqueta="Campañas" soloEscritorio>
-            {filas.map((c) => {
-              const et = ETIQUETA_DE_CAMPANA[c.estado];
-              const dias = diasRestantes(c.venceEn);
-              return (
-                <Renglon
-                  key={c.id}
-                  href={`${BASE}/${c.id}`}
-                  titulo={c.nombre}
-                  rotulo={c.tiposDeDato.length > 0 ? c.tiposDeDato.map((t) => NOMBRE_DE_TIPO[t]).join(" · ") : null}
-                  detalles={[
-                    c.tematica || "Sin temática",
-                    c.creador || "Sin creador",
-                    `${formatearNumero(c.participantes)} ${c.participantes === 1 ? "participante" : "participantes"}`,
-                    `${formatearNumero(c.aprobados)}/${formatearNumero(c.meta)} aprobados`,
-                    c.venceEn ? (
-                      <span title={dias !== null ? `Faltan ${dias} días` : undefined}>
-                        Vence {formatearFechaCampana(c.venceEn, false)}
-                      </span>
-                    ) : (
-                      "Sin fecha de cierre"
-                    ),
-                  ]}
-                  lateral={<Tag tone={et.tono}>{et.texto}</Tag>}
-                />
-              );
-            })}
-          </ListaDeRenglones>
+          {/* Escritorio (2026-11-26, a pedido del usuario): las tarjetas de /supervisar, con vista de lista o cuadrícula;
+              toda la tarjeta abre la campaña. Antes (2026-11-25) renglones como Mis aportes. */}
+          <ListaDeCampanasDelPanel filas={filas} />
 
           <Paginacion desde={desde} hasta={hasta} total={total} pagina={pagina} paginas={paginas} href={enlaceDePagina} />
         </>

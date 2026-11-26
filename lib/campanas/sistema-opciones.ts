@@ -139,6 +139,17 @@ export type FilaDeCampana = {
   meta: number;
   /** "YYYY-MM-DD"; null si la campaña no tiene fecha de cierre. */
   venceEn: string | null;
+  /** Para la tarjeta de /supervisar en el listado (2026-11-26): banner (`camposDelBanner`), supervisor y ubicación. */
+  hasBanner: boolean;
+  bannerVersion?: string;
+  bannerScale: number;
+  bannerPositionX: number;
+  bannerPositionY: number;
+  /** "SuperUsuario", el nombre del supervisor o null si nadie la supervisa. */
+  supervisadaPor: string | null;
+  todoElPais: boolean;
+  municipio: string;
+  estadoGeografico: string;
 };
 
 export type DashboardDeCampanas = {
