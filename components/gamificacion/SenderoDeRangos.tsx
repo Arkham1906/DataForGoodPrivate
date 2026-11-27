@@ -56,7 +56,7 @@ function curvaPor(puntos: Punto[]): string {
 }
 
 const CIRCULO: Record<EstadoDeRango, string> = {
-  alcanzado: "bg-brand-700 text-white",
+  alcanzado: "bg-brand-600 text-white",
   actual: "bg-brand-950 text-white ring-4 ring-white shadow-[0_10px_24px_rgba(1,23,69,.35)]",
   siguiente: "border-[3px] border-brand-600 bg-white text-brand-700 shadow-[0_6px_16px_rgba(46,90,172,.25)]",
   avistado: "border-2 border-dashed border-system-400 bg-white text-system-700",
@@ -225,7 +225,18 @@ export default function SenderoDeRangos({
                     <span
                       className={`relative flex h-full w-full items-center justify-center overflow-hidden rounded-pill text-[17px] font-extrabold transition-transform duration-150 ease-salida group-hover:scale-[1.06] group-active:scale-[0.97] motion-reduce:transition-none ${CIRCULO[e.estado]}`}
                     >
-                      {esActual ? <AvatarDeGamificacion etapa={actual} tamano="md" /> : e.estado === "avistado" ? "?" : e.numero}
+                      {esActual ? (
+                        <AvatarDeGamificacion etapa={actual} tamano="md" />
+                      ) : e.estado === "alcanzado" ? (
+                        // El número sigue a la derecha («Rango 3 · 21 oct») y en el nombre accesible del botón.
+                        <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
+                          <path d="m5 12.5 4.5 4.5L19 7.5" />
+                        </svg>
+                      ) : e.estado === "avistado" ? (
+                        "?"
+                      ) : (
+                        e.numero
+                      )}
                     </span>
                     {esActual && (
                       <span className="absolute -right-1.5 -bottom-1 flex h-[26px] min-w-[26px] items-center justify-center rounded-pill border-2 border-white bg-success-700 px-1 text-[12px] font-extrabold text-white">
