@@ -106,7 +106,8 @@ export default async function LideresPage({ searchParams }: { searchParams: Prom
 
             <FranjaDeCampo redondeada style={retraso(240)} className="landing-entrada mt-6">
             <div className="relative flex justify-center px-4 py-8">
-                <div className="flex max-w-full flex-wrap items-center justify-center gap-x-4 gap-y-2 rounded-[18px] bg-white p-2 shadow-sm">
+                {/* Categorías arriba; el filtro de cada una (enfoque o temática) en su propio renglón, debajo. */}
+                <div className="flex max-w-full flex-col items-center gap-2 rounded-[18px] bg-white p-2 shadow-sm">
                 <nav aria-label="Categoría" className="flex max-w-full gap-1.5 overflow-x-auto">
                     {CATEGORIAS_DE_CLASIFICACION.map((c) => (
                     <Link
@@ -121,7 +122,7 @@ export default async function LideresPage({ searchParams }: { searchParams: Prom
                 </nav>
 
                 {categoria === "rango" && enfoques.length > 0 && (
-                    <nav aria-label={TEXTOS.lideres.enfoque} className="flex max-w-full flex-wrap items-center justify-center gap-1.5">
+                    <nav aria-label={TEXTOS.lideres.enfoque} className="flex w-full flex-wrap items-center justify-center gap-1.5 border-t border-system-200 pt-2">
                     <span className="px-1.5 text-[12.5px] font-medium text-system-600">{TEXTOS.lideres.enfoque}</span>
                     <Link href={enlaceA("rango", undefined, 1)} aria-current={!enfoque ? "page" : undefined} className={claseDeOrden(!enfoque)}>
                         {TEXTOS.lideres.todos}
@@ -142,7 +143,7 @@ export default async function LideresPage({ searchParams }: { searchParams: Prom
 
                 {categoria === "tematica" && tematicas.length > 0 && (
                     // Formulario GET: cambia de temática sin JavaScript. El action lleva el basePath a mano.
-                    <form action={`${BASE_PATH}${RUTA}`} method="get" className="flex items-center gap-2">
+                    <form action={`${BASE_PATH}${RUTA}`} method="get" className="flex w-full flex-wrap items-center justify-center gap-2 border-t border-system-200 pt-2">
                     <input type="hidden" name="categoria" value="tematica" />
                     <label htmlFor="tematica-de-lideres" className="text-[12.5px] font-medium text-system-600">
                         Temática
