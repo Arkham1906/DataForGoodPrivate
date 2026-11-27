@@ -100,18 +100,19 @@ export async function elegirEnfoque(usuarioId: number, clave: string): Promise<R
 }
 
 /**
- * Opciones para la ventana de ShellDeUsuario, solo si la persona aún no tiene enfoque; null si ya lo tiene (o si falla
- * la lectura: la ventana no debe impedir usar la app). Casi siempre es una sola consulta corta.
+ * Para ShellDeUsuario: el enfoque actual (las celebraciones usan sus textos, RF-GAM-119) y, solo si falta, las opciones
+ * de la ventana para elegirlo. Si la lectura falla, sin enfoque y sin ventana: no debe impedir usar la app.
  */
-export async function opcionesSiFaltaEnfoque(usuarioId: number): Promise<OpcionDeEnfoque[] | null> {
+export async function enfoqueParaElPanel(usuarioId: number): Promise<{ clave: string | null; opciones: OpcionDeEnfoque[] | null }> {
   try {
-    const { rows } = await pool.query<{ falta: boolean }>(`SELECT enfoque IS NULL AS falta FROM usuarios WHERE id = $1`, [usuarioId]);
-    if (!rows[0]?.falta) return null;
+    const { rows } = await pool.query<{ enfoque: string | null }>(`SELECT enfoque FROM usuarios WHERE id = $1`, [usuarioId]);
+    if (!rows[0]) return { clave: null, opciones: null };
+    if (rows[0].enfoque) return { clave: rows[0].enfoque, opciones: null };
     const estado = await leerEstado(pool, usuarioId);
-    return estado && estado.opciones.length > 0 ? estado.opciones : null;
+    return { clave: null, opciones: estado && estado.opciones.length > 0 ? estado.opciones : null };
   } catch (error) {
     console.error(`Error revisando el enfoque del usuario ${usuarioId}`, error);
-    return null;
+    return { clave: null, opciones: null };
   }
 }
 
@@ -148,5 +149,25 @@ async function avisarLogrosDesbloqueados(usuarioId: number, antes: ReadonlySet<s
     }
   } catch (error) {
     console.error(`Error avisando los logros desbloqueados del usuario ${usuarioId}`, error);
+  }
+}
+
+/** Nombre del enfoque actual de la persona («DataTracker»), o null. Para el nombre de su rango (nombreDeRangoConEnfoque). */
+export async function nombreDelEnfoque(client: Consulta, usuarioId: number | string): Promise<string | null> {
+  const { rows } = await client.query<{ nombre: string }>(
+    `SELECT e.nombre FROM usuarios u JOIN enfoques e ON e.clave = u.enfoque WHERE u.id = $1`,
+    [usuarioId],
+  );
+  return rows[0]?.nombre ?? null;
+}
+
+/** Enfoques que se pueden elegir, en el orden del catálogo: el filtro de Líderes. Vacío si falla la lectura. */
+export async function enfoquesActivos(): Promise<{ clave: string; nombre: string }[]> {
+  try {
+    const { rows } = await pool.query<{ clave: string; nombre: string }>(`SELECT clave, nombre FROM enfoques WHERE activo ORDER BY orden, clave`);
+    return rows;
+  } catch (error) {
+    console.error("Error leyendo los enfoques", error);
+    return [];
   }
 }

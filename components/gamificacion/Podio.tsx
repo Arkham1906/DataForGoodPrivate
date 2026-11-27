@@ -3,6 +3,7 @@
 // Datos: los recibe de TablaDeLideres (lib/gamificacion/tipos.ts); no consulta nada.
 
 import Avatar from "@/components/ui/Avatar";
+import { ChipDeEnfoque } from "@/components/gamificacion/enfoque/estilo-de-enfoque";
 import { textoDelValor, type CategoriaDeClasificacion, type Lider } from "@/lib/gamificacion/tipos";
 
 /** Por lugar: orden visual en escritorio (2.º, 1.º, 3.º), alto del escalón y colores (oro, plata, bronce). */
@@ -30,6 +31,7 @@ export default function Podio({ lideres, categoria, resaltarId }: { lideres: Lid
               </p>
               <p className="text-[12.5px] font-semibold text-system-600">{textoDelValor(categoria, lider.valor)}</p>
               {lider.detalle && <p className="font-mono text-[11px] text-system-500">{lider.detalle}</p>}
+              {lider.enfoque && <ChipDeEnfoque clave={lider.enfoque.clave} nombre={lider.enfoque.nombre} />}
             </div>
             <div
               className={`flex h-10 w-full items-center justify-center rounded-t-lg border border-b-0 text-[15px] font-extrabold ${lugar.escalon} ${lugar.color}`}

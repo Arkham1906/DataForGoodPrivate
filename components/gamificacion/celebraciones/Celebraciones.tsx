@@ -41,6 +41,7 @@ import CelebracionDeRango from "./CelebracionDeRango";
 import CelebracionDeMedallas from "./CelebracionDeMedallas";
 import CelebracionDeObjetoGanado from "./CelebracionDeObjetoGanado";
 import CelebracionDeObjeto from "./CelebracionDeObjeto";
+import { EnfoqueDeCelebraciones } from "./enfoque-de-celebraciones";
 
 const T = TEXTOS.celebraciones;
 
@@ -125,7 +126,7 @@ function Ventana({ clave, tipo, alMostrarse, alEscapar, children }: { clave: str
   );
 }
 
-export default function Celebraciones() {
+export default function Celebraciones({ enfoque = null }: { enfoque?: string | null }) {
   const [cola, setCola] = useState<Paso[]>([]);
   const [hechos, setHechos] = useState(0);
   // Ids ya puestos en la cola: un aviso en vivo no repite lo que ya se está mostrando.
@@ -240,12 +241,14 @@ export default function Celebraciones() {
   const comunes = { paso, siguiente, alSiguiente, alCerrar };
 
   return (
-    <Ventana key={actual.clave} clave={actual.clave} tipo={actual.tipo} alMostrarse={alMostrarse} alEscapar={alCerrar}>
-      {actual.tipo === "racha" && <CelebracionDeRacha racha={actual.racha} {...comunes} />}
-      {actual.tipo === "rango" && <CelebracionDeRango rango={actual.rango} {...comunes} />}
-      {actual.tipo === "medallas" && <CelebracionDeMedallas medallas={actual.medallas} {...comunes} />}
-      {actual.tipo === "ganado" && <CelebracionDeObjetoGanado datos={actual.ganado} {...comunes} />}
-      {actual.tipo === "objeto" && <CelebracionDeObjeto datos={actual.objeto} paso={paso} alSiguiente={alSiguiente} />}
-    </Ventana>
+    <EnfoqueDeCelebraciones.Provider value={enfoque}>
+      <Ventana key={actual.clave} clave={actual.clave} tipo={actual.tipo} alMostrarse={alMostrarse} alEscapar={alCerrar}>
+        {actual.tipo === "racha" && <CelebracionDeRacha racha={actual.racha} {...comunes} />}
+        {actual.tipo === "rango" && <CelebracionDeRango rango={actual.rango} {...comunes} />}
+        {actual.tipo === "medallas" && <CelebracionDeMedallas medallas={actual.medallas} {...comunes} />}
+        {actual.tipo === "ganado" && <CelebracionDeObjetoGanado datos={actual.ganado} {...comunes} />}
+        {actual.tipo === "objeto" && <CelebracionDeObjeto datos={actual.objeto} paso={paso} alSiguiente={alSiguiente} />}
+      </Ventana>
+    </EnfoqueDeCelebraciones.Provider>
   );
 }

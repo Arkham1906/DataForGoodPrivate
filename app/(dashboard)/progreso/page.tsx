@@ -63,7 +63,7 @@ export default async function ResumenPage() {
 
   return (
     <div className="space-y-5">
-      <RangoCompacto progreso={progreso} enlace={rutas.progreso} idDelTitulo="resumen-rango" />
+      <RangoCompacto progreso={progreso} enlace={rutas.progreso} idDelTitulo="resumen-rango" textoDelEnlace={T.verRangos} />
 
       <section aria-label="Tus cifras" className="grid grid-cols-2 gap-3 lg:grid-cols-3 lg:gap-4">
         <MetricCard

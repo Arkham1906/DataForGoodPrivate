@@ -1,7 +1,7 @@
 // Pestaña «Líderes» de Mi progreso: /progreso/leaderboard (2026-11-09; antes /leaderboard, pública). La tabla de
 // líderes completa, con todas las personas que tienen aportes aprobados (o que ya subieron de rango), paginada de 25 en 25. Server
 // Component, sin JavaScript de cliente: la categoría, la temática y la página viajan en searchParams
-// (?categoria=aportes|rango|tematica, ?tematica=, ?pagina=; el viejo ?categoria=nivel lleva a rango). La vieja /leaderboard redirige aquí (next.config.ts).
+// (?categoria=aportes|rango|tematica, ?tematica=, ?enfoque= solo en rango, ?pagina=; el viejo ?categoria=nivel lleva a rango). La vieja /leaderboard redirige aquí (next.config.ts).
 // Acceso: sesión de usuario (exigirUsuario); el marco, el título y las pestañas los ponen (dashboard)/layout.tsx y
 // ../layout.tsx. La persona se ve marcada con "Tú" en la tabla.
 // Datos: lib/gamificacion/clasificacion.ts (obtenerClasificacion, obtenerTematicasConLideres). Reglas
@@ -21,6 +21,9 @@ import Button from "@/components/ui/Button";
 import ListaDeLideres from "@/components/gamificacion/ListaDeLideres";
 import Podio from "@/components/gamificacion/Podio";
 import { obtenerClasificacion, obtenerTematicasConLideres } from "@/lib/gamificacion/clasificacion";
+import { enfoquesActivos } from "@/lib/gamificacion/enfoque";
+import { IconoDeEnfoque } from "@/components/gamificacion/enfoque/estilo-de-enfoque";
+import { TEXTOS } from "@/lib/gamificacion/textos";
 import {
     CATEGORIAS_DE_CLASIFICACION,
     LIDERES_POR_PAGINA,
@@ -42,11 +45,12 @@ type Busqueda = Record<string, string | undefined>;
 /** Ruta de la pestaña (sin basePath: <Link> lo pone solo). */
 const RUTA = "/progreso/leaderboard";
 
-/** Arma la ruta de la tabla con la categoría, la temática y la página (lo que sea el valor por defecto se omite). */
-function enlaceA(categoria: CategoriaDeClasificacion, tematica: string | undefined, pagina: number): string {
+/** Arma la ruta de la tabla con la categoría, la temática, el enfoque y la página (lo que sea el valor por defecto se omite). */
+function enlaceA(categoria: CategoriaDeClasificacion, tematica: string | undefined, pagina: number, enfoque?: string): string {
     const params = new URLSearchParams();
     if (categoria !== "aportes") params.set("categoria", categoria);
     if (categoria === "tematica" && tematica) params.set("tematica", tematica);
+    if (categoria === "rango" && enfoque) params.set("enfoque", enfoque);
     if (pagina > 1) params.set("pagina", String(pagina));
     const qs = params.toString();
     return qs ? `${RUTA}?${qs}` : RUTA;
@@ -57,19 +61,22 @@ export default async function LideresPage({ searchParams }: { searchParams: Prom
     const categoria = categoriaValida(sp.categoria);
     const paginaPedida = Math.max(1, Number.parseInt(sp.pagina ?? "1", 10) || 1);
 
-    const [tematicas, sesion] = await Promise.all([
+    const [tematicas, sesion, enfoques] = await Promise.all([
         categoria === "tematica" ? obtenerTematicasConLideres() : Promise.resolve([] as string[]),
         exigirUsuario(),
+        categoria === "rango" ? enfoquesActivos() : Promise.resolve([] as { clave: string; nombre: string }[]),
     ]);
+    // Filtro por enfoque, solo en «rango» (decisión del 26 nov). Uno que no existe (o ninguno) es «Todos».
+    const enfoque = enfoques.find((e) => e.clave === sp.enfoque);
     // Una temática que no está en la lista (o ninguna) cae en la primera.
     const tematica = categoria === "tematica" ? (tematicas.find((t) => t === sp.tematica) ?? tematicas[0]) : undefined;
 
-    let { lideres, total } = await obtenerClasificacion({ categoria, tematica, pagina: paginaPedida, consultaUsuarioId: sesion.id });
+    let { lideres, total } = await obtenerClasificacion({ categoria, tematica, enfoque: enfoque?.clave, pagina: paginaPedida, consultaUsuarioId: sesion.id });
     const paginas = Math.max(1, Math.ceil(total / LIDERES_POR_PAGINA));
     const pagina = Math.min(paginaPedida, paginas);
     // Si pidió una página que no existe (p. ej. ?pagina=99), se muestra la última.
     if (pagina !== paginaPedida && total > 0) {
-        ({ lideres, total } = await obtenerClasificacion({ categoria, tematica, pagina, consultaUsuarioId: sesion.id }));
+        ({ lideres, total } = await obtenerClasificacion({ categoria, tematica, enfoque: enfoque?.clave, pagina, consultaUsuarioId: sesion.id }));
     }
 
     const primerLugar = (pagina - 1) * LIDERES_POR_PAGINA + 1;
@@ -84,7 +91,7 @@ export default async function LideresPage({ searchParams }: { searchParams: Prom
             <div className="text-center">
             <h2 className="text-xl font-semibold text-system-900">Clasificación global</h2>
             <p className="mt-1 text-[13px] text-system-600">
-                Quienes más aportan a la comunidad.{" "}
+                {enfoque ? TEXTOS.lideres.porEnfoque(enfoque.nombre) : "Quienes más aportan a la comunidad."}{" "}
                 {categoria === "rango" ? (
                     <>
                         Cada rango se gana con aportes aceptados.
@@ -112,6 +119,26 @@ export default async function LideresPage({ searchParams }: { searchParams: Prom
                     </Link>
                     ))}
                 </nav>
+
+                {categoria === "rango" && enfoques.length > 0 && (
+                    <nav aria-label={TEXTOS.lideres.enfoque} className="flex max-w-full flex-wrap items-center justify-center gap-1.5">
+                    <span className="px-1.5 text-[12.5px] font-medium text-system-600">{TEXTOS.lideres.enfoque}</span>
+                    <Link href={enlaceA("rango", undefined, 1)} aria-current={!enfoque ? "page" : undefined} className={claseDeOrden(!enfoque)}>
+                        {TEXTOS.lideres.todos}
+                    </Link>
+                    {enfoques.map((e) => (
+                        <Link
+                        key={e.clave}
+                        href={enlaceA("rango", undefined, 1, e.clave)}
+                        aria-current={enfoque?.clave === e.clave ? "page" : undefined}
+                        className={`${claseDeOrden(enfoque?.clave === e.clave)} inline-flex items-center gap-1.5`}
+                        >
+                        <IconoDeEnfoque clave={e.clave} className={`size-4 ${enfoque?.clave === e.clave ? "!text-current" : ""}`} />
+                        {e.nombre}
+                        </Link>
+                    ))}
+                    </nav>
+                )}
 
                 {categoria === "tematica" && tematicas.length > 0 && (
                     // Formulario GET: cambia de temática sin JavaScript. El action lleva el basePath a mano.
@@ -145,7 +172,9 @@ export default async function LideresPage({ searchParams }: { searchParams: Prom
             {total === 0 ? (
                 <p className="rounded-lg bg-white p-4 text-center text-[13px] text-system-600">
                 {categoria === "rango"
-                    ? "Todavía nadie ha subido de rango. ¡El primer lugar está libre!"
+                    ? enfoque
+                        ? TEXTOS.lideres.vacioPorEnfoque(enfoque.nombre)
+                        : "Todavía nadie ha subido de rango. ¡El primer lugar está libre!"
                     : "Todavía no hay aportes aprobados para armar esta tabla."}
                 </p>
             ) : (
@@ -164,7 +193,7 @@ export default async function LideresPage({ searchParams }: { searchParams: Prom
             {paginas > 1 && (
             <nav aria-label="Páginas" className="mt-6 flex items-center justify-between gap-3">
                 {pagina > 1 ? (
-                <ButtonLink href={enlaceA(categoria, tematica, pagina - 1)} variant="secondary" size="sm">
+                <ButtonLink href={enlaceA(categoria, tematica, pagina - 1, enfoque?.clave)} variant="secondary" size="sm">
                     ← Anterior
                 </ButtonLink>
                 ) : (
@@ -174,7 +203,7 @@ export default async function LideresPage({ searchParams }: { searchParams: Prom
                 Página {nf.format(pagina)} de {nf.format(paginas)}
                 </span>
                 {pagina < paginas ? (
-                <ButtonLink href={enlaceA(categoria, tematica, pagina + 1)} variant="secondary" size="sm">
+                <ButtonLink href={enlaceA(categoria, tematica, pagina + 1, enfoque?.clave)} variant="secondary" size="sm">
                     Siguiente →
                 </ButtonLink>
                 ) : (

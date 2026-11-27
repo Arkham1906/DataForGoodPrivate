@@ -63,6 +63,8 @@ export type Lider = {
    * (RF-GAM-92, RNF-GAM-14: el servidor no lo manda si está oculto). Nunca EXP ni racha (RF-GAM-91).
    */
   detalle?: string;
+  /** En «rango»: el enfoque de la persona (decisión del 26 nov: se ve en Líderes). */
+  enfoque?: { clave: string; nombre: string };
 };
 
 export type ClasificacionPorTematica = {

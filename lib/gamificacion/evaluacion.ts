@@ -3,13 +3,14 @@
 // alguna medalla sube de nivel, y lo registra. Es idempotente: repetirla con el mismo estado no cambia nada, así que
 // se puede llamar de más sin riesgo (RF-GAM-08). Rangos y niveles alcanzados no se retiran (RF-GAM-21, 47).
 
-import { TEXTOS } from "@/lib/gamificacion/textos";
+import { TEXTOS, deEnfoque } from "@/lib/gamificacion/textos";
 import type { PoolClient } from "pg";
 import { pool } from "@/lib/db";
 import { notificar, type NuevaNotificacion } from "@/lib/notificaciones/notificaciones";
 import { leerParametros } from "./parametros";
 import { mayorSecuenciaSinRechazo, nivelPorValor, type MedidaDeMedalla, type NivelDeMedalla } from "./medallas";
 import { rutaDePantalla } from "./pantallas-de-progreso";
+import { nombreDeRangoConEnfoque } from "./rangos";
 
 type Consultor = Pick<PoolClient, "query">;
 
@@ -226,11 +227,18 @@ async function evaluarRango(client: Consultor, usuarioId: number | string): Prom
     [usuarioId, final.numero],
   );
 
-  // Reconoce el esfuerzo, sin presionar (RF-GAM-62).
-  const mensaje =
+  // Reconoce el esfuerzo, sin presionar (RF-GAM-62), con la línea del enfoque si la tiene (RF-GAM-119).
+  const { rows: enfoqueR } = await client.query<{ enfoque: string | null; nombre: string | null }>(
+    `SELECT u.enfoque, e.nombre FROM usuarios u LEFT JOIN enfoques e ON e.clave = u.enfoque WHERE u.id = $1`,
+    [usuarioId],
+  );
+  const lineaDelEnfoque = deEnfoque(enfoqueR[0]?.enfoque, "rango");
+  const nombreFinal = nombreDeRangoConEnfoque(final.nombre, enfoqueR[0]?.nombre);
+  const comun =
     alcanzados.length === 1
-      ? TEXTOS.avisos.rango(final.numero, final.nombre)
-      : TEXTOS.avisos.rangos(alcanzados.length, final.numero, final.nombre);
+      ? TEXTOS.avisos.rango(final.numero, nombreFinal)
+      : TEXTOS.avisos.rangos(alcanzados.length, final.numero, nombreFinal);
+  const mensaje = lineaDelEnfoque ? `${comun} ${lineaDelEnfoque}` : comun;
   return [
     {
       usuarioId,

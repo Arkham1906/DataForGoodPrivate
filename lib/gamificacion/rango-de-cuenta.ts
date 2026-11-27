@@ -5,6 +5,8 @@
 // Pendiente (decisión del 13 nov): más adelante el distintivo se acercará al avatar de gamificación.
 
 import { pool } from "@/lib/db";
+import { nombreDelEnfoque } from "./enfoque";
+import { nombreDeRangoConEnfoque } from "./rangos";
 
 export type RangoDeCuenta = {
   numero: number;
@@ -27,7 +29,9 @@ export async function obtenerRangoDeCuenta(usuarioId: number | string): Promise<
       [usuarioId],
     );
     const fila = rows[0];
-    return fila ? { numero: fila.numero, nombre: fila.nombre, exp: fila.exp, medallas: fila.medallas } : null;
+    if (!fila) return null;
+    const nombre = nombreDeRangoConEnfoque(fila.nombre, await nombreDelEnfoque(pool, usuarioId));
+    return { numero: fila.numero, nombre, exp: fila.exp, medallas: fila.medallas };
   } catch (error) {
     console.error("Error leyendo el rango de la cuenta", error);
     return null;

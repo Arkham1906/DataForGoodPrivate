@@ -3,10 +3,11 @@
 // sale y entra el nuevo; la semana marca el día de hoy. Solo cuando el envío alarga, empieza o reaviva la racha (al
 // reavivarla, una llama gris se apaga y se enciende la de color). Reconoce, no presiona. Textos en TEXTOS.celebraciones.
 
-import { TEXTOS } from "@/lib/gamificacion/textos";
+import { TEXTOS, deEnfoque } from "@/lib/gamificacion/textos";
 import type { CambioDeRacha } from "@/lib/gamificacion/celebraciones-tipos";
 import { GlifoDeObjeto } from "../ObjetoDeInventario";
 import { Accion, Brasas, Icono, Llama, Paso, TRAZOS, retraso } from "./piezas";
+import { useEnfoqueDeCelebraciones } from "./enfoque-de-celebraciones";
 
 const T = TEXTOS.celebraciones;
 
@@ -27,6 +28,8 @@ export default function CelebracionDeRacha({
 }) {
   const reaviva = racha.tipo === "reaviva";
   const textos = T.racha[racha.tipo];
+  const crece = deEnfoque(useEnfoqueDeCelebraciones(), "rachaCrece");
+  const texto = racha.tipo === "alarga" && crece ? crece : textos.texto;
   return (
     <div className="relative flex min-h-full items-center justify-center px-5 py-16">
       <Paso texto={paso} tono="fuego" />
@@ -56,7 +59,7 @@ export default function CelebracionDeRacha({
           {textos.titulo(racha.ahora)}
         </h1>
         <p id="celebracion-texto" className="cel-linea max-w-[420px] text-[15.5px] text-system-700" style={retraso(1120)}>
-          {textos.texto}
+          {texto}
         </p>
 
         <ol aria-label={T.semana} className="cel-linea mt-2.5 flex gap-2 rounded-2xl border border-[var(--fuego-100)] bg-white px-3 py-3.5 sm:gap-3 sm:px-[18px]" style={retraso(1180)}>

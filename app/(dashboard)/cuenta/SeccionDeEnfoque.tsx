@@ -7,7 +7,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Ayuda from "@/components/gamificacion/Ayuda";
-import SelectorDeEnfoque, { ExplicacionDelEnfoque, IconoDeEnfoque, estiloDeEnfoque } from "@/components/gamificacion/enfoque/SelectorDeEnfoque";
+import SelectorDeEnfoque, { ExplicacionDelEnfoque } from "@/components/gamificacion/enfoque/SelectorDeEnfoque";
+import { IconoDeEnfoque, estiloDeEnfoque } from "@/components/gamificacion/enfoque/estilo-de-enfoque";
 import { fechaDelEnfoque, guardarEnfoque } from "@/components/gamificacion/enfoque/guardar-enfoque";
 import Button from "@/components/ui/Button";
 import VentanaDeConfirmacion from "@/components/ui/VentanaDeConfirmacion";

@@ -11,6 +11,8 @@
 //   el periodo. A igual rango ordena la EXP total, que nunca se muestra (RF-GAM-91, 94). El nombre del rango solo
 //   viaja si quien consulta ya puede verlo (RF-GAM-92, RNF-GAM-14): hasta su rango siguiente. A un visitante sin
 //   sesión (landing), solo el número (propuesta de DA-GAM-22).
+// - Enfoque (decisión del 26 nov): en «rango» viaja el enfoque de cada persona, su nombre de rango lo lleva
+//   («DataTracker en Ruta») y la opción `enfoque` filtra a quienes lo tienen.
 // - Desempate en todas: sin fechas (RF-GAM-94). A igual valor, la EXP total sin mostrarla (propuesta de DA-GAM-20,
 //   pendiente de confirmar) y después la cuenta más antigua (id).
 // - Temática: aportes aprobados por persona dentro de las campañas de cada temática. Las campañas
@@ -27,6 +29,7 @@
 import { pool } from "@/lib/db";
 import { ZONA_DE_CAMPANAS } from "@/lib/fecha-de-tepic";
 import { SQL_SANCION_BLOQUEANTE } from "@/lib/sanciones";
+import { nombreDeRangoConEnfoque } from "./rangos";
 import { datosDeAvatar, type TipoDeAvatar } from "@/lib/usuarios/avatar-opciones";
 import {
   LIDERES_POR_CATEGORIA,
@@ -82,6 +85,9 @@ type FilaDeLider = {
   valor: number;
   /** Solo en «rango», y solo si quien consulta puede verlo. */
   rango_nombre?: string | null;
+  /** Solo en «rango». */
+  enfoque_clave?: string | null;
+  enfoque_nombre?: string | null;
 };
 
 const AVATARES: ReadonlySet<string> = new Set<TipoDeAvatar>(["masculino", "femenino", "otro", "foto"]);
@@ -96,7 +102,10 @@ function aLider(fila: FilaDeLider, categoria: CategoriaDeClasificacion): Lider {
     avatar,
     version: avatar === "foto" ? datos.version : null,
     valor: Number(fila.valor),
-    ...(categoria === "rango" && fila.rango_nombre ? { detalle: fila.rango_nombre } : {}),
+    ...(categoria === "rango" && fila.rango_nombre ? { detalle: nombreDeRangoConEnfoque(fila.rango_nombre, fila.enfoque_nombre) } : {}),
+    ...(categoria === "rango" && fila.enfoque_clave && fila.enfoque_nombre
+      ? { enfoque: { clave: fila.enfoque_clave, nombre: fila.enfoque_nombre } }
+      : {}),
   };
 }
 
@@ -110,11 +119,12 @@ export type ClasificacionPaginada = {
  * La clasificación completa de una categoría, de mayor a menor, paginada. `tematica` solo cuenta en
  * la categoría "tematica". `pagina` empieza en 1. `periodo` (por defecto "siempre") no aplica a "rango".
  * `consultaUsuarioId`: quien mira, para saber qué nombres de rango puede ver (RF-GAM-92: hasta su rango siguiente);
- * sin él (visitante de la landing), ninguno.
+ * sin él (visitante de la landing), ninguno. `enfoque` (clave) filtra «rango» a quienes tienen ese enfoque.
  */
 export async function obtenerClasificacion(opciones: {
   categoria: CategoriaDeClasificacion;
   tematica?: string;
+  enfoque?: string;
   pagina?: number;
   porPagina?: number;
   periodo?: PeriodoDeClasificacion;
@@ -136,14 +146,16 @@ export async function obtenerClasificacion(opciones: {
                     CASE WHEN $3::int IS NOT NULL AND p.rango_actual <=
                       COALESCE((SELECT q.rango_actual FROM usuario_progreso q WHERE q.usuario_id = $3), 1) + 1
                     THEN r.nombre END AS rango_nombre,
+                    e.clave AS enfoque_clave, e.nombre AS enfoque_nombre,
                     (COUNT(*) OVER ())::int AS total
              FROM usuario_progreso p
              JOIN usuarios u ON u.id = p.usuario_id
              LEFT JOIN rangos r ON r.numero = p.rango_actual
-             WHERE p.rango_actual > 1 AND ${SQL_PERSONA_ELEGIBLE}
+             LEFT JOIN enfoques e ON e.clave = u.enfoque
+             WHERE p.rango_actual > 1 AND ${SQL_PERSONA_ELEGIBLE} AND ($4::text IS NULL OR u.enfoque = $4)
              ORDER BY p.rango_actual DESC, p.exp_total DESC, u.id ASC
              LIMIT $1 OFFSET $2`,
-            [porPagina, desplazamiento, opciones.consultaUsuarioId ?? null]
+            [porPagina, desplazamiento, opciones.consultaUsuarioId ?? null, opciones.enfoque ?? null]
           )
         : categoria === "aportes"
           ? await pool.query<FilaDeLider & { total: number }>(
@@ -176,7 +188,7 @@ export async function obtenerClasificacion(opciones: {
       return { lideres: filas.rows.map((f) => aLider(f, categoria)), total: filas.rows[0].total };
     }
     // Página fuera de rango (o tabla vacía): el total real sirve para que la pantalla corrija la página.
-    return { lideres: [], total: await contarClasificacion(categoria, tematica, periodo) };
+    return { lideres: [], total: await contarClasificacion(categoria, tematica, periodo, opciones.enfoque) };
   } catch (error) {
     console.error("No se pudo leer la clasificación:", error);
     return { lideres: [], total: 0 };
@@ -184,12 +196,18 @@ export async function obtenerClasificacion(opciones: {
 }
 
 /** Personas en la clasificación completa, para cuando se pide una página que no existe. */
-async function contarClasificacion(categoria: CategoriaDeClasificacion, tematica: string | undefined, periodo: string): Promise<number> {
+async function contarClasificacion(
+  categoria: CategoriaDeClasificacion,
+  tematica: string | undefined,
+  periodo: string,
+  enfoque?: string,
+): Promise<number> {
   if (categoria === "rango") {
     const r = await pool.query<{ n: number }>(
       `SELECT COUNT(*)::int AS n
        FROM usuario_progreso p JOIN usuarios u ON u.id = p.usuario_id
-       WHERE p.rango_actual > 1 AND ${SQL_PERSONA_ELEGIBLE}`
+       WHERE p.rango_actual > 1 AND ${SQL_PERSONA_ELEGIBLE} AND ($1::text IS NULL OR u.enfoque = $1)`,
+      [enfoque ?? null]
     );
     return r.rows[0]?.n ?? 0;
   }

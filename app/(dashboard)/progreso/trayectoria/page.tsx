@@ -6,7 +6,7 @@ import { exigirUsuario } from "@/lib/session";
 import { obtenerDatosDeTrayectoria } from "@/lib/gamificacion/mi-progreso";
 import { obtenerResumenDeProgreso } from "@/lib/gamificacion/progreso";
 
-export const metadata: Metadata = { title: "Progreso" };
+export const metadata: Metadata = { title: "Rangos" };
 
 export default async function TrayectoriaPage() {
   const usuario = await exigirUsuario();

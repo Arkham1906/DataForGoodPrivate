@@ -11,6 +11,8 @@ export type EslabonDelCamino = {
   numero: number;
   estado: EstadoDeRango;
   nombreCorto: string | null;
+  /** Nombre completo, con el enfoque de la persona («DataTracker en Ruta»); null cuando nombreCorto lo es. */
+  nombre: string | null;
   /** «21 oct», «Tu rango», «2 de 6», «Avistado» o «Por descubrir». */
   detalle: string;
 };

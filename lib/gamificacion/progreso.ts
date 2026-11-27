@@ -17,6 +17,7 @@ import { asegurarMisionesVigentes } from "./misiones";
 import { evaluarProgresoDe } from "./evaluacion";
 import { recompensaDesde, textoDeRecompensa } from "./misiones-reglas";
 import { entregarObjetosDeMisiones, leerPotenciadores } from "./inventario";
+import { nombreDelEnfoque } from "./enfoque";
 import { textoDeTiempoRestante } from "./misiones";
 import type {
   DiaDeRacha,
@@ -26,6 +27,7 @@ import type {
 } from "./progreso-tipos";
 import {
   avanceDeRequisitos,
+  nombreDeRangoConEnfoque,
   pistaDelRango,
   requisitosDeRango,
   textoDeAscenso,
@@ -108,7 +110,7 @@ export async function obtenerResumenDeProgreso(usuarioId: number | string): Prom
     // La persona está viendo su progreso: vence o activa potenciadores y entrega los objetos que ya caben (2026-11-19).
     await entregarObjetosDeMisiones(usuarioId, { presente: true });
     const hoy = hoyEnTepic();
-    const [progresoR, rangosR, ascensosR, potenciadores, misionesR, rachaR] = await Promise.all([
+    const [progresoR, rangosR, ascensosR, potenciadores, misionesR, rachaR, enfoque] = await Promise.all([
       pool.query<FilaDeProgreso>(
         `SELECT p.rango_actual, p.exp_total, p.aportes_aceptados, p.aportes_excelentes, p.aportes_excepcionales,
                 p.misiones_completadas, p.racha_actual, p.racha_maxima, p.protectores,
@@ -166,7 +168,10 @@ export async function obtenerResumenDeProgreso(usuarioId: number | string): Prom
          WHERE usuario_id = $1 AND dia BETWEEN ($2::date - 6) AND $2::date`,
         [usuarioId, hoy],
       ),
+      nombreDelEnfoque(pool, usuarioId),
     ]);
+    // El nombre del rango lleva el enfoque de la persona (decisión del 26 nov).
+    for (const r of rangosR.rows) r.nombre = nombreDeRangoConEnfoque(r.nombre, enfoque);
 
     const p = progresoR.rows[0];
     if (!p) return null;

@@ -15,10 +15,12 @@ export default function RangoCompacto({
   enlace,
   idDelTitulo = "rango-compacto",
   conAyuda = false,
+  textoDelEnlace = T.verProgreso,
 }: {
   progreso: ResumenDeProgreso;
-  /** Pestaña Progreso; sin enlace no hay botón. */
+  /** A dónde lleva el botón (Inicio: al Resumen; Resumen: a Rangos); sin enlace no hay botón. */
   enlace: string | null;
+  textoDelEnlace?: string;
   idDelTitulo?: string;
   /** Ícono «Qué es un rango»; en Mi progreso ya va junto al título, así que solo lo lleva Inicio. */
   conAyuda?: boolean;
@@ -66,7 +68,7 @@ export default function RangoCompacto({
 
       {enlace && (
         <ButtonLink href={enlace} variant="secondary" size="sm" className="max-md:w-full max-md:justify-center">
-          {T.verProgreso}
+          {textoDelEnlace}
         </ButtonLink>
       )}
     </section>

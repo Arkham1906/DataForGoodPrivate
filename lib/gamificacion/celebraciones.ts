@@ -9,6 +9,8 @@
 import { pool } from "@/lib/db";
 import { imagenDeMedalla } from "./recursos";
 import { entregarObjetosDeMisiones, leerPotenciadores } from "./inventario";
+import { nombreDelEnfoque } from "./enfoque";
+import { nombreDeRangoConEnfoque } from "./rangos";
 import {
   MEDIDAS_CON_FUEGO,
   type CelebracionDeMedalla,
@@ -46,6 +48,9 @@ async function rangoPendiente(usuarioId: number | string): Promise<CelebracionDe
   const catalogo = await pool.query<{ numero: number; nombre: string; total: number }>(
     `SELECT numero, nombre, COUNT(*) OVER ()::int AS total FROM rangos ORDER BY numero`,
   );
+  // Nombres con el enfoque de la persona (decisión del 26 nov).
+  const enfoque = await nombreDelEnfoque(pool, usuarioId);
+  for (const r of [...rows, ...catalogo.rows]) r.nombre = nombreDeRangoConEnfoque(r.nombre, enfoque);
   const siguiente = catalogo.rows.find((r) => r.numero === ultimo.rango + 1);
   const avistado = catalogo.rows.find((r) => r.numero === ultimo.rango + 2);
   return {

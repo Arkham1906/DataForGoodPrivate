@@ -2,6 +2,7 @@
 // valor a la derecha. Datos: los recibe de TablaDeLideres (lib/gamificacion/tipos.ts); no consulta nada.
 
 import Avatar from "@/components/ui/Avatar";
+import { ChipDeEnfoque } from "@/components/gamificacion/enfoque/estilo-de-enfoque";
 import { textoDelValor, type CategoriaDeClasificacion, type Lider } from "@/lib/gamificacion/tipos";
 
 export default function ListaDeLideres({
@@ -28,6 +29,7 @@ export default function ListaDeLideres({
             {lider.nombre}
             {lider.usuarioId === resaltarId && <span className="ml-2 text-[11.5px] font-bold text-brand-700">Tu</span>}
           </span>
+          {lider.enfoque && <ChipDeEnfoque clave={lider.enfoque.clave} nombre={lider.enfoque.nombre} soloIconoEnTelefono />}
           <span className="shrink-0 text-right">
             <span className="block text-[13px] font-semibold text-system-700">{textoDelValor(categoria, lider.valor)}</span>
             {lider.detalle && <span className="block font-mono text-[11px] text-system-500">{lider.detalle}</span>}

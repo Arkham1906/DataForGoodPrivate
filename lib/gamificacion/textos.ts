@@ -367,7 +367,36 @@ export const TEXTOS = {
   /** Distintivo de rango en Mi cuenta (A6). */
   cuenta: {
     rango: (numero: number, nombre: string) => `Rango ${n(numero)} · ${nombre}`,
-    rangoAria: (numero: number, nombre: string) => `Rango ${n(numero)}, ${nombre}. Ver tu progreso`,
+    rangoAria: (numero: number, nombre: string) => `Rango ${n(numero)}, ${nombre}. Ver tus rangos`,
+  },
+  /**
+   * Textos por enfoque (RF-GAM-119): solo estos cuatro momentos cambian con el enfoque. Lo que no esté aquí, o un enfoque
+   * sin entrada, usa el texto común (deEnfoque). Ninguna variante nombra un tipo de aporte: alguien con DataTracker
+   * también puede enviar textos.
+   */
+  porEnfoque: {
+    tracker: {
+      rango: "Tu lente ya ve lo que otros pasan por alto.",
+      logroSube: "¡Tu lente encontró algo nuevo!",
+      rachaCrece: "Hoy también saliste a mirar: tu racha sigue encendida.",
+    },
+    collector: {
+      rango: "Tu bitácora suma otra página importante.",
+      logroSube: "¡Tu bitácora ganó una página!",
+      rachaCrece: "Hoy también escribiste en tu bitácora: tu racha sigue encendida.",
+    },
+    explorer: {
+      rango: "Tu mapa tiene un territorio nuevo.",
+      logroSube: "¡Tu mapa se hizo más grande!",
+      rachaCrece: "Hoy también abriste camino: tu racha sigue encendida.",
+    },
+  } as Record<string, Partial<Record<"rango" | "logroSube" | "rachaCrece", string>>>,
+  /** Filtro por enfoque en Líderes, categoría Rango (decisión del 26 nov). */
+  lideres: {
+    enfoque: "Enfoque",
+    todos: "Todos",
+    porEnfoque: (nombre: string) => `Quienes más alto han llegado con ${nombre}.`,
+    vacioPorEnfoque: (nombre: string) => `Todavía nadie con ${nombre} ha subido de rango.`,
   },
   /** Enfoque (RF-GAM-115, 116): último paso del registro, ventana para cuentas sin enfoque y Mi cuenta. */
   enfoque: {
@@ -738,6 +767,7 @@ export const TEXTOS = {
     luegoPasas: (numero: number) => `Al cumplirlos, subes al rango ${n(numero)}.`,
     ultimoRango: "Llegaste al último rango.",
     verProgreso: "Ver tu progreso",
+    verRangos: "Ver tus rangos",
     cifras: {
       exp: "EXP total",
       racha: "Racha",
@@ -800,7 +830,7 @@ export const TEXTOS = {
       "Es el rango que sigue." + (avistado ? ` Y ya puedes ver una pista del ${n(avistado)}.` : ""),
     ultimoRango: "Llegaste al último rango",
     ultimoRangoDetalle: "Recorriste todo el camino.",
-    verTrayectoria: "Ver tu progreso",
+    verTrayectoria: "Ver tus rangos",
 
     medallaEyebrow: "¡Subiste de nivel en un logro!",
     medallaPrimera: "¡Nuevo logro!",
@@ -826,3 +856,8 @@ export const TEXTOS = {
     diaProtegido: (nombre: string) => `${nombre[0].toUpperCase() + nombre.slice(1)}, cubierto con protector`,
   },
 } as const;
+
+/** Variante del enfoque para un momento (RF-GAM-119), o null si no hay: quien la usa pone el texto común. */
+export function deEnfoque(enfoque: string | null | undefined, momento: "rango" | "logroSube" | "rachaCrece"): string | null {
+  return (enfoque && TEXTOS.porEnfoque[enfoque]?.[momento]) || null;
+}

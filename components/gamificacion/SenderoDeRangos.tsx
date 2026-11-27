@@ -79,7 +79,7 @@ function fechaDe(hito: HitoDelRecorrido | undefined): string {
 }
 
 function textosDe(e: EslabonDeLaTrayectoria, hito: HitoDelRecorrido | undefined, nombreActual: string, pista: string | null): Textos {
-  const nombre = e.nombreCorto ? `Investigador ${e.nombreCorto}` : "Nombre por descubrir";
+  const nombre = e.nombre ?? "Nombre por descubrir";
   switch (e.estado) {
     case "alcanzado":
       return { antes: `Rango ${e.numero}${hito?.fecha ? ` · ${hito.fecha}` : ""}`, titulo: nombre, nota: null };
@@ -111,7 +111,7 @@ function etiquetaDe(e: EslabonDeLaTrayectoria, textos: Textos): string {
     avistado: "a la vista, con pista",
     oculto: "por descubrir",
   }[e.estado];
-  const nombre = e.nombreCorto ? `Investigador ${e.nombreCorto}` : "nombre por descubrir";
+  const nombre = e.nombre ?? "nombre por descubrir";
   return `Rango ${e.numero}, ${nombre}, ${estado}${e.estado === "avistado" ? `: ${textos.titulo}` : ""}. ${e.expQuePide === null ? "Es el último rango" : `Completarlo pide ${nf.format(e.expQuePide)} EXP`}. Abre su ficha.`;
 }
 

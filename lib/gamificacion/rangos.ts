@@ -62,7 +62,16 @@ const nf = new Intl.NumberFormat("es-MX");
 
 /** «Aplicado» de «Investigador Aplicado»: la parte que cabe en el camino de rangos. */
 export function nombreCortoDeRango(nombre: string): string {
-  return nombre.replace(/^Investigador\s+/, "");
+  // Sin la primera palabra: «Investigador» o el nombre del enfoque (nombreDeRangoConEnfoque).
+  return nombre.replace(/^\S+\s+/, "");
+}
+
+/**
+ * Nombre del rango con el enfoque de la persona (decisión del 26 nov): «Investigador» se cambia por el nombre del
+ * enfoque («DataTracker en Ruta»). Sin enfoque se queda como está en rangos.json.
+ */
+export function nombreDeRangoConEnfoque(nombre: string, enfoque: string | null | undefined): string {
+  return enfoque ? nombre.replace(/^Investigador(?=\s)/, enfoque) : nombre;
 }
 
 /** Estado de un rango respecto al rango actual de la persona (RF-GAM-78). */

@@ -9,7 +9,7 @@ import { pool } from "@/lib/db";
 import { NOMBRES_DE_ESTRELLAS, calificacionDesde, type CalificacionDeAporte } from "@/lib/aportes/calificacion";
 import { ZONA_DE_CAMPANAS, hoyEnTepic } from "@/lib/fecha-de-tepic";
 import { medallaVisible, medallasMasCercanas, type MedallaCercaDeSubir, type MedallaConAvance, type NivelDeMedalla } from "./medallas";
-import { enfoquesElegidos } from "./enfoque";
+import { enfoquesElegidos, nombreDelEnfoque } from "./enfoque";
 import { valoresDeMedallas } from "./evaluacion";
 import { sumarDias } from "./racha-reglas";
 import type {
@@ -31,6 +31,7 @@ import {
   fechaDelRecorrido,
   lapsoDeAscenso,
   nombreCortoDeRango,
+  nombreDeRangoConEnfoque,
   requisitosDeRango,
   textoDeAscenso,
   textoDeCompletado,
@@ -252,6 +253,7 @@ function eslabonesDeLaTrayectoria(
       numero: r.numero,
       estado,
       nombreCorto: visible ? nombreCortoDeRango(r.nombre) : null,
+      nombre: visible ? r.nombre : null,
       detalle,
       // La EXP que pide completarlo (2026-11-22); null en el último rango.
       expQuePide: paraCompletar(rangos, r.numero, actual, ascensos)?.exp ?? null,
@@ -265,15 +267,16 @@ export async function obtenerDatosDeTrayectoria(
   progreso: ResumenDeProgreso,
 ): Promise<DatosDeTrayectoria | null> {
   try {
-    const [rangosR, ascensosR] = await Promise.all([
+    const [rangosR, ascensosR, enfoque] = await Promise.all([
       pool.query<FilaDeRango>(
         `SELECT numero, nombre, descripcion, etapa_avatar, req_exp, req_aportes, req_excelentes,
                 req_excepcionales, req_racha, req_misiones
           FROM rangos ORDER BY numero`,
       ),
       leerAscensos(usuarioId),
+      nombreDelEnfoque(pool, usuarioId),
     ]);
-    const rangos = rangosR.rows;
+    const rangos = rangosR.rows.map((r) => ({ ...r, nombre: nombreDeRangoConEnfoque(r.nombre, enfoque) }));
     const actual = progreso.rangoActual;
     const ascenso = ascensosR.fecha;
 

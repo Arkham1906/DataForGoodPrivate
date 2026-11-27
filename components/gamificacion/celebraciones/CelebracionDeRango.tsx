@@ -6,9 +6,10 @@
 
 import InsigniaDeRango from "@/components/gamificacion/InsigniaDeRango";
 import { rutaDePantalla } from "@/lib/gamificacion/pantallas-de-progreso";
-import { TEXTOS } from "@/lib/gamificacion/textos";
+import { TEXTOS, deEnfoque } from "@/lib/gamificacion/textos";
 import type { CelebracionDeRango as Datos } from "@/lib/gamificacion/celebraciones-tipos";
 import { Accion, Icono, Paso, TRAZOS, retraso } from "./piezas";
+import { useEnfoqueDeCelebraciones } from "./enfoque-de-celebraciones";
 
 const T = TEXTOS.celebraciones;
 const COLORES = ["var(--color-brand-300)", "var(--color-success-400)", "var(--color-warning-200)", "var(--color-brand-200)", "var(--color-success-300)"];
@@ -70,6 +71,7 @@ export default function CelebracionDeRango({
   alSiguiente: () => void;
   alCerrar: () => void;
 }) {
+  const lineaDelEnfoque = deEnfoque(useEnfoqueDeCelebraciones(), "rango");
   const varios = rango.intermedios.length > 0;
   const palabras = rango.nombre.split(/\s+/);
   const trayectoria = rutaDePantalla("trayectoria");
@@ -129,6 +131,7 @@ export default function CelebracionDeRango({
             ))}
           </h1>
           <p className="cel-linea mt-1 max-w-[480px] text-base text-brand-100" style={retraso(920)}>
+            {lineaDelEnfoque && <span className="block font-semibold text-white">{lineaDelEnfoque}</span>}
             {varios ? T.rangosTexto(rango.numero) : T.rangoTexto}
           </p>
         </div>

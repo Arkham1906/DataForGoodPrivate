@@ -8,9 +8,10 @@
 // Textos en TEXTOS.celebraciones y TEXTOS.medallas.
 
 import { rutaDePantalla } from "@/lib/gamificacion/pantallas-de-progreso";
-import { TEXTOS } from "@/lib/gamificacion/textos";
+import { TEXTOS, deEnfoque } from "@/lib/gamificacion/textos";
 import type { CelebracionDeMedalla } from "@/lib/gamificacion/celebraciones-tipos";
 import { Accion, Brasas, Llama, Paso, retraso } from "./piezas";
+import { useEnfoqueDeCelebraciones } from "./enfoque-de-celebraciones";
 
 const T = TEXTOS.celebraciones;
 const M = TEXTOS.medallas;
@@ -41,7 +42,8 @@ function Ilustraciones({ m, lado, entrada, inicio = 0 }: { m: CelebracionDeMedal
 function Una({ m }: { m: CelebracionDeMedalla }) {
   const fuego = m.conFuego;
   const saltos = m.nivel - m.nivelAntes;
-  const eyebrow = fuego ? T.medallaFuego : m.nivelAntes === 0 ? T.medallaPrimera : saltos > 1 ? T.medallaSalto(saltos) : T.medallaEyebrow;
+  const sube = deEnfoque(useEnfoqueDeCelebraciones(), "logroSube") ?? T.medallaEyebrow;
+  const eyebrow = fuego ? T.medallaFuego : m.nivelAntes === 0 ? T.medallaPrimera : saltos > 1 ? T.medallaSalto(saltos) : sube;
   const textos = fuego ? 860 : 560;
   const unidad = M.unidad(m.mide, m.valor);
   const faltan = m.siguiente ? Math.max(0, m.siguiente.umbral - m.valor) : null;
