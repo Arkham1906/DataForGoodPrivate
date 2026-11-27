@@ -20,7 +20,7 @@ import { claseDeOrden } from "@/components/landing/estilos";
 import Button from "@/components/ui/Button";
 import ListaDeLideres from "@/components/gamificacion/ListaDeLideres";
 import Podio from "@/components/gamificacion/Podio";
-import { obtenerClasificacion, obtenerTematicasConLideres } from "@/lib/gamificacion/clasificacion";
+import { estaOcultoEnLideres, obtenerClasificacion, obtenerTematicasConLideres } from "@/lib/gamificacion/clasificacion";
 import { enfoquesActivos } from "@/lib/gamificacion/enfoque";
 import { IconoDeEnfoque } from "@/components/gamificacion/enfoque/estilo-de-enfoque";
 import { TEXTOS } from "@/lib/gamificacion/textos";
@@ -68,6 +68,8 @@ export default async function LideresPage({ searchParams }: { searchParams: Prom
     ]);
     // Filtro por enfoque, solo en «rango» (decisión del 26 nov). Uno que no existe (o ninguno) es «Todos».
     const enfoque = enfoques.find((e) => e.clave === sp.enfoque);
+    // Quien se ocultó no se ve en la tabla (RF-GAM-95); se le dice por qué y dónde cambiarlo.
+    const oculto = await estaOcultoEnLideres(Number(sesion.id));
     // Una temática que no está en la lista (o ninguna) cae en la primera.
     const tematica = categoria === "tematica" ? (tematicas.find((t) => t === sp.tematica) ?? tematicas[0]) : undefined;
 
@@ -102,6 +104,14 @@ export default async function LideresPage({ searchParams }: { searchParams: Prom
                 )}
                 {total > 0 && ` ${nf.format(total)} ${total === 1 ? "persona" : "personas"} en esta tabla.`}
             </p>
+            {oculto && (
+                <p className="mx-auto mt-3 w-fit rounded-lg bg-system-100 px-3.5 py-2 text-[13px] text-system-700">
+                {TEXTOS.lideres.ocultoAviso}{" "}
+                <Link href="/cuenta?abrir=preferencias" className="font-semibold text-brand-700 underline">
+                    {TEXTOS.lideres.ocultoEnlace}
+                </Link>
+                </p>
+            )}
             </div>
 
             <FranjaDeCampo redondeada style={retraso(240)} className="landing-entrada mt-6">

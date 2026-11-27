@@ -7,13 +7,16 @@
 // Arriba de todo (desde el 2026-10-20, a pedido del usuario; antes iba al final), el interruptor
 // general "Notificaciones" (2026-10-19; antes ahí estaba "Privacidad", sin función): apagado, no
 // llega ninguna notificación salvo las de la cuenta, y las cuatro de abajo se ven atenuadas.
-// Al final, "Usar mi ubicación" (2026-11-04, ./UbicacionEnPreferencias): no depende del interruptor general.
+// Al final, "Usar mi ubicación" (2026-11-04, ./UbicacionEnPreferencias) y "Aparecer en la clasificación" (RF-GAM-95,
+// ./AparecerEnLideres): se guardan al momento y no dependen del interruptor general. Con ?abrir=preferencias en la
+// dirección, la ventana se abre sola (lo usa el aviso de Líderes para quien se ocultó).
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Button from "@/components/ui/Button";
 import { BASE_PATH } from "@/lib/base-path";
 import type { ZonaDetectada } from "@/lib/ubicacion/en-el-navegador";
 import UbicacionEnPreferencias from "./UbicacionEnPreferencias";
+import AparecerEnLideres from "./AparecerEnLideres";
 import {
   OPCIONES_DE_PREFERENCIAS,
   PREFERENCIA_GENERAL,
@@ -26,12 +29,17 @@ export default function PreferenciasDeComunicacion({
   usuarioId,
   iniciales,
   zona,
+  apareceEnLideres,
 }: {
   usuarioId: string | number;
   iniciales: Preferencias;
   zona: ZonaDetectada | null;
+  apareceEnLideres: boolean;
 }) {
   const dialogo = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("abrir") === "preferencias") dialogo.current?.showModal();
+  }, []);
   const [valores, setValores] = useState<Preferencias>(iniciales);
   const [guardadas, setGuardadas] = useState<Preferencias>(iniciales);
   const [guardando, setGuardando] = useState(false);
@@ -85,7 +93,7 @@ export default function PreferenciasDeComunicacion({
       <div className="flex items-center justify-between gap-4">
         <div>
           <p className="text-sm font-bold text-system-900">Preferencias</p>
-          <p className="text-[12.5px] text-system-600">Comunicación, notificaciones y ubicación</p>
+          <p className="text-[12.5px] text-system-600">Notificaciones, ubicación y clasificación</p>
         </div>
         <Button variant="secondary" size="sm" onClick={() => dialogo.current?.showModal()}>
           Ver
@@ -104,10 +112,10 @@ export default function PreferenciasDeComunicacion({
         <div className="flex max-h-[88vh] flex-col">
           <div className="border-b border-system-200 px-5 py-5 md:px-8 md:py-6">
             <h2 id="preferencias-titulo" className="text-xl font-extrabold md:text-2xl text-system-900">
-              Comunicación, notificaciones y ubicación
+              Notificaciones, ubicación y clasificación
             </h2>
             <p className="mt-1 text-[15px] text-system-600">
-              Los avisos llegan a la campana, a Notificaciones y, si los activaste, al teléfono. Las preferencias de notificación se guardan con el botón; la ubicación se actualiza al cambiarla.
+              Los avisos llegan a la campana, a Notificaciones y, si los activaste, al teléfono. Las preferencias de notificación se guardan con el botón; la ubicación y la clasificación se guardan al momento.
             </p>
           </div>
 
@@ -169,6 +177,7 @@ export default function PreferenciasDeComunicacion({
             </div>
 
             <UbicacionEnPreferencias zonaInicial={zona} />
+            <AparecerEnLideres inicial={apareceEnLideres} />
           </div>
 
           <div className="flex justify-end border-t border-system-200 px-5 py-4 md:px-8 md:py-5">

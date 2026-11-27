@@ -397,6 +397,15 @@ export const TEXTOS = {
     todos: "Todos",
     porEnfoque: (nombre: string) => `Quienes más alto han llegado con ${nombre}.`,
     vacioPorEnfoque: (nombre: string) => `Todavía nadie con ${nombre} ha subido de rango.`,
+    /** Aparecer u ocultarse (RF-GAM-95), en la ventana de Preferencias de Mi cuenta. */
+    visibilidad: {
+      interruptor: "Aparecer en la clasificación",
+      encendida: "Apareces con tu nombre y la inicial de tu apellido, tu rango y tu enfoque, también en la página principal.",
+      apagada: "No apareces en ninguna tabla de líderes. Tu progreso, tus rangos y tus logros siguen igual.",
+      error: "No pudimos guardar el cambio. Inténtalo de nuevo.",
+    },
+    ocultoAviso: "No apareces en esta tabla porque elegiste ocultarte.",
+    ocultoEnlace: "Cambiarlo en Preferencias",
   },
   /** Enfoque (RF-GAM-115, 116): último paso del registro, ventana para cuentas sin enfoque y Mi cuenta. */
   enfoque: {

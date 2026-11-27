@@ -17,7 +17,8 @@
 //   pendiente de confirmar) y después la cuenta más antigua (id).
 // - Temática: aportes aprobados por persona dentro de las campañas de cada temática. Las campañas
 //   viejas pueden traerla solo en campanas.tag, de ahí el COALESCE.
-// - No salen: cuentas dadas de baja (eliminada_en) ni suspendidas o baneadas (SQL_SANCION_BLOQUEANTE).
+// - No salen: cuentas dadas de baja (eliminada_en), suspendidas o baneadas (SQL_SANCION_BLOQUEANTE), ni quien eligió
+//   ocultarse desde Mi cuenta (usuario_preferencias.oculto_en_lideres, RF-GAM-95).
 //   El SuperUsuario no tiene fila en `usuarios`.
 // - Privacidad: nombre como "Carlos P." (nombreParaMostrar). Avatar: ícono predefinido o, desde el
 //   2026-11-12 (a pedido del usuario; antes era privada y salía como iniciales), la foto de perfil:
@@ -47,7 +48,10 @@ import {
  * Quién cuenta para la tabla: sin baja (ni definitiva ni en su periodo de gracia: RF-GAM-60 pide ocultar el progreso
  * mientras corre el plazo; A2, 2026-11-13) y sin sanción bloqueante. Usa el alias `u` de `usuarios`.
  */
-const SQL_PERSONA_ELEGIBLE = `u.eliminada_en IS NULL AND u.baja_solicitada_en IS NULL AND NOT (${SQL_SANCION_BLOQUEANTE})`;
+// Quien eligió ocultarse (usuario_preferencias.oculto_en_lideres, RF-GAM-95) no sale en ninguna tabla ni en la landing,
+// y su foto deja de ser pública (apareceEnLaClasificacion usa esta misma condición).
+const SQL_PERSONA_ELEGIBLE = `u.eliminada_en IS NULL AND u.baja_solicitada_en IS NULL AND NOT (${SQL_SANCION_BLOQUEANTE})
+  AND NOT EXISTS (SELECT 1 FROM usuario_preferencias up WHERE up.usuario_id = u.id AND up.oculto_en_lideres)`;
 
 /** Temática de una campaña (las viejas la traen solo en `tag`). Usa el alias `c` de `campanas`. */
 const SQL_TEMATICA = `COALESCE(NULLIF(c.tematica, ''), c.tag)`;
@@ -326,4 +330,27 @@ export async function obtenerTablasPorPeriodo(): Promise<TablasPorPeriodo> {
 /** ¿Hay algo que mostrar en la landing? Sin datos, la sección no se pinta. */
 export function tablaTieneDatos(tabla: TablaDeLideres): boolean {
   return tabla.aportes.length > 2 || tabla.rango.length > 2 || tabla.tematicas.length > 2;
+}
+
+/** Si la persona eligió no aparecer en Líderes (RF-GAM-95). false si falla la lectura. */
+export async function estaOcultoEnLideres(usuarioId: number): Promise<boolean> {
+  try {
+    const { rows } = await pool.query<{ oculto: boolean }>(
+      `SELECT oculto_en_lideres AS oculto FROM usuario_preferencias WHERE usuario_id = $1`,
+      [usuarioId]
+    );
+    return rows[0]?.oculto ?? false;
+  } catch (error) {
+    console.error("No se pudo leer si la persona se ocultó de Líderes:", error);
+    return false;
+  }
+}
+
+/** Guarda si la persona aparece en Líderes (RF-GAM-95). Crea su fila de preferencias si faltara. */
+export async function guardarAparecerEnLideres(usuarioId: number, aparece: boolean): Promise<void> {
+  await pool.query(
+    `INSERT INTO usuario_preferencias (usuario_id, oculto_en_lideres) VALUES ($1, $2)
+     ON CONFLICT (usuario_id) DO UPDATE SET oculto_en_lideres = EXCLUDED.oculto_en_lideres`,
+    [usuarioId, !aparece]
+  );
 }
