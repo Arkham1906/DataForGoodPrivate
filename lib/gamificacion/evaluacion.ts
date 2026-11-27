@@ -60,6 +60,8 @@ export async function valoresDeMedallas(client: Consultor, usuarioId: number | s
       )
     : { rows: [] };
 
+  const enfoque = await valoresDeEnfoque(client, usuarioId);
+
   const p = progresoR.rows[0];
   const contador = (dimension: string) => contadoresR.rows.find((c) => c.dimension === dimension)?.cuantos ?? 0;
   return {
@@ -74,8 +76,69 @@ export async function valoresDeMedallas(client: Consultor, usuarioId: number | s
     rachas_recuperadas: recuperadasR.rows[0]?.n ?? 0,
     aportes_en_potenciador: potenciadorR.rows[0]?.n ?? 0,
     aceptados_consecutivos: mayorSecuenciaSinRechazo(decisionesR.rows.map((d) => d.status)),
+    ...enfoque,
     // Si se agrega una medida a MEDIDAS_DE_MEDALLA sin su cálculo, esto no compila.
   } satisfies Record<MedidaDeMedalla, number>;
+}
+
+const MEDIDAS_DE_ENFOQUE = ["multimedia_en_su_enfoque", "textos_descritos_en_su_enfoque", "campanas_pioneras_en_su_enfoque"] as const;
+type MedidaDeEnfoque = (typeof MEDIDAS_DE_ENFOQUE)[number];
+
+/**
+ * Logros de enfoque (RF-GAM-118; decisiones del 26 nov). Cada uno cuenta solo los aportes aceptados (con EXP y sin
+ * invalidar) que la persona ENVIÓ mientras tenía el enfoque del logro (criterio->>'enfoque'): los periodos salen de
+ * enfoque_cambios, desde cada elección hasta la siguiente. Así el logro de un enfoque que ya no tiene queda congelado y
+ * sigue donde iba si vuelve a él; un aporte enviado antes de cambiar cuenta aunque lo acepten después.
+ *   - multimedia: foto, video o audio.
+ *   - textos descritos: texto o documento con descripción de 120 caracteres o más (sin contar espacios de los bordes).
+ *   - campañas pioneras: campañas donde ese aporte está entre los 10 primeros aceptados (por hora de revisión).
+ *   - logros_de_enfoque: cuántos logros con enfoque tienen el nivel 1, registrado o ya alcanzado por su valor.
+ */
+async function valoresDeEnfoque(
+  client: Consultor,
+  usuarioId: number | string,
+): Promise<Record<MedidaDeEnfoque | "logros_de_enfoque", number>> {
+  const { rows: medallas } = await client.query<{ id: number; mide: string; enfoque: string; nivel: number; umbral1: number | null }>(
+    `SELECT m.id, m.mide, m.criterio->>'enfoque' AS enfoque, COALESCE(mu.nivel_actual, 0)::int AS nivel,
+            (SELECT umbral FROM medalla_niveles n WHERE n.medalla_id = m.id AND n.nivel = 1) AS umbral1
+       FROM medallas m
+       LEFT JOIN medallas_usuario mu ON mu.medalla_id = m.id AND mu.usuario_id = $1
+      WHERE m.activa AND m.criterio->>'enfoque' IS NOT NULL`,
+    [usuarioId],
+  );
+  const enfoqueDe = (mide: MedidaDeEnfoque) => medallas.find((m) => m.mide === mide)?.enfoque ?? null;
+  const { rows } = await client.query<{ multimedia: number; textos: number; pioneras: number }>(
+    `WITH periodos AS (
+        SELECT enfoque, elegido_en AS desde, LEAD(elegido_en) OVER (ORDER BY elegido_en, id) AS hasta
+          FROM enfoque_cambios WHERE usuario_id = $1
+      ), propios AS (
+        SELECT a.id, a.campaign_id, a.file_type, a.description, COALESCE(a.reviewed_at, a.submitted_at) AS aceptado_en, p.enfoque
+          FROM aportes a
+          JOIN periodos p ON a.submitted_at >= p.desde AND (p.hasta IS NULL OR a.submitted_at < p.hasta)
+         WHERE a.user_id = $1 AND a.status = 'aceptado' AND a.exp_otorgada > 0 AND a.invalidado_en IS NULL
+      )
+      SELECT
+        COUNT(*) FILTER (WHERE enfoque = $2 AND file_type IN ('foto', 'video', 'audio'))::int AS multimedia,
+        COUNT(*) FILTER (WHERE enfoque = $3 AND file_type IN ('texto', 'documento')
+                           AND char_length(btrim(COALESCE(description, ''))) >= 120)::int AS textos,
+        (SELECT COUNT(DISTINCT pr.campaign_id)::int FROM propios pr
+          WHERE pr.enfoque = $4
+            AND (SELECT COUNT(*) FROM aportes b
+                  WHERE b.campaign_id = pr.campaign_id AND b.status = 'aceptado' AND b.id <> pr.id
+                    AND (COALESCE(b.reviewed_at, b.submitted_at), b.id) < (pr.aceptado_en, pr.id)) < 10) AS pioneras
+      FROM propios`,
+    [usuarioId, enfoqueDe("multimedia_en_su_enfoque"), enfoqueDe("textos_descritos_en_su_enfoque"), enfoqueDe("campanas_pioneras_en_su_enfoque")],
+  );
+  const valores = {
+    multimedia_en_su_enfoque: rows[0]?.multimedia ?? 0,
+    textos_descritos_en_su_enfoque: rows[0]?.textos ?? 0,
+    campanas_pioneras_en_su_enfoque: rows[0]?.pioneras ?? 0,
+  };
+  const conNivel = medallas.filter((m) => {
+    const valor = (MEDIDAS_DE_ENFOQUE as readonly string[]).includes(m.mide) ? valores[m.mide as MedidaDeEnfoque] : 0;
+    return m.nivel >= 1 || (m.umbral1 !== null && valor >= m.umbral1);
+  }).length;
+  return { ...valores, logros_de_enfoque: conNivel };
 }
 
 type FilaDeRango = {

@@ -8,7 +8,8 @@
 import { pool } from "@/lib/db";
 import { NOMBRES_DE_ESTRELLAS, calificacionDesde, type CalificacionDeAporte } from "@/lib/aportes/calificacion";
 import { ZONA_DE_CAMPANAS, hoyEnTepic } from "@/lib/fecha-de-tepic";
-import { medallasMasCercanas, type MedallaCercaDeSubir, type MedallaConAvance, type NivelDeMedalla } from "./medallas";
+import { medallaVisible, medallasMasCercanas, type MedallaCercaDeSubir, type MedallaConAvance, type NivelDeMedalla } from "./medallas";
+import { enfoquesElegidos } from "./enfoque";
 import { valoresDeMedallas } from "./evaluacion";
 import { sumarDias } from "./racha-reglas";
 import type {
@@ -176,17 +177,19 @@ export async function obtenerCalificacionesDeAportes(usuarioId: number | string)
  */
 export async function obtenerMedallasCercaDeSubir(usuarioId: number | string): Promise<MedallaCercaDeSubir[] | null> {
   try {
-    const [medallasR, nivelesR, valores] = await Promise.all([
+    const [medallasR, nivelesR, valores, elegidos] = await Promise.all([
       pool.query<{
         id: number;
         clave: string;
         nombre: string;
+        grupo: string | null;
+        enfoque: string | null;
         mide: string | null;
         nivel_actual: number;
         valor_actual: number;
       }>(
-        `SELECT m.id, m.clave, m.nombre, m.mide, COALESCE(mu.nivel_actual, 0)::int AS nivel_actual,
-                COALESCE(mu.valor_actual, 0)::int AS valor_actual
+        `SELECT m.id, m.clave, m.nombre, m.grupo, m.criterio->>'enfoque' AS enfoque, m.mide,
+                COALESCE(mu.nivel_actual, 0)::int AS nivel_actual, COALESCE(mu.valor_actual, 0)::int AS valor_actual
           FROM medallas m
           LEFT JOIN medallas_usuario mu ON mu.medalla_id = m.id AND mu.usuario_id = $1
           WHERE m.activa AND m.clave IS NOT NULL
@@ -197,8 +200,10 @@ export async function obtenerMedallasCercaDeSubir(usuarioId: number | string): P
         `SELECT medalla_id, nivel, nombre, umbral, ilustracion_path AS ilustracion FROM medalla_niveles ORDER BY medalla_id, nivel`,
       ),
       valoresDeMedallas(pool, usuarioId),
+      enfoquesElegidos(pool, usuarioId),
     ]);
-    const medallas: MedallaConAvance[] = medallasR.rows.map((m) => ({
+    const enfoquesConLogro = new Set(medallasR.rows.flatMap((m) => (m.enfoque ? [m.enfoque] : [])));
+    const medallas: MedallaConAvance[] = medallasR.rows.filter((m) => medallaVisible(m, elegidos, enfoquesConLogro)).map((m) => ({
       clave: m.clave,
       nombre: m.nombre,
       mide: m.mide,

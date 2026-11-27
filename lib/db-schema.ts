@@ -2339,6 +2339,8 @@ async function sincronizarMedallas(): Promise<void> {
   ]);
 }
 
+// criterio guarda también el enfoque de los logros de enfoque (criterio->>'enfoque'): decide si se muestran y con qué
+// aportes avanzan (lib/gamificacion/evaluacion.ts).
 async function sincronizarMedalla(m: MedallaDelCatalogo, orden: number): Promise<void> {
   await pool.query(
     `UPDATE medallas SET clave = $1
@@ -2351,7 +2353,7 @@ async function sincronizarMedalla(m: MedallaDelCatalogo, orden: number): Promise
      ON CONFLICT (clave) DO UPDATE SET
        nombre = EXCLUDED.nombre, descripcion = EXCLUDED.descripcion, mide = EXCLUDED.mide, grupo = EXCLUDED.grupo,
        orden = EXCLUDED.orden, criterio = EXCLUDED.criterio, activa = EXCLUDED.activa`,
-    [m.clave, m.nombre, m.descripcion, m.mide, m.grupo, orden, JSON.stringify({ mide: m.mide }), m.activa],
+    [m.clave, m.nombre, m.descripcion, m.mide, m.grupo, orden, JSON.stringify({ mide: m.mide, ...(m.enfoque ? { enfoque: m.enfoque } : {}) }), m.activa],
   );
   await pool.query(
     `INSERT INTO medalla_niveles (medalla_id, nivel, nombre, umbral, ilustracion_path)

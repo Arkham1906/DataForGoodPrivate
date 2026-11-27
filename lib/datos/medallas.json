@@ -158,6 +158,65 @@
         { "nombre": "Nivel 3", "umbral": 6 },
         { "nombre": "Nivel 4", "umbral": 8 }
       ]
+    },
+    {
+      "clave": "ojo_de_campo",
+      "nombre": "Ojo de Campo",
+      "grupo": "enfoque",
+      "enfoque": "tracker",
+      "mide": "multimedia_en_su_enfoque",
+      "activa": true,
+      "descripcion": "Fotos, videos y audios aceptados, enviados con el enfoque DataTracker.",
+      "niveles": [
+        { "nombre": "Mirada", "umbral": 3 },
+        { "nombre": "Lente", "umbral": 10 },
+        { "nombre": "Catalejo", "umbral": 25 },
+        { "nombre": "Telescopio", "umbral": 45 },
+        { "nombre": "Observatorio", "umbral": 75 }
+      ]
+    },
+    {
+      "clave": "archivo_vivo",
+      "nombre": "Archivo Vivo",
+      "grupo": "enfoque",
+      "enfoque": "collector",
+      "mide": "textos_descritos_en_su_enfoque",
+      "activa": true,
+      "descripcion": "Textos y documentos aceptados con descripción de 120 caracteres o más, enviados con el enfoque DataCollector.",
+      "niveles": [
+        { "nombre": "Apunte", "umbral": 3 },
+        { "nombre": "Folio", "umbral": 10 },
+        { "nombre": "Cuaderno", "umbral": 25 },
+        { "nombre": "Bitácora", "umbral": 45 },
+        { "nombre": "Archivo", "umbral": 75 }
+      ]
+    },
+    {
+      "clave": "huella_pionera",
+      "nombre": "Huella Pionera",
+      "grupo": "enfoque",
+      "enfoque": "explorer",
+      "mide": "campanas_pioneras_en_su_enfoque",
+      "activa": true,
+      "descripcion": "Campañas en las que tu aporte aceptado está entre los 10 primeros aceptados, enviado con el enfoque DataExplorer.",
+      "niveles": [
+        { "nombre": "Sendero", "umbral": 1 },
+        { "nombre": "Brecha", "umbral": 3 },
+        { "nombre": "Ruta", "umbral": 7 },
+        { "nombre": "Expedición", "umbral": 12 },
+        { "nombre": "Frontera", "umbral": 20 }
+      ]
+    },
+    {
+      "clave": "tres_caminos",
+      "nombre": "Tres Caminos",
+      "grupo": "enfoque",
+      "mide": "logros_de_enfoque",
+      "activa": true,
+      "descripcion": "Llegar al primer nivel de los tres logros de enfoque.",
+      "niveles": [
+        { "nombre": "Tres Caminos", "umbral": 3 }
+      ]
     }
   ]
 }

@@ -4,7 +4,11 @@
 
 import type { PoolClient } from "pg";
 import { pool } from "@/lib/db";
+import { notificar } from "@/lib/notificaciones/notificaciones";
 import { ENFOQUES_DEL_CATALOGO } from "./catalogos";
+import { medallaVisible } from "./medallas";
+import { rutaDePantalla } from "./pantallas-de-progreso";
+import { TEXTOS } from "./textos";
 import type { EstadoDelEnfoque, OpcionDeEnfoque, ResultadoDeElegirEnfoque } from "./enfoque-tipos";
 
 type Consulta = Pick<PoolClient, "query">;
@@ -76,6 +80,7 @@ export async function elegirEnfoque(usuarioId: number, clave: string): Promise<R
       await client.query("ROLLBACK");
       return { ok: false, motivo: "en_espera", puedeCambiarDesde: antes.puedeCambiarDesde };
     }
+    const elegidosAntes = await enfoquesElegidos(client, usuarioId);
     await client.query(`UPDATE usuarios SET enfoque = $2 WHERE id = $1`, [usuarioId, clave]);
     await client.query(`INSERT INTO enfoque_cambios (usuario_id, enfoque, anterior) VALUES ($1, $2, $3)`, [
       usuarioId,
@@ -84,6 +89,7 @@ export async function elegirEnfoque(usuarioId: number, clave: string): Promise<R
     ]);
     const estado = await leerEstado(client, usuarioId);
     await client.query("COMMIT");
+    if (!elegidosAntes.has(clave)) await avisarLogrosDesbloqueados(usuarioId, elegidosAntes, new Set([...elegidosAntes, clave]));
     return estado ? { ok: true, cambio: true, estado } : { ok: false, motivo: "sin_cuenta" };
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});
@@ -106,5 +112,41 @@ export async function opcionesSiFaltaEnfoque(usuarioId: number): Promise<OpcionD
   } catch (error) {
     console.error(`Error revisando el enfoque del usuario ${usuarioId}`, error);
     return null;
+  }
+}
+
+/** Enfoques que la persona ha tenido alguna vez: deciden qué logros de enfoque ve (medallaVisible en medallas.ts). */
+export async function enfoquesElegidos(client: Consulta, usuarioId: number | string): Promise<Set<string>> {
+  const { rows } = await client.query<{ enfoque: string }>(`SELECT DISTINCT enfoque FROM enfoque_cambios WHERE usuario_id = $1`, [usuarioId]);
+  return new Set(rows.map((r) => r.enfoque));
+}
+
+/**
+ * Aviso de los logros que aparecen con un enfoque nuevo (el de ese enfoque y, al tener todos, Tres Caminos). Va después
+ * del COMMIT; notificar() no lanza y un fallo aquí no deshace la elección.
+ */
+async function avisarLogrosDesbloqueados(usuarioId: number, antes: ReadonlySet<string>, despues: ReadonlySet<string>): Promise<void> {
+  try {
+    const { rows } = await pool.query<{ clave: string; nombre: string; grupo: string | null; enfoque: string | null; mide: string | null; umbral: number | null }>(
+      `SELECT m.clave, m.nombre, m.grupo, m.criterio->>'enfoque' AS enfoque, m.mide,
+              (SELECT umbral FROM medalla_niveles n WHERE n.medalla_id = m.id AND n.nivel = 1) AS umbral
+         FROM medallas m WHERE m.activa AND m.grupo = 'enfoque' ORDER BY m.orden NULLS LAST, m.id`,
+    );
+    const conLogro = new Set(rows.flatMap((m) => (m.enfoque ? [m.enfoque] : [])));
+    const nuevos = rows.filter((m) => medallaVisible(m, despues, conLogro) && !medallaVisible(m, antes, conLogro));
+    for (const m of nuevos) {
+      const umbral = Number(m.umbral ?? 0);
+      const meta = TEXTOS.medallas.meta(m.mide, umbral, TEXTOS.medallas.unidad(m.mide, umbral));
+      await notificar({
+        usuarioId,
+        tipo: "medalla_nivel",
+        titulo: TEXTOS.avisos.logroDesbloqueadoTitulo,
+        mensaje: TEXTOS.avisos.logroDesbloqueado(m.nombre, meta),
+        enlace: rutaDePantalla("medallas") ?? "/progreso",
+        metadata: { medalla: m.clave, nivel: 0, desbloqueado: true },
+      });
+    }
+  } catch (error) {
+    console.error(`Error avisando los logros desbloqueados del usuario ${usuarioId}`, error);
   }
 }

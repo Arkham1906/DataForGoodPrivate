@@ -7,8 +7,10 @@
 
 import { pool } from "@/lib/db";
 import { valoresDeMedallas } from "./evaluacion";
+import { enfoquesElegidos } from "./enfoque";
 import {
   GRUPOS_DE_MEDALLA,
+  medallaVisible,
   medallasMasCercanas,
   nivelVisible,
   queMideMedalla,
@@ -23,9 +25,9 @@ const MEDALLAS_CERCA = 3;
 
 export async function obtenerPantallaDeMedallas(usuarioId: number | string): Promise<PantallaDeMedallas | null> {
   try {
-    const [medallasR, nivelesR, ascensosR, valores] = await Promise.all([
-      pool.query<{ id: number; clave: string; nombre: string; grupo: string | null; mide: string | null; nivel_actual: number }>(
-        `SELECT m.id, m.clave, m.nombre, m.grupo, m.mide, COALESCE(mu.nivel_actual, 0)::int AS nivel_actual
+    const [medallasR, nivelesR, ascensosR, valores, elegidos] = await Promise.all([
+      pool.query<{ id: number; clave: string; nombre: string; grupo: string | null; mide: string | null; enfoque: string | null; nivel_actual: number }>(
+        `SELECT m.id, m.clave, m.nombre, m.grupo, m.mide, m.criterio->>'enfoque' AS enfoque, COALESCE(mu.nivel_actual, 0)::int AS nivel_actual
             FROM medallas m
             LEFT JOIN medallas_usuario mu ON mu.medalla_id = m.id AND mu.usuario_id = $1
           WHERE m.activa AND m.clave IS NOT NULL
@@ -40,10 +42,14 @@ export async function obtenerPantallaDeMedallas(usuarioId: number | string): Pro
         [usuarioId],
       ),
       valoresDeMedallas(pool, usuarioId),
+      enfoquesElegidos(pool, usuarioId),
     ]);
 
+    // Logros de enfoque: ocultos hasta elegir su enfoque (decisiones del 26 nov). Ocultos no cuentan en nada de la pantalla.
+    const enfoquesConLogro = new Set(medallasR.rows.flatMap((m) => (m.enfoque ? [m.enfoque] : [])));
+    const visibles = medallasR.rows.filter((m) => medallaVisible(m, elegidos, enfoquesConLogro));
     const fechas = new Map(ascensosR.rows.map((a) => [`${a.medalla_id}:${a.nivel}`, new Date(a.alcanzado_en).toISOString()]));
-    const conAvance: (MedallaConAvance & { id: number; grupo: GrupoDeMedalla })[] = medallasR.rows.map((m) => ({
+    const conAvance: (MedallaConAvance & { id: number; grupo: GrupoDeMedalla })[] = visibles.map((m) => ({
       id: m.id,
       clave: m.clave,
       nombre: m.nombre,

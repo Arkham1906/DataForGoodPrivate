@@ -35,6 +35,10 @@ const UNIDADES_DE_MEDALLA: Record<string, readonly [string, string]> = {
   rachas_recuperadas: ["racha reavivada", "rachas reavivadas"],
   aportes_en_potenciador: ["aporte en un potenciador", "aportes en un potenciador"],
   tematicas_distintas: ["temática distinta", "temáticas distintas"],
+  multimedia_en_su_enfoque: ["foto, video o audio aceptado", "fotos, videos o audios aceptados"],
+  textos_descritos_en_su_enfoque: ["texto o documento bien descrito", "textos o documentos bien descritos"],
+  campanas_pioneras_en_su_enfoque: ["campaña pionera", "campañas pioneras"],
+  logros_de_enfoque: ["logro de enfoque", "logros de enfoque"],
 };
 
 /**
@@ -53,6 +57,12 @@ const META_DE_LOGRO: Record<string, (meta: number) => string> = {
   rachas_recuperadas: (m) => `Reaviva tu racha ${n(m)} ${plural(m, "vez", "veces")}`,
   aportes_en_potenciador: (m) => `Logra ${n(m)} aportes aceptados enviados con un mismo potenciador`,
   tematicas_distintas: (m) => `Logra un aporte aceptado en ${n(m)} ${plural(m, "temática", "temáticas distintas")}`,
+  multimedia_en_su_enfoque: (m) => `Logra ${n(m)} ${plural(m, "foto, video o audio aceptado", "fotos, videos o audios aceptados")}`,
+  textos_descritos_en_su_enfoque: (m) =>
+    `Logra ${n(m)} ${plural(m, "texto o documento aceptado", "textos o documentos aceptados")} con descripción de 120 caracteres o más`,
+  campanas_pioneras_en_su_enfoque: (m) =>
+    `Queda entre los 10 primeros aportes aceptados de ${n(m)} ${plural(m, "campaña", "campañas")}`,
+  logros_de_enfoque: () => "Llega al primer nivel de los tres logros de enfoque",
 };
 
 export const TEXTOS = {
@@ -155,6 +165,9 @@ export const TEXTOS = {
     rangos: (cuantos: number, numero: number, nombre: string) =>
       `Subiste ${n(cuantos)} rangos de una vez y llegaste al ${n(numero)}, ${nombre}.`,
     logroTitulo: (nombre: string) => `Logro: ${nombre}`,
+    /** Al elegir un enfoque por primera vez aparece su logro, que estaba oculto (decisiones del 26 nov). */
+    logroDesbloqueadoTitulo: "¡Desbloqueaste un logro nuevo!",
+    logroDesbloqueado: (nombre: string, meta: string) => `${nombre} ya está en tus logros. Tu primera meta: ${meta.charAt(0).toLowerCase()}${meta.slice(1)}.`,
     /** «Subiste a Brote: llegaste a 15 aportes aceptados.» */
     medalla: (nivel: string, hecho: string) => `Subiste a ${nivel}${hecho ? `: ${hecho}` : ""}.`,
     rachaTerminadaTitulo: "Tu racha se interrumpió",
@@ -547,7 +560,7 @@ export const TEXTOS = {
     /** «Faltan 2 aportes aceptados para Brote»; sin unidad conocida, «Faltan 2 para Brote». */
     faltanPara: (faltan: number, nivel: string, unidad = "") =>
       `${plural(faltan, "Falta", "Faltan")} ${n(faltan)}${unidad ? ` ${unidad}` : ""} para ${/^nivel \d+$/i.test(nivel.trim()) ? nivel.trim().toLowerCase() : nivel}`,
-    grupos: { hitos: "Logros principales", adicionales: "Más logros" } as Record<string, string>,
+    grupos: { hitos: "Logros principales", adicionales: "Más logros", enfoque: "Logros de enfoque" } as Record<string, string>,
     resumenDeGrupo: (con: number, total: number) => `${n(con)} de ${n(total)} conseguidos`,
 
     sinNivel: "Por conseguir",

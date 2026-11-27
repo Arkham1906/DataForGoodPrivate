@@ -23,11 +23,17 @@ export const MEDIDAS_DE_MEDALLA = [
   "rachas_recuperadas",
   "aportes_en_potenciador",
   "tematicas_distintas",
+  // Logros de enfoque (RF-GAM-118, decisiones del 26 nov): solo cuentan los aportes enviados con el enfoque del logro
+  // (campo `enfoque` del catálogo). logros_de_enfoque: cuántos logros de enfoque tienen al menos el nivel 1.
+  "multimedia_en_su_enfoque",
+  "textos_descritos_en_su_enfoque",
+  "campanas_pioneras_en_su_enfoque",
+  "logros_de_enfoque",
 ] as const;
 export type MedidaDeMedalla = (typeof MEDIDAS_DE_MEDALLA)[number];
 
-/** Secciones de la pantalla de medallas (diseño v10): de hitos y adicionales. */
-export const GRUPOS_DE_MEDALLA = ["hitos", "adicionales"] as const;
+/** Secciones de la pantalla de medallas (diseño v10): de hitos, adicionales y, desde el 26 nov, de enfoque. */
+export const GRUPOS_DE_MEDALLA = ["hitos", "adicionales", "enfoque"] as const;
 export type GrupoDeMedalla = (typeof GRUPOS_DE_MEDALLA)[number];
 
 /** Texto de lo que mide cada medalla (columna `medallas.mide`, tabla 4.4). */
@@ -43,7 +49,27 @@ const QUE_MIDE: Record<string, string> = {
   aceptados_consecutivos: "Crece con tu mejor serie de aportes aceptados sin un rechazo en medio.",
   aportes_en_potenciador: "Crece con los aportes aceptados que envías durante un mismo potenciador.",
   tematicas_distintas: "Crece con cada temática distinta en la que te aceptan un aporte.",
+  multimedia_en_su_enfoque: "Crece con cada foto, video o audio que te aceptan. Solo cuenta lo que envías con el enfoque DataTracker.",
+  textos_descritos_en_su_enfoque:
+    "Crece con cada texto o documento que te aceptan con una descripción de 120 caracteres o más. Solo cuenta lo que envías con el enfoque DataCollector.",
+  campanas_pioneras_en_su_enfoque:
+    "Crece cada vez que tu aporte queda entre los 10 primeros aceptados de una campaña. Solo cuenta lo que envías con el enfoque DataExplorer.",
+  logros_de_enfoque: "Se consigue al llegar al primer nivel de los tres logros de enfoque.",
 };
+
+/** Lo que decide si un logro se muestra: los de enfoque están ocultos hasta que la persona elige ese enfoque. */
+export type VisibilidadDeMedalla = { grupo: string | null; enfoque: string | null };
+
+/**
+ * Logros de enfoque (decisiones del 26 nov, «easter egg»): el de un enfoque aparece cuando la persona lo elige por
+ * primera vez; uno de grupo «enfoque» sin enfoque propio (Tres Caminos) aparece cuando ya eligió todos los enfoques que
+ * tienen logro. Los demás se ven siempre. `elegidos`: enfoques que la persona ha tenido alguna vez.
+ */
+export function medallaVisible(m: VisibilidadDeMedalla, elegidos: ReadonlySet<string>, enfoquesConLogro: ReadonlySet<string>): boolean {
+  if (m.enfoque) return elegidos.has(m.enfoque);
+  if (m.grupo === "enfoque") return enfoquesConLogro.size > 0 && [...enfoquesConLogro].every((e) => elegidos.has(e));
+  return true;
+}
 
 /** `ilustracion`: archivo de la ilustración cuando no sigue «<nivel>-<nombre>» (medalla_niveles.ilustracion_path). */
 export type NivelDeMedalla = { nivel: number; nombre: string; umbral: number; ilustracion?: string | null };

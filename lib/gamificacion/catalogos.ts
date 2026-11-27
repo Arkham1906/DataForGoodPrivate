@@ -56,6 +56,8 @@ export type MedallaDelCatalogo = {
   mide: MedidaDeMedalla;
   activa: boolean;
   descripcion: string;
+  /** Solo en el grupo «enfoque»: clave del enfoque con el que avanza y que la hace visible (enfoques.json). */
+  enfoque?: string;
   niveles: { nombre: string; umbral: number; ilustracion?: string }[];
 };
 
@@ -174,6 +176,12 @@ export function erroresDeMedallas(medallas: MedallaDelCatalogo[]): string[] {
     }
     if (typeof m.activa !== "boolean") errores.push(`${quien}: activa debe ser true o false.`);
     if (!esTexto(m.descripcion)) errores.push(`${quien}: falta la descripción.`);
+    if (m.enfoque !== undefined) {
+      if (m.grupo !== "enfoque") errores.push(`${quien}: «enfoque» solo va en el grupo enfoque.`);
+      else if (!ENFOQUES_DEL_CATALOGO.enfoques?.some((e) => e.clave === m.enfoque)) {
+        errores.push(`${quien}: el enfoque «${m.enfoque}» no está en enfoques.json.`);
+      }
+    }
     if (!Array.isArray(m.niveles) || m.niveles.length === 0) {
       errores.push(`${quien}: necesita al menos un nivel.`);
       continue;
